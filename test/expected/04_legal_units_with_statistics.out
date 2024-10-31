@@ -1239,625 +1239,625 @@ SELECT view_name FROM statistical_unit_refresh_now();
 SELECT unit_type, name, external_idents, stats, jsonb_pretty(stats_summary) AS stats_summary
 FROM statistical_unit
 ORDER BY name, unit_type;
--[ RECORD 1 ]---+----------------------------------------------------------------------------
+-[ RECORD 1 ]---+---------------------------------------------
 unit_type       | legal_unit
-name            | AGENCE POUR L'AMENAGEMENT DE LAVALLEE BOUREGREG
+name            | AGENCE POUR L'AMENAGEMENT DE STATBUS
 external_idents | {"stat_ident": "3305002"}
-stats           | {"turnover": 1714446227, "employees": 115}
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 1714446227,                                                 +
-                |         "min": 1714446227,                                                 +
-                |         "sum": 1714446227,                                                 +
-                |         "mean": 1714446227,                                                +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 115,                                                        +
-                |         "min": 115,                                                        +
-                |         "sum": 115,                                                        +
-                |         "mean": 115,                                                       +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     }                                                                      +
+stats           | {"turnover": 12131415, "employees": 115}
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 12131415,                    +
+                |         "min": 12131415,                    +
+                |         "sum": 12131415,                    +
+                |         "mean": 12131415,                   +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 115,                         +
+                |         "min": 115,                         +
+                |         "sum": 115,                         +
+                |         "mean": 115,                        +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
                 | }
--[ RECORD 2 ]---+----------------------------------------------------------------------------
+-[ RECORD 2 ]---+---------------------------------------------
 unit_type       | enterprise
-name            | AGENCE POUR L'AMENAGEMENT DE LAVALLEE BOUREGREG
+name            | AGENCE POUR L'AMENAGEMENT DE STATBUS
 external_idents | {"stat_ident": "3305002"}
 stats           | 
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 1714446227,                                                 +
-                |         "min": 1714446227,                                                 +
-                |         "sum": 1714446227,                                                 +
-                |         "mean": 1714446227.00,                                             +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 115,                                                        +
-                |         "min": 115,                                                        +
-                |         "sum": 115,                                                        +
-                |         "mean": 115.00,                                                    +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     }                                                                      +
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 12131415,                    +
+                |         "min": 12131415,                    +
+                |         "sum": 12131415,                    +
+                |         "mean": 12131415.00,                +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 115,                         +
+                |         "min": 115,                         +
+                |         "sum": 115,                         +
+                |         "mean": 115.00,                     +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
                 | }
--[ RECORD 3 ]---+----------------------------------------------------------------------------
+-[ RECORD 3 ]---+---------------------------------------------
 unit_type       | legal_unit
-name            | BACHIRI MEDIOUNI SANITAIRE (BAMESA)
-external_idents | {"stat_ident": "5340521"}
-stats           | {"turnover": 13723099, "employees": 20}
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 13723099,                                                   +
-                |         "min": 13723099,                                                   +
-                |         "sum": 13723099,                                                   +
-                |         "mean": 13723099,                                                  +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 20,                                                         +
-                |         "min": 20,                                                         +
-                |         "sum": 20,                                                         +
-                |         "mean": 20,                                                        +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     }                                                                      +
-                | }
--[ RECORD 4 ]---+----------------------------------------------------------------------------
-unit_type       | enterprise
-name            | BACHIRI MEDIOUNI SANITAIRE (BAMESA)
-external_idents | {"stat_ident": "5340521"}
-stats           | 
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 13723099,                                                   +
-                |         "min": 13723099,                                                   +
-                |         "sum": 13723099,                                                   +
-                |         "mean": 13723099.00,                                               +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 20,                                                         +
-                |         "min": 20,                                                         +
-                |         "sum": 20,                                                         +
-                |         "mean": 20.00,                                                     +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     }                                                                      +
-                | }
--[ RECORD 5 ]---+----------------------------------------------------------------------------
-unit_type       | legal_unit
-name            | BARID AL MARGRIB
-external_idents | {"stat_ident": "3302916"}
-stats           | {"turnover": 990540655, "employees": 3884}
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 990540655,                                                  +
-                |         "min": 990540655,                                                  +
-                |         "sum": 990540655,                                                  +
-                |         "mean": 990540655,                                                 +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 3884,                                                       +
-                |         "min": 3884,                                                       +
-                |         "sum": 3884,                                                       +
-                |         "mean": 3884,                                                      +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     }                                                                      +
-                | }
--[ RECORD 6 ]---+----------------------------------------------------------------------------
-unit_type       | enterprise
-name            | BARID AL MARGRIB
-external_idents | {"stat_ident": "3302916"}
-stats           | 
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 990540655,                                                  +
-                |         "min": 990540655,                                                  +
-                |         "sum": 990540655,                                                  +
-                |         "mean": 990540655.00,                                              +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 3884,                                                       +
-                |         "min": 3884,                                                       +
-                |         "sum": 3884,                                                       +
-                |         "mean": 3884.00,                                                   +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     }                                                                      +
-                | }
--[ RECORD 7 ]---+----------------------------------------------------------------------------
-unit_type       | legal_unit
-name            | GROUPE AL OMRANE MARRAKECH
-external_idents | {"stat_ident": "6521496"}
-stats           | {"turnover": 1158577915, "employees": 152}
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 1158577915,                                                 +
-                |         "min": 1158577915,                                                 +
-                |         "sum": 1158577915,                                                 +
-                |         "mean": 1158577915,                                                +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 152,                                                        +
-                |         "min": 152,                                                        +
-                |         "sum": 152,                                                        +
-                |         "mean": 152,                                                       +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     }                                                                      +
-                | }
--[ RECORD 8 ]---+----------------------------------------------------------------------------
-unit_type       | enterprise
-name            | GROUPE AL OMRANE MARRAKECH
-external_idents | {"stat_ident": "6521496"}
-stats           | 
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 1158577915,                                                 +
-                |         "min": 1158577915,                                                 +
-                |         "sum": 1158577915,                                                 +
-                |         "mean": 1158577915.00,                                             +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 152,                                                        +
-                |         "min": 152,                                                        +
-                |         "sum": 152,                                                        +
-                |         "mean": 152.00,                                                    +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     }                                                                      +
-                | }
--[ RECORD 9 ]---+----------------------------------------------------------------------------
-unit_type       | legal_unit
-name            | HRM HOTELS ET RESORTS OF MOROCCO
+name            | BAASIR HOTELS ET RESORTS OF MOROCCO
 external_idents | {"stat_ident": "3300598"}
-stats           | {"turnover": 27495157, "employees": 199}
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 27495157,                                                   +
-                |         "min": 27495157,                                                   +
-                |         "sum": 27495157,                                                   +
-                |         "mean": 27495157,                                                  +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 199,                                                        +
-                |         "min": 199,                                                        +
-                |         "sum": 199,                                                        +
-                |         "mean": 199,                                                       +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     }                                                                      +
+stats           | {"turnover": 123456, "employees": 199}
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 123456,                      +
+                |         "min": 123456,                      +
+                |         "sum": 123456,                      +
+                |         "mean": 123456,                     +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 199,                         +
+                |         "min": 199,                         +
+                |         "sum": 199,                         +
+                |         "mean": 199,                        +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
                 | }
--[ RECORD 10 ]--+----------------------------------------------------------------------------
+-[ RECORD 4 ]---+---------------------------------------------
 unit_type       | enterprise
-name            | HRM HOTELS ET RESORTS OF MOROCCO
+name            | BAASIR HOTELS ET RESORTS OF MOROCCO
 external_idents | {"stat_ident": "3300598"}
 stats           | 
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 27495157,                                                   +
-                |         "min": 27495157,                                                   +
-                |         "sum": 27495157,                                                   +
-                |         "mean": 27495157.00,                                               +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 199,                                                        +
-                |         "min": 199,                                                        +
-                |         "sum": 199,                                                        +
-                |         "mean": 199.00,                                                    +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     }                                                                      +
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 123456,                      +
+                |         "min": 123456,                      +
+                |         "sum": 123456,                      +
+                |         "mean": 123456.00,                  +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 199,                         +
+                |         "min": 199,                         +
+                |         "sum": 199,                         +
+                |         "mean": 199.00,                     +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
                 | }
--[ RECORD 11 ]--+----------------------------------------------------------------------------
+-[ RECORD 5 ]---+---------------------------------------------
 unit_type       | legal_unit
-name            | LA MAROCAINE DE JEUX ET DES SPORTS (MDJS)
-external_idents | {"stat_ident": "1066118"}
-stats           | {"turnover": 778756736, "employees": 40}
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 778756736,                                                  +
-                |         "min": 778756736,                                                  +
-                |         "sum": 778756736,                                                  +
-                |         "mean": 778756736,                                                 +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 40,                                                         +
-                |         "min": 40,                                                         +
-                |         "sum": 40,                                                         +
-                |         "mean": 40,                                                        +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     }                                                                      +
+name            | EL KAABI GOAL
+external_idents | {"stat_ident": "3304097"}
+stats           | {"turnover": 999999, "employees": 2103}
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 999999,                      +
+                |         "min": 999999,                      +
+                |         "sum": 999999,                      +
+                |         "mean": 999999,                     +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 2103,                        +
+                |         "min": 2103,                        +
+                |         "sum": 2103,                        +
+                |         "mean": 2103,                       +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
                 | }
--[ RECORD 12 ]--+----------------------------------------------------------------------------
+-[ RECORD 6 ]---+---------------------------------------------
 unit_type       | enterprise
-name            | LA MAROCAINE DE JEUX ET DES SPORTS (MDJS)
+name            | EL KAABI GOAL
+external_idents | {"stat_ident": "3304097"}
+stats           | 
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 999999,                      +
+                |         "min": 999999,                      +
+                |         "sum": 999999,                      +
+                |         "mean": 999999.00,                  +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 2103,                        +
+                |         "min": 2103,                        +
+                |         "sum": 2103,                        +
+                |         "mean": 2103.00,                    +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
+                | }
+-[ RECORD 7 ]---+---------------------------------------------
+unit_type       | legal_unit
+name            | GROUP STABUS MARRAKECH
+external_idents | {"stat_ident": "6521496"}
+stats           | {"turnover": 44444, "employees": 152}
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 44444,                       +
+                |         "min": 44444,                       +
+                |         "sum": 44444,                       +
+                |         "mean": 44444,                      +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 152,                         +
+                |         "min": 152,                         +
+                |         "sum": 152,                         +
+                |         "mean": 152,                        +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
+                | }
+-[ RECORD 8 ]---+---------------------------------------------
+unit_type       | enterprise
+name            | GROUP STABUS MARRAKECH
+external_idents | {"stat_ident": "6521496"}
+stats           | 
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 44444,                       +
+                |         "min": 44444,                       +
+                |         "sum": 44444,                       +
+                |         "mean": 44444.00,                   +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 152,                         +
+                |         "min": 152,                         +
+                |         "sum": 152,                         +
+                |         "mean": 152.00,                     +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
+                | }
+-[ RECORD 9 ]---+---------------------------------------------
+unit_type       | legal_unit
+name            | HADDA AL MARGRIB
+external_idents | {"stat_ident": "3302916"}
+stats           | {"turnover": 3333333, "employees": 3884}
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 3333333,                     +
+                |         "min": 3333333,                     +
+                |         "sum": 3333333,                     +
+                |         "mean": 3333333,                    +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 3884,                        +
+                |         "min": 3884,                        +
+                |         "sum": 3884,                        +
+                |         "mean": 3884,                       +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
+                | }
+-[ RECORD 10 ]--+---------------------------------------------
+unit_type       | enterprise
+name            | HADDA AL MARGRIB
+external_idents | {"stat_ident": "3302916"}
+stats           | 
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 3333333,                     +
+                |         "min": 3333333,                     +
+                |         "sum": 3333333,                     +
+                |         "mean": 3333333.00,                 +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 3884,                        +
+                |         "min": 3884,                        +
+                |         "sum": 3884,                        +
+                |         "mean": 3884.00,                    +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
+                | }
+-[ RECORD 11 ]--+---------------------------------------------
+unit_type       | legal_unit
+name            | LA MAROCAINE CORP
+external_idents | {"stat_ident": "1066118"}
+stats           | {"turnover": 22334455, "employees": 40}
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 22334455,                    +
+                |         "min": 22334455,                    +
+                |         "sum": 22334455,                    +
+                |         "mean": 22334455,                   +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 40,                          +
+                |         "min": 40,                          +
+                |         "sum": 40,                          +
+                |         "mean": 40,                         +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
+                | }
+-[ RECORD 12 ]--+---------------------------------------------
+unit_type       | enterprise
+name            | LA MAROCAINE CORP
 external_idents | {"stat_ident": "1066118"}
 stats           | 
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 778756736,                                                  +
-                |         "min": 778756736,                                                  +
-                |         "sum": 778756736,                                                  +
-                |         "mean": 778756736.00,                                              +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 40,                                                         +
-                |         "min": 40,                                                         +
-                |         "sum": 40,                                                         +
-                |         "mean": 40.00,                                                     +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     }                                                                      +
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 22334455,                    +
+                |         "min": 22334455,                    +
+                |         "sum": 22334455,                    +
+                |         "mean": 22334455.00,                +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 40,                          +
+                |         "min": 40,                          +
+                |         "sum": 40,                          +
+                |         "mean": 40.00,                      +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
                 | }
--[ RECORD 13 ]--+----------------------------------------------------------------------------
+-[ RECORD 13 ]--+---------------------------------------------
 unit_type       | legal_unit
-name            | OFFICE CHERIFIEN DES PHOSPHATES (OCP)
+name            | OFFICE CHERIFFE
 external_idents | {"stat_ident": "2220794"}
 stats           | {"turnover": 33300, "employees": 16814}
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 33300,                                                      +
-                |         "min": 33300,                                                      +
-                |         "sum": 33300,                                                      +
-                |         "mean": 33300,                                                     +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 16814,                                                      +
-                |         "min": 16814,                                                      +
-                |         "sum": 16814,                                                      +
-                |         "mean": 16814,                                                     +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     }                                                                      +
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 33300,                       +
+                |         "min": 33300,                       +
+                |         "sum": 33300,                       +
+                |         "mean": 33300,                      +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 16814,                       +
+                |         "min": 16814,                       +
+                |         "sum": 16814,                       +
+                |         "mean": 16814,                      +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
                 | }
--[ RECORD 14 ]--+----------------------------------------------------------------------------
+-[ RECORD 14 ]--+---------------------------------------------
 unit_type       | enterprise
-name            | OFFICE CHERIFIEN DES PHOSPHATES (OCP)
+name            | OFFICE CHERIFFE
 external_idents | {"stat_ident": "2220794"}
 stats           | 
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 33300,                                                      +
-                |         "min": 33300,                                                      +
-                |         "sum": 33300,                                                      +
-                |         "mean": 33300.00,                                                  +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 16814,                                                      +
-                |         "min": 16814,                                                      +
-                |         "sum": 16814,                                                      +
-                |         "mean": 16814.00,                                                  +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     }                                                                      +
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 33300,                       +
+                |         "min": 33300,                       +
+                |         "sum": 33300,                       +
+                |         "mean": 33300.00,                   +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 16814,                       +
+                |         "min": 16814,                       +
+                |         "sum": 16814,                       +
+                |         "mean": 16814.00,                   +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
                 | }
--[ RECORD 15 ]--+----------------------------------------------------------------------------
+-[ RECORD 15 ]--+---------------------------------------------
 unit_type       | legal_unit
-name            | OFFICE NATIONAL DE L'ELECTRICITE ET DE L'EEAU POTABLE (BRANCHE EAU POTABLE)
-external_idents | {"stat_ident": "40486450"}
-stats           | {"turnover": 575961, "employees": 8212}
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 575961,                                                     +
-                |         "min": 575961,                                                     +
-                |         "sum": 575961,                                                     +
-                |         "mean": 575961,                                                    +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 8212,                                                       +
-                |         "min": 8212,                                                       +
-                |         "sum": 8212,                                                       +
-                |         "mean": 8212,                                                      +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     }                                                                      +
-                | }
--[ RECORD 16 ]--+----------------------------------------------------------------------------
-unit_type       | enterprise
-name            | OFFICE NATIONAL DE L'ELECTRICITE ET DE L'EEAU POTABLE (BRANCHE EAU POTABLE)
-external_idents | {"stat_ident": "40486450"}
-stats           | 
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 575961,                                                     +
-                |         "min": 575961,                                                     +
-                |         "sum": 575961,                                                     +
-                |         "mean": 575961.00,                                                 +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 8212,                                                       +
-                |         "min": 8212,                                                       +
-                |         "sum": 8212,                                                       +
-                |         "mean": 8212.00,                                                   +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     }                                                                      +
-                | }
--[ RECORD 17 ]--+----------------------------------------------------------------------------
-unit_type       | legal_unit
-name            | OFFICE NATIONAL DES AEROPORTS (ONDA)
+name            | OFFICE NATIONAL DES AEROPORTS
 external_idents | {"stat_ident": "2200019"}
-stats           | {"turnover": 4241673, "employees": 2382}
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 4241673,                                                    +
-                |         "min": 4241673,                                                    +
-                |         "sum": 4241673,                                                    +
-                |         "mean": 4241673,                                                   +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 2382,                                                       +
-                |         "min": 2382,                                                       +
-                |         "sum": 2382,                                                       +
-                |         "mean": 2382,                                                      +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     }                                                                      +
+stats           | {"turnover": 55555, "employees": 2382}
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 55555,                       +
+                |         "min": 55555,                       +
+                |         "sum": 55555,                       +
+                |         "mean": 55555,                      +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 2382,                        +
+                |         "min": 2382,                        +
+                |         "sum": 2382,                        +
+                |         "mean": 2382,                       +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
                 | }
--[ RECORD 18 ]--+----------------------------------------------------------------------------
+-[ RECORD 16 ]--+---------------------------------------------
 unit_type       | enterprise
-name            | OFFICE NATIONAL DES AEROPORTS (ONDA)
+name            | OFFICE NATIONAL DES AEROPORTS
 external_idents | {"stat_ident": "2200019"}
 stats           | 
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 4241673,                                                    +
-                |         "min": 4241673,                                                    +
-                |         "sum": 4241673,                                                    +
-                |         "mean": 4241673.00,                                                +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 2382,                                                       +
-                |         "min": 2382,                                                       +
-                |         "sum": 2382,                                                       +
-                |         "mean": 2382.00,                                                   +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     }                                                                      +
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 55555,                       +
+                |         "min": 55555,                       +
+                |         "sum": 55555,                       +
+                |         "mean": 55555.00,                   +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 2382,                        +
+                |         "min": 2382,                        +
+                |         "sum": 2382,                        +
+                |         "mean": 2382.00,                    +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
                 | }
--[ RECORD 19 ]--+----------------------------------------------------------------------------
+-[ RECORD 17 ]--+---------------------------------------------
 unit_type       | legal_unit
-name            | SOCIETE NATIONAL DE RADIO DIFFUSION ET DE TELEVISION (SNRT)
-external_idents | {"stat_ident": "3304097"}
-stats           | {"turnover": 569600541, "employees": 2103}
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 569600541,                                                  +
-                |         "min": 569600541,                                                  +
-                |         "sum": 569600541,                                                  +
-                |         "mean": 569600541,                                                 +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 2103,                                                       +
-                |         "min": 2103,                                                       +
-                |         "sum": 2103,                                                       +
-                |         "mean": 2103,                                                      +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0,                                                       +
-                |         "variance": 0,                                                     +
-                |         "sum_sq_diff": 0,                                                  +
-                |         "coefficient_of_variation_pct": 0                                  +
-                |     }                                                                      +
+name            | STATBUS SANITAIRE
+external_idents | {"stat_ident": "5340521"}
+stats           | {"turnover": 445566, "employees": 20}
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 445566,                      +
+                |         "min": 445566,                      +
+                |         "sum": 445566,                      +
+                |         "mean": 445566,                     +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 20,                          +
+                |         "min": 20,                          +
+                |         "sum": 20,                          +
+                |         "mean": 20,                         +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
                 | }
--[ RECORD 20 ]--+----------------------------------------------------------------------------
+-[ RECORD 18 ]--+---------------------------------------------
 unit_type       | enterprise
-name            | SOCIETE NATIONAL DE RADIO DIFFUSION ET DE TELEVISION (SNRT)
-external_idents | {"stat_ident": "3304097"}
+name            | STATBUS SANITAIRE
+external_idents | {"stat_ident": "5340521"}
 stats           | 
-stats_summary   | {                                                                          +
-                |     "turnover": {                                                          +
-                |         "max": 569600541,                                                  +
-                |         "min": 569600541,                                                  +
-                |         "sum": 569600541,                                                  +
-                |         "mean": 569600541.00,                                              +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     },                                                                     +
-                |     "employees": {                                                         +
-                |         "max": 2103,                                                       +
-                |         "min": 2103,                                                       +
-                |         "sum": 2103,                                                       +
-                |         "mean": 2103.00,                                                   +
-                |         "type": "number",                                                  +
-                |         "count": 1,                                                        +
-                |         "stddev": 0.00,                                                    +
-                |         "variance": 0.00,                                                  +
-                |         "sum_sq_diff": 0.00,                                               +
-                |         "coefficient_of_variation_pct": 0.00                               +
-                |     }                                                                      +
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 445566,                      +
+                |         "min": 445566,                      +
+                |         "sum": 445566,                      +
+                |         "mean": 445566.00,                  +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 20,                          +
+                |         "min": 20,                          +
+                |         "sum": 20,                          +
+                |         "mean": 20.00,                      +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
+                | }
+-[ RECORD 19 ]--+---------------------------------------------
+unit_type       | legal_unit
+name            | TEST OFFICE DE L'EEAU POTABLE 
+external_idents | {"stat_ident": "40486450"}
+stats           | {"turnover": 222222, "employees": 8212}
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 222222,                      +
+                |         "min": 222222,                      +
+                |         "sum": 222222,                      +
+                |         "mean": 222222,                     +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 8212,                        +
+                |         "min": 8212,                        +
+                |         "sum": 8212,                        +
+                |         "mean": 8212,                       +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
+                | }
+-[ RECORD 20 ]--+---------------------------------------------
+unit_type       | enterprise
+name            | TEST OFFICE DE L'EEAU POTABLE 
+external_idents | {"stat_ident": "40486450"}
+stats           | 
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 222222,                      +
+                |         "min": 222222,                      +
+                |         "sum": 222222,                      +
+                |         "mean": 222222.00,                  +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 8212,                        +
+                |         "min": 8212,                        +
+                |         "sum": 8212,                        +
+                |         "mean": 8212.00,                    +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
+                |     }                                       +
                 | }
 
 \echo "Checking statistics"
@@ -1874,16 +1874,16 @@ distinct_unit_count | 10
 invalid_codes       | 
 stats_summary       | {                                             +
                     |     "turnover": {                             +
-                    |         "max": 1714446227,                    +
+                    |         "max": 22334455,                      +
                     |         "min": 33300,                         +
-                    |         "sum": 5257991264,                    +
-                    |         "mean": 525799126.40,                 +
+                    |         "sum": 39723745,                      +
+                    |         "mean": 3972374.50,                   +
                     |         "type": "number",                     +
                     |         "count": 10,                          +
-                    |         "stddev": 617343924.34,               +
-                    |         "variance": 381113520920596365.16,    +
-                    |         "sum_sq_diff": 3430021688285367286.40,+
-                    |         "coefficient_of_variation_pct": 117.41+
+                    |         "stddev": 7457896.25,                 +
+                    |         "variance": 55620216537152.72,        +
+                    |         "sum_sq_diff": 500581948834374.50,    +
+                    |         "coefficient_of_variation_pct": 187.74+
                     |     },                                        +
                     |     "employees": {                            +
                     |         "max": 16814,                         +
@@ -1904,16 +1904,16 @@ distinct_unit_count | 10
 invalid_codes       | 
 stats_summary       | {                                             +
                     |     "turnover": {                             +
-                    |         "max": 1714446227,                    +
+                    |         "max": 22334455,                      +
                     |         "min": 33300,                         +
-                    |         "sum": 5257991264,                    +
-                    |         "mean": 525799126.40,                 +
+                    |         "sum": 39723745,                      +
+                    |         "mean": 3972374.50,                   +
                     |         "type": "number",                     +
                     |         "count": 10,                          +
-                    |         "stddev": 617343924.34,               +
-                    |         "variance": 381113520920596365.16,    +
-                    |         "sum_sq_diff": 3430021688285367286.40,+
-                    |         "coefficient_of_variation_pct": 117.41+
+                    |         "stddev": 7457896.25,                 +
+                    |         "variance": 55620216537152.72,        +
+                    |         "sum_sq_diff": 500581948834374.50,    +
+                    |         "coefficient_of_variation_pct": 187.74+
                     |     },                                        +
                     |     "employees": {                            +
                     |         "max": 16814,                         +
