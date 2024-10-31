@@ -10,12 +10,12 @@ interface ActiveExternalIdentBadgesProps {
 
 export function ActiveExternalIdentBadges({ externalIdentTypes }: ActiveExternalIdentBadgesProps) {
   const { searchState: { appSearchParams } } = useSearchContext();
-  
+
   const activeFilters = externalIdentTypes
-    .filter(type => appSearchParams[type.code!]?.length > 0)
+    .filter(type => (appSearchParams[type.code!]?.length ?? 0) > 0)
     .map(type => ({
       code: type.code,
-      value: appSearchParams[type.code!][0]
+      value: appSearchParams[type.code!]?.[0]
     }));
 
   if (activeFilters.length === 0) return null;

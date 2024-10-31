@@ -7,8 +7,8 @@ import { Tables } from "@/lib/database.types";
 import { externalIdentDeriveStateUpdateFromValues } from "../url-search-params";
 import { Button } from "@/components/ui/button";
 
-export function ExternalIdentInputs({ 
-  externalIdentTypes 
+export function ExternalIdentInputs({
+  externalIdentTypes
 }: {
   readonly externalIdentTypes: Tables<"external_ident_type_ordered">[];
 }) {
@@ -35,10 +35,10 @@ export function ExternalIdentInputs({
       ...acc,
       [type.code!]: ''
     }), {});
-    
+
     // Clear all debounced values
     setDebouncedValues(emptyValues);
-    
+
     // Clear all external identifier filters
     externalIdentTypes.forEach(identType => {
       updateIdentifier(identType, '');
@@ -67,9 +67,9 @@ export function ExternalIdentInputs({
       {externalIdentTypes.map((identType) => {
         return (
           <div key={identType.code} className="grid gap-2">
-            <Label htmlFor={identType.code}>{identType.name}</Label>
+            <Label htmlFor={identType.code!}>{identType.name}</Label>
             <Input
-              id={identType.code}
+              id={identType.code!}
               placeholder={`Search by ${identType.name}`}
               value={debouncedValues[identType.code!]}
               onChange={(e) => setDebouncedValues(prev => ({
