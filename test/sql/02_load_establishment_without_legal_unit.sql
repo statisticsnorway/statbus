@@ -31,12 +31,18 @@ SELECT count(*) FROM public.legal_form_available;
 \copy public.sector_custom_only(path,name,description) FROM 'app/public/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.sector_available;
 
+SELECT code, name, active, custom FROM public.data_source_available;
+\echo "User uploads the sample data sources"
+\copy public.data_source_custom(code,name) FROM 'test/data/02_norwegian_data_source.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT code, name, active, custom FROM public.data_source_available;
+SELECT count(*) FROM public.data_source_available;
+
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 \echo "User uploads establishments without legal_unit"
-\copy public.import_establishment_current_without_legal_unit(tax_ident,name,birth_date,death_date,physical_address_part1,physical_postal_code,physical_postal_place,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postal_code,postal_postal_place,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees) FROM 'test/data/02_norwegian-establishments-without-legal-unit.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_establishment_current_without_legal_unit(tax_ident,name,birth_date,death_date,physical_address_part1,physical_postal_code,physical_postal_place,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postal_code,postal_postal_place,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,data_source_code) FROM 'test/data/02_norwegian-establishments-without-legal-unit.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
@@ -47,7 +53,7 @@ SELECT
 SELECT view_name FROM statistical_unit_refresh_now();
 
 \x
-SELECT unit_type, name, external_idents, stats, jsonb_pretty(stats_summary) AS stats_summary
+SELECT unit_type, name, external_idents, data_source_codes, stats, jsonb_pretty(stats_summary) AS stats_summary
 FROM statistical_unit ORDER BY name, unit_type;
 
 \echo "Checking statistics"
@@ -59,4 +65,4 @@ SELECT unit_type
  GROUP BY unit_type;
 \x
 
-ROLLBACK;
+\i test/rollback_unless_persist_is_specified.sql

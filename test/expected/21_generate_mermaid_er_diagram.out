@@ -27,6 +27,7 @@ erDiagram
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 		"text" authentication_method
+		"timestamp with time zone" auth_code_issued_at
 	}
 	auth_identities["auth.identities"] {
 		"text" provider_id
@@ -59,6 +60,7 @@ erDiagram
 		"timestamp with time zone" created_at
 		"timestamp with time zone" verified_at
 		"inet" ip_address
+		"text" otp_code
 	}
 	auth_mfa_factors["auth.mfa_factors"] {
 		"uuid" id
@@ -69,6 +71,17 @@ erDiagram
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 		"text" secret
+		"text" phone
+		"timestamp with time zone" last_challenged_at
+	}
+	auth_one_time_tokens["auth.one_time_tokens"] {
+		"uuid" id
+		"uuid" user_id
+		"auth.one_time_token_type" token_type
+		"text" token_hash
+		"text" relates_to
+		"timestamp without time zone" created_at
+		"timestamp without time zone" updated_at
 	}
 	auth_refresh_tokens["auth.refresh_tokens"] {
 		"uuid" instance_id
@@ -90,6 +103,7 @@ erDiagram
 		"jsonb" attribute_mapping
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
+		"text" name_id_format
 	}
 	auth_saml_relay_states["auth.saml_relay_states"] {
 		"uuid" id
@@ -97,7 +111,6 @@ erDiagram
 		"text" request_id
 		"text" for_email
 		"text" redirect_to
-		"inet" from_ip_address
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 		"uuid" flow_state_id
@@ -166,6 +179,7 @@ erDiagram
 		"timestamp with time zone" reauthentication_sent_at
 		"boolean" is_sso_user
 		"timestamp with time zone" deleted_at
+		"boolean" is_anonymous
 	}
 	lifecycle_callbacks_registered_callback["lifecycle_callbacks.registered_callback"] {
 		"text" label
@@ -643,6 +657,26 @@ erDiagram
 		"boolean" custom
 		"timestamp with time zone" updated_at
 	}
+	realtime_messages["realtime.messages"] {
+		"bigint" id
+		"text" topic
+		"text" extension
+		"timestamp(0) without time zone" inserted_at
+		"timestamp(0) without time zone" updated_at
+	}
+	realtime_schema_migrations["realtime.schema_migrations"] {
+		"bigint" version
+		"timestamp(0) without time zone" inserted_at
+	}
+	realtime_subscription["realtime.subscription"] {
+		"bigint" id
+		"uuid" subscription_id
+		"regclass" entity
+		"realtime.user_defined_filter[]" filters
+		"jsonb" claims
+		"regrole" claims_role
+		"timestamp without time zone" created_at
+	}
 	sql_saga_api_view["sql_saga.api_view"] {
 		"regclass" table_name
 		"name" era_name
@@ -710,6 +744,30 @@ erDiagram
 		"text[]" path_tokens
 		"text" version
 		"text" owner_id
+		"jsonb" user_metadata
+	}
+	storage_s3_multipart_uploads["storage.s3_multipart_uploads"] {
+		"text" id
+		"bigint" in_progress_size
+		"text" upload_signature
+		"text" bucket_id
+		"text" key
+		"text" version
+		"text" owner_id
+		"timestamp with time zone" created_at
+		"jsonb" user_metadata
+	}
+	storage_s3_multipart_uploads_parts["storage.s3_multipart_uploads_parts"] {
+		"uuid" id
+		"text" upload_id
+		"bigint" size
+		"integer" part_number
+		"text" bucket_id
+		"text" key
+		"text" etag
+		"text" owner_id
+		"text" version
+		"timestamp with time zone" created_at
 	}
 	supabase_functions_hooks["supabase_functions.hooks"] {
 		"bigint" id
@@ -737,6 +795,7 @@ erDiagram
 	auth_mfa_amr_claims }|--|| auth.sessions : mfa_amr_claims_session_id_fkey
 	auth_mfa_challenges }o--|| auth.mfa_factors : mfa_challenges_auth_factor_id_fkey
 	auth_mfa_factors }|--|| auth.users : mfa_factors_user_id_fkey
+	auth_one_time_tokens }|--|| auth.users : one_time_tokens_user_id_fkey
 	auth_refresh_tokens }o--o| auth.sessions : refresh_tokens_session_id_fkey
 	auth_saml_providers }o--|| auth.sso_providers : saml_providers_sso_provider_id_fkey
 	auth_saml_relay_states }o--o| auth.flow_state : saml_relay_states_flow_state_id_fkey
@@ -803,5 +862,8 @@ erDiagram
 	sql_saga_unique_keys }o--|| sql_saga.era : unique_keys_table_name_era_name_fkey
 	sql_saga_unique_keys }o--|| sql_saga.era : unique_keys_table_name_era_name_fkey
 	storage_objects }o--o| storage.buckets : objects_bucketId_fkey
+	storage_s3_multipart_uploads }o--|| storage.buckets : s3_multipart_uploads_bucket_id_fkey
+	storage_s3_multipart_uploads_parts }o--|| storage.buckets : s3_multipart_uploads_parts_bucket_id_fkey
+	storage_s3_multipart_uploads_parts }o--|| storage.s3_multipart_uploads : s3_multipart_uploads_parts_upload_id_fkey
 	vault_secrets }o--o| pgsodium.key : secrets_key_id_fkey
 ########################################

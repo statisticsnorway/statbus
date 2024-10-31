@@ -253,15 +253,13 @@ FROM prepared_small_history
 ORDER BY valid_from, tax_ident;
 -- Validate all inserted rows.
 SET CONSTRAINTS ALL IMMEDIATE;
-CREATE INDEX IF NOT EXISTS idx_establishment_valid_after_valid_to ON establishment (valid_after, valid_to);
-CREATE INDEX IF NOT EXISTS idx_stat_for_unit_establishment_id ON stat_for_unit (establishment_id);
-CREATE INDEX IF NOT EXISTS idx_activity_establishment_id ON activity (establishment_id);
-CREATE INDEX IF NOT EXISTS idx_legal_unit_valid_after_valid_to ON legal_unit (valid_after, valid_to);
-CREATE INDEX IF NOT EXISTS idx_activity_legal_unit_id ON activity (legal_unit_id);
-CREATE INDEX IF NOT EXISTS idx_stat_for_unit_legal_unit_id ON stat_for_unit (legal_unit_id);
-CREATE INDEX IF NOT EXISTS idx_location_legal_unit_id ON location (legal_unit_id);
-CREATE INDEX IF NOT EXISTS idx_activity_est_legal_date ON activity (establishment_id, valid_after, valid_to);
-CREATE INDEX IF NOT EXISTS idx_legal_activity_date ON legal_unit (id, valid_after, valid_to);
+CREATE INDEX IF NOT EXISTS tidx_establishment_valid_after_valid_to ON establishment (valid_after, valid_to);
+CREATE INDEX IF NOT EXISTS tidx_stat_for_unit_establishment_id ON stat_for_unit (establishment_id);
+CREATE INDEX IF NOT EXISTS tidx_activity_establishment_id ON activity (establishment_id);
+CREATE INDEX IF NOT EXISTS tidx_legal_unit_valid_after_valid_to ON legal_unit (valid_after, valid_to);
+CREATE INDEX IF NOT EXISTS tidx_stat_for_unit_legal_unit_id ON stat_for_unit (legal_unit_id);
+CREATE INDEX IF NOT EXISTS tidx_location_legal_unit_id ON location (legal_unit_id);
+CREATE INDEX IF NOT EXISTS tidx_legal_activity_date ON legal_unit (id, valid_after, valid_to);
 ANALYZE establishment;
 ANALYZE stat_for_unit;
 ANALYZE activity;
@@ -270,40 +268,72 @@ ANALYZE location;
 -- Check the query efficiency of the views used for building statistical_unit.
 \a
 \t
-SELECT pg_stat_reset();
+SELECT pg_stat_statements_reset();
 
-\o tmp/timepoints.txt
+\o tmp/timepoints.log
 EXPLAIN ANALYZE SELECT * FROM public.timepoints;
-SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
-SELECT pg_stat_reset();
+SELECT queryid, calls, total_exec_time, rows
+FROM pg_stat_statements
+WHERE query LIKE '%SELECT * FROM public.timepoints%';
 \o
-\o tmp/timesegments.txt
+SELECT pg_stat_statements_reset();
+
+\o tmp/timesegments.log
 EXPLAIN ANALYZE SELECT * FROM public.timesegments;
-SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
-SELECT pg_stat_reset();
+SELECT queryid, calls, total_exec_time, rows
+FROM pg_stat_statements
+WHERE query LIKE '%SELECT * FROM public.timesegments%';
 \o
-\o tmp/timeline_establishment.txt
+SELECT pg_stat_statements_reset();
+
+\o tmp/timeline_establishment.log
 EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment;
-SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
-SELECT pg_stat_reset();
+SELECT queryid, calls, total_exec_time, rows
+FROM pg_stat_statements
+WHERE query LIKE '%SELECT * FROM public.timeline_establishment%';
 \o
-\o tmp/timeline_legal_unit.txt
+SELECT pg_stat_statements_reset();
+
+\o tmp/timeline_legal_unit.log
 EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit;
-SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
-SELECT pg_stat_reset();
+SELECT queryid, calls, total_exec_time, rows
+FROM pg_stat_statements
+WHERE query LIKE '%SELECT * FROM public.timeline_legal_unit%';
 \o
-\o tmp/timeline_enterprise.txt
+SELECT pg_stat_statements_reset();
+
+\o tmp/timeline_enterprise.log
 EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise;
-SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
-SELECT pg_stat_reset();
+SELECT queryid, calls, total_exec_time, rows
+FROM pg_stat_statements
+WHERE query LIKE '%SELECT * FROM public.timeline_enterprise%';
 \o
-\o tmp/statistical_unit_def.txt
+SELECT pg_stat_statements_reset();
+
+\o tmp/statistical_unit_def.log
 EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
-SELECT indexrelid::regclass AS index, relid::regclass AS table, idx_scan AS index_scans FROM pg_stat_user_indexes WHERE idx_scan > 0;
-SELECT pg_stat_reset();
+SELECT queryid, calls, total_exec_time, rows
+FROM pg_stat_statements
+WHERE query LIKE '%SELECT * FROM public.statistical_unit_def%';
 \o
+SELECT pg_stat_statements_reset();
+
 \a
 \t
+\o tmp/top_used_indices.log
+SELECT
+    indexrelid::regclass AS index_name,
+    relid::regclass AS table_name,
+    idx_scan,
+    idx_tup_fetch AS tuples_fetched
+FROM
+    pg_stat_user_indexes
+WHERE
+    idx_scan > 0  -- Focus on indexes that have been used
+ORDER BY
+    idx_scan DESC
+LIMIT 20;  -- Display top used indexes, adjust if necessary
+\o
 \echo Refreshing materialized views
 Refreshing materialized views
 SELECT view_name FROM statistical_unit_refresh_now();
