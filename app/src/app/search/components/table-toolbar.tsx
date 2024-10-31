@@ -1,5 +1,5 @@
 import FullTextSearchFilter from "@/app/search/filters/full-text-search-filter";
-import ExternalIdentFilter from "@/app/search/filters/external-ident-filter";
+import ExternalIdentFilter from "@/app/search/filters/external-ident/external-ident-filter";
 import UnitTypeFilter from "@/app/search/filters/unit-type-filter";
 import { Suspense } from "react";
 import { FilterSkeleton } from "@/app/search/components/filter-skeleton";
