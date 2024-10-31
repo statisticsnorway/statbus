@@ -2686,10 +2686,10 @@ SELECT path
 SELECT code
      , name
      , custom
- FROM public.legal_form_available;
+ FROM public.legal_form_available
+ ORDER BY code COLLATE "nb-NO-x-icu";
  code |                          name                           | custom 
 ------+---------------------------------------------------------+--------
- AAFY | Underenhet til ikke-næringsdrivende                     | t
  ADOS | Administrativ enhet -offentlig sektor                   | t
  ANNA | Annen juridisk person                                   | t
  ANS  | Ansvarlig selskap med solidarisk ansvar                 | t
@@ -2735,6 +2735,7 @@ SELECT code
  UDEF | Udefinert                                               | t
  UTLA | Utenlandsk enhet                                        | t
  VPFO | Verdipapirfond                                          | t
+ AAFY | Underenhet til ikke-næringsdrivende                     | t
 (46 rows)
 
 \echo "User uploads the sample sectors"
@@ -2780,6 +2781,20 @@ SELECT path
  utl.f_utl            | Utlandet                                                      | t
  utl.f_utl.9000       | Utlandet                                                      | t
 (33 rows)
+
+\echo "User uploads the sample data sources"
+"User uploads the sample data sources"
+\copy public.data_source_custom(code,name) FROM 'test/data/01_norwegian_data_source.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT code
+     , name
+     , custom
+FROM public.data_source_available;
+ code  |               name               | custom 
+-------+----------------------------------+--------
+ brreg | Brønnøysundregistrene            | t
+ mi    | Manuell inntasting               | t
+ nav   | Arbeids- og velferdsforvaltninga | t
+(3 rows)
 
 \echo "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
 "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
@@ -2900,6 +2915,7 @@ stats_summary | {                                             +
               | }
 
 \x
+SAVEPOINT before_reset;
 \a
 \echo "Checking that reset works"
 "Checking that reset works"
@@ -3029,4 +3045,23 @@ reset_all
 }
 (1 row)
 \a
+ROLLBACK TO SAVEPOINT before_reset;
+\i test/rollback_unless_persist_is_specified.sql
+---------------------------------------------------------------------------
+-- Support development loading of the data without rollback using
+--   ./devops/manage-statbus.sh psql --variable=PERSIST=true < test/sql/01_load_web_examples.sql
+-- Ref. https://stackoverflow.com/a/32597876/1023558
+\set PERSIST :PERSIST
+-- now PERSIST is set to the string ':PERSIST' if was not already set.
+-- Checking it using a CASE statement:
+SELECT CASE
+  WHEN :'PERSIST'= ':PERSIST'
+  THEN 'false'
+  ELSE :'PERSIST'
+END::BOOL AS "PERSIST" \gset
+-- < \gset call at end of the query to set variable.
+\if :PERSIST
+COMMIT;
+\else
 ROLLBACK;
+\endif

@@ -186,16 +186,13 @@ DROP VIEW public.stat_for_unit_era;
 
 DROP FUNCTION admin.upsert_generic_valid_time_table(text,text,jsonb,text[],text[],record);
 
-DROP VIEW public.sector_available;
 DROP VIEW public.sector_custom_only;
 DROP FUNCTION admin.sector_custom_only_prepare();
 DROP FUNCTION admin.sector_custom_only_upsert();
 
-DROP VIEW public.legal_form_available;
 DROP VIEW public.legal_form_custom_only;
 DROP FUNCTION admin.legal_form_custom_only_prepare();
 DROP FUNCTION admin.legal_form_custom_only_upsert();
-
 
 DROP FUNCTION admin.import_lookup_tag;
 DROP FUNCTION admin.import_lookup_country;
@@ -203,6 +200,7 @@ DROP FUNCTION admin.import_lookup_region;
 DROP FUNCTION admin.import_lookup_activity_category;
 DROP FUNCTION admin.import_lookup_sector;
 DROP FUNCTION admin.import_lookup_legal_form;
+DROP FUNCTION admin.import_lookup_data_source;
 DROP FUNCTION admin.type_date_field;
 DROP FUNCTION admin.process_external_idents;
 DROP FUNCTION admin.process_enterprise_connection;
@@ -251,16 +249,18 @@ SELECT admin.drop_table_views_for_batch_api('public.person_type');
 SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_type');
 SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_role');
 
-DROP FUNCTION admin.generate_view(regclass,admin.view_type_enum);
-DROP FUNCTION admin.generate_code_upsert_function(regclass,admin.view_type_enum);
-DROP FUNCTION admin.generate_path_upsert_function(regclass,admin.view_type_enum);
-DROP FUNCTION admin.generate_delete_function(regclass,admin.view_type_enum);
+DROP FUNCTION admin.detect_batch_api_table_properties(regclass);
+DROP FUNCTION admin.generate_view(admin.batch_api_table_properties,admin.view_type_enum);
+DROP FUNCTION admin.generate_code_upsert_function(admin.batch_api_table_properties,admin.view_type_enum);
+DROP FUNCTION admin.generate_path_upsert_function(admin.batch_api_table_properties,admin.view_type_enum);
+DROP FUNCTION admin.generate_prepare_function_for_custom(admin.batch_api_table_properties);
 DROP FUNCTION admin.generate_view_triggers(regclass,regprocedure,regprocedure);
-DROP FUNCTION admin.generate_active_code_custom_unique_constraint(regclass);
-DROP FUNCTION admin.generate_table_views_for_batch_api(regclass,admin.table_type_enum);
+DROP FUNCTION admin.generate_active_code_custom_unique_constraint(admin.batch_api_table_properties);
+DROP FUNCTION admin.get_unique_columns(admin.batch_api_table_properties);
+DROP FUNCTION admin.generate_table_views_for_batch_api(regclass);
 DROP FUNCTION admin.drop_table_views_for_batch_api(regclass);
 DROP TYPE admin.view_type_enum;
-DROP TYPE admin.table_type_enum;
+DROP TYPE admin.batch_api_table_properties;
 
 DROP FUNCTION admin.upsert_activity_category();
 DROP FUNCTION admin.delete_stale_activity_category();

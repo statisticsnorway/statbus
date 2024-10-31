@@ -69,6 +69,10 @@ export const StatisticalUnitTableHeader = ({
           name="primary_activity_category_path"
           label="Activity Category"
         />
+        <TableHead
+        className="text-left hidden lg:table-cell"
+        >Data Sources
+        </TableHead>
         <TableHead />
       </TableRow>
     </TableHeader>

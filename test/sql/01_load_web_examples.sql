@@ -42,7 +42,8 @@ SELECT path
 SELECT code
      , name
      , custom
- FROM public.legal_form_available;
+ FROM public.legal_form_available
+ ORDER BY code COLLATE "nb-NO-x-icu";
 
 \echo "User uploads the sample sectors"
 \copy public.sector_custom_only(path,name,description) FROM 'app/public/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
@@ -50,6 +51,14 @@ SELECT path
      , name
      , custom
  FROM public.sector_available;
+
+
+\echo "User uploads the sample data sources"
+\copy public.data_source_custom(code,name) FROM 'test/data/01_norwegian_data_source.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT code
+     , name
+     , custom
+FROM public.data_source_available;
 
 \echo "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
 SET client_min_messages TO error;
@@ -82,6 +91,8 @@ SELECT unit_type
  GROUP BY unit_type;
 \x
 
+SAVEPOINT before_reset;
+
 \a
 \echo "Checking that reset works"
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope) - 'statistical_unit_refresh_now') AS reset_data;
@@ -89,4 +100,6 @@ SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'getting-started'::
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'all'::public.reset_scope) - 'statistical_unit_refresh_now') AS reset_all;
 \a
 
-ROLLBACK;
+ROLLBACK TO SAVEPOINT before_reset;
+
+\i test/rollback_unless_persist_is_specified.sql

@@ -12,7 +12,7 @@ import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
 import { getStatisticalUnits } from "./search-requests";
-import { activityCategoryDeriveStateUpdateFromSearchParams, externalIdentDeriveStateUpdateFromSearchParams, fullTextSearchDeriveStateUpdateFromSearchParams, invalidCodesDeriveStateUpdateFromSearchParams, legalFormDeriveStateUpdateFromSearchParams, regionDeriveStateUpdateFromSearchParams, sectorDeriveStateUpdateFromSearchParams, statisticalVariablesDeriveStateUpdateFromSearchParams, unitTypeDeriveStateUpdateFromSearchParams } from "./filters/url-search-params";
+import { activityCategoryDeriveStateUpdateFromSearchParams, dataSourceDeriveStateUpdateFromSearchParams, externalIdentDeriveStateUpdateFromSearchParams, fullTextSearchDeriveStateUpdateFromSearchParams, invalidCodesDeriveStateUpdateFromSearchParams, legalFormDeriveStateUpdateFromSearchParams, regionDeriveStateUpdateFromSearchParams, sectorDeriveStateUpdateFromSearchParams, statisticalVariablesDeriveStateUpdateFromSearchParams, unitTypeDeriveStateUpdateFromSearchParams } from "./filters/url-search-params";
 
 const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
   // Notice that the createSupabaseBrowserClientAsync must be inside the fetcher
@@ -40,6 +40,7 @@ const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
     initialUrlSearchParams: URLSearchParams,
     maybeDefaultExternalIdentType: Tables<"external_ident_type_ordered">,
     statDefinitions: Tables<"stat_definition_ordered">[],
+    allDataSources: Tables<"data_source">[],
   ) : SearchState {
     let actions = [
       fullTextSearchDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
@@ -49,6 +50,7 @@ const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
       regionDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
       sectorDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
       activityCategoryDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+      dataSourceDeriveStateUpdateFromSearchParams(initialUrlSearchParams, allDataSources),
       externalIdentDeriveStateUpdateFromSearchParams(maybeDefaultExternalIdentType, initialUrlSearchParams),
     ].concat(
       statisticalVariablesDeriveStateUpdateFromSearchParams(statDefinitions, initialUrlSearchParams)
@@ -62,8 +64,9 @@ interface SearchResultsProps {
   readonly children: ReactNode;
   readonly initialOrder: SearchOrder;
   readonly initialPagination: SearchPagination;
-  readonly regions: Tables<"region_used">[];
-  readonly activityCategories: Tables<"activity_category_used">[];
+  readonly allRegions: Tables<"region_used">[];
+  readonly allActivityCategories: Tables<"activity_category_used">[];
+  readonly allDataSources: Tables<"data_source">[];
   readonly initialUrlSearchParamsDict: URLSearchParamsDict;
 }
 
@@ -72,8 +75,9 @@ export function SearchResults({
   children,
   initialOrder,
   initialPagination,
-  regions,
-  activityCategories,
+  allRegions,
+  allActivityCategories,
+  allDataSources,
   initialUrlSearchParamsDict,
 }: SearchResultsProps) {
   const { selectedTimeContext } = useTimeContext();
@@ -94,6 +98,7 @@ export function SearchResults({
     initialUrlSearchParams,
     externalIdentTypes?.[0],
     statDefinitions,
+    allDataSources,
   );
 
   const [searchState, modifySearchState] = useReducer(modifySearchStateReducer, initialSearchState);
@@ -145,13 +150,14 @@ export function SearchResults({
       modifySearchState,
       searchResult,
       derivedApiSearchParams,
-      regions: regions ?? [],
-      activityCategories: activityCategories ?? [],
+      allRegions: allRegions ?? [],
+      allActivityCategories: allActivityCategories ?? [],
+      allDataSources: allDataSources ?? [],
       selectedTimeContext,
       isLoading,
       error
     } as SearchContextState),
-    [searchState, searchResult, derivedApiSearchParams, regions, activityCategories, selectedTimeContext, isLoading, error]
+    [searchState, searchResult, derivedApiSearchParams, allRegions, allActivityCategories, allDataSources, selectedTimeContext, isLoading, error]
   );
 
   useDerivedUrlSearchParams(ctx);

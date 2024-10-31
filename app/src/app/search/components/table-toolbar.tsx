@@ -12,6 +12,7 @@ import InvalidCodesFilter from "@/app/search/filters/invalid-codes-filter";
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
 
 import { IURLSearchParamsDict } from "@/lib/url-search-params-dict";
+import DataSourceFilter from "../filters/data-source/data-source-filter";
 
 export default function TableToolbar({ initialUrlSearchParamsDict }: IURLSearchParamsDict) {
   return (
@@ -30,6 +31,9 @@ export default function TableToolbar({ initialUrlSearchParamsDict }: IURLSearchP
       </Suspense>
       <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
         <ActivityCategoryFilter/>
+      </Suspense>
+      <Suspense fallback={<FilterSkeleton title="Data Source" />}>
+        <DataSourceFilter/>
       </Suspense>
       <StatisticalVariablesFilter/>
       <InvalidCodesFilter/>
