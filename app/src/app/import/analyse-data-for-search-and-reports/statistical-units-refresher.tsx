@@ -7,7 +7,11 @@ import { useBaseData } from "@/app/BaseDataClient";
 
 type AnalysisState = "checking" | "refreshing" | "finished" | "failed";
 
-export function StatisticalUnitsRefresher({ children }: { children: React.ReactNode }) {
+export function StatisticalUnitsRefresher({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [state, setState] = useState("checking" as AnalysisState);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const { hasStatisticalUnits, refreshHasStatisticalUnits } = useBaseData();
@@ -40,9 +44,6 @@ export function StatisticalUnitsRefresher({ children }: { children: React.ReactN
           setState("failed");
           setErrorMessage("Error refreshing statistical units");
         }
-      } else {
-        setState("finished");
-        refreshHasStatisticalUnits();
       }
     };
 
@@ -63,9 +64,7 @@ export function StatisticalUnitsRefresher({ children }: { children: React.ReactN
         <p className="text-gray-700">
           Data analysis for Search and Reports Failed
         </p>
-        <p className="text-red-500">
-          {errorMessage}
-        </p>
+        <p className="text-red-500">{errorMessage}</p>
       </div>
     );
   }

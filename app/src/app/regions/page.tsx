@@ -9,7 +9,9 @@ export default function RegionPage() {
 
   return (
     <main className="mx-auto flex w-full max-w-5xl flex-col py-8 md:py-12">
-      <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">Regions</h1>
+      <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
+        Region Hierarchy
+      </h1>
       <section className="space-y-3">
         <TableFilters
           setQueries={setQueries}

@@ -6,8 +6,6 @@ import { SupabaseClient } from '@supabase/supabase-js';
 interface GettingStartedState {
   activity_category_standard: { id: number, name: string } | null;
   numberOfRegions: number | null;
-  numberOfLegalUnits: number | null;
-  numberOfEstablishments: number | null;
   numberOfCustomActivityCategoryCodes: number | null;
   numberOfCustomSectors: number | null;
   numberOfCustomLegalForms: number | null;
@@ -16,8 +14,6 @@ interface GettingStartedState {
 interface GettingStartedContextType extends GettingStartedState {
   refreshCounts: () => Promise<void>;
   refreshNumberOfRegions: () => Promise<void>;
-  refreshNumberOfLegalUnits: () => Promise<void>;
-  refreshNumberOfEstablishments: () => Promise<void>;
   refreshNumberOfCustomActivityCategoryCodes: () => Promise<void>;
   refreshNumberOfCustomSectors: () => Promise<void>;
   refreshNumberOfCustomLegalForms: () => Promise<void>;
@@ -29,8 +25,6 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
   const [state, setState] = useState<GettingStartedState>({
     activity_category_standard: null,
     numberOfRegions: null,
-    numberOfLegalUnits: null,
-    numberOfEstablishments: null,
     numberOfCustomActivityCategoryCodes: null,
     numberOfCustomSectors: null,
     numberOfCustomLegalForms: null,
@@ -60,28 +54,6 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
     setState((prevState) => ({
       ...prevState,
       numberOfRegions,
-    }));
-  }, [client]);
-
-  const refreshNumberOfLegalUnits = useCallback(async () => {
-    if (!client) return;
-
-    const { count: numberOfLegalUnits } = await client.from("legal_unit").select("*", { count: "exact" }).limit(0);
-
-    setState((prevState) => ({
-      ...prevState,
-      numberOfLegalUnits,
-    }));
-  }, [client]);
-
-  const refreshNumberOfEstablishments = useCallback(async () => {
-    if (!client) return;
-
-    const { count: numberOfEstablishments } = await client.from("establishment").select("*", { count: "exact" }).limit(0);
-
-    setState((prevState) => ({
-      ...prevState,
-      numberOfEstablishments,
     }));
   }, [client]);
 
@@ -122,8 +94,6 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
   const refreshCounts = useCallback(async () => {
     await refreshActivityCategoryStandard();
     await refreshNumberOfRegions();
-    await refreshNumberOfLegalUnits();
-    await refreshNumberOfEstablishments();
     await refreshNumberOfCustomActivityCategoryCodes();
     await refreshNumberOfCustomSectors();
     await refreshNumberOfCustomLegalForms();
@@ -132,8 +102,6 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
     refreshNumberOfCustomActivityCategoryCodes,
     refreshNumberOfCustomLegalForms,
     refreshNumberOfCustomSectors,
-    refreshNumberOfEstablishments,
-    refreshNumberOfLegalUnits,
     refreshNumberOfRegions,
   ]);
 
@@ -157,8 +125,6 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
         ...state,
         refreshCounts,
         refreshNumberOfRegions,
-        refreshNumberOfLegalUnits,
-        refreshNumberOfEstablishments,
         refreshNumberOfCustomActivityCategoryCodes,
         refreshNumberOfCustomSectors,
         refreshNumberOfCustomLegalForms,

@@ -6,7 +6,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import React, { useEffect } from "react";
-import { useGettingStarted } from "./GettingStartedContext";
 import { ErrorBox } from "@/components/error-box";
 import { uploadFile } from "@/app/getting-started/getting-started-server-actions";
 import type { UploadView } from "@/app/getting-started/getting-started-server-actions";

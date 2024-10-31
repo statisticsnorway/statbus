@@ -1,19 +1,15 @@
 "use client";
 import { useGettingStarted } from "../GettingStartedContext";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
-import { useBaseData } from "@/app/BaseDataClient";
 
 export default function SetupStatus() {
   const {
     activity_category_standard,
     numberOfRegions,
-    numberOfLegalUnits,
-    numberOfEstablishments,
     numberOfCustomActivityCategoryCodes,
     numberOfCustomSectors,
     numberOfCustomLegalForms,
   } = useGettingStarted();
-  const { hasStatisticalUnits } = useBaseData();
 
   return (
     <nav>
@@ -32,7 +28,7 @@ export default function SetupStatus() {
         <li className="mb-6">
           <NavItem
             done={!!numberOfRegions}
-            title="2. Upload Regions"
+            title="2. Upload Region Hierarchy"
             href="/getting-started/upload-regions"
             subtitle={`${numberOfRegions} regions uploaded`}
           />
@@ -61,32 +57,8 @@ export default function SetupStatus() {
             subtitle={`${numberOfCustomActivityCategoryCodes} custom activity category codes uploaded`}
           />
         </li>
-        <li className="mb-6">
-          <NavItem
-            done={!!numberOfLegalUnits}
-            title="6. Upload Legal Units"
-            href="/getting-started/upload-legal-units"
-            subtitle={`${numberOfLegalUnits} legal units uploaded`}
-          />
-        </li>
-        <li className="mb-6">
-          <NavItem
-            done={!!numberOfEstablishments}
-            title="7. Upload Establishments"
-            href="/getting-started/upload-establishments"
-            subtitle={`${numberOfEstablishments} establishments uploaded`}
-          />
-        </li>
-        <li className="mb-6">
-          <NavItem
-            done={hasStatisticalUnits}
-            title="8. Analysis for Search and Reports"
-            href="/getting-started/analyse-data-for-search-and-reports"
-            subtitle="Analyse data for search and reports"
-          />
-        </li>
         <li>
-          <NavItem title="9. Summary" href="/getting-started/summary" />
+          <NavItem title="6. Summary" href="/getting-started/summary" />
         </li>
       </ul>
     </nav>

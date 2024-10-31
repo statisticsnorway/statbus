@@ -29,7 +29,7 @@ export const DrillDownChart = ({
       _chart.current?.destroy();
       _chart.current = chart({
         chart: {
-          height: (BASE_HEIGHT+ROW_HEIGHT*(points?.length ?? 0)),
+          height: BASE_HEIGHT + ROW_HEIGHT * (points?.length ?? 0),
           renderTo: _ref.current,
           events: {
             drilldown: (e) =>
@@ -44,10 +44,10 @@ export const DrillDownChart = ({
               enabled: true,
               format: "{point.y:,.0f}",
               style: {
-                fontWeight: 'normal',
-                format: '{point.y:,.0f}',
-                textOutline: 'none',
-              }
+                fontWeight: "normal",
+                format: "{point.y:,.0f}",
+                textOutline: "none",
+              },
             },
           },
         },
@@ -56,7 +56,6 @@ export const DrillDownChart = ({
         },
         xAxis: {
           type: "category",
-          alternateGridColor: '#e6e6e6',
         },
         yAxis: {
           max: maxTopLevelValue,
@@ -79,6 +78,7 @@ export const DrillDownChart = ({
           activeAxisLabelStyle: {
             color: "black",
             fontWeight: "normal",
+            textDecoration: "none",
           },
           activeDataLabelStyle: {
             color: "black",
@@ -113,12 +113,12 @@ export const DrillDownChart = ({
 const getStatValue = (point: DrillDownPoint, variable: string): number =>
   variable === "count"
     ? point.count
-    : (point.stats_summary?.[variable]?.sum as number) ?? 0;
+    : ((point.stats_summary?.[variable]?.sum as number) ?? 0);
 
 const toPointOptionObject = (point: DrillDownPoint, variable: string) => ({
   name: `${point.path} - ${point.name}`,
   y: getStatValue(point, variable),
   drilldown: point.has_children ? "1" : "",
   custom: point,
-  color: "#00719c",
+  color: "#86ABD4",
 });

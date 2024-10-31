@@ -7,12 +7,12 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import React from "react";
-import { useGettingStarted } from "../GettingStartedContext";
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
+import { useImportUnits } from "../import-units-context";
 
 export default function UploadLegalUnitsPage() {
-  const { numberOfLegalUnits, refreshNumberOfLegalUnits } = useGettingStarted();
+  const { numberOfLegalUnits, refreshNumberOfLegalUnits } = useImportUnits();
 
   return (
     <section className="space-y-8">
@@ -30,7 +30,7 @@ export default function UploadLegalUnitsPage() {
 
       <UploadCSVForm
         uploadView="import_legal_unit_current"
-        nextPage="/getting-started/upload-establishments"
+        nextPage="/import/establishments"
         refreshRelevantCounts={refreshNumberOfLegalUnits}
       />
 
