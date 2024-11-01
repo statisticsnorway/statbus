@@ -3,7 +3,7 @@ import DataSourceOptions from "@/app/search/filters/data-source/data-source-opti
 
 export default async function DataSourceFilter() {
   const client = await createSupabaseSSRClient();
-  const {data: dataSources} = await client.from("data_source").select().filter('active','eq',true);
+  const {data: dataSources} = await client.from("data_source_used").select();
 
   return (
     <DataSourceOptions
