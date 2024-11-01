@@ -79,18 +79,26 @@ export function ResetConfirmationDialog() {
         <AlertDialogHeader>
           <AlertDialogTitle>Are you sure?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently reset the selected data.
+            This action cannot be undone. This will permanently reset the
+            selected data.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="py-4">
-          <Select value={scope} onValueChange={(value) => setScope(value as Enums<"reset_scope">)}>
+          <Select
+            value={scope}
+            onValueChange={(value) => setScope(value as Enums<"reset_scope">)}
+          >
             <SelectTrigger>
               <SelectValue placeholder="Select scope" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="data">Data only</SelectItem>
-              <SelectItem value="getting-started">Getting started</SelectItem>
-              <SelectItem value="all">All data</SelectItem>
+              <SelectItem value="data">Units only</SelectItem>
+              <SelectItem value="getting-started">
+                Units and classifications
+              </SelectItem>
+              <SelectItem value="all">
+                Units, classifications and customizations
+              </SelectItem>
             </SelectContent>
           </Select>
         </div>
