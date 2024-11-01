@@ -218,7 +218,7 @@ export function CommandPalette() {
               value="admin reset everything clean"
             >
               <Trash className="mr-2 h-4 w-4" />
-              <span>Reset Everything</span>
+              <span>Reset..</span>
             </CommandItem>
             <CommandItem onSelect={handleStatisticalUnitsRefresh}>
               <ListRestart className="mr-2 h-4 w-4" />
