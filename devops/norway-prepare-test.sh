@@ -13,6 +13,6 @@ pushd $WORKSPACE
 source .env-psql-development.sh
 psql < dbseed/delete-db-structure.sql 2>&1
 psql < dbseed/create-db-structure.sql 2>&1
-psql < samples/norway/setup.sql
+psql < samples/norway/getting-started.sql
 
 popd

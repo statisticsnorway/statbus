@@ -8,22 +8,18 @@ if test -n "$DEBUG"; then
   set -x # Print all commands before running them - for easy debugging.
 fi
 
-WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../.. && pwd )"
+WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../../.. && pwd )"
 
 pushd $WORKSPACE/tmp
 if test \! -f "enheter.csv"; then
   echo "Download brreg enheter"
-  cd tmp
-  curl --output enheter.csv.gz 'https://data.brreg.no/enhetsregisteret/oppslag/enheter/lastned/csv/v2'
+  curl --output enheter.csv.gz 'https://data.brreg.no/enhetsregisteret/api/enheter/lastned/csv'
   gunzip enheter.csv.gz
 fi
 
 if test \! -f "underenheter.csv"; then
   echo "Download brreg underenheter"
-  cd tmp
-  curl --output underenheter.csv.gz 'https://data.brreg.no/enhetsregisteret/oppslag/underenheter/lastned/csv/v2'
+  curl --output underenheter.csv.gz 'https://data.brreg.no/enhetsregisteret/api/underenheter/lastned/csv'
   gunzip underenheter.csv.gz
 fi
 popd
-
-psql < samples/norway/brreg-draw-samples.sql

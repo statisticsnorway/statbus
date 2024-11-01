@@ -435,8 +435,8 @@ $$;
 --SELECT * FROM gh.get_establishments_by_year(2024) limit 1;
 
 
--- \copy (SELECT * FROM brreg.enhet WHERE "organisasjonsnummer" IN (SELECT enhet_orgnr FROM gh.selection ORDER BY random LIMIT 5000)) TO 'samples/norway/enheter-selection-cli-with-mapping-import.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
--- \copy (SELECT * FROM brreg.underenhet WHERE "overordnetEnhet" IN (SELECT enhet_orgnr FROM gh.selection ORDER BY random LIMIT 5000)) TO 'samples/norway/underenheter-selection-cli-with-mapping-import.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
+-- \copy (SELECT * FROM brreg.enhet WHERE "organisasjonsnummer" IN (SELECT enhet_orgnr FROM gh.selection ORDER BY random LIMIT 5000)) TO 'samples/norway/legal_unit/enheter-selection-cli-with-mapping-import.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
+-- \copy (SELECT * FROM brreg.underenhet WHERE "overordnetEnhet" IN (SELECT enhet_orgnr FROM gh.selection ORDER BY random LIMIT 5000)) TO 'samples/norway/establishment/underenheter-selection-cli-with-mapping-import.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
 
 -- \copy (SELECT * FROM gh.enhet_for_view_import WHERE tax_ident IN (SELECT enhet_orgnr FROM gh.selection ORDER BY random LIMIT 100)) TO 'samples/norway/legal_unit/enheter-selection-web-import.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);
 -- \copy (SELECT * FROM brreg.underenhet_for_view_import WHERE legal_unit_tax_ident IN (SELECT enhet_orgnr FROM gh.selection ORDER BY random LIMIT 100)) TO 'samples/norway/establishment/underenheter-selection-web-import.csv' WITH (HEADER true, FORMAT csv, DELIMITER ',', QUOTE '"', FORCE_QUOTE *);

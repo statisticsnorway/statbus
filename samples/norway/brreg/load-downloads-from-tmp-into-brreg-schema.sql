@@ -1,4 +1,4 @@
-DROP SCHEMA brreg;
+DROP SCHEMA IF EXISTS brreg CASCADE;
 
 BEGIN;
 CREATE SCHEMA brreg;
@@ -18,7 +18,12 @@ CREATE UNLOGGED TABLE IF NOT EXISTS brreg.enhet
      , "hjelpeenhetskode.beskrivelse" TEXT
      , "harRegistrertAntallAnsatte" TEXT
      , "antallAnsatte" TEXT
+     , "registreringsdatoAntallAnsatteEnhetsregisteret" TEXT
+     , "registreringsdatoantallansatteNAVAaregisteret" TEXT
      , "hjemmeside" TEXT
+     , "epostadresse" TEXT
+     , "telefon" TEXT
+     , "mobil" TEXT
      , "postadresse.adresse" TEXT
      , "postadresse.poststed" TEXT
      , "postadresse.postnummer" TEXT
@@ -39,10 +44,17 @@ CREATE UNLOGGED TABLE IF NOT EXISTS brreg.enhet
      , "registreringsdatoenhetsregisteret" TEXT
      , "stiftelsesdato" TEXT
      , "registrertIMvaRegisteret" TEXT
+     , "registreringsdatoMerverdiavgiftsregisteret" TEXT
+     , "registreringsdatoMerverdiavgiftsregisteretEnhetsregisteret" TEXT
      , "frivilligMvaRegistrertBeskrivelser" TEXT
+     , "registreringsdatoFrivilligMerverdiavgiftsregisteret" TEXT
      , "registrertIFrivillighetsregisteret" TEXT
+     , "registreringsdatoFrivillighetsregisteret" TEXT
      , "registrertIForetaksregisteret" TEXT
+     , "registreringsdatoForetaksregisteret" TEXT
      , "registrertIStiftelsesregisteret" TEXT
+     , "registrertIPartiregisteret" TEXT
+     , "registreringsdatoPartiregisteret" TEXT
      , "konkurs" TEXT
      , "konkursdato" TEXT
      , "underAvvikling" TEXT
@@ -76,7 +88,12 @@ CREATE UNLOGGED TABLE IF NOT EXISTS brreg.underenhet
      , "hjelpeenhetskode.beskrivelse" TEXT
      , "harRegistrertAntallAnsatte" TEXT
      , "antallAnsatte" TEXT
+     , "registreringsdatoAntallAnsatteEnhetsregisteret" TEXT
+     , "registreringsdatoantallansatteNAVAaregisteret" TEXT
      , "hjemmeside" TEXT
+     , "epostadresse" TEXT
+     , "telefon" TEXT
+     , "mobil" TEXT
      , "postadresse.adresse" TEXT
      , "postadresse.poststed" TEXT
      , "postadresse.postnummer" TEXT
@@ -93,13 +110,15 @@ CREATE UNLOGGED TABLE IF NOT EXISTS brreg.underenhet
      , "beliggenhetsadresse.landkode" TEXT
      , "registreringsdatoIEnhetsregisteret" TEXT
      , "frivilligMvaRegistrertBeskrivelser" TEXT
+     , "registreringsdatoFrivilligMerverdiavgiftsregisteret" TEXT
      , "registrertIMvaregisteret" TEXT
+     , "registreringsdatoMerverdiavgiftsregisteret" TEXT
+     , "registreringsdatoMerverdiavgiftsregisteretEnhetsregisteret" TEXT
      , "oppstartsdato" TEXT
      , "datoEierskifte" TEXT
      , "overordnetEnhet" TEXT
      , "nedleggelsesdato" TEXT
      );
-
 
 \echo Copy tmp/enheter.csv into brreg.enhet
 \copy brreg.enhet FROM 'tmp/enheter.csv' WITH (HEADER MATCH, FORMAT csv, DELIMITER ',', QUOTE '"');

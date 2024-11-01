@@ -1,7 +1,7 @@
 BEGIN;
 \echo "Setting up Statbus for Norway"
 "Setting up Statbus for Norway"
-\i samples/norway/setup.sql
+\i samples/norway/getting-started.sql
 \i samples/norway/activity_category/activity_category_norway.sql
 INSERT INTO settings(activity_category_standard_id,only_one_setting)
 SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'
