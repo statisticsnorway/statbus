@@ -5226,7 +5226,7 @@ $$, ident_type.code);
     END LOOP;
 
     -- Loop over each stat_definition to create indices
-    FOR stat_definition IN SELECT * FROM public.stat_definition WHERE archived = false LOOP
+    FOR stat_definition IN SELECT * FROM public.stat_definition_active LOOP
         EXECUTE format($$
 CREATE INDEX IF NOT EXISTS su_s_%1$s_idx ON public.statistical_unit ((stats->>%1$L));
 CREATE INDEX IF NOT EXISTS su_ss_%1$s_sum_idx ON public.statistical_unit ((stats_summary->%1$L->>'sum'));
@@ -5253,6 +5253,7 @@ BEGIN
             OR indexname ILIKE 'su_s_%_idx'
             OR indexname ILIKE 'su_ss_%_sum_idx'
             OR indexname ILIKE 'su_ss_%_count_idx'
+        ORDER BY indexname
     LOOP
         EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
         RAISE NOTICE 'Dropped index %', r.indexname;

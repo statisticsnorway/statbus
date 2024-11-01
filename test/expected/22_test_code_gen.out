@@ -89,14 +89,14 @@ NOTICE:  Deleting public.import_establishment_era
 NOTICE:  Deleting public.import_legal_unit_current
 NOTICE:  Deleting admin.import_legal_unit_current_upsert()
 NOTICE:  Deleting public.import_legal_unit_era
-NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
-NOTICE:  Dropped index su_ss_employees_sum_idx
-NOTICE:  Dropped index su_ss_employees_count_idx
 NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_employees_count_idx
+NOTICE:  Dropped index su_ss_employees_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created index su_ei_tax_ident for external_ident_type
 NOTICE:  Created index su_ei_stat_ident for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
@@ -131,11 +131,11 @@ NOTICE:  Deleting public.import_establishment_era
 NOTICE:  Deleting public.import_legal_unit_current
 NOTICE:  Deleting admin.import_legal_unit_current_upsert()
 NOTICE:  Deleting public.import_legal_unit_era
-NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created index su_ei_tax_ident for external_ident_type
 NOTICE:  Created index su_ei_stat_ident for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
@@ -173,11 +173,11 @@ NOTICE:  Deleting public.import_establishment_era
 NOTICE:  Deleting public.import_legal_unit_current
 NOTICE:  Deleting admin.import_legal_unit_current_upsert()
 NOTICE:  Deleting public.import_legal_unit_era
-NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Created index su_ei_tax_ident for external_ident_type
 NOTICE:  Created index su_ei_stat_ident for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
@@ -215,20 +215,20 @@ NOTICE:  Deleting public.import_establishment_era
 NOTICE:  Deleting public.import_legal_unit_current
 NOTICE:  Deleting admin.import_legal_unit_current_upsert()
 NOTICE:  Deleting public.import_legal_unit_era
-NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_children_employees_idx
-NOTICE:  Dropped index su_ss_children_employees_sum_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
 NOTICE:  Dropped index su_ss_children_employees_count_idx
+NOTICE:  Dropped index su_ss_children_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created index su_ei_tax_ident for external_ident_type
 NOTICE:  Created index su_ei_stat_ident for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
@@ -267,17 +267,17 @@ NOTICE:  Deleting public.import_establishment_era
 NOTICE:  Deleting public.import_legal_unit_current
 NOTICE:  Deleting admin.import_legal_unit_current_upsert()
 NOTICE:  Deleting public.import_legal_unit_era
-NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_s_turnover_idx
 NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
 NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created index su_ei_tax_ident for external_ident_type
 NOTICE:  Created index su_ei_stat_ident for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
@@ -318,23 +318,23 @@ NOTICE:  Deleting public.import_establishment_era
 NOTICE:  Deleting public.import_legal_unit_current
 NOTICE:  Deleting admin.import_legal_unit_current_upsert()
 NOTICE:  Deleting public.import_legal_unit_era
-NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
 NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
 NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created index su_ei_tax_ident for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
@@ -373,21 +373,21 @@ NOTICE:  Deleting public.import_legal_unit_current
 NOTICE:  Deleting admin.import_legal_unit_current_upsert()
 NOTICE:  Deleting public.import_legal_unit_era
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
 NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
 NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
 NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created index su_ei_tax_ident for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
@@ -428,21 +428,21 @@ NOTICE:  Deleting public.import_legal_unit_current
 NOTICE:  Deleting admin.import_legal_unit_current_upsert()
 NOTICE:  Deleting public.import_legal_unit_era
 NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
 NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
 NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
 NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created index su_ei_tax_ident for external_ident_type
 NOTICE:  Created index su_ei_pin for external_ident_type
 NOTICE:  Created index su_ei_mobile for external_ident_type
@@ -482,24 +482,24 @@ NOTICE:  Deleting public.import_establishment_era
 NOTICE:  Deleting public.import_legal_unit_current
 NOTICE:  Deleting admin.import_legal_unit_current_upsert()
 NOTICE:  Deleting public.import_legal_unit_era
-NOTICE:  Dropped index su_ei_tax_ident_idx
-NOTICE:  Dropped index su_ei_pin_idx
 NOTICE:  Dropped index su_ei_mobile_idx
-NOTICE:  Dropped index su_s_turnover_idx
-NOTICE:  Dropped index su_ss_turnover_sum_idx
-NOTICE:  Dropped index su_ss_turnover_count_idx
-NOTICE:  Dropped index su_s_men_employees_idx
-NOTICE:  Dropped index su_ss_men_employees_sum_idx
-NOTICE:  Dropped index su_ss_men_employees_count_idx
-NOTICE:  Dropped index su_s_women_employees_idx
-NOTICE:  Dropped index su_ss_women_employees_sum_idx
-NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ei_pin_idx
+NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_boy_employees_idx
-NOTICE:  Dropped index su_ss_boy_employees_sum_idx
-NOTICE:  Dropped index su_ss_boy_employees_count_idx
 NOTICE:  Dropped index su_s_girl_employees_idx
-NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_s_men_employees_idx
+NOTICE:  Dropped index su_s_turnover_idx
+NOTICE:  Dropped index su_s_women_employees_idx
+NOTICE:  Dropped index su_ss_boy_employees_count_idx
+NOTICE:  Dropped index su_ss_boy_employees_sum_idx
 NOTICE:  Dropped index su_ss_girl_employees_count_idx
+NOTICE:  Dropped index su_ss_girl_employees_sum_idx
+NOTICE:  Dropped index su_ss_men_employees_count_idx
+NOTICE:  Dropped index su_ss_men_employees_sum_idx
+NOTICE:  Dropped index su_ss_turnover_count_idx
+NOTICE:  Dropped index su_ss_turnover_sum_idx
+NOTICE:  Dropped index su_ss_women_employees_count_idx
+NOTICE:  Dropped index su_ss_women_employees_sum_idx
 NOTICE:  Created index su_ei_tax_ident for external_ident_type
 NOTICE:  Created index su_ei_pin for external_ident_type
 NOTICE:  Created indices for stat_definition turnover
