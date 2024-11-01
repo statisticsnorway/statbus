@@ -27,6 +27,3 @@ fi
 popd
 
 psql < samples/norway/brreg-draw-samples.sql
-
-mv -f samples/norway/enheter-selection-web-import.csv app/public/enheter-selection-web-import.csv
-mv -f samples/norway/underenheter-selection-web-import.csv app/public/underenheter-selection-web-import.csv
