@@ -3954,8 +3954,8 @@ CREATE VIEW public.timeline_establishment
            , s.code AS sector_code
            , s.name AS sector_name
            --
-           , ds.ids AS data_source_ids
-           , ds.codes AS data_source_codes
+           , COALESCE(ds.ids, ARRAY[]::INTEGER[]) AS data_source_ids
+           , COALESCE(ds.codes, ARRAY[]::TEXT[]) AS data_source_codes
            --
            , NULL::INTEGER AS legal_form_id
            , NULL::TEXT    AS legal_form_code
@@ -4034,7 +4034,7 @@ CREATE VIEW public.timeline_establishment
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
       LEFT JOIN LATERAL (
-            SELECT array_agg(sfu.data_source_id) AS data_source_ids
+            SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
             FROM public.stat_for_unit AS sfu
             WHERE sfu.establishment_id = es.id
               AND daterange(t.valid_after, t.valid_to, '(]')
@@ -4133,8 +4133,8 @@ CREATE VIEW public.timeline_legal_unit
            , s.code  AS sector_code
            , s.name  AS sector_name
            --
-           , ds.ids AS data_source_ids
-           , ds.codes AS data_source_codes
+           , COALESCE(ds.ids,ARRAY[]::INTEGER[]) AS data_source_ids
+           , COALESCE(ds.codes, ARRAY[]::TEXT[]) AS data_source_codes
            --
            , lf.id   AS legal_form_id
            , lf.code AS legal_form_code
@@ -4214,7 +4214,7 @@ CREATE VIEW public.timeline_legal_unit
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
       LEFT JOIN LATERAL (
-              SELECT array_agg(sfu.data_source_id) AS data_source_ids
+              SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
               FROM public.stat_for_unit AS sfu
               WHERE sfu.legal_unit_id = lu.id
                 AND daterange(t.valid_after, t.valid_to, '(]')
@@ -4273,12 +4273,12 @@ CREATE VIEW public.timeline_legal_unit
                ) AS ids
            ) AS data_source_ids
            , (
-               SELECT array_agg(DISTINCT id)
+               SELECT array_agg(DISTINCT code)
                FROM (
-                   SELECT unnest(basis.data_source_codes) AS id
+                   SELECT unnest(basis.data_source_codes) AS code
                    UNION ALL
-                   SELECT unnest(aggregation.data_source_codes) AS id
-               ) AS ids
+                   SELECT unnest(aggregation.data_source_codes) AS code
+               ) AS codes
            ) AS data_source_codes
            , basis.legal_form_id
            , basis.legal_form_code
@@ -4400,8 +4400,8 @@ CREATE VIEW public.timeline_enterprise
            , s.code AS sector_code
            , s.name AS sector_name
            --
-           , ds.ids AS data_source_ids
-           , ds.codes AS data_source_codes
+           , COALESCE(ds.ids,ARRAY[]::INTEGER[]) AS data_source_ids
+           , COALESCE(ds.codes, ARRAY[]::TEXT[]) AS data_source_codes
            --
            , lf.id   AS legal_form_id
            , lf.code AS legal_form_code
@@ -4524,8 +4524,8 @@ CREATE VIEW public.timeline_enterprise
            , s.code AS sector_code
            , s.name AS sector_name
            --
-           , ds.ids AS data_source_ids
-           , ds.codes AS data_source_codes
+           , COALESCE(ds.ids,ARRAY[]::INTEGER[]) AS data_source_ids
+           , COALESCE(ds.codes, ARRAY[]::TEXT[]) AS data_source_codes
            --
            -- An establishment has no legal_form, that is for legal_unit only.
            , NULL::INTEGER AS legal_form_id
@@ -4677,12 +4677,12 @@ CREATE VIEW public.timeline_enterprise
                    ) AS ids
                ) AS data_source_ids
                , (
-                   SELECT array_agg(DISTINCT id)
+                   SELECT array_agg(DISTINCT code)
                    FROM (
-                       SELECT unnest(basis.data_source_codes) AS id
-                       UNION
-                       SELECT unnest(lua.data_source_codes) AS id
-                   ) AS ids
+                       SELECT unnest(basis.data_source_codes) AS code
+                       UNION ALL
+                       SELECT unnest(lua.data_source_codes) AS code
+                   ) AS codes
                ) AS data_source_codes
                , basis.legal_form_id
                , basis.legal_form_code
@@ -4745,12 +4745,12 @@ CREATE VIEW public.timeline_enterprise
                    ) AS ids
                ) AS data_source_ids
                , (
-                   SELECT array_agg(DISTINCT id)
+                   SELECT array_agg(DISTINCT code)
                    FROM (
-                       SELECT unnest(basis.data_source_codes) AS id
-                       UNION
-                       SELECT unnest(esa.data_source_codes) AS id
-                   ) AS ids
+                       SELECT unnest(basis.data_source_codes) AS code
+                       UNION ALL
+                       SELECT unnest(esa.data_source_codes) AS code
+                   ) AS codes
                ) AS data_source_codes
                , basis.legal_form_id
                , basis.legal_form_code
