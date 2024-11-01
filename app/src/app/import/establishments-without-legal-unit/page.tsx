@@ -87,8 +87,8 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
               structured:
             </p>
             <a
-              href="/informal_establishments_units_demo.csv"
-              download="informalestablishments.example.csv"
+              href="/demo/informal_establishments_units_demo.csv"
+              download="informal_establishments.example.csv"
               className="underline"
             >
               Download example CSV file

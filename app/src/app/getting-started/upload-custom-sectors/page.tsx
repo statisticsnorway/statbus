@@ -78,7 +78,7 @@ export default function UploadCustomSectorsPage() {
               using international standards.
             </p>
             <a
-              href="/sectors_demo.csv"
+              href="/demo/sectors_demo.csv"
               download="sectors.example.csv"
               className="underline"
             >

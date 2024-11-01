@@ -60,8 +60,8 @@ export default function UploadLegalUnitsPage() {
               structured:
             </p>
             <a
-              href="/legal_units_demo.csv"
-              download="legalunits.example.csv"
+              href="/demo/legal_units_demo.csv"
+              download="legal_units.example.csv"
               className="underline"
             >
               Download example CSV file
