@@ -7063,6 +7063,7 @@ DECLARE
         , 'activity_category_used'
         , 'region_used'
         , 'sector_used'
+        , 'data_source_used'
         , 'legal_form_used'
         , 'country_used'
         , 'statistical_unit_facet'
