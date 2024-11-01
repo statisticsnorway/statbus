@@ -44,7 +44,7 @@ export default function UploadRegionsPage() {
               in order to be processed correctly.
             </p>
             <a
-              href="/norway-regions-2024.csv"
+              href="/regions_demo.csv"
               download="regions.example.csv"
               className="underline"
             >

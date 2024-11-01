@@ -24,7 +24,10 @@ export default function UploadCustomSectorsPage() {
 
       {!!numberOfCustomLegalForms && numberOfCustomLegalForms > 0 && (
         <InfoBox>
-          <p>There are already {numberOfCustomLegalForms} custom legal forms defined</p>
+          <p>
+            There are already {numberOfCustomLegalForms} custom legal forms
+            defined
+          </p>
         </InfoBox>
       )}
 
@@ -80,7 +83,7 @@ export default function UploadCustomSectorsPage() {
               business environments.
             </p>
             <a
-              href="/legal_form_norway.csv"
+              href="/legal_forms_demo.csv"
               download="legal_form.example.csv"
               className="underline"
             >

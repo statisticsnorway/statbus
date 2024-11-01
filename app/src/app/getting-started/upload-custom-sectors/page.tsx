@@ -24,7 +24,9 @@ export default function UploadCustomSectorsPage() {
 
       {!!numberOfCustomSectors && numberOfCustomSectors > 0 && (
         <InfoBox>
-          <p>There are already {numberOfCustomSectors} custom sectors defined</p>
+          <p>
+            There are already {numberOfCustomSectors} custom sectors defined
+          </p>
         </InfoBox>
       )}
 
@@ -76,7 +78,7 @@ export default function UploadCustomSectorsPage() {
               using international standards.
             </p>
             <a
-              href="/sector_norway.csv"
+              href="/sectors_demo.csv"
               download="sectors.example.csv"
               className="underline"
             >
