@@ -10,9 +10,9 @@ export default async function DataSourceFilter() {
       dataSources={dataSources ?? []}
       options={
         dataSources?.map(({ code, name }) => ({
-          label: name,
-          value: code,
-          humanReadableValue: name,
+          label: name!,
+          value: code!,
+          humanReadableValue: name!,
         })) ?? []
       }
     />

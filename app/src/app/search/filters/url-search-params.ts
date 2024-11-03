@@ -182,7 +182,7 @@ export function dataSourceDeriveStateUpdateFromSearchParams(urlSearchParams: URL
   return dataSourceDeriveStateUpdateFromValues(initialValues, dataSources);
 }
 
-export function dataSourceDeriveStateUpdateFromValues(values: (string | null)[], dataSources: Tables<"data_source">[]): SearchAction {
+export function dataSourceDeriveStateUpdateFromValues(values: (string | null)[], dataSources: Tables<"data_source_used">[]): SearchAction {
   const codeToIdMap = new Map(dataSources.map(ds => [ds.code, ds.id]));
   const ids = values
     .filter(value => value !== null) // Remove null values

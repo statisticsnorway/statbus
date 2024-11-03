@@ -63,3 +63,27 @@ export interface SetQuery {
 }
 
 export type SearchAction = SetQuery | ResetAll | SetOrder | SetPage;
+// Define TableColumnVisibilityType with string literals
+export type TableColumnVisibilityType = 'Adaptable' | 'Always';
+
+export type TableColumnCode = 'name' | 'activity' | 'region' | 'statistic' | 'sector' | 'data_sources';
+
+// Extend the base interface based on visibility type
+export interface AdaptableTableColumn{
+  type: 'Adaptable';
+  code: TableColumnCode;
+  stat_code: string | null;
+  label: string;
+  visible: boolean;
+}
+
+export interface AlwaysTableColumn{
+  type: 'Always';
+  code: TableColumnCode;
+  label: string;
+}
+
+// Discriminated union of all column types
+export type TableColumn = AdaptableTableColumn | AlwaysTableColumn;
+
+export type TableColumns = TableColumn[];

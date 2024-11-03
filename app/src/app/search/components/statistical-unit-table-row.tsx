@@ -1,5 +1,6 @@
 "use client";
 import { Tables } from "@/lib/database.types";
+import { TableColumn, TableColumnCode } from "../search.d";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
@@ -13,6 +14,7 @@ import { StatisticalUnit } from "@/app/types";
 import { InvalidCodes } from "./invalid-codes";
 import { Popover, PopoverContent } from "@/components/ui/popover";
 import { PopoverTrigger } from "@radix-ui/react-popover";
+import { useTableColumns } from "../use-table-columns";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;
@@ -28,14 +30,22 @@ export const StatisticalUnitTableRow = ({
   const { allRegions, allActivityCategories, allDataSources } = useSearchContext();
   const { statDefinitions, externalIdentTypes } = useBaseData();
   const { selected } = useSelectionContext();
+  const { columns } = useTableColumns();
 
+  // Force re-render when columns change
+  const visibleColumns = columns
+    .filter(c => c.type === 'Always' || c.visible)
+    .map(c => `${c.code}${c.type === 'Adaptable' ? `-${c.stat_code}` : ''}`)
+    .join('-');
+  
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
   );
 
   const {
-    unit_type: type,
-    unit_id: id,
+    unit_type,
+    unit_id,
+    valid_from,
     name,
     primary_activity_category_path,
     physical_region_path,
@@ -88,97 +98,139 @@ export const StatisticalUnitTableRow = ({
     }
   };
 
+  const getCellClassName = (column: TableColumn) => {
+    return cn(
+      "py-2",
+      // Adaptable columns are hidden on small screens
+      column.type === 'Adaptable' && "hidden",
+      // Show on large screens only if visible
+      column.type === 'Adaptable' && column.visible && "lg:table-cell",
+      // Add specific styling for statistic columns
+      column.code === 'statistic' && "text-right"
+    );
+  };
+
+  const rowKey = `row-${unit_type}-${unit_id}-${valid_from}-${visibleColumns}`;
+
+  const cellKey = (column: TableColumn) => {
+    return `${rowKey}-${column.code}${column.type === 'Adaptable' ? `-${column.stat_code}` : ''}`
+  }
+
   return (
-    <TableRow className={cn("", className, isInBasket ? "bg-gray-100" : "")}>
-      <TableCell className="py-2">
-        <div
-          className="flex items-center space-x-3 leading-tight"
-          title={name ?? ""}
-        >
-          <StatisticalUnitIcon type={type} className="w-5" />
-          <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
-            {type && id && name ? (
-              <StatisticalUnitDetailsLink
-                className="overflow-hidden overflow-ellipsis whitespace-nowrap"
-                id={id}
-                type={type}
-              >
-                {name}
-              </StatisticalUnitDetailsLink>
-            ) : (
-              <span className="font-medium">{name}</span>
-            )}
-            <small className="text-gray-700 flex items-center space-x-1">
-              <span className="flex">
-                {externalIdentTypes
-                  ?.map(({ code }) => external_idents[code!] || "")
-                  .join(" | ")}
-              </span>
-              {invalid_codes && (
-                <>
-                  <span>|</span>
-                  <InvalidCodes invalidCodes={JSON.stringify(invalid_codes)} />
-                </>
-              )}
-            </small>
-          </div>
-        </div>
-      </TableCell>
+    <TableRow key={rowKey} className={cn("", className, isInBasket ? "bg-gray-100" : "")}>
+      {columns.map(column => {
+        if (column.type === 'Adaptable' && !column.visible) {
+          return null;
+        }
+        const key = cellKey(column);
+        switch (column.code) {
+          case 'name':
+            if (column.type !== 'Always') return null;
+            return (
+              <TableCell key={key} className={getCellClassName(column)}>
+                <div className="flex items-center space-x-3 leading-tight" title={name ?? ""}>
+                  <StatisticalUnitIcon type={unit_type} className="w-5" />
+                  <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
+                    {unit_type && unit_id && name ? (
+                      <StatisticalUnitDetailsLink
+                        className="overflow-hidden overflow-ellipsis whitespace-nowrap"
+                        id={unit_id}
+                        type={unit_type}
+                      >
+                        {name}
+                      </StatisticalUnitDetailsLink>
+                    ) : (
+                      <span className="font-medium">{name}</span>
+                    )}
+                    <small className="text-gray-700 flex items-center space-x-1">
+                      <span className="flex">
+                        {externalIdentTypes
+                          ?.map(({ code }) => external_idents[code!] || "")
+                          .join(" | ")}
+                      </span>
+                      {invalid_codes && (
+                        <>
+                          <span>|</span>
+                          <InvalidCodes invalidCodes={JSON.stringify(invalid_codes)} />
+                        </>
+                      )}
+                    </small>
+                  </div>
+                </div>
+              </TableCell>
+            );
+
+          case 'activity':
+            return (
+              <TableCell key={key} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span>{activityCategory?.code}</span>
+                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
+                    {activityCategory?.name}
+                  </small>
+                </div>
+              </TableCell>
+            );
+
+          case 'region':
+            return (
+              <TableCell key={key} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span>{region?.code}</span>
+                  <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                    {region?.name}
+                  </small>
+                </div>
+              </TableCell>
+            );
+
+          case 'statistic':
+            if (column.type === 'Adaptable' && column.stat_code) {
+              return (
+                <TableCell key={key} className={getCellClassName(column)}>
+                  {thousandSeparator(stats_summary[column.stat_code]?.sum)}
+                </TableCell>
+              );
+            }
+            return null;
+
+          case 'sector':
+            return (
+              <TableCell key={key} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span>{sector_code}</span>
+                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
+                    {sector_name}
+                  </small>
+                </div>
+              </TableCell>
+            );
+
+          case 'data_sources':
+            return (
+              <TableCell key={key} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  {dataSources.map((ds) => (
+                    <Popover key={`dataSource-${ds?.id}`}>
+                      <PopoverTrigger asChild>
+                        <span className="cursor-pointer" title={ds?.name}>
+                          {ds?.code}
+                        </span>
+                      </PopoverTrigger>
+                      <PopoverContent className="p-1.5 w-full">
+                        <p className="text-xs">{ds?.name}</p>
+                      </PopoverContent>
+                    </Popover>
+                  ))}
+                </div>
+              </TableCell>
+            );
+        }
+      })}
       <TableCell
-        title={region?.name ?? ""}
-        className="py-2 text-left hidden lg:table-cell"
+        key="column-action"
+        className="py-2 p-1 text-right"
       >
-        <div className="flex flex-col space-y-0.5 leading-tight">
-          <span>{region?.code}</span>
-          <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
-            {region?.name}
-          </small>
-        </div>
-      </TableCell>
-      {statDefinitions.map(({ code }) => (
-        <TableCell key={code} className="py-2 text-right hidden lg:table-cell">
-          {thousandSeparator(stats_summary[code!]?.sum)}
-        </TableCell>
-      ))}
-      <TableCell
-        className="py-2 text-left hidden lg:table-cell"
-        title={sector_name ?? ""}
-      >
-        <div className="flex flex-col space-y-0.5 leading-tight">
-          <span>{sector_code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
-            {sector_name}
-          </small>
-        </div>
-      </TableCell>
-      <TableCell
-        title={activityCategory?.name ?? ""}
-        className="py-2 pl-4 pr-2 text-left hidden lg:table-cell "
-      >
-        <div className="flex flex-col space-y-0.5 leading-tight">
-          <span>{activityCategory?.code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
-            {activityCategory?.name}
-          </small>
-        </div>
-      </TableCell>
-      <TableCell className="py-2 text-left hidden lg:table-cell">
-        <div className="flex flex-col space-y-0.5 leading-tight">
-          {dataSources.map((ds) => (
-            <Popover key={`dataSource-${ds?.id}`}>
-              <PopoverTrigger asChild>
-                <span className="cursor-pointer" title={ds?.name}>
-                  {ds?.code}
-                </span>
-              </PopoverTrigger>
-              <PopoverContent className="p-1.5 w-full">
-                <p className="text-xs">{ds?.name}</p>
-              </PopoverContent>
-            </Popover>
-          ))}
-        </div>
-      </TableCell>
-      <TableCell className="p-1 text-right">
         <SearchResultTableRowDropdownMenu unit={unit} />
       </TableCell>
     </TableRow>
