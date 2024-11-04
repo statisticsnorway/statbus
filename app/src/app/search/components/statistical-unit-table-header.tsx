@@ -18,15 +18,12 @@ export function StatisticalUnitTableHeader({
   maxRegionLevel,
 }: StatisticalUnitTableHeaderProps) {
   const { statDefinitions, externalIdentTypes } = useBaseData();
-  const { columns, toggleColumn, resetColumns, isDefaultState , headerRowSuffix, headerCellSuffix} = useTableColumns();
+  const { columns, visibleColumns, toggleColumn, resetColumns, isDefaultState , headerRowSuffix, headerCellSuffix} = useTableColumns();
 
   return (
     <TableHeader className="bg-gray-50">
       <TableRow key={`h-row-${headerRowSuffix}`}>
-        {columns.map(column => {
-          if (column.type === 'Adaptable' && !column.visible) {
-            return null;
-          }
+        {visibleColumns.map(column => {
           switch (column.code) {
             case 'name':
               return (

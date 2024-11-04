@@ -106,18 +106,22 @@ export function useTableColumns() {
     }
   }, [columns, default_columns]);
 
-  // Force re-render when columns change
-  const visibleColumnsSuffix = useMemo(() => {
-    const suffix =
-      columns
-        .filter(c => c.type === 'Always' || c.visible)
-        .map(c => `${c.code}${c.type === 'Adaptable' && c.code === 'statistic' ? `-${c.stat_code}` : ''}`)
-        .join('-');
-    return suffix;
-  }, [columns]);
+  // Standardise how to create keys for UI updates
   const columnSuffix = (column: TableColumn) => {
     return `${column.code}${column.type === 'Adaptable' && column.code === 'statistic' ? `-${column.stat_code}` : ''}`
   };
+
+  const visibleColumns = useMemo(() => {
+    return columns.filter(c => c.type === 'Always' || c.visible)
+  }, [columns]);
+
+  const visibleColumnsSuffix = useMemo(() => {
+    const suffix = visibleColumns
+        .map(c => columnSuffix(c))
+        .join('-');
+    return suffix;
+  }, [visibleColumns]);
+
   const unitSuffix = (unit: Tables<"statistical_unit">) => {
     return `${unit.unit_type}-${unit.unit_id}-${unit.valid_from}`
   };
@@ -133,6 +137,7 @@ export function useTableColumns() {
 
   return {
     columns,
+    visibleColumns,
     toggleColumn,
     resetColumns,
     isDefaultState,

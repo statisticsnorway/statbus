@@ -1,4 +1,5 @@
 import { TimeContext } from "../types";
+import { Tables } from "@/lib/database.types";
 
 export type SearchFilterOption = {
   readonly label: string;
