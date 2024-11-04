@@ -1645,7 +1645,6 @@ CREATE TABLE public.external_ident (
     enterprise_id INTEGER REFERENCES public.enterprise(id) ON DELETE CASCADE,
     enterprise_group_id INTEGER CHECK (admin.enterprise_group_id_exists(enterprise_group_id)),
     updated_by_user_id INTEGER NOT NULL REFERENCES public.statbus_user(id) ON DELETE CASCADE,
-    UNIQUE (ident, type_id),
     CONSTRAINT "One and only one statistical unit id must be set"
     CHECK( establishment_id IS NOT NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS     NULL AND enterprise_group_id IS     NULL
@@ -1653,6 +1652,12 @@ CREATE TABLE public.external_ident (
         OR establishment_id IS     NULL AND legal_unit_id IS     NULL AND enterprise_id IS     NULL AND enterprise_group_id IS NOT NULL
         )
 );
+
+CREATE UNIQUE INDEX external_ident_type_for_ident ON public.external_ident(type_id, ident);
+CREATE UNIQUE INDEX external_ident_type_for_establishment ON public.external_ident(type_id, establishment_id) WHERE establishment_id IS NOT NULL;
+CREATE UNIQUE INDEX external_ident_type_for_legal_unit ON public.external_ident(type_id, legal_unit_id) WHERE legal_unit_id IS NOT NULL;
+CREATE UNIQUE INDEX external_ident_type_for_enterprise ON public.external_ident(type_id, enterprise_id) WHERE enterprise_id IS NOT NULL;
+CREATE UNIQUE INDEX external_ident_type_for_enterprise_group ON public.external_ident(type_id, enterprise_group_id) WHERE enterprise_group_id IS NOT NULL;
 CREATE INDEX external_ident_establishment_id_idx ON public.external_ident(establishment_id);
 CREATE INDEX external_ident_legal_unit_id_idx ON public.external_ident(legal_unit_id);
 CREATE INDEX external_ident_enterprise_id_idx ON public.external_ident(enterprise_id);
@@ -3954,8 +3959,8 @@ CREATE VIEW public.timeline_establishment
            , s.code AS sector_code
            , s.name AS sector_name
            --
-           , ds.ids AS data_source_ids
-           , ds.codes AS data_source_codes
+           , COALESCE(ds.ids, ARRAY[]::INTEGER[]) AS data_source_ids
+           , COALESCE(ds.codes, ARRAY[]::TEXT[]) AS data_source_codes
            --
            , NULL::INTEGER AS legal_form_id
            , NULL::TEXT    AS legal_form_code
@@ -4034,7 +4039,7 @@ CREATE VIEW public.timeline_establishment
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
       LEFT JOIN LATERAL (
-            SELECT array_agg(sfu.data_source_id) AS data_source_ids
+            SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
             FROM public.stat_for_unit AS sfu
             WHERE sfu.establishment_id = es.id
               AND daterange(t.valid_after, t.valid_to, '(]')
@@ -4133,8 +4138,8 @@ CREATE VIEW public.timeline_legal_unit
            , s.code  AS sector_code
            , s.name  AS sector_name
            --
-           , ds.ids AS data_source_ids
-           , ds.codes AS data_source_codes
+           , COALESCE(ds.ids,ARRAY[]::INTEGER[]) AS data_source_ids
+           , COALESCE(ds.codes, ARRAY[]::TEXT[]) AS data_source_codes
            --
            , lf.id   AS legal_form_id
            , lf.code AS legal_form_code
@@ -4214,7 +4219,7 @@ CREATE VIEW public.timeline_legal_unit
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
       LEFT JOIN LATERAL (
-              SELECT array_agg(sfu.data_source_id) AS data_source_ids
+              SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
               FROM public.stat_for_unit AS sfu
               WHERE sfu.legal_unit_id = lu.id
                 AND daterange(t.valid_after, t.valid_to, '(]')
@@ -4273,12 +4278,12 @@ CREATE VIEW public.timeline_legal_unit
                ) AS ids
            ) AS data_source_ids
            , (
-               SELECT array_agg(DISTINCT id)
+               SELECT array_agg(DISTINCT code)
                FROM (
-                   SELECT unnest(basis.data_source_codes) AS id
+                   SELECT unnest(basis.data_source_codes) AS code
                    UNION ALL
-                   SELECT unnest(aggregation.data_source_codes) AS id
-               ) AS ids
+                   SELECT unnest(aggregation.data_source_codes) AS code
+               ) AS codes
            ) AS data_source_codes
            , basis.legal_form_id
            , basis.legal_form_code
@@ -4400,8 +4405,8 @@ CREATE VIEW public.timeline_enterprise
            , s.code AS sector_code
            , s.name AS sector_name
            --
-           , ds.ids AS data_source_ids
-           , ds.codes AS data_source_codes
+           , COALESCE(ds.ids,ARRAY[]::INTEGER[]) AS data_source_ids
+           , COALESCE(ds.codes, ARRAY[]::TEXT[]) AS data_source_codes
            --
            , lf.id   AS legal_form_id
            , lf.code AS legal_form_code
@@ -4524,8 +4529,8 @@ CREATE VIEW public.timeline_enterprise
            , s.code AS sector_code
            , s.name AS sector_name
            --
-           , ds.ids AS data_source_ids
-           , ds.codes AS data_source_codes
+           , COALESCE(ds.ids,ARRAY[]::INTEGER[]) AS data_source_ids
+           , COALESCE(ds.codes, ARRAY[]::TEXT[]) AS data_source_codes
            --
            -- An establishment has no legal_form, that is for legal_unit only.
            , NULL::INTEGER AS legal_form_id
@@ -4677,12 +4682,12 @@ CREATE VIEW public.timeline_enterprise
                    ) AS ids
                ) AS data_source_ids
                , (
-                   SELECT array_agg(DISTINCT id)
+                   SELECT array_agg(DISTINCT code)
                    FROM (
-                       SELECT unnest(basis.data_source_codes) AS id
-                       UNION
-                       SELECT unnest(lua.data_source_codes) AS id
-                   ) AS ids
+                       SELECT unnest(basis.data_source_codes) AS code
+                       UNION ALL
+                       SELECT unnest(lua.data_source_codes) AS code
+                   ) AS codes
                ) AS data_source_codes
                , basis.legal_form_id
                , basis.legal_form_code
@@ -4745,12 +4750,12 @@ CREATE VIEW public.timeline_enterprise
                    ) AS ids
                ) AS data_source_ids
                , (
-                   SELECT array_agg(DISTINCT id)
+                   SELECT array_agg(DISTINCT code)
                    FROM (
-                       SELECT unnest(basis.data_source_codes) AS id
-                       UNION
-                       SELECT unnest(esa.data_source_codes) AS id
-                   ) AS ids
+                       SELECT unnest(basis.data_source_codes) AS code
+                       UNION ALL
+                       SELECT unnest(esa.data_source_codes) AS code
+                   ) AS codes
                ) AS data_source_codes
                , basis.legal_form_id
                , basis.legal_form_code
@@ -5226,7 +5231,7 @@ $$, ident_type.code);
     END LOOP;
 
     -- Loop over each stat_definition to create indices
-    FOR stat_definition IN SELECT * FROM public.stat_definition WHERE archived = false LOOP
+    FOR stat_definition IN SELECT * FROM public.stat_definition_active LOOP
         EXECUTE format($$
 CREATE INDEX IF NOT EXISTS su_s_%1$s_idx ON public.statistical_unit ((stats->>%1$L));
 CREATE INDEX IF NOT EXISTS su_ss_%1$s_sum_idx ON public.statistical_unit ((stats_summary->%1$L->>'sum'));
@@ -5253,6 +5258,7 @@ BEGIN
             OR indexname ILIKE 'su_s_%_idx'
             OR indexname ILIKE 'su_ss_%_sum_idx'
             OR indexname ILIKE 'su_ss_%_count_idx'
+        ORDER BY indexname
     LOOP
         EXECUTE format('DROP INDEX IF EXISTS %I', r.indexname);
         RAISE NOTICE 'Dropped index %', r.indexname;
@@ -7062,6 +7068,7 @@ DECLARE
         , 'activity_category_used'
         , 'region_used'
         , 'sector_used'
+        , 'data_source_used'
         , 'legal_form_used'
         , 'country_used'
         , 'statistical_unit_facet'
@@ -8409,10 +8416,26 @@ BEGIN
                     ident_row := jsonb_populate_record(NULL::public.external_ident,ident_jsonb);
                     external_idents := array_append(external_idents, ident_row);
                 ELSE -- FOUND
-                    unit_fk_value := (ident_jsonb -> unit_fk_field)::INTEGER;
+                    unit_fk_value := (ident_jsonb ->> unit_fk_field)::INTEGER;
                     IF unit_fk_value IS NULL THEN
-                        RAISE EXCEPTION 'The external identifier % is not for a % but % for row %'
-                                        , ident_code, unit_type, ident_jsonb, new_jsonb;
+                        DECLARE
+                          conflicting_unit_type TEXT;
+                        BEGIN
+                          CASE
+                            WHEN (ident_jsonb ->> 'establishment_id') IS NOT NULL THEN
+                              conflicting_unit_type := 'establishment';
+                            WHEN (ident_jsonb ->> 'legal_unit_id') IS NOT NULL THEN
+                              conflicting_unit_type := 'legal_unit';
+                            WHEN (ident_jsonb ->> 'enterprise_id') IS NOT NULL THEN
+                              conflicting_unit_type := 'enterprise';
+                            WHEN (ident_jsonb ->> 'enterprise_group_id') IS NOT NULL THEN
+                              conflicting_unit_type := 'enterprise_group';
+                            ELSE
+                              RAISE EXCEPTION 'Missing logic for external_ident %', ident_jsonb;
+                          END CASE;
+                          RAISE EXCEPTION 'The external identifier % for % already taken by a % for row %'
+                                          , ident_code, unit_type, conflicting_unit_type, new_jsonb;
+                        END;
                     END IF;
                     IF prior_id IS NULL THEN
                         prior_id := unit_fk_value;
@@ -8434,14 +8457,116 @@ END; -- Process external identifiers
 $process_external_idents$ LANGUAGE plpgsql;
 
 
+\echo admin.insert_external_idents
+CREATE FUNCTION admin.insert_external_idents(
+    new_jsonb JSONB,
+    external_idents_to_add public.external_ident[],
+    p_legal_unit_id INTEGER,
+    p_establishment_id INTEGER,
+    p_updated_by_user_id INTEGER
+) RETURNS void LANGUAGE plpgsql AS $insert_external_idents$
+DECLARE
+  unit_type TEXT;
+BEGIN
+  -- Ensure that either legal_unit_id or establishment_id is provided, but not both.
+  IF (p_legal_unit_id IS NOT NULL AND p_establishment_id IS NOT NULL) OR
+      (p_legal_unit_id IS NULL AND p_establishment_id IS NULL) THEN
+      RAISE EXCEPTION 'Must provide either a p_legal_unit_id or an p_establishment_id, but not both.';
+  END IF;
+
+  IF array_length(external_idents_to_add, 1) > 0 THEN
+    BEGIN
+      IF p_legal_unit_id IS NOT NULL THEN
+        unit_type := 'legal_unit';
+        -- Insert for legal units if legal_unit_id is provided.
+        INSERT INTO public.external_ident
+            ( type_id
+            , ident
+            , legal_unit_id
+            , updated_by_user_id
+            )
+        SELECT type_id
+              , ident
+              , p_legal_unit_id
+              , p_updated_by_user_id
+        FROM unnest(external_idents_to_add);
+      ELSIF p_establishment_id IS NOT NULL THEN
+        unit_type := 'establishment';
+        -- Insert for establishments if establishment_id is provided.
+        INSERT INTO public.external_ident
+            ( type_id
+            , ident
+            , establishment_id
+            , updated_by_user_id
+            )
+        SELECT type_id
+              , ident
+              , p_establishment_id
+              , p_updated_by_user_id
+        FROM unnest(external_idents_to_add);
+      END IF;
+    EXCEPTION WHEN unique_violation THEN
+      IF SQLERRM LIKE '%external_ident_type_for_%' THEN
+        DECLARE
+          pg_exception_detail	TEXT;
+
+          extracted_values TEXT[];
+
+          extracted_conflict_unit_type TEXT;
+          extracted_foreign_column TEXT;
+          extracted_type_id INTEGER;
+          extracted_unit_id INTEGER;
+          offending_rows JSONB;
+
+        BEGIN
+          GET STACKED DIAGNOSTICS pg_exception_detail = PG_EXCEPTION_DETAIL;
+
+          -- pg_exception_detail='Key (type_id, establishment_id)=(1, 1) already exists.'
+          extracted_values := regexp_matches(
+              pg_exception_detail,
+              'Key \(type_id, ((.*?)_id)\)=\((\d+), (\d+)\)'
+          );
+
+          IF array_length(extracted_values, 1) = 4 THEN
+            extracted_foreign_column := extracted_values[1];
+            extracted_conflict_unit_type := extracted_values[2];
+            extracted_type_id := extracted_values[3]::INT;
+            extracted_unit_id := extracted_values[4]::INT;
+
+            EXECUTE format($$
+              SELECT jsonb_object_agg(eit.code,ei.ident)
+              FROM public.external_ident AS ei
+              JOIN public.external_ident_type AS eit
+              ON ei.type_id = eit.id
+              WHERE ei.%s = %L
+            $$, extracted_foreign_column, extracted_unit_id)
+            INTO offending_rows;
+
+            RAISE EXCEPTION 'Another % % already uses the same identier(s) as the % in row %', extracted_conflict_unit_type, offending_rows, unit_type, new_jsonb
+            USING ERRCODE = 'unique_violation',
+              HINT = 'Check for other units already using the same identifier',
+              DETAIL = 'Key constraint (type_id, '||unit_type||'_id) is violated.';
+          ELSE
+              RAISE EXCEPTION 'Another unit already uses the same identier(s) as the % in row %', unit_type, new_jsonb;
+          END IF;
+        END;
+      ELSE
+        RAISE EXCEPTION 'Another unit already uses the same identier(s) as the % in row %', unit_type, new_jsonb;
+      END IF;
+    END;
+  END IF;
+END;
+$insert_external_idents$;
+
+
+
 -- Find a connected legal_unit - i.e. a field with a `legal_unit`
 -- prefix that points to an external identifier.
 \echo admin.process_linked_legal_unit_external_idents
 CREATE FUNCTION admin.process_linked_legal_unit_external_idents(
     new_jsonb JSONB,
     OUT legal_unit_id INTEGER,
-    OUT linked_ident_specified BOOL,
-    OUT is_primary_for_legal_unit BOOL
+    OUT linked_ident_specified BOOL
 ) RETURNS RECORD AS $process_linked_legal_unit_external_ident$
 DECLARE
     unit_type TEXT := 'legal_unit';
@@ -8656,10 +8781,12 @@ CREATE FUNCTION admin.process_enterprise_connection(
     IN new_valid_to DATE,
     IN edited_by_user_id INTEGER,
     OUT enterprise_id INTEGER,
+    OUT legal_unit_id INTEGER,
     OUT is_primary_for_enterprise BOOLEAN
-) RETURNS RECORD AS $$
+) RETURNS RECORD LANGUAGE plpgsql AS $process_enterprise_connection$
 DECLARE
     new_center DATE;
+    order_clause TEXT;
 BEGIN
     IF unit_type NOT IN ('legal_unit', 'establishment') THEN
         RAISE EXCEPTION 'Invalid unit_type: %', unit_type;
@@ -8676,35 +8803,53 @@ BEGIN
         END IF;
 
         -- Find the closest enterprise connected to the prior legal unit or establishment, with consistent midpoint logic.
-        EXECUTE format('
-            SELECT enterprise_id
-            FROM public.%I
-            WHERE id = $1
+        order_clause := $$
             ORDER BY (
                 CASE
-                    WHEN valid_from = ''-infinity'' THEN ABS($2::DATE - valid_to)
-                    WHEN valid_to = ''infinity'' THEN ABS(valid_from - $2::DATE)
+                    WHEN valid_from = '-infinity' THEN ABS($2::DATE - valid_to)
+                    WHEN valid_to = 'infinity' THEN ABS(valid_from - $2::DATE)
                     ELSE ABS($2::DATE - (valid_from + ((valid_to - valid_from) / 2))::DATE)
                 END
             ) ASC
-            LIMIT 1
-        ', unit_type)
-        INTO enterprise_id
-        USING prior_unit_id, new_center;
+        $$;
 
-        -- Determine if this should be the primary for the enterprise.
-        IF unit_type = 'legal_unit' THEN
-            EXECUTE format('
+        IF unit_type = 'establishment' THEN
+            EXECUTE format($$
+                SELECT enterprise_id, legal_unit_id
+                FROM public.establishment
+                WHERE id = $1
+                %s
+                LIMIT 1
+            $$, order_clause)
+            INTO enterprise_id, legal_unit_id
+            USING prior_unit_id, new_center;
+
+            IF enterprise_id IS NOT NULL THEN
+                is_primary_for_enterprise := true;
+            END IF;
+
+        ELSIF unit_type = 'legal_unit' THEN
+            EXECUTE format($$
+                SELECT enterprise_id
+                FROM public.legal_unit
+                WHERE id = $1
+                %s
+                LIMIT 1
+            $$, order_clause)
+            INTO enterprise_id
+            USING prior_unit_id, new_center;
+
+            EXECUTE $$
                 SELECT NOT EXISTS(
                     SELECT 1
-                    FROM public.%I
+                    FROM public.legal_unit
                     WHERE enterprise_id = $1
                     AND primary_for_enterprise
                     AND id <> $2
-                    AND daterange(valid_from, valid_to, ''[]'')
-                     && daterange($3, $4, ''[]'')
+                    AND daterange(valid_from, valid_to, '[]')
+                     && daterange($3, $4, '[]')
                 )
-            ', unit_type)
+            $$
             INTO is_primary_for_enterprise
             USING enterprise_id, prior_unit_id, new_valid_from, new_valid_to;
         END IF;
@@ -8723,7 +8868,7 @@ BEGIN
 
     RETURN;
 END;
-$$ LANGUAGE plpgsql;
+$process_enterprise_connection$;
 
 -- ========================================================
 -- END:  Helper functions for import
@@ -8923,21 +9068,13 @@ BEGIN
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
-    -- Store external identifiers
-    IF array_length(external_idents_to_add, 1) > 0 THEN
-        INSERT INTO public.external_ident
-            ( type_id
-            , ident
-            , legal_unit_id
-            , updated_by_user_id
-            )
-         SELECT type_id
-              , ident
-              , inserted_legal_unit.id
-              , edited_by_user.id
-         FROM unnest(external_idents_to_add);
-    END IF;
-
+    PERFORM admin.insert_external_idents(
+      new_jsonb,
+      external_idents_to_add,
+      p_legal_unit_id => inserted_legal_unit.id,
+      p_establishment_id => null::INTEGER,
+      p_updated_by_user_id => edited_by_user.id
+      );
 
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
@@ -9330,6 +9467,7 @@ BEGIN
         primary_activity_category_code,
         secondary_activity_category_code,
         sector_code,
+        data_source_code,
         legal_form_code,
 {{stats_insert_labels}}
         tag_path
@@ -9360,6 +9498,7 @@ BEGIN
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
         NEW.sector_code,
+        NEW.data_source_code,
         NEW.legal_form_code,
 {{stats_value_labels}}
         NEW.tag_path
@@ -9560,18 +9699,22 @@ BEGIN
     INTO   external_idents_to_add , prior_establishment_id
     FROM admin.process_external_idents(new_jsonb,'establishment') AS r;
 
-    SELECT r.legal_unit_id, r.linked_ident_specified, r.is_primary_for_legal_unit
-    INTO legal_unit.id, legal_unit_ident_specified, is_primary_for_legal_unit
+    SELECT r.legal_unit_id, r.linked_ident_specified
+    INTO legal_unit.id, legal_unit_ident_specified
     FROM admin.process_linked_legal_unit_external_idents(new_jsonb) AS r;
 
     IF NOT legal_unit_ident_specified THEN
-        SELECT r.enterprise_id
-        INTO     enterprise.id
+        SELECT r.enterprise_id, r.legal_unit_id
+        INTO     enterprise.id, legal_unit.id
         FROM admin.process_enterprise_connection(
             prior_establishment_id, 'establishment',
             new_typed.valid_from, new_typed.valid_to,
             edited_by_user.id) AS r;
-    ELSE
+    END IF;
+
+    -- If no legal_unit is specified, but there was an existing entry connected to
+    -- a legal unit, then update of values is ok, and we must decide if this is primary.
+    IF legal_unit.id IS NOT NULL THEN
         DECLARE
           sql_query TEXT :=  format(
             'SELECT NOT EXISTS(
@@ -9663,19 +9806,13 @@ BEGIN
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
-    IF array_length(external_idents_to_add, 1) > 0 THEN
-        INSERT INTO public.external_ident
-            ( type_id
-            , ident
-            , establishment_id
-            , updated_by_user_id
-            )
-         SELECT type_id
-              , ident
-              , inserted_establishment.id
-              , edited_by_user.id
-         FROM unnest(external_idents_to_add);
-    END IF;
+    PERFORM admin.insert_external_idents(
+      new_jsonb,
+      external_idents_to_add,
+      p_legal_unit_id => null::INTEGER,
+      p_establishment_id => inserted_establishment.id,
+      p_updated_by_user_id => edited_by_user.id
+      );
 
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
@@ -10077,6 +10214,7 @@ BEGIN
         primary_activity_category_code,
         secondary_activity_category_code,
         sector_code,
+        data_source_code,
         legal_form_code,
 {{stats_insert_labels}}
         tag_path
@@ -10107,6 +10245,7 @@ BEGIN
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
         NEW.sector_code,
+        NEW.data_source_code,
         NEW.legal_form_code,
 {{stats_value_labels}}
         NEW.tag_path

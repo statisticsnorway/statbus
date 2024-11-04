@@ -68,7 +68,7 @@ export default function UploadCustomActivityCategoryCodesPage() {
               how the file should be structured:
             </p>
             <a
-              href="/activity_custom_isic_demo.csv"
+              href="/demo/activity_custom_isic_demo.csv"
               download="custom_activity_categories.example.csv"
               className="underline"
             >

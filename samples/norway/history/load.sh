@@ -13,7 +13,7 @@ WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../../.. && pwd )"
 pushd $WORKSPACE
 
 echo "Setting up Statbus for Norway"
-./devops/manage-statbus.sh psql < samples/norway/setup.sql
+./devops/manage-statbus.sh psql < samples/norway/getting-started.sql
 
 
 echo "Adding tags for insert into right part of history"
@@ -29,9 +29,9 @@ for YEAR in $YEARS; do
     TAG="census.$YEAR"
     echo "Loading data for year: $YEAR with $TAG"
     echo "Loading legal_units"
-    time ./bin/statbus import legal_unit --tag "$TAG" -f "../samples/norway/history/${YEAR}-enheter.csv" --config ../samples/norway/enheter-selection-cli-mapping.json --strategy insert --skip-refresh-of-materialized-views --immediate-constraint-checking$CLI_EXTRA_ARGS
+    time ./bin/statbus import legal_unit --tag "$TAG" -f "../samples/norway/history/${YEAR}-enheter.csv" --config ../samples/norway/legal_unit/enheter-selection-cli-mapping.json --strategy insert --skip-refresh-of-materialized-views --immediate-constraint-checking$CLI_EXTRA_ARGS
     echo "Loading establishments"
-    time ./bin/statbus import establishment --tag "$TAG" -f "../samples/norway/history/${YEAR}-underenheter.csv" --config ../samples/norway/underenheter-selection-cli-mapping.json --strategy insert --skip-refresh-of-materialized-views --immediate-constraint-checking$CLI_EXTRA_ARGS
+    time ./bin/statbus import establishment --tag "$TAG" -f "../samples/norway/history/${YEAR}-underenheter.csv" --config ../samples/norway/establishment/underenheter-selection-cli-mapping.json --strategy insert --skip-refresh-of-materialized-views --immediate-constraint-checking$CLI_EXTRA_ARGS
 done
 
 popd

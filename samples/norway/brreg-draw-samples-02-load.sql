@@ -1,2 +1,0 @@
-\copy tmp.enhet FROM 'tmp/enheter.csv' WITH (HEADER MATCH, FORMAT csv, DELIMITER ',', QUOTE '"');
-\copy tmp.underenhet FROM 'tmp/underenheter.csv' WITH (HEADER MATCH, FORMAT csv, DELIMITER ',', QUOTE '"');

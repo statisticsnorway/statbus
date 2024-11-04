@@ -1,7 +1,7 @@
 BEGIN;
 
 \echo "Setting up Statbus for Norway"
-\i samples/norway/setup.sql
+\i samples/norway/getting-started.sql
 
 \echo "Adding tags for insert into right part of history"
 \i samples/norway/small-history/add-tags.sql

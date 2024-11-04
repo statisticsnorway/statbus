@@ -83,7 +83,7 @@ export default function UploadCustomSectorsPage() {
               business environments.
             </p>
             <a
-              href="/legal_forms_demo.csv"
+              href="/demo/legal_forms_demo.csv"
               download="legal_form.example.csv"
               className="underline"
             >

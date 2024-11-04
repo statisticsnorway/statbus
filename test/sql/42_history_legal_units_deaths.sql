@@ -18,19 +18,19 @@ SELECT acs.code
     ON s.activity_category_standard_id = acs.id;
 
 \echo "User uploads the sample activity categories"
-\copy public.activity_category_available_custom(path,name,description) FROM 'app/public/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.activity_category_available_custom(path,name,description) FROM 'samples/norway/activity_category/activity_category_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.activity_category_available;
 
 \echo "User uploads the sample regions"
-\copy public.region_upload(path, name) FROM 'app/public/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.region_upload(path, name) FROM 'samples/norway/regions/norway-regions-2024.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.region;
 
 \echo "User uploads the sample legal forms"
-\copy public.legal_form_custom_only(code,name) FROM 'app/public/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.legal_form_custom_only(code,name) FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.legal_form_available;
 
 \echo "User uploads the sample sectors"
-\copy public.sector_custom_only(path,name,description) FROM 'app/public/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.sector_custom_only(path,name,description) FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.sector_available;
 
 SAVEPOINT before_loading_units;
@@ -64,7 +64,7 @@ WHERE unit_type = 'legal_unit';
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year' 
+WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
@@ -72,7 +72,7 @@ AND unit_type = 'legal_unit';
 \echo "Check statistical unit history by year-month - deaths should be 1 for year-month 2011-12 and 2012-12"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year-month' 
+WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
@@ -110,14 +110,14 @@ WHERE unit_type = 'legal_unit';
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year' 
+WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
 \echo "Check statistical unit history by year-month - deaths should be 1 for year-month 2011-1 and 2012-12"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year-month' 
+WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
@@ -155,14 +155,14 @@ WHERE unit_type = 'legal_unit';
 \echo "Check statistical unit history by year - deaths should be 1 for year 2011 and 2012"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year' 
+WHERE resolution = 'year'
 AND year < 2013
 AND unit_type = 'legal_unit';
 
 \echo "Check statistical unit history by year-month - deaths should be 1 for year-month 2011-1 and 2012-1"
 SELECT resolution, year, month, unit_type, count, births, deaths
 FROM public.statistical_history
-WHERE resolution = 'year-month' 
+WHERE resolution = 'year-month'
 AND year < 2013
 AND unit_type = 'legal_unit';
 

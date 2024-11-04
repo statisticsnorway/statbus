@@ -87,8 +87,8 @@ export default function UploadEstablishmentsPage() {
               should be structured:
             </p>
             <a
-              href="/formal_establishments_units_demo.csv"
-              download="formalestablishments.example.csv"
+              href="/demo/formal_establishments_units_demo.csv"
+              download="formal_establishments.example.csv"
               className="underline"
             >
               Download example CSV file
