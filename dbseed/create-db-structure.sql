@@ -8411,9 +8411,9 @@ BEGIN
                     ident_row := jsonb_populate_record(NULL::public.external_ident,ident_jsonb);
                     external_idents := array_append(external_idents, ident_row);
                 ELSE -- FOUND
-                    unit_fk_value := (ident_jsonb -> unit_fk_field)::INTEGER;
+                    unit_fk_value := (ident_jsonb ->> unit_fk_field)::INTEGER;
                     IF unit_fk_value IS NULL THEN
-                        RAISE EXCEPTION 'The external identifier % is not for a % but % for row %'
+                        RAISE EXCEPTION 'The external identifier % is not for % but % for row %'
                                         , ident_code, unit_type, ident_jsonb, new_jsonb;
                     END IF;
                     IF prior_id IS NULL THEN
