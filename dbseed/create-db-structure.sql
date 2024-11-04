@@ -8413,8 +8413,24 @@ BEGIN
                 ELSE -- FOUND
                     unit_fk_value := (ident_jsonb ->> unit_fk_field)::INTEGER;
                     IF unit_fk_value IS NULL THEN
-                        RAISE EXCEPTION 'The external identifier % is not for % but % for row %'
-                                        , ident_code, unit_type, ident_jsonb, new_jsonb;
+                        DECLARE
+                          conflicting_unit_type TEXT;
+                        BEGIN
+                          CASE
+                            WHEN (ident_jsonb ->> 'establishment_id') IS NOT NULL THEN
+                              conflicting_unit_type := 'establishment';
+                            WHEN (ident_jsonb ->> 'legal_unit_id') IS NOT NULL THEN
+                              conflicting_unit_type := 'legal_unit';
+                            WHEN (ident_jsonb ->> 'enterprise_id') IS NOT NULL THEN
+                              conflicting_unit_type := 'enterprise';
+                            WHEN (ident_jsonb ->> 'enterprise_group_id') IS NOT NULL THEN
+                              conflicting_unit_type := 'enterprise_group';
+                            ELSE
+                              RAISE EXCEPTION 'Missing logic for external_ident %', ident_jsonb;
+                          END CASE;
+                          RAISE EXCEPTION 'The external identifier % for % already taken by a % for row %'
+                                          , ident_code, unit_type, conflicting_unit_type, new_jsonb;
+                        END;
                     END IF;
                     IF prior_id IS NULL THEN
                         prior_id := unit_fk_value;
