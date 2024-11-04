@@ -8547,11 +8547,11 @@ BEGIN
               HINT = 'Check for other units already using the same identifier',
               DETAIL = 'Key constraint (type_id, '||unit_type||'_id) is violated.';
           ELSE
-              RAISE; -- Re-raise unexpected exceptions
+              RAISE EXCEPTION 'Another unit already uses the same identier(s) as the % in row %', unit_type, new_jsonb;
           END IF;
         END;
       ELSE
-        RAISE; -- Re-raise unexpected exceptions
+        RAISE EXCEPTION 'Another unit already uses the same identier(s) as the % in row %', unit_type, new_jsonb;
       END IF;
     END;
   END IF;
