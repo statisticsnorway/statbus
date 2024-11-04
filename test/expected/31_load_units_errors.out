@@ -135,7 +135,25 @@ SELECT
 \echo "User uploads formal establishments"
 "User uploads formal establishments"
 \copy public.import_establishment_current_for_legal_unit(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'test/data/31_formal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   2 |                2 |                2
+(1 row)
+
 \echo "User uploads informal establishments with same stat_idents as formal establishments"
 "User uploads informal establishments with same stat_idents as formal establishments"
 \copy public.import_establishment_current_without_legal_unit(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'test/data/31_informal_establishments_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   2 |                2 |                2
+(1 row)
 
+ROLLBACK;

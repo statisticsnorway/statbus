@@ -8674,6 +8674,7 @@ CREATE FUNCTION admin.process_enterprise_connection(
     IN new_valid_to DATE,
     IN edited_by_user_id INTEGER,
     OUT enterprise_id INTEGER,
+    OUT legal_unit_id INTEGER,
     OUT is_primary_for_enterprise BOOLEAN
 ) RETURNS RECORD AS $$
 DECLARE
@@ -8695,7 +8696,7 @@ BEGIN
 
         -- Find the closest enterprise connected to the prior legal unit or establishment, with consistent midpoint logic.
         EXECUTE format('
-            SELECT enterprise_id
+            SELECT enterprise_id, legal_unit_id
             FROM public.%I
             WHERE id = $1
             ORDER BY (
@@ -8707,7 +8708,7 @@ BEGIN
             ) ASC
             LIMIT 1
         ', unit_type)
-        INTO enterprise_id
+        INTO enterprise_id, legal_unit_id
         USING prior_unit_id, new_center;
 
         -- Determine if this should be the primary for the enterprise.
@@ -9583,13 +9584,17 @@ BEGIN
     FROM admin.process_linked_legal_unit_external_idents(new_jsonb) AS r;
 
     IF NOT legal_unit_ident_specified THEN
-        SELECT r.enterprise_id
-        INTO     enterprise.id
+        SELECT r.enterprise_id, r.legal_unit_id
+        INTO     enterprise.id, legal_unit.id
         FROM admin.process_enterprise_connection(
             prior_establishment_id, 'establishment',
             new_typed.valid_from, new_typed.valid_to,
             edited_by_user.id) AS r;
-    ELSE
+    END IF;
+
+    -- If no legal_unit is specified, but there was an existing entry connected to
+    -- a legal unit, then update of values is ok, and we must decide if this is primary.
+    IF is_primary_for_legal_unit IS NULL THEN
         DECLARE
           sql_query TEXT :=  format(
             'SELECT NOT EXISTS(
