@@ -41,8 +41,9 @@ SELECT
 SELECT view_name FROM statistical_unit_refresh_now();
 \echo "Checking statistics"
 
-SELECT unit_type, external_idents, name, data_source_ids, data_source_codes
+SELECT unit_type, external_idents, name, data_source_codes, invalid_codes
  FROM statistical_unit
- WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to;
+ WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ ORDER BY unit_type, unit_id, valid_from;
 
 ROLLBACK;

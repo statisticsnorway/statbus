@@ -9349,6 +9349,7 @@ BEGIN
         primary_activity_category_code,
         secondary_activity_category_code,
         sector_code,
+        data_source_code,
         legal_form_code,
 {{stats_insert_labels}}
         tag_path
@@ -9379,6 +9380,7 @@ BEGIN
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
         NEW.sector_code,
+        NEW.data_source_code,
         NEW.legal_form_code,
 {{stats_value_labels}}
         NEW.tag_path
@@ -10100,6 +10102,7 @@ BEGIN
         primary_activity_category_code,
         secondary_activity_category_code,
         sector_code,
+        data_source_code,
         legal_form_code,
 {{stats_insert_labels}}
         tag_path
@@ -10130,6 +10133,7 @@ BEGIN
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
         NEW.sector_code,
+        NEW.data_source_code,
         NEW.legal_form_code,
 {{stats_value_labels}}
         NEW.tag_path
