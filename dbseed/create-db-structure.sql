@@ -8458,8 +8458,7 @@ $process_external_idents$ LANGUAGE plpgsql;
 CREATE FUNCTION admin.process_linked_legal_unit_external_idents(
     new_jsonb JSONB,
     OUT legal_unit_id INTEGER,
-    OUT linked_ident_specified BOOL,
-    OUT is_primary_for_legal_unit BOOL
+    OUT linked_ident_specified BOOL
 ) RETURNS RECORD AS $process_linked_legal_unit_external_ident$
 DECLARE
     unit_type TEXT := 'legal_unit';
@@ -8676,9 +8675,10 @@ CREATE FUNCTION admin.process_enterprise_connection(
     OUT enterprise_id INTEGER,
     OUT legal_unit_id INTEGER,
     OUT is_primary_for_enterprise BOOLEAN
-) RETURNS RECORD AS $$
+) RETURNS RECORD LANGUAGE plpgsql AS $process_enterprise_connection$
 DECLARE
     new_center DATE;
+    order_clause TEXT;
 BEGIN
     IF unit_type NOT IN ('legal_unit', 'establishment') THEN
         RAISE EXCEPTION 'Invalid unit_type: %', unit_type;
@@ -8695,35 +8695,53 @@ BEGIN
         END IF;
 
         -- Find the closest enterprise connected to the prior legal unit or establishment, with consistent midpoint logic.
-        EXECUTE format('
-            SELECT enterprise_id, legal_unit_id
-            FROM public.%I
-            WHERE id = $1
+        order_clause := $$
             ORDER BY (
                 CASE
-                    WHEN valid_from = ''-infinity'' THEN ABS($2::DATE - valid_to)
-                    WHEN valid_to = ''infinity'' THEN ABS(valid_from - $2::DATE)
+                    WHEN valid_from = '-infinity' THEN ABS($2::DATE - valid_to)
+                    WHEN valid_to = 'infinity' THEN ABS(valid_from - $2::DATE)
                     ELSE ABS($2::DATE - (valid_from + ((valid_to - valid_from) / 2))::DATE)
                 END
             ) ASC
-            LIMIT 1
-        ', unit_type)
-        INTO enterprise_id, legal_unit_id
-        USING prior_unit_id, new_center;
+        $$;
 
-        -- Determine if this should be the primary for the enterprise.
-        IF unit_type = 'legal_unit' THEN
-            EXECUTE format('
+        IF unit_type = 'establishment' THEN
+            EXECUTE format($$
+                SELECT enterprise_id, legal_unit_id
+                FROM public.establishment
+                WHERE id = $1
+                %s
+                LIMIT 1
+            $$, order_clause)
+            INTO enterprise_id, legal_unit_id
+            USING prior_unit_id, new_center;
+
+            IF enterprise_id IS NOT NULL THEN
+                is_primary_for_enterprise := true;
+            END IF;
+
+        ELSIF unit_type = 'legal_unit' THEN
+            EXECUTE format($$
+                SELECT enterprise_id
+                FROM public.legal_unit
+                WHERE id = $1
+                %s
+                LIMIT 1
+            $$, order_clause)
+            INTO enterprise_id
+            USING prior_unit_id, new_center;
+
+            EXECUTE $$
                 SELECT NOT EXISTS(
                     SELECT 1
-                    FROM public.%I
+                    FROM public.legal_unit
                     WHERE enterprise_id = $1
                     AND primary_for_enterprise
                     AND id <> $2
-                    AND daterange(valid_from, valid_to, ''[]'')
-                     && daterange($3, $4, ''[]'')
+                    AND daterange(valid_from, valid_to, '[]')
+                     && daterange($3, $4, '[]')
                 )
-            ', unit_type)
+            $$
             INTO is_primary_for_enterprise
             USING enterprise_id, prior_unit_id, new_valid_from, new_valid_to;
         END IF;
@@ -8742,7 +8760,7 @@ BEGIN
 
     RETURN;
 END;
-$$ LANGUAGE plpgsql;
+$process_enterprise_connection$;
 
 -- ========================================================
 -- END:  Helper functions for import
@@ -9581,8 +9599,8 @@ BEGIN
     INTO   external_idents_to_add , prior_establishment_id
     FROM admin.process_external_idents(new_jsonb,'establishment') AS r;
 
-    SELECT r.legal_unit_id, r.linked_ident_specified, r.is_primary_for_legal_unit
-    INTO legal_unit.id, legal_unit_ident_specified, is_primary_for_legal_unit
+    SELECT r.legal_unit_id, r.linked_ident_specified
+    INTO legal_unit.id, legal_unit_ident_specified
     FROM admin.process_linked_legal_unit_external_idents(new_jsonb) AS r;
 
     IF NOT legal_unit_ident_specified THEN
@@ -9596,7 +9614,7 @@ BEGIN
 
     -- If no legal_unit is specified, but there was an existing entry connected to
     -- a legal unit, then update of values is ok, and we must decide if this is primary.
-    IF is_primary_for_legal_unit IS NULL THEN
+    IF legal_unit.id IS NOT NULL THEN
         DECLARE
           sql_query TEXT :=  format(
             'SELECT NOT EXISTS(
