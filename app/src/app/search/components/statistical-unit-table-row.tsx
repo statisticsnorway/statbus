@@ -24,7 +24,6 @@ interface SearchResultTableRowProps {
 
 export const StatisticalUnitTableRow = ({
   unit,
-  className,
   regionLevel,
 }: SearchResultTableRowProps) => {
   const { allRegions, allActivityCategories, allDataSources } = useSearchContext();
@@ -105,7 +104,7 @@ export const StatisticalUnitTableRow = ({
   };
 
   return (
-    <TableRow key={`row-${bodyRowSuffix(unit)}`} className={cn("", className, isInBasket ? "bg-gray-100" : "")}>
+    <TableRow key={`row-${bodyRowSuffix(unit)}`} className={cn("", isInBasket ? "bg-gray-100" : "")}>
       {columns.map(column => {
         if (column.type === 'Adaptable' && !column.visible) {
           return null;
