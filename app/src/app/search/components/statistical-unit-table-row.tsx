@@ -1,6 +1,6 @@
 "use client";
 import { Tables } from "@/lib/database.types";
-import { TableColumn, TableColumnCode } from "../search.d";
+import { TableColumn } from "../search.d";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";

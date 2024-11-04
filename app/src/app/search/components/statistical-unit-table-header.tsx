@@ -3,10 +3,8 @@ import SortableTableHead from "@/app/search/components/sortable-table-head";
 import { useBaseData } from "@/app/BaseDataClient";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
 import { useTableColumns } from "../use-table-columns";
 import { ColumnSelector } from "./column-selector";
-import { TableColumn } from "../search";
 
 interface StatisticalUnitTableHeaderProps {
   regionLevel: number;
