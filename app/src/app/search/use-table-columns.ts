@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useCallback } from 'react';
 import { isEqual } from 'moderndash';
 import { TableColumn, TableColumns, AdaptableTableColumn } from './search.d';
 import { useBaseData } from '../BaseDataClient';
+import { Tables } from '@/lib/database.types';
 
 const COLUMN_LOCALSTORAGE_NAME = 'table-columns-state';
 
@@ -10,13 +11,13 @@ export function useTableColumns() {
 
   const default_columns: TableColumn[] = useMemo(() => {
     const statisticColumns: AdaptableTableColumn[] =
-    statDefinitions.map(statDefinition => ({
-      type: 'Adaptable',
-      code: 'statistic',
-      stat_code: statDefinition.code!,
-      label: statDefinition.name!,
-      visible: true
-    }));
+      statDefinitions.map(statDefinition => ({
+        type: 'Adaptable',
+        code: 'statistic',
+        stat_code: statDefinition.code!,
+        label: statDefinition.name!,
+        visible: true
+      }));
 
     if (statDefinitions === undefined) {
       return [];
@@ -105,10 +106,39 @@ export function useTableColumns() {
     }
   }, [columns, default_columns]);
 
+  // Force re-render when columns change
+  const visibleColumnsSuffix = useMemo(() => {
+    const suffix =
+      columns
+        .filter(c => c.type === 'Always' || c.visible)
+        .map(c => `${c.code}${c.type === 'Adaptable' && c.code === 'statistic' ? `-${c.stat_code}` : ''}`)
+        .join('-');
+    return suffix;
+  }, [columns]);
+  const columnSuffix = (column: TableColumn) => {
+    return `${column.code}${column.type === 'Adaptable' && column.code === 'statistic' ? `-${column.stat_code}` : ''}`
+  };
+  const unitSuffix = (unit: Tables<"statistical_unit">) => {
+    return `${unit.unit_type}-${unit.unit_id}-${unit.valid_from}`
+  };
+
+  const headerRowSuffix = visibleColumnsSuffix;
+  const headerCellSuffix = columnSuffix;
+  const bodyRowSuffix = (unit: Tables<"statistical_unit">) => {
+    return `${unitSuffix(unit)}-${visibleColumnsSuffix}`
+  };
+  const bodyCellSuffix = (unit: Tables<"statistical_unit">, column: TableColumn) => {
+    return `${unitSuffix(unit)}-${columnSuffix(column)}`
+  };
+
   return {
     columns,
     toggleColumn,
     resetColumns,
-    isDefaultState
+    isDefaultState,
+    headerRowSuffix,
+    headerCellSuffix,
+    bodyRowSuffix,
+    bodyCellSuffix,
   };
 }

@@ -6,10 +6,12 @@ import { useSearchContext } from "@/app/search/use-search-context";
 import { cn } from "@/lib/utils";
 import { SearchResultTableBodySkeleton } from "@/app/search/components/search-result-table-body-skeleton";
 import { useRegionLevel } from "@/app/search/hooks/useRegionLevel";
+import { useTableColumns } from "../use-table-columns";
 
 export default function SearchResultTable() {
   const { searchResult, error, isLoading, allRegions: regions } = useSearchContext();
   const { regionLevel, setRegionLevel } = useRegionLevel();
+  const { bodyRowSuffix } = useTableColumns();
   const maxRegionLevel = Math.max(
     ...(regions?.map((region) => region.level ?? 0) ?? [])
   );
@@ -52,7 +54,7 @@ export default function SearchResultTable() {
           <TableBody>
             {searchResult?.statisticalUnits?.map((unit) => (
               <StatisticalUnitTableRow
-                key={`${unit.unit_type}-${unit.unit_id}-${unit.valid_from}`}
+                key={`sutr-${bodyRowSuffix(unit)}`}
                 unit={unit}
                 regionLevel={regionLevel}
               />

@@ -20,15 +20,11 @@ export function StatisticalUnitTableHeader({
   maxRegionLevel,
 }: StatisticalUnitTableHeaderProps) {
   const { statDefinitions, externalIdentTypes } = useBaseData();
-  const { columns, toggleColumn, resetColumns, isDefaultState } = useTableColumns();
-
-  const cellHeader = (column: TableColumn) => {
-    return `header-${column.code}${column.type === 'Adaptable' ? `-${column.stat_code}` : ''}`
-  }
+  const { columns, toggleColumn, resetColumns, isDefaultState , headerRowSuffix, headerCellSuffix} = useTableColumns();
 
   return (
     <TableHeader className="bg-gray-50">
-      <TableRow>
+      <TableRow key={`h-row-${headerRowSuffix}`}>
         {columns.map(column => {
           if (column.type === 'Adaptable' && !column.visible) {
             return null;
@@ -36,7 +32,7 @@ export function StatisticalUnitTableHeader({
           switch (column.code) {
             case 'name':
               return (
-                <SortableTableHead name="name" label="Name" key={cellHeader(column)}>
+                <SortableTableHead name="name" label="Name" key={`h-cell-${headerCellSuffix(column)}`}>
                   <small className="flex">
                     {externalIdentTypes.map(({ code }) => code).join(" | ")}
                   </small>
@@ -46,7 +42,7 @@ export function StatisticalUnitTableHeader({
               return (
                 <SortableTableHead
                   className="text-left hidden lg:table-cell [&>*]:align-middle"
-                  key={cellHeader(column)}
+                  key={`h-cell-${headerCellSuffix(column)}`}
                   name="physical_region_path"
                   label="Region"
                 >
@@ -80,7 +76,7 @@ export function StatisticalUnitTableHeader({
 
                 return (statDefinition &&
                   <SortableTableHead
-                    key={cellHeader(column)}
+                    key={`h-cell-${headerCellSuffix(column)}`}
                     className="text-right hidden lg:table-cell [&>*]:capitalize"
                     name={statDefinition.code!}
                     label={statDefinition.code!}
@@ -91,7 +87,7 @@ export function StatisticalUnitTableHeader({
               return (
                 <SortableTableHead
                   className="text-left hidden lg:table-cell"
-                  key={cellHeader(column)}
+                  key={`h-cell-${headerCellSuffix(column)}`}
                   name="sector_path"
                   label="Sector"
                 />
@@ -100,7 +96,7 @@ export function StatisticalUnitTableHeader({
               return (
                 <SortableTableHead
                   className="text-left hidden lg:table-cell"
-                  key={cellHeader(column)}
+                  key={`h-cell-${headerCellSuffix(column)}`}
                   name="primary_activity_category_path"
                   label="Activity Category"
                 />
@@ -109,7 +105,7 @@ export function StatisticalUnitTableHeader({
               return (
                 <TableHead
                   className="text-left hidden lg:table-cell"
-                  key={cellHeader(column)}
+                  key={`h-cell-${headerCellSuffix(column)}`}
                 >Data Sources
                 </TableHead>
               );

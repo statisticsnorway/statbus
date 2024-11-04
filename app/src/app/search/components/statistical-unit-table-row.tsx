@@ -30,14 +30,8 @@ export const StatisticalUnitTableRow = ({
   const { allRegions, allActivityCategories, allDataSources } = useSearchContext();
   const { statDefinitions, externalIdentTypes } = useBaseData();
   const { selected } = useSelectionContext();
-  const { columns } = useTableColumns();
+  const { columns, bodyRowSuffix, bodyCellSuffix } = useTableColumns();
 
-  // Force re-render when columns change
-  const visibleColumns = columns
-    .filter(c => c.type === 'Always' || c.visible)
-    .map(c => `${c.code}${c.type === 'Adaptable' ? `-${c.stat_code}` : ''}`)
-    .join('-');
-  
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
   );
@@ -110,24 +104,17 @@ export const StatisticalUnitTableRow = ({
     );
   };
 
-  const rowKey = `row-${unit_type}-${unit_id}-${valid_from}-${visibleColumns}`;
-
-  const cellKey = (column: TableColumn) => {
-    return `${rowKey}-${column.code}${column.type === 'Adaptable' ? `-${column.stat_code}` : ''}`
-  }
-
   return (
-    <TableRow key={rowKey} className={cn("", className, isInBasket ? "bg-gray-100" : "")}>
+    <TableRow key={`row-${bodyRowSuffix(unit)}`} className={cn("", className, isInBasket ? "bg-gray-100" : "")}>
       {columns.map(column => {
         if (column.type === 'Adaptable' && !column.visible) {
           return null;
         }
-        const key = cellKey(column);
         switch (column.code) {
           case 'name':
             if (column.type !== 'Always') return null;
             return (
-              <TableCell key={key} className={getCellClassName(column)}>
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
                 <div className="flex items-center space-x-3 leading-tight" title={name ?? ""}>
                   <StatisticalUnitIcon type={unit_type} className="w-5" />
                   <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
@@ -162,7 +149,7 @@ export const StatisticalUnitTableRow = ({
 
           case 'activity':
             return (
-              <TableCell key={key} className={getCellClassName(column)}>
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
                 <div className="flex flex-col space-y-0.5 leading-tight">
                   <span>{activityCategory?.code}</span>
                   <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
@@ -174,7 +161,7 @@ export const StatisticalUnitTableRow = ({
 
           case 'region':
             return (
-              <TableCell key={key} className={getCellClassName(column)}>
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
                 <div className="flex flex-col space-y-0.5 leading-tight">
                   <span>{region?.code}</span>
                   <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
@@ -187,7 +174,7 @@ export const StatisticalUnitTableRow = ({
           case 'statistic':
             if (column.type === 'Adaptable' && column.stat_code) {
               return (
-                <TableCell key={key} className={getCellClassName(column)}>
+                <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
                   {thousandSeparator(stats_summary[column.stat_code]?.sum)}
                 </TableCell>
               );
@@ -196,7 +183,7 @@ export const StatisticalUnitTableRow = ({
 
           case 'sector':
             return (
-              <TableCell key={key} className={getCellClassName(column)}>
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
                 <div className="flex flex-col space-y-0.5 leading-tight">
                   <span>{sector_code}</span>
                   <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
@@ -208,7 +195,7 @@ export const StatisticalUnitTableRow = ({
 
           case 'data_sources':
             return (
-              <TableCell key={key} className={getCellClassName(column)}>
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
                 <div className="flex flex-col space-y-0.5 leading-tight">
                   {dataSources.map((ds) => (
                     <Popover key={`dataSource-${ds?.id}`}>
