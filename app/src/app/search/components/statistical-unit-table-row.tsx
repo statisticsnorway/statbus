@@ -17,7 +17,7 @@ import { PopoverTrigger } from "@radix-ui/react-popover";
 import { useTableColumns } from "../table-columns";
 
 interface SearchResultTableRowProps {
-  unit: Tables<"statistical_unit">;
+  unit: StatisticalUnit;
   className?: string;
   regionLevel: number;
 }
@@ -35,21 +35,6 @@ export const StatisticalUnitTableRow = ({
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
   );
 
-  const {
-    unit_type,
-    unit_id,
-    valid_from,
-    name,
-    primary_activity_category_path,
-    physical_region_path,
-    external_idents,
-    stats_summary,
-    sector_name,
-    sector_code,
-    invalid_codes,
-    data_source_ids,
-  } = unit as StatisticalUnit;
-
   const getRegionByPath = (physical_region_path: unknown) => {
     if (typeof physical_region_path !== "string") return undefined;
     const regionParts = physical_region_path.split(".");
@@ -63,7 +48,7 @@ export const StatisticalUnitTableRow = ({
     );
 
   const activityCategory = getActivityCategoryByPath(
-    primary_activity_category_path
+    unit.primary_activity_category_path
   );
 
   const getDataSourcesByIds = (data_source_ids: number[] | null) => {
@@ -72,9 +57,9 @@ export const StatisticalUnitTableRow = ({
       .map((id) => allDataSources.find((ds) => ds.id === id));
   };
 
-  const dataSources = getDataSourcesByIds(data_source_ids ?? []);
+  const dataSources = getDataSourcesByIds(unit.data_source_ids ?? []);
 
-  const region = getRegionByPath(physical_region_path);
+  const region = getRegionByPath(unit.physical_region_path);
 
   const prettifyUnitType = (type: UnitType | null): string => {
     switch (type) {
@@ -115,33 +100,48 @@ export const StatisticalUnitTableRow = ({
             return (
               <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
                 <div className="flex items-center space-x-3 leading-tight" title={name ?? ""}>
-                  <StatisticalUnitIcon type={unit_type} className="w-5" />
+                  <StatisticalUnitIcon type={unit.unit_type} className="w-5" />
                   <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
-                    {unit_type && unit_id && name ? (
+                    {unit.unit_type && unit.unit_id && name ? (
                       <StatisticalUnitDetailsLink
                         className="overflow-hidden overflow-ellipsis whitespace-nowrap"
-                        id={unit_id}
-                        type={unit_type}
+                        id={unit.unit_id}
+                        type={unit.unit_type}
                       >
-                        {name}
+                        {unit.name}
                       </StatisticalUnitDetailsLink>
                     ) : (
-                      <span className="font-medium">{name}</span>
+                      <span className="font-medium">{unit.name}</span>
                     )}
                     <small className="text-gray-700 flex items-center space-x-1">
                       <span className="flex">
                         {externalIdentTypes
-                          ?.map(({ code }) => external_idents[code!] || "")
+                          ?.map(({ code }) => unit.external_idents[code!] || "")
                           .join(" | ")}
                       </span>
-                      {invalid_codes && (
+                      {unit.invalid_codes && (
                         <>
                           <span>|</span>
-                          <InvalidCodes invalidCodes={JSON.stringify(invalid_codes)} />
+                          <InvalidCodes invalidCodes={JSON.stringify(unit.invalid_codes)} />
                         </>
                       )}
                     </small>
                   </div>
+                </div>
+              </TableCell>
+            );
+
+          case 'activity_section':
+            const activitySection = unit.primary_activity_category_path ? allActivityCategories.find(
+              ({ path }) => path === (unit.primary_activity_category_path as string | null)?.split('.')?.[0]
+            ) : undefined;
+            return (
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span>{activitySection?.label}</span>
+                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                    {activitySection?.name}
+                  </small>
                 </div>
               </TableCell>
             );
@@ -189,7 +189,7 @@ export const StatisticalUnitTableRow = ({
             if (column.type === 'Adaptable' && column.stat_code) {
               return (
                 <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
-                  {thousandSeparator(stats_summary[column.stat_code]?.sum)}
+                  {thousandSeparator(unit.stats_summary[column.stat_code]?.sum)}
                 </TableCell>
               );
             }
@@ -199,9 +199,9 @@ export const StatisticalUnitTableRow = ({
             return (
               <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
                 <div className="flex flex-col space-y-0.5 leading-tight">
-                  <span>{sector_code}</span>
+                  <span>{unit.sector_code}</span>
                   <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
-                    {sector_name}
+                    {unit.sector_name}
                   </small>
                 </div>
               </TableCell>

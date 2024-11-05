@@ -40,7 +40,8 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
     } else {
       return [
         { type: 'Always', code: 'name', label: 'Name' },
-        { type: 'Adaptable', code: 'activity', label: 'Activity', visible: true, stat_code: null },
+        { type: 'Adaptable', code: 'activity_section', label: 'Activity Section', visible: true, stat_code: null },
+        { type: 'Adaptable', code: 'activity', label: 'Activity', visible: false, stat_code: null },
         { type: 'Adaptable', code: 'top_region', label: 'Top Region', visible: true, stat_code: null },
         { type: 'Adaptable', code: 'region', label: 'Region', visible: false, stat_code: null },
         ...statisticColumns,
