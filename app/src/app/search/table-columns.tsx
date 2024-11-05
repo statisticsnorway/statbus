@@ -45,6 +45,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
         { type: 'Adaptable', code: 'top_region', label: 'Top Region', visible: true, stat_code: null },
         { type: 'Adaptable', code: 'region', label: 'Region', visible: false, stat_code: null },
         ...statisticColumns,
+        { type: 'Adaptable', code: 'unit_counts', label: 'Unit Counts', visible: true, stat_code: null },
         { type: 'Adaptable', code: 'sector', label: 'Sector', visible: true, stat_code: null },
         { type: 'Adaptable', code: 'data_sources', label: 'Data Source', visible: true, stat_code: null },
       ];

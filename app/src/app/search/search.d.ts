@@ -67,7 +67,7 @@ export type SearchAction = SetQuery | ResetAll | SetOrder | SetPage;
 // Define TableColumnVisibilityType with string literals
 export type TableColumnVisibilityType = 'Adaptable' | 'Always';
 
-export type TableColumnCode = 'name' | 'activity_section' | 'activity' | 'top_region' | 'region' | 'statistic' | 'sector' | 'data_sources';
+export type TableColumnCode = 'name' | 'activity_section' | 'activity' | 'top_region' | 'region' | 'statistic' | 'unit_counts' | 'sector' | 'data_sources';
 
 // Extend the base interface based on visibility type
 export interface AdaptableTableColumn{

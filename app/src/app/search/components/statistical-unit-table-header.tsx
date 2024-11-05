@@ -96,6 +96,16 @@ export function StatisticalUnitTableHeader({
                   />
                 );
               }
+            case 'unit_counts':
+              return (
+                <TableHead
+                  className="text-left hidden lg:table-cell"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                >
+                  Unit Counts
+                </TableHead>
+              );
+
             case 'sector':
               return (
                 <SortableTableHead
