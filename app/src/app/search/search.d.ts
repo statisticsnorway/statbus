@@ -1,5 +1,6 @@
 import { TimeContext } from "../types";
 import { Tables } from "@/lib/database.types";
+import { StatisticalUnit } from "@/app/types";
 
 export type SearchFilterOption = {
   readonly label: string;
@@ -28,7 +29,7 @@ export interface SearchState {
 }
 
 export type SearchResult = {
-  statisticalUnits: Tables<"statistical_unit">[];
+  statisticalUnits: StatisticalUnit[];
   count: number;
 };
 
@@ -66,6 +67,7 @@ export interface SetQuery {
 export type SearchAction = SetQuery | ResetAll | SetOrder | SetPage;
 // Define TableColumnVisibilityType with string literals
 export type TableColumnVisibilityType = 'Adaptable' | 'Always';
+export type ColumnProfile = 'Brief' | 'Regular' | 'Detailed';
 
 export type TableColumnCode = 'name' | 'activity_section' | 'activity' | 'top_region' | 'region' | 'statistic' | 'unit_counts' | 'sector' | 'data_sources';
 
@@ -76,6 +78,7 @@ export interface AdaptableTableColumn{
   stat_code: string | null;
   label: string;
   visible: boolean;
+  profile: ColumnProfile;
 }
 
 export interface AlwaysTableColumn{
@@ -88,3 +91,7 @@ export interface AlwaysTableColumn{
 export type TableColumn = AdaptableTableColumn | AlwaysTableColumn;
 
 export type TableColumns = TableColumn[];
+
+export type ColumnProfiles = {
+  [K in ColumnProfile]: TableColumn[];
+};

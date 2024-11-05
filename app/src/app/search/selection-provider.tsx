@@ -1,6 +1,6 @@
 "use client";
 import { ReactNode, useCallback, useMemo, useState } from "react";
-import { Tables } from "@/lib/database.types";
+import { StatisticalUnit } from "@/app/types";
 import { SelectionContext } from "@/app/search/selection-context";
 
 interface SelectionProviderProps {
@@ -8,10 +8,10 @@ interface SelectionProviderProps {
 }
 
 export const SelectionProvider = ({ children }: SelectionProviderProps) => {
-  const [selected, setSelected] = useState<Tables<"statistical_unit">[]>([]);
+  const [selected, setSelected] = useState<StatisticalUnit[]>([]);
 
   const toggle = useCallback(
-    (unit: Tables<"statistical_unit">) => {
+    (unit: StatisticalUnit) => {
       setSelected((prev) => {
         const existing = prev.find(
           (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type

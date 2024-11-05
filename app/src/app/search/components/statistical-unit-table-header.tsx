@@ -18,7 +18,7 @@ export function StatisticalUnitTableHeader({
   maxRegionLevel,
 }: StatisticalUnitTableHeaderProps) {
   const { statDefinitions, externalIdentTypes } = useBaseData();
-  const { columns, visibleColumns, toggleColumn, resetColumns, isDefaultState , headerRowSuffix, headerCellSuffix} = useTableColumns();
+  const { columns, visibleColumns, toggleColumn, profiles, setProfile, headerRowSuffix, headerCellSuffix } = useTableColumns();
 
   return (
     <TableHeader className="bg-gray-50">
@@ -138,8 +138,8 @@ export function StatisticalUnitTableHeader({
           <ColumnSelector
             columns={columns}
             onToggleColumn={toggleColumn}
-            onReset={resetColumns}
-            isDefaultState={isDefaultState}
+            profiles={profiles}
+            setProfile={setProfile}
           />
         </TableHead>
       </TableRow>

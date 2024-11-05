@@ -8,16 +8,22 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Settings2 } from "lucide-react";
-import { TableColumn } from "../search.d";
+import { ColumnProfile, TableColumn } from "../search.d";
+import { isEqual } from "moderndash";
 
 interface ColumnSelectorProps {
   columns: TableColumn[];
   onToggleColumn: (column: TableColumn) => void;
-  onReset: () => void;
-  isDefaultState: boolean;
+  profiles: Record<ColumnProfile, TableColumn[]>;
+  setProfile: (profile: ColumnProfile) => void;
 }
 
-export function ColumnSelector({ columns, onToggleColumn, onReset, isDefaultState }: ColumnSelectorProps) {
+export function ColumnSelector({
+  columns,
+  onToggleColumn,
+  profiles,
+  setProfile,
+}: ColumnSelectorProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
@@ -31,26 +37,34 @@ export function ColumnSelector({ columns, onToggleColumn, onReset, isDefaultStat
         <DropdownMenuSeparator />
         {columns.map((column) => (
           <DropdownMenuCheckboxItem
-            key={`column-selector-${column.code}${column.type === 'Adaptable' ? '-' + column.stat_code : ''}`}
-            checked={column.type == 'Always' ? true : column.visible}
+            key={`column-selector-${column.code}${column.type === "Adaptable" ? "-" + column.stat_code : ""}`}
+            checked={column.type == "Always" ? true : column.visible}
             onCheckedChange={() => onToggleColumn(column)}
-            disabled={column.type == 'Always' ? true : false}
+            disabled={column.type == "Always" ? true : false}
           >
             {column.label}
           </DropdownMenuCheckboxItem>
         ))}
-        {!isDefaultState && (
-          <>
-            <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem
-              onCheckedChange={onReset}
-              checked={false}
-              className="text-red-600 hover:text-red-700"
-            >
-              Reset to Default
-            </DropdownMenuCheckboxItem>
-          </>
-        )}
+        <DropdownMenuSeparator />
+        <DropdownMenuLabel>Profiles</DropdownMenuLabel>
+        <DropdownMenuCheckboxItem
+          checked={profiles && isEqual(columns, profiles["Brief"])}
+          onCheckedChange={() => setProfile("Brief")}
+        >
+          Brief
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={profiles && isEqual(columns, profiles["Regular"])}
+          onCheckedChange={() => setProfile("Regular")}
+        >
+          Regular
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuCheckboxItem
+          checked={profiles && isEqual(columns, profiles["Detailed"])}
+          onCheckedChange={() => setProfile("Detailed")}
+        >
+          Detailed
+        </DropdownMenuCheckboxItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

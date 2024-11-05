@@ -1,11 +1,12 @@
 "use client";
-import { Tables } from "@/lib/database.types";
 import { createContext } from "react";
+import { StatisticalUnit } from "@/app/types";
+
 
 export interface SelectionContextData {
-  readonly selected: Tables<"statistical_unit">[];
+  readonly selected: StatisticalUnit[];
   readonly clearSelected: () => void;
-  readonly toggle: (unit: Tables<"statistical_unit">) => void;
+  readonly toggle: (unit: StatisticalUnit) => void;
 }
 
 export const SelectionContext = createContext<SelectionContextData | null>(null);

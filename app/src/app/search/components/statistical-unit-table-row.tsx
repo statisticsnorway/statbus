@@ -199,13 +199,13 @@ export const StatisticalUnitTableRow = ({
             return (
               <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
                 <div className="flex flex-col space-y-0.5 leading-tight">
-                  {unit.legal_unit_count > 0 && (
+                  {unit.legal_unit_count && unit.legal_unit_count > 0 && (
                     <small className="text-gray-700">Legal Units: {unit.legal_unit_count}</small>
                   )}
-                  {unit.enterprise_count > 0 && (
+                  {unit.enterprise_count && unit.enterprise_count > 0 && (
                     <small className="text-gray-700">Enterprises: {unit.enterprise_count}</small>
                   )}
-                  {unit.establishment_count > 0 && (
+                  {unit.establishment_count && unit.establishment_count > 0 && (
                     <small className="text-gray-700">Establishments: {unit.establishment_count}</small>
                   )}
                 </div>

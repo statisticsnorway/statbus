@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { Tables } from "@/lib/database.types";
+import { StatisticalUnit } from "@/app/types";
 import { MoreHorizontal, ShoppingBasket } from "lucide-react";
 
 import { useSelectionContext } from "@/app/search/use-selection-context";
@@ -17,7 +17,7 @@ import { useSelectionContext } from "@/app/search/use-selection-context";
 export default function SearchResultTableRowDropdownMenu({
   unit,
 }: {
-  readonly unit: Tables<"statistical_unit">;
+  readonly unit: StatisticalUnit;
 }) {
   const { toggle, selected } = useSelectionContext();
   const isInBasket = selected.some(
