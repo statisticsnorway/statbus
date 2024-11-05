@@ -10,13 +10,17 @@ export default async function Slot({
     parseInt(id, 10),
     "enterprise"
   );
-  const primaryLegalUnit = hierarchy?.enterprise?.legal_unit.find(
+  const primaryLegalUnit = hierarchy?.enterprise?.legal_unit?.find(
     (lu) => lu.primary_for_enterprise
   );
+  const establishment = hierarchy?.enterprise?.establishment?.[0];
+  if (!primaryLegalUnit && !establishment) {
+    throw new Error("No primary legal unit or establishment found");
+  }
   return (
     <HeaderSlot
       id={id}
-      unit={primaryLegalUnit}
+      unit={primaryLegalUnit || establishment}
       error={error}
       className="border-enterprise-200 bg-enterprise-100"
     />

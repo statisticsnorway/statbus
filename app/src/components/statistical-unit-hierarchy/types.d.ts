@@ -134,7 +134,7 @@ declare interface StatisticalUnit {
 
 declare interface Enterprise extends StatisticalUnit {
   legal_unit: LegalUnit[];
-  establishment: string | null;
+  establishment: Establishment[];
 }
 
 declare interface LegalUnit extends StatisticalUnit {
