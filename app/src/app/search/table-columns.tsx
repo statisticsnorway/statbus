@@ -51,10 +51,13 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           code: "statistic",
           stat_code: statDefinition.code!,
           label: statDefinition.name!,
-          visible: statDefinition.priority! < 2,
-          profiles: statDefinition.priority === 1 ? ['Brief', 'Regular', 'Detailed']
-                   : statDefinition.priority === 2 ? ['Regular', 'Detailed']
-                   : ['Detailed'],
+          visible: statDefinition.priority! <= 1,
+          profiles:
+            statDefinition.priority === 1
+              ? ["Brief", "Regular", "Detailed"]
+              : statDefinition.priority === 2
+                ? ["Regular", "Detailed"]
+                : ["Detailed"],
         }) as AdaptableTableColumn
     );
 
@@ -63,14 +66,63 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
     } else {
       return [
         { type: "Always", code: "name", label: "Name" },
-        { type: "Adaptable", code: "activity_section", label: "Activity Section", visible: false, stat_code: null, profiles: ["Brief", "Detailed"]},
-        { type: "Adaptable", code: "activity", label: "Activity", visible: true, stat_code: null, profiles: ["Regular", "Detailed"]},
-        { type: "Adaptable", code: "top_region", label: "Top Region", visible: false, stat_code: null, profiles: ["Brief", "Detailed"]},
-        { type: "Adaptable", code: "region", label: "Region", visible: true, stat_code: null, profiles: ["Regular", "Detailed"]},
+        {
+          type: "Adaptable",
+          code: "activity_section",
+          label: "Activity Section",
+          visible: true,
+          stat_code: null,
+          profiles: ["Brief", "Detailed"],
+        },
+        {
+          type: "Adaptable",
+          code: "activity",
+          label: "Activity",
+          visible: false,
+          stat_code: null,
+          profiles: ["Regular", "Detailed"],
+        },
+        {
+          type: "Adaptable",
+          code: "top_region",
+          label: "Top Region",
+          visible: true,
+          stat_code: null,
+          profiles: ["Brief", "Detailed"],
+        },
+        {
+          type: "Adaptable",
+          code: "region",
+          label: "Region",
+          visible: false,
+          stat_code: null,
+          profiles: ["Regular", "Detailed"],
+        },
         ...statisticColumns,
-        { type: "Adaptable", code: "unit_counts", label: "Unit Counts", visible: true, stat_code: null, profiles: ["Detailed"]},
-        { type: "Adaptable", code: "sector", label: "Sector", visible: true, stat_code: null, profiles: ["Detailed"]},
-        { type: "Adaptable", code: "data_sources", label: "Data Source", visible: true, stat_code: null, profiles: ["Detailed"]},
+        {
+          type: "Adaptable",
+          code: "unit_counts",
+          label: "Unit Counts",
+          visible: false,
+          stat_code: null,
+          profiles: ["Detailed"],
+        },
+        {
+          type: "Adaptable",
+          code: "sector",
+          label: "Sector",
+          visible: false,
+          stat_code: null,
+          profiles: ["Detailed"],
+        },
+        {
+          type: "Adaptable",
+          code: "data_sources",
+          label: "Data Source",
+          visible: false,
+          stat_code: null,
+          profiles: ["Detailed"],
+        },
       ];
     }
   }, [statDefinitions]);
@@ -180,21 +232,24 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
     () => ({
       Brief: columns.map((col) => ({
         ...col,
-        ...(col.type === "Adaptable" && 'profiles' in col && {
-          visible: col.profiles.includes("Brief"),
-        }),
+        ...(col.type === "Adaptable" &&
+          "profiles" in col && {
+            visible: col.profiles.includes("Brief"),
+          }),
       })),
       Regular: columns.map((col) => ({
         ...col,
-        ...(col.type === "Adaptable" && 'profiles' in col && {
-          visible: col.profiles.includes("Regular"),
-        }),
+        ...(col.type === "Adaptable" &&
+          "profiles" in col && {
+            visible: col.profiles.includes("Regular"),
+          }),
       })),
       Detailed: columns.map((col) => ({
         ...col,
-        ...(col.type === "Adaptable" && 'profiles' in col && {
-          visible: col.profiles.includes("Detailed"),
-        }),
+        ...(col.type === "Adaptable" &&
+          "profiles" in col && {
+            visible: col.profiles.includes("Detailed"),
+          }),
       })),
     }),
     [columns]
@@ -204,7 +259,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
     (profile: ColumnProfile) => {
       // Update column visibility based on profile
       const newColumns = columns.map((col) => {
-        if (col.type === "Adaptable" && 'profiles' in col) {
+        if (col.type === "Adaptable" && "profiles" in col) {
           const shouldBeVisible = col.profiles.includes(profile);
           return { ...col, visible: shouldBeVisible };
         }
@@ -217,6 +272,8 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           COLUMN_LOCALSTORAGE_NAME,
           JSON.stringify(newColumns)
         );
+      } else {
+        localStorage.removeItem(COLUMN_LOCALSTORAGE_NAME);
       }
     },
     [columns, available_columns]
