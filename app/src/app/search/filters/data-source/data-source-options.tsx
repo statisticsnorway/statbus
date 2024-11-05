@@ -12,7 +12,7 @@ export default function DataSourceOptions({
   dataSources,
 }: {
   readonly options: SearchFilterOption[];
-  readonly dataSources: Tables<"data_source">[];
+  readonly dataSources: Tables<"data_source_used">[];
 }) {
   const {
     modifySearchState,

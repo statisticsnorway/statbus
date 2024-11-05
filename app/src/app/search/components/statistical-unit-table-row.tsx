@@ -1,5 +1,5 @@
 "use client";
-import { Tables } from "@/lib/database.types";
+import { TableColumn } from "../search.d";
 import { TableCell, TableRow } from "@/components/ui/table";
 import { cn } from "@/lib/utils";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
@@ -13,39 +13,26 @@ import { StatisticalUnit } from "@/app/types";
 import { InvalidCodes } from "./invalid-codes";
 import { Popover, PopoverContent } from "@/components/ui/popover";
 import { PopoverTrigger } from "@radix-ui/react-popover";
+import { useTableColumns } from "../table-columns";
 
 interface SearchResultTableRowProps {
-  unit: Tables<"statistical_unit">;
+  unit: StatisticalUnit;
   className?: string;
   regionLevel: number;
 }
 
 export const StatisticalUnitTableRow = ({
   unit,
-  className,
   regionLevel,
 }: SearchResultTableRowProps) => {
   const { allRegions, allActivityCategories, allDataSources } = useSearchContext();
   const { statDefinitions, externalIdentTypes } = useBaseData();
   const { selected } = useSelectionContext();
+  const { columns, bodyRowSuffix, bodyCellSuffix } = useTableColumns();
 
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
   );
-
-  const {
-    unit_type: type,
-    unit_id: id,
-    name,
-    primary_activity_category_path,
-    physical_region_path,
-    external_idents,
-    stats_summary,
-    sector_name,
-    sector_code,
-    invalid_codes,
-    data_source_ids,
-  } = unit as StatisticalUnit;
 
   const getRegionByPath = (physical_region_path: unknown) => {
     if (typeof physical_region_path !== "string") return undefined;
@@ -60,7 +47,7 @@ export const StatisticalUnitTableRow = ({
     );
 
   const activityCategory = getActivityCategoryByPath(
-    primary_activity_category_path
+    unit.primary_activity_category_path
   );
 
   const getDataSourcesByIds = (data_source_ids: number[] | null) => {
@@ -69,9 +56,9 @@ export const StatisticalUnitTableRow = ({
       .map((id) => allDataSources.find((ds) => ds.id === id));
   };
 
-  const dataSources = getDataSourcesByIds(data_source_ids ?? []);
+  const dataSources = getDataSourcesByIds(unit.data_source_ids ?? []);
 
-  const region = getRegionByPath(physical_region_path);
+  const region = getRegionByPath(unit.physical_region_path);
 
   const prettifyUnitType = (type: UnitType | null): string => {
     switch (type) {
@@ -88,97 +75,179 @@ export const StatisticalUnitTableRow = ({
     }
   };
 
+  const getCellClassName = (column: TableColumn) => {
+    return cn(
+      "py-2",
+      // Adaptable columns are hidden on small screens
+      column.type === 'Adaptable' && "hidden",
+      // Show on large screens only if visible
+      column.type === 'Adaptable' && column.visible && "lg:table-cell",
+      // Add specific styling for statistic columns
+      column.code === 'statistic' && "text-right"
+    );
+  };
+
   return (
-    <TableRow className={cn("", className, isInBasket ? "bg-gray-100" : "")}>
-      <TableCell className="py-2">
-        <div
-          className="flex items-center space-x-3 leading-tight"
-          title={name ?? ""}
-        >
-          <StatisticalUnitIcon type={type} className="w-5" />
-          <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
-            {type && id && name ? (
-              <StatisticalUnitDetailsLink
-                className="overflow-hidden overflow-ellipsis whitespace-nowrap"
-                id={id}
-                type={type}
-              >
-                {name}
-              </StatisticalUnitDetailsLink>
-            ) : (
-              <span className="font-medium">{name}</span>
-            )}
-            <small className="text-gray-700 flex items-center space-x-1">
-              <span className="flex">
-                {externalIdentTypes
-                  ?.map(({ code }) => external_idents[code!] || "")
-                  .join(" | ")}
-              </span>
-              {invalid_codes && (
-                <>
-                  <span>|</span>
-                  <InvalidCodes invalidCodes={JSON.stringify(invalid_codes)} />
-                </>
-              )}
-            </small>
-          </div>
-        </div>
-      </TableCell>
+    <TableRow key={`row-${bodyRowSuffix(unit)}`} className={cn("", isInBasket ? "bg-gray-100" : "")}>
+      {columns.map(column => {
+        if (column.type === 'Adaptable' && !column.visible) {
+          return null;
+        }
+        switch (column.code) {
+          case 'name':
+            if (column.type !== 'Always') return null;
+            return (
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                <div className="flex items-center space-x-3 leading-tight" title={name ?? ""}>
+                  <StatisticalUnitIcon type={unit.unit_type} className="w-5" />
+                  <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
+                    {unit.unit_type && unit.unit_id && name ? (
+                      <StatisticalUnitDetailsLink
+                        className="overflow-hidden overflow-ellipsis whitespace-nowrap"
+                        id={unit.unit_id}
+                        type={unit.unit_type}
+                      >
+                        {unit.name}
+                      </StatisticalUnitDetailsLink>
+                    ) : (
+                      <span className="font-medium">{unit.name}</span>
+                    )}
+                    <small className="text-gray-700 flex items-center space-x-1">
+                      <span className="flex">
+                        {externalIdentTypes
+                          ?.map(({ code }) => unit.external_idents[code!] || "")
+                          .join(" | ")}
+                      </span>
+                      {unit.invalid_codes && (
+                        <>
+                          <span>|</span>
+                          <InvalidCodes invalidCodes={JSON.stringify(unit.invalid_codes)} />
+                        </>
+                      )}
+                    </small>
+                  </div>
+                </div>
+              </TableCell>
+            );
+
+          case 'activity_section':
+            const activitySection = unit.primary_activity_category_path ? allActivityCategories.find(
+              ({ path }) => path === (unit.primary_activity_category_path as string | null)?.split('.')?.[0]
+            ) : undefined;
+            return (
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span>{activitySection?.label}</span>
+                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                    {activitySection?.name}
+                  </small>
+                </div>
+              </TableCell>
+            );
+
+          case 'activity':
+            return (
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span>{activityCategory?.code}</span>
+                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
+                    {activityCategory?.name}
+                  </small>
+                </div>
+              </TableCell>
+            );
+
+            case 'top_region':
+              const topRegion = unit.physical_region_path ? allRegions.find(
+                ({ path }) => path === (unit.physical_region_path as string | null)?.split('.')[0]
+              ) : undefined;
+              return (
+                <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                  <div className="flex flex-col space-y-0.5 leading-tight">
+                    <span>{topRegion?.code}</span>
+                    <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                      {topRegion?.name}
+                    </small>
+                  </div>
+                </TableCell>
+              );
+
+          case 'region':
+            return (
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span>{region?.code}</span>
+                  <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                    {region?.name}
+                  </small>
+                </div>
+              </TableCell>
+            );
+
+          case 'statistic':
+            if (column.type === 'Adaptable' && column.stat_code) {
+              return (
+                <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                  {thousandSeparator(unit.stats_summary[column.stat_code]?.sum)}
+                </TableCell>
+              );
+            }
+            return null;
+
+          case 'unit_counts':
+            return (
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  {unit.establishment_count != null && unit.establishment_count > 0 && (
+                    <small className="text-gray-700">Establishments: {unit.establishment_count}</small>
+                  )}
+                  {unit.legal_unit_count != null && unit.legal_unit_count > 0 && (
+                    <small className="text-gray-700">Legal Units: {unit.legal_unit_count}</small>
+                  )}
+                  {unit.enterprise_count != null && unit.enterprise_count > 0 && (
+                    <small className="text-gray-700">Enterprises: {unit.enterprise_count}</small>
+                  )}
+                </div>
+              </TableCell>
+            );
+
+          case 'sector':
+            return (
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  <span>{unit.sector_code}</span>
+                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
+                    {unit.sector_name}
+                  </small>
+                </div>
+              </TableCell>
+            );
+
+          case 'data_sources':
+            return (
+              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                <div className="flex flex-col space-y-0.5 leading-tight">
+                  {dataSources.map((ds) => (
+                    <Popover key={`dataSource-${ds?.id}`}>
+                      <PopoverTrigger asChild>
+                        <span className="cursor-pointer" title={ds?.name}>
+                          {ds?.code}
+                        </span>
+                      </PopoverTrigger>
+                      <PopoverContent className="p-1.5 w-full">
+                        <p className="text-xs">{ds?.name}</p>
+                      </PopoverContent>
+                    </Popover>
+                  ))}
+                </div>
+              </TableCell>
+            );
+        }
+      })}
       <TableCell
-        title={region?.name ?? ""}
-        className="py-2 text-left hidden lg:table-cell"
+        key="column-action"
+        className="py-2 p-1 text-right"
       >
-        <div className="flex flex-col space-y-0.5 leading-tight">
-          <span>{region?.code}</span>
-          <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
-            {region?.name}
-          </small>
-        </div>
-      </TableCell>
-      {statDefinitions.map(({ code }) => (
-        <TableCell key={code} className="py-2 text-right hidden lg:table-cell">
-          {thousandSeparator(stats_summary[code!]?.sum)}
-        </TableCell>
-      ))}
-      <TableCell
-        className="py-2 text-left hidden lg:table-cell"
-        title={sector_name ?? ""}
-      >
-        <div className="flex flex-col space-y-0.5 leading-tight">
-          <span>{sector_code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
-            {sector_name}
-          </small>
-        </div>
-      </TableCell>
-      <TableCell
-        title={activityCategory?.name ?? ""}
-        className="py-2 pl-4 pr-2 text-left hidden lg:table-cell "
-      >
-        <div className="flex flex-col space-y-0.5 leading-tight">
-          <span>{activityCategory?.code}</span>
-          <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
-            {activityCategory?.name}
-          </small>
-        </div>
-      </TableCell>
-      <TableCell className="py-2 text-left hidden lg:table-cell">
-        <div className="flex flex-col space-y-0.5 leading-tight">
-          {dataSources.map((ds) => (
-            <Popover key={`dataSource-${ds?.id}`}>
-              <PopoverTrigger asChild>
-                <span className="cursor-pointer" title={ds?.name}>
-                  {ds?.code}
-                </span>
-              </PopoverTrigger>
-              <PopoverContent className="p-1.5 w-full">
-                <p className="text-xs">{ds?.name}</p>
-              </PopoverContent>
-            </Popover>
-          ))}
-        </div>
-      </TableCell>
-      <TableCell className="p-1 text-right">
         <SearchResultTableRowDropdownMenu unit={unit} />
       </TableCell>
     </TableRow>

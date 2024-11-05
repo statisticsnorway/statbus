@@ -38,6 +38,7 @@
     "cmdk": "^1.0.0",
     "highcharts": "^11.4.8",
     "lucide-react": "^0.452.0",
+    "moderndash": "^3.12.0",
     "next": "^14.2.15",
     "pino": "^9.4.0",
     "pino-seq": "^1.2.0",
