@@ -78,7 +78,7 @@ export interface AdaptableTableColumn{
   stat_code: string | null;
   label: string;
   visible: boolean;
-  profile: ColumnProfile;
+  profiles: ColumnProfile[];
 }
 
 export interface AlwaysTableColumn{
