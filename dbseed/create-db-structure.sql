@@ -1266,9 +1266,9 @@ CREATE VIEW public.time_context
   , name_when_query
   , name_when_input
   , scope
-  , valid_on
   , valid_from
   , valid_to
+  , valid_on
   , code         -- Exposing the code for ordering
   , path         -- Exposing the path for ordering
   ) AS
