@@ -7,6 +7,7 @@ import { modifySearchStateReducer } from "@/app/search/search-filter-reducer";
 import useDerivedUrlSearchParams from "@/app/search/use-derived-url-search-params";
 import { useBaseData } from "@/app/BaseDataClient";
 import { SearchContext, SearchContextState } from "@/app/search/search-context";
+import { TableColumnsProvider } from "./table-columns.tsx";
 import { SearchResult, SearchOrder, SearchPagination, SearchState, SearchAction } from "./search.d";
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
@@ -164,7 +165,9 @@ export function SearchResults({
 
   return (
     <SearchContext.Provider value={ctx}>
-      {children}
+      <TableColumnsProvider>
+        {children}
+      </TableColumnsProvider>
     </SearchContext.Provider>
   );
 }

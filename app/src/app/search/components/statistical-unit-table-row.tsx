@@ -14,7 +14,7 @@ import { StatisticalUnit } from "@/app/types";
 import { InvalidCodes } from "./invalid-codes";
 import { Popover, PopoverContent } from "@/components/ui/popover";
 import { PopoverTrigger } from "@radix-ui/react-popover";
-import { useTableColumns } from "../use-table-columns";
+import { useTableColumns } from "../table-columns";
 
 interface SearchResultTableRowProps {
   unit: Tables<"statistical_unit">;

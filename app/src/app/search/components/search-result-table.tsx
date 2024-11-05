@@ -6,7 +6,7 @@ import { useSearchContext } from "@/app/search/use-search-context";
 import { cn } from "@/lib/utils";
 import { SearchResultTableBodySkeleton } from "@/app/search/components/search-result-table-body-skeleton";
 import { useRegionLevel } from "@/app/search/hooks/useRegionLevel";
-import { useTableColumns } from "../use-table-columns";
+import { useTableColumns } from "../table-columns";
 
 export default function SearchResultTable() {
   const { searchResult, error, isLoading, allRegions: regions } = useSearchContext();

@@ -1,4 +1,6 @@
-import { useEffect, useMemo, useState, useCallback } from 'react';
+"use client";
+
+import { createContext, useContext, ReactNode, useEffect, useMemo, useState, useCallback } from 'react';
 import { isEqual } from 'moderndash';
 import { TableColumn, TableColumns, AdaptableTableColumn } from './search.d';
 import { useBaseData } from '../BaseDataClient';
@@ -6,8 +8,22 @@ import { Tables } from '@/lib/database.types';
 
 const COLUMN_LOCALSTORAGE_NAME = 'table-columns-state';
 
-export function useTableColumns() {
-  const { statDefinitions, externalIdentTypes } = useBaseData();
+interface TableColumnsContextType {
+  columns: TableColumns;
+  visibleColumns: TableColumn[];
+  toggleColumn: (column: TableColumn) => void;
+  resetColumns: () => void;
+  isDefaultState: boolean;
+  headerRowSuffix: string;
+  headerCellSuffix: (column: TableColumn) => string;
+  bodyRowSuffix: (unit: Tables<"statistical_unit">) => string;
+  bodyCellSuffix: (unit: Tables<"statistical_unit">, column: TableColumn) => string;
+}
+
+const TableColumnsContext = createContext<TableColumnsContextType | undefined>(undefined);
+
+export function TableColumnsProvider({ children }: { children: ReactNode }) {
+  const { statDefinitions } = useBaseData();
 
   const default_columns: TableColumn[] = useMemo(() => {
     const statisticColumns: AdaptableTableColumn[] =
@@ -135,7 +151,7 @@ export function useTableColumns() {
     return `${unitSuffix(unit)}-${columnSuffix(column)}`
   };
 
-  return {
+  const value = {
     columns,
     visibleColumns,
     toggleColumn,
@@ -146,4 +162,18 @@ export function useTableColumns() {
     bodyRowSuffix,
     bodyCellSuffix,
   };
+
+  return (
+    <TableColumnsContext.Provider value={value}>
+      {children}
+    </TableColumnsContext.Provider>
+  );
+}
+
+export function useTableColumns() {
+  const context = useContext(TableColumnsContext);
+  if (context === undefined) {
+    throw new Error('useTableColumns must be used within a TableColumnsProvider');
+  }
+  return context;
 }
