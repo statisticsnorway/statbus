@@ -158,6 +158,21 @@ export const StatisticalUnitTableRow = ({
               </TableCell>
             );
 
+            case 'top_region':
+              const topRegion = unit.physical_region_path ? allRegions.find(
+                ({ path }) => path === (unit.physical_region_path as string | null)?.split('.')[0]
+              ) : undefined;
+              return (
+                <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
+                  <div className="flex flex-col space-y-0.5 leading-tight">
+                    <span>{topRegion?.code}</span>
+                    <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                      {topRegion?.name}
+                    </small>
+                  </div>
+                </TableCell>
+              );
+
           case 'region':
             return (
               <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>

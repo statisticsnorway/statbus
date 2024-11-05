@@ -33,6 +33,15 @@ export function StatisticalUnitTableHeader({
                   </small>
                 </SortableTableHead>
               );
+            case 'top_region':
+              return (
+                <TableHead
+                  className="text-left"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                >
+                  Top Region
+                </TableHead>
+              );
             case 'region':
               return (
                 <SortableTableHead
