@@ -10,31 +10,39 @@ import ActivityCategoryFilter from "@/app/search/filters/activity-category/activ
 import StatisticalVariablesFilter from "@/app/search/filters/statistical-variables/statistical-variables-filter";
 import InvalidCodesFilter from "@/app/search/filters/invalid-codes-filter";
 import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
-
+import { FilterWrapper } from "./filter-wrapper";
 import { IURLSearchParamsDict } from "@/lib/url-search-params-dict";
 import DataSourceFilter from "../filters/data-source/data-source-filter";
 
 export default function TableToolbar({ initialUrlSearchParamsDict }: IURLSearchParamsDict) {
   return (
     <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
-      <FullTextSearchFilter/>
-      <ExternalIdentFilter/>
+      <FilterWrapper columnCode="name">
+        <FullTextSearchFilter/>
+        <ExternalIdentFilter/>
+      </FilterWrapper>
       <UnitTypeFilter/>
-      <Suspense fallback={<FilterSkeleton title="Sector" />}>
-        <SectorFilter/>
-      </Suspense>
-      <Suspense fallback={<FilterSkeleton title="Region" />}>
-        <RegionFilter/>
-      </Suspense>
-      <Suspense fallback={<FilterSkeleton title="Legal Form" />}>
-        <LegalFormFilter/>
-      </Suspense>
-      <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
-        <ActivityCategoryFilter/>
-      </Suspense>
-      <Suspense fallback={<FilterSkeleton title="Data Source" />}>
-        <DataSourceFilter/>
-      </Suspense>
+      <FilterWrapper columnCode="sector">
+        <Suspense fallback={<FilterSkeleton title="Sector" />}>
+          <SectorFilter/>
+        </Suspense>
+      </FilterWrapper>
+      <FilterWrapper columnCode="region">
+        <Suspense fallback={<FilterSkeleton title="Region" />}>
+          <RegionFilter/>
+        </Suspense>
+      </FilterWrapper>
+      <LegalFormFilter/>
+      <FilterWrapper columnCode="activity">
+        <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
+          <ActivityCategoryFilter/>
+        </Suspense>
+      </FilterWrapper>
+      <FilterWrapper columnCode="data_sources">
+        <Suspense fallback={<FilterSkeleton title="Data Source" />}>
+          <DataSourceFilter/>
+        </Suspense>
+      </FilterWrapper>
       <StatisticalVariablesFilter/>
       <InvalidCodesFilter/>
       <ResetFilterButton />

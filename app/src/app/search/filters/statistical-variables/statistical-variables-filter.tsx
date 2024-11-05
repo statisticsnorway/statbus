@@ -1,5 +1,6 @@
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import StatisticalVariablesOptions from "@/app/search/filters/statistical-variables/statistical-variables-options";
+import { FilterWrapper } from "../../components/filter-wrapper";
 
 export default async function StatisticalVariablesFilter() {
   const client = await createSupabaseSSRClient();
@@ -9,14 +10,17 @@ export default async function StatisticalVariablesFilter() {
 
   return (
     <>
-      {statDefinitions.data?.map((statDefinition) => {
-        return (
+      {await Promise.all(statDefinitions.data?.map(async (statDefinition) => (
+        <FilterWrapper 
+          key={"stat_var"+statDefinition.code!}
+          columnCode="statistic"
+          statCode={statDefinition.code}
+        >
           <StatisticalVariablesOptions
-            key={"stat_var"+statDefinition.code!}
             statDefinition={statDefinition}
-            />
-        );
-      })}
+          />
+        </FilterWrapper>
+      )) ?? [])}
     </>
   );
 }
