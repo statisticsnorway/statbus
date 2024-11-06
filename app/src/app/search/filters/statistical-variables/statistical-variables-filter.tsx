@@ -4,9 +4,7 @@ import { FilterWrapper } from "../../components/filter-wrapper";
 
 export default async function StatisticalVariablesFilter() {
   const client = await createSupabaseSSRClient();
-  const statDefinitions = await client
-    .from("stat_definition_ordered")
-    .select();
+  const statDefinitions = await client.from("stat_definition_active").select();
 
   return (
     <>

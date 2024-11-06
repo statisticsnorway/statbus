@@ -34,15 +34,16 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
     } else {
       params.delete("details");
     }
-    router.push(`${pathname}?${params}`);
+    router.replace(`${pathname}?${params}`);
     setCompact(!compact);
   };
 
   const primaryLegalUnit = hierarchy.enterprise?.legal_unit?.find(
     (lu) => lu.primary_for_enterprise
   );
+  const establishment = hierarchy.enterprise?.establishment?.[0];
 
-  if (!primaryLegalUnit) {
+  if (!primaryLegalUnit && !establishment) {
     return null;
   }
 
@@ -70,21 +71,37 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
         <TopologyItem
           type="enterprise"
           id={hierarchy.enterprise.id}
-          unit={primaryLegalUnit}
+          unit={primaryLegalUnit || establishment}
           active={
             hierarchy.enterprise.id == unitId && unitType === "enterprise"
           }
         >
-          {hierarchy.enterprise.legal_unit.map((legalUnit) => (
-            <TopologyItem
-              key={legalUnit.id}
-              type="legal_unit"
-              id={legalUnit.id}
-              unit={legalUnit}
-              active={legalUnit.id === unitId && unitType === "legal_unit"}
-              primary={legalUnit.primary_for_enterprise}
-            >
-              {legalUnit.establishment?.map((establishment) => (
+          {primaryLegalUnit
+            ? hierarchy.enterprise.legal_unit.map((legalUnit) => (
+                <TopologyItem
+                  key={legalUnit.id}
+                  type="legal_unit"
+                  id={legalUnit.id}
+                  unit={legalUnit}
+                  active={legalUnit.id === unitId && unitType === "legal_unit"}
+                  primary={legalUnit.primary_for_enterprise}
+                >
+                  {legalUnit.establishment?.map((establishment) => (
+                    <TopologyItem
+                      key={establishment.id}
+                      type="establishment"
+                      id={establishment.id}
+                      unit={establishment}
+                      active={
+                        establishment.id === unitId &&
+                        unitType === "establishment"
+                      }
+                      primary={establishment.primary_for_legal_unit}
+                    />
+                  ))}
+                </TopologyItem>
+              ))
+            : hierarchy.enterprise.establishment?.map((establishment) => (
                 <TopologyItem
                   key={establishment.id}
                   type="establishment"
@@ -93,11 +110,8 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
                   active={
                     establishment.id === unitId && unitType === "establishment"
                   }
-                  primary={establishment.primary_for_legal_unit}
                 />
               ))}
-            </TopologyItem>
-          ))}
         </TopologyItem>
       </ul>
     </>

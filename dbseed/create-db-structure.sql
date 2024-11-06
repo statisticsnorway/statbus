@@ -1266,9 +1266,9 @@ CREATE VIEW public.time_context
   , name_when_query
   , name_when_input
   , scope
-  , valid_on
   , valid_from
   , valid_to
+  , valid_on
   , code         -- Exposing the code for ordering
   , path         -- Exposing the path for ordering
   ) AS
@@ -1278,9 +1278,9 @@ WITH combined_data AS (
   ,      name_when_query                       AS name_when_query
   ,      name_when_input                       AS name_when_input
   ,      scope                                 AS scope
-  ,      valid_on                              AS valid_on
   ,      valid_from                            AS valid_from
   ,      valid_to                              AS valid_to
+  ,      valid_on                              AS valid_on
   ,      code                                  AS code  -- Specific order column for relative_period
   ,      NULL::public.LTREE                    AS path  -- Null for path as not applicable here
   FROM public.relative_period_with_time
@@ -6663,14 +6663,7 @@ CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
     WITH ordered_data AS (
     SELECT
         to_jsonb(sfu.*)
-        - 'value_int' - 'value_float' - 'value_string' - 'value_bool'
         || jsonb_build_object('stat_definition', to_jsonb(sd.*))
-        || CASE sd.type
-            WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
-            WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
-            WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
-            WHEN 'bool' THEN jsonb_build_object(sd.code, sfu.value_bool)
-           END
         || (SELECT public.data_source_hierarchy(sfu.data_source_id))
         AS data
     FROM public.stat_for_unit AS sfu

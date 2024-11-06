@@ -5,6 +5,7 @@ import { StatisticalUnitDetailsLinkWithSubPath } from "@/components/statistical-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Asterisk } from "lucide-react";
 import { thousandSeparator } from "@/lib/number-utils";
+import { useBaseData } from "@/app/BaseDataClient";
 
 interface TopologyItemProps {
   readonly active?: boolean;
@@ -27,6 +28,7 @@ export function TopologyItem({
   primary,
   children,
 }: TopologyItemProps) {
+  const { statDefinitions } = useBaseData();
   const activity = unit.activity?.[0]?.activity_category;
   const location = unit.location?.[0];
   return (
@@ -65,16 +67,26 @@ export function TopologyItem({
                 title="Country"
                 value={location?.country?.name}
               />
-              <TopologyItemInfo
-                className="flex-1"
-                title="Employees"
-                value={thousandSeparator(unit.stat_for_unit?.[0].employees)}
-              />
-              <TopologyItemInfo
-                className="flex-1"
-                title="Turnover"
-                value={thousandSeparator(unit.stat_for_unit?.[1]?.turnover)}
-              />
+              {statDefinitions.map((statDefinition) => {
+                const stat = unit.stat_for_unit?.find(
+                  (s) => s.stat_definition_id === statDefinition.id
+                );
+                const value =
+                  stat?.value_int ??
+                  stat?.value_bool ??
+                  stat?.value_float ??
+                  stat?.value_string;
+                const formattedValue =
+                  typeof value === "number" ? thousandSeparator(value) : value;
+                return (
+                  <TopologyItemInfo
+                    key={statDefinition.id}
+                    className="flex-1"
+                    title={statDefinition.code || ""}
+                    value={formattedValue}
+                  />
+                );
+              })}
             </div>
             <TopologyItemInfo
               title="Activity"
@@ -92,7 +104,7 @@ export function TopologyItem({
 
 interface TopologyItemInfoProps {
   title: string;
-  value?: string | number;
+  value?: string | number | boolean | null;
   fallbackValue?: string;
   className?: string;
 }

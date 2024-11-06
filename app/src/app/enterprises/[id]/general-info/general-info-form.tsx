@@ -3,9 +3,9 @@ import { useBaseData } from "@/app/BaseDataClient";
 import { FormField } from "@/components/form/form-field";
 
 export default function GeneralInfoForm({
-  values
+  values,
 }: {
-  readonly values: LegalUnit;
+  readonly values: LegalUnit | Establishment;
 }) {
   const { externalIdentTypes } = useBaseData();
 

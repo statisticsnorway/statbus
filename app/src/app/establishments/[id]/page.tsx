@@ -42,7 +42,7 @@ export default async function EstablishmentGeneralInfoPage({
           </p>
         </InfoBox>
       )}
-      {!establishment.primary_for_legal_unit && (
+      {!establishment.primary_for_legal_unit && establishment.legal_unit_id && (
         <form
           action={setPrimaryEstablishment.bind(null, establishment.id)}
           className="bg-gray-100 p-2"

@@ -90,8 +90,10 @@ declare interface StatDefinition {
 declare interface StatForUnit {
   id: number;
   valid_to: string;
-  employees: number;
-  turnover: number;
+  value_int: number | null;
+  value_float: number | null;
+  value_string: string | null;
+  value_bool: boolean | null;
   valid_from: string;
   stat_definition: StatDefinition;
   establishment_id: number;
@@ -134,7 +136,7 @@ declare interface StatisticalUnit {
 
 declare interface Enterprise extends StatisticalUnit {
   legal_unit: LegalUnit[];
-  establishment: string | null;
+  establishment: Establishment[];
 }
 
 declare interface LegalUnit extends StatisticalUnit {
