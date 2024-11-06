@@ -97,11 +97,17 @@ export const StatisticalUnitTableRow = ({
           case 'name':
             if (column.type !== 'Always') return null;
             return (
-              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
-                <div className="flex items-center space-x-3 leading-tight" title={name ?? ""}>
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  className="flex items-center space-x-3 leading-tight"
+                  title={unit.name ?? ""}
+                >
                   <StatisticalUnitIcon type={unit.unit_type} className="w-5" />
                   <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
-                    {unit.unit_type && unit.unit_id && name ? (
+                    {unit.unit_type && unit.unit_id && unit.name ? (
                       <StatisticalUnitDetailsLink
                         className="overflow-hidden overflow-ellipsis whitespace-nowrap"
                         id={unit.unit_id}
@@ -121,7 +127,9 @@ export const StatisticalUnitTableRow = ({
                       {unit.invalid_codes && (
                         <>
                           <span>|</span>
-                          <InvalidCodes invalidCodes={JSON.stringify(unit.invalid_codes)} />
+                          <InvalidCodes
+                            invalidCodes={JSON.stringify(unit.invalid_codes)}
+                          />
                         </>
                       )}
                     </small>
