@@ -36,7 +36,7 @@ export function StatisticalUnitTableHeader({
             case 'activity_section':
               return (
                 <TableHead
-                  className="text-left"
+                  className="text-left hidden lg:table-cell"
                   key={`h-cell-${headerCellSuffix(column)}`}
                 >
                   Activity Section
@@ -45,7 +45,7 @@ export function StatisticalUnitTableHeader({
             case 'top_region':
               return (
                 <TableHead
-                  className="text-left"
+                  className="text-left hidden lg:table-cell"
                   key={`h-cell-${headerCellSuffix(column)}`}
                 >
                   Top Region
