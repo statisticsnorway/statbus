@@ -209,10 +209,10 @@ export const StatisticalUnitTableRow = ({
                 className={getCellClassName(column)}
               >
                 <div className="flex flex-col space-y-0.5 leading-tight whitespace-nowrap">
-                  {unit.establishment_count != null &&
-                    unit.establishment_count > 0 && (
+                  {unit.enterprise_count != null &&
+                    unit.enterprise_count > 0 && (
                       <small className="text-gray-700">
-                        Establishments: {unit.establishment_count}
+                        Enterprises: {unit.enterprise_count}
                       </small>
                     )}
                   {unit.legal_unit_count != null &&
@@ -221,10 +221,10 @@ export const StatisticalUnitTableRow = ({
                         Legal Units: {unit.legal_unit_count}
                       </small>
                     )}
-                  {unit.enterprise_count != null &&
-                    unit.enterprise_count > 0 && (
+                  {unit.establishment_count != null &&
+                    unit.establishment_count > 0 && (
                       <small className="text-gray-700">
-                        Enterprises: {unit.enterprise_count}
+                        Establishments: {unit.establishment_count}
                       </small>
                     )}
                 </div>

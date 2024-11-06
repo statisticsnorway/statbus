@@ -35,6 +35,13 @@ export default function UnitTypeFilter() {
       title="Unit Type"
       options={[
         {
+          label: "Enterprise",
+          value: "enterprise",
+          humanReadableValue: "Enterprise",
+          className: "bg-enterprise-100",
+          icon: <StatisticalUnitIcon type="enterprise" className="w-4" />,
+        },
+        {
           label: "Legal Unit",
           value: "legal_unit",
           humanReadableValue: "Legal Unit",
@@ -47,13 +54,6 @@ export default function UnitTypeFilter() {
           humanReadableValue: "Establishment",
           className: "bg-establishment-100",
           icon: <StatisticalUnitIcon type="establishment" className="w-4" />,
-        },
-        {
-          label: "Enterprise",
-          value: "enterprise",
-          humanReadableValue: "Enterprise",
-          className: "bg-enterprise-100",
-          icon: <StatisticalUnitIcon type="enterprise" className="w-4" />,
         },
       ]}
       selectedValues={selected}
