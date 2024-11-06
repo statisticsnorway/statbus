@@ -12,7 +12,7 @@ import { ActiveExternalIdentBadges } from "./active-external-ident-badges";
 export default async function ExternalIdentFilter() {
   const client = await createSupabaseSSRClient();
   const externalIdentTypes = await client
-    .from("external_ident_type_ordered")
+    .from("external_ident_type_active")
     .select();
 
   return (
