@@ -56,7 +56,8 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
       allDataSources={dataSources ?? []}
       initialUrlSearchParamsDict={initialUrlSearchParamsDict}
     >
-      <main className="mx-auto flex w-full flex-col py-8 md:py-12 px-4">
+      <main className="overflow-x-hidden">
+        <div className="mx-auto flex flex-col w-full max-w-fit py-8 md:py-12 px-8">
         <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
           Search for statistical units
         </h1>
@@ -79,6 +80,7 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
             <Selection />
           </section>
         </SelectionProvider>
+        </div>
       </main>
     </SearchResults>
   );
