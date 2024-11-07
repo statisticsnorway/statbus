@@ -29,7 +29,7 @@ export default function RootLayout({
     <html lang="en" className="h-full bg-white">
       <body
         className={cn(
-          "grid h-full grid-rows-[auto_1fr_auto] font-sans antialiased",
+          "grid min-h-full grid-rows-[auto_1fr_auto] font-sans antialiased",
           inter.className
         )}
       >

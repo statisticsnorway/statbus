@@ -25,7 +25,7 @@ export function ColumnSelector({
   setProfile,
 }: ColumnSelectorProps) {
   return (
-    <DropdownMenu>
+    <DropdownMenu modal={false}>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" size="sm">
           <Settings2 className="h-4 w-4" />
