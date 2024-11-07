@@ -254,7 +254,7 @@ SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
 SELECT admin.drop_table_views_for_batch_api('public.foreign_participation');
 SELECT admin.drop_table_views_for_batch_api('public.data_source');
 SELECT admin.drop_table_views_for_batch_api('public.unit_size');
-SELECT admin.drop_table_views_for_batch_api('public.person_type');
+SELECT admin.drop_table_views_for_batch_api('public.person_role');
 SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_type');
 SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_role');
 
@@ -328,7 +328,7 @@ DROP TYPE public.tag_type;
 
 DROP TABLE public.foreign_participation;
 
-DROP TABLE public.person_type;
+DROP TABLE public.person_role;
 DROP TABLE public.person;
 
 DROP TABLE public.legal_form;

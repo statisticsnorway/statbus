@@ -14,7 +14,6 @@ SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
 
-
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -29,8 +28,13 @@ SET datestyle TO 'ISO, DMY';
 -- For API users
 ALTER ROLE authenticated SET statement_timeout = '120s';
 
+-- Support fast path (ltree) (a.b.c...) operations.
+CREATE EXTENSION ltree SCHEMA public;
+
 -- Use a separate schema, that is not exposed by PostgREST, for administrative functions.
 CREATE SCHEMA admin;
+
+
 
 CREATE TYPE public.statbus_role_type AS ENUM('super_user','regular_user', 'restricted_user', 'external_user');
 
@@ -119,6 +123,7 @@ INSERT INTO public.statbus_role(type, name, description) VALUES ('external_user'
 --CREATE POLICY "Public users are viewable by everyone." ON "user" FOR SELECT USING ( true );
 --CREATE POLICY "Users can insert their own data." ON "user" FOR INSERT WITH check ( auth.uid() = id );
 --CREATE POLICY "Users can update own data." ON "user" FOR UPDATE USING ( auth.uid() = id );
+
 
 
 -- =================================================================
@@ -536,7 +541,6 @@ $$ LANGUAGE plpgsql;
 
 
 
-
 \echo public.activity_category_code_behaviour
 CREATE TYPE public.activity_category_code_behaviour AS ENUM ('digits', 'dot_after_two_digits');
 
@@ -554,7 +558,8 @@ INSERT INTO public.activity_category_standard(code, name, description, code_patt
 VALUES ('isic_v4', 'ISIC 4', 'ISIC Version 4', 'digits')
      , ('nace_v2.1', 'NACE 2.1', 'NACE Version 2 Revision 1', 'dot_after_two_digits');
 
-CREATE EXTENSION ltree SCHEMA public;
+
+
 
 CREATE TABLE public.activity_category (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -621,6 +626,7 @@ FOR EACH ROW
 EXECUTE FUNCTION public.lookup_parent_and_derive_code();
 
 
+
 \echo admin.upsert_activity_category
 CREATE FUNCTION admin.upsert_activity_category()
 RETURNS TRIGGER AS $$
@@ -672,7 +678,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
 \echo admin.delete_stale_activity_category
 CREATE FUNCTION admin.delete_stale_activity_category()
 RETURNS TRIGGER AS $$
@@ -690,6 +695,8 @@ BEGIN
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
+
+
 
 \echo public.activity_category_isic_v4
 CREATE VIEW public.activity_category_isic_v4
@@ -717,6 +724,7 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.delete_stale_activity_category();
 
 \copy public.activity_category_isic_v4(path, name) FROM 'dbseed/activity-category-standards/ISIC_Rev_4_english_structure.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"');
+
 
 
 \echo public.activity_category_nace_v2_1
@@ -747,6 +755,7 @@ EXECUTE FUNCTION admin.delete_stale_activity_category();
 \copy public.activity_category_nace_v2_1(path, name, description) FROM 'dbseed/activity-category-standards/NACE2.1_Structure_Label_Notes_EN.import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"');
 
 
+
 -- Settings as configured by the system.
 \echo public.settings
 CREATE TABLE public.settings (
@@ -756,6 +765,7 @@ CREATE TABLE public.settings (
     CHECK(only_one_setting),
     UNIQUE(only_one_setting)
 );
+
 
 
 \echo public.activity_category_available
@@ -870,7 +880,6 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.activity_category_available_upsert_custom();
 
 
-
 \echo public.activity_category_available_custom
 CREATE VIEW public.activity_category_available_custom(path, name, description)
 WITH (security_invoker=on) AS
@@ -979,6 +988,8 @@ INSTEAD OF INSERT ON public.activity_category_available_custom
 FOR EACH ROW
 EXECUTE FUNCTION admin.activity_category_available_custom_upsert_custom();
 
+
+
 \echo public.activity_category_role
 CREATE TABLE public.activity_category_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -988,6 +999,7 @@ CREATE TABLE public.activity_category_role (
 );
 CREATE INDEX ix_activity_category_role_activity_category_id ON public.activity_category_role USING btree (activity_category_id);
 CREATE INDEX ix_activity_category_role_role_id ON public.activity_category_role USING btree (role_id);
+
 
 
 \echo public.analysis_queue
@@ -1001,6 +1013,7 @@ CREATE TABLE public.analysis_queue (
     server_end_period timestamp with time zone
 );
 CREATE INDEX ix_analysis_queue_user_id ON public.analysis_queue USING btree (user_id);
+
 
 
 \echo public.country
@@ -1020,6 +1033,7 @@ CREATE UNIQUE INDEX ix_country_iso_3 ON public.country USING btree (iso_3) WHERE
 CREATE UNIQUE INDEX ix_country_iso_num ON public.country USING btree (iso_num) WHERE active;
 
 
+
 \echo public.custom_analysis_check
 CREATE TABLE public.custom_analysis_check (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1027,6 +1041,7 @@ CREATE TABLE public.custom_analysis_check (
     query character varying(2048),
     target_unit_types character varying(16)
 );
+
 
 
 \echo public.data_source
@@ -1039,6 +1054,7 @@ CREATE TABLE public.data_source (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 CREATE UNIQUE INDEX ix_data_source_code ON public.data_source USING btree (code) WHERE active;
+
 
 
 \echo public.tag_type
@@ -1070,6 +1086,7 @@ CREATE TABLE public.tag (
          OR context_valid_from IS NOT NULL AND context_valid_to IS NOT NULL
          )
 );
+
 
 
 \echo public.relative_period_code
@@ -1135,6 +1152,8 @@ CREATE TABLE public.relative_period (
         END
     )
 );
+
+
 
 \echo public.relative_period_with_time
 CREATE VIEW public.relative_period_with_time AS
@@ -1214,6 +1233,7 @@ SELECT *,
 FROM public.relative_period;
 
 
+
 DO $$
 DECLARE
     parent_id integer;
@@ -1251,6 +1271,7 @@ BEGIN
         ('start_of_decade_prev'       , 'Start of Previous Decade'           , NULL                             , 'query'           , false)
     ;
 END $$;
+
 
 
 \echo public.time_context_type
@@ -1322,6 +1343,7 @@ CREATE TABLE public.unit_size (
 CREATE UNIQUE INDEX ix_unit_size_code ON public.unit_size USING btree (code) WHERE active;
 
 
+
 \echo public.reorg_type
 CREATE TABLE public.reorg_type (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1333,6 +1355,7 @@ CREATE TABLE public.reorg_type (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 CREATE UNIQUE INDEX ix_reorg_type_code ON public.reorg_type USING btree (code) WHERE active;
+
 
 
 \echo public.foreign_participation
@@ -1347,6 +1370,7 @@ CREATE TABLE public.foreign_participation (
 CREATE UNIQUE INDEX ix_foreign_participation_code ON public.foreign_participation USING btree (code) WHERE active;
 
 
+
 \echo public.enterprise_group_type
 CREATE TABLE public.enterprise_group_type (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1357,6 +1381,7 @@ CREATE TABLE public.enterprise_group_type (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 CREATE UNIQUE INDEX ix_enterprise_group_type_code ON public.enterprise_group_type USING btree (code) WHERE active;
+
 
 
 \echo public.enterprise_group
@@ -1397,6 +1422,8 @@ CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean 
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
 $$;
 
+
+
 \echo public.enterprise_group_role
 CREATE TABLE public.enterprise_group_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1407,6 +1434,7 @@ CREATE TABLE public.enterprise_group_role (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 CREATE UNIQUE INDEX ix_enterprise_group_role_code ON public.enterprise_group_role USING btree (code) WHERE active;
+
 
 
 \echo public.sector
@@ -1427,6 +1455,7 @@ CREATE UNIQUE INDEX sector_code_active_key ON public.sector USING btree (code) W
 CREATE INDEX sector_parent_id_idx ON public.sector USING btree (parent_id);
 
 
+
 \echo public.enterprise
 CREATE TABLE public.enterprise (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1436,6 +1465,7 @@ CREATE TABLE public.enterprise (
     edit_by_user_id character varying(100) NOT NULL,
     edit_comment character varying(500)
 );
+
 
 
 \echo public.legal_form
@@ -1450,6 +1480,7 @@ CREATE TABLE public.legal_form (
 );
 \echo ix_legal_form_code
 CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE active;
+
 
 
 \echo public.legal_unit
@@ -1508,6 +1539,8 @@ CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_i
 CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
 $$;
+
+
 
 \echo public.establishment
 CREATE TABLE public.establishment (
@@ -1573,6 +1606,8 @@ CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS 
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
 $$;
 
+
+
 \echo public.external_ident_type
 CREATE TABLE public.external_ident_type (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1583,6 +1618,8 @@ CREATE TABLE public.external_ident_type (
     priority integer UNIQUE,
     archived boolean NOT NULL DEFAULT false
 );
+
+
 
 \echo lifecycle_callbacks.add_table('public.external_ident_type');
 CALL lifecycle_callbacks.add_table('public.external_ident_type');
@@ -1615,6 +1652,7 @@ WHEN (NEW.by_tag_id IS NOT NULL AND NEW.by_tag_id IS DISTINCT FROM OLD.by_tag_id
 EXECUTE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
 
 
+
 CREATE VIEW public.external_ident_type_ordered AS
     SELECT *
     FROM public.external_ident_type
@@ -1628,11 +1666,13 @@ CREATE VIEW public.external_ident_type_active AS
 ;
 
 
+
 \echo INSERT INTO public.external_ident_type
 -- Prepare the per-configured external identifiers.
 INSERT INTO public.external_ident_type (code, name, priority, description) VALUES
 ('tax_ident', 'Tax Identifier', 1, 'Stable and country unique identifier used for tax reporting.'),
 ('stat_ident', 'Statistical Identifier', 2, 'Stable identifier generated by Statbus');
+
 
 
 \echo public.external_ident
@@ -1691,6 +1731,8 @@ CREATE INDEX ix_activity_legal_unit_id ON public.activity USING btree (legal_uni
 CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
 CREATE INDEX ix_activity_establishment_valid_after_valid_to ON public.activity USING btree (establishment_id, valid_after, valid_to);
 
+
+
 \echo public.tag_for_unit
 CREATE TABLE public.tag_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1718,6 +1760,10 @@ CREATE INDEX ix_tag_for_unit_enterprise_id_id ON public.tag_for_unit USING btree
 CREATE INDEX ix_tag_for_unit_enterprise_group_id_id ON public.tag_for_unit USING btree (enterprise_group_id);
 CREATE INDEX ix_tag_for_unit_updated_by_user_id ON public.tag_for_unit USING btree (updated_by_user_id);
 
+
+
+-- This is not in use currently, as it is slated to be replaced by specific reports using the /search functionality
+-- on statistical_unit
 \echo public.analysis_log
 CREATE TABLE public.analysis_log (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1744,6 +1790,7 @@ CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_id ON public.analysis_
 CREATE INDEX ix_analysis_log_analysis_queue_id_enterprise_group_id ON public.analysis_log USING btree (enterprise_group_id);
 
 
+
 CREATE TYPE public.person_sex AS ENUM ('Male', 'Female');
 \echo public.person
 CREATE TABLE public.person (
@@ -1763,8 +1810,10 @@ CREATE TABLE public.person (
 CREATE INDEX ix_person_country_id ON public.person USING btree (country_id);
 CREATE INDEX ix_person_given_name_surname ON public.person USING btree (given_name, middle_name, family_name);
 
-\echo public.person_type
-CREATE TABLE public.person_type (
+
+
+\echo public.person_role
+CREATE TABLE public.person_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text UNIQUE NOT NULL,
     name text UNIQUE NOT NULL,
@@ -1773,11 +1822,13 @@ CREATE TABLE public.person_type (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 
+
+
 \echo public.person_for_unit
 CREATE TABLE public.person_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     person_id integer NOT NULL REFERENCES public.person(id) ON DELETE CASCADE,
-    person_type_id integer REFERENCES public.person_type(id),
+    person_type_id integer REFERENCES public.person_role(id),
     establishment_id integer check (admin.establishment_id_exists(establishment_id)),
     legal_unit_id integer check (admin.legal_unit_id_exists(legal_unit_id)),
     CONSTRAINT "One and only one of establishment_id legal_unit_id  must be set"
@@ -1791,6 +1842,8 @@ CREATE INDEX ix_person_for_unit_person_id ON public.person_for_unit USING btree 
 CREATE UNIQUE INDEX ix_person_for_unit_person_type_id_establishment_id_legal_unit_id_ ON public.person_for_unit USING btree (person_type_id, establishment_id, legal_unit_id, person_id);
 
 
+
+-- Currently unused.
 \echo public.postal_index
 CREATE TABLE public.postal_index (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1799,6 +1852,8 @@ CREATE TABLE public.postal_index (
     name_language1 text,
     name_language2 text
 );
+
+
 
 \echo public.region
 CREATE TABLE public.region (
@@ -1828,6 +1883,8 @@ CREATE TABLE public.region (
 
 CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
 CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
+
+
 
 \echo public.location
 CREATE TABLE public.location (
@@ -1868,6 +1925,7 @@ CREATE INDEX ix_address_region_id ON public.location USING btree (region_id);
 CREATE INDEX ix_location_establishment_id_id ON public.location USING btree (establishment_id);
 CREATE INDEX ix_location_legal_unit_id_id ON public.location USING btree (legal_unit_id);
 CREATE INDEX ix_location_updated_by_user_id ON public.location USING btree (updated_by_user_id);
+
 
 
 -- Create a view for region upload using path and name
@@ -1921,6 +1979,7 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.region_upload_upsert();
 
 
+-- Custom functionality for Uganda
 \echo admin.upsert_region_7_levels
 CREATE FUNCTION admin.upsert_region_7_levels()
 RETURNS TRIGGER AS $$
@@ -1973,6 +2032,8 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.upsert_region_7_levels();
 
 
+
+-- Currently unused
 \echo public.report_tree
 CREATE TABLE public.report_tree (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -1985,6 +2046,9 @@ CREATE TABLE public.report_tree (
     report_url text
 );
 
+
+
+-- Currently unused, replaced by the temporal tables.
 \echo public.sample_frame
 CREATE TABLE public.sample_frame (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -2000,6 +2064,7 @@ CREATE TABLE public.sample_frame (
     editing_date timestamp with time zone
 );
 CREATE INDEX ix_sample_frame_user_id ON public.sample_frame USING btree (user_id);
+
 
 
 -- Create function for upsert operation on country
@@ -2050,6 +2115,7 @@ EXECUTE FUNCTION admin.delete_stale_country();
 
 
 \copy public.country_view(name, iso_2, iso_3, iso_num) FROM 'dbseed/country/country_codes.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
 
 
 -- Helpers to generate views for bach API handling of all the system provided configuration
@@ -2376,8 +2442,6 @@ END;
 $generate_path_upsert_function$ LANGUAGE plpgsql;
 
 
-
-
 \echo admin.generate_prepare_function_for_custom
 CREATE FUNCTION admin.generate_prepare_function_for_custom(
   table_properties admin.batch_api_table_properties
@@ -2422,7 +2486,6 @@ $function$
     RETURN function_name;
 END;
 $generate_prepare_function_for_custom$;
-
 
 
 \echo admin.generate_view_triggers
@@ -2600,7 +2663,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-
 \echo admin.drop_table_views_for_batch_api
 CREATE OR REPLACE FUNCTION admin.drop_table_views_for_batch_api(table_name regclass)
 RETURNS void AS $$
@@ -2647,6 +2709,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+
 \echo public.region_role
 CREATE TABLE public.region_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -2655,6 +2718,7 @@ CREATE TABLE public.region_role (
     UNIQUE(role_id, region_id)
 );
 CREATE INDEX ix_region_role ON public.region_role USING btree (region_id);
+
 
 
 CREATE TYPE public.stat_type AS ENUM(
@@ -2701,13 +2765,19 @@ CREATE VIEW public.stat_definition_active AS
     FROM public.stat_definition_ordered
     WHERE NOT archived
 ;
---
+
+
+
 \echo lifecycle_callbacks.add_table('public.stat_definition');
 CALL lifecycle_callbacks.add_table('public.stat_definition');
---
+
+
+
 INSERT INTO public.stat_definition(code, type, frequency, name, description, priority) VALUES
   ('employees','int','yearly','Number of people employed','The number of people receiving an official salary with government reporting.',1),
   ('turnover','int','yearly','Turnover','The amount (EUR)',2);
+
+
 
 \echo public.stat_for_unit
 CREATE TABLE public.stat_for_unit (
@@ -2734,6 +2804,7 @@ CREATE TABLE public.stat_for_unit (
         (value_int IS     NULL AND value_float IS     NULL AND value_string IS     NULL AND value_bool IS NOT NULL)
     )
 );
+
 
 
 \echo admin.check_stat_for_unit_values
@@ -2778,6 +2849,7 @@ BEFORE INSERT OR UPDATE ON public.stat_for_unit
 FOR EACH ROW EXECUTE FUNCTION admin.check_stat_for_unit_values();
 
 
+
 \echo admin.prevent_id_update
 CREATE OR REPLACE FUNCTION admin.prevent_id_update()
   RETURNS TRIGGER
@@ -2815,6 +2887,7 @@ $$ LANGUAGE plpgsql;
 SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.prevent_id_update_on_public_tables();
 SET LOCAL client_min_messages TO INFO;
+
 
 
 \echo public.set_primary_legal_unit_for_enterprise
@@ -2878,6 +2951,8 @@ BEGIN
 END;
 $$;
 
+
+
 \echo public.set_primary_establishment_for_legal_unit
 CREATE OR REPLACE FUNCTION public.set_primary_establishment_for_legal_unit(
     establishment_id integer,
@@ -2937,6 +3012,7 @@ BEGIN
     );
 END;
 $$;
+
 
 
 CREATE FUNCTION public.connect_legal_unit_to_enterprise(
@@ -3033,6 +3109,7 @@ END;
 $$;
 
 
+
 -- TODO: Create a view to see an establishment with statistics
 -- TODO: allow upsert on statistics view according to stat_definition
 
@@ -3083,7 +3160,10 @@ $$;
 
 -- TODO: Use pg_audit.
 
+
+
 CREATE TYPE public.statistical_unit_type AS ENUM('establishment','legal_unit','enterprise','enterprise_group');
+
 
 
 \echo public.timepoints
@@ -3366,7 +3446,7 @@ CREATE VIEW public.timepoints AS
     ORDER BY unit_type, unit_id, timepoint
 ;
 
---SELECT * FROM public.timepoints;
+
 
 \echo public.timesegments
 CREATE VIEW public.timesegments AS
@@ -3385,7 +3465,7 @@ CREATE VIEW public.timesegments AS
   ORDER BY unit_type, unit_id, valid_after
 ;
 
---SELECT * FROM public.timesegments;
+
 
 \echo public.jsonb_stats_to_summary
 /*
@@ -3677,6 +3757,7 @@ CREATE AGGREGATE public.jsonb_stats_to_summary_agg(jsonb) (
 );
 
 
+
 \echo public.jsonb_stats_summary_merge
 CREATE FUNCTION public.jsonb_stats_summary_merge(a jsonb, b jsonb) RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT AS $$
 DECLARE
@@ -3829,6 +3910,7 @@ CREATE AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb) (
 );
 
 
+
 \echo public.jsonb_concat_agg()
 -- Aggregate: jsonb_concat_agg
 -- Purpose: Aggregate function to concatenate JSONB objects from multiple rows into a single JSONB object.
@@ -3842,6 +3924,7 @@ CREATE AGGREGATE public.jsonb_concat_agg(jsonb) (
     stype = jsonb,
     initcond = '{}'
 );
+
 
 
 -- Final function to remove duplicates from concatenated arrays
@@ -3858,6 +3941,7 @@ CREATE AGGREGATE public.array_distinct_concat(anycompatiblearray) (
   FINALFUNC = public.array_distinct_concat_final,
   INITCOND = '{}'
 );
+
 
 
 \echo public.get_jsonb_stats
@@ -3883,6 +3967,7 @@ CREATE OR REPLACE FUNCTION public.get_jsonb_stats(
       AND daterange(p_valid_after, p_valid_to, '(]')
       && daterange(sfu.valid_after, sfu.valid_to, '(]')
 $get_jsonb_stats$;
+
 
 
 \echo public.timeline_establishment
@@ -4060,7 +4145,7 @@ CREATE VIEW public.timeline_establishment
       ORDER BY t.unit_type, t.unit_id, t.valid_after
 ;
 
---SELECT * FROM public.timeline_establishment;
+
 
 \echo public.timeline_legal_unit
 CREATE VIEW public.timeline_legal_unit
@@ -4325,7 +4410,6 @@ CREATE VIEW public.timeline_legal_unit
       ORDER BY unit_type, unit_id, valid_after
 ;
 
---SELECT * FROM public.timeline_legal_unit;
 
 
 \echo public.timeline_enterprise
@@ -4799,7 +4883,7 @@ CREATE VIEW public.timeline_enterprise
          ORDER BY unit_type, unit_id, valid_after
 ;
 
--- SELECT * FROM public.timeline_enterprise;
+
 
 \echo public.get_external_idents
 CREATE FUNCTION public.get_external_idents(
@@ -4837,6 +4921,7 @@ CREATE VIEW public.enterprise_external_idents AS
   FROM public.establishment pes
   WHERE pes.enterprise_id IS NOT NULL
 ; -- END public.enterprise_external_idents
+
 
 
 \echo public.get_tag_paths
@@ -5142,6 +5227,7 @@ CREATE VIEW public.statistical_unit_def
 ;
 
 
+
 \echo public.statistical_unit
 CREATE MATERIALIZED VIEW public.statistical_unit AS
 SELECT * FROM public.statistical_unit_def;
@@ -5215,6 +5301,7 @@ CREATE INDEX idx_statistical_unit_tag_paths ON public.statistical_unit(tag_paths
 CREATE INDEX idx_gist_statistical_unit_tag_paths ON public.statistical_unit USING GIST (tag_paths);
 
 
+
 \echo admin.generate_statistical_unit_jsonb_indices()
 CREATE PROCEDURE admin.generate_statistical_unit_jsonb_indices()
 LANGUAGE plpgsql AS $generate_statistical_unit_jsonb_indices$
@@ -5278,6 +5365,7 @@ CALL lifecycle_callbacks.add(
 CALL admin.generate_statistical_unit_jsonb_indices();
 
 
+
 \echo public.activity_category_used
 CREATE MATERIALIZED VIEW public.activity_category_used AS
 SELECT acs.code AS standard_code
@@ -5300,6 +5388,7 @@ CREATE UNIQUE INDEX "activity_category_used_key"
     ON public.activity_category_used (path);
 
 
+
 \echo public.region_used
 CREATE MATERIALIZED VIEW public.region_used AS
 SELECT r.id
@@ -5315,6 +5404,8 @@ ORDER BY public.nlevel(path), path;
 CREATE UNIQUE INDEX "region_used_key"
     ON public.region_used (path);
 
+
+
 \echo public.sector_used
 CREATE MATERIALIZED VIEW public.sector_used AS
 SELECT s.id
@@ -5329,6 +5420,8 @@ ORDER BY s.path;
 
 CREATE UNIQUE INDEX "sector_used_key"
     ON public.sector_used (path);
+
+
 
 \echo public.data_source_used
 CREATE MATERIALIZED VIEW public.data_source_used AS
@@ -5347,6 +5440,8 @@ ORDER BY s.code;
 CREATE UNIQUE INDEX "data_source_used_key"
     ON public.data_source_used (code);
 
+
+
 \echo public.legal_form_used
 CREATE MATERIALIZED VIEW public.legal_form_used AS
 SELECT lf.id
@@ -5361,6 +5456,7 @@ CREATE UNIQUE INDEX "legal_form_used_key"
     ON public.legal_form_used (code);
 
 
+
 \echo public.country_used
 CREATE MATERIALIZED VIEW public.country_used AS
 SELECT c.id
@@ -5373,6 +5469,7 @@ ORDER BY c.id;
 
 CREATE UNIQUE INDEX "country_used_key"
     ON public.country_used (iso_2);
+
 
 
 \echo public.statistical_unit_facet
@@ -5397,6 +5494,8 @@ GROUP BY valid_from
        , legal_form_id
        , physical_country_id
 ;
+
+
 
 \echo statistical_unit_facet_valid_from
 CREATE INDEX statistical_unit_facet_valid_from ON public.statistical_unit_facet(valid_from);
@@ -5424,6 +5523,7 @@ CREATE INDEX statistical_unit_facet_sector_path_gist ON public.statistical_unit_
 CREATE INDEX statistical_unit_facet_legal_form_id_btree ON public.statistical_unit_facet USING BTREE (legal_form_id);
 \echo statistical_unit_facet_physical_country_id_btree
 CREATE INDEX statistical_unit_facet_physical_country_id_btree ON public.statistical_unit_facet USING BTREE (physical_country_id);
+
 
 
 \echo public.statistical_unit_facet_drilldown
@@ -5712,6 +5812,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
 $$;
 
 
+
 \echo public.history_resolution
 CREATE TYPE public.history_resolution AS ENUM('year','year-month');
 
@@ -5749,6 +5850,7 @@ LATERAL generate_series(
     interval '1 month'
 ) AS series(curr_start)
 ;
+
 
 
 \echo public.statistical_history_def
@@ -5985,6 +6087,7 @@ SELECT * FROM year_and_month_with_unit
 SELECT pg_catalog.set_config('search_path', '', false);
 
 
+
 \echo public.statistical_history
 CREATE MATERIALIZED VIEW public.statistical_history AS
 SELECT * FROM public.statistical_history_def
@@ -6020,6 +6123,7 @@ CREATE INDEX idx_statistical_history_deaths ON public.statistical_history (death
 CREATE INDEX idx_statistical_history_count ON public.statistical_history (count);
 \echo idx_statistical_history_stats
 CREATE INDEX idx_statistical_history_stats_summary ON public.statistical_history USING GIN (stats_summary jsonb_path_ops);
+
 
 
 \echo public.statistical_history_facet_def
@@ -6272,10 +6376,14 @@ SELECT * FROM year_and_month_with_unit_per_facet
 ;
 SELECT pg_catalog.set_config('search_path', '', false);
 
+
+
 \echo public.statistical_history_facet
 CREATE MATERIALIZED VIEW public.statistical_history_facet AS
 SELECT * FROM public.statistical_history_facet_def
 ORDER BY year, month;
+
+
 
 \echo statistical_history_facet_month_key
 CREATE UNIQUE INDEX "statistical_history_facet_month_key"
@@ -6343,6 +6451,7 @@ CREATE INDEX idx_statistical_history_facet_physical_country_id ON public.statist
 CREATE INDEX idx_statistical_history_facet_count ON public.statistical_history_facet (count);
 \echo idx_statistical_history_facet_stats_summary
 CREATE INDEX idx_statistical_history_facet_stats_summary ON public.statistical_history_facet USING GIN (stats_summary jsonb_path_ops);
+
 
 
 \echo public.statistical_history_drilldown
@@ -6641,6 +6750,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
 $$;
 
 
+
 \echo public.data_source_hierarchy
 CREATE OR REPLACE FUNCTION public.data_source_hierarchy(data_source_id INTEGER)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
@@ -6652,6 +6762,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$;
+
 
 
 \echo public.stat_for_unit_hierarchy
@@ -6684,6 +6795,7 @@ SELECT CASE
 $$;
 
 
+
 \echo public.tag_for_unit_hierarchy
 CREATE FUNCTION public.tag_for_unit_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
@@ -6714,6 +6826,7 @@ CREATE FUNCTION public.tag_for_unit_hierarchy(
 $$;
 
 
+
 \echo public.region_hierarchy
 CREATE OR REPLACE FUNCTION public.region_hierarchy(region_id INTEGER)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
@@ -6735,6 +6848,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$;
+
 
 
 \echo public.location_hierarchy
@@ -6767,6 +6881,7 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
 $$;
 
 
+
 \echo public.activity_category_standard_hierarchy
 CREATE OR REPLACE FUNCTION public.activity_category_standard_hierarchy(standard_id INTEGER)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
@@ -6781,6 +6896,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$;
+
 
 
 \echo public.activity_category_hierarchy
@@ -6799,6 +6915,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$;
+
 
 
 \echo public.activity_hierarchy
@@ -6830,6 +6947,7 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
 $$;
 
 
+
 \echo public.sector_hierarchy
 CREATE OR REPLACE FUNCTION public.sector_hierarchy(sector_id INTEGER)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
@@ -6843,6 +6961,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
 $$;
 
 
+
 \echo public.legal_form_hierarchy
 CREATE OR REPLACE FUNCTION public.legal_form_hierarchy(legal_form_id INTEGER)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
@@ -6854,6 +6973,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$;
+
 
 
 \echo public.external_idents_hierarchy
@@ -6880,6 +7000,7 @@ CREATE FUNCTION public.external_idents_hierarchy(
   FROM agg_data;
   ;
 $$;
+
 
 
 \echo public.establishment_hierarchy
@@ -6914,6 +7035,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
   FROM data_list;
 $$;
 
+
 \echo public.legal_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
@@ -6943,6 +7065,8 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
   FROM data_list;
 $$;
 
+
+
 \echo public.enterprise_hierarchy
 CREATE OR REPLACE FUNCTION public.enterprise_hierarchy(enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
@@ -6961,6 +7085,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$;
+
 
 
 \echo public.statistical_unit_enterprise_id
@@ -7006,6 +7131,7 @@ RETURNS INTEGER LANGUAGE sql STABLE AS $$
 $$;
 
 
+
 \echo public.statistical_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.statistical_unit_hierarchy(unit_type public.statistical_unit_type, unit_id INTEGER, valid_on DATE DEFAULT current_date)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
@@ -7018,34 +7144,6 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
 ;
 $$;
 
-
-CREATE FUNCTION public.relevant_statistical_units(
-    unit_type public.statistical_unit_type,
-    unit_id INTEGER,
-    valid_on DATE DEFAULT current_date
-) RETURNS SETOF public.statistical_unit LANGUAGE sql STABLE AS $$
-    WITH valid_units AS (
-        SELECT * FROM public.statistical_unit
-        WHERE valid_after < valid_on AND valid_on <= valid_to
-    ), root_unit AS (
-        SELECT * FROM valid_units
-        WHERE unit_type = 'enterprise'
-          AND unit_id = public.statistical_unit_enterprise_id(unit_type, unit_id, valid_on)
-    ), related_units AS (
-        SELECT * FROM valid_units
-        WHERE unit_type = 'legal_unit'
-          AND unit_id IN (SELECT unnest(legal_unit_ids) FROM root_unit)
-            UNION ALL
-        SELECT * FROM valid_units
-        WHERE unit_type = 'establishment'
-          AND unit_id IN (SELECT unnest(establishment_ids) FROM root_unit)
-    ), relevant_units AS (
-        SELECT * FROM root_unit
-            UNION ALL
-        SELECT * FROM related_units
-    )
-    SELECT * FROM relevant_units;
-$$;
 
 
 \echo public.statistical_unit_refresh_now
@@ -7086,8 +7184,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
-
 SELECT public.statistical_unit_refresh_now();
+
+
 
 \echo public.statistical_unit_refreshed_at
 CREATE FUNCTION public.statistical_unit_refreshed_at()
@@ -7131,7 +7230,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
---SELECT public.statistical_unit_refreshed_at();
+
+
 
 
 -- Ref https://stackoverflow.com/a/76356252/1023558
@@ -7154,6 +7254,7 @@ RETURNS tsquery AS $$
     END;
 $$ LANGUAGE plpgsql;
 --
+
 
 
 \echo public.generate_mermaid_er_diagram
@@ -7303,6 +7404,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+
 \echo public.sector_custom_only
 CREATE VIEW public.sector_custom_only(path, name, description)
 WITH (security_invoker=on) AS
@@ -7410,6 +7512,7 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.sector_custom_only_prepare();
 
 
+
 \echo public.legal_form_custom_only
 CREATE VIEW public.legal_form_custom_only(code, name)
 WITH (security_invoker=on) AS
@@ -7481,12 +7584,14 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.legal_form_custom_only_prepare();
 
 
+
 -- Load seed data after all constraints are in place
 SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.generate_table_views_for_batch_api('public.sector');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.sector_system(path, name) FROM 'dbseed/sector.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
 
 
 SET LOCAL client_min_messages TO NOTICE;
@@ -7496,11 +7601,13 @@ SET LOCAL client_min_messages TO INFO;
 \copy public.legal_form_system(code, name) FROM 'dbseed/legal_form.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
+
 SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.generate_table_views_for_batch_api('public.reorg_type');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.reorg_type_system(code, name, description) FROM 'dbseed/reorg_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
 
 
 SET LOCAL client_min_messages TO NOTICE;
@@ -7510,11 +7617,13 @@ SET LOCAL client_min_messages TO INFO;
 \copy public.foreign_participation_system(code, name) FROM 'dbseed/foreign_participation.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
+
 SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.generate_table_views_for_batch_api('public.data_source');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.data_source_system(code, name) FROM 'dbseed/data_source.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
 
 
 SET LOCAL client_min_messages TO NOTICE;
@@ -7524,11 +7633,13 @@ SET LOCAL client_min_messages TO INFO;
 \copy public.unit_size_system(code, name) FROM 'dbseed/unit_size.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 
+
 SET LOCAL client_min_messages TO NOTICE;
-SELECT admin.generate_table_views_for_batch_api('public.person_type');
+SELECT admin.generate_table_views_for_batch_api('public.person_role');
 SET LOCAL client_min_messages TO INFO;
 
-\copy public.person_type_system(code, name) FROM 'dbseed/person_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.person_role_system(code, name) FROM 'dbseed/person_type.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
 
 
 SET LOCAL client_min_messages TO NOTICE;
@@ -7543,6 +7654,7 @@ SELECT admin.generate_table_views_for_batch_api('public.enterprise_group_role');
 SET LOCAL client_min_messages TO INFO;
 
 \copy public.enterprise_group_role_system(code, name) FROM 'dbseed/enterprise_group_role.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
 
 
 -- TODO Later: Move to sql_saga
@@ -7601,6 +7713,8 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
 -- that that you insert should modify things outside the specified timeline.
 
 -- TODO Later: CREATE FUNCTION sql_saga.api_upsert(NEW record, ...)
+
+
 
 \echo admin.upsert_generic_valid_time_table
 CREATE FUNCTION admin.upsert_generic_valid_time_table
@@ -7898,6 +8012,7 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.legal_unit_era_upsert();
 
 
+
 -- View for current information about a legal unit.
 \echo public.establishment_era
 CREATE VIEW public.establishment_era
@@ -7935,6 +8050,7 @@ CREATE TRIGGER establishment_era_upsert
 INSTEAD OF INSERT ON public.establishment_era
 FOR EACH ROW
 EXECUTE FUNCTION admin.establishment_era_upsert();
+
 
 
 -- View for current information about a location.
@@ -7976,6 +8092,7 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.location_era_upsert();
 
 
+
 -- View for current information about a activity.
 \echo public.activity_era
 CREATE VIEW public.activity_era
@@ -8013,6 +8130,7 @@ CREATE TRIGGER activity_era_upsert
 INSTEAD OF INSERT ON public.activity_era
 FOR EACH ROW
 EXECUTE FUNCTION admin.activity_era_upsert();
+
 
 
 \echo public.stat_for_unit_era
@@ -8053,6 +8171,7 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
 
 
+
 ---- Create function for deleting stale countries
 --CREATE FUNCTION admin.delete_stale_legal_unit_era()
 --RETURNS TRIGGER AS $$
@@ -8067,6 +8186,7 @@ EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
 --AFTER INSERT ON public.legal_unit_era
 --FOR EACH STATEMENT
 --EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
+
 
 
 -- ========================================================
@@ -8104,6 +8224,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+
 \echo admin.import_lookup_country
 CREATE FUNCTION admin.import_lookup_country(
     new_jsonb JSONB,
@@ -8138,6 +8259,7 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
 
 
 \echo admin.import_lookup_region
@@ -8201,6 +8323,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+
 \echo admin.import_lookup_activity_category
 CREATE FUNCTION admin.import_lookup_activity_category(
     new_jsonb JSONB,
@@ -8236,6 +8359,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+
 \echo admin.import_lookup_sector
 CREATE FUNCTION admin.import_lookup_sector(
     new_jsonb JSONB,
@@ -8262,6 +8386,7 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
 
 
 \echo admin.import_lookup_data_source
@@ -8292,6 +8417,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+
 \echo admin.import_lookup_legal_form
 CREATE FUNCTION admin.import_lookup_legal_form(
     new_jsonb JSONB,
@@ -8320,6 +8446,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 
+
 \echo admin.type_date_field
 CREATE FUNCTION admin.type_date_field(
     IN new_jsonb JSONB,
@@ -8344,6 +8471,7 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
 
 
 \echo admin.process_external_idents
@@ -8448,6 +8576,7 @@ BEGIN
     END IF;
 END; -- Process external identifiers
 $process_external_idents$ LANGUAGE plpgsql;
+
 
 
 \echo admin.insert_external_idents
@@ -8625,6 +8754,7 @@ END; -- Process external identifiers
 $process_linked_legal_unit_external_ident$ LANGUAGE plpgsql;
 
 
+
 \echo admin.validate_stats_for_unit
 CREATE PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB)
 LANGUAGE plpgsql AS $validate_stats_for_unit$
@@ -8660,6 +8790,7 @@ BEGIN
     END LOOP; -- public.stat_definition
 END;
 $validate_stats_for_unit$;
+
 
 
 \echo admin.process_stats_for_unit
@@ -8766,6 +8897,7 @@ END;
 $process_stats_for_unit$;
 
 
+
 \echo admin.process_enterprise_connection
 CREATE FUNCTION admin.process_enterprise_connection(
     IN prior_unit_id INTEGER,
@@ -8867,9 +8999,11 @@ $process_enterprise_connection$;
 -- END:  Helper functions for import
 -- ========================================================
 
+
+
 \echo admin.import_legal_unit_era_upsert
 CREATE FUNCTION admin.import_legal_unit_era_upsert()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_legal_unit_era_upsert$
 DECLARE
     new_jsonb JSONB := to_jsonb(NEW);
     edited_by_user RECORD;
@@ -9288,7 +9422,9 @@ BEGIN
 
     RETURN NULL;
 END;
-$$;
+$import_legal_unit_era_upsert$;
+
+
 
 \echo admin.generate_import_legal_unit_era()
 CREATE PROCEDURE admin.generate_import_legal_unit_era()
@@ -9378,6 +9514,8 @@ CALL lifecycle_callbacks.add(
 -- defined external_ident_type's.
 \echo Generating public.import_legal_unit_era
 CALL admin.generate_import_legal_unit_era();
+
+
 
 \echo admin.generate_import_legal_unit_current()
 CREATE PROCEDURE admin.generate_import_legal_unit_current()
@@ -9568,6 +9706,7 @@ CALL lifecycle_callbacks.add(
 \echo Generating public.import_legal_unit_current
 \echo Generating admin.import_legal_unit_current_upsert
 CALL admin.generate_import_legal_unit_current();
+
 
 
 \echo admin.import_establishment_era_upsert
@@ -10029,6 +10168,7 @@ END;
 $$;
 
 
+
 CREATE PROCEDURE admin.generate_import_establishment_era()
 LANGUAGE plpgsql AS $generate_import_establishment_era$
 DECLARE
@@ -10125,6 +10265,7 @@ CALL lifecycle_callbacks.add(
 
 \echo Generating public.generate_import_establishment_era
 CALL admin.generate_import_establishment_era();
+
 
 
 \echo admin.generate_import_establishment_current()
@@ -10312,6 +10453,7 @@ CALL lifecycle_callbacks.add(
 \echo Generating public.import_establishment_current
 \echo Generating admin.import_establishment_current_upsert
 CALL admin.generate_import_establishment_current();
+
 
 
 \echo admin.generate_import_establishment_era_for_legal_unit()
@@ -10532,6 +10674,8 @@ CALL lifecycle_callbacks.add(
 \echo Generating public.generate_import_establishment_era_for_legal_unit
 CALL admin.generate_import_establishment_era_for_legal_unit();
 
+
+
 \echo admin.generate_import_establishment_current_for_legal_unit()
 CREATE PROCEDURE admin.generate_import_establishment_current_for_legal_unit()
 LANGUAGE plpgsql AS $generate_import_establishment_current_for_legal_unit$
@@ -10744,6 +10888,7 @@ CALL lifecycle_callbacks.add(
 CALL admin.generate_import_establishment_current_for_legal_unit();
 
 
+
 \echo admin.generate_import_establishment_era_without_legal_unit()
 CREATE PROCEDURE admin.generate_import_establishment_era_without_legal_unit()
 LANGUAGE plpgsql AS $generate_import_establishment_era_without_legal_unit$
@@ -10932,6 +11077,7 @@ CALL lifecycle_callbacks.add(
 
 \echo Generating admin.generate_import_establishment_era_without_legal_unit
 CALL admin.generate_import_establishment_era_without_legal_unit();
+
 
 
 \echo admin.generate_import_establishment_current_without_legal_unit()
@@ -11126,6 +11272,8 @@ CALL lifecycle_callbacks.add(
 CALL admin.generate_import_establishment_current_without_legal_unit();
 
 
+-- Prototype to see how it can be done, to be generated dynamically
+-- by a later import system.
 -- View for insert of Norwegian Legal Unit (Hovedenhet)
 \echo public.legal_unit_brreg_view
 CREATE VIEW public.legal_unit_brreg_view
@@ -11270,6 +11418,7 @@ EXECUTE FUNCTION admin.legal_unit_brreg_view_upsert();
 
 
 
+
 -- View for insert of Norwegian Establishment (Underenhet)
 \echo public.establishment_brreg_view
 CREATE VIEW public.establishment_brreg_view
@@ -11390,6 +11539,7 @@ CREATE TRIGGER upsert_establishment_brreg_view
 INSTEAD OF INSERT ON public.establishment_brreg_view
 FOR EACH ROW
 EXECUTE FUNCTION admin.upsert_establishment_brreg_view();
+
 
 
 CREATE TYPE public.reset_scope AS ENUM('data','getting-started','all');
@@ -11655,9 +11805,6 @@ END;
 $$;
 
 
--- time psql <<EOS
--- \copy public.establishment_brreg_view FROM 'tmp/underenheter.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
--- EOS
 
 
 -- Add helpers
@@ -11770,6 +11917,7 @@ $$
 $$;
 
 
+
 \echo admin.apply_rls_and_policies
 CREATE OR REPLACE FUNCTION admin.apply_rls_and_policies(table_regclass regclass)
 RETURNS void AS $$
@@ -11839,6 +11987,8 @@ SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.enable_rls_on_public_tables();
 SET LOCAL client_min_messages TO INFO;
 
+
+
 -- Allow access read to the admin schema for all users,
 -- as some nested UPSERT queries use views that call functions that require this.
 -- This is strange, as there is no specific access to anything inside
@@ -11886,6 +12036,7 @@ $$ LANGUAGE plpgsql;
 --SET LOCAL client_min_messages TO INFO;
 
 
+
 -- The employees can only update the tables designated by their assigned region or activity_category
 CREATE POLICY activity_employee_manage ON public.activity FOR ALL TO authenticated
 USING (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_role_type)
@@ -11896,6 +12047,8 @@ WITH CHECK (auth.has_statbus_role(auth.uid(), 'restricted_user'::public.statbus_
       );
 
 --CREATE POLICY "premium and admin view access" ON premium_records FOR ALL TO authenticated USING (has_one_of_statbus_roles(auth.uid(), array['super_user', 'restricted_user']::public.statbus_role_type[]));
+
+
 
 -- Activate era handling
 SELECT sql_saga.add_era('public.enterprise_group', 'valid_after', 'valid_to');
@@ -11934,6 +12087,7 @@ SELECT sql_saga.add_foreign_key('public.location', ARRAY['legal_unit_id'], 'vali
 TABLE sql_saga.era;
 TABLE sql_saga.unique_keys;
 TABLE sql_saga.foreign_keys;
+
 
 
 NOTIFY pgrst, 'reload config';
