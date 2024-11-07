@@ -142,6 +142,7 @@ export function StatisticalUnitTableHeader({
             setProfile={setProfile}
           />
         </TableHead>
+        <TableHead className="lg:hidden" />
       </TableRow>
     </TableHeader>
   );
