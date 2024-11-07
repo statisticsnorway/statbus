@@ -70,11 +70,12 @@ def get_ai_description(sql_content: str, index: int) -> str:
     """Get an AI-generated snake_case description for the SQL migration."""
     prompt = f"""
     Provide a brief snake_case description that captures the database objects produced, i.e. view name, table, name, function name, etc.
+    If there are multiple provide the most central one, so if there is an enum type and a table that uses the type, write out create_table_x
     Use only lowercase letters, numbers and underscores.
     Only write out the resulting description - no initial meta information.
-    Example responses
-    'create_users_table' or 'add_foreign_keys' or 'generate_table_x_for_import'
-    or 'generate_view_x_for_custom_import', ...
+    Example responses 'create_users_table' or 'create_timepoints_view' or 'create__function'.
+    If you are confused, focus only on the CREATE [TABLE,VIEW,FUNCTION,...] X part and write 'create_x_table/view/function'.
+    If there are many things but a central concept of lifecycle_callbacks you could say 'concept_lifecycle_callbacks'.
 
     ```
     {sql_content}
@@ -119,12 +120,12 @@ class InputParser:
         if char == '\n':
             self.newline_count += 1
         else:
-            if self.newline_count >= 3 and self.buffer:
-                return True
             self.newline_count = 0
 
-        if not (self.newline_count >= 3):
-            self.buffer.append(char)
+        self.buffer.append(char)
+
+        if self.newline_count >= 3 and len(self.buffer) > 3:
+            return True
         return False
 
     def get_migration(self) -> str:
