@@ -24,7 +24,7 @@ const TableBoolSearchFilter = ({
 
   return (
     <OptionsFilter
-      className="p-2 h-9 w-full md:max-w-[200px]"
+      className="p-2 h-9 md:max-w-[200px] capitalize"
       title={`${type} filter`}
       options={[
         { label: "Any", value: null, humanReadableValue: "Any", className: "bg-gray-200" },

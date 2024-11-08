@@ -14,8 +14,8 @@ export default function ActivityCategoryPage() {
 
   useEffect(() => {
     const customParam = searchParams.get("custom");
-    if (customParam === "true") {
-      setQueries((prev) => ({ ...prev, custom: true }));
+    if (customParam === "true" || customParam === "false") {
+      setQueries((prev) => ({ ...prev, custom: customParam === "true" }));
       const newParams = new URLSearchParams(searchParams.toString());
       newParams.delete("custom");
       router.replace(`/activity-categories?${newParams.toString()}`);
