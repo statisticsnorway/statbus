@@ -69,15 +69,22 @@ def get_ai_description(sql_content: str, index: int) -> str:
     global OLLAMA_MODEL
     """Get an AI-generated snake_case description for the SQL migration."""
     prompt = f"""
-    Provide a brief snake_case description that captures the database objects produced, i.e. view name, table, name, function name, etc.
-    If there are multiple provide the most central one, so if there is an enum type and a table that uses the type, write out create_table_x
-    Use only lowercase letters, numbers and underscores.
-    Only write out the resulting description - no initial meta information.
-    Example responses 'create_users_table' or 'create_timepoints_view' or 'create__function'.
-    If you are confused, focus only on the CREATE [TABLE,VIEW,FUNCTION,...] X part and write 'create_x_table/view/function'.
-    If there are many things but a central concept of lifecycle_callbacks you could say 'concept_lifecycle_callbacks'.
+    Provide a concise snake_case description of the primary CREATE operation in the SQL script.
+    Focus on the main action, such as CREATE TABLE, VIEW, FUNCTION, or SCHEMA.
+    If multiple actions exist, choose the most significant one.
+    Keep the description under 30 characters.
 
+    Example responses:
+    'create_table_users'
+    'create_view_timepoints'
+    'create_function_cleanup'
+    'create_schema_callbacks'
+
+    ```sql
+    {sql_content}
     ```
+
+    ```sql
     {sql_content}
     ```
     """
@@ -96,7 +103,7 @@ def get_ai_description(sql_content: str, index: int) -> str:
             method='POST'
         )
 
-        with urllib.request.urlopen(req, timeout=360) as response:
+        with urllib.request.urlopen(req, timeout=720) as response:
             result = json.loads(response.read())["response"].strip()
         # Ensure snake_case format
         result = re.sub(r'[^a-z0-9_]', '_', result.lower())
@@ -110,6 +117,8 @@ def get_ai_description(sql_content: str, index: int) -> str:
         raise SystemExit(1)
 
 class InputParser:
+    NEWLINE_THRESHOLD = 4
+
     def __init__(self):
         self.buffer = []
         self.newline_count = 0
@@ -124,7 +133,7 @@ class InputParser:
 
         self.buffer.append(char)
 
-        if self.newline_count >= 3 and len(self.buffer) > 3:
+        if self.newline_count >= self.NEWLINE_THRESHOLD and len(self.buffer) > self.NEWLINE_THRESHOLD:
             return True
         return False
 
@@ -155,15 +164,14 @@ def process_migration(sql_content: str, migration_number: int, migrations_dir: P
             print(f" {existing_path.stem[5:]} (unchanged)", flush=True)
             return
 
+        print(" (replace)", end="", flush=True)
+        existing_path.unlink()
+
         # Only get AI description if content changed
         description = get_ai_description(sql_content, migration_number)
         print(f" {description}", end="", flush=True)
         filename = f"{migration_number:04d}_{description}.up.sql"
         output_path = migrations_dir / filename
-
-        if existing_path.name != filename:
-            existing_path.unlink()
-        print(" (updated)", end="", flush=True)
     else:
         # New migration - get AI description
         description = get_ai_description(sql_content, migration_number)
