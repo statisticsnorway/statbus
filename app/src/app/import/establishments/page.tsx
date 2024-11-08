@@ -29,7 +29,7 @@ export default function UploadEstablishmentsPage() {
         numberOfEstablishmentsWithLegalUnit > 0 && (
           <InfoBox>
             <p>
-              There are already {numberOfEstablishmentsWithLegalUnit}{" "}
+              There are already {numberOfEstablishmentsWithLegalUnit} formal
               establishments defined
             </p>
           </InfoBox>
