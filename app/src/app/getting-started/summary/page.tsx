@@ -56,9 +56,7 @@ export default function OnboardingCompletedPage() {
           success={!!numberOfCustomActivityCategoryCodes}
           successText={`You have uploaded ${numberOfCustomActivityCategoryCodes} custom activity categories.`}
           failureText="You have not uploaded any custom activity categories"
-          failureLink={
-            "/getting-started/upload-custom-activity-category-standard-codes"
-          }
+          failureLink={"/getting-started/upload-custom-activity-standard-codes"}
         />
       </div>
       {!!activity_category_standard && numberOfRegions ? (
