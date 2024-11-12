@@ -662,19 +662,69 @@ class StatBus
       end
 
       DB.connect(config.connection_string) do |db|
+        # Check if schema_migrations table exists
+        table_exists = db.query_one?("SELECT EXISTS (
+          SELECT FROM pg_tables
+          WHERE schemaname = 'admin'
+          AND tablename = 'schema_migrations'
+        )", as: Bool)
+
+        if !table_exists
+          db.exec_all(<<-SQL
+            BEGIN;
+            CREATE TABLE admin.schema_migrations (
+              version text NOT NULL PRIMARY KEY,
+              filename text NOT NULL,
+              md5_hash text NOT NULL,
+              applied_at timestamp with time zone NOT NULL DEFAULT now(),
+              duration_ms integer NOT NULL
+            );
+
+            ALTER TABLE admin.schema_migrations ENABLE ROW LEVEL SECURITY;
+
+            CREATE POLICY schema_migrations_authenticated_read ON admin.schema_migrations
+              FOR SELECT TO authenticated USING (true);
+          SQL
+          )
+        end
+
         sorted_migration_filenames.each do |migration_filename|
           version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1])
           puts "Applying migration #{migration_filename}" if @verbose
 
           sql = File.read(migration_filename)
 
-          db.transaction do
-            if @verbose
-              puts "Executing SQL from #{migration_filename}"
+          if @verbose
+            puts "Executing SQL from #{migration_filename}"
+          end
+
+          # Calculate MD5 hash of migration file
+          md5_hash = File.read(migration_filename).hash.to_s(16)
+          version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1]) || "0"
+
+          # Start timing
+          start_time = Time.monotonic
+
+          # Use system command to execute psql with the migration file
+          Dir.cd(@project_directory) do
+            result = system("./devops/manage-statbus.sh psql < #{migration_filename}")
+            if result
+              # Calculate duration in milliseconds
+              duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
+
+              # Record successful migration in schema_migrations table
+              db.exec(
+                "INSERT INTO admin.schema_migrations (version, filename, md5_hash, duration_ms) VALUES ($1, $2, $3, $4)",
+                version,
+                File.basename(migration_filename),
+                md5_hash,
+                duration_ms
+              )
+
+              puts "Successfully applied migration #{File.basename(migration_filename)}"
+            else
+              raise "Failed to apply migration #{File.basename(migration_filename)}"
             end
-            # Execute the entire SQL file directly without preparing statements
-            db.exec_all(sql)
-            puts "Successfully applied migration #{File.basename(migration_filename)}"
           end
         end
       end
