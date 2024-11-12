@@ -141,3 +141,57 @@ CREATE INDEX ix_sample_frame_user_id ON public.sample_frame USING btree (user_id
 
 
 -- TODO: Use pg_audit.
+
+
+
+-- Custom functionality for Uganda
+\echo admin.upsert_region_7_levels
+CREATE FUNCTION admin.upsert_region_7_levels()
+RETURNS TRIGGER AS $$
+BEGIN
+    WITH source AS (
+        SELECT NEW."Regional Code"::ltree AS path, NEW."Regional Name" AS name
+            UNION ALL
+        SELECT NEW."Regional Code"::ltree||NEW."District Code"::ltree AS path, NEW."District Name" AS name
+            UNION ALL
+        SELECT NEW."Regional Code"::ltree||NEW."District Code"::ltree||NEW."County Code" AS path, NEW."County Name" AS name
+            UNION ALL
+        SELECT NEW."Regional Code"::ltree||NEW."District Code"::ltree||NEW."County Code"||NEW."Constituency Code" AS path, NEW."Constituency Name" AS name
+            UNION ALL
+        SELECT NEW."Regional Code"::ltree||NEW."District Code"::ltree||NEW."County Code"||NEW."Constituency Code"||NEW."Subcounty Code" AS path, NEW."Subcounty Name" AS name
+            UNION ALL
+        SELECT NEW."Regional Code"::ltree||NEW."District Code"::ltree||NEW."County Code"||NEW."Constituency Code"||NEW."Subcounty Code"||NEW."Parish Code" AS path, NEW."Parish Name" AS name
+            UNION ALL
+        SELECT NEW."Regional Code"::ltree||NEW."District Code"::ltree||NEW."County Code"||NEW."Constituency Code"||NEW."Subcounty Code"||NEW."Parish Code"||NEW."Village Code" AS path, NEW."Village Name" AS name
+    )
+    INSERT INTO public.region_view(path, name)
+    SELECT path,name FROM source;
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create a view for region
+\echo public.region_7_levels_view
+CREATE VIEW public.region_7_levels_view
+WITH (security_invoker=on) AS
+SELECT '' AS "Regional Code"
+     , '' AS "Regional Name"
+     , '' AS "District Code"
+     , '' AS "District Name"
+     , '' AS "County Code"
+     , '' AS "County Name"
+     , '' AS "Constituency Code"
+     , '' AS "Constituency Name"
+     , '' AS "Subcounty Code"
+     , '' AS "Subcounty Name"
+     , '' AS "Parish Code"
+     , '' AS "Parish Name"
+     , '' AS "Village Code"
+     , '' AS "Village Name"
+     ;
+
+-- Create triggers for the view
+CREATE TRIGGER upsert_region_7_levels_view
+INSTEAD OF INSERT ON public.region_7_levels_view
+FOR EACH ROW
+EXECUTE FUNCTION admin.upsert_region_7_levels();
