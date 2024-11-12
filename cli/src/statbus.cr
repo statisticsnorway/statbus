@@ -17,6 +17,7 @@ class StatBus
     Install
     Manage
     Import
+    Migrate
   end
   enum ImportMode
     LegalUnit
@@ -30,6 +31,10 @@ class StatBus
   enum ImportStrategy
     Copy
     Insert
+  end
+  enum MigrateMode
+    Up
+    Down
   end
   # Mappings for a configuration, where every field is present.
   # Nil records the intention of not using an sql field
@@ -102,22 +107,46 @@ class StatBus
   @config_file_path : Path | Nil = nil
   @sql_field_mapping = Array(SqlFieldMapping).new
   @working_directory = Dir.current
-  @project_directory =
-    begin
+  @project_directory : Path
+
+  private def initialize_project_directory : Path
+    # First try from current directory
+    current = Path.new(Dir.current)
+    found = find_env_in_parents(current)
+
+    if found.nil?
+      # Fall back to executable path
       executable_path = Process.executable_path
       if executable_path.nil?
-        Path.new(Dir.current)
+        current # Last resort: use current dir
       else
-        Path.new(Path.new(executable_path.not_nil!).dirname).parent.parent
+        exec_dir = Path.new(Path.new(executable_path).dirname)
+        find_env_in_parents(exec_dir) || current
       end
+    else
+      found
     end
+  end
+
+  private def find_env_in_parents(start_path : Path) : Path?
+    current = start_path
+    while current.to_s != "/"
+      if File.exists?(current.join(".env"))
+        return current
+      end
+      current = current.parent
+    end
+    nil
+  end
   @import_strategy = ImportStrategy::Copy
   @import_tag : String | Nil = nil
   @offset = 0
+  @migrate_mode : MigrateMode | Nil = nil
   @valid_from : String = Time.utc.to_s("%Y-%m-%d")
   @valid_to = "infinity"
 
   def initialize
+    @project_directory = initialize_project_directory
     begin
       option_parser = build_option_parser
       option_parser.parse
@@ -238,7 +267,7 @@ class StatBus
   private def import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
     # Find .env and load required secrets
     Dir.cd(@project_directory) do
-      config = StatBusConfig.new(@project_directory)
+      config = StatBusConfig.new(@project_directory, @verbose)
       puts "Import data to #{config.connection_string}" if @verbose
 
       sql_cli_provided_fields = ["valid_from", "valid_to", "tag_path"]
@@ -514,6 +543,7 @@ class StatBus
   private def build_option_parser
     OptionParser.new do |parser|
       parser.banner = "Usage: #{@name} [subcommand] [arguments]"
+      parser.on("-v", "--verbose", "Enable verbose output") { @verbose = true }
       parser.on("install", "Install StatBus") do
         @mode = Mode::Install
         parser.banner = "Usage: #{@name} install [arguments]"
@@ -594,14 +624,55 @@ class StatBus
           @refresh_materialized_views = false
         end
       end
+      parser.on("migrate", "Run database migrations") do
+        @mode = Mode::Migrate
+        parser.banner = "Usage: #{@name} migrate [arguments]"
+        parser.on("up", "Run pending migrations") do
+          @migrate_mode = MigrateMode::Up
+        end
+      end
       parser.on("welcome", "Print a greeting message") do
         @mode = Mode::Welcome
         parser.banner = "Usage: #{@name} welcome"
       end
-      parser.on("-v", "--verbose", "Enabled verbose output") { @verbose = true }
       parser.on("-h", "--help", "Show this help") do
         puts parser
         exit
+      end
+    end
+  end
+
+  private def migrate_up
+    Dir.cd(@project_directory) do
+      config = StatBusConfig.new(@project_directory, @verbose)
+      migration_path = Path["migrations/*.up.sql"]
+      migration_filenames = Dir.glob(migration_path)
+
+      # Sort migrations by version number
+      sorted_migration_filenames = migration_filenames.sort do |a, b|
+        # Extract version numbers from filenames
+        a_version = File.basename(a).match(/^(\d+)_/).try(&.[1]) || "0"
+        b_version = File.basename(b).match(/^(\d+)_/).try(&.[1]) || "0"
+        a_version.to_i <=> b_version.to_i
+      end
+
+      if sorted_migration_filenames.empty?
+        puts "No migrations found in #{migration_path}"
+        return
+      end
+
+      DB.connect(config.connection_string) do |db|
+        sorted_migration_filenames.each do |migration_filename|
+          version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1])
+          puts "Applying migration #{migration_filename}" if @verbose
+
+          sql = File.read(migration_filename)
+
+          db.transaction do
+            db.exec sql
+            puts "Successfully applied migration #{File.basename(migration_filename)}"
+          end
+        end
       end
     end
   end
@@ -641,6 +712,14 @@ class StatBus
           # puts parser
           exit(1)
         end
+      end
+    when Mode::Migrate
+      case @migrate_mode
+      when MigrateMode::Up
+        migrate_up
+      else
+        STDERR.puts "Unknown migrate mode #{@migrate_mode}"
+        exit(1)
       end
     else
       puts "Unknown mode #{@mode}"
