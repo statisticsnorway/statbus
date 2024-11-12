@@ -669,7 +669,11 @@ class StatBus
           sql = File.read(migration_filename)
 
           db.transaction do
-            db.exec sql
+            if @verbose
+              puts "Executing SQL from #{migration_filename}"
+            end
+            # Execute the entire SQL file directly without preparing statements
+            db.exec_all(sql)
             puts "Successfully applied migration #{File.basename(migration_filename)}"
           end
         end
