@@ -696,13 +696,9 @@ class StatBus
 
         sorted_migration_filenames.each do |migration_filename|
           version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1])
-          puts "Applying migration #{migration_filename}" if @verbose
-
-          sql = File.read(migration_filename)
-
-          if @verbose
-            puts "Executing SQL from #{migration_filename}"
-          end
+          filename = File.basename(migration_filename)
+          STDOUT.print "Migration #{filename} "
+          STDOUT.flush
 
           # Calculate SHA256 hash of migration file
           file_hash = Digest::SHA256.digest(File.read(migration_filename)).hexstring
@@ -716,11 +712,12 @@ class StatBus
           )
 
           if already_applied
-            puts "Skipping already applied migration #{File.basename(migration_filename)}" if @verbose
+            STDOUT.puts "[already_applied]"
             next
           end
 
-          puts "Applying migration #{File.basename(migration_filename)}" if @verbose
+          STDOUT.print "[applying] "
+          STDOUT.flush
 
           # Start timing
           start_time = Time.monotonic
@@ -741,7 +738,7 @@ class StatBus
                 duration_ms
               )
 
-              puts "Successfully applied migration #{File.basename(migration_filename)}"
+              STDOUT.puts "done (#{duration_ms}ms)"
             else
               raise "Failed to apply migration #{File.basename(migration_filename)}"
             end
