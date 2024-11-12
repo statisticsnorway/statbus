@@ -744,6 +744,14 @@ class StatBus
             end
           end
         end
+
+        # Notify PostgREST to reload config and schema after all migrations
+        db.transaction do |tx|
+          puts "Notifying PostgREST to reload with changes." if @verbose
+          tx.connection.exec("NOTIFY pgrst, 'reload config'")
+          tx.connection.exec("NOTIFY pgrst, 'reload schema'")
+        end
+
       end
     end
   end
