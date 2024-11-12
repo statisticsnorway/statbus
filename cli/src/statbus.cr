@@ -1,5 +1,6 @@
 require "http/client"
 require "json"
+require "digest/sha256"
 require "time"
 require "option_parser"
 require "dir"
@@ -662,28 +663,33 @@ class StatBus
       end
 
       DB.connect(config.connection_string) do |db|
-        # Check if schema_migrations table exists
+        # Check if migrations table exists
         table_exists = db.query_one?("SELECT EXISTS (
           SELECT FROM pg_tables
           WHERE schemaname = 'admin'
-          AND tablename = 'schema_migrations'
+          AND tablename = 'migrations'
         )", as: Bool)
 
         if !table_exists
+          puts "Creating admin.migrations" if @verbose
           db.exec_all(<<-SQL
             BEGIN;
-            CREATE TABLE admin.schema_migrations (
+            CREATE SCHEMA admin;
+
+            CREATE TABLE admin.migrations (
               version text NOT NULL PRIMARY KEY,
               filename text NOT NULL,
-              md5_hash text NOT NULL,
+              sha256_hash text NOT NULL,
               applied_at timestamp with time zone NOT NULL DEFAULT now(),
               duration_ms integer NOT NULL
             );
+            CREATE INDEX migrations_sha256_hash_idx ON admin.migrations(sha256_hash);
 
-            ALTER TABLE admin.schema_migrations ENABLE ROW LEVEL SECURITY;
+            ALTER TABLE admin.migrations ENABLE ROW LEVEL SECURITY;
 
-            CREATE POLICY schema_migrations_authenticated_read ON admin.schema_migrations
+            CREATE POLICY migrations_authenticated_read ON admin.migrations
               FOR SELECT TO authenticated USING (true);
+            END;
           SQL
           )
         end
@@ -698,26 +704,40 @@ class StatBus
             puts "Executing SQL from #{migration_filename}"
           end
 
-          # Calculate MD5 hash of migration file
-          md5_hash = File.read(migration_filename).hash.to_s(16)
+          # Calculate SHA256 hash of migration file
+          file_hash = Digest::SHA256.digest(File.read(migration_filename)).hexstring
           version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1]) || "0"
+
+          # Check if this migration hash is already applied
+          already_applied = db.query_one?(
+            "SELECT EXISTS (SELECT 1 FROM admin.migrations WHERE sha256_hash = $1)",
+            file_hash,
+            as: Bool
+          )
+
+          if already_applied
+            puts "Skipping already applied migration #{File.basename(migration_filename)}" if @verbose
+            next
+          end
+
+          puts "Applying migration #{File.basename(migration_filename)}" if @verbose
 
           # Start timing
           start_time = Time.monotonic
 
           # Use system command to execute psql with the migration file
           Dir.cd(@project_directory) do
-            result = system("./devops/manage-statbus.sh psql < #{migration_filename}")
+            result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{migration_filename}")
             if result
               # Calculate duration in milliseconds
               duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
 
-              # Record successful migration in schema_migrations table
+              # Record successful migration in migrations table
               db.exec(
-                "INSERT INTO admin.schema_migrations (version, filename, md5_hash, duration_ms) VALUES ($1, $2, $3, $4)",
+                "INSERT INTO admin.migrations (version, filename, sha256_hash, duration_ms) VALUES ($1, $2, $3, $4)",
                 version,
                 File.basename(migration_filename),
-                md5_hash,
+                file_hash,
                 duration_ms
               )
 
