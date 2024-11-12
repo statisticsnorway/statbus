@@ -270,8 +270,8 @@ View definition:
   WHERE unit_size_ordered.active;
 Options: security_invoker=on
 
-\d+ public.person_type_ordered
-                                View "public.person_type_ordered"
+\d+ public.person_role_ordered
+                                View "public.person_role_ordered"
    Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
 ------------+--------------------------+-----------+----------+---------+----------+-------------
  id         | integer                  |           |          |         | plain    | 
@@ -281,18 +281,18 @@ Options: security_invoker=on
  custom     | boolean                  |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT person_type.id,
-    person_type.code,
-    person_type.name,
-    person_type.active,
-    person_type.custom,
-    person_type.updated_at
-   FROM person_type
-  ORDER BY person_type.code;
+ SELECT person_role.id,
+    person_role.code,
+    person_role.name,
+    person_role.active,
+    person_role.custom,
+    person_role.updated_at
+   FROM person_role
+  ORDER BY person_role.code;
 Options: security_invoker=on
 
-\d+ public.person_type_available
-                               View "public.person_type_available"
+\d+ public.person_role_available
+                               View "public.person_role_available"
    Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
 ------------+--------------------------+-----------+----------+---------+----------+-------------
  id         | integer                  |           |          |         | plain    | 
@@ -302,14 +302,14 @@ Options: security_invoker=on
  custom     | boolean                  |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT person_type_ordered.id,
-    person_type_ordered.code,
-    person_type_ordered.name,
-    person_type_ordered.active,
-    person_type_ordered.custom,
-    person_type_ordered.updated_at
-   FROM person_type_ordered
-  WHERE person_type_ordered.active;
+ SELECT person_role_ordered.id,
+    person_role_ordered.code,
+    person_role_ordered.name,
+    person_role_ordered.active,
+    person_role_ordered.custom,
+    person_role_ordered.updated_at
+   FROM person_role_ordered
+  WHERE person_role_ordered.active;
 Options: security_invoker=on
 
 \d+ public.enterprise_group_type_ordered
@@ -433,7 +433,7 @@ SELECT admin.drop_table_views_for_batch_api('public.unit_size');
  
 (1 row)
 
-SELECT admin.drop_table_views_for_batch_api('public.person_type');
+SELECT admin.drop_table_views_for_batch_api('public.person_role');
  drop_table_views_for_batch_api 
 --------------------------------
  

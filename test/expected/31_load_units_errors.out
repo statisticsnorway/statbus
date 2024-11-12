@@ -36,11 +36,11 @@ SELECT
 "Same external ident for legal unit and establishment"
 \echo "User uploads legal units"
 "User uploads legal units"
-\copy public.import_legal_unit_current(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/31_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_legal_unit_era(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/31_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo "User uploads formal establishments with same stat_ident as legal units"
 "User uploads formal establishments with same stat_ident as legal units"
-\copy public.import_establishment_current_for_legal_unit(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'test/data/31_formal_establishments_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  The external identifier stat_ident for establishment already taken by a legal_unit for row {"name": "NILE PEARL WATER", "tag_path": null, "turnover": "0", "valid_to": "infinity", "employees": "0", "tax_ident": "92212760144", "birth_date": null, "death_date": null, "stat_ident": "1000", "valid_from": "11-04-2024", "sector_code": null, "data_source_code": "nlr", "postal_postal_code": null, "postal_region_code": null, "postal_region_path": null, "postal_postal_place": null, "legal_unit_tax_ident": "2212760144", "physical_postal_code": null, "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "legal_unit_stat_ident": null, "physical_postal_place": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null}
+\copy public.import_establishment_era_for_legal_unit(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'test/data/31_formal_establishments_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  The external identifier stat_ident for establishment already taken by a legal_unit for row {"name": "NILE PEARL WATER", "tag_path": null, "turnover": "0", "valid_to": "infinity", "employees": "0", "tax_ident": "92212760144", "birth_date": null, "death_date": null, "stat_ident": "1000", "valid_from": "2024-01-01", "sector_code": null, "data_source_code": "nlr", "postal_postal_code": null, "postal_region_code": null, "postal_region_path": null, "postal_postal_place": null, "legal_unit_tax_ident": "2212760144", "physical_postal_code": null, "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "legal_unit_stat_ident": null, "physical_postal_place": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null}
 CONTEXT:  PL/pgSQL function admin.process_external_idents(jsonb,text) line 75 at RAISE
 SQL statement "SELECT external_idents        , prior_id
                                                                FROM admin.process_external_idents(new_jsonb,'establishment') AS r"
@@ -48,10 +48,13 @@ PL/pgSQL function admin.import_establishment_era_upsert() line 117 at SQL statem
 SQL statement "INSERT INTO public.import_establishment_era(
         valid_from,
         valid_to,
+        --
         tax_ident,
         stat_ident,
+        --
         legal_unit_tax_ident,
         legal_unit_stat_ident,
+        --
         name,
         birth_date,
         death_date,
@@ -78,12 +81,15 @@ SQL statement "INSERT INTO public.import_establishment_era(
         turnover,
         tag_path
     ) VALUES (
-        new_valid_from,
-        new_valid_to,
+        NEW.valid_from,
+        NEW.valid_to,
+        --
         NEW.tax_ident,
         NEW.stat_ident,
+        --
         NEW.legal_unit_tax_ident,
         NEW.legal_unit_stat_ident,
+        --
         NEW.name,
         NEW.birth_date,
         NEW.death_date,
@@ -110,8 +116,8 @@ SQL statement "INSERT INTO public.import_establishment_era(
         NEW.turnover,
         NEW.tag_path
         )"
-PL/pgSQL function admin.import_establishment_current_for_legal_unit_upsert() line 10 at SQL statement
-COPY import_establishment_current_for_legal_unit, line 2: "92212760144,1000,NILE PEARL WATER,225613,UG,4752,0,0,2212760144,nlr"
+PL/pgSQL function admin.import_establishment_era_for_legal_unit_upsert() line 7 at SQL statement
+COPY import_establishment_era_for_legal_unit, line 2: "2024-01-01,infinity,92212760144,1000,NILE PEARL WATER,225613,UG,4752,0,0,2212760144,nlr"
 ROLLBACK TO before_loading_units;
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -126,10 +132,10 @@ SELECT
 "Same external ident for formal establishment and informal establishment"
 \echo "User uploads legal units"
 "User uploads legal units"
-\copy public.import_legal_unit_current(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/31_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_legal_unit_era(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/31_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo "User uploads formal establishments"
 "User uploads formal establishments"
-\copy public.import_establishment_current_for_legal_unit(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'test/data/31_formal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_establishment_era_for_legal_unit(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'test/data/31_formal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
@@ -141,8 +147,8 @@ SELECT
 
 \echo "User uploads informal establishments with same stat_idents as formal establishments"
 "User uploads informal establishments with same stat_idents as formal establishments"
-\copy public.import_establishment_current_without_legal_unit(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'test/data/31_informal_establishments_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  Another establishment {"tax_ident": "92212760144", "stat_ident": "2000"} already uses the same identier(s) as the establishment in row {"name": "THE NILE PEARL WATER", "tag_path": null, "turnover": "1200", "valid_to": "infinity", "employees": "1", "tax_ident": "82212760144", "birth_date": null, "death_date": null, "stat_ident": "2000", "valid_from": "11-04-2024", "sector_code": null, "data_source_code": "nlr", "postal_postal_code": null, "postal_region_code": null, "postal_region_path": null, "postal_postal_place": null, "legal_unit_tax_ident": null, "physical_postal_code": null, "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "legal_unit_stat_ident": null, "physical_postal_place": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null}
+\copy public.import_establishment_era_without_legal_unit(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'test/data/31_informal_establishments_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+ERROR:  Another establishment {"tax_ident": "92212760144", "stat_ident": "2000"} already uses the same identier(s) as the establishment in row {"name": "THE NILE PEARL WATER", "tag_path": null, "turnover": "1200", "valid_to": "infinity", "employees": "1", "tax_ident": "82212760144", "birth_date": null, "death_date": null, "stat_ident": "2000", "valid_from": "2024-01-01", "sector_code": null, "data_source_code": "nlr", "postal_postal_code": null, "postal_region_code": null, "postal_region_path": null, "postal_postal_place": null, "legal_unit_tax_ident": null, "physical_postal_code": null, "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "legal_unit_stat_ident": null, "physical_postal_place": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null}
 DETAIL:  Key constraint (type_id, establishment_id) is violated.
 HINT:  Check for other units already using the same identifier
 CONTEXT:  PL/pgSQL function admin.insert_external_idents(jsonb,external_ident[],integer,integer,integer) line 79 at RAISE
@@ -186,8 +192,8 @@ SQL statement "INSERT INTO public.import_establishment_era (
         turnover,
         tag_path
     ) VALUES (
-        new_valid_from,
-        new_valid_to,
+        NEW.valid_from,
+        NEW.valid_to,
         NEW.tax_ident,
         NEW.stat_ident,
         NEW.name,
@@ -217,6 +223,6 @@ SQL statement "INSERT INTO public.import_establishment_era (
         NEW.turnover,
         NEW.tag_path
         )"
-PL/pgSQL function admin.import_establishment_current_without_legal_unit_upsert() line 6 at SQL statement
-COPY import_establishment_current_without_legal_unit, line 2: "82212760144,2000,THE NILE PEARL WATER,225613,UG,4752,1,1200,nlr"
+PL/pgSQL function admin.import_establishment_era_without_legal_unit_upsert() line 3 at SQL statement
+COPY import_establishment_era_without_legal_unit, line 2: "2024-01-01,infinity,82212760144,2000,THE NILE PEARL WATER,225613,UG,4752,1,1200,nlr"
 ROLLBACK;
