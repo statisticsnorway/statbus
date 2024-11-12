@@ -290,8 +290,6 @@ DROP FUNCTION public.lookup_parent_and_derive_code();
 DROP TABLE public.tag_for_unit;
 DROP TABLE public.person_for_unit;
 
-DROP TABLE public.analysis_log;
-DROP TABLE public.analysis_queue;
 
 DROP TABLE public.stat_for_unit;
 DROP VIEW public.stat_definition_active;
@@ -311,7 +309,6 @@ DROP TABLE public.enterprise_group_type;
 
 DROP TABLE public.location;
 
-DROP TABLE public.custom_analysis_check;
 
 DROP TABLE public.data_source;
 
@@ -334,10 +331,7 @@ DROP TABLE public.person;
 DROP TABLE public.legal_form;
 DROP TABLE public.country;
 
-DROP TABLE public.postal_index;
 DROP TABLE public.reorg_type;
-DROP TABLE public.report_tree;
-DROP TABLE public.sample_frame;
 DROP TABLE public.sector;
 DROP TABLE public.unit_size;
 
