@@ -8,7 +8,7 @@ targets:
   statbus:
     main: src/statbus.cr
 
-crystal: '>= 1.10.1'
+crystal: ">= 1.10.1"
 
 license: MIT
 
@@ -16,3 +16,6 @@ dependencies:
   pg:
     github: 17dec/crystal-pg
     branch: copyout
+  poncho:
+    github: icyleaf/poncho
+    branch: master

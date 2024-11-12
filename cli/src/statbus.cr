@@ -3,7 +3,7 @@ require "json"
 require "time"
 require "option_parser"
 require "dir"
-require "ini"
+require "./config"
 require "db"
 require "pg"
 require "file"
@@ -238,18 +238,8 @@ class StatBus
   private def import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
     # Find .env and load required secrets
     Dir.cd(@project_directory) do
-      ini_data = File.read(".env")
-      vars = INI.parse ini_data
-      # The variables are all in the global scope, as an ".env" file is not really an ini file,
-      # it just has the same
-      global_vars = vars[""]
-      postgres_host = "127.0.0.1"
-      # global_vars["POSTGRES_HOST"]
-      postgres_port = global_vars["DB_PUBLIC_LOCALHOST_PORT"]
-      postgres_db = global_vars["POSTGRES_DB"]
-      postgres_user = global_vars["POSTGRES_USER"]? || "postgres"
-      postgres_password = global_vars["POSTGRES_PASSWORD"]
-      puts "Import data to postgres_host=#{postgres_host} postgres_port=#{postgres_port} postgres_db=#{postgres_db} postgres_user=#{postgres_user} postgres_password=#{postgres_password}" if @verbose
+      config = StatBusConfig.new(@project_directory)
+      puts "Import data to #{config.connection_string}" if @verbose
 
       sql_cli_provided_fields = ["valid_from", "valid_to", "tag_path"]
       sql_fields_list = sql_cli_provided_fields + sql_field_required_list + sql_field_optional_list
@@ -336,7 +326,7 @@ class StatBus
         end
       end
 
-      db_connection_string = "postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}"
+      db_connection_string = config.connection_string
       puts db_connection_string if @verbose
       DB.connect(db_connection_string) do |db|
         if !@import_tag.nil?
