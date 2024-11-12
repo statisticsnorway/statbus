@@ -248,7 +248,9 @@ case "$action" in
         PGUSER=supabase_admin psql -c 'create extension sql_saga cascade;'
       ;;
     'create-db-structure' )
-        ./devops/manage-statbus.sh psql < dbseed/create-db-structure.sql 2>&1
+        pushd cli
+          shards build && ./bin/statbus migrate up
+        popd
       ;;
     'delete-db-structure' )
         ./devops/manage-statbus.sh psql < dbseed/delete-db-structure.sql 2>&1
