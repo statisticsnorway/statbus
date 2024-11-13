@@ -183,12 +183,6 @@ DROP VIEW public.country_view;
 DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();
 
-DROP VIEW public.legal_unit_brreg_view;
-DROP FUNCTION admin.legal_unit_brreg_view_upsert();
-
-DROP VIEW public.establishment_brreg_view;
-DROP FUNCTION admin.upsert_establishment_brreg_view();
-
 DROP TRIGGER legal_unit_era_upsert ON public.legal_unit_era;
 DROP FUNCTION admin.legal_unit_era_upsert();
 DROP VIEW public.legal_unit_era;
