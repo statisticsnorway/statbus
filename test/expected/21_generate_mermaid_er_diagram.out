@@ -8,6 +8,13 @@ SELECT '########################################';
 ########################################
 erDiagram
 	%% Entities (derived from tables)
+	admin_migrations["admin.migrations"] {
+		"text" version
+		"text" filename
+		"text" sha256_hash
+		"timestamp with time zone" applied_at
+		"integer" duration_ms
+	}
 	auth_audit_log_entries["auth.audit_log_entries"] {
 		"uuid" instance_id
 		"uuid" id
@@ -268,27 +275,6 @@ erDiagram
 		"activity_category_code_behaviour" code_pattern
 		"boolean" obsolete
 	}
-	analysis_log["analysis_log"] {
-		"integer" id
-		"integer" analysis_queue_id
-		"integer" establishment_id
-		"integer" legal_unit_id
-		"integer" enterprise_id
-		"integer" enterprise_group_id
-		"timestamp with time zone" issued_at
-		"timestamp with time zone" resolved_at
-		"text" summary_messages
-		"text" error_values
-	}
-	analysis_queue["analysis_queue"] {
-		"integer" id
-		"timestamp with time zone" user_start_period
-		"timestamp with time zone" user_end_period
-		"integer" user_id
-		"text" comment
-		"timestamp with time zone" server_start_period
-		"timestamp with time zone" server_end_period
-	}
 	country["country"] {
 		"integer" id
 		"text" iso_2
@@ -298,12 +284,6 @@ erDiagram
 		"boolean" active
 		"boolean" custom
 		"timestamp with time zone" updated_at
-	}
-	custom_analysis_check["custom_analysis_check"] {
-		"integer" id
-		"character varying(64)" name
-		"character varying(2048)" query
-		"character varying(16)" target_unit_types
 	}
 	data_source["data_source"] {
 		"integer" id
@@ -497,20 +477,13 @@ erDiagram
 		"integer" establishment_id
 		"integer" legal_unit_id
 	}
-	person_type["person_type"] {
+	person_role["person_role"] {
 		"integer" id
 		"text" code
 		"text" name
 		"boolean" active
 		"boolean" custom
 		"timestamp with time zone" updated_at
-	}
-	postal_index["postal_index"] {
-		"integer" id
-		"text" name
-		"boolean" archived
-		"text" name_language1
-		"text" name_language2
 	}
 	region["region"] {
 		"integer" id
@@ -545,29 +518,6 @@ erDiagram
 		"boolean" active
 		"boolean" custom
 		"timestamp with time zone" updated_at
-	}
-	report_tree["report_tree"] {
-		"integer" id
-		"text" title
-		"text" type
-		"integer" report_id
-		"integer" parent_node_id
-		"boolean" archived
-		"text" resource_group
-		"text" report_url
-	}
-	sample_frame["sample_frame"] {
-		"integer" id
-		"text" name
-		"text" description
-		"text" predicate
-		"text" fields
-		"integer" user_id
-		"integer" status
-		"text" file_path
-		"timestamp with time zone" generated_date_time
-		"timestamp with time zone" creation_date
-		"timestamp with time zone" editing_date
 	}
 	sector["sector"] {
 		"integer" id
@@ -810,9 +760,6 @@ erDiagram
 	activity_category }|--|| activity_category_standard : activity_category_standard_id_fkey
 	activity_category_role }o--|| activity_category : activity_category_role_activity_category_id_fkey
 	activity_category_role }o--|| statbus_role : activity_category_role_role_id_fkey
-	analysis_log }o--|| analysis_queue : analysis_log_analysis_queue_id_fkey
-	analysis_log }o--o| enterprise : analysis_log_enterprise_id_fkey
-	analysis_queue }o--|| statbus_user : analysis_queue_user_id_fkey
 	enterprise_group }o--o| data_source : enterprise_group_data_source_id_fkey
 	enterprise_group }o--o| enterprise_group_type : enterprise_group_enterprise_group_type_id_fkey
 	enterprise_group }o--o| foreign_participation : enterprise_group_foreign_participation_id_fkey
@@ -840,11 +787,10 @@ erDiagram
 	location }o--|| statbus_user : location_updated_by_user_id_fkey
 	person }|--o| country : person_country_id_fkey
 	person_for_unit }|--|| person : person_for_unit_person_id_fkey
-	person_for_unit }|--o| person_type : person_for_unit_person_type_id_fkey
+	person_for_unit }|--o| person_role : person_for_unit_person_type_id_fkey
 	region }o--o| region : region_parent_id_fkey
 	region_role }o--|| region : region_role_region_id_fkey
 	region_role }o--|| statbus_role : region_role_role_id_fkey
-	sample_frame }o--o| statbus_user : sample_frame_user_id_fkey
 	settings }|--|| activity_category_standard : settings_activity_category_standard_id_fkey
 	stat_for_unit }o--o| data_source : stat_for_unit_data_source_id_fkey
 	stat_for_unit }|--|| stat_definition : stat_for_unit_stat_definition_id_fkey

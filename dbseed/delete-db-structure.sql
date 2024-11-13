@@ -183,12 +183,6 @@ DROP VIEW public.country_view;
 DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();
 
-DROP VIEW public.legal_unit_brreg_view;
-DROP FUNCTION admin.legal_unit_brreg_view_upsert();
-
-DROP VIEW public.establishment_brreg_view;
-DROP FUNCTION admin.upsert_establishment_brreg_view();
-
 DROP TRIGGER legal_unit_era_upsert ON public.legal_unit_era;
 DROP FUNCTION admin.legal_unit_era_upsert();
 DROP VIEW public.legal_unit_era;
@@ -254,7 +248,7 @@ SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
 SELECT admin.drop_table_views_for_batch_api('public.foreign_participation');
 SELECT admin.drop_table_views_for_batch_api('public.data_source');
 SELECT admin.drop_table_views_for_batch_api('public.unit_size');
-SELECT admin.drop_table_views_for_batch_api('public.person_type');
+SELECT admin.drop_table_views_for_batch_api('public.person_role');
 SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_type');
 SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_role');
 
@@ -290,8 +284,6 @@ DROP FUNCTION public.lookup_parent_and_derive_code();
 DROP TABLE public.tag_for_unit;
 DROP TABLE public.person_for_unit;
 
-DROP TABLE public.analysis_log;
-DROP TABLE public.analysis_queue;
 
 DROP TABLE public.stat_for_unit;
 DROP VIEW public.stat_definition_active;
@@ -311,7 +303,6 @@ DROP TABLE public.enterprise_group_type;
 
 DROP TABLE public.location;
 
-DROP TABLE public.custom_analysis_check;
 
 DROP TABLE public.data_source;
 
@@ -328,16 +319,13 @@ DROP TYPE public.tag_type;
 
 DROP TABLE public.foreign_participation;
 
-DROP TABLE public.person_type;
+DROP TABLE public.person_role;
 DROP TABLE public.person;
 
 DROP TABLE public.legal_form;
 DROP TABLE public.country;
 
-DROP TABLE public.postal_index;
 DROP TABLE public.reorg_type;
-DROP TABLE public.report_tree;
-DROP TABLE public.sample_frame;
 DROP TABLE public.sector;
 DROP TABLE public.unit_size;
 

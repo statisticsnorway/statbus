@@ -248,7 +248,9 @@ case "$action" in
         PGUSER=supabase_admin psql -c 'create extension sql_saga cascade;'
       ;;
     'create-db-structure' )
-        ./devops/manage-statbus.sh psql < dbseed/create-db-structure.sql 2>&1
+        pushd cli
+          shards build && ./bin/statbus migrate up
+        popd
       ;;
     'delete-db-structure' )
         ./devops/manage-statbus.sh psql < dbseed/delete-db-structure.sql 2>&1
@@ -580,6 +582,113 @@ EOS
           docker compose exec $args -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
         fi
       ;;
+     'generate-db-documentation' )
+        # Create documentation directories and clean out old files
+        mkdir -p doc/db/table doc/db/view doc/db/function
+        echo "Cleaning documentation files..."
+        find doc/db -type f -delete
+
+        # Get list of all tables and views from specified schemas
+        tables=$(./devops/manage-statbus.sh psql -t -c "
+          SELECT schemaname || '.' || tablename
+          FROM pg_catalog.pg_tables
+          WHERE schemaname IN ('admin', 'lifecycle_callbacks', 'public')
+          ORDER BY 1;")
+
+        views=$(./devops/manage-statbus.sh psql -t -c "
+          SELECT schemaname || '.' || viewname
+          FROM pg_catalog.pg_views
+          WHERE schemaname IN ('admin', 'lifecycle_callbacks', 'public')
+          ORDER BY 1;")
+
+        # Document each table
+        echo "$tables" | while read -r table; do
+          if [ ! -z "$table" ]; then
+            echo "Documenting table $table..."
+            # Create temporary files
+            base_file="doc/db/table/${table//\./_}.md"
+            details_file="doc/db/table/${table//\./_}_details.md"
+
+            # Generate both overview and details.
+            echo '```sql' > "$base_file"
+            ./devops/manage-statbus.sh psql -c "\d $table" >> "$base_file"
+            echo '```' >> "$base_file"
+
+            echo '```sql' > "$details_file"
+            ./devops/manage-statbus.sh psql -c "\d+ $table" >> "$details_file"
+            echo '```' >> "$details_file"
+
+            # Compare files and remove details if they're identical
+            if diff -q "$base_file" "$details_file" >/dev/null; then
+              rm "$details_file"
+            fi
+          fi
+        done
+
+        # Document each view
+        echo "$views" | while read -r view; do
+          if [ ! -z "$view" ]; then
+            echo "Documenting view $view..."
+            # Create temporary files
+            base_file="doc/db/view/${view//\./_}.md"
+            details_file="doc/db/view/${view//\./_}_details.md"
+
+            # Generate both overview and details.
+            echo '```sql' > "$base_file"
+            ./devops/manage-statbus.sh psql -c "\d $view" >> "$base_file"
+            echo '```' >> "$base_file"
+
+            echo '```sql' > "$details_file"
+            ./devops/manage-statbus.sh psql -c "\d+ $view" >> "$details_file"
+            echo '```' >> "$details_file"
+
+            # Compare files and remove details if they're identical
+            if diff -q "$base_file" "$details_file" >/dev/null; then
+              rm "$details_file"
+            fi
+          fi
+        done
+
+        # Get and document functions
+        functions=$(./devops/manage-statbus.sh psql -t -c "
+          SELECT n.nspname || '.' || p.proname || '(' ||
+            regexp_replace(
+              regexp_replace(
+                pg_get_function_arguments(p.oid),
+                ',?\s*OUT [^,\$]+|\s*DEFAULT [^,\$]+|IN (\w+\s+)|INOUT (\w+\s+)',
+                '\1',
+                'g'
+              ),
+              '\w+\s+(\w+)',
+              '\1',
+              'g'
+            ) || ')'
+          FROM pg_proc p
+          JOIN pg_namespace n ON p.pronamespace = n.oid
+          WHERE n.nspname IN ('admin', 'lifecycle_callbacks', 'public')
+          AND NOT (
+            (n.nspname = 'public' AND p.proname LIKE '_%')
+            OR (n.nspname = 'public' AND p.proname LIKE '%_dist')
+            OR (n.nspname = 'public' AND p.proname LIKE 'gbt_%')
+          )
+          ORDER BY 1;")
+
+        echo "$functions" | while read -r func; do
+          if [ ! -z "$func" ]; then
+            echo "Documenting function $func..."
+            # Create function documentation
+            base_file="doc/db/function/${func//\./_}.md"
+
+            # Generate function definition
+            echo '```sql' > "$base_file"
+            ./devops/manage-statbus.sh psql -c "\sf $func" >> "$base_file"
+            echo '```' >> "$base_file"
+          fi
+        done
+
+        echo "Database documentation generated in doc/db/{table,view,function}/"
+        ;;
+
      'generate-types' )
         pushd $WORKSPACE/app
         #nvm doesn' work in a script!

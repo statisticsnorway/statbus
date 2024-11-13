@@ -11,8 +11,8 @@
 \d+ public.data_source_available
 \d+ public.unit_size_ordered
 \d+ public.unit_size_available
-\d+ public.person_type_ordered
-\d+ public.person_type_available
+\d+ public.person_role_ordered
+\d+ public.person_role_available
 \d+ public.enterprise_group_type_ordered
 \d+ public.enterprise_group_type_available
 \d+ public.enterprise_group_role_ordered
@@ -33,7 +33,7 @@ SELECT admin.drop_table_views_for_batch_api('public.data_source');
 
 SELECT admin.drop_table_views_for_batch_api('public.unit_size');
 
-SELECT admin.drop_table_views_for_batch_api('public.person_type');
+SELECT admin.drop_table_views_for_batch_api('public.person_role');
 
 SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_type');
 

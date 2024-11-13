@@ -1,0 +1,26 @@
+\echo public.activity_category_isic_v4
+CREATE VIEW public.activity_category_isic_v4
+WITH (security_invoker=on) AS
+SELECT acs.code AS standard
+     , ac.path
+     , ac.label
+     , ac.code
+     , ac.name
+     , ac.description
+FROM public.activity_category AS ac
+JOIN public.activity_category_standard AS acs
+ON ac.standard_id = acs.id
+WHERE acs.code = 'isic_v4'
+ORDER BY path;
+
+CREATE TRIGGER upsert_activity_category_isic_v4
+INSTEAD OF INSERT ON public.activity_category_isic_v4
+FOR EACH ROW
+EXECUTE FUNCTION admin.upsert_activity_category('isic_v4');
+
+CREATE TRIGGER delete_stale_activity_category_isic_v4
+AFTER INSERT ON public.activity_category_isic_v4
+FOR EACH STATEMENT
+EXECUTE FUNCTION admin.delete_stale_activity_category();
+
+\copy public.activity_category_isic_v4(path, name) FROM 'dbseed/activity-category-standards/ISIC_Rev_4_english_structure.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"');

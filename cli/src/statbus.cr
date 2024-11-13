@@ -1,9 +1,10 @@
 require "http/client"
 require "json"
+require "digest/sha256"
 require "time"
 require "option_parser"
 require "dir"
-require "ini"
+require "./config"
 require "db"
 require "pg"
 require "file"
@@ -17,6 +18,7 @@ class StatBus
     Install
     Manage
     Import
+    Migrate
   end
   enum ImportMode
     LegalUnit
@@ -30,6 +32,12 @@ class StatBus
   enum ImportStrategy
     Copy
     Insert
+  end
+  enum MigrateMode
+    Up
+    Down
+    New
+    Renumber
   end
   # Mappings for a configuration, where every field is present.
   # Nil records the intention of not using an sql field
@@ -102,22 +110,47 @@ class StatBus
   @config_file_path : Path | Nil = nil
   @sql_field_mapping = Array(SqlFieldMapping).new
   @working_directory = Dir.current
-  @project_directory =
-    begin
+  @project_directory : Path
+
+  private def initialize_project_directory : Path
+    # First try from current directory
+    current = Path.new(Dir.current)
+    found = find_env_in_parents(current)
+
+    if found.nil?
+      # Fall back to executable path
       executable_path = Process.executable_path
       if executable_path.nil?
-        Path.new(Dir.current)
+        current # Last resort: use current dir
       else
-        Path.new(Path.new(executable_path.not_nil!).dirname).parent.parent
+        exec_dir = Path.new(Path.new(executable_path).dirname)
+        find_env_in_parents(exec_dir) || current
       end
+    else
+      found
     end
+  end
+
+  private def find_env_in_parents(start_path : Path) : Path?
+    current = start_path
+    while current.to_s != "/"
+      if File.exists?(current.join(".env"))
+        return current
+      end
+      current = current.parent
+    end
+    nil
+  end
   @import_strategy = ImportStrategy::Copy
   @import_tag : String | Nil = nil
   @offset = 0
+  @migrate_mode : MigrateMode | Nil = nil
+  @migration_description : String | Nil = nil
   @valid_from : String = Time.utc.to_s("%Y-%m-%d")
   @valid_to = "infinity"
 
   def initialize
+    @project_directory = initialize_project_directory
     begin
       option_parser = build_option_parser
       option_parser.parse
@@ -238,18 +271,8 @@ class StatBus
   private def import_common(import_file_name, sql_field_required_list, sql_field_optional_list, upload_view_name)
     # Find .env and load required secrets
     Dir.cd(@project_directory) do
-      ini_data = File.read(".env")
-      vars = INI.parse ini_data
-      # The variables are all in the global scope, as an ".env" file is not really an ini file,
-      # it just has the same
-      global_vars = vars[""]
-      postgres_host = "127.0.0.1"
-      # global_vars["POSTGRES_HOST"]
-      postgres_port = global_vars["DB_PUBLIC_LOCALHOST_PORT"]
-      postgres_db = global_vars["POSTGRES_DB"]
-      postgres_user = global_vars["POSTGRES_USER"]? || "postgres"
-      postgres_password = global_vars["POSTGRES_PASSWORD"]
-      puts "Import data to postgres_host=#{postgres_host} postgres_port=#{postgres_port} postgres_db=#{postgres_db} postgres_user=#{postgres_user} postgres_password=#{postgres_password}" if @verbose
+      config = StatBusConfig.new(@project_directory, @verbose)
+      puts "Import data to #{config.connection_string}" if @verbose
 
       sql_cli_provided_fields = ["valid_from", "valid_to", "tag_path"]
       sql_fields_list = sql_cli_provided_fields + sql_field_required_list + sql_field_optional_list
@@ -336,7 +359,7 @@ class StatBus
         end
       end
 
-      db_connection_string = "postgres://#{postgres_user}:#{postgres_password}@#{postgres_host}:#{postgres_port}/#{postgres_db}"
+      db_connection_string = config.connection_string
       puts db_connection_string if @verbose
       DB.connect(db_connection_string) do |db|
         if !@import_tag.nil?
@@ -524,6 +547,7 @@ class StatBus
   private def build_option_parser
     OptionParser.new do |parser|
       parser.banner = "Usage: #{@name} [subcommand] [arguments]"
+      parser.on("-v", "--verbose", "Enable verbose output") { @verbose = true }
       parser.on("install", "Install StatBus") do
         @mode = Mode::Install
         parser.banner = "Usage: #{@name} install [arguments]"
@@ -604,14 +628,142 @@ class StatBus
           @refresh_materialized_views = false
         end
       end
+      parser.on("migrate", "Run database migrations") do
+        @mode = Mode::Migrate
+        parser.banner = "Usage: #{@name} migrate [arguments]"
+        parser.on("up", "Run pending migrations") do
+          @migrate_mode = MigrateMode::Up
+        end
+        parser.on("new", "Create a new migration file") do
+          @migrate_mode = MigrateMode::New
+          parser.on("-d DESC", "--description=DESC", "Description for the new migration") do |desc|
+            @migration_description = desc
+          end
+        end
+        parser.on("renumber", "Renumber migration files to fix ordering") do
+          @migrate_mode = MigrateMode::Renumber
+        end
+      end
       parser.on("welcome", "Print a greeting message") do
         @mode = Mode::Welcome
         parser.banner = "Usage: #{@name} welcome"
       end
-      parser.on("-v", "--verbose", "Enabled verbose output") { @verbose = true }
       parser.on("-h", "--help", "Show this help") do
         puts parser
         exit
+      end
+    end
+  end
+
+  private def migrate_up
+    Dir.cd(@project_directory) do
+      config = StatBusConfig.new(@project_directory, @verbose)
+      migration_path = Path["migrations/*.up.sql"]
+      migration_filenames = Dir.glob(migration_path)
+
+      # Sort migrations by version number
+      sorted_migration_filenames = migration_filenames.sort do |a, b|
+        # Extract version numbers from filenames
+        a_version = File.basename(a).match(/^(\d+)_/).try(&.[1]) || "0"
+        b_version = File.basename(b).match(/^(\d+)_/).try(&.[1]) || "0"
+        a_version.to_i <=> b_version.to_i
+      end
+
+      if sorted_migration_filenames.empty?
+        puts "No migrations found in #{migration_path}"
+        return
+      end
+
+      DB.connect(config.connection_string) do |db|
+        # Check if migrations table exists
+        table_exists = db.query_one?("SELECT EXISTS (
+          SELECT FROM pg_tables
+          WHERE schemaname = 'admin'
+          AND tablename = 'migrations'
+        )", as: Bool)
+
+        if !table_exists
+          puts "Creating admin.migrations" if @verbose
+          db.exec_all(<<-SQL
+            BEGIN;
+            CREATE SCHEMA admin;
+
+            CREATE TABLE admin.migrations (
+              version text NOT NULL PRIMARY KEY,
+              filename text NOT NULL,
+              sha256_hash text NOT NULL,
+              applied_at timestamp with time zone NOT NULL DEFAULT now(),
+              duration_ms integer NOT NULL
+            );
+            CREATE INDEX migrations_sha256_hash_idx ON admin.migrations(sha256_hash);
+
+            ALTER TABLE admin.migrations ENABLE ROW LEVEL SECURITY;
+
+            CREATE POLICY migrations_authenticated_read ON admin.migrations
+              FOR SELECT TO authenticated USING (true);
+            END;
+          SQL
+          )
+        end
+
+        sorted_migration_filenames.each do |migration_filename|
+          version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1])
+          filename = File.basename(migration_filename)
+          STDOUT.print "Migration #{filename} "
+          STDOUT.flush
+
+          # Calculate SHA256 hash of migration file
+          file_hash = Digest::SHA256.digest(File.read(migration_filename)).hexstring
+          version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1]) || "0"
+
+          # Check if this migration hash is already applied
+          already_applied = db.query_one?(
+            "SELECT EXISTS (SELECT 1 FROM admin.migrations WHERE sha256_hash = $1)",
+            file_hash,
+            as: Bool
+          )
+
+          if already_applied
+            STDOUT.puts "[already_applied]"
+            next
+          end
+
+          STDOUT.print "[applying] "
+          STDOUT.flush
+
+          # Start timing
+          start_time = Time.monotonic
+
+          # Use system command to execute psql with the migration file
+          Dir.cd(@project_directory) do
+            result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{migration_filename}")
+            if result
+              # Calculate duration in milliseconds
+              duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
+
+              # Record successful migration in migrations table
+              db.exec(
+                "INSERT INTO admin.migrations (version, filename, sha256_hash, duration_ms) VALUES ($1, $2, $3, $4)",
+                version,
+                File.basename(migration_filename),
+                file_hash,
+                duration_ms
+              )
+
+              STDOUT.puts "done (#{duration_ms}ms)"
+            else
+              raise "Failed to apply migration #{File.basename(migration_filename)}"
+            end
+          end
+        end
+
+        # Notify PostgREST to reload config and schema after all migrations
+        db.transaction do |tx|
+          puts "Notifying PostgREST to reload with changes." if @verbose
+          tx.connection.exec("NOTIFY pgrst, 'reload config'")
+          tx.connection.exec("NOTIFY pgrst, 'reload schema'")
+        end
+
       end
     end
   end
@@ -652,9 +804,122 @@ class StatBus
           exit(1)
         end
       end
+    when Mode::Migrate
+      case @migrate_mode
+      when MigrateMode::Up
+        migrate_up
+      when MigrateMode::New
+        create_new_migration
+      when MigrateMode::Renumber
+        renumber_migrations
+      else
+        STDERR.puts "Unknown migrate mode #{@migrate_mode}"
+        exit(1)
+      end
     else
       puts "Unknown mode #{@mode}"
+    end
+  end
+
+  private def create_new_migration
+    Dir.cd(@project_directory) do
+      migration_path = Path["migrations/*.up.sql"]
+      migration_filenames = Dir.glob(migration_path)
+
+      # Find highest version number
+      latest_version = migration_filenames.map do |filename|
+        File.basename(filename).match(/^(\d+)_/).try(&.[1]).try(&.to_i) || 0
+      end.max || 0
+
+      # Get number of digits in latest version for padding
+      digits = latest_version.to_s.size
+      next_version = (latest_version + 1).to_s.rjust(digits, '0')
+
+      # Create new filename
+      if @migration_description.nil?
+        STDERR.puts "Missing required description for new migration. Use -d or --description"
+        exit(1)
+      end
+
+      # Convert description to filename-safe format
+      safe_desc = @migration_description.not_nil!.downcase.gsub(/[^a-z0-9]+/, "_")
+      new_filename = "migrations/#{next_version}_#{safe_desc}.up.sql"
+
+      # Create file with template content
+      File.write(new_filename, <<-SQL
+        -- Migration #{next_version}: #{@migration_description}
+        BEGIN;
+
+        -- Add your migration SQL here
+
+        END;
+        SQL
+      )
+
+      puts "Created new migration file: #{new_filename}"
       exit(1)
+    end
+  end
+
+  private def renumber_migrations
+    Dir.cd(@project_directory) do
+      migration_path = Path["migrations/*.up.sql"]
+      migration_filenames = Dir.glob(migration_path)
+
+      # Parse all migration filenames to get version and description
+      migrations = migration_filenames.map do |filename|
+        base = File.basename(filename)
+        if match = base.match(/^(\d+)_(.+)\.up\.sql$/)
+          version = match[1].to_i
+          description = match[2]
+          {filename: filename, version: version, description: description}
+        elsif match = base.match(/^after_(\d+)_(.+)\.up\.sql$/)
+          # Handle special "after_XXX" prefix
+          after_version = match[1].to_i
+          description = match[2]
+          {filename: filename, version: after_version + 1, description: description, after: after_version}
+        elsif match = base.match(/^before_(\d+)_(.+)\.up\.sql$/)
+          # Handle special "before_XXX" prefix
+          before_version = match[1].to_i
+          description = match[2]
+          {filename: filename, version: before_version - 1, description: description, before: before_version}
+        else
+          STDERR.puts "Invalid migration filename format: #{filename}"
+          exit(1)
+        end
+      end
+
+      # Sort by version number
+      migrations.sort_by! { |m| m[:version] }
+
+      # Detect gaps and overlaps
+      previous_version = 0
+      migrations.each do |migration|
+        current_version = migration[:version]
+        if current_version <= previous_version
+          puts "Warning: Migration versions overlap or are out of order:"
+          puts "  #{migration[:filename]} (version #{current_version})"
+          puts "  comes after version #{previous_version}"
+        elsif current_version > previous_version + 1
+          puts "Warning: Gap in migration versions between #{previous_version} and #{current_version}"
+        end
+        previous_version = current_version
+      end
+
+      # Renumber all migrations sequentially
+      puts "\nRenumbering migrations..."
+      migrations.each_with_index do |migration, index|
+        new_version = (index + 1).to_s.rjust(4, '0')
+        old_file = migration[:filename]
+        new_file = "migrations/#{new_version}_#{migration[:description]}.up.sql"
+
+        if old_file != new_file
+          puts "#{File.basename(old_file)} -> #{File.basename(new_file)}"
+          File.rename(old_file, new_file)
+        end
+      end
+
+      puts "\nMigration files have been renumbered sequentially."
     end
   end
 end

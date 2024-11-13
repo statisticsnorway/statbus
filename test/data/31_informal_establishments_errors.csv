@@ -1,3 +1,3 @@
-tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code
-82212760144,2000,THE NILE PEARL WATER,225613,UG,4752,1,1200,nlr
-82812760140,2001,THE  EQUATOR GLOBE SOLUTIONS,225602,UG,5610,2,4400,nlr
+valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code
+2024-01-01,infinity,82212760144,2000,THE NILE PEARL WATER,225613,UG,4752,1,1200,nlr
+2024-01-01,infinity,82812760140,2001,THE  EQUATOR GLOBE SOLUTIONS,225602,UG,5610,2,4400,nlr
