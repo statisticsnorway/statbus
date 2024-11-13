@@ -36,6 +36,7 @@ class StatBus
   enum MigrateMode
     Up
     Down
+    New
   end
   # Mappings for a configuration, where every field is present.
   # Nil records the intention of not using an sql field
@@ -143,6 +144,7 @@ class StatBus
   @import_tag : String | Nil = nil
   @offset = 0
   @migrate_mode : MigrateMode | Nil = nil
+  @migration_description : String | Nil = nil
   @valid_from : String = Time.utc.to_s("%Y-%m-%d")
   @valid_to = "infinity"
 
@@ -631,6 +633,12 @@ class StatBus
         parser.on("up", "Run pending migrations") do
           @migrate_mode = MigrateMode::Up
         end
+        parser.on("new", "Create a new migration file") do
+          @migrate_mode = MigrateMode::New
+        end
+        parser.on("-d DESC", "--description=DESC", "Description for the new migration") do |desc|
+          @migration_description = desc
+        end
       end
       parser.on("welcome", "Print a greeting message") do
         @mode = Mode::Welcome
@@ -796,12 +804,53 @@ class StatBus
       case @migrate_mode
       when MigrateMode::Up
         migrate_up
+      when MigrateMode::New
+        create_new_migration
       else
         STDERR.puts "Unknown migrate mode #{@migrate_mode}"
         exit(1)
       end
     else
       puts "Unknown mode #{@mode}"
+    end
+  end
+
+  private def create_new_migration
+    Dir.cd(@project_directory) do
+      migration_path = Path["migrations/*.up.sql"]
+      migration_filenames = Dir.glob(migration_path)
+
+      # Find highest version number
+      latest_version = migration_filenames.map do |filename|
+        File.basename(filename).match(/^(\d+)_/).try(&.[1]).try(&.to_i) || 0
+      end.max || 0
+
+      # Get number of digits in latest version for padding
+      digits = latest_version.to_s.size
+      next_version = (latest_version + 1).to_s.rjust(digits, '0')
+
+      # Create new filename
+      if @migration_description.nil?
+        STDERR.puts "Missing required description for new migration. Use -d or --description"
+        exit(1)
+      end
+
+      # Convert description to filename-safe format
+      safe_desc = @migration_description.not_nil!.downcase.gsub(/[^a-z0-9]+/, "_")
+      new_filename = "migrations/#{next_version}_#{safe_desc}.up.sql"
+      
+      # Create file with template content
+      File.write(new_filename, <<-SQL
+        -- Migration #{next_version}: #{@migration_description}
+        BEGIN;
+
+        -- Add your migration SQL here
+
+        END;
+        SQL
+      )
+
+      puts "Created new migration file: #{new_filename}"
       exit(1)
     end
   end
