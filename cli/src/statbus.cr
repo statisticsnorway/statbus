@@ -37,6 +37,7 @@ class StatBus
     Up
     Down
     New
+    Renumber
   end
   # Mappings for a configuration, where every field is present.
   # Nil records the intention of not using an sql field
@@ -636,6 +637,9 @@ class StatBus
         parser.on("new", "Create a new migration file") do
           @migrate_mode = MigrateMode::New
         end
+        parser.on("renumber", "Renumber migration files to fix ordering") do
+          @migrate_mode = MigrateMode::Renumber
+        end
         parser.on("-d DESC", "--description=DESC", "Description for the new migration") do |desc|
           @migration_description = desc
         end
@@ -806,6 +810,8 @@ class StatBus
         migrate_up
       when MigrateMode::New
         create_new_migration
+      when MigrateMode::Renumber
+        renumber_migrations
       else
         STDERR.puts "Unknown migrate mode #{@migrate_mode}"
         exit(1)
@@ -852,6 +858,68 @@ class StatBus
 
       puts "Created new migration file: #{new_filename}"
       exit(1)
+    end
+  end
+
+  private def renumber_migrations
+    Dir.cd(@project_directory) do
+      migration_path = Path["migrations/*.up.sql"]
+      migration_filenames = Dir.glob(migration_path)
+
+      # Parse all migration filenames to get version and description
+      migrations = migration_filenames.map do |filename|
+        base = File.basename(filename)
+        if match = base.match(/^(\d+)_(.+)\.up\.sql$/)
+          version = match[1].to_i
+          description = match[2]
+          {filename: filename, version: version, description: description}
+        elsif match = base.match(/^after_(\d+)_(.+)\.up\.sql$/)
+          # Handle special "after_XXX" prefix
+          after_version = match[1].to_i
+          description = match[2]
+          {filename: filename, version: after_version + 1, description: description, after: after_version}
+        elsif match = base.match(/^before_(\d+)_(.+)\.up\.sql$/)
+          # Handle special "before_XXX" prefix  
+          before_version = match[1].to_i
+          description = match[2]
+          {filename: filename, version: before_version - 1, description: description, before: before_version}
+        else
+          STDERR.puts "Invalid migration filename format: #{filename}"
+          exit(1)
+        end
+      end
+
+      # Sort by version number
+      migrations.sort_by! { |m| m[:version] }
+
+      # Detect gaps and overlaps
+      previous_version = 0
+      migrations.each do |migration|
+        current_version = migration[:version]
+        if current_version <= previous_version
+          puts "Warning: Migration versions overlap or are out of order:"
+          puts "  #{migration[:filename]} (version #{current_version})"
+          puts "  comes after version #{previous_version}"
+        elsif current_version > previous_version + 1
+          puts "Warning: Gap in migration versions between #{previous_version} and #{current_version}"
+        end
+        previous_version = current_version
+      end
+
+      # Renumber all migrations sequentially
+      puts "\nRenumbering migrations..."
+      migrations.each_with_index do |migration, index|
+        new_version = (index + 1).to_s.rjust(4, '0')
+        old_file = migration[:filename]
+        new_file = "migrations/#{new_version}_#{migration[:description]}.up.sql"
+        
+        if old_file != new_file
+          puts "#{File.basename(old_file)} -> #{File.basename(new_file)}"
+          File.rename(old_file, new_file)
+        end
+      end
+
+      puts "\nMigration files have been renumbered sequentially."
     end
   end
 end
