@@ -636,12 +636,12 @@ class StatBus
         end
         parser.on("new", "Create a new migration file") do
           @migrate_mode = MigrateMode::New
+          parser.on("-d DESC", "--description=DESC", "Description for the new migration") do |desc|
+            @migration_description = desc
+          end
         end
         parser.on("renumber", "Renumber migration files to fix ordering") do
           @migrate_mode = MigrateMode::Renumber
-        end
-        parser.on("-d DESC", "--description=DESC", "Description for the new migration") do |desc|
-          @migration_description = desc
         end
       end
       parser.on("welcome", "Print a greeting message") do
@@ -844,7 +844,7 @@ class StatBus
       # Convert description to filename-safe format
       safe_desc = @migration_description.not_nil!.downcase.gsub(/[^a-z0-9]+/, "_")
       new_filename = "migrations/#{next_version}_#{safe_desc}.up.sql"
-      
+
       # Create file with template content
       File.write(new_filename, <<-SQL
         -- Migration #{next_version}: #{@migration_description}
@@ -879,7 +879,7 @@ class StatBus
           description = match[2]
           {filename: filename, version: after_version + 1, description: description, after: after_version}
         elsif match = base.match(/^before_(\d+)_(.+)\.up\.sql$/)
-          # Handle special "before_XXX" prefix  
+          # Handle special "before_XXX" prefix
           before_version = match[1].to_i
           description = match[2]
           {filename: filename, version: before_version - 1, description: description, before: before_version}
@@ -912,7 +912,7 @@ class StatBus
         new_version = (index + 1).to_s.rjust(4, '0')
         old_file = migration[:filename]
         new_file = "migrations/#{new_version}_#{migration[:description]}.up.sql"
-        
+
         if old_file != new_file
           puts "#{File.basename(old_file)} -> #{File.basename(new_file)}"
           File.rename(old_file, new_file)
