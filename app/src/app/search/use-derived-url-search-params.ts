@@ -1,9 +1,11 @@
 import { useEffect } from "react";
 import { SearchContextState } from "@/app/search/search-context";
+import { useRouter } from "next/navigation";
 
 export default function useDerivedUrlSearchParams({
   searchState: { appSearchParams, order, pagination },
 }: SearchContextState) {
+  const router = useRouter();
   useEffect(() => {
     const params = Object.entries(appSearchParams).reduce((params, [name, values]) => {
       if (!values?.length) return params;
@@ -24,11 +26,6 @@ export default function useDerivedUrlSearchParams({
     if (pagination.pageNumber) {
       params.set("page", `${pagination.pageNumber}`);
     }
-
-    window.history.replaceState(
-      {},
-      "",
-      params.size > 0 ? `?${params}` : window.location.pathname
-    );
-  }, [appSearchParams, order, pagination]);
+    router.replace(params.size > 0 ? `?${params}` : window.location.pathname);
+  }, [appSearchParams, order, pagination, router]);
 }

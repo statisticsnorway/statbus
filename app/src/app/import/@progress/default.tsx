@@ -32,7 +32,7 @@ export default function ImportStatus() {
               done={!!numberOfEstablishmentsWithLegalUnit}
               title="Upload Establishments (optional)"
               href="/import/establishments"
-              subtitle={`${numberOfEstablishmentsWithLegalUnit} establishments uploaded`}
+              subtitle={`${numberOfEstablishmentsWithLegalUnit} formal establishments uploaded`}
             />
           </li>
         </ul>
@@ -43,7 +43,7 @@ export default function ImportStatus() {
               done={!!numberOfEstablishmentsWithoutLegalUnit}
               title="Upload Establishments Without Legal Units"
               href="/import/establishments-without-legal-unit"
-              subtitle={`${numberOfEstablishmentsWithoutLegalUnit} establishments uploaded`}
+              subtitle={`${numberOfEstablishmentsWithoutLegalUnit} informal establishments uploaded`}
             />
           </li>
         </ul>

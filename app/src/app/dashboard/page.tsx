@@ -62,7 +62,7 @@ export default async function Dashboard() {
           <StatisticalVariableCountCard />
         </Suspense>
 
-        <Link href="/getting-started/activity-standard">
+        <Link href="/activity-categories?custom=false">
           <Suspense
             fallback={<FallBackCard title="Activity Category Standard" />}
           >

@@ -43,8 +43,8 @@ const config: Config = {
   		},
   		colors: {
   			enterprise: colors.pink,
-  			legal_unit: colors.lime,
-  			establishment: colors.indigo,
+        legal_unit: colors.indigo,
+        establishment: colors.lime,
   			ssb: {
   				dark: '#274247',
   				light: '#f0f8f9',

@@ -31,7 +31,7 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
           <InfoBox>
             <p>
               There are already {numberOfEstablishmentsWithoutLegalUnit}{" "}
-              establishments defined
+              informal establishments defined
             </p>
           </InfoBox>
         )}

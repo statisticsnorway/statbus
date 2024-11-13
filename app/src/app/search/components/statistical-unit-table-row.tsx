@@ -143,8 +143,14 @@ export const StatisticalUnitTableRow = ({
               ({ path }) => path === (unit.primary_activity_category_path as string | null)?.split('.')?.[0]
             ) : undefined;
             return (
-              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
-                <div className="flex flex-col space-y-0.5 leading-tight">
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={activitySection?.name ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
                   <span>{activitySection?.label}</span>
                   <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap">
                     {activitySection?.name}
@@ -155,8 +161,14 @@ export const StatisticalUnitTableRow = ({
 
           case 'activity':
             return (
-              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
-                <div className="flex flex-col space-y-0.5 leading-tight">
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={activityCategory?.name ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
                   <span>{activityCategory?.code}</span>
                   <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
                     {activityCategory?.name}
@@ -170,8 +182,14 @@ export const StatisticalUnitTableRow = ({
                 ({ path }) => path === (unit.physical_region_path as string | null)?.split('.')[0]
               ) : undefined;
               return (
-                <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
-                  <div className="flex flex-col space-y-0.5 leading-tight">
+                <TableCell
+                  key={`cell-${bodyCellSuffix(unit, column)}`}
+                  className={getCellClassName(column)}
+                >
+                  <div
+                    title={topRegion?.name ?? ""}
+                    className="flex flex-col space-y-0.5 leading-tight"
+                  >
                     <span>{topRegion?.code}</span>
                     <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
                       {topRegion?.name}
@@ -182,8 +200,14 @@ export const StatisticalUnitTableRow = ({
 
           case 'region':
             return (
-              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
-                <div className="flex flex-col space-y-0.5 leading-tight">
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={region?.name ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
                   <span>{region?.code}</span>
                   <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
                     {region?.name}
@@ -233,8 +257,14 @@ export const StatisticalUnitTableRow = ({
 
           case 'sector':
             return (
-              <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
-                <div className="flex flex-col space-y-0.5 leading-tight">
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={unit.sector_name ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
                   <span>{unit.sector_code}</span>
                   <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
                     {unit.sector_name}
