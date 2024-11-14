@@ -1318,16 +1318,17 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
-                      |     "enterprise_count": 0,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
+                      |     "establishment_count": null,                   +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -1393,10 +1394,11 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "ENK",                      +
                       |     "legal_form_name": "Enkeltpersonforetak",      +
-                      |     "enterprise_count": 1,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
@@ -1467,9 +1469,10 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "ENK",                      +
                       |     "legal_form_name": "Enkeltpersonforetak",      +
-                      |     "enterprise_count": 1,                         +
+                      |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
@@ -1540,16 +1543,17 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
-                      |     "enterprise_count": 0,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
+                      |     "establishment_count": null,                   +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -1615,10 +1619,11 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
@@ -1689,9 +1694,10 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
+                      |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
@@ -1762,16 +1768,17 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
-                      |     "enterprise_count": 0,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
+                      |     "establishment_count": null,                   +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -1837,10 +1844,11 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
@@ -1911,9 +1919,10 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
+                      |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
@@ -1984,16 +1993,17 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
-                      |     "enterprise_count": 0,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
+                      |     "establishment_count": null,                   +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -2059,10 +2069,11 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
@@ -2133,9 +2144,10 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
+                      |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
@@ -2206,16 +2218,17 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
-                      |     "enterprise_count": 0,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
+                      |     "establishment_count": null,                   +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -2281,10 +2294,11 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
@@ -2355,9 +2369,10 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
+                      |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
@@ -2428,16 +2443,17 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
-                      |     "enterprise_count": 0,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
+                      |     "establishment_count": null,                   +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -2503,10 +2519,11 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
@@ -2577,9 +2594,10 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
+                      |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
@@ -2650,16 +2668,17 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
-                      |     "enterprise_count": 0,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
+                      |     "establishment_count": null,                   +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -2725,10 +2744,11 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
@@ -2799,9 +2819,10 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
+                      |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
@@ -2872,16 +2893,17 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
-                      |     "enterprise_count": 0,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
+                      |     "establishment_count": null,                   +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -2947,10 +2969,11 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
@@ -3021,9 +3044,10 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
+                      |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
@@ -3094,16 +3118,17 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
-                      |     "enterprise_count": 0,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
+                      |     "establishment_count": null,                   +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -3169,10 +3194,11 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
@@ -3243,9 +3269,10 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
+                      |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
@@ -3316,16 +3343,17 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
-                      |     "enterprise_count": 0,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
                       |     "postal_postal_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
+                      |     "establishment_count": null,                   +
                       |     "postal_postal_place": null,                   +
                       |     "physical_postal_code": "4347",                +
                       |     "physical_region_path": "11.21",               +
@@ -3391,10 +3419,11 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
-                      |     "legal_unit_count": 1,                         +
+                      |     "enterprise_count": null,                      +
+                      |     "legal_unit_count": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
@@ -3465,9 +3494,10 @@ statistical_unit_data | {                                                  +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
                       |     "invalid_codes": null,                         +
+                      |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
-                      |     "enterprise_count": 1,                         +
+                      |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
@@ -12166,6 +12196,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2013-01-01'::DATE
             )
           )
@@ -12187,6 +12218,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2010-01-01'::DATE
             )
           )
@@ -12401,8 +12433,9 @@ statistical_unit_hierarchy
                         "stat_for_unit": [
                             {
                                 "valid_to": "2012-12-31",
-                                "employees": 1,
+                                "value_int": 1,
                                 "valid_from": "2010-01-01",
+                                "value_bool": null,
                                 "data_source": {
                                     "code": "nlr",
                                     "name": "National Legal Business Registry",
@@ -12410,6 +12443,8 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2009-12-31",
+                                "value_float": null,
+                                "value_string": null,
                                 "stat_definition": {
                                     "code": "employees",
                                     "name": "Number of people employed",
@@ -12421,9 +12456,10 @@ statistical_unit_hierarchy
                                 }
                             },
                             {
-                                "turnover": 1500000,
                                 "valid_to": "2012-12-31",
+                                "value_int": 1500000,
                                 "valid_from": "2010-01-01",
+                                "value_bool": null,
                                 "data_source": {
                                     "code": "nlr",
                                     "name": "National Legal Business Registry",
@@ -12431,6 +12467,8 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2009-12-31",
+                                "value_float": null,
+                                "value_string": null,
                                 "stat_definition": {
                                     "code": "turnover",
                                     "name": "Turnover",
@@ -12474,7 +12512,7 @@ WITH selected_legal_unit AS (
 )
 SELECT jsonb_pretty(
           public.remove_ephemeral_data_from_hierarchy(
-               public.statistical_unit_hierarchy('legal_unit',(SELECT unit_id FROM selected_legal_unit))
+               public.statistical_unit_hierarchy('legal_unit',(SELECT unit_id FROM selected_legal_unit),'all')
           )
      ) AS statistical_unit_hierarchy;
 statistical_unit_hierarchy
@@ -12687,8 +12725,9 @@ statistical_unit_hierarchy
                         "stat_for_unit": [
                             {
                                 "valid_to": "infinity",
-                                "employees": 45,
+                                "value_int": 45,
                                 "valid_from": "2020-01-01",
+                                "value_bool": null,
                                 "data_source": {
                                     "code": "nlr",
                                     "name": "National Legal Business Registry",
@@ -12696,6 +12735,8 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2019-12-31",
+                                "value_float": null,
+                                "value_string": null,
                                 "stat_definition": {
                                     "code": "employees",
                                     "name": "Number of people employed",
@@ -12707,9 +12748,10 @@ statistical_unit_hierarchy
                                 }
                             },
                             {
-                                "turnover": 70000000,
                                 "valid_to": "infinity",
+                                "value_int": 70000000,
                                 "valid_from": "2020-01-01",
+                                "value_bool": null,
                                 "data_source": {
                                     "code": "nlr",
                                     "name": "National Legal Business Registry",
@@ -12717,6 +12759,8 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2019-12-31",
+                                "value_float": null,
+                                "value_string": null,
                                 "stat_definition": {
                                     "code": "turnover",
                                     "name": "Turnover",
@@ -12759,7 +12803,7 @@ WITH selected_establishment AS (
 )
 SELECT jsonb_pretty(
           public.remove_ephemeral_data_from_hierarchy(
-               public.statistical_unit_hierarchy('establishment',(SELECT unit_id FROM selected_establishment))
+               public.statistical_unit_hierarchy('establishment',(SELECT unit_id FROM selected_establishment),'all')
           )
      ) AS statistical_unit_hierarchy;
 statistical_unit_hierarchy
@@ -12972,8 +13016,9 @@ statistical_unit_hierarchy
                         "stat_for_unit": [
                             {
                                 "valid_to": "infinity",
-                                "employees": 45,
+                                "value_int": 45,
                                 "valid_from": "2020-01-01",
+                                "value_bool": null,
                                 "data_source": {
                                     "code": "nlr",
                                     "name": "National Legal Business Registry",
@@ -12981,6 +13026,8 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2019-12-31",
+                                "value_float": null,
+                                "value_string": null,
                                 "stat_definition": {
                                     "code": "employees",
                                     "name": "Number of people employed",
@@ -12992,9 +13039,10 @@ statistical_unit_hierarchy
                                 }
                             },
                             {
-                                "turnover": 70000000,
                                 "valid_to": "infinity",
+                                "value_int": 70000000,
                                 "valid_from": "2020-01-01",
+                                "value_bool": null,
                                 "data_source": {
                                     "code": "nlr",
                                     "name": "National Legal Business Registry",
@@ -13002,6 +13050,8 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2019-12-31",
+                                "value_float": null,
+                                "value_string": null,
                                 "stat_definition": {
                                     "code": "turnover",
                                     "name": "Turnover",
@@ -13039,11 +13089,33 @@ statistical_unit_hierarchy
 (1 row)
 \a
 \x
+\echo "Check relevant_statistical_units - no hit at that time."
+"Check relevant_statistical_units - no hit at that time."
+WITH selected_enterprise AS (
+     SELECT unit_id FROM public.statistical_unit
+     WHERE external_idents ->> 'tax_ident' = '823573673'
+       AND unit_type = 'enterprise'
+     LIMIT 1
+)
+SELECT valid_after
+     , valid_from
+     , valid_to
+     , unit_type
+     , external_idents
+     , jsonb_pretty(stats) AS stats
+     , jsonb_pretty(stats_summary) AS stats_summary
+  FROM public.relevant_statistical_units(
+     'enterprise',
+     (SELECT unit_id FROM selected_enterprise),
+     '2023-01-01'::DATE
+);
+(0 rows)
+
 \echo "Check relevant_statistical_units"
 "Check relevant_statistical_units"
 WITH selected_enterprise AS (
      SELECT unit_id FROM public.statistical_unit
-     WHERE external_idents ->> 'tax_ident' = '823573673'
+     WHERE external_idents ->> 'tax_ident' = '921835809'
        AND unit_type = 'enterprise'
      LIMIT 1
 )

@@ -509,6 +509,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2013-01-01'::DATE
             )
           )
@@ -526,6 +527,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2010-01-01'::DATE
             )
           )
@@ -539,7 +541,7 @@ WITH selected_legal_unit AS (
 )
 SELECT jsonb_pretty(
           public.remove_ephemeral_data_from_hierarchy(
-               public.statistical_unit_hierarchy('legal_unit',(SELECT unit_id FROM selected_legal_unit))
+               public.statistical_unit_hierarchy('legal_unit',(SELECT unit_id FROM selected_legal_unit),'all')
           )
      ) AS statistical_unit_hierarchy;
 
@@ -550,16 +552,37 @@ WITH selected_establishment AS (
 )
 SELECT jsonb_pretty(
           public.remove_ephemeral_data_from_hierarchy(
-               public.statistical_unit_hierarchy('establishment',(SELECT unit_id FROM selected_establishment))
+               public.statistical_unit_hierarchy('establishment',(SELECT unit_id FROM selected_establishment),'all')
           )
      ) AS statistical_unit_hierarchy;
 \a
 
 \x
-\echo "Check relevant_statistical_units"
+\echo "Check relevant_statistical_units - no hit at that time."
 WITH selected_enterprise AS (
      SELECT unit_id FROM public.statistical_unit
      WHERE external_idents ->> 'tax_ident' = '823573673'
+       AND unit_type = 'enterprise'
+     LIMIT 1
+)
+SELECT valid_after
+     , valid_from
+     , valid_to
+     , unit_type
+     , external_idents
+     , jsonb_pretty(stats) AS stats
+     , jsonb_pretty(stats_summary) AS stats_summary
+  FROM public.relevant_statistical_units(
+     'enterprise',
+     (SELECT unit_id FROM selected_enterprise),
+     '2023-01-01'::DATE
+);
+
+
+\echo "Check relevant_statistical_units"
+WITH selected_enterprise AS (
+     SELECT unit_id FROM public.statistical_unit
+     WHERE external_idents ->> 'tax_ident' = '921835809'
        AND unit_type = 'enterprise'
      LIMIT 1
 )

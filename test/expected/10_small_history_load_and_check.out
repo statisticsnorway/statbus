@@ -390,14 +390,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "5350",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": "BRATTHOLMEN",                              +
                       |     "physical_postal_code": "5350",                                    +
                       |     "physical_region_path": "46.26",                                   +
@@ -437,14 +438,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "1406",                                    +
                       |     "physical_region_path": "32.07",                                   +
@@ -484,14 +486,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "3114",                                    +
                       |     "physical_region_path": "39.05",                                   +
@@ -531,14 +534,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "2005",                                    +
                       |     "physical_region_path": "32.24",                                   +
@@ -578,14 +582,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4550",                                    +
                       |     "physical_region_path": "42.06",                                   +
@@ -625,14 +630,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": "HØNEFOSS",                                 +
                       |     "physical_postal_code": "3516",                                    +
                       |     "physical_region_path": "33.05",                                   +
@@ -685,14 +691,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": "HØNEFOSS",                                 +
                       |     "physical_postal_code": "3516",                                    +
                       |     "physical_region_path": "33.05",                                   +
@@ -745,14 +752,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": "HØNEFOSS",                                 +
                       |     "physical_postal_code": "3516",                                    +
                       |     "physical_region_path": "33.05",                                   +
@@ -805,14 +813,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": "HØNEFOSS",                                 +
                       |     "physical_postal_code": "3516",                                    +
                       |     "physical_region_path": "33.05",                                   +
@@ -865,14 +874,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4550",                                    +
                       |     "physical_region_path": "42.06",                                   +
@@ -912,14 +922,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4550",                                    +
                       |     "physical_region_path": "42.06",                                   +
@@ -959,14 +970,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "3014",                                    +
                       |     "physical_region_path": "33.01",                                   +
@@ -1006,14 +1018,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4340",                                    +
                       |     "physical_region_path": "11.21",                                   +
@@ -1066,14 +1079,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4340",                                    +
                       |     "physical_region_path": "11.21",                                   +
@@ -1126,14 +1140,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4340",                                    +
                       |     "physical_region_path": "11.21",                                   +
@@ -1186,14 +1201,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "5350",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": "BRATTHOLMEN",                              +
                       |     "physical_postal_code": "5350",                                    +
                       |     "physical_region_path": "46.26",                                   +
@@ -1232,14 +1248,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "1406",                                    +
                       |     "physical_region_path": "32.07",                                   +
@@ -1278,14 +1295,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "3114",                                    +
                       |     "physical_region_path": "39.05",                                   +
@@ -1324,14 +1342,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "2005",                                    +
                       |     "physical_region_path": "32.24",                                   +
@@ -1370,14 +1389,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4550",                                    +
                       |     "physical_region_path": "42.06",                                   +
@@ -1416,14 +1436,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": "HØNEFOSS",                                 +
                       |     "physical_postal_code": "3516",                                    +
                       |     "physical_region_path": "33.05",                                   +
@@ -1474,14 +1495,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": "HØNEFOSS",                                 +
                       |     "physical_postal_code": "3516",                                    +
                       |     "physical_region_path": "33.05",                                   +
@@ -1532,14 +1554,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": "HØNEFOSS",                                 +
                       |     "physical_postal_code": "3516",                                    +
                       |     "physical_region_path": "33.05",                                   +
@@ -1590,14 +1613,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": "3516",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": "HØNEFOSS",                                 +
                       |     "physical_postal_code": "3516",                                    +
                       |     "physical_region_path": "33.05",                                   +
@@ -1648,14 +1672,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4550",                                    +
                       |     "physical_region_path": "42.06",                                   +
@@ -1694,14 +1719,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4550",                                    +
                       |     "physical_region_path": "42.06",                                   +
@@ -1740,14 +1766,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "3014",                                    +
                       |     "physical_region_path": "33.01",                                   +
@@ -1786,14 +1813,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4340",                                    +
                       |     "physical_region_path": "11.21",                                   +
@@ -1844,14 +1872,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4340",                                    +
                       |     "physical_region_path": "11.21",                                   +
@@ -1902,14 +1931,15 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
                       |     "data_source_codes": null,                                         +
                       |     "postal_postal_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
+                      |     "establishment_count": null,                                       +
                       |     "postal_postal_place": null,                                       +
                       |     "physical_postal_code": "4340",                                    +
                       |     "physical_region_path": "11.21",                                   +
