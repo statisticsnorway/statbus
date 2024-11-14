@@ -716,8 +716,10 @@ class StatBus
         sorted_migration_filenames.each do |migration_filename|
           version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1])
           filename = File.basename(migration_filename)
-          STDOUT.print "Migration #{filename} "
-          STDOUT.flush
+          if @verbose
+            STDOUT.print "Migration #{filename} "
+            STDOUT.flush
+          end
 
           # Calculate SHA256 hash of migration file
           file_hash = Digest::SHA256.digest(File.read(migration_filename)).hexstring
@@ -744,13 +746,15 @@ class StatBus
               STDERR.puts "This could indicate duplicate migrations or version number changes."
               exit(1)
             else
-              STDOUT.puts "[already applied]"
+              STDOUT.puts "[already applied]" if @verbose
               next
             end
           end
 
-          STDOUT.print "[applying] "
-          STDOUT.flush
+          if @verbose
+            STDOUT.print "[applying] "
+            STDOUT.flush
+          end
 
           # Start timing
           start_time = Time.monotonic
@@ -771,7 +775,7 @@ class StatBus
                 duration_ms
               )
 
-              STDOUT.puts "done (#{duration_ms}ms)"
+              STDOUT.puts "done (#{duration_ms}ms)" if @verbose
             else
               raise "Failed to apply migration #{File.basename(migration_filename)}"
             end
@@ -912,8 +916,10 @@ class StatBus
           exit(1)
         end
 
-        STDOUT.print "Rolling back migration #{last_migration[:filename]} "
-        STDOUT.flush
+        if @verbose
+          STDOUT.print "Rolling back migration #{last_migration[:filename]} "
+          STDOUT.flush
+        end
 
         # Execute the down migration
         Dir.cd(@project_directory) do
@@ -925,7 +931,7 @@ class StatBus
               last_migration[:version]
             )
 
-            STDOUT.puts "done"
+            STDOUT.puts "done" if @verbose
 
             # Notify PostgREST to reload
             db.transaction do |tx|
