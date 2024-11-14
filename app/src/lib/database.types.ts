@@ -107,14 +107,14 @@ export type Database = {
             foreignKeyName: "activity_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -281,98 +281,6 @@ export type Database = {
         }
         Relationships: []
       }
-      analysis_log: {
-        Row: {
-          analysis_queue_id: number
-          enterprise_group_id: number | null
-          enterprise_id: number | null
-          error_values: string | null
-          establishment_id: number | null
-          id: number
-          issued_at: string
-          legal_unit_id: number | null
-          resolved_at: string | null
-          summary_messages: string | null
-        }
-        Insert: {
-          analysis_queue_id: number
-          enterprise_group_id?: number | null
-          enterprise_id?: number | null
-          error_values?: string | null
-          establishment_id?: number | null
-          id?: never
-          issued_at: string
-          legal_unit_id?: number | null
-          resolved_at?: string | null
-          summary_messages?: string | null
-        }
-        Update: {
-          analysis_queue_id?: number
-          enterprise_group_id?: number | null
-          enterprise_id?: number | null
-          error_values?: string | null
-          establishment_id?: number | null
-          id?: never
-          issued_at?: string
-          legal_unit_id?: number | null
-          resolved_at?: string | null
-          summary_messages?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "analysis_log_analysis_queue_id_fkey"
-            columns: ["analysis_queue_id"]
-            isOneToOne: false
-            referencedRelation: "analysis_queue"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "analysis_log_enterprise_id_fkey"
-            columns: ["enterprise_id"]
-            isOneToOne: false
-            referencedRelation: "enterprise"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      analysis_queue: {
-        Row: {
-          comment: string | null
-          id: number
-          server_end_period: string | null
-          server_start_period: string | null
-          user_end_period: string
-          user_id: number
-          user_start_period: string
-        }
-        Insert: {
-          comment?: string | null
-          id?: never
-          server_end_period?: string | null
-          server_start_period?: string | null
-          user_end_period: string
-          user_id: number
-          user_start_period: string
-        }
-        Update: {
-          comment?: string | null
-          id?: never
-          server_end_period?: string | null
-          server_start_period?: string | null
-          user_end_period?: string
-          user_id?: number
-          user_start_period?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "analysis_queue_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "statbus_user"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       country: {
         Row: {
           active: boolean
@@ -403,27 +311,6 @@ export type Database = {
           iso_num?: string
           name?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      custom_analysis_check: {
-        Row: {
-          id: number
-          name: string | null
-          query: string | null
-          target_unit_types: string | null
-        }
-        Insert: {
-          id?: never
-          name?: string | null
-          query?: string | null
-          target_unit_types?: string | null
-        }
-        Update: {
-          id?: never
-          name?: string | null
-          query?: string | null
-          target_unit_types?: string | null
         }
         Relationships: []
       }
@@ -566,14 +453,14 @@ export type Database = {
             foreignKeyName: "enterprise_group_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "enterprise_group_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -594,14 +481,14 @@ export type Database = {
             foreignKeyName: "enterprise_group_enterprise_group_type_id_fkey"
             columns: ["enterprise_group_type_id"]
             isOneToOne: false
-            referencedRelation: "enterprise_group_type_custom"
+            referencedRelation: "enterprise_group_type_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "enterprise_group_enterprise_group_type_id_fkey"
             columns: ["enterprise_group_type_id"]
             isOneToOne: false
-            referencedRelation: "enterprise_group_type_system"
+            referencedRelation: "enterprise_group_type_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -615,14 +502,14 @@ export type Database = {
             foreignKeyName: "enterprise_group_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
-            referencedRelation: "foreign_participation_custom"
+            referencedRelation: "foreign_participation_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "enterprise_group_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
-            referencedRelation: "foreign_participation_system"
+            referencedRelation: "foreign_participation_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -636,14 +523,14 @@ export type Database = {
             foreignKeyName: "enterprise_group_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
-            referencedRelation: "reorg_type_custom"
+            referencedRelation: "reorg_type_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "enterprise_group_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
-            referencedRelation: "reorg_type_system"
+            referencedRelation: "reorg_type_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -657,14 +544,14 @@ export type Database = {
             foreignKeyName: "enterprise_group_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "unit_size_custom"
+            referencedRelation: "unit_size_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "enterprise_group_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "unit_size_system"
+            referencedRelation: "unit_size_ordered"
             referencedColumns: ["id"]
           },
         ]
@@ -823,14 +710,14 @@ export type Database = {
             foreignKeyName: "establishment_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -858,14 +745,14 @@ export type Database = {
             foreignKeyName: "establishment_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
-            referencedRelation: "reorg_type_custom"
+            referencedRelation: "reorg_type_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
-            referencedRelation: "reorg_type_system"
+            referencedRelation: "reorg_type_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -879,14 +766,14 @@ export type Database = {
             foreignKeyName: "establishment_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_custom"
+            referencedRelation: "sector_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_system"
+            referencedRelation: "sector_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -921,14 +808,14 @@ export type Database = {
             foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "unit_size_custom"
+            referencedRelation: "unit_size_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "unit_size_system"
+            referencedRelation: "unit_size_ordered"
             referencedColumns: ["id"]
           },
         ]
@@ -1197,14 +1084,14 @@ export type Database = {
             foreignKeyName: "legal_unit_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -1232,14 +1119,14 @@ export type Database = {
             foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
-            referencedRelation: "foreign_participation_custom"
+            referencedRelation: "foreign_participation_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
-            referencedRelation: "foreign_participation_system"
+            referencedRelation: "foreign_participation_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -1253,14 +1140,14 @@ export type Database = {
             foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
-            referencedRelation: "legal_form_custom"
+            referencedRelation: "legal_form_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
-            referencedRelation: "legal_form_system"
+            referencedRelation: "legal_form_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -1288,14 +1175,14 @@ export type Database = {
             foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
-            referencedRelation: "reorg_type_custom"
+            referencedRelation: "reorg_type_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
-            referencedRelation: "reorg_type_system"
+            referencedRelation: "reorg_type_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -1309,14 +1196,14 @@ export type Database = {
             foreignKeyName: "legal_unit_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_custom"
+            referencedRelation: "sector_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_system"
+            referencedRelation: "sector_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -1351,14 +1238,14 @@ export type Database = {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "unit_size_custom"
+            referencedRelation: "unit_size_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "unit_size_system"
+            referencedRelation: "unit_size_ordered"
             referencedColumns: ["id"]
           },
         ]
@@ -1376,8 +1263,8 @@ export type Database = {
           latitude: number | null
           legal_unit_id: number | null
           longitude: number | null
-          postal_code: string | null
-          postal_place: string | null
+          postcode: string | null
+          postplace: string | null
           region_id: number | null
           type: Database["public"]["Enums"]["location_type"]
           updated_by_user_id: number
@@ -1397,8 +1284,8 @@ export type Database = {
           latitude?: number | null
           legal_unit_id?: number | null
           longitude?: number | null
-          postal_code?: string | null
-          postal_place?: string | null
+          postcode?: string | null
+          postplace?: string | null
           region_id?: number | null
           type: Database["public"]["Enums"]["location_type"]
           updated_by_user_id: number
@@ -1418,8 +1305,8 @@ export type Database = {
           latitude?: number | null
           legal_unit_id?: number | null
           longitude?: number | null
-          postal_code?: string | null
-          postal_place?: string | null
+          postcode?: string | null
+          postplace?: string | null
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"]
           updated_by_user_id?: number
@@ -1460,14 +1347,14 @@ export type Database = {
             foreignKeyName: "location_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -1601,26 +1488,26 @@ export type Database = {
             foreignKeyName: "person_for_unit_person_type_id_fkey"
             columns: ["person_type_id"]
             isOneToOne: false
-            referencedRelation: "person_type"
+            referencedRelation: "person_role"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "person_for_unit_person_type_id_fkey"
             columns: ["person_type_id"]
             isOneToOne: false
-            referencedRelation: "person_type_custom"
+            referencedRelation: "person_role_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "person_for_unit_person_type_id_fkey"
             columns: ["person_type_id"]
             isOneToOne: false
-            referencedRelation: "person_type_system"
+            referencedRelation: "person_role_ordered"
             referencedColumns: ["id"]
           },
         ]
       }
-      person_type: {
+      person_role: {
         Row: {
           active: boolean
           code: string
@@ -1644,30 +1531,6 @@ export type Database = {
           id?: never
           name?: string
           updated_at?: string
-        }
-        Relationships: []
-      }
-      postal_index: {
-        Row: {
-          archived: boolean
-          id: number
-          name: string | null
-          name_language1: string | null
-          name_language2: string | null
-        }
-        Insert: {
-          archived?: boolean
-          id?: never
-          name?: string | null
-          name_language1?: string | null
-          name_language2?: string | null
-        }
-        Update: {
-          archived?: boolean
-          id?: never
-          name?: string | null
-          name_language1?: string | null
-          name_language2?: string | null
         }
         Relationships: []
       }
@@ -1822,89 +1685,6 @@ export type Database = {
         }
         Relationships: []
       }
-      report_tree: {
-        Row: {
-          archived: boolean
-          id: number
-          parent_node_id: number | null
-          report_id: number | null
-          report_url: string | null
-          resource_group: string | null
-          title: string | null
-          type: string | null
-        }
-        Insert: {
-          archived?: boolean
-          id?: never
-          parent_node_id?: number | null
-          report_id?: number | null
-          report_url?: string | null
-          resource_group?: string | null
-          title?: string | null
-          type?: string | null
-        }
-        Update: {
-          archived?: boolean
-          id?: never
-          parent_node_id?: number | null
-          report_id?: number | null
-          report_url?: string | null
-          resource_group?: string | null
-          title?: string | null
-          type?: string | null
-        }
-        Relationships: []
-      }
-      sample_frame: {
-        Row: {
-          creation_date: string
-          description: string | null
-          editing_date: string | null
-          fields: string
-          file_path: string | null
-          generated_date_time: string | null
-          id: number
-          name: string
-          predicate: string
-          status: number
-          user_id: number | null
-        }
-        Insert: {
-          creation_date: string
-          description?: string | null
-          editing_date?: string | null
-          fields: string
-          file_path?: string | null
-          generated_date_time?: string | null
-          id?: never
-          name: string
-          predicate: string
-          status: number
-          user_id?: number | null
-        }
-        Update: {
-          creation_date?: string
-          description?: string | null
-          editing_date?: string | null
-          fields?: string
-          file_path?: string | null
-          generated_date_time?: string | null
-          id?: never
-          name?: string
-          predicate?: string
-          status?: number
-          user_id?: number | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "sample_frame_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "statbus_user"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       sector: {
         Row: {
           active: boolean
@@ -2058,14 +1838,14 @@ export type Database = {
             foreignKeyName: "stat_for_unit_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "stat_for_unit_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -2434,14 +2214,14 @@ export type Database = {
             foreignKeyName: "activity_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -2498,7 +2278,49 @@ export type Database = {
         }
         Relationships: []
       }
+      data_source_available: {
+        Row: {
+          active: boolean | null
+          code: string | null
+          custom: boolean | null
+          id: number | null
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          code?: string | null
+          custom?: boolean | null
+          id?: number | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          code?: string | null
+          custom?: boolean | null
+          id?: number | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       data_source_custom: {
+        Row: {
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      data_source_ordered: {
         Row: {
           active: boolean | null
           code: string | null
@@ -2527,6 +2349,39 @@ export type Database = {
       }
       data_source_system: {
         Row: {
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      data_source_used: {
+        Row: {
+          code: string | null
+          id: number | null
+          name: string | null
+        }
+        Relationships: []
+      }
+      enterprise_external_idents: {
+        Row: {
+          external_idents: Json | null
+          unit_id: number | null
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+          valid_after: string | null
+          valid_to: string | null
+        }
+        Relationships: []
+      }
+      enterprise_group_role_available: {
+        Row: {
           active: boolean | null
           code: string | null
           custom: boolean | null
@@ -2552,25 +2407,22 @@ export type Database = {
         }
         Relationships: []
       }
-      data_source_used: {
+      enterprise_group_role_custom: {
         Row: {
           code: string | null
-          id: number | null
           name: string | null
         }
-        Relationships: []
-      }
-      enterprise_external_idents: {
-        Row: {
-          external_idents: Json | null
-          unit_id: number | null
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
-          valid_after: string | null
-          valid_to: string | null
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
         }
         Relationships: []
       }
-      enterprise_group_role_custom: {
+      enterprise_group_role_ordered: {
         Row: {
           active: boolean | null
           code: string | null
@@ -2599,6 +2451,21 @@ export type Database = {
       }
       enterprise_group_role_system: {
         Row: {
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      enterprise_group_type_available: {
+        Row: {
           active: boolean | null
           code: string | null
           custom: boolean | null
@@ -2625,6 +2492,21 @@ export type Database = {
         Relationships: []
       }
       enterprise_group_type_custom: {
+        Row: {
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      enterprise_group_type_ordered: {
         Row: {
           active: boolean | null
           code: string | null
@@ -2653,69 +2535,16 @@ export type Database = {
       }
       enterprise_group_type_system: {
         Row: {
-          active: boolean | null
           code: string | null
-          custom: boolean | null
-          id: number | null
           name: string | null
-          updated_at: string | null
         }
         Insert: {
-          active?: boolean | null
           code?: string | null
-          custom?: boolean | null
-          id?: number | null
           name?: string | null
-          updated_at?: string | null
         }
         Update: {
-          active?: boolean | null
           code?: string | null
-          custom?: boolean | null
-          id?: number | null
           name?: string | null
-          updated_at?: string | null
-        }
-        Relationships: []
-      }
-      establishment_brreg_view: {
-        Row: {
-          antallAnsatte: string | null
-          "beliggenhetsadresse.adresse": string | null
-          "beliggenhetsadresse.kommune": string | null
-          "beliggenhetsadresse.kommunenummer": string | null
-          "beliggenhetsadresse.land": string | null
-          "beliggenhetsadresse.landkode": string | null
-          "beliggenhetsadresse.postnummer": string | null
-          "beliggenhetsadresse.poststed": string | null
-          datoEierskifte: string | null
-          frivilligMvaRegistrertBeskrivelser: string | null
-          harRegistrertAntallAnsatte: string | null
-          "hjelpeenhetskode.beskrivelse": string | null
-          "hjelpeenhetskode.kode": string | null
-          hjemmeside: string | null
-          "naeringskode1.beskrivelse": string | null
-          "naeringskode1.kode": string | null
-          "naeringskode2.beskrivelse": string | null
-          "naeringskode2.kode": string | null
-          "naeringskode3.beskrivelse": string | null
-          "naeringskode3.kode": string | null
-          navn: string | null
-          nedleggelsesdato: string | null
-          oppstartsdato: string | null
-          "organisasjonsform.beskrivelse": string | null
-          "organisasjonsform.kode": string | null
-          organisasjonsnummer: string | null
-          overordnetEnhet: string | null
-          "postadresse.adresse": string | null
-          "postadresse.kommune": string | null
-          "postadresse.kommunenummer": string | null
-          "postadresse.land": string | null
-          "postadresse.landkode": string | null
-          "postadresse.postnummer": string | null
-          "postadresse.poststed": string | null
-          registreringsdatoIEnhetsregisteret: string | null
-          registrertIMvaregisteret: string | null
         }
         Relationships: []
       }
@@ -2819,14 +2648,14 @@ export type Database = {
             foreignKeyName: "establishment_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -2854,14 +2683,14 @@ export type Database = {
             foreignKeyName: "establishment_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
-            referencedRelation: "reorg_type_custom"
+            referencedRelation: "reorg_type_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
-            referencedRelation: "reorg_type_system"
+            referencedRelation: "reorg_type_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -2875,14 +2704,14 @@ export type Database = {
             foreignKeyName: "establishment_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_custom"
+            referencedRelation: "sector_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_system"
+            referencedRelation: "sector_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -2917,14 +2746,14 @@ export type Database = {
             foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "unit_size_custom"
+            referencedRelation: "unit_size_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "unit_size_system"
+            referencedRelation: "unit_size_ordered"
             referencedColumns: ["id"]
           },
         ]
@@ -3005,7 +2834,49 @@ export type Database = {
           },
         ]
       }
+      foreign_participation_available: {
+        Row: {
+          active: boolean | null
+          code: string | null
+          custom: boolean | null
+          id: number | null
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          code?: string | null
+          custom?: boolean | null
+          id?: number | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          code?: string | null
+          custom?: boolean | null
+          id?: number | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       foreign_participation_custom: {
+        Row: {
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      foreign_participation_ordered: {
         Row: {
           active: boolean | null
           code: string | null
@@ -3034,28 +2905,16 @@ export type Database = {
       }
       foreign_participation_system: {
         Row: {
-          active: boolean | null
           code: string | null
-          custom: boolean | null
-          id: number | null
           name: string | null
-          updated_at: string | null
         }
         Insert: {
-          active?: boolean | null
           code?: string | null
-          custom?: boolean | null
-          id?: number | null
           name?: string | null
-          updated_at?: string | null
         }
         Update: {
-          active?: boolean | null
           code?: string | null
-          custom?: boolean | null
-          id?: number | null
           name?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
@@ -3071,16 +2930,16 @@ export type Database = {
           physical_address_part2: string | null
           physical_address_part3: string | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_code: string | null
           physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_code: string | null
           postal_region_path: string | null
           primary_activity_category_code: string | null
@@ -3106,16 +2965,16 @@ export type Database = {
           physical_address_part2: string | null
           physical_address_part3: string | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_code: string | null
           physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_code: string | null
           postal_region_path: string | null
           primary_activity_category_code: string | null
@@ -3138,16 +2997,16 @@ export type Database = {
           physical_address_part2: string | null
           physical_address_part3: string | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_code: string | null
           physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_code: string | null
           postal_region_path: string | null
           primary_activity_category_code: string | null
@@ -3173,16 +3032,16 @@ export type Database = {
           physical_address_part2: string | null
           physical_address_part3: string | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_code: string | null
           physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_code: string | null
           postal_region_path: string | null
           primary_activity_category_code: string | null
@@ -3210,16 +3069,16 @@ export type Database = {
           physical_address_part2: string | null
           physical_address_part3: string | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_code: string | null
           physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_code: string | null
           postal_region_path: string | null
           primary_activity_category_code: string | null
@@ -3244,16 +3103,16 @@ export type Database = {
           physical_address_part2: string | null
           physical_address_part3: string | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_code: string | null
           physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_code: string | null
           postal_region_path: string | null
           primary_activity_category_code: string | null
@@ -3280,16 +3139,16 @@ export type Database = {
           physical_address_part2: string | null
           physical_address_part3: string | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_code: string | null
           physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_code: string | null
           postal_region_path: string | null
           primary_activity_category_code: string | null
@@ -3314,16 +3173,16 @@ export type Database = {
           physical_address_part2: string | null
           physical_address_part3: string | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_code: string | null
           physical_region_path: string | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_code: string | null
           postal_region_path: string | null
           primary_activity_category_code: string | null
@@ -3339,24 +3198,6 @@ export type Database = {
         Relationships: []
       }
       legal_form_available: {
-        Row: {
-          code: string | null
-          custom: boolean | null
-          name: string | null
-        }
-        Insert: {
-          code?: string | null
-          custom?: boolean | null
-          name?: string | null
-        }
-        Update: {
-          code?: string | null
-          custom?: boolean | null
-          name?: string | null
-        }
-        Relationships: []
-      }
-      legal_form_custom: {
         Row: {
           active: boolean | null
           code: string | null
@@ -3380,6 +3221,21 @@ export type Database = {
           id?: number | null
           name?: string | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      legal_form_custom: {
+        Row: {
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
         }
         Relationships: []
       }
@@ -3398,7 +3254,7 @@ export type Database = {
         }
         Relationships: []
       }
-      legal_form_system: {
+      legal_form_ordered: {
         Row: {
           active: boolean | null
           code: string | null
@@ -3425,70 +3281,26 @@ export type Database = {
         }
         Relationships: []
       }
+      legal_form_system: {
+        Row: {
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
       legal_form_used: {
         Row: {
           code: string | null
           id: number | null
           name: string | null
-        }
-        Relationships: []
-      }
-      legal_unit_brreg_view: {
-        Row: {
-          aktivitet: string | null
-          antallAnsatte: string | null
-          "forretningsadresse.adresse": string | null
-          "forretningsadresse.kommune": string | null
-          "forretningsadresse.kommunenummer": string | null
-          "forretningsadresse.land": string | null
-          "forretningsadresse.landkode": string | null
-          "forretningsadresse.postnummer": string | null
-          "forretningsadresse.poststed": string | null
-          frivilligMvaRegistrertBeskrivelser: string | null
-          harRegistrertAntallAnsatte: string | null
-          "hjelpeenhetskode.beskrivelse": string | null
-          "hjelpeenhetskode.kode": string | null
-          hjemmeside: string | null
-          "institusjonellSektorkode.beskrivelse": string | null
-          "institusjonellSektorkode.kode": string | null
-          konkurs: string | null
-          konkursdato: string | null
-          maalform: string | null
-          "naeringskode1.beskrivelse": string | null
-          "naeringskode1.kode": string | null
-          "naeringskode2.beskrivelse": string | null
-          "naeringskode2.kode": string | null
-          "naeringskode3.beskrivelse": string | null
-          "naeringskode3.kode": string | null
-          navn: string | null
-          "organisasjonsform.beskrivelse": string | null
-          "organisasjonsform.kode": string | null
-          organisasjonsnummer: string | null
-          overordnetEnhet: string | null
-          "postadresse.adresse": string | null
-          "postadresse.kommune": string | null
-          "postadresse.kommunenummer": string | null
-          "postadresse.land": string | null
-          "postadresse.landkode": string | null
-          "postadresse.postnummer": string | null
-          "postadresse.poststed": string | null
-          registreringsdatoenhetsregisteret: string | null
-          registrertIForetaksregisteret: string | null
-          registrertIFrivillighetsregisteret: string | null
-          registrertIMvaRegisteret: string | null
-          registrertIStiftelsesregisteret: string | null
-          sisteInnsendteAarsregnskap: string | null
-          stiftelsesdato: string | null
-          tvangsavvikletPgaManglendeSlettingDato: string | null
-          tvangsopplostPgaMangelfulltStyreDato: string | null
-          tvangsopplostPgaManglendeDagligLederDato: string | null
-          tvangsopplostPgaManglendeRegnskapDato: string | null
-          tvangsopplostPgaManglendeRevisorDato: string | null
-          underAvvikling: string | null
-          underAvviklingDato: string | null
-          underTvangsavviklingEllerTvangsopplosning: string | null
-          vedtektsdato: string | null
-          vedtektsfestetFormaal: string | null
         }
         Relationships: []
       }
@@ -3595,14 +3407,14 @@ export type Database = {
             foreignKeyName: "legal_unit_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -3630,14 +3442,14 @@ export type Database = {
             foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
-            referencedRelation: "foreign_participation_custom"
+            referencedRelation: "foreign_participation_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
-            referencedRelation: "foreign_participation_system"
+            referencedRelation: "foreign_participation_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -3651,14 +3463,14 @@ export type Database = {
             foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
-            referencedRelation: "legal_form_custom"
+            referencedRelation: "legal_form_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_legal_form_id_fkey"
             columns: ["legal_form_id"]
             isOneToOne: false
-            referencedRelation: "legal_form_system"
+            referencedRelation: "legal_form_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -3686,14 +3498,14 @@ export type Database = {
             foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
-            referencedRelation: "reorg_type_custom"
+            referencedRelation: "reorg_type_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_reorg_type_id_fkey"
             columns: ["reorg_type_id"]
             isOneToOne: false
-            referencedRelation: "reorg_type_system"
+            referencedRelation: "reorg_type_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -3707,14 +3519,14 @@ export type Database = {
             foreignKeyName: "legal_unit_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_custom"
+            referencedRelation: "sector_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
-            referencedRelation: "sector_system"
+            referencedRelation: "sector_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -3749,14 +3561,14 @@ export type Database = {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "unit_size_custom"
+            referencedRelation: "unit_size_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "unit_size_system"
+            referencedRelation: "unit_size_ordered"
             referencedColumns: ["id"]
           },
         ]
@@ -3774,8 +3586,8 @@ export type Database = {
           latitude: number | null
           legal_unit_id: number | null
           longitude: number | null
-          postal_code: string | null
-          postal_place: string | null
+          postcode: string | null
+          postplace: string | null
           region_id: number | null
           type: Database["public"]["Enums"]["location_type"] | null
           updated_by_user_id: number | null
@@ -3795,8 +3607,8 @@ export type Database = {
           latitude?: number | null
           legal_unit_id?: number | null
           longitude?: number | null
-          postal_code?: string | null
-          postal_place?: string | null
+          postcode?: string | null
+          postplace?: string | null
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"] | null
           updated_by_user_id?: number | null
@@ -3816,8 +3628,8 @@ export type Database = {
           latitude?: number | null
           legal_unit_id?: number | null
           longitude?: number | null
-          postal_code?: string | null
-          postal_place?: string | null
+          postcode?: string | null
+          postplace?: string | null
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"] | null
           updated_by_user_id?: number | null
@@ -3858,14 +3670,14 @@ export type Database = {
             foreignKeyName: "location_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -3898,7 +3710,7 @@ export type Database = {
           },
         ]
       }
-      person_type_custom: {
+      person_role_available: {
         Row: {
           active: boolean | null
           code: string | null
@@ -3925,7 +3737,22 @@ export type Database = {
         }
         Relationships: []
       }
-      person_type_system: {
+      person_role_custom: {
+        Row: {
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      person_role_ordered: {
         Row: {
           active: boolean | null
           code: string | null
@@ -3952,22 +3779,18 @@ export type Database = {
         }
         Relationships: []
       }
-      region_7_levels_view: {
+      person_role_system: {
         Row: {
-          "Constituency Code": string | null
-          "Constituency Name": string | null
-          "County Code": string | null
-          "County Name": string | null
-          "District Code": string | null
-          "District Name": string | null
-          "Parish Code": string | null
-          "Parish Name": string | null
-          "Regional Code": string | null
-          "Regional Name": string | null
-          "Subcounty Code": string | null
-          "Subcounty Name": string | null
-          "Village Code": string | null
-          "Village Name": string | null
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
         }
         Relationships: []
       }
@@ -4042,7 +3865,55 @@ export type Database = {
         }
         Relationships: []
       }
+      reorg_type_available: {
+        Row: {
+          active: boolean | null
+          code: string | null
+          custom: boolean | null
+          description: string | null
+          id: number | null
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          code?: string | null
+          custom?: boolean | null
+          description?: string | null
+          id?: number | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          code?: string | null
+          custom?: boolean | null
+          description?: string | null
+          id?: number | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       reorg_type_custom: {
+        Row: {
+          code: string | null
+          description: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          description?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          description?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      reorg_type_ordered: {
         Row: {
           active: boolean | null
           code: string | null
@@ -4074,56 +3945,23 @@ export type Database = {
       }
       reorg_type_system: {
         Row: {
-          active: boolean | null
           code: string | null
-          custom: boolean | null
           description: string | null
-          id: number | null
           name: string | null
-          updated_at: string | null
         }
         Insert: {
-          active?: boolean | null
           code?: string | null
-          custom?: boolean | null
           description?: string | null
-          id?: number | null
           name?: string | null
-          updated_at?: string | null
         }
         Update: {
-          active?: boolean | null
           code?: string | null
-          custom?: boolean | null
           description?: string | null
-          id?: number | null
           name?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
       sector_available: {
-        Row: {
-          custom: boolean | null
-          description: string | null
-          name: string | null
-          path: unknown | null
-        }
-        Insert: {
-          custom?: boolean | null
-          description?: string | null
-          name?: string | null
-          path?: unknown | null
-        }
-        Update: {
-          custom?: boolean | null
-          description?: string | null
-          name?: string | null
-          path?: unknown | null
-        }
-        Relationships: []
-      }
-      sector_custom: {
         Row: {
           active: boolean | null
           code: string | null
@@ -4159,6 +3997,24 @@ export type Database = {
           parent_id?: number | null
           path?: unknown | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sector_custom: {
+        Row: {
+          description: string | null
+          name: string | null
+          path: unknown | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          path?: unknown | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          path?: unknown | null
         }
         Relationships: []
       }
@@ -4180,7 +4036,7 @@ export type Database = {
         }
         Relationships: []
       }
-      sector_system: {
+      sector_ordered: {
         Row: {
           active: boolean | null
           code: string | null
@@ -4216,6 +4072,24 @@ export type Database = {
           parent_id?: number | null
           path?: unknown | null
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sector_system: {
+        Row: {
+          description: string | null
+          name: string | null
+          path: unknown | null
+        }
+        Insert: {
+          description?: string | null
+          name?: string | null
+          path?: unknown | null
+        }
+        Update: {
+          description?: string | null
+          name?: string | null
+          path?: unknown | null
         }
         Relationships: []
       }
@@ -4350,14 +4224,14 @@ export type Database = {
             foreignKeyName: "stat_for_unit_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_custom"
+            referencedRelation: "data_source_available"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "stat_for_unit_data_source_id_fkey"
             columns: ["data_source_id"]
             isOneToOne: false
-            referencedRelation: "data_source_system"
+            referencedRelation: "data_source_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -4509,6 +4383,7 @@ export type Database = {
           establishment_count: number | null
           establishment_ids: number[] | null
           external_idents: Json | null
+          has_legal_unit: boolean | null
           invalid_codes: Json | null
           legal_form_code: string | null
           legal_form_id: number | null
@@ -4521,8 +4396,8 @@ export type Database = {
           physical_address_part3: string | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           postal_address_part1: string | null
@@ -4530,8 +4405,8 @@ export type Database = {
           postal_address_part3: string | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_id: number | null
           postal_region_path: unknown | null
           primary_activity_category_id: number | null
@@ -4566,6 +4441,7 @@ export type Database = {
           establishment_count: number | null
           establishment_ids: number[] | null
           external_idents: Json | null
+          has_legal_unit: boolean | null
           invalid_codes: Json | null
           legal_form_code: string | null
           legal_form_id: number | null
@@ -4578,8 +4454,8 @@ export type Database = {
           physical_address_part3: string | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           postal_address_part1: string | null
@@ -4587,8 +4463,8 @@ export type Database = {
           postal_address_part3: string | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_id: number | null
           postal_region_path: unknown | null
           primary_activity_category_id: number | null
@@ -4650,6 +4526,7 @@ export type Database = {
           death_date: string | null
           enterprise_id: number | null
           establishment_ids: number[] | null
+          has_legal_unit: boolean | null
           invalid_codes: Json | null
           legal_form_code: string | null
           legal_form_id: number | null
@@ -4661,8 +4538,8 @@ export type Database = {
           physical_address_part3: string | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           postal_address_part1: string | null
@@ -4670,8 +4547,8 @@ export type Database = {
           postal_address_part3: string | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_id: number | null
           postal_region_path: unknown | null
           primary_activity_category_id: number | null
@@ -4703,6 +4580,7 @@ export type Database = {
           death_date: string | null
           enterprise_id: number | null
           establishment_id: number | null
+          has_legal_unit: boolean | null
           invalid_codes: Json | null
           legal_form_code: string | null
           legal_form_id: number | null
@@ -4714,8 +4592,8 @@ export type Database = {
           physical_address_part3: string | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           postal_address_part1: string | null
@@ -4723,8 +4601,8 @@ export type Database = {
           postal_address_part3: string | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_id: number | null
           postal_region_path: unknown | null
           primary_activity_category_id: number | null
@@ -4746,13 +4624,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -4762,7 +4633,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -4775,13 +4646,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -4837,13 +4715,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region"
@@ -4852,13 +4723,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["physical_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used"
             referencedColumns: ["id"]
@@ -4874,6 +4752,7 @@ export type Database = {
           death_date: string | null
           enterprise_id: number | null
           establishment_ids: number[] | null
+          has_legal_unit: boolean | null
           invalid_codes: Json | null
           legal_form_code: string | null
           legal_form_id: number | null
@@ -4885,8 +4764,8 @@ export type Database = {
           physical_address_part3: string | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
-          physical_postal_code: string | null
-          physical_postal_place: string | null
+          physical_postcode: string | null
+          physical_postplace: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           postal_address_part1: string | null
@@ -4894,8 +4773,8 @@ export type Database = {
           postal_address_part3: string | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
-          postal_postal_code: string | null
-          postal_postal_place: string | null
+          postal_postcode: string | null
+          postal_postplace: string | null
           postal_region_id: number | null
           postal_region_path: unknown | null
           primary_activity_category_id: number | null
@@ -4918,13 +4797,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -4934,7 +4806,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -4947,13 +4819,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -5009,13 +4888,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region"
@@ -5024,13 +4896,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["physical_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used"
             referencedColumns: ["id"]
@@ -5054,7 +4933,49 @@ export type Database = {
         }
         Relationships: []
       }
+      unit_size_available: {
+        Row: {
+          active: boolean | null
+          code: string | null
+          custom: boolean | null
+          id: number | null
+          name: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          active?: boolean | null
+          code?: string | null
+          custom?: boolean | null
+          id?: number | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          active?: boolean | null
+          code?: string | null
+          custom?: boolean | null
+          id?: number | null
+          name?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       unit_size_custom: {
+        Row: {
+          code: string | null
+          name: string | null
+        }
+        Insert: {
+          code?: string | null
+          name?: string | null
+        }
+        Update: {
+          code?: string | null
+          name?: string | null
+        }
+        Relationships: []
+      }
+      unit_size_ordered: {
         Row: {
           active: boolean | null
           code: string | null
@@ -5083,28 +5004,16 @@ export type Database = {
       }
       unit_size_system: {
         Row: {
-          active: boolean | null
           code: string | null
-          custom: boolean | null
-          id: number | null
           name: string | null
-          updated_at: string | null
         }
         Insert: {
-          active?: boolean | null
           code?: string | null
-          custom?: boolean | null
-          id?: number | null
           name?: string | null
-          updated_at?: string | null
         }
         Update: {
-          active?: boolean | null
           code?: string | null
-          custom?: boolean | null
-          id?: number | null
           name?: string | null
-          updated_at?: string | null
         }
         Relationships: []
       }
@@ -5172,14 +5081,17 @@ export type Database = {
       enterprise_hierarchy: {
         Args: {
           enterprise_id: number
+          scope?: Database["public"]["Enums"]["hierarchy_scope"]
           valid_on?: string
         }
         Returns: Json
       }
       establishment_hierarchy: {
         Args: {
-          parent_legal_unit_id?: number
-          parent_enterprise_id?: number
+          establishment_id: number
+          parent_legal_unit_id: number
+          parent_enterprise_id: number
+          scope?: Database["public"]["Enums"]["hierarchy_scope"]
           valid_on?: string
         }
         Returns: Json
@@ -5590,7 +5502,9 @@ export type Database = {
       }
       legal_unit_hierarchy: {
         Args: {
+          legal_unit_id: number
           parent_enterprise_id: number
+          scope?: Database["public"]["Enums"]["hierarchy_scope"]
           valid_on?: string
         }
         Returns: Json
@@ -5787,6 +5701,14 @@ export type Database = {
         }
         Returns: Json
       }
+      statistical_unit_details: {
+        Args: {
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          unit_id: number
+          valid_on?: string
+        }
+        Returns: Json
+      }
       statistical_unit_enterprise_id: {
         Args: {
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
@@ -5811,7 +5733,9 @@ export type Database = {
         Args: {
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           unit_id: number
+          scope?: Database["public"]["Enums"]["hierarchy_scope"]
           valid_on?: string
+          strip_nulls?: boolean
         }
         Returns: Json
       }
@@ -5828,6 +5752,22 @@ export type Database = {
           view_name: string
           modified_at: string
         }[]
+      }
+      statistical_unit_stats: {
+        Args: {
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          unit_id: number
+          valid_on?: string
+        }
+        Returns: Database["public"]["CompositeTypes"]["statistical_unit_stats"][]
+      }
+      statistical_unit_tree: {
+        Args: {
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          unit_id: number
+          valid_on?: string
+        }
+        Returns: Json
       }
       tag_for_unit_hierarchy: {
         Args: {
@@ -5854,6 +5794,7 @@ export type Database = {
     Enums: {
       activity_category_code_behaviour: "digits" | "dot_after_two_digits"
       activity_type: "primary" | "secondary" | "ancilliary"
+      hierarchy_scope: "all" | "tree" | "details"
       history_resolution: "year" | "year-month"
       location_type: "physical" | "postal"
       person_sex: "Male" | "Female"
@@ -5910,7 +5851,14 @@ export type Database = {
       time_context_type: "relative_period" | "tag"
     }
     CompositeTypes: {
-      [_ in never]: never
+      statistical_unit_stats: {
+        unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
+        unit_id: number | null
+        valid_from: string | null
+        valid_to: string | null
+        stats: Json | null
+        stats_summary: Json | null
+      }
     }
   }
 }
