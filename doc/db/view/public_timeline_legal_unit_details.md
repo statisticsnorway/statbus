@@ -28,8 +28,8 @@
  physical_address_part1           | character varying(200) |           |          |         | extended | 
  physical_address_part2           | character varying(200) |           |          |         | extended | 
  physical_address_part3           | character varying(200) |           |          |         | extended | 
- physical_postal_code             | character varying(200) |           |          |         | extended | 
- physical_postal_place            | character varying(200) |           |          |         | extended | 
+ physical_postcode                | character varying(200) |           |          |         | extended | 
+ physical_postplace               | character varying(200) |           |          |         | extended | 
  physical_region_id               | integer                |           |          |         | plain    | 
  physical_region_path             | ltree                  |           |          |         | extended | 
  physical_country_id              | integer                |           |          |         | plain    | 
@@ -37,13 +37,14 @@
  postal_address_part1             | character varying(200) |           |          |         | extended | 
  postal_address_part2             | character varying(200) |           |          |         | extended | 
  postal_address_part3             | character varying(200) |           |          |         | extended | 
- postal_postal_code               | character varying(200) |           |          |         | extended | 
- postal_postal_place              | character varying(200) |           |          |         | extended | 
+ postal_postcode                  | character varying(200) |           |          |         | extended | 
+ postal_postplace                 | character varying(200) |           |          |         | extended | 
  postal_region_id                 | integer                |           |          |         | plain    | 
  postal_region_path               | ltree                  |           |          |         | extended | 
  postal_country_id                | integer                |           |          |         | plain    | 
  postal_country_iso_2             | text                   |           |          |         | extended | 
  invalid_codes                    | jsonb                  |           |          |         | extended | 
+ has_legal_unit                   | boolean                |           |          |         | plain    | 
  establishment_ids                | integer[]              |           |          |         | extended | 
  legal_unit_id                    | integer                |           |          |         | plain    | 
  enterprise_id                    | integer                |           |          |         | plain    | 
@@ -77,8 +78,8 @@ View definition:
             phl.address_part1 AS physical_address_part1,
             phl.address_part2 AS physical_address_part2,
             phl.address_part3 AS physical_address_part3,
-            phl.postal_code AS physical_postal_code,
-            phl.postal_place AS physical_postal_place,
+            phl.postcode AS physical_postcode,
+            phl.postplace AS physical_postplace,
             phl.region_id AS physical_region_id,
             phr.path AS physical_region_path,
             phl.country_id AS physical_country_id,
@@ -86,13 +87,14 @@ View definition:
             pol.address_part1 AS postal_address_part1,
             pol.address_part2 AS postal_address_part2,
             pol.address_part3 AS postal_address_part3,
-            pol.postal_code AS postal_postal_code,
-            pol.postal_place AS postal_postal_place,
+            pol.postcode AS postal_postcode,
+            pol.postplace AS postal_postplace,
             pol.region_id AS postal_region_id,
             por.path AS postal_region_path,
             pol.country_id AS postal_country_id,
             poc.iso_2 AS postal_country_iso_2,
             lu.invalid_codes,
+            true AS has_legal_unit,
             lu.id AS legal_unit_id,
             lu.enterprise_id,
             COALESCE(get_jsonb_stats(NULL::integer, lu.id, t.valid_after, t.valid_to), '{}'::jsonb) AS stats
@@ -117,7 +119,7 @@ View definition:
                     array_agg(ds_1.code) AS codes
                    FROM data_source ds_1
                   WHERE COALESCE(ds_1.id = lu.data_source_id, false) OR COALESCE(ds_1.id = pa.data_source_id, false) OR COALESCE(ds_1.id = sa.data_source_id, false) OR COALESCE(ds_1.id = phl.data_source_id, false) OR COALESCE(ds_1.id = pol.data_source_id, false) OR COALESCE(ds_1.id = ANY (sfu.data_source_ids), false)) ds ON true
-        ), aggregation AS (
+        ), establishment_aggregation AS (
          SELECT tes.legal_unit_id,
             basis_1.valid_after,
             basis_1.valid_to,
@@ -150,19 +152,19 @@ View definition:
     ( SELECT array_agg(DISTINCT ids.id) AS array_agg
            FROM ( SELECT unnest(basis.data_source_ids) AS id
                 UNION ALL
-                 SELECT unnest(aggregation.data_source_ids) AS id) ids) AS data_source_ids,
+                 SELECT unnest(esa.data_source_ids) AS id) ids) AS data_source_ids,
     ( SELECT array_agg(DISTINCT codes.code) AS array_agg
            FROM ( SELECT unnest(basis.data_source_codes) AS code
                 UNION ALL
-                 SELECT unnest(aggregation.data_source_codes) AS code) codes) AS data_source_codes,
+                 SELECT unnest(esa.data_source_codes) AS code) codes) AS data_source_codes,
     basis.legal_form_id,
     basis.legal_form_code,
     basis.legal_form_name,
     basis.physical_address_part1,
     basis.physical_address_part2,
     basis.physical_address_part3,
-    basis.physical_postal_code,
-    basis.physical_postal_place,
+    basis.physical_postcode,
+    basis.physical_postplace,
     basis.physical_region_id,
     basis.physical_region_path,
     basis.physical_country_id,
@@ -170,20 +172,21 @@ View definition:
     basis.postal_address_part1,
     basis.postal_address_part2,
     basis.postal_address_part3,
-    basis.postal_postal_code,
-    basis.postal_postal_place,
+    basis.postal_postcode,
+    basis.postal_postplace,
     basis.postal_region_id,
     basis.postal_region_path,
     basis.postal_country_id,
     basis.postal_country_iso_2,
     basis.invalid_codes,
-    COALESCE(aggregation.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
+    basis.has_legal_unit,
+    COALESCE(esa.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
     basis.legal_unit_id,
     basis.enterprise_id,
     basis.stats,
-    jsonb_stats_to_summary(COALESCE(aggregation.stats_summary, '{}'::jsonb), basis.stats) AS stats_summary
+    jsonb_stats_to_summary(COALESCE(esa.stats_summary, '{}'::jsonb), basis.stats) AS stats_summary
    FROM basis
-     LEFT JOIN aggregation ON basis.legal_unit_id = aggregation.legal_unit_id AND basis.valid_after = aggregation.valid_after AND basis.valid_to = aggregation.valid_to
+     LEFT JOIN establishment_aggregation esa ON basis.legal_unit_id = esa.legal_unit_id AND basis.valid_after = esa.valid_after AND basis.valid_to = esa.valid_to
   ORDER BY basis.unit_type, basis.unit_id, basis.valid_after;
 
 ```

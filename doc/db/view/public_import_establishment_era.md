@@ -14,16 +14,16 @@
  physical_address_part1           | text |           |          | 
  physical_address_part2           | text |           |          | 
  physical_address_part3           | text |           |          | 
- physical_postal_code             | text |           |          | 
- physical_postal_place            | text |           |          | 
+ physical_postcode                | text |           |          | 
+ physical_postplace               | text |           |          | 
  physical_region_code             | text |           |          | 
  physical_region_path             | text |           |          | 
  physical_country_iso_2           | text |           |          | 
  postal_address_part1             | text |           |          | 
  postal_address_part2             | text |           |          | 
  postal_address_part3             | text |           |          | 
- postal_postal_code               | text |           |          | 
- postal_postal_place              | text |           |          | 
+ postal_postcode                  | text |           |          | 
+ postal_postplace                 | text |           |          | 
  postal_region_code               | text |           |          | 
  postal_region_path               | text |           |          | 
  postal_country_iso_2             | text |           |          | 

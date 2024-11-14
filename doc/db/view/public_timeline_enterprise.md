@@ -28,8 +28,8 @@
  physical_address_part1           | character varying(200) |           |          | 
  physical_address_part2           | character varying(200) |           |          | 
  physical_address_part3           | character varying(200) |           |          | 
- physical_postal_code             | character varying(200) |           |          | 
- physical_postal_place            | character varying(200) |           |          | 
+ physical_postcode                | character varying(200) |           |          | 
+ physical_postplace               | character varying(200) |           |          | 
  physical_region_id               | integer                |           |          | 
  physical_region_path             | ltree                  |           |          | 
  physical_country_id              | integer                |           |          | 
@@ -37,13 +37,14 @@
  postal_address_part1             | character varying(200) |           |          | 
  postal_address_part2             | character varying(200) |           |          | 
  postal_address_part3             | character varying(200) |           |          | 
- postal_postal_code               | character varying(200) |           |          | 
- postal_postal_place              | character varying(200) |           |          | 
+ postal_postcode                  | character varying(200) |           |          | 
+ postal_postplace                 | character varying(200) |           |          | 
  postal_region_id                 | integer                |           |          | 
  postal_region_path               | ltree                  |           |          | 
  postal_country_id                | integer                |           |          | 
  postal_country_iso_2             | text                   |           |          | 
  invalid_codes                    | jsonb                  |           |          | 
+ has_legal_unit                   | boolean                |           |          | 
  establishment_ids                | integer[]              |           |          | 
  legal_unit_ids                   | integer[]              |           |          | 
  enterprise_id                    | integer                |           |          | 

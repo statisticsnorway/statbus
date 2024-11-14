@@ -26,8 +26,8 @@ CREATE VIEW public.timeline_legal_unit
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
-    , physical_postal_code
-    , physical_postal_place
+    , physical_postcode
+    , physical_postplace
     , physical_region_id
     , physical_region_path
     , physical_country_id
@@ -35,8 +35,8 @@ CREATE VIEW public.timeline_legal_unit
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
-    , postal_postal_code
-    , postal_postal_place
+    , postal_postcode
+    , postal_postplace
     , postal_region_id
     , postal_region_path
     , postal_country_id
@@ -85,8 +85,8 @@ CREATE VIEW public.timeline_legal_unit
            , phl.address_part1 AS physical_address_part1
            , phl.address_part2 AS physical_address_part2
            , phl.address_part3 AS physical_address_part3
-           , phl.postal_code AS physical_postal_code
-           , phl.postal_place AS physical_postal_place
+           , phl.postcode AS physical_postcode
+           , phl.postplace AS physical_postplace
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
            , phl.country_id AS physical_country_id
@@ -95,8 +95,8 @@ CREATE VIEW public.timeline_legal_unit
            , pol.address_part1 AS postal_address_part1
            , pol.address_part2 AS postal_address_part2
            , pol.address_part3 AS postal_address_part3
-           , pol.postal_code AS postal_postal_code
-           , pol.postal_place AS postal_postal_place
+           , pol.postcode AS postal_postcode
+           , pol.postplace AS postal_postplace
            , pol.region_id           AS postal_region_id
            , por.path                AS postal_region_path
            , pol.country_id AS postal_country_id
@@ -230,8 +230,8 @@ CREATE VIEW public.timeline_legal_unit
            , basis.physical_address_part1
            , basis.physical_address_part2
            , basis.physical_address_part3
-           , basis.physical_postal_code
-           , basis.physical_postal_place
+           , basis.physical_postcode
+           , basis.physical_postplace
            , basis.physical_region_id
            , basis.physical_region_path
            , basis.physical_country_id
@@ -239,8 +239,8 @@ CREATE VIEW public.timeline_legal_unit
            , basis.postal_address_part1
            , basis.postal_address_part2
            , basis.postal_address_part3
-           , basis.postal_postal_code
-           , basis.postal_postal_place
+           , basis.postal_postcode
+           , basis.postal_postplace
            , basis.postal_region_id
            , basis.postal_region_path
            , basis.postal_country_id

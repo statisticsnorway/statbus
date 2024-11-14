@@ -27,8 +27,8 @@ CREATE VIEW public.statistical_unit_def
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
-    , physical_postal_code
-    , physical_postal_place
+    , physical_postcode
+    , physical_postplace
     , physical_region_id
     , physical_region_path
     , physical_country_id
@@ -36,8 +36,8 @@ CREATE VIEW public.statistical_unit_def
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
-    , postal_postal_code
-    , postal_postal_place
+    , postal_postcode
+    , postal_postplace
     , postal_region_id
     , postal_region_path
     , postal_country_id
@@ -83,8 +83,8 @@ CREATE VIEW public.statistical_unit_def
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
-           , physical_postal_code
-           , physical_postal_place
+           , physical_postcode
+           , physical_postplace
            , physical_region_id
            , physical_region_path
            , physical_country_id
@@ -92,8 +92,8 @@ CREATE VIEW public.statistical_unit_def
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
-           , postal_postal_code
-           , postal_postal_place
+           , postal_postcode
+           , postal_postplace
            , postal_region_id
            , postal_region_path
            , postal_country_id
@@ -134,8 +134,8 @@ CREATE VIEW public.statistical_unit_def
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
-           , physical_postal_code
-           , physical_postal_place
+           , physical_postcode
+           , physical_postplace
            , physical_region_id
            , physical_region_path
            , physical_country_id
@@ -143,8 +143,8 @@ CREATE VIEW public.statistical_unit_def
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
-           , postal_postal_code
-           , postal_postal_place
+           , postal_postcode
+           , postal_postplace
            , postal_region_id
            , postal_region_path
            , postal_country_id
@@ -189,8 +189,8 @@ CREATE VIEW public.statistical_unit_def
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
-           , physical_postal_code
-           , physical_postal_place
+           , physical_postcode
+           , physical_postplace
            , physical_region_id
            , physical_region_path
            , physical_country_id
@@ -198,8 +198,8 @@ CREATE VIEW public.statistical_unit_def
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
-           , postal_postal_code
-           , postal_postal_place
+           , postal_postcode
+           , postal_postplace
            , postal_region_id
            , postal_region_path
            , postal_country_id
@@ -242,8 +242,8 @@ CREATE VIEW public.statistical_unit_def
          , data.physical_address_part1
          , data.physical_address_part2
          , data.physical_address_part3
-         , data.physical_postal_code
-         , data.physical_postal_place
+         , data.physical_postcode
+         , data.physical_postplace
          , data.physical_region_id
          , data.physical_region_path
          , data.physical_country_id
@@ -251,8 +251,8 @@ CREATE VIEW public.statistical_unit_def
          , data.postal_address_part1
          , data.postal_address_part2
          , data.postal_address_part3
-         , data.postal_postal_code
-         , data.postal_postal_place
+         , data.postal_postcode
+         , data.postal_postplace
          , data.postal_region_id
          , data.postal_region_path
          , data.postal_country_id

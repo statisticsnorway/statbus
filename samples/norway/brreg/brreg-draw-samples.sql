@@ -21,13 +21,13 @@ SELECT "organisasjonsnummer" AS tax_ident
      -- There is no death date, the entry simply vanishes!
      --, "nedleggelsesdato" AS death_date
      , "forretningsadresse.adresse" AS physical_address_part1
-     , "forretningsadresse.postnummer" AS physical_postal_code
-     , "forretningsadresse.poststed"   AS physical_postal_place
+     , "forretningsadresse.postnummer" AS physical_postcode
+     , "forretningsadresse.poststed"   AS physical_postplace
      , "forretningsadresse.kommunenummer" AS physical_region_code
      , "forretningsadresse.landkode" AS physical_country_iso_2
      , "postadresse.adresse" AS postal_address_part1
-     , "postadresse.poststed" AS postal_postal_code
-     , "postadresse.postnummer" AS postal_postal_place
+     , "postadresse.poststed" AS postal_postcode
+     , "postadresse.postnummer" AS postal_postplace
      , "postadresse.kommunenummer" AS postal_region_code
      , "postadresse.landkode" AS postal_country_iso_2
      , "naeringskode1.kode" AS primary_activity_category_code
@@ -45,13 +45,13 @@ SELECT "organisasjonsnummer" AS tax_ident
      , "oppstartsdato" AS birth_date
      , "nedleggelsesdato" AS death_date
      , "beliggenhetsadresse.adresse" AS physical_address_part1
-     , "beliggenhetsadresse.postnummer" AS physical_postal_code
-     , "beliggenhetsadresse.poststed"   AS physical_postal_place
+     , "beliggenhetsadresse.postnummer" AS physical_postcode
+     , "beliggenhetsadresse.poststed"   AS physical_postplace
      , "beliggenhetsadresse.kommunenummer" AS physical_region_code
      , "beliggenhetsadresse.landkode" AS physical_country_iso_2
      , "postadresse.adresse" AS postal_address_part1
-     , "postadresse.poststed" AS postal_postal_code
-     , "postadresse.postnummer" AS postal_postal_place
+     , "postadresse.poststed" AS postal_postcode
+     , "postadresse.postnummer" AS postal_postplace
      , "postadresse.kommunenummer" AS postal_region_code
      , "postadresse.landkode" AS postal_country_iso_2
      , "naeringskode1.kode" AS primary_activity_category_code

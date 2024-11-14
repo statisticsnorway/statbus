@@ -1,4 +1,4 @@
-tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postal_code,physical_postal_place,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postal_code,postal_postal_place,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees
+tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees
 "812008862","990888213","EQUINOR ENERGY AS SLEIPNER ØST","2012-01-01","","","4020","STAVANGER","2311","NO","Postboks 8500 Forus","STAVANGER","4035","1103","NO","06.200","",""
 "812723502","990888213","EQUINOR ENERGY AS SIGYN","2002-01-01","","","","","","","Postboks 60","STAVANGER","4068","1103","NO","06.100","",""
 "812728482","989795848","AKER BP ASA PL019 C","1999-02-01","","","","","","","Postboks 65","LYSAKER","1324","3201","NO","06.100","",""

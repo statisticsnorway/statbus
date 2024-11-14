@@ -26,8 +26,8 @@ CREATE VIEW public.timeline_establishment
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
-    , physical_postal_code
-    , physical_postal_place
+    , physical_postcode
+    , physical_postplace
     , physical_region_id
     , physical_region_path
     , physical_country_id
@@ -35,8 +35,8 @@ CREATE VIEW public.timeline_establishment
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
-    , postal_postal_code
-    , postal_postal_place
+    , postal_postcode
+    , postal_postplace
     , postal_region_id
     , postal_region_path
     , postal_country_id
@@ -83,8 +83,8 @@ CREATE VIEW public.timeline_establishment
            , phl.address_part1 AS physical_address_part1
            , phl.address_part2 AS physical_address_part2
            , phl.address_part3 AS physical_address_part3
-           , phl.postal_code AS physical_postal_code
-           , phl.postal_place AS physical_postal_place
+           , phl.postcode AS physical_postcode
+           , phl.postplace AS physical_postplace
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
            , phl.country_id AS physical_country_id
@@ -93,8 +93,8 @@ CREATE VIEW public.timeline_establishment
            , pol.address_part1 AS postal_address_part1
            , pol.address_part2 AS postal_address_part2
            , pol.address_part3 AS postal_address_part3
-           , pol.postal_code AS postal_postal_code
-           , pol.postal_place AS postal_postal_place
+           , pol.postcode AS postal_postcode
+           , pol.postplace AS postal_postplace
            , pol.region_id           AS postal_region_id
            , por.path                AS postal_region_path
            , pol.country_id AS postal_country_id

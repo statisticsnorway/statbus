@@ -28,8 +28,8 @@
  physical_address_part1           | character varying(200) |           |          |         | extended | 
  physical_address_part2           | character varying(200) |           |          |         | extended | 
  physical_address_part3           | character varying(200) |           |          |         | extended | 
- physical_postal_code             | character varying(200) |           |          |         | extended | 
- physical_postal_place            | character varying(200) |           |          |         | extended | 
+ physical_postcode                | character varying(200) |           |          |         | extended | 
+ physical_postplace               | character varying(200) |           |          |         | extended | 
  physical_region_id               | integer                |           |          |         | plain    | 
  physical_region_path             | ltree                  |           |          |         | extended | 
  physical_country_id              | integer                |           |          |         | plain    | 
@@ -37,13 +37,14 @@
  postal_address_part1             | character varying(200) |           |          |         | extended | 
  postal_address_part2             | character varying(200) |           |          |         | extended | 
  postal_address_part3             | character varying(200) |           |          |         | extended | 
- postal_postal_code               | character varying(200) |           |          |         | extended | 
- postal_postal_place              | character varying(200) |           |          |         | extended | 
+ postal_postcode                  | character varying(200) |           |          |         | extended | 
+ postal_postplace                 | character varying(200) |           |          |         | extended | 
  postal_region_id                 | integer                |           |          |         | plain    | 
  postal_region_path               | ltree                  |           |          |         | extended | 
  postal_country_id                | integer                |           |          |         | plain    | 
  postal_country_iso_2             | text                   |           |          |         | extended | 
  invalid_codes                    | jsonb                  |           |          |         | extended | 
+ has_legal_unit                   | boolean                |           |          |         | plain    | 
  establishment_id                 | integer                |           |          |         | plain    | 
  legal_unit_id                    | integer                |           |          |         | plain    | 
  enterprise_id                    | integer                |           |          |         | plain    | 
@@ -75,8 +76,8 @@ View definition:
     phl.address_part1 AS physical_address_part1,
     phl.address_part2 AS physical_address_part2,
     phl.address_part3 AS physical_address_part3,
-    phl.postal_code AS physical_postal_code,
-    phl.postal_place AS physical_postal_place,
+    phl.postcode AS physical_postcode,
+    phl.postplace AS physical_postplace,
     phl.region_id AS physical_region_id,
     phr.path AS physical_region_path,
     phl.country_id AS physical_country_id,
@@ -84,13 +85,14 @@ View definition:
     pol.address_part1 AS postal_address_part1,
     pol.address_part2 AS postal_address_part2,
     pol.address_part3 AS postal_address_part3,
-    pol.postal_code AS postal_postal_code,
-    pol.postal_place AS postal_postal_place,
+    pol.postcode AS postal_postcode,
+    pol.postplace AS postal_postplace,
     pol.region_id AS postal_region_id,
     por.path AS postal_region_path,
     pol.country_id AS postal_country_id,
     poc.iso_2 AS postal_country_iso_2,
     es.invalid_codes,
+    es.legal_unit_id IS NOT NULL AS has_legal_unit,
     es.id AS establishment_id,
     es.legal_unit_id,
     es.enterprise_id,

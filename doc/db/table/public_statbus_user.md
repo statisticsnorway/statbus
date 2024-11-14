@@ -13,10 +13,8 @@ Foreign-key constraints:
     "statbus_user_uuid_fkey" FOREIGN KEY (uuid) REFERENCES auth.users(id) ON DELETE CASCADE
 Referenced by:
     TABLE "activity" CONSTRAINT "activity_updated_by_user_id_fkey" FOREIGN KEY (updated_by_user_id) REFERENCES statbus_user(id) ON DELETE CASCADE
-    TABLE "analysis_queue" CONSTRAINT "analysis_queue_user_id_fkey" FOREIGN KEY (user_id) REFERENCES statbus_user(id) ON DELETE CASCADE
     TABLE "external_ident" CONSTRAINT "external_ident_updated_by_user_id_fkey" FOREIGN KEY (updated_by_user_id) REFERENCES statbus_user(id) ON DELETE CASCADE
     TABLE "location" CONSTRAINT "location_updated_by_user_id_fkey" FOREIGN KEY (updated_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
-    TABLE "sample_frame" CONSTRAINT "sample_frame_user_id_fkey" FOREIGN KEY (user_id) REFERENCES statbus_user(id) ON DELETE SET NULL
     TABLE "tag_for_unit" CONSTRAINT "tag_for_unit_updated_by_user_id_fkey" FOREIGN KEY (updated_by_user_id) REFERENCES statbus_user(id) ON DELETE CASCADE
 Policies:
     POLICY "statbus_user_authenticated_read" FOR SELECT

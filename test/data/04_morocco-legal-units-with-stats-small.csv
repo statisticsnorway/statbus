@@ -1,4 +1,4 @@
-stat_ident,legal_form_code,name,birth_date,physical_postal_place,physical_address_part1,primary_activity_category_code,physical_country_iso_2,physical_region_code,sector_code,employees,turnover
+stat_ident,legal_form_code,name,birth_date,physical_postplace,physical_address_part1,primary_activity_category_code,physical_country_iso_2,physical_region_code,sector_code,employees,turnover
 5340521,2,STATBUS SANITAIRE,2017-01-01,BERKANE,RUE SOULTANE MOULAY MOHAMMED N 48,4674,MA,1051,6100,20,445566
 2220794,4,OFFICE CHERIFFE,2014-09-01,CASABLANCA,2 RUE AL ABTAL HAY ERRAHA,8411,MA,1151,4500,16814,33300
 40486450,12,TEST OFFICE DE L'EEAU POTABLE ,2014-01-01,RABAT,AVENUE MED BELHASSAN EL OUAZZANI,8411,MA,1227,6100,8212,222222

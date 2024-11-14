@@ -14,16 +14,16 @@
  physical_address_part1           | text |           |          |         | extended | 
  physical_address_part2           | text |           |          |         | extended | 
  physical_address_part3           | text |           |          |         | extended | 
- physical_postal_code             | text |           |          |         | extended | 
- physical_postal_place            | text |           |          |         | extended | 
+ physical_postcode                | text |           |          |         | extended | 
+ physical_postplace               | text |           |          |         | extended | 
  physical_region_code             | text |           |          |         | extended | 
  physical_region_path             | text |           |          |         | extended | 
  physical_country_iso_2           | text |           |          |         | extended | 
  postal_address_part1             | text |           |          |         | extended | 
  postal_address_part2             | text |           |          |         | extended | 
  postal_address_part3             | text |           |          |         | extended | 
- postal_postal_code               | text |           |          |         | extended | 
- postal_postal_place              | text |           |          |         | extended | 
+ postal_postcode                  | text |           |          |         | extended | 
+ postal_postplace                 | text |           |          |         | extended | 
  postal_region_code               | text |           |          |         | extended | 
  postal_region_path               | text |           |          |         | extended | 
  postal_country_iso_2             | text |           |          |         | extended | 
@@ -47,16 +47,16 @@ View definition:
     ''::text AS physical_address_part1,
     ''::text AS physical_address_part2,
     ''::text AS physical_address_part3,
-    ''::text AS physical_postal_code,
-    ''::text AS physical_postal_place,
+    ''::text AS physical_postcode,
+    ''::text AS physical_postplace,
     ''::text AS physical_region_code,
     ''::text AS physical_region_path,
     ''::text AS physical_country_iso_2,
     ''::text AS postal_address_part1,
     ''::text AS postal_address_part2,
     ''::text AS postal_address_part3,
-    ''::text AS postal_postal_code,
-    ''::text AS postal_postal_place,
+    ''::text AS postal_postcode,
+    ''::text AS postal_postplace,
     ''::text AS postal_region_code,
     ''::text AS postal_region_path,
     ''::text AS postal_country_iso_2,

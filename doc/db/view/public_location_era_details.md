@@ -10,8 +10,8 @@
  address_part1      | character varying(200) |           |          |         | extended | 
  address_part2      | character varying(200) |           |          |         | extended | 
  address_part3      | character varying(200) |           |          |         | extended | 
- postal_code        | character varying(200) |           |          |         | extended | 
- postal_place       | character varying(200) |           |          |         | extended | 
+ postcode           | character varying(200) |           |          |         | extended | 
+ postplace          | character varying(200) |           |          |         | extended | 
  region_id          | integer                |           |          |         | plain    | 
  country_id         | integer                |           |          |         | plain    | 
  latitude           | numeric(9,6)           |           |          |         | main     | 
@@ -30,8 +30,8 @@ View definition:
     location.address_part1,
     location.address_part2,
     location.address_part3,
-    location.postal_code,
-    location.postal_place,
+    location.postcode,
+    location.postplace,
     location.region_id,
     location.country_id,
     location.latitude,

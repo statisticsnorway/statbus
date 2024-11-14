@@ -28,8 +28,8 @@
  physical_address_part1           | character varying(200) |           |          |         | extended | 
  physical_address_part2           | character varying(200) |           |          |         | extended | 
  physical_address_part3           | character varying(200) |           |          |         | extended | 
- physical_postal_code             | character varying(200) |           |          |         | extended | 
- physical_postal_place            | character varying(200) |           |          |         | extended | 
+ physical_postcode                | character varying(200) |           |          |         | extended | 
+ physical_postplace               | character varying(200) |           |          |         | extended | 
  physical_region_id               | integer                |           |          |         | plain    | 
  physical_region_path             | ltree                  |           |          |         | extended | 
  physical_country_id              | integer                |           |          |         | plain    | 
@@ -37,13 +37,14 @@
  postal_address_part1             | character varying(200) |           |          |         | extended | 
  postal_address_part2             | character varying(200) |           |          |         | extended | 
  postal_address_part3             | character varying(200) |           |          |         | extended | 
- postal_postal_code               | character varying(200) |           |          |         | extended | 
- postal_postal_place              | character varying(200) |           |          |         | extended | 
+ postal_postcode                  | character varying(200) |           |          |         | extended | 
+ postal_postplace                 | character varying(200) |           |          |         | extended | 
  postal_region_id                 | integer                |           |          |         | plain    | 
  postal_region_path               | ltree                  |           |          |         | extended | 
  postal_country_id                | integer                |           |          |         | plain    | 
  postal_country_iso_2             | text                   |           |          |         | extended | 
  invalid_codes                    | jsonb                  |           |          |         | extended | 
+ has_legal_unit                   | boolean                |           |          |         | plain    | 
  establishment_ids                | integer[]              |           |          |         | extended | 
  legal_unit_ids                   | integer[]              |           |          |         | extended | 
  enterprise_id                    | integer                |           |          |         | plain    | 
@@ -78,8 +79,8 @@ View definition:
             phl.address_part1 AS physical_address_part1,
             phl.address_part2 AS physical_address_part2,
             phl.address_part3 AS physical_address_part3,
-            phl.postal_code AS physical_postal_code,
-            phl.postal_place AS physical_postal_place,
+            phl.postcode AS physical_postcode,
+            phl.postplace AS physical_postplace,
             phl.region_id AS physical_region_id,
             phr.path AS physical_region_path,
             phl.country_id AS physical_country_id,
@@ -87,13 +88,14 @@ View definition:
             pol.address_part1 AS postal_address_part1,
             pol.address_part2 AS postal_address_part2,
             pol.address_part3 AS postal_address_part3,
-            pol.postal_code AS postal_postal_code,
-            pol.postal_place AS postal_postal_place,
+            pol.postcode AS postal_postcode,
+            pol.postplace AS postal_postplace,
             pol.region_id AS postal_region_id,
             por.path AS postal_region_path,
             pol.country_id AS postal_country_id,
             poc.iso_2 AS postal_country_iso_2,
             plu.invalid_codes,
+            true AS has_legal_unit,
             en.id AS enterprise_id,
             plu.id AS primary_legal_unit_id
            FROM timesegments t
@@ -145,8 +147,8 @@ View definition:
             phl.address_part1 AS physical_address_part1,
             phl.address_part2 AS physical_address_part2,
             phl.address_part3 AS physical_address_part3,
-            phl.postal_code AS physical_postal_code,
-            phl.postal_place AS physical_postal_place,
+            phl.postcode AS physical_postcode,
+            phl.postplace AS physical_postplace,
             phl.region_id AS physical_region_id,
             phr.path AS physical_region_path,
             phl.country_id AS physical_country_id,
@@ -154,13 +156,14 @@ View definition:
             pol.address_part1 AS postal_address_part1,
             pol.address_part2 AS postal_address_part2,
             pol.address_part3 AS postal_address_part3,
-            pol.postal_code AS postal_postal_code,
-            pol.postal_place AS postal_postal_place,
+            pol.postcode AS postal_postcode,
+            pol.postplace AS postal_postplace,
             pol.region_id AS postal_region_id,
             por.path AS postal_region_path,
             pol.country_id AS postal_country_id,
             poc.iso_2 AS postal_country_iso_2,
             pes.invalid_codes,
+            false AS has_legal_unit,
             en.id AS enterprise_id,
             pes.id AS primary_establishment_id
            FROM timesegments t
@@ -240,8 +243,8 @@ View definition:
             basis.physical_address_part1,
             basis.physical_address_part2,
             basis.physical_address_part3,
-            basis.physical_postal_code,
-            basis.physical_postal_place,
+            basis.physical_postcode,
+            basis.physical_postplace,
             basis.physical_region_id,
             basis.physical_region_path,
             basis.physical_country_id,
@@ -249,13 +252,14 @@ View definition:
             basis.postal_address_part1,
             basis.postal_address_part2,
             basis.postal_address_part3,
-            basis.postal_postal_code,
-            basis.postal_postal_place,
+            basis.postal_postcode,
+            basis.postal_postplace,
             basis.postal_region_id,
             basis.postal_region_path,
             basis.postal_country_id,
             basis.postal_country_iso_2,
             basis.invalid_codes,
+            basis.has_legal_unit,
             COALESCE(lua.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
             COALESCE(lua.legal_unit_ids, ARRAY[]::integer[]) AS legal_unit_ids,
             basis.enterprise_id,
@@ -297,8 +301,8 @@ View definition:
             basis.physical_address_part1,
             basis.physical_address_part2,
             basis.physical_address_part3,
-            basis.physical_postal_code,
-            basis.physical_postal_place,
+            basis.physical_postcode,
+            basis.physical_postplace,
             basis.physical_region_id,
             basis.physical_region_path,
             basis.physical_country_id,
@@ -306,13 +310,14 @@ View definition:
             basis.postal_address_part1,
             basis.postal_address_part2,
             basis.postal_address_part3,
-            basis.postal_postal_code,
-            basis.postal_postal_place,
+            basis.postal_postcode,
+            basis.postal_postplace,
             basis.postal_region_id,
             basis.postal_region_path,
             basis.postal_country_id,
             basis.postal_country_iso_2,
             basis.invalid_codes,
+            basis.has_legal_unit,
             COALESCE(esa.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
             ARRAY[]::integer[] AS legal_unit_ids,
             basis.enterprise_id,
@@ -348,8 +353,8 @@ View definition:
             basis_with_legal_unit_aggregation.physical_address_part1,
             basis_with_legal_unit_aggregation.physical_address_part2,
             basis_with_legal_unit_aggregation.physical_address_part3,
-            basis_with_legal_unit_aggregation.physical_postal_code,
-            basis_with_legal_unit_aggregation.physical_postal_place,
+            basis_with_legal_unit_aggregation.physical_postcode,
+            basis_with_legal_unit_aggregation.physical_postplace,
             basis_with_legal_unit_aggregation.physical_region_id,
             basis_with_legal_unit_aggregation.physical_region_path,
             basis_with_legal_unit_aggregation.physical_country_id,
@@ -357,13 +362,14 @@ View definition:
             basis_with_legal_unit_aggregation.postal_address_part1,
             basis_with_legal_unit_aggregation.postal_address_part2,
             basis_with_legal_unit_aggregation.postal_address_part3,
-            basis_with_legal_unit_aggregation.postal_postal_code,
-            basis_with_legal_unit_aggregation.postal_postal_place,
+            basis_with_legal_unit_aggregation.postal_postcode,
+            basis_with_legal_unit_aggregation.postal_postplace,
             basis_with_legal_unit_aggregation.postal_region_id,
             basis_with_legal_unit_aggregation.postal_region_path,
             basis_with_legal_unit_aggregation.postal_country_id,
             basis_with_legal_unit_aggregation.postal_country_iso_2,
             basis_with_legal_unit_aggregation.invalid_codes,
+            basis_with_legal_unit_aggregation.has_legal_unit,
             basis_with_legal_unit_aggregation.establishment_ids,
             basis_with_legal_unit_aggregation.legal_unit_ids,
             basis_with_legal_unit_aggregation.enterprise_id,
@@ -398,8 +404,8 @@ View definition:
             basis_with_establishment_aggregation.physical_address_part1,
             basis_with_establishment_aggregation.physical_address_part2,
             basis_with_establishment_aggregation.physical_address_part3,
-            basis_with_establishment_aggregation.physical_postal_code,
-            basis_with_establishment_aggregation.physical_postal_place,
+            basis_with_establishment_aggregation.physical_postcode,
+            basis_with_establishment_aggregation.physical_postplace,
             basis_with_establishment_aggregation.physical_region_id,
             basis_with_establishment_aggregation.physical_region_path,
             basis_with_establishment_aggregation.physical_country_id,
@@ -407,13 +413,14 @@ View definition:
             basis_with_establishment_aggregation.postal_address_part1,
             basis_with_establishment_aggregation.postal_address_part2,
             basis_with_establishment_aggregation.postal_address_part3,
-            basis_with_establishment_aggregation.postal_postal_code,
-            basis_with_establishment_aggregation.postal_postal_place,
+            basis_with_establishment_aggregation.postal_postcode,
+            basis_with_establishment_aggregation.postal_postplace,
             basis_with_establishment_aggregation.postal_region_id,
             basis_with_establishment_aggregation.postal_region_path,
             basis_with_establishment_aggregation.postal_country_id,
             basis_with_establishment_aggregation.postal_country_iso_2,
             basis_with_establishment_aggregation.invalid_codes,
+            basis_with_establishment_aggregation.has_legal_unit,
             basis_with_establishment_aggregation.establishment_ids,
             basis_with_establishment_aggregation.legal_unit_ids,
             basis_with_establishment_aggregation.enterprise_id,
@@ -448,8 +455,8 @@ View definition:
     basis_with_both.physical_address_part1,
     basis_with_both.physical_address_part2,
     basis_with_both.physical_address_part3,
-    basis_with_both.physical_postal_code,
-    basis_with_both.physical_postal_place,
+    basis_with_both.physical_postcode,
+    basis_with_both.physical_postplace,
     basis_with_both.physical_region_id,
     basis_with_both.physical_region_path,
     basis_with_both.physical_country_id,
@@ -457,13 +464,14 @@ View definition:
     basis_with_both.postal_address_part1,
     basis_with_both.postal_address_part2,
     basis_with_both.postal_address_part3,
-    basis_with_both.postal_postal_code,
-    basis_with_both.postal_postal_place,
+    basis_with_both.postal_postcode,
+    basis_with_both.postal_postplace,
     basis_with_both.postal_region_id,
     basis_with_both.postal_region_path,
     basis_with_both.postal_country_id,
     basis_with_both.postal_country_iso_2,
     basis_with_both.invalid_codes,
+    basis_with_both.has_legal_unit,
     basis_with_both.establishment_ids,
     basis_with_both.legal_unit_ids,
     basis_with_both.enterprise_id,
