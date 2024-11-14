@@ -38,6 +38,7 @@ class StatBus
     Down
     New
     Renumber
+    Redo
   end
   # Mappings for a configuration, where every field is present.
   # Nil records the intention of not using an sql field
@@ -643,6 +644,9 @@ class StatBus
         parser.on("down", "Roll back the last applied migration") do
           @migrate_mode = MigrateMode::Down
         end
+        parser.on("redo", "Roll back last migration and reapply it") do
+          @migrate_mode = MigrateMode::Redo
+        end
         parser.on("renumber", "Renumber migration files to fix ordering") do
           @migrate_mode = MigrateMode::Renumber
         end
@@ -829,6 +833,9 @@ class StatBus
         migrate_down
       when MigrateMode::New
         create_new_migration
+      when MigrateMode::Redo
+        migrate_down
+        migrate_up
       when MigrateMode::Renumber
         renumber_migrations
       else
