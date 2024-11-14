@@ -98,17 +98,9 @@ CREATE VIEW public.statistical_unit_def
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
-           , ARRAY[establishment_id]::INT[] AS establishment_ids
-           -- An establishment may have either a legal_unit or
-           -- an enterprise, so handle that any of them are null gracefully.
-           , CASE WHEN legal_unit_id IS NULL
-                  THEN ARRAY[]::INT[]
-                  ELSE ARRAY[legal_unit_id]::INT[]
-              END AS legal_unit_ids
-           , CASE WHEN enterprise_id IS NULL
-                  THEN ARRAY[]::INT[]
-                  ELSE ARRAY[enterprise_id]::INT[]
-              END AS enterprise_ids
+           , ARRAY[]::INT[] AS establishment_ids
+           , ARRAY[]::INT[] AS legal_unit_ids
+           , ARRAY[]::INT[] AS enterprise_ids
            , stats
            , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
       FROM public.timeline_establishment
@@ -157,8 +149,8 @@ CREATE VIEW public.statistical_unit_def
            , postal_country_iso_2
            , invalid_codes
            , establishment_ids
-           , ARRAY[legal_unit_id]::INT[] AS legal_unit_ids
-           , ARRAY[enterprise_id]::INT[] AS enterprise_ids
+           , ARRAY[]::INT[] AS legal_unit_ids
+           , ARRAY[]::INT[] AS enterprise_ids
            , stats
            , stats_summary
       FROM public.timeline_legal_unit
@@ -212,7 +204,7 @@ CREATE VIEW public.statistical_unit_def
            , invalid_codes
            , establishment_ids
            , legal_unit_ids
-           , ARRAY[enterprise_id]::INT[] AS enterprise_ids
+           , ARRAY[]::INT[] AS enterprise_ids
            , NULL::JSONB AS stats
            , stats_summary
       FROM public.timeline_enterprise
