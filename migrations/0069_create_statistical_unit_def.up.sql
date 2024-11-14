@@ -98,9 +98,9 @@ CREATE VIEW public.statistical_unit_def
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
-           , ARRAY[]::INT[] AS establishment_ids
-           , ARRAY[]::INT[] AS legal_unit_ids
-           , ARRAY[]::INT[] AS enterprise_ids
+           , NULL::INT[] AS establishment_ids
+           , NULL::INT[] AS legal_unit_ids
+           , NULL::INT[] AS enterprise_ids
            , stats
            , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
       FROM public.timeline_establishment
@@ -148,9 +148,9 @@ CREATE VIEW public.statistical_unit_def
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
-           , establishment_ids
-           , ARRAY[]::INT[] AS legal_unit_ids
-           , ARRAY[]::INT[] AS enterprise_ids
+           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
+           , NULL::INT[] AS legal_unit_ids
+           , NULL::INT[] AS enterprise_ids
            , stats
            , stats_summary
       FROM public.timeline_legal_unit
@@ -202,9 +202,9 @@ CREATE VIEW public.statistical_unit_def
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
-           , establishment_ids
-           , legal_unit_ids
-           , ARRAY[]::INT[] AS enterprise_ids
+           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
+           , COALESCE(legal_unit_ids,ARRAY[]::INT[]) AS legal_unit_ids
+           , NULL::INT[] AS enterprise_ids
            , NULL::JSONB AS stats
            , stats_summary
       FROM public.timeline_enterprise
@@ -259,9 +259,9 @@ CREATE VIEW public.statistical_unit_def
          , data.enterprise_ids
          , data.stats
          , data.stats_summary
-         , COALESCE(array_length(data.establishment_ids,1),0) AS establishment_count
-         , COALESCE(array_length(data.legal_unit_ids,1),0) AS legal_unit_count
-         , COALESCE(array_length(data.enterprise_ids,1),0) AS enterprise_count
+         , array_length(data.establishment_ids,1) AS establishment_count
+         , array_length(data.legal_unit_ids,1) AS legal_unit_count
+         , array_length(data.enterprise_ids,1) AS enterprise_count
          , public.get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
     FROM data;
 ;
