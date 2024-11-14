@@ -716,16 +716,30 @@ class StatBus
           file_hash = Digest::SHA256.digest(File.read(migration_filename)).hexstring
           version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1]) || "0"
 
-          # Check if this migration hash is already applied
-          already_applied = db.query_one?(
-            "SELECT EXISTS (SELECT 1 FROM admin.migrations WHERE sha256_hash = $1)",
+          # Check if this migration version or hash is already applied
+          existing = db.query_one?(
+            "SELECT version, sha256_hash FROM admin.migrations WHERE version = $1 OR sha256_hash = $2",
+            version,
             file_hash,
-            as: Bool
+            as: {version: String?, sha256_hash: String?}
           )
 
-          if already_applied
-            STDOUT.puts "[already_applied]"
-            next
+          if existing
+            if existing[:version] == version && existing[:sha256_hash] != file_hash
+              STDERR.puts "\nError: Migration version #{version} exists but has different content!"
+              STDERR.puts "This could indicate tampering with previously applied migrations."
+              STDERR.puts "Existing hash: #{existing[:sha256_hash]}"
+              STDERR.puts "Current hash:  #{file_hash}"
+              exit(1)
+            elsif existing[:version] != version && existing[:sha256_hash] == file_hash
+              STDERR.puts "\nError: Migration with hash #{file_hash} was previously applied as version #{existing[:version]}"
+              STDERR.puts "But is now being applied as version #{version}"
+              STDERR.puts "This could indicate duplicate migrations or version number changes."
+              exit(1)
+            else
+              STDOUT.puts "[already applied]"
+              next
+            end
           end
 
           STDOUT.print "[applying] "
