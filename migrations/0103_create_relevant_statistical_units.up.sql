@@ -1,16 +1,16 @@
 \echo public.relevant_statistical_units
 CREATE FUNCTION public.relevant_statistical_units(
-    unit_type public.statistical_unit_type,
-    unit_id INTEGER,
-    valid_on DATE DEFAULT current_date
+    unit_type public.statistical_unit_type, -- $1
+    unit_id INTEGER,                        -- $2
+    valid_on DATE DEFAULT current_date      -- $3
 ) RETURNS SETOF public.statistical_unit LANGUAGE sql STABLE AS $$
     WITH valid_units AS (
         SELECT * FROM public.statistical_unit
-        WHERE valid_after < valid_on AND valid_on <= valid_to
+        WHERE valid_after < $3 AND $3 <= valid_to
     ), root_unit AS (
         SELECT * FROM valid_units
         WHERE unit_type = 'enterprise'
-          AND unit_id = public.statistical_unit_enterprise_id(unit_type, unit_id, valid_on)
+          AND unit_id = public.statistical_unit_enterprise_id($1, $2, $3)
     ), related_units AS (
         SELECT * FROM valid_units
         WHERE unit_type = 'legal_unit'
