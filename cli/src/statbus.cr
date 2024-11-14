@@ -640,6 +640,9 @@ class StatBus
             @migration_description = desc
           end
         end
+        parser.on("down", "Roll back the last applied migration") do
+          @migrate_mode = MigrateMode::Down
+        end
         parser.on("renumber", "Renumber migration files to fix ordering") do
           @migrate_mode = MigrateMode::Renumber
         end
@@ -822,6 +825,8 @@ class StatBus
       case @migrate_mode
       when MigrateMode::Up
         migrate_up
+      when MigrateMode::Down
+        migrate_down
       when MigrateMode::New
         create_new_migration
       when MigrateMode::Renumber
@@ -872,6 +877,60 @@ class StatBus
 
       puts "Created new migration file: #{new_filename}"
       exit(1)
+    end
+  end
+
+  private def migrate_down
+    Dir.cd(@project_directory) do
+      config = StatBusConfig.new(@project_directory, @verbose)
+
+      DB.connect(config.connection_string) do |db|
+        # Get the last applied migration
+        last_migration = db.query_one?(
+          "SELECT version, filename FROM admin.migrations ORDER BY version::int DESC LIMIT 1",
+          as: {version: String, filename: String}
+        )
+
+        if last_migration.nil?
+          puts "No migrations to roll back"
+          return
+        end
+
+        # Check for corresponding down migration file
+        down_filename = last_migration[:filename].sub(".up.sql", ".down.sql")
+        down_filepath = Path["migrations/#{down_filename}"]
+
+        if !File.exists?(down_filepath)
+          STDERR.puts "Error: Down migration file not found: #{down_filename}"
+          exit(1)
+        end
+
+        STDOUT.print "Rolling back migration #{last_migration[:filename]} "
+        STDOUT.flush
+
+        # Execute the down migration
+        Dir.cd(@project_directory) do
+          result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_filepath}")
+          if result
+            # Remove the migration record
+            db.exec(
+              "DELETE FROM admin.migrations WHERE version = $1",
+              last_migration[:version]
+            )
+
+            STDOUT.puts "done"
+
+            # Notify PostgREST to reload
+            db.transaction do |tx|
+              puts "Notifying PostgREST to reload with changes." if @verbose
+              tx.connection.exec("NOTIFY pgrst, 'reload config'")
+              tx.connection.exec("NOTIFY pgrst, 'reload schema'")
+            end
+          else
+            raise "Failed to roll back migration #{down_filename}"
+          end
+        end
+      end
     end
   end
 
