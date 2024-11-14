@@ -42,6 +42,7 @@ CREATE VIEW public.timeline_enterprise
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
+    , has_legal_unit
     , establishment_ids
     , legal_unit_ids
     , enterprise_id
@@ -103,6 +104,8 @@ CREATE VIEW public.timeline_enterprise
            , poc.iso_2     AS postal_country_iso_2
            --
            , plu.invalid_codes AS invalid_codes
+           --
+           , TRUE AS has_legal_unit
            --
            , en.id AS enterprise_id
            , plu.id AS primary_legal_unit_id
@@ -228,6 +231,8 @@ CREATE VIEW public.timeline_enterprise
            , poc.iso_2     AS postal_country_iso_2
            --
            , pes.invalid_codes AS invalid_codes
+           --
+           , FALSE AS has_legal_unit
            --
            , en.id AS enterprise_id
            , pes.id AS primary_establishment_id
@@ -381,6 +386,7 @@ CREATE VIEW public.timeline_enterprise
                , basis.postal_country_id
                , basis.postal_country_iso_2
                , basis.invalid_codes
+               , basis.has_legal_unit
                , COALESCE(lua.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
                , COALESCE(lua.legal_unit_ids, ARRAY[]::INT[]) AS legal_unit_ids
                , basis.enterprise_id
@@ -449,6 +455,7 @@ CREATE VIEW public.timeline_enterprise
                , basis.postal_country_id
                , basis.postal_country_iso_2
                , basis.invalid_codes
+               , basis.has_legal_unit
                , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
                , ARRAY[]::INT[] AS legal_unit_ids
                , basis.enterprise_id

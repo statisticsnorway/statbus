@@ -42,6 +42,7 @@ CREATE VIEW public.timeline_legal_unit
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
+    , has_legal_unit
     , establishment_ids
     , legal_unit_id
     , enterprise_id
@@ -102,6 +103,8 @@ CREATE VIEW public.timeline_legal_unit
            , poc.iso_2     AS postal_country_iso_2
            --
            , lu.invalid_codes AS invalid_codes
+           --
+           , TRUE AS has_legal_unit
            --
            , lu.id AS legal_unit_id
            , lu.enterprise_id AS enterprise_id
@@ -172,7 +175,7 @@ CREATE VIEW public.timeline_legal_unit
             OR COALESCE(ds.id = pol.data_source_id      , FALSE)
             OR COALESCE(ds.id = ANY(sfu.data_source_ids), FALSE)
         ) AS ds ON TRUE
-      ), aggregation AS (
+      ), establishment_aggregation AS (
         SELECT tes.legal_unit_id
              , basis.valid_after
              , basis.valid_to
@@ -210,7 +213,7 @@ CREATE VIEW public.timeline_legal_unit
                FROM (
                    SELECT unnest(basis.data_source_ids) AS id
                    UNION ALL
-                   SELECT unnest(aggregation.data_source_ids) AS id
+                   SELECT unnest(esa.data_source_ids) AS id
                ) AS ids
            ) AS data_source_ids
            , (
@@ -218,7 +221,7 @@ CREATE VIEW public.timeline_legal_unit
                FROM (
                    SELECT unnest(basis.data_source_codes) AS code
                    UNION ALL
-                   SELECT unnest(aggregation.data_source_codes) AS code
+                   SELECT unnest(esa.data_source_codes) AS code
                ) AS codes
            ) AS data_source_codes
            , basis.legal_form_id
@@ -243,7 +246,8 @@ CREATE VIEW public.timeline_legal_unit
            , basis.postal_country_id
            , basis.postal_country_iso_2
            , basis.invalid_codes
-           , COALESCE(aggregation.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
+           , basis.has_legal_unit
+           , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
            , basis.legal_unit_id
            , basis.enterprise_id
            -- Expose the stats for just this entry.
@@ -251,12 +255,12 @@ CREATE VIEW public.timeline_legal_unit
            -- Continue one more aggregation iteration adding the stats for this unit
            -- to the aggregated stats for establishments, by using the internal
            -- aggregation function for one more step.
-           , public.jsonb_stats_to_summary(COALESCE(aggregation.stats_summary,'{}'::JSONB), basis.stats) AS stats_summary
+           , public.jsonb_stats_to_summary(COALESCE(esa.stats_summary,'{}'::JSONB), basis.stats) AS stats_summary
       FROM basis
-      LEFT OUTER JOIN aggregation
-       ON basis.legal_unit_id = aggregation.legal_unit_id
-      AND basis.valid_after = aggregation.valid_after
-      AND basis.valid_to = aggregation.valid_to
+      LEFT OUTER JOIN establishment_aggregation AS esa
+       ON basis.legal_unit_id = esa.legal_unit_id
+       AND basis.valid_after = esa.valid_after
+       AND basis.valid_to = esa.valid_to
       --
       ORDER BY unit_type, unit_id, valid_after
 ;

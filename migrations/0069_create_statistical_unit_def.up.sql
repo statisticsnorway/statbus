@@ -43,6 +43,7 @@ CREATE VIEW public.statistical_unit_def
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
+    , has_legal_unit
     , establishment_ids
     , legal_unit_ids
     , enterprise_ids
@@ -98,6 +99,7 @@ CREATE VIEW public.statistical_unit_def
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
+           , has_legal_unit
            , NULL::INT[] AS establishment_ids
            , NULL::INT[] AS legal_unit_ids
            , NULL::INT[] AS enterprise_ids
@@ -148,6 +150,7 @@ CREATE VIEW public.statistical_unit_def
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
+           , has_legal_unit
            , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
            , NULL::INT[] AS legal_unit_ids
            , NULL::INT[] AS enterprise_ids
@@ -202,6 +205,7 @@ CREATE VIEW public.statistical_unit_def
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
+           , has_legal_unit
            , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
            , COALESCE(legal_unit_ids,ARRAY[]::INT[]) AS legal_unit_ids
            , NULL::INT[] AS enterprise_ids
@@ -254,6 +258,7 @@ CREATE VIEW public.statistical_unit_def
          , data.postal_country_id
          , data.postal_country_iso_2
          , data.invalid_codes
+         , data.has_legal_unit
          , data.establishment_ids
          , data.legal_unit_ids
          , data.enterprise_ids

@@ -42,6 +42,7 @@ CREATE VIEW public.timeline_establishment
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
+    , has_legal_unit
     , establishment_id
     , legal_unit_id
     , enterprise_id
@@ -100,6 +101,8 @@ CREATE VIEW public.timeline_establishment
            , poc.iso_2     AS postal_country_iso_2
            --
            , es.invalid_codes AS invalid_codes
+           --
+           , (es.legal_unit_id IS NOT NULL) AS has_legal_unit
            --
            , es.id AS establishment_id
            , es.legal_unit_id AS legal_unit_id
