@@ -736,7 +736,7 @@ class StatBus
           if existing
             if existing[:version] == version && existing[:sha256_hash] != file_hash
               STDERR.puts "\nError: Migration version #{version} exists but has different content!"
-              STDERR.puts "This could indicate tampering with previously applied migrations."
+              STDERR.puts "This could indicate retroactive change to previously applied migrations."
               STDERR.puts "Existing hash: #{existing[:sha256_hash]}"
               STDERR.puts "Current hash:  #{file_hash}"
               exit(1)
