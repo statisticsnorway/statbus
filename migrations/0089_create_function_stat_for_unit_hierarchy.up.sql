@@ -7,14 +7,7 @@ CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
     WITH ordered_data AS (
     SELECT
         to_jsonb(sfu.*)
-        - 'value_int' - 'value_float' - 'value_string' - 'value_bool'
         || jsonb_build_object('stat_definition', to_jsonb(sd.*))
-        || CASE sd.type
-            WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)
-            WHEN 'float' THEN jsonb_build_object(sd.code, sfu.value_float)
-            WHEN 'string' THEN jsonb_build_object(sd.code, sfu.value_string)
-            WHEN 'bool' THEN jsonb_build_object(sd.code, sfu.value_bool)
-           END
         || (SELECT public.data_source_hierarchy(sfu.data_source_id))
         AS data
     FROM public.stat_for_unit AS sfu

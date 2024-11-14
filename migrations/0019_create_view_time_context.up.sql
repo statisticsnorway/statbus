@@ -11,9 +11,9 @@ CREATE VIEW public.time_context
   , name_when_query
   , name_when_input
   , scope
-  , valid_on
   , valid_from
   , valid_to
+  , valid_on
   , code         -- Exposing the code for ordering
   , path         -- Exposing the path for ordering
   ) AS
@@ -23,9 +23,9 @@ WITH combined_data AS (
   ,      name_when_query                       AS name_when_query
   ,      name_when_input                       AS name_when_input
   ,      scope                                 AS scope
-  ,      valid_on                              AS valid_on
   ,      valid_from                            AS valid_from
   ,      valid_to                              AS valid_to
+  ,      valid_on                              AS valid_on
   ,      code                                  AS code  -- Specific order column for relative_period
   ,      NULL::public.LTREE                    AS path  -- Null for path as not applicable here
   FROM public.relative_period_with_time
