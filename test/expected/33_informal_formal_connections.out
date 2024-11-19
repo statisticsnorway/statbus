@@ -97,6 +97,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2024-01-01'::DATE
             )
           )
@@ -175,8 +176,10 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
+                         "postcode": null,                                                                                        +
                          "valid_to": "infinity",                                                                                  +
                          "longitude": null,                                                                                       +
+                         "postplace": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
@@ -184,9 +187,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "postal_code": null,                                                                                     +
                          "valid_after": "2023-12-31",                                                                             +
-                         "postal_place": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -274,8 +275,10 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
+                                 "postcode": null,                                                                                +
                                  "valid_to": "infinity",                                                                          +
                                  "longitude": null,                                                                               +
+                                 "postplace": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
@@ -283,9 +286,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "postal_code": null,                                                                             +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "postal_place": null,                                                                            +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -366,6 +367,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "parent_org_link": null,                                                                                 +
                          "reorg_references": null,                                                                                +
+                         "primary_for_enterprise": null,                                                                          +
                          "primary_for_legal_unit": true                                                                           +
                      }                                                                                                            +
                  ],                                                                                                               +
@@ -449,6 +451,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2024-01-01'::DATE
             )
           )
@@ -520,8 +523,10 @@ SELECT jsonb_pretty(
                          },                                                                                               +
                          "altitude": null,                                                                                +
                          "latitude": null,                                                                                +
+                         "postcode": null,                                                                                +
                          "valid_to": "infinity",                                                                          +
                          "longitude": null,                                                                               +
+                         "postplace": null,                                                                               +
                          "valid_from": "2024-01-01",                                                                      +
                          "data_source": {                                                                                 +
                              "code": "nlr",                                                                               +
@@ -529,9 +534,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                              +
                              "custom": false                                                                              +
                          },                                                                                               +
-                         "postal_code": null,                                                                             +
                          "valid_after": "2023-12-31",                                                                     +
-                         "postal_place": null,                                                                            +
                          "address_part1": null,                                                                           +
                          "address_part2": null,                                                                           +
                          "address_part3": null                                                                            +
@@ -612,6 +615,7 @@ SELECT jsonb_pretty(
                  },                                                                                                       +
                  "parent_org_link": null,                                                                                 +
                  "reorg_references": null,                                                                                +
+                 "primary_for_enterprise": true,                                                                          +
                  "primary_for_legal_unit": null                                                                           +
              }                                                                                                            +
          ]                                                                                                                +
@@ -706,6 +710,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2024-01-01'::DATE
             )
           )
@@ -729,6 +734,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'legal_unit',
                 (SELECT unit_id FROM selected_legal_unit),
+                'all',
                 '2024-01-01'::DATE
             )
           )
@@ -807,8 +813,10 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
+                         "postcode": null,                                                                                        +
                          "valid_to": "infinity",                                                                                  +
                          "longitude": null,                                                                                       +
+                         "postplace": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
@@ -816,9 +824,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "postal_code": null,                                                                                     +
                          "valid_after": "2023-12-31",                                                                             +
-                         "postal_place": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -906,8 +912,10 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
+                                 "postcode": null,                                                                                +
                                  "valid_to": "infinity",                                                                          +
                                  "longitude": null,                                                                               +
+                                 "postplace": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
@@ -915,9 +923,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "postal_code": null,                                                                             +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "postal_place": null,                                                                            +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -998,6 +1004,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "parent_org_link": null,                                                                                 +
                          "reorg_references": null,                                                                                +
+                         "primary_for_enterprise": null,                                                                          +
                          "primary_for_legal_unit": true                                                                           +
                      }                                                                                                            +
                  ],                                                                                                               +
@@ -1123,8 +1130,10 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
+                         "postcode": null,                                                                                        +
                          "valid_to": "infinity",                                                                                  +
                          "longitude": null,                                                                                       +
+                         "postplace": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
@@ -1132,9 +1141,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "postal_code": null,                                                                                     +
                          "valid_after": "2023-12-31",                                                                             +
-                         "postal_place": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1215,6 +1222,7 @@ SELECT jsonb_pretty(
                  },                                                                                                               +
                  "parent_org_link": null,                                                                                         +
                  "reorg_references": null,                                                                                        +
+                 "primary_for_enterprise": true,                                                                                  +
                  "primary_for_legal_unit": null                                                                                   +
              }                                                                                                                    +
          ]                                                                                                                        +
@@ -1235,6 +1243,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'establishment',
                 (SELECT unit_id FROM selected_establishment),
+                'all',
                 '2024-01-01'::DATE
             )
           )
@@ -1313,8 +1322,10 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
+                         "postcode": null,                                                                                        +
                          "valid_to": "infinity",                                                                                  +
                          "longitude": null,                                                                                       +
+                         "postplace": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
@@ -1322,9 +1333,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "postal_code": null,                                                                                     +
                          "valid_after": "2023-12-31",                                                                             +
-                         "postal_place": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1412,8 +1421,10 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
+                                 "postcode": null,                                                                                +
                                  "valid_to": "infinity",                                                                          +
                                  "longitude": null,                                                                               +
+                                 "postplace": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "data_source": {                                                                                 +
                                      "code": "nlr",                                                                               +
@@ -1421,9 +1432,7 @@ SELECT jsonb_pretty(
                                      "active": true,                                                                              +
                                      "custom": false                                                                              +
                                  },                                                                                               +
-                                 "postal_code": null,                                                                             +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "postal_place": null,                                                                            +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -1504,6 +1513,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "parent_org_link": null,                                                                                 +
                          "reorg_references": null,                                                                                +
+                         "primary_for_enterprise": null,                                                                          +
                          "primary_for_legal_unit": true                                                                           +
                      }                                                                                                            +
                  ],                                                                                                               +
@@ -1629,8 +1639,10 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
+                         "postcode": null,                                                                                        +
                          "valid_to": "infinity",                                                                                  +
                          "longitude": null,                                                                                       +
+                         "postplace": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
                              "code": "nlr",                                                                                       +
@@ -1638,9 +1650,7 @@ SELECT jsonb_pretty(
                              "active": true,                                                                                      +
                              "custom": false                                                                                      +
                          },                                                                                                       +
-                         "postal_code": null,                                                                                     +
                          "valid_after": "2023-12-31",                                                                             +
-                         "postal_place": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1721,6 +1731,7 @@ SELECT jsonb_pretty(
                  },                                                                                                               +
                  "parent_org_link": null,                                                                                         +
                  "reorg_references": null,                                                                                        +
+                 "primary_for_enterprise": true,                                                                                  +
                  "primary_for_legal_unit": null                                                                                   +
              }                                                                                                                    +
          ]                                                                                                                        +
@@ -1741,6 +1752,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2024-01-01'::DATE
             )
           )

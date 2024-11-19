@@ -63,6 +63,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2024-01-01'::DATE
             )
           )
@@ -81,6 +82,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2024-01-01'::DATE
             )
           )
@@ -134,6 +136,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2024-01-01'::DATE
             )
           )
@@ -151,6 +154,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'legal_unit',
                 (SELECT unit_id FROM selected_legal_unit),
+                'all',
                 '2024-01-01'::DATE
             )
           )
@@ -168,6 +172,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'establishment',
                 (SELECT unit_id FROM selected_establishment),
+                'all',
                 '2024-01-01'::DATE
             )
           )
@@ -185,6 +190,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2024-01-01'::DATE
             )
           )
