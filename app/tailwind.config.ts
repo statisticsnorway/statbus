@@ -42,7 +42,7 @@ const config: Config = {
   			'accordion-up': 'accordion-up 0.2s ease-out'
   		},
   		colors: {
-  			enterprise: colors.pink,
+        enterprise: colors.fuchsia,
         legal_unit: colors.indigo,
         establishment: colors.lime,
   			ssb: {
