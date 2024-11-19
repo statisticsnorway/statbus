@@ -368,6 +368,7 @@ erDiagram
 		"integer" enterprise_id
 		"integer" legal_unit_id
 		"boolean" primary_for_legal_unit
+		"boolean" primary_for_enterprise
 		"jsonb" invalid_codes
 	}
 	external_ident["external_ident"] {

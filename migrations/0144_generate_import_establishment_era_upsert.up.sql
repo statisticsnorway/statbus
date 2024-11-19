@@ -12,6 +12,7 @@ DECLARE
     legal_unit RECORD;
     is_primary_for_legal_unit BOOLEAN;
     enterprise RECORD;
+    is_primary_for_enterprise BOOLEAN;
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
     sector RECORD;
@@ -125,8 +126,8 @@ BEGIN
     FROM admin.process_linked_legal_unit_external_idents(new_jsonb) AS r;
 
     IF NOT legal_unit_ident_specified THEN
-        SELECT r.enterprise_id, r.legal_unit_id
-        INTO     enterprise.id, legal_unit.id
+        SELECT r.enterprise_id, r.legal_unit_id, r.is_primary_for_enterprise
+        INTO     enterprise.id, legal_unit.id  , is_primary_for_enterprise
         FROM admin.process_enterprise_connection(
             prior_establishment_id, 'establishment',
             new_typed.valid_from, new_typed.valid_to,
@@ -165,7 +166,6 @@ BEGIN
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
          , enterprise.id AS enterprise_id
          , legal_unit.id AS legal_unit_id
-         , is_primary_for_legal_unit AS primary_for_legal_unit
       INTO upsert_data;
 
     IF NOT statbus_constraints_already_deferred THEN
@@ -186,6 +186,7 @@ BEGIN
         , enterprise_id
         , legal_unit_id
         , primary_for_legal_unit
+        , primary_for_enterprise
         , data_source_id
         , edit_by_user_id
         )
@@ -202,7 +203,8 @@ BEGIN
         , upsert_data.invalid_codes
         , upsert_data.enterprise_id
         , upsert_data.legal_unit_id
-        , upsert_data.primary_for_legal_unit
+        , is_primary_for_legal_unit
+        , is_primary_for_enterprise
         , data_source.id
         , edited_by_user.id
         )

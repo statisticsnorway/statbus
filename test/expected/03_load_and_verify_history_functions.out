@@ -12486,6 +12486,7 @@ statistical_unit_hierarchy
                         },
                         "parent_org_link": null,
                         "reorg_references": null,
+                        "primary_for_enterprise": null,
                         "primary_for_legal_unit": true
                     }
                 ],
@@ -12778,6 +12779,7 @@ statistical_unit_hierarchy
                         },
                         "parent_org_link": null,
                         "reorg_references": null,
+                        "primary_for_enterprise": null,
                         "primary_for_legal_unit": true
                     }
                 ],
@@ -13069,6 +13071,7 @@ statistical_unit_hierarchy
                         },
                         "parent_org_link": null,
                         "reorg_references": null,
+                        "primary_for_enterprise": null,
                         "primary_for_legal_unit": true
                     }
                 ],

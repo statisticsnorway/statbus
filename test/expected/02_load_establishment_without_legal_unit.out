@@ -56,12 +56,13 @@ SELECT count(*) FROM public.sector_available;
 (1 row)
 
 SELECT code, name, active, custom FROM public.data_source_available;
- code |               name               | active | custom 
-------+----------------------------------+--------+--------
- me   | Manually entered                 | t      | f
- nlr  | National Legal Business Registry | t      | f
- ntr  | National Tax Registry            | t      | f
-(3 rows)
+  code  |               name               | active | custom 
+--------+----------------------------------+--------+--------
+ census | Census                           | t      | f
+ mi     | Manual Input                     | t      | f
+ nlr    | National Legal Business Registry | t      | f
+ ntr    | National Tax Registry            | t      | f
+(4 rows)
 
 \echo "User uploads the sample data sources"
 "User uploads the sample data sources"

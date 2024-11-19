@@ -50,9 +50,22 @@ BEGIN
             USING prior_unit_id, new_center;
 
             IF enterprise_id IS NOT NULL THEN
-                is_primary_for_enterprise := true;
+              -- We allow multiple establishments per enterprise,
+              -- i.e. grouping in the informal economy.
+              EXECUTE $$
+                  SELECT NOT EXISTS(
+                      SELECT 1
+                      FROM public.establishment
+                      WHERE enterprise_id = $1
+                      AND primary_for_enterprise
+                      AND id <> $2
+                      AND daterange(valid_from, valid_to, '[]')
+                      && daterange($3, $4, '[]')
+                  )
+              $$
+              INTO is_primary_for_enterprise
+              USING enterprise_id, prior_unit_id, new_valid_from, new_valid_to;
             END IF;
-
         ELSIF unit_type = 'legal_unit' THEN
             EXECUTE format($$
                 SELECT enterprise_id
@@ -64,6 +77,7 @@ BEGIN
             INTO enterprise_id
             USING prior_unit_id, new_center;
 
+            -- A legal_unit will always have an enterprise, so always check for primary.
             EXECUTE $$
                 SELECT NOT EXISTS(
                     SELECT 1
@@ -72,14 +86,13 @@ BEGIN
                     AND primary_for_enterprise
                     AND id <> $2
                     AND daterange(valid_from, valid_to, '[]')
-                     && daterange($3, $4, '[]')
+                    && daterange($3, $4, '[]')
                 )
             $$
             INTO is_primary_for_enterprise
             USING enterprise_id, prior_unit_id, new_valid_from, new_valid_to;
         END IF;
-
-    ELSE
+    ELSE -- prior_unit_id IS NULL
         -- Create a new enterprise and connect to it.
         INSERT INTO public.enterprise
             (active, edit_by_user_id, edit_comment)

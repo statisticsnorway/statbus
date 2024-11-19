@@ -44,7 +44,7 @@ ERROR:  The external identifier stat_ident for establishment already taken by a 
 CONTEXT:  PL/pgSQL function admin.process_external_idents(jsonb,text) line 75 at RAISE
 SQL statement "SELECT external_idents        , prior_id
                                                                FROM admin.process_external_idents(new_jsonb,'establishment') AS r"
-PL/pgSQL function admin.import_establishment_era_upsert() line 117 at SQL statement
+PL/pgSQL function admin.import_establishment_era_upsert() line 118 at SQL statement
 SQL statement "INSERT INTO public.import_establishment_era(
         valid_from,
         valid_to,
@@ -159,7 +159,7 @@ SQL statement "SELECT admin.insert_external_idents(
       p_establishment_id => inserted_establishment.id,
       p_updated_by_user_id => edited_by_user.id
       )"
-PL/pgSQL function admin.import_establishment_era_upsert() line 228 at PERFORM
+PL/pgSQL function admin.import_establishment_era_upsert() line 230 at PERFORM
 SQL statement "INSERT INTO public.import_establishment_era (
         valid_from,
         valid_to,
