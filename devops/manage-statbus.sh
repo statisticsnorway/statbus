@@ -258,8 +258,11 @@ case "$action" in
         popd
       ;;
     'reset-db-structure' )
-        ./devops/manage-statbus.sh delete-db-structure
-        ./devops/manage-statbus.sh create-db-structure
+        pushd cli
+          shards build
+        popd
+        ./cli/bin/statbus migrate down all
+        ./cli/bin/statbus migrate up
         ./devops/manage-statbus.sh create-users
       ;;
     'create-db' )
