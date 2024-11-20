@@ -597,13 +597,13 @@ EOS
         tables=$(./devops/manage-statbus.sh psql -t -c "
           SELECT schemaname || '.' || tablename
           FROM pg_catalog.pg_tables
-          WHERE schemaname IN ('admin', 'lifecycle_callbacks', 'public')
+          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public')
           ORDER BY 1;")
 
         views=$(./devops/manage-statbus.sh psql -t -c "
           SELECT schemaname || '.' || viewname
           FROM pg_catalog.pg_views
-          WHERE schemaname IN ('admin', 'lifecycle_callbacks', 'public')
+          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public')
           ORDER BY 1;")
 
         # Document each table
@@ -670,7 +670,7 @@ EOS
             ) || ')'
           FROM pg_proc p
           JOIN pg_namespace n ON p.pronamespace = n.oid
-          WHERE n.nspname IN ('admin', 'lifecycle_callbacks', 'public')
+          WHERE n.nspname IN ('admin', 'db', 'lifecycle_callbacks', 'public')
           AND NOT (
             (n.nspname = 'public' AND p.proname LIKE '_%')
             OR (n.nspname = 'public' AND p.proname LIKE '%_dist')
