@@ -253,7 +253,9 @@ case "$action" in
         popd
       ;;
     'delete-db-structure' )
-        ./devops/manage-statbus.sh psql < dbseed/delete-db-structure.sql 2>&1
+        pushd cli
+          shards build && ./bin/statbus migrate down all
+        popd
       ;;
     'reset-db-structure' )
         ./devops/manage-statbus.sh delete-db-structure
