@@ -691,7 +691,7 @@ FROM statistical_unit ORDER BY unit_type,name;
  legal_unit    | EQUATOR GLOBE SOLUTIONS       | {"tax_ident": "2812760140", "stat_ident": "1001"}
  legal_unit    | NILE PEARL WATER              | {"tax_ident": "2212760144", "stat_ident": "1000"}
  enterprise    | EQUATOR GLOBE SOLUTIONS       | {"tax_ident": "2812760140", "stat_ident": "1001"}
- enterprise    | THE EQUATOR GLOBE SOLUTIONS   | {"tax_ident": "82812760140", "stat_ident": "3001"}
+ enterprise    | NILE PEARL WATER              | {"tax_ident": "82812760140", "stat_ident": "3001"}
  enterprise    | THE INFORMAL NILE PEARL WATER | {"tax_ident": "82212760144", "stat_ident": "3000"}
 (9 rows)
 
@@ -1757,4 +1757,495 @@ SELECT jsonb_pretty(
             )
           )
      ) AS statistical_unit_hierarchy;
+                                                    statistical_unit_hierarchy                                                     
+-----------------------------------------------------------------------------------------------------------------------------------
+ {                                                                                                                                +
+     "enterprise": {                                                                                                              +
+         "notes": null,                                                                                                           +
+         "active": true,                                                                                                          +
+         "legal_unit": [                                                                                                          +
+             {                                                                                                                    +
+                 "name": "NILE PEARL WATER",                                                                                      +
+                 "notes": null,                                                                                                   +
+                 "active": true,                                                                                                  +
+                 "sector": {                                                                                                      +
+                     "code": "6100",                                                                                              +
+                     "name": "Central government",                                                                                +
+                     "path": "DOMESTIC.C.6100",                                                                                   +
+                     "label": "DOMESTICC6100",                                                                                    +
+                     "active": true,                                                                                              +
+                     "custom": true,                                                                                              +
+                     "description": "Central government"                                                                          +
+                 },                                                                                                               +
+                 "activity": [                                                                                                    +
+                     {                                                                                                            +
+                         "type": "primary",                                                                                       +
+                         "valid_to": "infinity",                                                                                  +
+                         "valid_from": "2024-01-01",                                                                              +
+                         "data_source": {                                                                                         +
+                             "code": "nlr",                                                                                       +
+                             "name": "National Legal Business Registry",                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false                                                                                      +
+                         },                                                                                                       +
+                         "valid_after": "2023-12-31",                                                                             +
+                         "activity_category": {                                                                                   +
+                             "code": "4752",                                                                                      +
+                             "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
+                             "path": "G.47.5.2",                                                                                  +
+                             "label": "G4752",                                                                                    +
+                             "level": 4,                                                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "description": null,                                                                                 +
+                             "activity_category_standard": {                                                                      +
+                                 "code": "isic_v4",                                                                               +
+                                 "name": "ISIC 4",                                                                                +
+                                 "obsolete": false,                                                                               +
+                                 "description": "ISIC Version 4",                                                                 +
+                                 "code_pattern": "digits"                                                                         +
+                             }                                                                                                    +
+                         }                                                                                                        +
+                     }                                                                                                            +
+                 ],                                                                                                               +
+                 "location": [                                                                                                    +
+                     {                                                                                                            +
+                         "type": "physical",                                                                                      +
+                         "region": {                                                                                              +
+                             "code": "225613",                                                                                    +
+                             "name": "Entebbe",                                                                                   +
+                             "path": "2.256.13",                                                                                  +
+                             "label": "225613",                                                                                   +
+                             "level": 3,                                                                                          +
+                             "center_altitude": null,                                                                             +
+                             "center_latitude": null,                                                                             +
+                             "center_longitude": null                                                                             +
+                         },                                                                                                       +
+                         "country": {                                                                                             +
+                             "name": "Uganda",                                                                                    +
+                             "iso_2": "UG",                                                                                       +
+                             "iso_3": "UGA",                                                                                      +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "iso_num": "800"                                                                                     +
+                         },                                                                                                       +
+                         "altitude": null,                                                                                        +
+                         "latitude": null,                                                                                        +
+                         "postcode": null,                                                                                        +
+                         "valid_to": "infinity",                                                                                  +
+                         "longitude": null,                                                                                       +
+                         "postplace": null,                                                                                       +
+                         "valid_from": "2024-01-01",                                                                              +
+                         "data_source": {                                                                                         +
+                             "code": "nlr",                                                                                       +
+                             "name": "National Legal Business Registry",                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false                                                                                      +
+                         },                                                                                                       +
+                         "valid_after": "2023-12-31",                                                                             +
+                         "address_part1": null,                                                                                   +
+                         "address_part2": null,                                                                                   +
+                         "address_part3": null                                                                                    +
+                     }                                                                                                            +
+                 ],                                                                                                               +
+                 "valid_to": "infinity",                                                                                          +
+                 "birth_date": "2016-01-10",                                                                                      +
+                 "death_date": null,                                                                                              +
+                 "legal_form": {                                                                                                  +
+                     "code": "4",                                                                                                 +
+                     "name": "Cooperative",                                                                                       +
+                     "active": true,                                                                                              +
+                     "custom": true                                                                                               +
+                 },                                                                                                               +
+                 "reorg_date": null,                                                                                              +
+                 "short_name": null,                                                                                              +
+                 "valid_from": "2024-01-01",                                                                                      +
+                 "data_source": {                                                                                                 +
+                     "code": "nlr",                                                                                               +
+                     "name": "National Legal Business Registry",                                                                  +
+                     "active": true,                                                                                              +
+                     "custom": false                                                                                              +
+                 },                                                                                                               +
+                 "valid_after": "2023-12-31",                                                                                     +
+                 "web_address": null,                                                                                             +
+                 "edit_comment": "Batch import",                                                                                  +
+                 "telephone_no": null,                                                                                            +
+                 "email_address": null,                                                                                           +
+                 "establishment": [                                                                                               +
+                     {                                                                                                            +
+                         "name": "NILE PEARL WATER",                                                                              +
+                         "notes": null,                                                                                           +
+                         "active": true,                                                                                          +
+                         "activity": [                                                                                            +
+                             {                                                                                                    +
+                                 "type": "primary",                                                                               +
+                                 "valid_to": "infinity",                                                                          +
+                                 "valid_from": "2024-01-01",                                                                      +
+                                 "data_source": {                                                                                 +
+                                     "code": "nlr",                                                                               +
+                                     "name": "National Legal Business Registry",                                                  +
+                                     "active": true,                                                                              +
+                                     "custom": false                                                                              +
+                                 },                                                                                               +
+                                 "valid_after": "2023-12-31",                                                                     +
+                                 "activity_category": {                                                                           +
+                                     "code": "4752",                                                                              +
+                                     "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
+                                     "path": "G.47.5.2",                                                                          +
+                                     "label": "G4752",                                                                            +
+                                     "level": 4,                                                                                  +
+                                     "active": true,                                                                              +
+                                     "custom": false,                                                                             +
+                                     "description": null,                                                                         +
+                                     "activity_category_standard": {                                                              +
+                                         "code": "isic_v4",                                                                       +
+                                         "name": "ISIC 4",                                                                        +
+                                         "obsolete": false,                                                                       +
+                                         "description": "ISIC Version 4",                                                         +
+                                         "code_pattern": "digits"                                                                 +
+                                     }                                                                                            +
+                                 }                                                                                                +
+                             }                                                                                                    +
+                         ],                                                                                                       +
+                         "location": [                                                                                            +
+                             {                                                                                                    +
+                                 "type": "physical",                                                                              +
+                                 "region": {                                                                                      +
+                                     "code": "225613",                                                                            +
+                                     "name": "Entebbe",                                                                           +
+                                     "path": "2.256.13",                                                                          +
+                                     "label": "225613",                                                                           +
+                                     "level": 3,                                                                                  +
+                                     "center_altitude": null,                                                                     +
+                                     "center_latitude": null,                                                                     +
+                                     "center_longitude": null                                                                     +
+                                 },                                                                                               +
+                                 "country": {                                                                                     +
+                                     "name": "Uganda",                                                                            +
+                                     "iso_2": "UG",                                                                               +
+                                     "iso_3": "UGA",                                                                              +
+                                     "active": true,                                                                              +
+                                     "custom": false,                                                                             +
+                                     "iso_num": "800"                                                                             +
+                                 },                                                                                               +
+                                 "altitude": null,                                                                                +
+                                 "latitude": null,                                                                                +
+                                 "postcode": null,                                                                                +
+                                 "valid_to": "infinity",                                                                          +
+                                 "longitude": null,                                                                               +
+                                 "postplace": null,                                                                               +
+                                 "valid_from": "2024-01-01",                                                                      +
+                                 "data_source": {                                                                                 +
+                                     "code": "nlr",                                                                               +
+                                     "name": "National Legal Business Registry",                                                  +
+                                     "active": true,                                                                              +
+                                     "custom": false                                                                              +
+                                 },                                                                                               +
+                                 "valid_after": "2023-12-31",                                                                     +
+                                 "address_part1": null,                                                                           +
+                                 "address_part2": null,                                                                           +
+                                 "address_part3": null                                                                            +
+                             }                                                                                                    +
+                         ],                                                                                                       +
+                         "valid_to": "infinity",                                                                                  +
+                         "birth_date": null,                                                                                      +
+                         "death_date": null,                                                                                      +
+                         "reorg_date": null,                                                                                      +
+                         "short_name": null,                                                                                      +
+                         "valid_from": "2024-01-01",                                                                              +
+                         "data_source": {                                                                                         +
+                             "code": "nlr",                                                                                       +
+                             "name": "National Legal Business Registry",                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false                                                                                      +
+                         },                                                                                                       +
+                         "valid_after": "2023-12-31",                                                                             +
+                         "web_address": null,                                                                                     +
+                         "edit_comment": "Batch import",                                                                          +
+                         "telephone_no": null,                                                                                    +
+                         "email_address": null,                                                                                   +
+                         "invalid_codes": null,                                                                                   +
+                         "stat_for_unit": [                                                                                       +
+                             {                                                                                                    +
+                                 "valid_to": "infinity",                                                                          +
+                                 "value_int": 0,                                                                                  +
+                                 "valid_from": "2024-01-01",                                                                      +
+                                 "value_bool": null,                                                                              +
+                                 "data_source": {                                                                                 +
+                                     "code": "nlr",                                                                               +
+                                     "name": "National Legal Business Registry",                                                  +
+                                     "active": true,                                                                              +
+                                     "custom": false                                                                              +
+                                 },                                                                                               +
+                                 "valid_after": "2023-12-31",                                                                     +
+                                 "value_float": null,                                                                             +
+                                 "value_string": null,                                                                            +
+                                 "stat_definition": {                                                                             +
+                                     "code": "employees",                                                                         +
+                                     "name": "Number of people employed",                                                         +
+                                     "type": "int",                                                                               +
+                                     "archived": false,                                                                           +
+                                     "priority": 1,                                                                               +
+                                     "frequency": "yearly",                                                                       +
+                                     "description": "The number of people receiving an official salary with government reporting."+
+                                 }                                                                                                +
+                             },                                                                                                   +
+                             {                                                                                                    +
+                                 "valid_to": "infinity",                                                                          +
+                                 "value_int": 0,                                                                                  +
+                                 "valid_from": "2024-01-01",                                                                      +
+                                 "value_bool": null,                                                                              +
+                                 "data_source": {                                                                                 +
+                                     "code": "nlr",                                                                               +
+                                     "name": "National Legal Business Registry",                                                  +
+                                     "active": true,                                                                              +
+                                     "custom": false                                                                              +
+                                 },                                                                                               +
+                                 "valid_after": "2023-12-31",                                                                     +
+                                 "value_float": null,                                                                             +
+                                 "value_string": null,                                                                            +
+                                 "stat_definition": {                                                                             +
+                                     "code": "turnover",                                                                          +
+                                     "name": "Turnover",                                                                          +
+                                     "type": "int",                                                                               +
+                                     "archived": false,                                                                           +
+                                     "priority": 2,                                                                               +
+                                     "frequency": "yearly",                                                                       +
+                                     "description": "The amount (EUR)"                                                            +
+                                 }                                                                                                +
+                             }                                                                                                    +
+                         ],                                                                                                       +
+                         "free_econ_zone": null,                                                                                  +
+                         "external_idents": {                                                                                     +
+                             "tax_ident": "92212760144",                                                                          +
+                             "stat_ident": "2000"                                                                                 +
+                         },                                                                                                       +
+                         "parent_org_link": null,                                                                                 +
+                         "reorg_references": null,                                                                                +
+                         "primary_for_enterprise": null,                                                                          +
+                         "primary_for_legal_unit": true                                                                           +
+                     }                                                                                                            +
+                 ],                                                                                                               +
+                 "invalid_codes": null,                                                                                           +
+                 "stat_for_unit": [                                                                                               +
+                     {                                                                                                            +
+                         "valid_to": "infinity",                                                                                  +
+                         "value_int": 2,                                                                                          +
+                         "valid_from": "2024-01-01",                                                                              +
+                         "value_bool": null,                                                                                      +
+                         "data_source": {                                                                                         +
+                             "code": "nlr",                                                                                       +
+                             "name": "National Legal Business Registry",                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false                                                                                      +
+                         },                                                                                                       +
+                         "valid_after": "2023-12-31",                                                                             +
+                         "value_float": null,                                                                                     +
+                         "value_string": null,                                                                                    +
+                         "stat_definition": {                                                                                     +
+                             "code": "employees",                                                                                 +
+                             "name": "Number of people employed",                                                                 +
+                             "type": "int",                                                                                       +
+                             "archived": false,                                                                                   +
+                             "priority": 1,                                                                                       +
+                             "frequency": "yearly",                                                                               +
+                             "description": "The number of people receiving an official salary with government reporting."        +
+                         }                                                                                                        +
+                     },                                                                                                           +
+                     {                                                                                                            +
+                         "valid_to": "infinity",                                                                                  +
+                         "value_int": 9000000,                                                                                    +
+                         "valid_from": "2024-01-01",                                                                              +
+                         "value_bool": null,                                                                                      +
+                         "data_source": {                                                                                         +
+                             "code": "nlr",                                                                                       +
+                             "name": "National Legal Business Registry",                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false                                                                                      +
+                         },                                                                                                       +
+                         "valid_after": "2023-12-31",                                                                             +
+                         "value_float": null,                                                                                     +
+                         "value_string": null,                                                                                    +
+                         "stat_definition": {                                                                                     +
+                             "code": "turnover",                                                                                  +
+                             "name": "Turnover",                                                                                  +
+                             "type": "int",                                                                                       +
+                             "archived": false,                                                                                   +
+                             "priority": 2,                                                                                       +
+                             "frequency": "yearly",                                                                               +
+                             "description": "The amount (EUR)"                                                                    +
+                         }                                                                                                        +
+                     }                                                                                                            +
+                 ],                                                                                                               +
+                 "free_econ_zone": null,                                                                                          +
+                 "external_idents": {                                                                                             +
+                     "tax_ident": "2212760144",                                                                                   +
+                     "stat_ident": "1000"                                                                                         +
+                 },                                                                                                               +
+                 "parent_org_link": null,                                                                                         +
+                 "reorg_references": null,                                                                                        +
+                 "primary_for_enterprise": true                                                                                   +
+             }                                                                                                                    +
+         ],                                                                                                                       +
+         "short_name": null,                                                                                                      +
+         "edit_comment": "Batch import",                                                                                          +
+         "establishment": [                                                                                                       +
+             {                                                                                                                    +
+                 "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
+                 "notes": null,                                                                                                   +
+                 "active": true,                                                                                                  +
+                 "activity": [                                                                                                    +
+                     {                                                                                                            +
+                         "type": "primary",                                                                                       +
+                         "valid_to": "infinity",                                                                                  +
+                         "valid_from": "2024-01-01",                                                                              +
+                         "data_source": {                                                                                         +
+                             "code": "nlr",                                                                                       +
+                             "name": "National Legal Business Registry",                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false                                                                                      +
+                         },                                                                                                       +
+                         "valid_after": "2023-12-31",                                                                             +
+                         "activity_category": {                                                                                   +
+                             "code": "5610",                                                                                      +
+                             "name": "Restaurants and mobile food service activities",                                            +
+                             "path": "I.56.1.0",                                                                                  +
+                             "label": "I5610",                                                                                    +
+                             "level": 4,                                                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "description": null,                                                                                 +
+                             "activity_category_standard": {                                                                      +
+                                 "code": "isic_v4",                                                                               +
+                                 "name": "ISIC 4",                                                                                +
+                                 "obsolete": false,                                                                               +
+                                 "description": "ISIC Version 4",                                                                 +
+                                 "code_pattern": "digits"                                                                         +
+                             }                                                                                                    +
+                         }                                                                                                        +
+                     }                                                                                                            +
+                 ],                                                                                                               +
+                 "location": [                                                                                                    +
+                     {                                                                                                            +
+                         "type": "physical",                                                                                      +
+                         "region": {                                                                                              +
+                             "code": "225602",                                                                                    +
+                             "name": "Kampala",                                                                                   +
+                             "path": "2.256.02",                                                                                  +
+                             "label": "225602",                                                                                   +
+                             "level": 3,                                                                                          +
+                             "center_altitude": null,                                                                             +
+                             "center_latitude": null,                                                                             +
+                             "center_longitude": null                                                                             +
+                         },                                                                                                       +
+                         "country": {                                                                                             +
+                             "name": "Uganda",                                                                                    +
+                             "iso_2": "UG",                                                                                       +
+                             "iso_3": "UGA",                                                                                      +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "iso_num": "800"                                                                                     +
+                         },                                                                                                       +
+                         "altitude": null,                                                                                        +
+                         "latitude": null,                                                                                        +
+                         "postcode": null,                                                                                        +
+                         "valid_to": "infinity",                                                                                  +
+                         "longitude": null,                                                                                       +
+                         "postplace": null,                                                                                       +
+                         "valid_from": "2024-01-01",                                                                              +
+                         "data_source": {                                                                                         +
+                             "code": "nlr",                                                                                       +
+                             "name": "National Legal Business Registry",                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false                                                                                      +
+                         },                                                                                                       +
+                         "valid_after": "2023-12-31",                                                                             +
+                         "address_part1": null,                                                                                   +
+                         "address_part2": null,                                                                                   +
+                         "address_part3": null                                                                                    +
+                     }                                                                                                            +
+                 ],                                                                                                               +
+                 "valid_to": "infinity",                                                                                          +
+                 "birth_date": null,                                                                                              +
+                 "death_date": null,                                                                                              +
+                 "reorg_date": null,                                                                                              +
+                 "short_name": null,                                                                                              +
+                 "valid_from": "2024-01-01",                                                                                      +
+                 "data_source": {                                                                                                 +
+                     "code": "nlr",                                                                                               +
+                     "name": "National Legal Business Registry",                                                                  +
+                     "active": true,                                                                                              +
+                     "custom": false                                                                                              +
+                 },                                                                                                               +
+                 "valid_after": "2023-12-31",                                                                                     +
+                 "web_address": null,                                                                                             +
+                 "edit_comment": "Batch import",                                                                                  +
+                 "telephone_no": null,                                                                                            +
+                 "email_address": null,                                                                                           +
+                 "invalid_codes": null,                                                                                           +
+                 "stat_for_unit": [                                                                                               +
+                     {                                                                                                            +
+                         "valid_to": "infinity",                                                                                  +
+                         "value_int": 2,                                                                                          +
+                         "valid_from": "2024-01-01",                                                                              +
+                         "value_bool": null,                                                                                      +
+                         "data_source": {                                                                                         +
+                             "code": "nlr",                                                                                       +
+                             "name": "National Legal Business Registry",                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false                                                                                      +
+                         },                                                                                                       +
+                         "valid_after": "2023-12-31",                                                                             +
+                         "value_float": null,                                                                                     +
+                         "value_string": null,                                                                                    +
+                         "stat_definition": {                                                                                     +
+                             "code": "employees",                                                                                 +
+                             "name": "Number of people employed",                                                                 +
+                             "type": "int",                                                                                       +
+                             "archived": false,                                                                                   +
+                             "priority": 1,                                                                                       +
+                             "frequency": "yearly",                                                                               +
+                             "description": "The number of people receiving an official salary with government reporting."        +
+                         }                                                                                                        +
+                     },                                                                                                           +
+                     {                                                                                                            +
+                         "valid_to": "infinity",                                                                                  +
+                         "value_int": 4400,                                                                                       +
+                         "valid_from": "2024-01-01",                                                                              +
+                         "value_bool": null,                                                                                      +
+                         "data_source": {                                                                                         +
+                             "code": "nlr",                                                                                       +
+                             "name": "National Legal Business Registry",                                                          +
+                             "active": true,                                                                                      +
+                             "custom": false                                                                                      +
+                         },                                                                                                       +
+                         "valid_after": "2023-12-31",                                                                             +
+                         "value_float": null,                                                                                     +
+                         "value_string": null,                                                                                    +
+                         "stat_definition": {                                                                                     +
+                             "code": "turnover",                                                                                  +
+                             "name": "Turnover",                                                                                  +
+                             "type": "int",                                                                                       +
+                             "archived": false,                                                                                   +
+                             "priority": 2,                                                                                       +
+                             "frequency": "yearly",                                                                               +
+                             "description": "The amount (EUR)"                                                                    +
+                         }                                                                                                        +
+                     }                                                                                                            +
+                 ],                                                                                                               +
+                 "free_econ_zone": null,                                                                                          +
+                 "external_idents": {                                                                                             +
+                     "tax_ident": "82812760140",                                                                                  +
+                     "stat_ident": "3001"                                                                                         +
+                 },                                                                                                               +
+                 "parent_org_link": null,                                                                                         +
+                 "reorg_references": null,                                                                                        +
+                 "primary_for_enterprise": true,                                                                                  +
+                 "primary_for_legal_unit": null                                                                                   +
+             }                                                                                                                    +
+         ]                                                                                                                        +
+     }                                                                                                                            +
+ }
+(1 row)
 
+ROLLBACK;
