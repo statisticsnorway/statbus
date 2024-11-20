@@ -216,7 +216,8 @@ class StatBus
   @import_tag : String | Nil = nil
   @offset = 0
   @migrate_mode : MigrateMode | Nil = nil
-  @migration_description : String | Nil = nil
+  @migration_major_description : String | Nil = nil
+  @migration_minor_description : String | Nil = nil
   @valid_from : String = Time.utc.to_s("%Y-%m-%d")
   @valid_to = "infinity"
 
@@ -707,8 +708,11 @@ class StatBus
         end
         parser.on("new", "Create a new migration file") do
           @migrate_mode = MigrateMode::New
-          parser.on("-d DESC", "--description=DESC", "Description for the new migration") do |desc|
-            @migration_description = desc
+          parser.on("-i DESC", "--minor-description=DESC", "Description for a new minor migration") do |desc|
+            @migration_minor_description = desc
+          end
+          parser.on("-a DESC", "--major-description=DESC", "Description for a new major migration") do |desc|
+            @migration_major_description = desc
           end
         end
         parser.on("down", "Roll back the last applied migration") do
@@ -946,41 +950,130 @@ class StatBus
 
   private def create_new_migration
     Dir.cd(@project_directory) do
-      migration_path = Path["migrations/*.up.sql"]
-      migration_filenames = Dir.glob(migration_path)
-
-      # Find highest version number
-      latest_version = migration_filenames.map do |filename|
-        File.basename(filename).match(/^(\d+)_/).try(&.[1]).try(&.to_i) || 0
-      end.max || 0
-
-      # Get number of digits in latest version for padding
-      digits = latest_version.to_s.size
-      next_version = (latest_version + 1).to_s.rjust(digits, '0')
-
-      # Create new filename
-      if @migration_description.nil?
-        STDERR.puts "Missing required description for new migration. Use -d or --description"
+      if @migration_major_description.nil? && @migration_minor_description.nil?
+        STDERR.puts "Missing required description for migration. Use either:"
+        STDERR.puts "  -a/--major-description for a new major version"
+        STDERR.puts "  -i/--minor-description for a minor version"
         exit(1)
       end
 
-      # Convert description to filename-safe format
-      safe_desc = @migration_description.not_nil!.downcase.gsub(/[^a-z0-9]+/, "_")
-      new_filename = "migrations/#{next_version}_#{safe_desc}.up.sql"
+      # First check for existing major versions
+      major_paths = Dir.glob("migrations/*_*/")
+      latest_major = major_paths.map do |path|
+        Path[path].basename.match(/^(\d+)_/).try(&.[1]).try(&.to_i) || 0
+      end.max || 0
 
-      # Create file with template content
-      File.write(new_filename, <<-SQL
-        -- Migration #{next_version}: #{@migration_description}
-        BEGIN;
+      # Handle minor version addition to existing major
+      if @migration_minor_description && !@migration_major_description
+        if latest_major == 0
+          STDERR.puts "Cannot add minor version - no major versions exist yet"
+          exit(1)
+        end
 
-        -- Add your migration SQL here
+        latest_major_path = major_paths.sort.last
+        minor_paths = Dir.glob("#{latest_major_path}[0-9][0-9][0-9]_*.up.sql")
+        latest_minor = minor_paths.map do |path|
+          File.basename(path).match(/^(\d+)_/).try(&.[1]).try(&.to_i) || 0
+        end.max || 0
 
-        END;
-        SQL
-      )
+        next_minor = (latest_minor + 1).to_s.rjust(3, '0')
+        safe_minor_desc = @migration_minor_description.not_nil!.downcase.gsub(/[^a-z0-9]+/, "_")
+        
+        up_file = "#{latest_major_path}#{next_minor}_#{safe_minor_desc}.up.sql"
+        down_file = "#{latest_major_path}#{next_minor}_#{safe_minor_desc}.down.sql"
 
-      puts "Created new migration file: #{new_filename}"
-      exit(1)
+        File.write(up_file, <<-SQL
+          -- Minor Migration #{latest_major}_#{next_minor}: #{@migration_minor_description}
+          BEGIN;
+
+          -- Add your migration SQL here
+
+          END;
+          SQL
+        )
+
+        File.write(down_file, <<-SQL
+          -- Down Minor Migration #{latest_major}_#{next_minor}: #{@migration_minor_description}
+          BEGIN;
+
+          -- Add your down migration SQL here
+
+          END;
+          SQL
+        )
+
+        puts "Created new minor migration files in #{latest_major_path}:"
+        puts "  #{File.basename(up_file)}"
+        puts "  #{File.basename(down_file)}"
+        return
+      end
+
+      # Handle new major version (with optional minor)
+      major_digits = [latest_major.to_s.size, 3].max
+      next_major = (latest_major + 1).to_s.rjust(major_digits, '0')
+      safe_major_desc = @migration_major_description.not_nil!.downcase.gsub(/[^a-z0-9]+/, "_")
+
+      if @migration_minor_description
+        # Create major with first minor version
+        major_dir = "migrations/#{next_major}_#{safe_major_desc}"
+        Dir.mkdir_p(major_dir)
+        
+        safe_minor_desc = @migration_minor_description.not_nil!.downcase.gsub(/[^a-z0-9]+/, "_")
+        up_file = "#{major_dir}/001_#{safe_minor_desc}.up.sql"
+        down_file = "#{major_dir}/001_#{safe_minor_desc}.down.sql"
+
+        File.write(up_file, <<-SQL
+          -- Migration #{next_major}_001: #{@migration_major_description} - #{@migration_minor_description}
+          BEGIN;
+
+          -- Add your migration SQL here
+
+          END;
+          SQL
+        )
+
+        File.write(down_file, <<-SQL
+          -- Down Migration #{next_major}_001: #{@migration_major_description} - #{@migration_minor_description}
+          BEGIN;
+
+          -- Add your down migration SQL here
+
+          END;
+          SQL
+        )
+
+        puts "Created new major migration with minor version:"
+        puts "  #{up_file}"
+        puts "  #{down_file}"
+      else
+        # Create standalone major version directly in migrations directory
+        up_file = "migrations/#{next_major}_#{safe_major_desc}.up.sql"
+        down_file = "migrations/#{next_major}_#{safe_major_desc}.down.sql"
+
+        File.write(up_file, <<-SQL
+          -- Migration #{next_major}: #{@migration_major_description}
+          BEGIN;
+
+          -- Add your migration SQL here
+
+          END;
+          SQL
+        )
+
+        File.write(down_file, <<-SQL
+          -- Down Migration #{next_major}: #{@migration_major_description}
+          BEGIN;
+
+          -- Add your down migration SQL here
+
+          END;
+          SQL
+        )
+
+        puts "Created new major migration files:"
+        puts "  #{up_file}"
+        puts "  #{down_file}"
+      end
     end
   end
 
@@ -991,7 +1084,7 @@ class StatBus
       DB.connect(config.connection_string) do |db|
         # Check if migrations table exists
         table_exists = db.query_one?("SELECT EXISTS (
-          SELECT FROM pg_tables 
+          SELECT FROM pg_tables
           WHERE schemaname = 'db'
           AND tablename = 'migration'
         )", as: Bool)
