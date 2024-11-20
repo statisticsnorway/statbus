@@ -1,8 +1,6 @@
 # STATBUS
 
-**[STATistical BUSiness Registry](https://www.statbus.org/)**
-
-STATBUS is a registry for tracking business activity throughout history in a country.
+STATBUS [STATistical BUSiness Registry](https://www.statbus.org/) is a registry for tracking business activity throughout history in a country.
 It offers a unique database approach, using temporal tables so that one can view a timeline
 of the information. This allows after the fact querying at any point in time.
 
@@ -78,11 +76,48 @@ Start the Docker Containers with all services.
 ./devops/manage-statbus.sh start
 ```
 
-Setup the database / Seed (Only first run)
+Setup the database:
+
 ```bash
+# First time setup only
 ./devops/manage-statbus.sh activate_sql_saga
 ./devops/manage-statbus.sh create-db-structure
 ./devops/manage-statbus.sh create-users
+
+# Apply any pending database migrations
+./devops/manage-statbus.sh migrate up
+```
+
+### Database Migrations
+
+The system uses a versioned migration system to manage database schema changes:
+
+- Migrations are stored in `migrations/` directory
+- Each migration has an up and down SQL file
+- Migrations can be major (e.g., `001_add_users.up.sql`) or minor within a major version (e.g., `001_initial/001_base_tables.up.sql`) 
+- Migration files are automatically versioned and tracked in the database
+- The system prevents applying duplicate migrations or modified versions of previously run migrations
+
+Migration commands:
+```bash
+# Apply all pending migrations
+./devops/manage-statbus.sh migrate up
+
+# Apply just one migration
+./devops/manage-statbus.sh migrate up one
+
+# Roll back last migration
+./devops/manage-statbus.sh migrate down
+
+# Roll back all migrations 
+./devops/manage-statbus.sh migrate down all
+
+# Create new migration files
+./devops/manage-statbus.sh migrate new -a "description"    # Major version
+./devops/manage-statbus.sh migrate new -i "description"    # Minor version
+
+# Fix migration numbering
+./devops/manage-statbus.sh migrate renumber
 ```
 
 Connect to your local statbus at http://localhost:3000 with
@@ -207,22 +242,68 @@ The GitHub workflows can be run locally with [ACT](https://github.com/nektos/act
 -->
 
 
-### Loading Stabus with data
-Statbus comes with sample datafiles for Norway running on NACE activity categories
-At the bottom rigth corner there is a command palette, Ctrl+shift+K to jump to the different loads.
+### Database Migrations
 
-1) Select Nace as your standard
-2) When Uploading Regions, click what is Region file, and download the csv sample file to upload
-3) Sectors, What is a sector file, download and upload the csv file
-4) Legal Forms, What is a Legal Forms file, download and upload the csv
-5) Custom Activity Categories, What is, download and upload. This file contains the nowegian names on the already defined codes in english. This file makes Statbus pront the activity codes in norwegian instead of english
-6) Legal Units. sample file contains norwegian region codes, and NACE standard. If you have selected ISIC in step 1, the sample file will cause confusion.
-7) Establishments, sample file contain norwegian regions and NACE standard. This file should currently be the source for the statistical variables.
-8) When loaded 1-7, use command palette to refresh the materialized view: Refresh Statistical Units, a short json status will be visible, then go to the frontpage, and the Dashboard should be visible. This functionality is hidden behind the Command Palette, Ctrl+shift+K. From here you can reset everything, which deletes! all your dataloads 1-7, and will guide you to the start again.
+The system uses a versioned migration system to manage database schema changes:
 
-### Uploading tips
-Make sure you get the classifications as good as possible before starting with units. A small unit file is recomended, in order to verify that classifications are matching the data loaded in the unit-loads (7 & 8)
-Error messages, hints and teqniques are described at: www.statbus.org   https://www.statbus.org/files/Statbus_faq_load.html
+- Migrations are stored in `migrations/` directory
+- Each migration has an up and down SQL file
+- Migrations can be major (e.g., `001_add_users.up.sql`) or minor within a major version (e.g., `001_initial/001_base_tables.up.sql`)
+- Migration files are automatically versioned and tracked in the database
+- The system prevents applying duplicate migrations or modified versions of previously run migrations
 
-### Testdrive Statbus in the cloud
-Statbus can be tested and demonstrated in the cloud. Countries have their own country domains where they test the system with sountry specific classificatios and unit-data. We recommmend to postphone local installation until testing the application with country specific data has successfully completed with a all classifications but with limitided number of business units.
+Migration commands:
+```bash
+# Apply all pending migrations
+./devops/manage-statbus.sh migrate up
+
+# Apply just one migration
+./devops/manage-statbus.sh migrate up one
+
+# Roll back last migration
+./devops/manage-statbus.sh migrate down
+
+# Roll back all migrations
+./devops/manage-statbus.sh migrate down all
+
+# Create new migration files
+./devops/manage-statbus.sh migrate new -a "description"    # Major version
+./devops/manage-statbus.sh migrate new -i "description"    # Minor version
+
+# Fix migration numbering
+./devops/manage-statbus.sh migrate renumber
+```
+
+### Loading Data into Statbus
+
+Statbus comes with sample data files for Norway using NACE activity categories. Use the command palette (Ctrl+Shift+K) to access data loading options.
+
+Loading sequence:
+
+1. Select NACE as your activity standard
+2. Upload Regions (download sample CSV from "What is Region file?")
+3. Upload Sectors (download sample CSV)
+4. Upload Legal Forms (download sample CSV) 
+5. Upload Custom Activity Categories - Contains Norwegian translations for activity codes
+6. Upload Legal Units - Sample uses Norwegian regions and NACE codes
+7. Upload Establishments - Sample uses Norwegian regions and NACE codes
+8. Refresh materialized views using command palette (Ctrl+Shift+K)
+
+After loading data, the Dashboard will be visible on the front page. You can reset all data through the command palette.
+
+### Data Loading Tips
+
+- Start with classifications before loading units
+- Test with a small sample of units first
+- Verify classifications match your unit data
+- See detailed guides at: https://www.statbus.org/files/Statbus_faq_load.html
+
+### Cloud Testing Environment
+
+Before local installation, we recommend testing Statbus in the cloud:
+
+- Countries get dedicated domains for testing
+- Test with country-specific classifications
+- Start with limited test data
+- Validate data model fits your needs
+- Move to local installation once tested
