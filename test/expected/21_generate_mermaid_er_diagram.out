@@ -8,13 +8,6 @@ SELECT '########################################';
 ########################################
 erDiagram
 	%% Entities (derived from tables)
-	admin_migrations["admin.migrations"] {
-		"text" version
-		"text" filename
-		"text" sha256_hash
-		"timestamp with time zone" applied_at
-		"integer" duration_ms
-	}
 	auth_audit_log_entries["auth.audit_log_entries"] {
 		"uuid" instance_id
 		"uuid" id
@@ -187,6 +180,17 @@ erDiagram
 		"boolean" is_sso_user
 		"timestamp with time zone" deleted_at
 		"boolean" is_anonymous
+	}
+	db_migration["db.migration"] {
+		"integer" id
+		"text" major_version
+		"text" minor_version
+		"text" filename
+		"text" sha256_hash
+		"timestamp with time zone" applied_at
+		"integer" duration_ms
+		"text" major_description
+		"text" minor_description
 	}
 	lifecycle_callbacks_registered_callback["lifecycle_callbacks.registered_callback"] {
 		"text" label
