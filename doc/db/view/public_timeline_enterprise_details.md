@@ -52,12 +52,25 @@
  primary_legal_unit_id            | integer                |           |          |         | plain    | 
  stats_summary                    | jsonb                  |           |          |         | extended | 
 View definition:
- WITH basis_with_legal_unit AS (
+ WITH timesegments_enterprise AS (
          SELECT t.unit_type,
             t.unit_id,
             t.valid_after,
-            (t.valid_after + '1 day'::interval)::date AS valid_from,
             t.valid_to,
+            en.id,
+            en.active,
+            en.short_name,
+            en.notes,
+            en.edit_by_user_id,
+            en.edit_comment,
+            en.id AS enterprise_id
+           FROM timesegments t
+             JOIN enterprise en ON t.unit_type = 'enterprise'::statistical_unit_type AND t.unit_id = en.id
+        ), enterprise_with_primary_legal_unit AS (
+         SELECT ten.unit_type,
+            ten.unit_id,
+            ten.valid_after,
+            ten.valid_to,
             plu.name,
             plu.birth_date,
             plu.death_date,
@@ -96,36 +109,34 @@ View definition:
             poc.iso_2 AS postal_country_iso_2,
             plu.invalid_codes,
             true AS has_legal_unit,
-            en.id AS enterprise_id,
+            ten.id AS enterprise_id,
             plu.id AS primary_legal_unit_id
-           FROM timesegments t
-             JOIN enterprise en ON t.unit_type = 'enterprise'::statistical_unit_type AND t.unit_id = en.id
-             JOIN legal_unit plu ON plu.enterprise_id = en.id AND plu.primary_for_enterprise AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(plu.valid_after, plu.valid_to, '(]'::text)
-             LEFT JOIN activity pa ON pa.legal_unit_id = plu.id AND pa.type = 'primary'::activity_type AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(pa.valid_after, pa.valid_to, '(]'::text)
+           FROM timesegments_enterprise ten
+             JOIN legal_unit plu ON plu.enterprise_id = ten.enterprise_id AND plu.primary_for_enterprise AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(plu.valid_after, plu.valid_to, '(]'::text)
+             LEFT JOIN activity pa ON pa.legal_unit_id = plu.id AND pa.type = 'primary'::activity_type AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(pa.valid_after, pa.valid_to, '(]'::text)
              LEFT JOIN activity_category pac ON pa.category_id = pac.id
-             LEFT JOIN activity sa ON sa.legal_unit_id = plu.id AND sa.type = 'secondary'::activity_type AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(sa.valid_after, sa.valid_to, '(]'::text)
+             LEFT JOIN activity sa ON sa.legal_unit_id = plu.id AND sa.type = 'secondary'::activity_type AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(sa.valid_after, sa.valid_to, '(]'::text)
              LEFT JOIN activity_category sac ON sa.category_id = sac.id
              LEFT JOIN sector s ON plu.sector_id = s.id
              LEFT JOIN legal_form lf ON plu.legal_form_id = lf.id
-             LEFT JOIN location phl ON phl.legal_unit_id = plu.id AND phl.type = 'physical'::location_type AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(phl.valid_after, phl.valid_to, '(]'::text)
+             LEFT JOIN location phl ON phl.legal_unit_id = plu.id AND phl.type = 'physical'::location_type AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(phl.valid_after, phl.valid_to, '(]'::text)
              LEFT JOIN region phr ON phl.region_id = phr.id
              LEFT JOIN country phc ON phl.country_id = phc.id
-             LEFT JOIN location pol ON pol.legal_unit_id = plu.id AND pol.type = 'postal'::location_type AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(pol.valid_after, pol.valid_to, '(]'::text)
+             LEFT JOIN location pol ON pol.legal_unit_id = plu.id AND pol.type = 'postal'::location_type AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(pol.valid_after, pol.valid_to, '(]'::text)
              LEFT JOIN region por ON pol.region_id = por.id
              LEFT JOIN country poc ON pol.country_id = poc.id
              LEFT JOIN LATERAL ( SELECT array_agg(sfu_1.data_source_id) AS data_source_ids
                    FROM stat_for_unit sfu_1
-                  WHERE sfu_1.legal_unit_id = plu.id AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(sfu_1.valid_after, sfu_1.valid_to, '(]'::text)) sfu ON true
+                  WHERE sfu_1.legal_unit_id = plu.id AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(sfu_1.valid_after, sfu_1.valid_to, '(]'::text)) sfu ON true
              LEFT JOIN LATERAL ( SELECT array_agg(ds_1.id) AS ids,
                     array_agg(ds_1.code) AS codes
                    FROM data_source ds_1
                   WHERE COALESCE(ds_1.id = plu.data_source_id, false) OR COALESCE(ds_1.id = pa.data_source_id, false) OR COALESCE(ds_1.id = sa.data_source_id, false) OR COALESCE(ds_1.id = phl.data_source_id, false) OR COALESCE(ds_1.id = pol.data_source_id, false) OR COALESCE(ds_1.id = ANY (sfu.data_source_ids), false)) ds ON true
-        ), basis_with_establishment AS (
-         SELECT t.unit_type,
-            t.unit_id,
-            t.valid_after,
-            (t.valid_after + '1 day'::interval)::date AS valid_from,
-            t.valid_to,
+        ), enterprise_with_primary_establishment AS (
+         SELECT ten.unit_type,
+            ten.unit_id,
+            ten.valid_after,
+            ten.valid_to,
             pes.name,
             pes.birth_date,
             pes.death_date,
@@ -164,67 +175,125 @@ View definition:
             poc.iso_2 AS postal_country_iso_2,
             pes.invalid_codes,
             false AS has_legal_unit,
-            en.id AS enterprise_id,
+            ten.id AS enterprise_id,
             pes.id AS primary_establishment_id
-           FROM timesegments t
-             JOIN enterprise en ON t.unit_type = 'enterprise'::statistical_unit_type AND t.unit_id = en.id
-             JOIN establishment pes ON pes.enterprise_id = en.id AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(pes.valid_after, pes.valid_to, '(]'::text)
-             LEFT JOIN activity pa ON pa.establishment_id = pes.id AND pa.type = 'primary'::activity_type AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(pa.valid_after, pa.valid_to, '(]'::text)
+           FROM timesegments_enterprise ten
+             JOIN establishment pes ON pes.enterprise_id = ten.id AND pes.primary_for_enterprise AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(pes.valid_after, pes.valid_to, '(]'::text)
+             LEFT JOIN activity pa ON pa.establishment_id = pes.id AND pa.type = 'primary'::activity_type AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(pa.valid_after, pa.valid_to, '(]'::text)
              LEFT JOIN activity_category pac ON pa.category_id = pac.id
-             LEFT JOIN activity sa ON sa.establishment_id = pes.id AND sa.type = 'secondary'::activity_type AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(sa.valid_after, sa.valid_to, '(]'::text)
+             LEFT JOIN activity sa ON sa.establishment_id = pes.id AND sa.type = 'secondary'::activity_type AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(sa.valid_after, sa.valid_to, '(]'::text)
              LEFT JOIN activity_category sac ON sa.category_id = sac.id
              LEFT JOIN sector s ON pes.sector_id = s.id
-             LEFT JOIN location phl ON phl.establishment_id = pes.id AND phl.type = 'physical'::location_type AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(phl.valid_after, phl.valid_to, '(]'::text)
+             LEFT JOIN location phl ON phl.establishment_id = pes.id AND phl.type = 'physical'::location_type AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(phl.valid_after, phl.valid_to, '(]'::text)
              LEFT JOIN region phr ON phl.region_id = phr.id
              LEFT JOIN country phc ON phl.country_id = phc.id
-             LEFT JOIN location pol ON pol.establishment_id = pes.id AND pol.type = 'postal'::location_type AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(pol.valid_after, pol.valid_to, '(]'::text)
+             LEFT JOIN location pol ON pol.establishment_id = pes.id AND pol.type = 'postal'::location_type AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(pol.valid_after, pol.valid_to, '(]'::text)
              LEFT JOIN region por ON pol.region_id = por.id
              LEFT JOIN country poc ON pol.country_id = poc.id
              LEFT JOIN LATERAL ( SELECT array_agg(sfu_1.data_source_id) AS data_source_ids
                    FROM stat_for_unit sfu_1
-                  WHERE sfu_1.legal_unit_id = pes.id AND daterange(t.valid_after, t.valid_to, '(]'::text) && daterange(sfu_1.valid_after, sfu_1.valid_to, '(]'::text)) sfu ON true
+                  WHERE sfu_1.legal_unit_id = pes.id AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(sfu_1.valid_after, sfu_1.valid_to, '(]'::text)) sfu ON true
              LEFT JOIN LATERAL ( SELECT array_agg(ds_1.id) AS ids,
                     array_agg(ds_1.code) AS codes
                    FROM data_source ds_1
                   WHERE COALESCE(ds_1.id = pes.data_source_id, false) OR COALESCE(ds_1.id = pa.data_source_id, false) OR COALESCE(ds_1.id = sa.data_source_id, false) OR COALESCE(ds_1.id = phl.data_source_id, false) OR COALESCE(ds_1.id = pol.data_source_id, false) OR COALESCE(ds_1.id = ANY (sfu.data_source_ids), false)) ds ON true
-        ), establishment_aggregation AS (
-         SELECT tes.enterprise_id,
-            basis.valid_after,
-            basis.valid_to,
-            array_distinct_concat(tes.data_source_ids) AS data_source_ids,
-            array_distinct_concat(tes.data_source_codes) AS data_source_codes,
-            array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS establishment_ids,
-            jsonb_stats_to_summary_agg(tes.stats) AS stats_summary
-           FROM timeline_establishment tes
-             JOIN basis_with_establishment basis ON tes.enterprise_id = basis.enterprise_id AND daterange(basis.valid_after, basis.valid_to, '(]'::text) && daterange(tes.valid_after, tes.valid_to, '(]'::text)
-          GROUP BY tes.enterprise_id, basis.valid_after, basis.valid_to
-        ), legal_unit_aggregation AS (
-         SELECT tlu.enterprise_id,
-            basis.valid_after,
-            basis.valid_to,
-            array_distinct_concat(tlu.data_source_ids) AS data_source_ids,
-            array_distinct_concat(tlu.data_source_codes) AS data_source_codes,
-            array_distinct_concat(tlu.establishment_ids) AS establishment_ids,
-            array_agg(DISTINCT tlu.legal_unit_id) FILTER (WHERE tlu.legal_unit_id IS NOT NULL) AS legal_unit_ids,
-            jsonb_stats_summary_merge_agg(tlu.stats_summary) AS stats_summary
-           FROM timeline_legal_unit tlu
-             JOIN basis_with_legal_unit basis ON tlu.enterprise_id = basis.enterprise_id AND daterange(basis.valid_after, basis.valid_to, '(]'::text) && daterange(tlu.valid_after, tlu.valid_to, '(]'::text)
-          GROUP BY tlu.enterprise_id, basis.valid_after, basis.valid_to
-        ), basis_with_legal_unit_aggregation AS (
+        ), enterprise_with_primary AS (
+         SELECT ten.unit_type,
+            ten.unit_id,
+            ten.valid_after,
+            ten.valid_to,
+            COALESCE(enplu.name, enpes.name) AS name,
+            COALESCE(enplu.birth_date, enpes.birth_date) AS birth_date,
+            COALESCE(enplu.death_date, enpes.death_date) AS death_date,
+            COALESCE(enplu.primary_activity_category_id, enpes.primary_activity_category_id) AS primary_activity_category_id,
+            COALESCE(enplu.primary_activity_category_path, enpes.primary_activity_category_path) AS primary_activity_category_path,
+            COALESCE(enplu.secondary_activity_category_id, enpes.secondary_activity_category_id) AS secondary_activity_category_id,
+            COALESCE(enplu.secondary_activity_category_path, enpes.secondary_activity_category_path) AS secondary_activity_category_path,
+            COALESCE(enplu.sector_id, enpes.sector_id) AS sector_id,
+            COALESCE(enplu.sector_path, enpes.sector_path) AS sector_path,
+            COALESCE(enplu.sector_code, enpes.sector_code) AS sector_code,
+            COALESCE(enplu.sector_name, enpes.sector_name) AS sector_name,
+            ( SELECT array_agg(DISTINCT ids.id) AS array_agg
+                   FROM ( SELECT unnest(enplu.data_source_ids) AS id
+                        UNION
+                         SELECT unnest(enpes.data_source_ids) AS id) ids) AS data_source_ids,
+            ( SELECT array_agg(DISTINCT codes.code) AS array_agg
+                   FROM ( SELECT unnest(enplu.data_source_codes) AS code
+                        UNION
+                         SELECT unnest(enpes.data_source_codes) AS code) codes) AS data_source_codes,
+            enplu.legal_form_id,
+            enplu.legal_form_code,
+            enplu.legal_form_name,
+            COALESCE(enplu.physical_address_part1, enpes.physical_address_part1) AS physical_address_part1,
+            COALESCE(enplu.physical_address_part2, enpes.physical_address_part2) AS physical_address_part2,
+            COALESCE(enplu.physical_address_part3, enpes.physical_address_part3) AS physical_address_part3,
+            COALESCE(enplu.physical_postcode, enpes.physical_postcode) AS physical_postcode,
+            COALESCE(enplu.physical_postplace, enpes.physical_postplace) AS physical_postplace,
+            COALESCE(enplu.physical_region_id, enpes.physical_region_id) AS physical_region_id,
+            COALESCE(enplu.physical_region_path, enpes.physical_region_path) AS physical_region_path,
+            COALESCE(enplu.physical_country_id, enpes.physical_country_id) AS physical_country_id,
+            COALESCE(enplu.physical_country_iso_2, enpes.physical_country_iso_2) AS physical_country_iso_2,
+            COALESCE(enplu.postal_address_part1, enpes.postal_address_part1) AS postal_address_part1,
+            COALESCE(enplu.postal_address_part2, enpes.postal_address_part2) AS postal_address_part2,
+            COALESCE(enplu.postal_address_part3, enpes.postal_address_part3) AS postal_address_part3,
+            COALESCE(enplu.postal_postcode, enpes.postal_postcode) AS postal_postcode,
+            COALESCE(enplu.postal_postplace, enpes.postal_postplace) AS postal_postplace,
+            COALESCE(enplu.postal_region_id, enpes.postal_region_id) AS postal_region_id,
+            COALESCE(enplu.postal_region_path, enpes.postal_region_path) AS postal_region_path,
+            COALESCE(enplu.postal_country_id, enpes.postal_country_id) AS postal_country_id,
+            COALESCE(enplu.postal_country_iso_2, enpes.postal_country_iso_2) AS postal_country_iso_2,
+            COALESCE(enplu.invalid_codes || enpes.invalid_codes, enplu.invalid_codes, enpes.invalid_codes) AS invalid_codes,
+            GREATEST(enplu.has_legal_unit, enpes.has_legal_unit) AS has_legal_unit,
+            ten.enterprise_id,
+            enplu.primary_legal_unit_id,
+            enpes.primary_establishment_id
+           FROM timesegments_enterprise ten
+             LEFT JOIN enterprise_with_primary_legal_unit enplu ON enplu.enterprise_id = ten.enterprise_id AND ten.valid_after = enplu.valid_after AND ten.valid_to = enplu.valid_to
+             LEFT JOIN enterprise_with_primary_establishment enpes ON enpes.enterprise_id = ten.enterprise_id AND ten.valid_after = enpes.valid_after AND ten.valid_to = enpes.valid_to
+        ), aggregation AS (
+         SELECT ten.enterprise_id,
+            ten.valid_after,
+            ten.valid_to,
+            array_distinct_concat(COALESCE(array_cat(tlu.data_source_ids, tes.data_source_ids), tlu.data_source_ids, tes.data_source_ids)) AS data_source_ids,
+            array_distinct_concat(COALESCE(array_cat(tlu.data_source_codes, tes.data_source_codes), tlu.data_source_codes, tes.data_source_codes)) AS data_source_codes,
+            array_distinct_concat(COALESCE(array_cat(tlu.establishment_ids, tes.establishment_ids), tlu.establishment_ids, tes.establishment_ids)) AS establishment_ids,
+            array_distinct_concat(tlu.legal_unit_ids) AS legal_unit_ids,
+            COALESCE(jsonb_stats_summary_merge_agg(COALESCE(jsonb_stats_summary_merge(tlu.stats_summary, tes.stats_summary), tlu.stats_summary, tes.stats_summary)), '{}'::jsonb) AS stats_summary
+           FROM timesegments_enterprise ten
+             LEFT JOIN LATERAL ( SELECT timeline_legal_unit.enterprise_id,
+                    ten.valid_after,
+                    ten.valid_to,
+                    array_distinct_concat(timeline_legal_unit.data_source_ids) AS data_source_ids,
+                    array_distinct_concat(timeline_legal_unit.data_source_codes) AS data_source_codes,
+                    array_agg(DISTINCT timeline_legal_unit.legal_unit_id) AS legal_unit_ids,
+                    array_distinct_concat(timeline_legal_unit.establishment_ids) AS establishment_ids,
+                    jsonb_stats_summary_merge_agg(timeline_legal_unit.stats_summary) AS stats_summary
+                   FROM timeline_legal_unit
+                  WHERE timeline_legal_unit.enterprise_id = ten.enterprise_id AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(timeline_legal_unit.valid_after, timeline_legal_unit.valid_to, '(]'::text)
+                  GROUP BY timeline_legal_unit.enterprise_id, ten.valid_after, ten.valid_to) tlu ON true
+             LEFT JOIN LATERAL ( SELECT timeline_establishment.enterprise_id,
+                    ten.valid_after,
+                    ten.valid_to,
+                    array_distinct_concat(timeline_establishment.data_source_ids) AS data_source_ids,
+                    array_distinct_concat(timeline_establishment.data_source_codes) AS data_source_codes,
+                    array_agg(DISTINCT timeline_establishment.establishment_id) AS establishment_ids,
+                    jsonb_stats_to_summary_agg(timeline_establishment.stats) AS stats_summary
+                   FROM timeline_establishment
+                  WHERE timeline_establishment.enterprise_id = ten.enterprise_id AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(timeline_establishment.valid_after, timeline_establishment.valid_to, '(]'::text)
+                  GROUP BY timeline_establishment.enterprise_id, ten.valid_after, ten.valid_to) tes ON true
+          GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
+        ), enterprise_with_primary_and_aggregation AS (
          SELECT basis.unit_type,
             basis.unit_id,
             basis.valid_after,
-            basis.valid_from,
             basis.valid_to,
             basis.name,
             basis.birth_date,
             basis.death_date,
-            basis.search,
             basis.primary_activity_category_id,
             basis.primary_activity_category_path,
             basis.secondary_activity_category_id,
             basis.secondary_activity_category_path,
-            basis.activity_category_paths,
             basis.sector_id,
             basis.sector_path,
             basis.sector_code,
@@ -232,11 +301,11 @@ View definition:
             ( SELECT array_agg(DISTINCT ids.id) AS array_agg
                    FROM ( SELECT unnest(basis.data_source_ids) AS id
                         UNION
-                         SELECT unnest(lua.data_source_ids) AS id) ids) AS data_source_ids,
+                         SELECT unnest(aggregation.data_source_ids) AS id) ids) AS data_source_ids,
             ( SELECT array_agg(DISTINCT codes.code) AS array_agg
                    FROM ( SELECT unnest(basis.data_source_codes) AS code
                         UNION ALL
-                         SELECT unnest(lua.data_source_codes) AS code) codes) AS data_source_codes,
+                         SELECT unnest(aggregation.data_source_codes) AS code) codes) AS data_source_codes,
             basis.legal_form_id,
             basis.legal_form_code,
             basis.legal_form_name,
@@ -260,225 +329,116 @@ View definition:
             basis.postal_country_iso_2,
             basis.invalid_codes,
             basis.has_legal_unit,
-            COALESCE(lua.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
-            COALESCE(lua.legal_unit_ids, ARRAY[]::integer[]) AS legal_unit_ids,
-            basis.enterprise_id,
-            NULL::integer AS primary_establishment_id,
-            basis.primary_legal_unit_id,
-            lua.stats_summary
-           FROM basis_with_legal_unit basis
-             LEFT JOIN legal_unit_aggregation lua ON basis.enterprise_id = lua.enterprise_id AND basis.valid_after = lua.valid_after AND basis.valid_to = lua.valid_to
-        ), basis_with_establishment_aggregation AS (
-         SELECT basis.unit_type,
-            basis.unit_id,
-            basis.valid_after,
-            basis.valid_from,
-            basis.valid_to,
-            basis.name,
-            basis.birth_date,
-            basis.death_date,
-            basis.search,
-            basis.primary_activity_category_id,
-            basis.primary_activity_category_path,
-            basis.secondary_activity_category_id,
-            basis.secondary_activity_category_path,
-            basis.activity_category_paths,
-            basis.sector_id,
-            basis.sector_path,
-            basis.sector_code,
-            basis.sector_name,
-            ( SELECT array_agg(DISTINCT ids.id) AS array_agg
-                   FROM ( SELECT unnest(basis.data_source_ids) AS id
-                        UNION
-                         SELECT unnest(esa.data_source_ids) AS id) ids) AS data_source_ids,
-            ( SELECT array_agg(DISTINCT codes.code) AS array_agg
-                   FROM ( SELECT unnest(basis.data_source_codes) AS code
-                        UNION ALL
-                         SELECT unnest(esa.data_source_codes) AS code) codes) AS data_source_codes,
-            basis.legal_form_id,
-            basis.legal_form_code,
-            basis.legal_form_name,
-            basis.physical_address_part1,
-            basis.physical_address_part2,
-            basis.physical_address_part3,
-            basis.physical_postcode,
-            basis.physical_postplace,
-            basis.physical_region_id,
-            basis.physical_region_path,
-            basis.physical_country_id,
-            basis.physical_country_iso_2,
-            basis.postal_address_part1,
-            basis.postal_address_part2,
-            basis.postal_address_part3,
-            basis.postal_postcode,
-            basis.postal_postplace,
-            basis.postal_region_id,
-            basis.postal_region_path,
-            basis.postal_country_id,
-            basis.postal_country_iso_2,
-            basis.invalid_codes,
-            basis.has_legal_unit,
-            COALESCE(esa.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
-            ARRAY[]::integer[] AS legal_unit_ids,
+            COALESCE(aggregation.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
+            COALESCE(aggregation.legal_unit_ids, ARRAY[]::integer[]) AS legal_unit_ids,
             basis.enterprise_id,
             basis.primary_establishment_id,
-            NULL::integer AS primary_legal_unit_id,
-            esa.stats_summary
-           FROM basis_with_establishment basis
-             LEFT JOIN establishment_aggregation esa ON basis.enterprise_id = esa.enterprise_id AND basis.valid_after = esa.valid_after AND basis.valid_to = esa.valid_to
-        ), basis_with_both AS (
-         SELECT basis_with_legal_unit_aggregation.unit_type,
-            basis_with_legal_unit_aggregation.unit_id,
-            basis_with_legal_unit_aggregation.valid_after,
-            basis_with_legal_unit_aggregation.valid_from,
-            basis_with_legal_unit_aggregation.valid_to,
-            basis_with_legal_unit_aggregation.name,
-            basis_with_legal_unit_aggregation.birth_date,
-            basis_with_legal_unit_aggregation.death_date,
-            basis_with_legal_unit_aggregation.search,
-            basis_with_legal_unit_aggregation.primary_activity_category_id,
-            basis_with_legal_unit_aggregation.primary_activity_category_path,
-            basis_with_legal_unit_aggregation.secondary_activity_category_id,
-            basis_with_legal_unit_aggregation.secondary_activity_category_path,
-            basis_with_legal_unit_aggregation.activity_category_paths,
-            basis_with_legal_unit_aggregation.sector_id,
-            basis_with_legal_unit_aggregation.sector_path,
-            basis_with_legal_unit_aggregation.sector_code,
-            basis_with_legal_unit_aggregation.sector_name,
-            basis_with_legal_unit_aggregation.data_source_ids,
-            basis_with_legal_unit_aggregation.data_source_codes,
-            basis_with_legal_unit_aggregation.legal_form_id,
-            basis_with_legal_unit_aggregation.legal_form_code,
-            basis_with_legal_unit_aggregation.legal_form_name,
-            basis_with_legal_unit_aggregation.physical_address_part1,
-            basis_with_legal_unit_aggregation.physical_address_part2,
-            basis_with_legal_unit_aggregation.physical_address_part3,
-            basis_with_legal_unit_aggregation.physical_postcode,
-            basis_with_legal_unit_aggregation.physical_postplace,
-            basis_with_legal_unit_aggregation.physical_region_id,
-            basis_with_legal_unit_aggregation.physical_region_path,
-            basis_with_legal_unit_aggregation.physical_country_id,
-            basis_with_legal_unit_aggregation.physical_country_iso_2,
-            basis_with_legal_unit_aggregation.postal_address_part1,
-            basis_with_legal_unit_aggregation.postal_address_part2,
-            basis_with_legal_unit_aggregation.postal_address_part3,
-            basis_with_legal_unit_aggregation.postal_postcode,
-            basis_with_legal_unit_aggregation.postal_postplace,
-            basis_with_legal_unit_aggregation.postal_region_id,
-            basis_with_legal_unit_aggregation.postal_region_path,
-            basis_with_legal_unit_aggregation.postal_country_id,
-            basis_with_legal_unit_aggregation.postal_country_iso_2,
-            basis_with_legal_unit_aggregation.invalid_codes,
-            basis_with_legal_unit_aggregation.has_legal_unit,
-            basis_with_legal_unit_aggregation.establishment_ids,
-            basis_with_legal_unit_aggregation.legal_unit_ids,
-            basis_with_legal_unit_aggregation.enterprise_id,
-            basis_with_legal_unit_aggregation.primary_establishment_id,
-            basis_with_legal_unit_aggregation.primary_legal_unit_id,
-            basis_with_legal_unit_aggregation.stats_summary
-           FROM basis_with_legal_unit_aggregation
-        UNION ALL
-         SELECT basis_with_establishment_aggregation.unit_type,
-            basis_with_establishment_aggregation.unit_id,
-            basis_with_establishment_aggregation.valid_after,
-            basis_with_establishment_aggregation.valid_from,
-            basis_with_establishment_aggregation.valid_to,
-            basis_with_establishment_aggregation.name,
-            basis_with_establishment_aggregation.birth_date,
-            basis_with_establishment_aggregation.death_date,
-            basis_with_establishment_aggregation.search,
-            basis_with_establishment_aggregation.primary_activity_category_id,
-            basis_with_establishment_aggregation.primary_activity_category_path,
-            basis_with_establishment_aggregation.secondary_activity_category_id,
-            basis_with_establishment_aggregation.secondary_activity_category_path,
-            basis_with_establishment_aggregation.activity_category_paths,
-            basis_with_establishment_aggregation.sector_id,
-            basis_with_establishment_aggregation.sector_path,
-            basis_with_establishment_aggregation.sector_code,
-            basis_with_establishment_aggregation.sector_name,
-            basis_with_establishment_aggregation.data_source_ids,
-            basis_with_establishment_aggregation.data_source_codes,
-            basis_with_establishment_aggregation.legal_form_id,
-            basis_with_establishment_aggregation.legal_form_code,
-            basis_with_establishment_aggregation.legal_form_name,
-            basis_with_establishment_aggregation.physical_address_part1,
-            basis_with_establishment_aggregation.physical_address_part2,
-            basis_with_establishment_aggregation.physical_address_part3,
-            basis_with_establishment_aggregation.physical_postcode,
-            basis_with_establishment_aggregation.physical_postplace,
-            basis_with_establishment_aggregation.physical_region_id,
-            basis_with_establishment_aggregation.physical_region_path,
-            basis_with_establishment_aggregation.physical_country_id,
-            basis_with_establishment_aggregation.physical_country_iso_2,
-            basis_with_establishment_aggregation.postal_address_part1,
-            basis_with_establishment_aggregation.postal_address_part2,
-            basis_with_establishment_aggregation.postal_address_part3,
-            basis_with_establishment_aggregation.postal_postcode,
-            basis_with_establishment_aggregation.postal_postplace,
-            basis_with_establishment_aggregation.postal_region_id,
-            basis_with_establishment_aggregation.postal_region_path,
-            basis_with_establishment_aggregation.postal_country_id,
-            basis_with_establishment_aggregation.postal_country_iso_2,
-            basis_with_establishment_aggregation.invalid_codes,
-            basis_with_establishment_aggregation.has_legal_unit,
-            basis_with_establishment_aggregation.establishment_ids,
-            basis_with_establishment_aggregation.legal_unit_ids,
-            basis_with_establishment_aggregation.enterprise_id,
-            basis_with_establishment_aggregation.primary_establishment_id,
-            basis_with_establishment_aggregation.primary_legal_unit_id,
-            basis_with_establishment_aggregation.stats_summary
-           FROM basis_with_establishment_aggregation
+            basis.primary_legal_unit_id,
+            aggregation.stats_summary
+           FROM enterprise_with_primary basis
+             LEFT JOIN aggregation ON basis.enterprise_id = aggregation.enterprise_id AND basis.valid_after = aggregation.valid_after AND basis.valid_to = aggregation.valid_to
+        ), enterprise_with_primary_and_aggregation_and_derived AS (
+         SELECT enterprise_with_primary_and_aggregation.unit_type,
+            enterprise_with_primary_and_aggregation.unit_id,
+            enterprise_with_primary_and_aggregation.valid_after,
+            (enterprise_with_primary_and_aggregation.valid_after + '1 day'::interval)::date AS valid_from,
+            enterprise_with_primary_and_aggregation.valid_to,
+            enterprise_with_primary_and_aggregation.name,
+            enterprise_with_primary_and_aggregation.birth_date,
+            enterprise_with_primary_and_aggregation.death_date,
+            to_tsvector('simple'::regconfig, enterprise_with_primary_and_aggregation.name::text) AS search,
+            enterprise_with_primary_and_aggregation.primary_activity_category_id,
+            enterprise_with_primary_and_aggregation.primary_activity_category_path,
+            enterprise_with_primary_and_aggregation.secondary_activity_category_id,
+            enterprise_with_primary_and_aggregation.secondary_activity_category_path,
+            NULLIF(array_remove(ARRAY[enterprise_with_primary_and_aggregation.primary_activity_category_path, enterprise_with_primary_and_aggregation.secondary_activity_category_path], NULL::ltree), '{}'::ltree[]) AS activity_category_paths,
+            enterprise_with_primary_and_aggregation.sector_id,
+            enterprise_with_primary_and_aggregation.sector_path,
+            enterprise_with_primary_and_aggregation.sector_code,
+            enterprise_with_primary_and_aggregation.sector_name,
+            enterprise_with_primary_and_aggregation.data_source_ids,
+            enterprise_with_primary_and_aggregation.data_source_codes,
+            enterprise_with_primary_and_aggregation.legal_form_id,
+            enterprise_with_primary_and_aggregation.legal_form_code,
+            enterprise_with_primary_and_aggregation.legal_form_name,
+            enterprise_with_primary_and_aggregation.physical_address_part1,
+            enterprise_with_primary_and_aggregation.physical_address_part2,
+            enterprise_with_primary_and_aggregation.physical_address_part3,
+            enterprise_with_primary_and_aggregation.physical_postcode,
+            enterprise_with_primary_and_aggregation.physical_postplace,
+            enterprise_with_primary_and_aggregation.physical_region_id,
+            enterprise_with_primary_and_aggregation.physical_region_path,
+            enterprise_with_primary_and_aggregation.physical_country_id,
+            enterprise_with_primary_and_aggregation.physical_country_iso_2,
+            enterprise_with_primary_and_aggregation.postal_address_part1,
+            enterprise_with_primary_and_aggregation.postal_address_part2,
+            enterprise_with_primary_and_aggregation.postal_address_part3,
+            enterprise_with_primary_and_aggregation.postal_postcode,
+            enterprise_with_primary_and_aggregation.postal_postplace,
+            enterprise_with_primary_and_aggregation.postal_region_id,
+            enterprise_with_primary_and_aggregation.postal_region_path,
+            enterprise_with_primary_and_aggregation.postal_country_id,
+            enterprise_with_primary_and_aggregation.postal_country_iso_2,
+            enterprise_with_primary_and_aggregation.invalid_codes,
+            enterprise_with_primary_and_aggregation.has_legal_unit,
+            enterprise_with_primary_and_aggregation.establishment_ids,
+            enterprise_with_primary_and_aggregation.legal_unit_ids,
+            enterprise_with_primary_and_aggregation.enterprise_id,
+            enterprise_with_primary_and_aggregation.primary_establishment_id,
+            enterprise_with_primary_and_aggregation.primary_legal_unit_id,
+            enterprise_with_primary_and_aggregation.stats_summary
+           FROM enterprise_with_primary_and_aggregation
         )
- SELECT basis_with_both.unit_type,
-    basis_with_both.unit_id,
-    basis_with_both.valid_after,
-    basis_with_both.valid_from,
-    basis_with_both.valid_to,
-    basis_with_both.name,
-    basis_with_both.birth_date,
-    basis_with_both.death_date,
-    basis_with_both.search,
-    basis_with_both.primary_activity_category_id,
-    basis_with_both.primary_activity_category_path,
-    basis_with_both.secondary_activity_category_id,
-    basis_with_both.secondary_activity_category_path,
-    basis_with_both.activity_category_paths,
-    basis_with_both.sector_id,
-    basis_with_both.sector_path,
-    basis_with_both.sector_code,
-    basis_with_both.sector_name,
-    basis_with_both.data_source_ids,
-    basis_with_both.data_source_codes,
-    basis_with_both.legal_form_id,
-    basis_with_both.legal_form_code,
-    basis_with_both.legal_form_name,
-    basis_with_both.physical_address_part1,
-    basis_with_both.physical_address_part2,
-    basis_with_both.physical_address_part3,
-    basis_with_both.physical_postcode,
-    basis_with_both.physical_postplace,
-    basis_with_both.physical_region_id,
-    basis_with_both.physical_region_path,
-    basis_with_both.physical_country_id,
-    basis_with_both.physical_country_iso_2,
-    basis_with_both.postal_address_part1,
-    basis_with_both.postal_address_part2,
-    basis_with_both.postal_address_part3,
-    basis_with_both.postal_postcode,
-    basis_with_both.postal_postplace,
-    basis_with_both.postal_region_id,
-    basis_with_both.postal_region_path,
-    basis_with_both.postal_country_id,
-    basis_with_both.postal_country_iso_2,
-    basis_with_both.invalid_codes,
-    basis_with_both.has_legal_unit,
-    basis_with_both.establishment_ids,
-    basis_with_both.legal_unit_ids,
-    basis_with_both.enterprise_id,
-    basis_with_both.primary_establishment_id,
-    basis_with_both.primary_legal_unit_id,
-    basis_with_both.stats_summary
-   FROM basis_with_both
-  ORDER BY basis_with_both.unit_type, basis_with_both.unit_id, basis_with_both.valid_after;
+ SELECT enterprise_with_primary_and_aggregation_and_derived.unit_type,
+    enterprise_with_primary_and_aggregation_and_derived.unit_id,
+    enterprise_with_primary_and_aggregation_and_derived.valid_after,
+    enterprise_with_primary_and_aggregation_and_derived.valid_from,
+    enterprise_with_primary_and_aggregation_and_derived.valid_to,
+    enterprise_with_primary_and_aggregation_and_derived.name,
+    enterprise_with_primary_and_aggregation_and_derived.birth_date,
+    enterprise_with_primary_and_aggregation_and_derived.death_date,
+    enterprise_with_primary_and_aggregation_and_derived.search,
+    enterprise_with_primary_and_aggregation_and_derived.primary_activity_category_id,
+    enterprise_with_primary_and_aggregation_and_derived.primary_activity_category_path,
+    enterprise_with_primary_and_aggregation_and_derived.secondary_activity_category_id,
+    enterprise_with_primary_and_aggregation_and_derived.secondary_activity_category_path,
+    enterprise_with_primary_and_aggregation_and_derived.activity_category_paths,
+    enterprise_with_primary_and_aggregation_and_derived.sector_id,
+    enterprise_with_primary_and_aggregation_and_derived.sector_path,
+    enterprise_with_primary_and_aggregation_and_derived.sector_code,
+    enterprise_with_primary_and_aggregation_and_derived.sector_name,
+    enterprise_with_primary_and_aggregation_and_derived.data_source_ids,
+    enterprise_with_primary_and_aggregation_and_derived.data_source_codes,
+    enterprise_with_primary_and_aggregation_and_derived.legal_form_id,
+    enterprise_with_primary_and_aggregation_and_derived.legal_form_code,
+    enterprise_with_primary_and_aggregation_and_derived.legal_form_name,
+    enterprise_with_primary_and_aggregation_and_derived.physical_address_part1,
+    enterprise_with_primary_and_aggregation_and_derived.physical_address_part2,
+    enterprise_with_primary_and_aggregation_and_derived.physical_address_part3,
+    enterprise_with_primary_and_aggregation_and_derived.physical_postcode,
+    enterprise_with_primary_and_aggregation_and_derived.physical_postplace,
+    enterprise_with_primary_and_aggregation_and_derived.physical_region_id,
+    enterprise_with_primary_and_aggregation_and_derived.physical_region_path,
+    enterprise_with_primary_and_aggregation_and_derived.physical_country_id,
+    enterprise_with_primary_and_aggregation_and_derived.physical_country_iso_2,
+    enterprise_with_primary_and_aggregation_and_derived.postal_address_part1,
+    enterprise_with_primary_and_aggregation_and_derived.postal_address_part2,
+    enterprise_with_primary_and_aggregation_and_derived.postal_address_part3,
+    enterprise_with_primary_and_aggregation_and_derived.postal_postcode,
+    enterprise_with_primary_and_aggregation_and_derived.postal_postplace,
+    enterprise_with_primary_and_aggregation_and_derived.postal_region_id,
+    enterprise_with_primary_and_aggregation_and_derived.postal_region_path,
+    enterprise_with_primary_and_aggregation_and_derived.postal_country_id,
+    enterprise_with_primary_and_aggregation_and_derived.postal_country_iso_2,
+    enterprise_with_primary_and_aggregation_and_derived.invalid_codes,
+    enterprise_with_primary_and_aggregation_and_derived.has_legal_unit,
+    enterprise_with_primary_and_aggregation_and_derived.establishment_ids,
+    enterprise_with_primary_and_aggregation_and_derived.legal_unit_ids,
+    enterprise_with_primary_and_aggregation_and_derived.enterprise_id,
+    enterprise_with_primary_and_aggregation_and_derived.primary_establishment_id,
+    enterprise_with_primary_and_aggregation_and_derived.primary_legal_unit_id,
+    enterprise_with_primary_and_aggregation_and_derived.stats_summary
+   FROM enterprise_with_primary_and_aggregation_and_derived
+  ORDER BY enterprise_with_primary_and_aggregation_and_derived.unit_type, enterprise_with_primary_and_aggregation_and_derived.unit_id, enterprise_with_primary_and_aggregation_and_derived.valid_after;
 
 ```

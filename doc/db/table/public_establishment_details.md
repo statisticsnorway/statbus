@@ -28,11 +28,14 @@
  enterprise_id          | integer                  |           |          |                                                               | plain    |             |              | 
  legal_unit_id          | integer                  |           |          |                                                               | plain    |             |              | 
  primary_for_legal_unit | boolean                  |           |          |                                                               | plain    |             |              | 
+ primary_for_enterprise | boolean                  |           |          |                                                               | plain    |             |              | 
  invalid_codes          | jsonb                    |           |          |                                                               | extended |             |              | 
 Indexes:
     "establishment_active_idx" btree (active)
+    "establishment_enterprise_id_primary_for_enterprise_idx" btree (enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL
     "establishment_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
     "establishment_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
+    "establishment_legal_unit_id_primary_for_legal_unit_idx" btree (legal_unit_id, primary_for_legal_unit) WHERE legal_unit_id IS NOT NULL
     "ix_establishment_data_source_id" btree (data_source_id)
     "ix_establishment_enterprise_id" btree (enterprise_id)
     "ix_establishment_legal_unit_id" btree (legal_unit_id)
@@ -48,6 +51,7 @@ CASE
     ELSE NULL::boolean
 END)
     "establishment_valid_check" CHECK (valid_after < valid_to)
+    "primary_for_enterprise and enterprise_id must be defined togeth" CHECK (enterprise_id IS NOT NULL AND primary_for_enterprise IS NOT NULL OR enterprise_id IS NULL AND primary_for_enterprise IS NULL)
     "primary_for_legal_unit and legal_unit_id must be defined togeth" CHECK (legal_unit_id IS NOT NULL AND primary_for_legal_unit IS NOT NULL OR legal_unit_id IS NULL AND primary_for_legal_unit IS NULL)
 Foreign-key constraints:
     "establishment_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE RESTRICT

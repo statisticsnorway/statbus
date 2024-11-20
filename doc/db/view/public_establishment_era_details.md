@@ -28,6 +28,7 @@
  enterprise_id          | integer                  |           |          |         | plain    | 
  legal_unit_id          | integer                  |           |          |         | plain    | 
  primary_for_legal_unit | boolean                  |           |          |         | plain    | 
+ primary_for_enterprise | boolean                  |           |          |         | plain    | 
  invalid_codes          | jsonb                    |           |          |         | extended | 
 View definition:
  SELECT establishment.id,
@@ -56,6 +57,7 @@ View definition:
     establishment.enterprise_id,
     establishment.legal_unit_id,
     establishment.primary_for_legal_unit,
+    establishment.primary_for_enterprise,
     establishment.invalid_codes
    FROM establishment;
 Triggers:

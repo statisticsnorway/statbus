@@ -28,6 +28,7 @@
  enterprise_id          | integer                  |           |          | 
  legal_unit_id          | integer                  |           |          | 
  primary_for_legal_unit | boolean                  |           |          | 
+ primary_for_enterprise | boolean                  |           |          | 
  invalid_codes          | jsonb                    |           |          | 
 Triggers:
     establishment_era_upsert INSTEAD OF INSERT ON establishment_era FOR EACH ROW EXECUTE FUNCTION admin.establishment_era_upsert()
