@@ -7,9 +7,9 @@
  name_when_query | character varying     |           |          |         | extended | 
  name_when_input | character varying     |           |          |         | extended | 
  scope           | relative_period_scope |           |          |         | plain    | 
- valid_on        | date                  |           |          |         | plain    | 
  valid_from      | date                  |           |          |         | plain    | 
  valid_to        | date                  |           |          |         | plain    | 
+ valid_on        | date                  |           |          |         | plain    | 
  code            | relative_period_code  |           |          |         | plain    | 
  path            | ltree                 |           |          |         | extended | 
 View definition:
@@ -19,9 +19,9 @@ View definition:
             relative_period_with_time.name_when_query,
             relative_period_with_time.name_when_input,
             relative_period_with_time.scope,
-            relative_period_with_time.valid_on,
             relative_period_with_time.valid_from,
             relative_period_with_time.valid_to,
+            relative_period_with_time.valid_on,
             relative_period_with_time.code,
             NULL::ltree AS path
            FROM relative_period_with_time
@@ -45,9 +45,9 @@ View definition:
     combined_data.name_when_query,
     combined_data.name_when_input,
     combined_data.scope,
-    combined_data.valid_on,
     combined_data.valid_from,
     combined_data.valid_to,
+    combined_data.valid_on,
     combined_data.code,
     combined_data.path
    FROM combined_data

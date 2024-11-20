@@ -36,11 +36,11 @@
     "csv": null
   },
   {
-    "sql": "physical_postal_code",
+    "sql": "physical_postcode",
     "csv": "beliggenhetsadresse.postnummer"
   },
   {
-    "sql": "physical_postal_place",
+    "sql": "physical_postplace",
     "csv": "beliggenhetsadresse.poststed"
   },
   {
@@ -124,11 +124,11 @@
     "csv": null
   },
   {
-    "sql": "postal_postal_place",
+    "sql": "postal_postplace",
     "csv": "postadresse.poststed"
   },
   {
-    "sql": "postal_postal_code",
+    "sql": "postal_postcode",
     "csv": "postadresse.postnummer"
   },
   {

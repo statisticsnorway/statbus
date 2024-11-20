@@ -26,8 +26,8 @@ CREATE VIEW public.timeline_enterprise
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
-    , physical_postal_code
-    , physical_postal_place
+    , physical_postcode
+    , physical_postplace
     , physical_region_id
     , physical_region_path
     , physical_country_id
@@ -35,13 +35,14 @@ CREATE VIEW public.timeline_enterprise
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
-    , postal_postal_code
-    , postal_postal_place
+    , postal_postcode
+    , postal_postplace
     , postal_region_id
     , postal_region_path
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
+    , has_legal_unit
     , establishment_ids
     , legal_unit_ids
     , enterprise_id
@@ -85,8 +86,8 @@ CREATE VIEW public.timeline_enterprise
            , phl.address_part1 AS physical_address_part1
            , phl.address_part2 AS physical_address_part2
            , phl.address_part3 AS physical_address_part3
-           , phl.postal_code AS physical_postal_code
-           , phl.postal_place AS physical_postal_place
+           , phl.postcode AS physical_postcode
+           , phl.postplace AS physical_postplace
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
            , phl.country_id AS physical_country_id
@@ -95,14 +96,16 @@ CREATE VIEW public.timeline_enterprise
            , pol.address_part1 AS postal_address_part1
            , pol.address_part2 AS postal_address_part2
            , pol.address_part3 AS postal_address_part3
-           , pol.postal_code AS postal_postal_code
-           , pol.postal_place AS postal_postal_place
+           , pol.postcode AS postal_postcode
+           , pol.postplace AS postal_postplace
            , pol.region_id           AS postal_region_id
            , por.path                AS postal_region_path
            , pol.country_id AS postal_country_id
            , poc.iso_2     AS postal_country_iso_2
            --
            , plu.invalid_codes AS invalid_codes
+           --
+           , TRUE AS has_legal_unit
            --
            , en.id AS enterprise_id
            , plu.id AS primary_legal_unit_id
@@ -210,8 +213,8 @@ CREATE VIEW public.timeline_enterprise
            , phl.address_part1 AS physical_address_part1
            , phl.address_part2 AS physical_address_part2
            , phl.address_part3 AS physical_address_part3
-           , phl.postal_code AS physical_postal_code
-           , phl.postal_place AS physical_postal_place
+           , phl.postcode AS physical_postcode
+           , phl.postplace AS physical_postplace
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
            , phl.country_id AS physical_country_id
@@ -220,14 +223,16 @@ CREATE VIEW public.timeline_enterprise
            , pol.address_part1 AS postal_address_part1
            , pol.address_part2 AS postal_address_part2
            , pol.address_part3 AS postal_address_part3
-           , pol.postal_code AS postal_postal_code
-           , pol.postal_place AS postal_postal_place
+           , pol.postcode AS postal_postcode
+           , pol.postplace AS postal_postplace
            , pol.region_id           AS postal_region_id
            , por.path                AS postal_region_path
            , pol.country_id AS postal_country_id
            , poc.iso_2     AS postal_country_iso_2
            --
            , pes.invalid_codes AS invalid_codes
+           --
+           , FALSE AS has_legal_unit
            --
            , en.id AS enterprise_id
            , pes.id AS primary_establishment_id
@@ -365,8 +370,8 @@ CREATE VIEW public.timeline_enterprise
                , basis.physical_address_part1
                , basis.physical_address_part2
                , basis.physical_address_part3
-               , basis.physical_postal_code
-               , basis.physical_postal_place
+               , basis.physical_postcode
+               , basis.physical_postplace
                , basis.physical_region_id
                , basis.physical_region_path
                , basis.physical_country_id
@@ -374,13 +379,14 @@ CREATE VIEW public.timeline_enterprise
                , basis.postal_address_part1
                , basis.postal_address_part2
                , basis.postal_address_part3
-               , basis.postal_postal_code
-               , basis.postal_postal_place
+               , basis.postal_postcode
+               , basis.postal_postplace
                , basis.postal_region_id
                , basis.postal_region_path
                , basis.postal_country_id
                , basis.postal_country_iso_2
                , basis.invalid_codes
+               , basis.has_legal_unit
                , COALESCE(lua.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
                , COALESCE(lua.legal_unit_ids, ARRAY[]::INT[]) AS legal_unit_ids
                , basis.enterprise_id
@@ -433,8 +439,8 @@ CREATE VIEW public.timeline_enterprise
                , basis.physical_address_part1
                , basis.physical_address_part2
                , basis.physical_address_part3
-               , basis.physical_postal_code
-               , basis.physical_postal_place
+               , basis.physical_postcode
+               , basis.physical_postplace
                , basis.physical_region_id
                , basis.physical_region_path
                , basis.physical_country_id
@@ -442,13 +448,14 @@ CREATE VIEW public.timeline_enterprise
                , basis.postal_address_part1
                , basis.postal_address_part2
                , basis.postal_address_part3
-               , basis.postal_postal_code
-               , basis.postal_postal_place
+               , basis.postal_postcode
+               , basis.postal_postplace
                , basis.postal_region_id
                , basis.postal_region_path
                , basis.postal_country_id
                , basis.postal_country_iso_2
                , basis.invalid_codes
+               , basis.has_legal_unit
                , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
                , ARRAY[]::INT[] AS legal_unit_ids
                , basis.enterprise_id

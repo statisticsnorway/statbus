@@ -30,7 +30,9 @@ RETURNS INTEGER LANGUAGE sql STABLE AS $$
              WHERE lu.enterprise_id = unit_id
                AND lu.valid_after < valid_on AND valid_on <= lu.valid_to
          UNION ALL
-            SELECT es.enterprise_id
+            -- The same enterprise can be returned multiple times
+            -- if it has multiple establishment's connected, so use DISTINCT.
+            SELECT DISTINCT es.enterprise_id
               FROM public.establishment AS es
              WHERE es.enterprise_id = unit_id
                AND es.valid_after < valid_on AND valid_on <= es.valid_to

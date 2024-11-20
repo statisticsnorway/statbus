@@ -1,0 +1,3 @@
+valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code
+2024-01-01,infinity,82507020167,3000,THE VICTORIA FRESH FARMS,225613,UG,3314,80,1200000,nlr
+2024-01-01,infinity,82602025168,3001,THE MARINE SERVICES,225602,UG,0123,75,4400000,nlr

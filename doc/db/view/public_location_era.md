@@ -10,8 +10,8 @@
  address_part1      | character varying(200) |           |          | 
  address_part2      | character varying(200) |           |          | 
  address_part3      | character varying(200) |           |          | 
- postal_code        | character varying(200) |           |          | 
- postal_place       | character varying(200) |           |          | 
+ postcode           | character varying(200) |           |          | 
+ postplace          | character varying(200) |           |          | 
  region_id          | integer                |           |          | 
  country_id         | integer                |           |          | 
  latitude           | numeric(9,6)           |           |          | 

@@ -176,9 +176,6 @@ DROP VIEW public.activity_category_available;
 DROP VIEW public.region_upload;
 DROP FUNCTION admin.region_upload_upsert();
 
-DROP VIEW public.region_7_levels_view;
-DROP FUNCTION admin.upsert_region_7_levels();
-
 DROP VIEW public.country_view;
 DROP FUNCTION admin.upsert_country();
 DROP FUNCTION admin.delete_stale_country();

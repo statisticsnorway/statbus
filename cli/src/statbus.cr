@@ -38,6 +38,7 @@ class StatBus
     Down
     New
     Renumber
+    Redo
   end
   # Mappings for a configuration, where every field is present.
   # Nil records the intention of not using an sql field
@@ -640,6 +641,12 @@ class StatBus
             @migration_description = desc
           end
         end
+        parser.on("down", "Roll back the last applied migration") do
+          @migrate_mode = MigrateMode::Down
+        end
+        parser.on("redo", "Roll back last migration and reapply it") do
+          @migrate_mode = MigrateMode::Redo
+        end
         parser.on("renumber", "Renumber migration files to fix ordering") do
           @migrate_mode = MigrateMode::Renumber
         end
@@ -709,27 +716,45 @@ class StatBus
         sorted_migration_filenames.each do |migration_filename|
           version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1])
           filename = File.basename(migration_filename)
-          STDOUT.print "Migration #{filename} "
-          STDOUT.flush
+          if @verbose
+            STDOUT.print "Migration #{filename} "
+            STDOUT.flush
+          end
 
           # Calculate SHA256 hash of migration file
           file_hash = Digest::SHA256.digest(File.read(migration_filename)).hexstring
           version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1]) || "0"
 
-          # Check if this migration hash is already applied
-          already_applied = db.query_one?(
-            "SELECT EXISTS (SELECT 1 FROM admin.migrations WHERE sha256_hash = $1)",
+          # Check if this migration version or hash is already applied
+          existing = db.query_one?(
+            "SELECT version, sha256_hash FROM admin.migrations WHERE version = $1 OR sha256_hash = $2",
+            version,
             file_hash,
-            as: Bool
+            as: {version: String?, sha256_hash: String?}
           )
 
-          if already_applied
-            STDOUT.puts "[already_applied]"
-            next
+          if existing
+            if existing[:version] == version && existing[:sha256_hash] != file_hash
+              STDERR.puts "\nError: Migration version #{version} exists but has different content!"
+              STDERR.puts "This could indicate retroactive change to previously applied migrations."
+              STDERR.puts "Existing hash: #{existing[:sha256_hash]}"
+              STDERR.puts "Current hash:  #{file_hash}"
+              exit(1)
+            elsif existing[:version] != version && existing[:sha256_hash] == file_hash
+              STDERR.puts "\nError: Migration with hash #{file_hash} was previously applied as version #{existing[:version]}"
+              STDERR.puts "But is now being applied as version #{version}"
+              STDERR.puts "This could indicate duplicate migrations or version number changes."
+              exit(1)
+            else
+              STDOUT.puts "[already applied]" if @verbose
+              next
+            end
           end
 
-          STDOUT.print "[applying] "
-          STDOUT.flush
+          if @verbose
+            STDOUT.print "[applying] "
+            STDOUT.flush
+          end
 
           # Start timing
           start_time = Time.monotonic
@@ -750,7 +775,7 @@ class StatBus
                 duration_ms
               )
 
-              STDOUT.puts "done (#{duration_ms}ms)"
+              STDOUT.puts "done (#{duration_ms}ms)" if @verbose
             else
               raise "Failed to apply migration #{File.basename(migration_filename)}"
             end
@@ -808,8 +833,13 @@ class StatBus
       case @migrate_mode
       when MigrateMode::Up
         migrate_up
+      when MigrateMode::Down
+        migrate_down
       when MigrateMode::New
         create_new_migration
+      when MigrateMode::Redo
+        migrate_down
+        migrate_up
       when MigrateMode::Renumber
         renumber_migrations
       else
@@ -858,6 +888,62 @@ class StatBus
 
       puts "Created new migration file: #{new_filename}"
       exit(1)
+    end
+  end
+
+  private def migrate_down
+    Dir.cd(@project_directory) do
+      config = StatBusConfig.new(@project_directory, @verbose)
+
+      DB.connect(config.connection_string) do |db|
+        # Get the last applied migration
+        last_migration = db.query_one?(
+          "SELECT version, filename FROM admin.migrations ORDER BY version::int DESC LIMIT 1",
+          as: {version: String, filename: String}
+        )
+
+        if last_migration.nil?
+          puts "No migrations to roll back"
+          return
+        end
+
+        # Check for corresponding down migration file
+        down_filename = last_migration[:filename].sub(".up.sql", ".down.sql")
+        down_filepath = Path["migrations/#{down_filename}"]
+
+        if !File.exists?(down_filepath)
+          STDERR.puts "Error: Down migration file not found: #{down_filename}"
+          exit(1)
+        end
+
+        if @verbose
+          STDOUT.print "Rolling back migration #{last_migration[:filename]} "
+          STDOUT.flush
+        end
+
+        # Execute the down migration
+        Dir.cd(@project_directory) do
+          result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_filepath}")
+          if result
+            # Remove the migration record
+            db.exec(
+              "DELETE FROM admin.migrations WHERE version = $1",
+              last_migration[:version]
+            )
+
+            STDOUT.puts "done" if @verbose
+
+            # Notify PostgREST to reload
+            db.transaction do |tx|
+              puts "Notifying PostgREST to reload with changes." if @verbose
+              tx.connection.exec("NOTIFY pgrst, 'reload config'")
+              tx.connection.exec("NOTIFY pgrst, 'reload schema'")
+            end
+          else
+            raise "Failed to roll back migration #{down_filename}"
+          end
+        end
+      end
     end
   end
 

@@ -53,13 +53,13 @@ CREATE TEMP TABLE prepared_small_history (
     tax_ident TEXT,
     name TEXT,
     physical_address_part1 TEXT,
-    physical_postal_code TEXT,
-    physical_postal_place TEXT,
+    physical_postcode TEXT,
+    physical_postplace TEXT,
     physical_region_code TEXT,
     physical_country_iso_2 TEXT,
     postal_address_part1 TEXT,
-    postal_postal_code TEXT,
-    postal_postal_place TEXT,
+    postal_postcode TEXT,
+    postal_postplace TEXT,
     postal_region_code TEXT,
     postal_country_iso_2 TEXT,
     primary_activity_category_code TEXT,
@@ -83,15 +83,15 @@ SELECT
     employees AS antallAnsatte,
     ''::TEXT AS hjemmeside,
     postal_address_part1 AS postadresse_adresse,
-    postal_postal_place AS postadresse_poststed,
-    postal_postal_code AS postadresse_postnummer,
+    postal_postplace AS postadresse_poststed,
+    postal_postcode AS postadresse_postnummer,
     ''::TEXT AS postadresse_kommune,
     postal_region_code AS postadresse_kommunenummer,
     ''::TEXT AS postadresse_land,
     postal_country_iso_2 AS postadresse_landkode,
     physical_address_part1 AS forretningsadresse_adresse,
-    physical_postal_place AS forretningsadresse_poststed,
-    physical_postal_code AS forretningsadresse_postnummer,
+    physical_postplace AS forretningsadresse_poststed,
+    physical_postcode AS forretningsadresse_postnummer,
     ''::TEXT AS forretningsadresse_kommune,
     physical_region_code AS forretningsadresse_kommunenummer,
     ''::TEXT AS forretningsadresse_land,
@@ -131,13 +131,13 @@ BEGIN
         tax_ident,
         name,
         physical_address_part1,
-        physical_postal_code,
-        physical_postal_place,
+        physical_postcode,
+        physical_postplace,
         physical_region_code,
         physical_country_iso_2,
         postal_address_part1,
-        postal_postal_code,
-        postal_postal_place,
+        postal_postcode,
+        postal_postplace,
         postal_region_code,
         postal_country_iso_2,
         primary_activity_category_code,
@@ -220,13 +220,13 @@ INSERT INTO public.import_legal_unit_era (
     tax_ident,
     name,
     physical_address_part1,
-    physical_postal_code,
-    physical_postal_place,
+    physical_postcode,
+    physical_postplace,
     physical_region_code,
     physical_country_iso_2,
     postal_address_part1,
-    postal_postal_code,
-    postal_postal_place,
+    postal_postcode,
+    postal_postplace,
     postal_region_code,
     postal_country_iso_2,
     primary_activity_category_code,
@@ -238,13 +238,13 @@ SELECT
     tax_ident,
     name,
     physical_address_part1,
-    physical_postal_code,
-    physical_postal_place,
+    physical_postcode,
+    physical_postplace,
     physical_region_code,
     physical_country_iso_2,
     postal_address_part1,
-    postal_postal_code,
-    postal_postal_place,
+    postal_postcode,
+    postal_postplace,
     postal_region_code,
     postal_country_iso_2,
     primary_activity_category_code,
@@ -390,22 +390,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": "5350",                                         +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": "5350",                                      +
+                      |     "physical_postcode": "5350",                                       +
+                      |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": "BRATTHOLMEN",                              +
-                      |     "physical_postal_code": "5350",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_postal_place": "BRATTHOLMEN",                            +
                       |     "physical_address_part1": "Brattholmen",                           +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -437,22 +438,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "1406",                                       +
+                      |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "1406",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "32.07",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "SKI",                                    +
                       |     "physical_address_part1": "Måsaveien 42",                          +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -484,22 +486,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "3114",                                       +
+                      |     "physical_postplace": "TØNSBERG",                                  +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "3114",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "39.05",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "TØNSBERG",                               +
                       |     "physical_address_part1": "Ingrids vei 29",                        +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -531,22 +534,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "2005",                                       +
+                      |     "physical_postplace": "RÆLINGEN",                                  +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "2005",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "32.24",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "RÆLINGEN",                               +
                       |     "physical_address_part1": "Stormyrvegen 9",                        +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -578,22 +582,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4550",                                       +
+                      |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4550",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "FARSUND",                                +
                       |     "physical_address_part1": "Stormyrvegen 9",                        +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -625,22 +630,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": "3516",                                         +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": "3516",                                      +
+                      |     "physical_postcode": "3516",                                       +
+                      |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": "HØNEFOSS",                                 +
-                      |     "physical_postal_code": "3516",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_postal_place": "HØNEFOSS",                               +
                       |     "physical_address_part1": "Hensveien 180",                         +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -685,22 +691,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": "3516",                                         +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": "3516",                                      +
+                      |     "physical_postcode": "3516",                                       +
+                      |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": "HØNEFOSS",                                 +
-                      |     "physical_postal_code": "3516",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_postal_place": "HØNEFOSS",                               +
                       |     "physical_address_part1": "Hensveien 180",                         +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -745,22 +752,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": "3516",                                         +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": "3516",                                      +
+                      |     "physical_postcode": "3516",                                       +
+                      |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": "HØNEFOSS",                                 +
-                      |     "physical_postal_code": "3516",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_postal_place": "HØNEFOSS",                               +
                       |     "physical_address_part1": "Hensveien 180",                         +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -805,22 +813,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": "3516",                                         +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": "3516",                                      +
+                      |     "physical_postcode": "3516",                                       +
+                      |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": "HØNEFOSS",                                 +
-                      |     "physical_postal_code": "3516",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_postal_place": "HØNEFOSS",                               +
                       |     "physical_address_part1": "Hensveien 180",                         +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -865,22 +874,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4550",                                       +
+                      |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4550",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "FARSUND",                                +
                       |     "physical_address_part1": "Lyngdalsveien 810",                     +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -912,22 +922,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4550",                                       +
+                      |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4550",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "FARSUND",                                +
                       |     "physical_address_part1": "Lyngdalsveien 810",                     +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -959,22 +970,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "3014",                                       +
+                      |     "physical_postplace": "DRAMMEN",                                   +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "3014",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "33.01",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "DRAMMEN",                                +
                       |     "physical_address_part1": "Edvard Stangs gate 33",                 +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1006,22 +1018,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4340",                                       +
+                      |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4340",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "BRYNE",                                  +
                       |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1066,22 +1079,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4340",                                       +
+                      |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4340",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "BRYNE",                                  +
                       |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1126,22 +1140,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
-                      |     "legal_unit_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
+                      |     "legal_unit_count": null,                                          +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4340",                                       +
+                      |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4340",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "BRYNE",                                  +
                       |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1186,22 +1201,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": "5350",                                         +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": "5350",                                      +
+                      |     "physical_postcode": "5350",                                       +
+                      |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": "BRATTHOLMEN",                              +
-                      |     "physical_postal_code": "5350",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_postal_place": "BRATTHOLMEN",                            +
                       |     "physical_address_part1": "Brattholmen",                           +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1232,22 +1248,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "1406",                                       +
+                      |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "1406",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "32.07",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "SKI",                                    +
                       |     "physical_address_part1": "Måsaveien 42",                          +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1278,22 +1295,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "3114",                                       +
+                      |     "physical_postplace": "TØNSBERG",                                  +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "3114",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "39.05",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "TØNSBERG",                               +
                       |     "physical_address_part1": "Ingrids vei 29",                        +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1324,22 +1342,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "2005",                                       +
+                      |     "physical_postplace": "RÆLINGEN",                                  +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "2005",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "32.24",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "RÆLINGEN",                               +
                       |     "physical_address_part1": "Stormyrvegen 9",                        +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1370,22 +1389,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4550",                                       +
+                      |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4550",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "FARSUND",                                +
                       |     "physical_address_part1": "Stormyrvegen 9",                        +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1416,22 +1436,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": "3516",                                         +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": "3516",                                      +
+                      |     "physical_postcode": "3516",                                       +
+                      |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": "HØNEFOSS",                                 +
-                      |     "physical_postal_code": "3516",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_postal_place": "HØNEFOSS",                               +
                       |     "physical_address_part1": "Hensveien 180",                         +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1474,22 +1495,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": "3516",                                         +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": "3516",                                      +
+                      |     "physical_postcode": "3516",                                       +
+                      |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": "HØNEFOSS",                                 +
-                      |     "physical_postal_code": "3516",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_postal_place": "HØNEFOSS",                               +
                       |     "physical_address_part1": "Hensveien 180",                         +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1532,22 +1554,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": "3516",                                         +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": "3516",                                      +
+                      |     "physical_postcode": "3516",                                       +
+                      |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": "HØNEFOSS",                                 +
-                      |     "physical_postal_code": "3516",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_postal_place": "HØNEFOSS",                               +
                       |     "physical_address_part1": "Hensveien 180",                         +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1590,22 +1613,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": "3516",                                         +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": "3516",                                      +
+                      |     "physical_postcode": "3516",                                       +
+                      |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": "HØNEFOSS",                                 +
-                      |     "physical_postal_code": "3516",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_postal_place": "HØNEFOSS",                               +
                       |     "physical_address_part1": "Hensveien 180",                         +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1648,22 +1672,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4550",                                       +
+                      |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4550",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "FARSUND",                                +
                       |     "physical_address_part1": "Lyngdalsveien 810",                     +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1694,22 +1719,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4550",                                       +
+                      |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4550",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "FARSUND",                                +
                       |     "physical_address_part1": "Lyngdalsveien 810",                     +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1740,22 +1766,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "3014",                                       +
+                      |     "physical_postplace": "DRAMMEN",                                   +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "3014",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "33.01",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "DRAMMEN",                                +
                       |     "physical_address_part1": "Edvard Stangs gate 33",                 +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1786,22 +1813,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4340",                                       +
+                      |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4340",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "BRYNE",                                  +
                       |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1844,22 +1872,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4340",                                       +
+                      |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4340",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "BRYNE",                                  +
                       |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +
@@ -1902,22 +1931,23 @@ statistical_unit_data | {                                                       
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
                       |     "invalid_codes": null,                                             +
+                      |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
-                      |     "enterprise_count": 1,                                             +
+                      |     "postal_postcode": null,                                           +
+                      |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
-                      |     "postal_postal_code": null,                                        +
+                      |     "physical_postcode": "4340",                                       +
+                      |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 0,                                          +
-                      |     "postal_postal_place": null,                                       +
-                      |     "physical_postal_code": "4340",                                    +
+                      |     "establishment_count": null,                                       +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
                       |     "postal_address_part3": null,                                      +
                       |     "postal_country_iso_2": null,                                      +
-                      |     "physical_postal_place": "BRYNE",                                  +
                       |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
                       |     "physical_address_part2": null,                                    +
                       |     "physical_address_part3": null,                                    +

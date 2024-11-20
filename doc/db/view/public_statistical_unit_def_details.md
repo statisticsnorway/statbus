@@ -29,8 +29,8 @@
  physical_address_part1           | character varying(200) |           |          |         | extended | 
  physical_address_part2           | character varying(200) |           |          |         | extended | 
  physical_address_part3           | character varying(200) |           |          |         | extended | 
- physical_postal_code             | character varying(200) |           |          |         | extended | 
- physical_postal_place            | character varying(200) |           |          |         | extended | 
+ physical_postcode                | character varying(200) |           |          |         | extended | 
+ physical_postplace               | character varying(200) |           |          |         | extended | 
  physical_region_id               | integer                |           |          |         | plain    | 
  physical_region_path             | ltree                  |           |          |         | extended | 
  physical_country_id              | integer                |           |          |         | plain    | 
@@ -38,13 +38,14 @@
  postal_address_part1             | character varying(200) |           |          |         | extended | 
  postal_address_part2             | character varying(200) |           |          |         | extended | 
  postal_address_part3             | character varying(200) |           |          |         | extended | 
- postal_postal_code               | character varying(200) |           |          |         | extended | 
- postal_postal_place              | character varying(200) |           |          |         | extended | 
+ postal_postcode                  | character varying(200) |           |          |         | extended | 
+ postal_postplace                 | character varying(200) |           |          |         | extended | 
  postal_region_id                 | integer                |           |          |         | plain    | 
  postal_region_path               | ltree                  |           |          |         | extended | 
  postal_country_id                | integer                |           |          |         | plain    | 
  postal_country_iso_2             | text                   |           |          |         | extended | 
  invalid_codes                    | jsonb                  |           |          |         | extended | 
+ has_legal_unit                   | boolean                |           |          |         | plain    | 
  establishment_ids                | integer[]              |           |          |         | extended | 
  legal_unit_ids                   | integer[]              |           |          |         | extended | 
  enterprise_ids                   | integer[]              |           |          |         | extended | 
@@ -83,8 +84,8 @@ View definition:
             timeline_establishment.physical_address_part1,
             timeline_establishment.physical_address_part2,
             timeline_establishment.physical_address_part3,
-            timeline_establishment.physical_postal_code,
-            timeline_establishment.physical_postal_place,
+            timeline_establishment.physical_postcode,
+            timeline_establishment.physical_postplace,
             timeline_establishment.physical_region_id,
             timeline_establishment.physical_region_path,
             timeline_establishment.physical_country_id,
@@ -92,22 +93,17 @@ View definition:
             timeline_establishment.postal_address_part1,
             timeline_establishment.postal_address_part2,
             timeline_establishment.postal_address_part3,
-            timeline_establishment.postal_postal_code,
-            timeline_establishment.postal_postal_place,
+            timeline_establishment.postal_postcode,
+            timeline_establishment.postal_postplace,
             timeline_establishment.postal_region_id,
             timeline_establishment.postal_region_path,
             timeline_establishment.postal_country_id,
             timeline_establishment.postal_country_iso_2,
             timeline_establishment.invalid_codes,
-            ARRAY[timeline_establishment.establishment_id] AS establishment_ids,
-                CASE
-                    WHEN timeline_establishment.legal_unit_id IS NULL THEN ARRAY[]::integer[]
-                    ELSE ARRAY[timeline_establishment.legal_unit_id]
-                END AS legal_unit_ids,
-                CASE
-                    WHEN timeline_establishment.enterprise_id IS NULL THEN ARRAY[]::integer[]
-                    ELSE ARRAY[timeline_establishment.enterprise_id]
-                END AS enterprise_ids,
+            timeline_establishment.has_legal_unit,
+            NULL::integer[] AS establishment_ids,
+            NULL::integer[] AS legal_unit_ids,
+            NULL::integer[] AS enterprise_ids,
             timeline_establishment.stats,
             COALESCE(jsonb_stats_to_summary('{}'::jsonb, timeline_establishment.stats), '{}'::jsonb) AS stats_summary
            FROM timeline_establishment
@@ -139,8 +135,8 @@ View definition:
             timeline_legal_unit.physical_address_part1,
             timeline_legal_unit.physical_address_part2,
             timeline_legal_unit.physical_address_part3,
-            timeline_legal_unit.physical_postal_code,
-            timeline_legal_unit.physical_postal_place,
+            timeline_legal_unit.physical_postcode,
+            timeline_legal_unit.physical_postplace,
             timeline_legal_unit.physical_region_id,
             timeline_legal_unit.physical_region_path,
             timeline_legal_unit.physical_country_id,
@@ -148,16 +144,17 @@ View definition:
             timeline_legal_unit.postal_address_part1,
             timeline_legal_unit.postal_address_part2,
             timeline_legal_unit.postal_address_part3,
-            timeline_legal_unit.postal_postal_code,
-            timeline_legal_unit.postal_postal_place,
+            timeline_legal_unit.postal_postcode,
+            timeline_legal_unit.postal_postplace,
             timeline_legal_unit.postal_region_id,
             timeline_legal_unit.postal_region_path,
             timeline_legal_unit.postal_country_id,
             timeline_legal_unit.postal_country_iso_2,
             timeline_legal_unit.invalid_codes,
-            timeline_legal_unit.establishment_ids,
-            ARRAY[timeline_legal_unit.legal_unit_id] AS legal_unit_ids,
-            ARRAY[timeline_legal_unit.enterprise_id] AS enterprise_ids,
+            timeline_legal_unit.has_legal_unit,
+            COALESCE(timeline_legal_unit.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
+            NULL::integer[] AS legal_unit_ids,
+            NULL::integer[] AS enterprise_ids,
             timeline_legal_unit.stats,
             timeline_legal_unit.stats_summary
            FROM timeline_legal_unit
@@ -189,8 +186,8 @@ View definition:
             timeline_enterprise.physical_address_part1,
             timeline_enterprise.physical_address_part2,
             timeline_enterprise.physical_address_part3,
-            timeline_enterprise.physical_postal_code,
-            timeline_enterprise.physical_postal_place,
+            timeline_enterprise.physical_postcode,
+            timeline_enterprise.physical_postplace,
             timeline_enterprise.physical_region_id,
             timeline_enterprise.physical_region_path,
             timeline_enterprise.physical_country_id,
@@ -198,16 +195,17 @@ View definition:
             timeline_enterprise.postal_address_part1,
             timeline_enterprise.postal_address_part2,
             timeline_enterprise.postal_address_part3,
-            timeline_enterprise.postal_postal_code,
-            timeline_enterprise.postal_postal_place,
+            timeline_enterprise.postal_postcode,
+            timeline_enterprise.postal_postplace,
             timeline_enterprise.postal_region_id,
             timeline_enterprise.postal_region_path,
             timeline_enterprise.postal_country_id,
             timeline_enterprise.postal_country_iso_2,
             timeline_enterprise.invalid_codes,
-            timeline_enterprise.establishment_ids,
-            timeline_enterprise.legal_unit_ids,
-            ARRAY[timeline_enterprise.enterprise_id] AS enterprise_ids,
+            timeline_enterprise.has_legal_unit,
+            COALESCE(timeline_enterprise.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
+            COALESCE(timeline_enterprise.legal_unit_ids, ARRAY[]::integer[]) AS legal_unit_ids,
+            NULL::integer[] AS enterprise_ids,
             NULL::jsonb AS stats,
             timeline_enterprise.stats_summary
            FROM timeline_enterprise
@@ -239,8 +237,8 @@ View definition:
     data.physical_address_part1,
     data.physical_address_part2,
     data.physical_address_part3,
-    data.physical_postal_code,
-    data.physical_postal_place,
+    data.physical_postcode,
+    data.physical_postplace,
     data.physical_region_id,
     data.physical_region_path,
     data.physical_country_id,
@@ -248,21 +246,22 @@ View definition:
     data.postal_address_part1,
     data.postal_address_part2,
     data.postal_address_part3,
-    data.postal_postal_code,
-    data.postal_postal_place,
+    data.postal_postcode,
+    data.postal_postplace,
     data.postal_region_id,
     data.postal_region_path,
     data.postal_country_id,
     data.postal_country_iso_2,
     data.invalid_codes,
+    data.has_legal_unit,
     data.establishment_ids,
     data.legal_unit_ids,
     data.enterprise_ids,
     data.stats,
     data.stats_summary,
-    COALESCE(array_length(data.establishment_ids, 1), 0) AS establishment_count,
-    COALESCE(array_length(data.legal_unit_ids, 1), 0) AS legal_unit_count,
-    COALESCE(array_length(data.enterprise_ids, 1), 0) AS enterprise_count,
+    array_length(data.establishment_ids, 1) AS establishment_count,
+    array_length(data.legal_unit_ids, 1) AS legal_unit_count,
+    array_length(data.enterprise_ids, 1) AS enterprise_count,
     get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
    FROM data;
 

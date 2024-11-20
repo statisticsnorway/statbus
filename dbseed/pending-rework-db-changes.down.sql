@@ -10,3 +10,6 @@ DROP FUNCTION admin.legal_unit_brreg_view_upsert();
 
 DROP VIEW public.establishment_brreg_view;
 DROP FUNCTION admin.upsert_establishment_brreg_view();
+
+DROP VIEW public.region_7_levels_view;
+DROP FUNCTION admin.upsert_region_7_levels();

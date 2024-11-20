@@ -7,9 +7,9 @@
  name_when_query | character varying     |           |          | 
  name_when_input | character varying     |           |          | 
  scope           | relative_period_scope |           |          | 
- valid_on        | date                  |           |          | 
  valid_from      | date                  |           |          | 
  valid_to        | date                  |           |          | 
+ valid_on        | date                  |           |          | 
  code            | relative_period_code  |           |          | 
  path            | ltree                 |           |          | 
 

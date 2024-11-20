@@ -27,8 +27,8 @@ CREATE VIEW public.statistical_unit_def
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
-    , physical_postal_code
-    , physical_postal_place
+    , physical_postcode
+    , physical_postplace
     , physical_region_id
     , physical_region_path
     , physical_country_id
@@ -36,13 +36,14 @@ CREATE VIEW public.statistical_unit_def
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
-    , postal_postal_code
-    , postal_postal_place
+    , postal_postcode
+    , postal_postplace
     , postal_region_id
     , postal_region_path
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
+    , has_legal_unit
     , establishment_ids
     , legal_unit_ids
     , enterprise_ids
@@ -82,8 +83,8 @@ CREATE VIEW public.statistical_unit_def
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
-           , physical_postal_code
-           , physical_postal_place
+           , physical_postcode
+           , physical_postplace
            , physical_region_id
            , physical_region_path
            , physical_country_id
@@ -91,24 +92,17 @@ CREATE VIEW public.statistical_unit_def
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
-           , postal_postal_code
-           , postal_postal_place
+           , postal_postcode
+           , postal_postplace
            , postal_region_id
            , postal_region_path
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
-           , ARRAY[establishment_id]::INT[] AS establishment_ids
-           -- An establishment may have either a legal_unit or
-           -- an enterprise, so handle that any of them are null gracefully.
-           , CASE WHEN legal_unit_id IS NULL
-                  THEN ARRAY[]::INT[]
-                  ELSE ARRAY[legal_unit_id]::INT[]
-              END AS legal_unit_ids
-           , CASE WHEN enterprise_id IS NULL
-                  THEN ARRAY[]::INT[]
-                  ELSE ARRAY[enterprise_id]::INT[]
-              END AS enterprise_ids
+           , has_legal_unit
+           , NULL::INT[] AS establishment_ids
+           , NULL::INT[] AS legal_unit_ids
+           , NULL::INT[] AS enterprise_ids
            , stats
            , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
       FROM public.timeline_establishment
@@ -140,8 +134,8 @@ CREATE VIEW public.statistical_unit_def
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
-           , physical_postal_code
-           , physical_postal_place
+           , physical_postcode
+           , physical_postplace
            , physical_region_id
            , physical_region_path
            , physical_country_id
@@ -149,16 +143,17 @@ CREATE VIEW public.statistical_unit_def
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
-           , postal_postal_code
-           , postal_postal_place
+           , postal_postcode
+           , postal_postplace
            , postal_region_id
            , postal_region_path
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
-           , establishment_ids
-           , ARRAY[legal_unit_id]::INT[] AS legal_unit_ids
-           , ARRAY[enterprise_id]::INT[] AS enterprise_ids
+           , has_legal_unit
+           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
+           , NULL::INT[] AS legal_unit_ids
+           , NULL::INT[] AS enterprise_ids
            , stats
            , stats_summary
       FROM public.timeline_legal_unit
@@ -194,8 +189,8 @@ CREATE VIEW public.statistical_unit_def
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
-           , physical_postal_code
-           , physical_postal_place
+           , physical_postcode
+           , physical_postplace
            , physical_region_id
            , physical_region_path
            , physical_country_id
@@ -203,16 +198,17 @@ CREATE VIEW public.statistical_unit_def
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
-           , postal_postal_code
-           , postal_postal_place
+           , postal_postcode
+           , postal_postplace
            , postal_region_id
            , postal_region_path
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
-           , establishment_ids
-           , legal_unit_ids
-           , ARRAY[enterprise_id]::INT[] AS enterprise_ids
+           , has_legal_unit
+           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
+           , COALESCE(legal_unit_ids,ARRAY[]::INT[]) AS legal_unit_ids
+           , NULL::INT[] AS enterprise_ids
            , NULL::JSONB AS stats
            , stats_summary
       FROM public.timeline_enterprise
@@ -246,8 +242,8 @@ CREATE VIEW public.statistical_unit_def
          , data.physical_address_part1
          , data.physical_address_part2
          , data.physical_address_part3
-         , data.physical_postal_code
-         , data.physical_postal_place
+         , data.physical_postcode
+         , data.physical_postplace
          , data.physical_region_id
          , data.physical_region_path
          , data.physical_country_id
@@ -255,21 +251,22 @@ CREATE VIEW public.statistical_unit_def
          , data.postal_address_part1
          , data.postal_address_part2
          , data.postal_address_part3
-         , data.postal_postal_code
-         , data.postal_postal_place
+         , data.postal_postcode
+         , data.postal_postplace
          , data.postal_region_id
          , data.postal_region_path
          , data.postal_country_id
          , data.postal_country_iso_2
          , data.invalid_codes
+         , data.has_legal_unit
          , data.establishment_ids
          , data.legal_unit_ids
          , data.enterprise_ids
          , data.stats
          , data.stats_summary
-         , COALESCE(array_length(data.establishment_ids,1),0) AS establishment_count
-         , COALESCE(array_length(data.legal_unit_ids,1),0) AS legal_unit_count
-         , COALESCE(array_length(data.enterprise_ids,1),0) AS enterprise_count
+         , array_length(data.establishment_ids,1) AS establishment_count
+         , array_length(data.legal_unit_ids,1) AS legal_unit_count
+         , array_length(data.enterprise_ids,1) AS enterprise_count
          , public.get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
     FROM data;
 ;

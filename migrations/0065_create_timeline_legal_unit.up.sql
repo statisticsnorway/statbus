@@ -26,8 +26,8 @@ CREATE VIEW public.timeline_legal_unit
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
-    , physical_postal_code
-    , physical_postal_place
+    , physical_postcode
+    , physical_postplace
     , physical_region_id
     , physical_region_path
     , physical_country_id
@@ -35,13 +35,14 @@ CREATE VIEW public.timeline_legal_unit
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
-    , postal_postal_code
-    , postal_postal_place
+    , postal_postcode
+    , postal_postplace
     , postal_region_id
     , postal_region_path
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
+    , has_legal_unit
     , establishment_ids
     , legal_unit_id
     , enterprise_id
@@ -84,8 +85,8 @@ CREATE VIEW public.timeline_legal_unit
            , phl.address_part1 AS physical_address_part1
            , phl.address_part2 AS physical_address_part2
            , phl.address_part3 AS physical_address_part3
-           , phl.postal_code AS physical_postal_code
-           , phl.postal_place AS physical_postal_place
+           , phl.postcode AS physical_postcode
+           , phl.postplace AS physical_postplace
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
            , phl.country_id AS physical_country_id
@@ -94,14 +95,16 @@ CREATE VIEW public.timeline_legal_unit
            , pol.address_part1 AS postal_address_part1
            , pol.address_part2 AS postal_address_part2
            , pol.address_part3 AS postal_address_part3
-           , pol.postal_code AS postal_postal_code
-           , pol.postal_place AS postal_postal_place
+           , pol.postcode AS postal_postcode
+           , pol.postplace AS postal_postplace
            , pol.region_id           AS postal_region_id
            , por.path                AS postal_region_path
            , pol.country_id AS postal_country_id
            , poc.iso_2     AS postal_country_iso_2
            --
            , lu.invalid_codes AS invalid_codes
+           --
+           , TRUE AS has_legal_unit
            --
            , lu.id AS legal_unit_id
            , lu.enterprise_id AS enterprise_id
@@ -172,7 +175,7 @@ CREATE VIEW public.timeline_legal_unit
             OR COALESCE(ds.id = pol.data_source_id      , FALSE)
             OR COALESCE(ds.id = ANY(sfu.data_source_ids), FALSE)
         ) AS ds ON TRUE
-      ), aggregation AS (
+      ), establishment_aggregation AS (
         SELECT tes.legal_unit_id
              , basis.valid_after
              , basis.valid_to
@@ -210,7 +213,7 @@ CREATE VIEW public.timeline_legal_unit
                FROM (
                    SELECT unnest(basis.data_source_ids) AS id
                    UNION ALL
-                   SELECT unnest(aggregation.data_source_ids) AS id
+                   SELECT unnest(esa.data_source_ids) AS id
                ) AS ids
            ) AS data_source_ids
            , (
@@ -218,7 +221,7 @@ CREATE VIEW public.timeline_legal_unit
                FROM (
                    SELECT unnest(basis.data_source_codes) AS code
                    UNION ALL
-                   SELECT unnest(aggregation.data_source_codes) AS code
+                   SELECT unnest(esa.data_source_codes) AS code
                ) AS codes
            ) AS data_source_codes
            , basis.legal_form_id
@@ -227,8 +230,8 @@ CREATE VIEW public.timeline_legal_unit
            , basis.physical_address_part1
            , basis.physical_address_part2
            , basis.physical_address_part3
-           , basis.physical_postal_code
-           , basis.physical_postal_place
+           , basis.physical_postcode
+           , basis.physical_postplace
            , basis.physical_region_id
            , basis.physical_region_path
            , basis.physical_country_id
@@ -236,14 +239,15 @@ CREATE VIEW public.timeline_legal_unit
            , basis.postal_address_part1
            , basis.postal_address_part2
            , basis.postal_address_part3
-           , basis.postal_postal_code
-           , basis.postal_postal_place
+           , basis.postal_postcode
+           , basis.postal_postplace
            , basis.postal_region_id
            , basis.postal_region_path
            , basis.postal_country_id
            , basis.postal_country_iso_2
            , basis.invalid_codes
-           , COALESCE(aggregation.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
+           , basis.has_legal_unit
+           , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
            , basis.legal_unit_id
            , basis.enterprise_id
            -- Expose the stats for just this entry.
@@ -251,12 +255,12 @@ CREATE VIEW public.timeline_legal_unit
            -- Continue one more aggregation iteration adding the stats for this unit
            -- to the aggregated stats for establishments, by using the internal
            -- aggregation function for one more step.
-           , public.jsonb_stats_to_summary(COALESCE(aggregation.stats_summary,'{}'::JSONB), basis.stats) AS stats_summary
+           , public.jsonb_stats_to_summary(COALESCE(esa.stats_summary,'{}'::JSONB), basis.stats) AS stats_summary
       FROM basis
-      LEFT OUTER JOIN aggregation
-       ON basis.legal_unit_id = aggregation.legal_unit_id
-      AND basis.valid_after = aggregation.valid_after
-      AND basis.valid_to = aggregation.valid_to
+      LEFT OUTER JOIN establishment_aggregation AS esa
+       ON basis.legal_unit_id = esa.legal_unit_id
+       AND basis.valid_after = esa.valid_after
+       AND basis.valid_to = esa.valid_to
       --
       ORDER BY unit_type, unit_id, valid_after
 ;

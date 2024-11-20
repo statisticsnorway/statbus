@@ -39,10 +39,10 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo "User uploads the legal units over time"
-\copy public.import_legal_unit_era(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postal_code,physical_postal_place,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postal_code,postal_postal_place,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,data_source_code) FROM 'test/data/03_norwegian-legal-units-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_legal_unit_era(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,data_source_code) FROM 'test/data/03_norwegian-legal-units-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 \echo "User uploads the establishments over time"
-\copy public.import_establishment_era_for_legal_unit(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postal_code,physical_postal_place,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postal_code,postal_postal_place,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,data_source_code,employees,turnover) FROM 'test/data/03_norwegian-establishments-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_establishment_era_for_legal_unit(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,data_source_code,employees,turnover) FROM 'test/data/03_norwegian-establishments-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -111,15 +111,15 @@ SELECT unit_type
      , physical_address_part1
      , physical_address_part2
      , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
+     , physical_postcode
+     , physical_postplace
      , physical_region_path
      , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
      , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
+     , postal_postcode
+     , postal_postplace
      , postal_region_path
      , postal_country_iso_2
      , invalid_codes
@@ -159,15 +159,15 @@ SELECT unit_type
      , physical_address_part1
      , physical_address_part2
      , physical_address_part3
-     , physical_postal_code
-     , physical_postal_place
+     , physical_postcode
+     , physical_postplace
      , physical_region_path
      , physical_country_iso_2
      , postal_address_part1
      , postal_address_part2
      , postal_address_part3
-     , postal_postal_code
-     , postal_postal_place
+     , postal_postcode
+     , postal_postplace
      , postal_region_path
      , postal_country_iso_2
      , invalid_codes
@@ -212,15 +212,15 @@ SELECT te.unit_type
      , te.physical_address_part1
      , te.physical_address_part2
      , te.physical_address_part3
-     , te.physical_postal_code
-     , te.physical_postal_place
+     , te.physical_postcode
+     , te.physical_postplace
      , te.physical_region_path
      , te.physical_country_iso_2
      , te.postal_address_part1
      , te.postal_address_part2
      , te.postal_address_part3
-     , te.postal_postal_code
-     , te.postal_postal_place
+     , te.postal_postcode
+     , te.postal_postplace
      , te.postal_region_path
      , te.postal_country_iso_2
      , te.invalid_codes
@@ -509,6 +509,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2013-01-01'::DATE
             )
           )
@@ -526,6 +527,7 @@ SELECT jsonb_pretty(
                public.statistical_unit_hierarchy(
                 'enterprise',
                 (SELECT unit_id FROM selected_enterprise),
+                'all',
                 '2010-01-01'::DATE
             )
           )
@@ -539,7 +541,7 @@ WITH selected_legal_unit AS (
 )
 SELECT jsonb_pretty(
           public.remove_ephemeral_data_from_hierarchy(
-               public.statistical_unit_hierarchy('legal_unit',(SELECT unit_id FROM selected_legal_unit))
+               public.statistical_unit_hierarchy('legal_unit',(SELECT unit_id FROM selected_legal_unit),'all')
           )
      ) AS statistical_unit_hierarchy;
 
@@ -550,16 +552,37 @@ WITH selected_establishment AS (
 )
 SELECT jsonb_pretty(
           public.remove_ephemeral_data_from_hierarchy(
-               public.statistical_unit_hierarchy('establishment',(SELECT unit_id FROM selected_establishment))
+               public.statistical_unit_hierarchy('establishment',(SELECT unit_id FROM selected_establishment),'all')
           )
      ) AS statistical_unit_hierarchy;
 \a
 
 \x
-\echo "Check relevant_statistical_units"
+\echo "Check relevant_statistical_units - no hit at that time."
 WITH selected_enterprise AS (
      SELECT unit_id FROM public.statistical_unit
      WHERE external_idents ->> 'tax_ident' = '823573673'
+       AND unit_type = 'enterprise'
+     LIMIT 1
+)
+SELECT valid_after
+     , valid_from
+     , valid_to
+     , unit_type
+     , external_idents
+     , jsonb_pretty(stats) AS stats
+     , jsonb_pretty(stats_summary) AS stats_summary
+  FROM public.relevant_statistical_units(
+     'enterprise',
+     (SELECT unit_id FROM selected_enterprise),
+     '2023-01-01'::DATE
+);
+
+
+\echo "Check relevant_statistical_units"
+WITH selected_enterprise AS (
+     SELECT unit_id FROM public.statistical_unit
+     WHERE external_idents ->> 'tax_ident' = '921835809'
        AND unit_type = 'enterprise'
      LIMIT 1
 )

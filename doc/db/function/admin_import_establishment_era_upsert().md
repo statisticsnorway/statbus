@@ -246,8 +246,8 @@ BEGIN
             , address_part1
             , address_part2
             , address_part3
-            , postal_code
-            , postal_place
+            , postcode
+            , postplace
             , region_id
             , country_id
             , data_source_id
@@ -261,8 +261,8 @@ BEGIN
             , NULLIF(NEW.physical_address_part1,'')
             , NULLIF(NEW.physical_address_part2,'')
             , NULLIF(NEW.physical_address_part3,'')
-            , NULLIF(NEW.physical_postal_code,'')
-            , NULLIF(NEW.physical_postal_place,'')
+            , NULLIF(NEW.physical_postcode,'')
+            , NULLIF(NEW.physical_postplace,'')
             , physical_region.id
             , physical_country.id
             , data_source.id
@@ -298,8 +298,8 @@ BEGIN
             , address_part1
             , address_part2
             , address_part3
-            , postal_code
-            , postal_place
+            , postcode
+            , postplace
             , region_id
             , country_id
             , data_source_id
@@ -313,8 +313,8 @@ BEGIN
             , NULLIF(NEW.postal_address_part1,'')
             , NULLIF(NEW.postal_address_part2,'')
             , NULLIF(NEW.postal_address_part3,'')
-            , NULLIF(NEW.postal_postal_code,'')
-            , NULLIF(NEW.postal_postal_place,'')
+            , NULLIF(NEW.postal_postcode,'')
+            , NULLIF(NEW.postal_postplace,'')
             , postal_region.id
             , postal_country.id
             , data_source.id
