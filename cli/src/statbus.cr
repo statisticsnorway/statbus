@@ -283,16 +283,16 @@ class StatBus
       "physical_address_part1",
       "physical_address_part2",
       "physical_address_part3",
-      "physical_postal_code",
-      "physical_postal_place",
+      "physical_postcode",
+      "physical_postplace",
       "physical_region_code",
       "physical_region_path",
       "physical_country_iso_2",
       "postal_address_part1",
       "postal_address_part2",
       "postal_address_part3",
-      "postal_postal_code",
-      "postal_postal_place",
+      "postal_postcode",
+      "postal_postplace",
       "postal_region_code",
       "postal_region_path",
       "postal_country_iso_2",
@@ -318,16 +318,16 @@ class StatBus
       "physical_address_part1",
       "physical_address_part2",
       "physical_address_part3",
-      "physical_postal_code",
-      "physical_postal_place",
+      "physical_postcode",
+      "physical_postplace",
       "physical_region_code",
       "physical_region_path",
       "physical_country_iso_2",
       "postal_address_part1",
       "postal_address_part2",
       "postal_address_part3",
-      "postal_postal_code",
-      "postal_postal_place",
+      "postal_postcode",
+      "postal_postplace",
       "postal_region_code",
       "postal_region_path",
       "postal_country_iso_2",
@@ -826,7 +826,7 @@ class StatBus
         STDERR.puts "This could indicate duplicate migrations or version number changes."
         exit(1)
       end
-      
+
       STDOUT.puts "[already applied]" if @verbose
       return false
     end
@@ -894,7 +894,7 @@ class StatBus
 
       DB.connect(config.connection_string) do |db|
         ensure_migration_table(db)
-        
+
         applied_count = 0
         sorted_migrations.each do |migration|
           # Stop if we've already applied one migration and we're in "one" mode
