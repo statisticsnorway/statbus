@@ -26,6 +26,7 @@ CREATE TABLE public.establishment (
     enterprise_id integer REFERENCES public.enterprise(id) ON DELETE RESTRICT,
     legal_unit_id integer,
     primary_for_legal_unit boolean,
+    primary_for_enterprise boolean,
     invalid_codes jsonb,
     CONSTRAINT "Must have either legal_unit_id or enterprise_id"
     CHECK( enterprise_id IS NOT NULL AND legal_unit_id IS     NULL
@@ -34,6 +35,10 @@ CREATE TABLE public.establishment (
     CONSTRAINT "primary_for_legal_unit and legal_unit_id must be defined together"
     CHECK( legal_unit_id IS NOT NULL AND primary_for_legal_unit IS NOT NULL
         OR legal_unit_id IS     NULL AND primary_for_legal_unit IS     NULL
+        ),
+    CONSTRAINT "primary_for_enterprise and enterprise_id must be defined together"
+    CHECK( enterprise_id IS NOT NULL AND primary_for_enterprise IS NOT NULL
+        OR enterprise_id IS     NULL AND primary_for_enterprise IS     NULL
         ),
     CONSTRAINT "enterprise_id enables sector_id"
     CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END)
@@ -56,6 +61,10 @@ CREATE INDEX ix_establishment_reorg_type_id ON public.establishment USING btree 
 \echo ix_establishment_size_id
 CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
 
+\echo establishment_enterprise_id_primary_for_enterprise_idx
+CREATE INDEX establishment_enterprise_id_primary_for_enterprise_idx ON public.establishment(enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL;
+\echo establishment_legal_unit_id_primary_for_legal_unit_idx
+CREATE INDEX establishment_legal_unit_id_primary_for_legal_unit_idx ON public.establishment(legal_unit_id, primary_for_legal_unit) WHERE legal_unit_id IS NOT NULL;
 
 \echo admin.establishment_id_exists
 CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
