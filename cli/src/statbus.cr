@@ -47,6 +47,75 @@ class StatBus
     include JSON::Serializable
   end
 
+  private struct MigrationFile
+    property major_version : String
+    property minor_version : String?
+    property path : Path
+    property major_description : String
+    property minor_description : String?
+    property is_up : Bool
+
+    def initialize(@major_version : String, @minor_version : String?, @path : Path, @major_description : String, @minor_description : String?, @is_up : Bool)
+    end
+
+    def self.parse(path : Path)
+      filename = path.basename
+      directory = path.dirname
+
+      # Handle directory-based migrations
+      if match = Path[directory].basename.match(/^(\d+)_(.+)$/)
+        major_version = match[1]
+        major_description = match[2]
+
+        # Handle major version down migration
+        if filename == "down.sql"
+          return new(
+            major_version: major_version,
+            minor_version: nil, # nil indicates this down migration applies to whole major version
+            path: path,
+            major_description: major_description,
+            minor_description: nil,
+            is_up: false
+          )
+        end
+
+        # Handle numbered parts within a major version
+        if match = filename.match(/^(\d+)_(.+)\.(up|down)\.sql$/)
+          minor_version = match[1]
+          minor_description = match[2]
+          is_up = match[3] == "up"
+
+          return new(
+            major_version: major_version,
+            minor_version: minor_version,
+            path: path,
+            major_description: major_description,
+            minor_description: minor_description,
+            is_up: is_up
+          )
+        end
+      end
+
+      # Handle standalone migrations
+      if match = filename.match(/^(\d+)_(.+)\.(up|down)\.sql$/)
+        major_version = match[1]
+        major_description = match[2]
+        is_up = match[3] == "up"
+
+        return new(
+          major_version: major_version,
+          minor_version: nil,
+          path: path,
+          major_description: major_description,
+          minor_description: nil,
+          is_up: is_up
+        )
+      end
+
+      raise "Invalid migration filename format: #{path}"
+    end
+  end
+
   # Mapping for SQL where only sql fields that map to an actual csv
   class SqlFieldMapping
     property sql : String
@@ -142,6 +211,7 @@ class StatBus
     end
     nil
   end
+
   @import_strategy = ImportStrategy::Copy
   @import_tag : String | Nil = nil
   @offset = 0
@@ -665,19 +735,24 @@ class StatBus
   private def migrate_up
     Dir.cd(@project_directory) do
       config = StatBusConfig.new(@project_directory, @verbose)
-      migration_path = Path["migrations/*.up.sql"]
-      migration_filenames = Dir.glob(migration_path)
+      migration_paths = [Path["migrations/*.up.sql"], Path["migrations/*_*/*.up.sql"]]
+      migration_filenames = Dir.glob(migration_paths)
 
-      # Sort migrations by version number
-      sorted_migration_filenames = migration_filenames.sort do |a, b|
-        # Extract version numbers from filenames
-        a_version = File.basename(a).match(/^(\d+)_/).try(&.[1]) || "0"
-        b_version = File.basename(b).match(/^(\d+)_/).try(&.[1]) || "0"
-        a_version.to_i <=> b_version.to_i
+      # Parse and sort migrations by major/minor version
+      migrations = migration_filenames.map { |path| MigrationFile.parse(Path[path]) }
+      sorted_migrations = migrations.sort do |a, b|
+        major_comp = a.major_version.to_i <=> b.major_version.to_i
+        a_minor_version = a.minor_version
+        b_minor_version = b.minor_version
+        if major_comp == 0 && a_minor_version && b_minor_version
+          a_minor_version.to_i <=> b_minor_version.to_i
+        else
+          major_comp
+        end
       end
 
-      if sorted_migration_filenames.empty?
-        puts "No migrations found in #{migration_path}"
+      if sorted_migrations.empty?
+        puts "No up migrations found in #{migration_paths}"
         return
       end
 
@@ -690,59 +765,74 @@ class StatBus
         )", as: Bool)
 
         if !table_exists
-          puts "Creating admin.migrations" if @verbose
+          puts "Creating db.migration" if @verbose
           db.exec_all(<<-SQL
             BEGIN;
-            CREATE SCHEMA admin;
+            CREATE SCHEMA IF NOT EXISTS db;
 
-            CREATE TABLE admin.migrations (
-              version text NOT NULL PRIMARY KEY,
+            CREATE TABLE db.migration (
+              id SERIAL PRIMARY KEY,
+              major_version text NOT NULL,
+              minor_version text,
               filename text NOT NULL,
               sha256_hash text NOT NULL,
               applied_at timestamp with time zone NOT NULL DEFAULT now(),
-              duration_ms integer NOT NULL
+              duration_ms integer NOT NULL,
+              major_description text NOT NULL,
+              minor_description text,
+              CONSTRAINT "major and minor consistency" CHECK (
+                 minor_version IS     NULL AND minor_description IS     NULL
+              OR minor_version IS NOT NULL AND minor_description IS NOT NULL
+              )
             );
-            CREATE INDEX migrations_sha256_hash_idx ON admin.migrations(sha256_hash);
+            CREATE INDEX migration_major_version_idx ON db.migration(major_version);
+            CREATE INDEX migration_minor_version_idx ON db.migration(minor_version);
+            CREATE INDEX migration_sha256_hash_idx ON db.migration(sha256_hash);
 
-            ALTER TABLE admin.migrations ENABLE ROW LEVEL SECURITY;
+            ALTER TABLE db.migration ENABLE ROW LEVEL SECURITY;
 
-            CREATE POLICY migrations_authenticated_read ON admin.migrations
+            CREATE POLICY migration_authenticated_read ON db.migration
               FOR SELECT TO authenticated USING (true);
             END;
           SQL
           )
         end
 
-        sorted_migration_filenames.each do |migration_filename|
-          version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1])
-          filename = File.basename(migration_filename)
+        sorted_migrations.each do |migration|
           if @verbose
-            STDOUT.print "Migration #{filename} "
+            version_str = migration.minor_version ? "#{migration.major_version}_#{migration.minor_version}" : migration.major_version
+            STDOUT.print "Migration #{version_str} (#{migration.major_description}#{migration.minor_description ? "/#{migration.minor_description}" : ""}) "
             STDOUT.flush
           end
 
           # Calculate SHA256 hash of migration file
-          file_hash = Digest::SHA256.digest(File.read(migration_filename)).hexstring
-          version = File.basename(migration_filename).match(/^(\d+)_/).try(&.[1]) || "0"
+          file_hash = Digest::SHA256.digest(File.read(migration.path)).hexstring
 
           # Check if this migration version or hash is already applied
           existing = db.query_one?(
-            "SELECT version, sha256_hash FROM admin.migrations WHERE version = $1 OR sha256_hash = $2",
-            version,
+            "SELECT major_version, minor_version, sha256_hash FROM db.migration
+             WHERE (major_version = $1 AND minor_version IS NOT DISTINCT FROM $2)
+             OR sha256_hash = $3",
+            migration.major_version,
+            migration.minor_version,
             file_hash,
-            as: {version: String?, sha256_hash: String?}
+            as: {major_version: String?, minor_version: String?, sha256_hash: String?}
           )
 
           if existing
-            if existing[:version] == version && existing[:sha256_hash] != file_hash
-              STDERR.puts "\nError: Migration version #{version} exists but has different content!"
+            if existing[:major_version] == migration.major_version &&
+               existing[:minor_version] == migration.minor_version &&
+               existing[:sha256_hash] != file_hash
+              STDERR.puts "\nError: Migration #{migration.major_version}#{migration.minor_version ? "_#{migration.minor_version}" : ""} exists but has different content!"
               STDERR.puts "This could indicate retroactive change to previously applied migrations."
               STDERR.puts "Existing hash: #{existing[:sha256_hash]}"
               STDERR.puts "Current hash:  #{file_hash}"
               exit(1)
-            elsif existing[:version] != version && existing[:sha256_hash] == file_hash
-              STDERR.puts "\nError: Migration with hash #{file_hash} was previously applied as version #{existing[:version]}"
-              STDERR.puts "But is now being applied as version #{version}"
+            elsif (existing[:major_version] != migration.major_version ||
+                  existing[:minor_version] != migration.minor_version) &&
+                  existing[:sha256_hash] == file_hash
+              STDERR.puts "\nError: Migration with hash #{file_hash} was previously applied as version #{existing[:major_version]}#{existing[:minor_version] ? "_#{existing[:minor_version]}" : ""}"
+              STDERR.puts "But is now being applied as version #{migration.major_version}#{migration.minor_version ? "_#{migration.minor_version}" : ""}"
               STDERR.puts "This could indicate duplicate migrations or version number changes."
               exit(1)
             else
@@ -761,23 +851,27 @@ class StatBus
 
           # Use system command to execute psql with the migration file
           Dir.cd(@project_directory) do
-            result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{migration_filename}")
+            result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{migration.path}")
             if result
               # Calculate duration in milliseconds
               duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
 
               # Record successful migration in migrations table
               db.exec(
-                "INSERT INTO admin.migrations (version, filename, sha256_hash, duration_ms) VALUES ($1, $2, $3, $4)",
-                version,
-                File.basename(migration_filename),
+                "INSERT INTO db.migration (major_version, minor_version, filename, sha256_hash, duration_ms, major_description, minor_description)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)",
+                migration.major_version,
+                migration.minor_version,
+                migration.path.basename,
                 file_hash,
-                duration_ms
+                duration_ms,
+                migration.major_description,
+                migration.minor_description
               )
 
               STDOUT.puts "done (#{duration_ms}ms)" if @verbose
             else
-              raise "Failed to apply migration #{File.basename(migration_filename)}"
+              raise "Failed to apply migration #{migration.path.basename}"
             end
           end
         end
@@ -788,7 +882,6 @@ class StatBus
           tx.connection.exec("NOTIFY pgrst, 'reload config'")
           tx.connection.exec("NOTIFY pgrst, 'reload schema'")
         end
-
       end
     end
   end
@@ -896,53 +989,88 @@ class StatBus
       config = StatBusConfig.new(@project_directory, @verbose)
 
       DB.connect(config.connection_string) do |db|
-        # Get the last applied migration
-        last_migration = db.query_one?(
-          "SELECT version, filename FROM admin.migrations ORDER BY version::int DESC LIMIT 1",
-          as: {version: String, filename: String}
-        )
+        # Check if migrations table exists
+        table_exists = db.query_one?("SELECT EXISTS (
+          SELECT FROM pg_tables 
+          WHERE schemaname = 'db'
+          AND tablename = 'migration'
+        )", as: Bool)
 
-        if last_migration.nil?
-          puts "No migrations to roll back"
+        if !table_exists
+          puts "No migrations to roll back - migration table doesn't exist"
           return
         end
 
-        # Check for corresponding down migration file
-        down_filename = last_migration[:filename].sub(".up.sql", ".down.sql")
-        down_filepath = Path["migrations/#{down_filename}"]
+        # Get the last applied migration(s)
+        last_migration = db.query_one?(
+          "SELECT major_version, minor_version
+           FROM db.migration
+           ORDER BY major_version::int DESC, minor_version::int DESC NULLS FIRST
+           LIMIT 1",
+          as: {major_version: String, minor_version: String?}
+        )
 
-        if !File.exists?(down_filepath)
-          STDERR.puts "Error: Down migration file not found: #{down_filename}"
-          exit(1)
+        if last_migration.nil?
+          # No more migrations, clean up the table and schema
+          db.exec("DROP TABLE db.migration")
+          db.exec("DROP SCHEMA db")
+          puts "Removed migration tracking table and schema"
+          return
         end
+
+        major_version = last_migration[:major_version]
+        minor_version = last_migration[:minor_version]
+
+        # If the up is a major only, look for a corresponding major down migration.
+        down_paths = [] of Path
+        if minor_version.nil?
+          down_paths << Path["migrations/#{major_version}_*.down.sql"]
+        else
+          down_paths << Path["migrations/#{major_version}_*/down.sql"]
+          down_paths << Path["migrations/#{major_version}_*/#{minor_version}_*.down.sql"]
+        end
+        down_globs = down_paths.map { |p| Dir.glob(p) }.flatten
+        if found_path = down_globs.first?
+          execute_down_migration(db, Path[found_path], major_version, minor_version)
+        else
+          raise "Missing down migration for #{major_version}"
+        end
+      end
+    end
+  end
+
+  private def execute_down_migration(db, down_path : Path, major_version : String, minor_version : (String | Nil))
+    Dir.cd(@project_directory) do
+      migration = MigrationFile.parse(down_path)
+      # Make ASCII art showing the interaction between up/down migrations
+      # where a sweeping down is without minor_version when the up had it.
+      sweeping = migration.minor_version.nil? && !minor_version.nil?
+      if sweeping
+        minor_version = nil
+      end
+      result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_path}")
+      if result
+        # Remove the migration record(s)
+        versions = db.query_all(<<-SQL, major_version, minor_version, as: {major_version: String, minor_version: String?})
+          DELETE FROM db.migration
+             WHERE major_version = $1
+               AND COALESCE(minor_version = $2, true)
+             RETURNING major_version, minor_version;
+          SQL
 
         if @verbose
-          STDOUT.print "Rolling back migration #{last_migration[:filename]} "
-          STDOUT.flush
+          versions = versions.map { |m| "#{m[:major_version]}#{m[:minor_version] ? "_#{m[:minor_version]}" : ""}" }
+          STDOUT.puts "Rolled back migration(s) #{versions.join(", ")} "
         end
 
-        # Execute the down migration
-        Dir.cd(@project_directory) do
-          result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_filepath}")
-          if result
-            # Remove the migration record
-            db.exec(
-              "DELETE FROM admin.migrations WHERE version = $1",
-              last_migration[:version]
-            )
-
-            STDOUT.puts "done" if @verbose
-
-            # Notify PostgREST to reload
-            db.transaction do |tx|
-              puts "Notifying PostgREST to reload with changes." if @verbose
-              tx.connection.exec("NOTIFY pgrst, 'reload config'")
-              tx.connection.exec("NOTIFY pgrst, 'reload schema'")
-            end
-          else
-            raise "Failed to roll back migration #{down_filename}"
-          end
+        # Notify PostgREST to reload
+        db.transaction do |tx|
+          puts "Notifying PostgREST to reload with changes." if @verbose
+          tx.connection.exec("NOTIFY pgrst, 'reload config'")
+          tx.connection.exec("NOTIFY pgrst, 'reload schema'")
         end
+      else
+        raise "Failed to roll back migration #{down_path}"
       end
     end
   end
