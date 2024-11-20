@@ -627,6 +627,7 @@ export type Database = {
           name: string | null
           notes: string | null
           parent_org_link: number | null
+          primary_for_enterprise: boolean | null
           primary_for_legal_unit: boolean | null
           reorg_date: string | null
           reorg_references: number | null
@@ -656,6 +657,7 @@ export type Database = {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
+          primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           reorg_date?: string | null
           reorg_references?: number | null
@@ -685,6 +687,7 @@ export type Database = {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
+          primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           reorg_date?: string | null
           reorg_references?: number | null
@@ -733,6 +736,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "enterprise"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["enterprise_id"]
           },
           {
             foreignKeyName: "establishment_reorg_type_id_fkey"
@@ -858,6 +868,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "enterprise"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_ident_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["enterprise_id"]
           },
           {
             foreignKeyName: "external_ident_type_id_fkey"
@@ -1109,6 +1126,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "legal_unit_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["enterprise_id"]
+          },
+          {
             foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
@@ -1156,6 +1180,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "legal_form_used"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_legal_form_id_fkey"
+            columns: ["legal_form_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["legal_form_id"]
           },
           {
             foreignKeyName: "legal_unit_legal_form_id_fkey"
@@ -2030,6 +2061,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tag_for_unit_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["enterprise_id"]
+          },
+          {
             foreignKeyName: "tag_for_unit_tag_id_fkey"
             columns: ["tag_id"]
             isOneToOne: false
@@ -2565,6 +2603,7 @@ export type Database = {
           name: string | null
           notes: string | null
           parent_org_link: number | null
+          primary_for_enterprise: boolean | null
           primary_for_legal_unit: boolean | null
           reorg_date: string | null
           reorg_references: number | null
@@ -2594,6 +2633,7 @@ export type Database = {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
+          primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           reorg_date?: string | null
           reorg_references?: number | null
@@ -2623,6 +2663,7 @@ export type Database = {
           name?: string | null
           notes?: string | null
           parent_org_link?: number | null
+          primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
           reorg_date?: string | null
           reorg_references?: number | null
@@ -2671,6 +2712,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "enterprise"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["enterprise_id"]
           },
           {
             foreignKeyName: "establishment_reorg_type_id_fkey"
@@ -3432,6 +3480,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "legal_unit_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["enterprise_id"]
+          },
+          {
             foreignKeyName: "legal_unit_foreign_participation_id_fkey"
             columns: ["foreign_participation_id"]
             isOneToOne: false
@@ -3479,6 +3534,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "legal_form_used"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_legal_form_id_fkey"
+            columns: ["legal_form_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["legal_form_id"]
           },
           {
             foreignKeyName: "legal_unit_legal_form_id_fkey"
@@ -4624,13 +4686,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -4640,7 +4695,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -4653,13 +4708,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -4672,6 +4734,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "establishment_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["enterprise_id"]
+          },
+          {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
@@ -4711,13 +4780,6 @@ export type Database = {
             columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
             referencedColumns: ["id"]
           },
           {
@@ -4730,13 +4792,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used"
             referencedColumns: ["id"]
@@ -4797,13 +4866,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -4813,7 +4875,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -4826,13 +4888,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -4845,6 +4914,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "legal_unit_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["enterprise_id"]
+          },
+          {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
@@ -4884,13 +4960,6 @@ export type Database = {
             columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
             referencedColumns: ["id"]
           },
           {
@@ -4903,13 +4972,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used"
             referencedColumns: ["id"]
