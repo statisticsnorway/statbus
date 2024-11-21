@@ -14,12 +14,24 @@ export function modifySearchStateReducer(
         api_param_value,
         app_param_values,
       } = action.payload;
+      const resetPage =
+        state.apiSearchParams[api_param_name] !== api_param_value;
       return {
         ...state,
-        apiSearchParams: { ...state.apiSearchParams, [api_param_name]: api_param_value },
-        appSearchParams: { ...state.appSearchParams, [app_param_name]: app_param_values },
-        pagination: { ...state.pagination, pageNumber: 1 },
+        apiSearchParams: {
+          ...state.apiSearchParams,
+          [api_param_name]: api_param_value,
+        },
+        appSearchParams: {
+          ...state.appSearchParams,
+          [app_param_name]: app_param_values,
+        },
+        pagination: {
+          ...state.pagination,
+          pageNumber: resetPage ? 1 : state.pagination.pageNumber,
+        },
       };
+
     }
     case "reset_all":
       return {

@@ -38,34 +38,38 @@ export default async function EnterpriseDetailsPage({
   const primaryLegalUnit = hierarchy.enterprise?.legal_unit?.find(
     (lu) => lu.primary_for_enterprise
   );
-  const establishment = hierarchy.enterprise?.establishment?.[0];
-  if (!primaryLegalUnit && !establishment) {
+  const primaryEstablishment = hierarchy.enterprise?.establishment?.find(
+    (es) => es.primary_for_enterprise
+  );
+  const primaryUnit = primaryLegalUnit || primaryEstablishment;
+
+  if (!primaryUnit) {
     throw new Error("No primary legal unit or establishment found");
   }
-  const unit = primaryLegalUnit || establishment;
+
   return (
     <DetailsPage
       title="General Info"
       subtitle="General information such as name, sector"
     >
-      <GeneralInfoForm values={unit} />
+      <GeneralInfoForm values={primaryUnit} />
       <InfoBox>
         <p>
-          The information above is derived from the{" "}
-          {primaryLegalUnit ? "primary legal unit" : "establishment"} &nbsp;
+          The information above is derived from the primary
+          {primaryLegalUnit ? " legal unit" : " establishment"} &nbsp;
           <Link
             className="underline"
-            href={`/${primaryLegalUnit ? "legal-units" : "establishments"}/${unit.id}`}
+            href={`/${primaryLegalUnit ? "legal-units" : "establishments"}/${primaryUnit.id}`}
           >
-            {unit.name}
+            {primaryUnit.name}
           </Link>
           .
         </p>
         <p>
-          If you need to update this information, update the{" "}
+          If you need to update this information, update the primary
           {primaryLegalUnit
-            ? "primary legal unit or change the primary legal unit altogether"
-            : "establishment"}
+            ? " legal unit or change the primary legal unit altogether"
+            : " establishment"}
           .
         </p>
       </InfoBox>

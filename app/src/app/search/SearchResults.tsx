@@ -57,6 +57,7 @@ const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
       statisticalVariablesDeriveStateUpdateFromSearchParams(statDefinitions, initialUrlSearchParams)
     );
     let result = actions.reduce(modifySearchStateReducer, emptySearchState);
+    result = { ...result, pagination: emptySearchState.pagination };
     return result;
   };
 

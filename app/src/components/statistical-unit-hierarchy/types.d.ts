@@ -158,6 +158,7 @@ declare interface Establishment extends StatisticalUnit {
   enterprise_id: string | null;
   legal_unit_id: number;
   primary_for_legal_unit: boolean;
+  primary_for_enterprise: boolean;
   stat_for_unit?: StatForUnit[];
 }
 
