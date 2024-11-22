@@ -22,4 +22,9 @@ if test \! -f "underenheter.csv"; then
   curl --output underenheter.csv.gz 'https://data.brreg.no/enhetsregisteret/api/underenheter/lastned/csv'
   gunzip underenheter.csv.gz
 fi
+
+if test \! -f "underenheter_filtered.csv"; then
+  python3 $WORKSPACE/samples/norway/brreg/filter-tmp-underenheter.py
+fi
+
 popd
