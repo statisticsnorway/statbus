@@ -1,3 +1,5 @@
+BEGIN;
+
 --
 -- Hand edited PostgreSQL database dump.
 --
@@ -32,3 +34,5 @@ CREATE EXTENSION ltree SCHEMA public;
 
 -- Use a separate schema, that is not exposed by PostgREST, for administrative functions.
 CREATE SCHEMA IF NOT EXISTS admin;
+
+END;

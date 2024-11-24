@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.import_lookup_activity_category
 CREATE FUNCTION admin.import_lookup_activity_category(
     new_jsonb JSONB,
@@ -31,3 +33,5 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.establishment
 CREATE TABLE public.establishment (
     id SERIAL NOT NULL,
@@ -52,8 +54,6 @@ CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree 
 CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
 \echo ix_establishment_name
 CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
-\echo ix_establishment_reorg_type_id
-CREATE INDEX ix_establishment_reorg_type_id ON public.establishment USING btree (reorg_type_id);
 \echo ix_establishment_size_id
 CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
 
@@ -66,3 +66,5 @@ CREATE INDEX establishment_legal_unit_id_primary_for_legal_unit_idx ON public.es
 CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
 $$;
+
+END;

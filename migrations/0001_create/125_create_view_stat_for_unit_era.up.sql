@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.stat_for_unit_era
 CREATE VIEW public.stat_for_unit_era
 WITH (security_invoker=on) AS
@@ -34,3 +36,5 @@ CREATE TRIGGER stat_for_unit_era_upsert
 INSTEAD OF INSERT ON public.stat_for_unit_era
 FOR EACH ROW
 EXECUTE FUNCTION admin.stat_for_unit_era_upsert();
+
+END;

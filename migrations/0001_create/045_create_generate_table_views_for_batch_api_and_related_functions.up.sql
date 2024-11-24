@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Helpers to generate views for bach API handling of all the system provided configuration
 -- that can also be overridden.
 CREATE TYPE admin.view_type_enum AS ENUM ('ordered', 'available', 'system', 'custom');
@@ -587,3 +589,5 @@ BEGIN
     EXECUTE 'DROP FUNCTION ' || prepare_function_name_custom || '()';
 END;
 $$ LANGUAGE plpgsql;
+
+END;

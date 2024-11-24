@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Create function for upsert operation on country
 \echo admin.upsert_country
 CREATE FUNCTION admin.upsert_country()
@@ -46,3 +48,5 @@ EXECUTE FUNCTION admin.delete_stale_country();
 
 
 \copy public.country_view(name, iso_2, iso_3, iso_num) FROM 'dbseed/country/country_codes.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+END;

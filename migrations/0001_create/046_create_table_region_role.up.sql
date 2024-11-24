@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.region_role
 CREATE TABLE public.region_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -6,3 +8,5 @@ CREATE TABLE public.region_role (
     UNIQUE(role_id, region_id)
 );
 CREATE INDEX ix_region_role ON public.region_role USING btree (region_id);
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.external_ident_type
 CREATE TABLE public.external_ident_type (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -8,3 +10,5 @@ CREATE TABLE public.external_ident_type (
     priority integer UNIQUE,
     archived boolean NOT NULL DEFAULT false
 );
+
+END;

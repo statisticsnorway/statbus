@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.location_hierarchy
 CREATE OR REPLACE FUNCTION public.location_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
@@ -26,3 +28,5 @@ CREATE OR REPLACE FUNCTION public.location_hierarchy(
   FROM data_list;
   ;
 $$;
+
+END;

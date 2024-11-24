@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.data_source_used
 CREATE MATERIALIZED VIEW public.data_source_used AS
 SELECT s.id
@@ -14,3 +16,5 @@ ORDER BY s.code;
 
 CREATE UNIQUE INDEX "data_source_used_key"
     ON public.data_source_used (code);
+
+END;

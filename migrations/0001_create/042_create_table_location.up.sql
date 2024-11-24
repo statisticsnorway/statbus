@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.location
 CREATE TABLE public.location (
     id SERIAL NOT NULL,
@@ -37,3 +39,5 @@ CREATE INDEX ix_address_region_id ON public.location USING btree (region_id);
 CREATE INDEX ix_location_establishment_id_id ON public.location USING btree (establishment_id);
 CREATE INDEX ix_location_legal_unit_id_id ON public.location USING btree (legal_unit_id);
 CREATE INDEX ix_location_updated_by_user_id ON public.location USING btree (updated_by_user_id);
+
+END;

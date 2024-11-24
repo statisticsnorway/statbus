@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.activity_category_code_behaviour
 CREATE TYPE public.activity_category_code_behaviour AS ENUM ('digits', 'dot_after_two_digits');
 
@@ -14,3 +16,5 @@ CREATE TABLE public.activity_category_standard (
 INSERT INTO public.activity_category_standard(code, name, description, code_pattern)
 VALUES ('isic_v4', 'ISIC 4', 'ISIC Version 4', 'digits')
      , ('nace_v2.1', 'NACE 2.1', 'NACE Version 2 Revision 1', 'dot_after_two_digits');
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.statistical_history
 CREATE MATERIALIZED VIEW public.statistical_history AS
 SELECT * FROM public.statistical_history_def
@@ -33,3 +35,5 @@ CREATE INDEX idx_statistical_history_deaths ON public.statistical_history (death
 CREATE INDEX idx_statistical_history_count ON public.statistical_history (count);
 \echo idx_statistical_history_stats
 CREATE INDEX idx_statistical_history_stats_summary ON public.statistical_history USING GIN (stats_summary jsonb_path_ops);
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.data_source_hierarchy
 CREATE OR REPLACE FUNCTION public.data_source_hierarchy(data_source_id INTEGER)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
@@ -9,3 +11,5 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$;
+
+END;

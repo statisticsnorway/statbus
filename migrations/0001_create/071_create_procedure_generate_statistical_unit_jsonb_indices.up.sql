@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.generate_statistical_unit_jsonb_indices()
 CREATE PROCEDURE admin.generate_statistical_unit_jsonb_indices()
 LANGUAGE plpgsql AS $generate_statistical_unit_jsonb_indices$
@@ -59,3 +61,5 @@ CALL lifecycle_callbacks.add(
 
 \echo Calling public.generate_statistical_unit_jsonb_indices
 CALL admin.generate_statistical_unit_jsonb_indices();
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.legal_unit
 CREATE TABLE public.legal_unit (
     id SERIAL NOT NULL,
@@ -40,8 +42,6 @@ CREATE INDEX ix_legal_unit_sector_id ON public.legal_unit USING btree (sector_id
 CREATE INDEX ix_legal_unit_legal_form_id ON public.legal_unit USING btree (legal_form_id);
 \echo ix_legal_unit_name
 CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
-\echo ix_legal_unit_reorg_type_id
-CREATE INDEX ix_legal_unit_reorg_type_id ON public.legal_unit USING btree (reorg_type_id);
 \echo ix_legal_unit_size_id
 CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_id);
 
@@ -50,3 +50,5 @@ CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_i
 CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
 $$;
+
+END;

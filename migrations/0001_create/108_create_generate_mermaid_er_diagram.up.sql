@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.generate_mermaid_er_diagram
 /*
   Function: public.generate_mermaid_er_diagram()
@@ -143,3 +145,5 @@ BEGIN
     RETURN result;
 END;
 $$ LANGUAGE plpgsql;
+
+END;

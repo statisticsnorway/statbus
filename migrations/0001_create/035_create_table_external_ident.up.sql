@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.external_ident
 CREATE TABLE public.external_ident (
     id SERIAL NOT NULL,
@@ -25,3 +27,5 @@ CREATE INDEX external_ident_establishment_id_idx ON public.external_ident(establ
 CREATE INDEX external_ident_legal_unit_id_idx ON public.external_ident(legal_unit_id);
 CREATE INDEX external_ident_enterprise_id_idx ON public.external_ident(enterprise_id);
 CREATE INDEX external_ident_enterprise_group_id_idx ON public.external_ident(enterprise_group_id);
+
+END;

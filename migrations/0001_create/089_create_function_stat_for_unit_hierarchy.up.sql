@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.stat_for_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.stat_for_unit_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
@@ -26,3 +28,5 @@ SELECT CASE
     END
   FROM data_list;
 $$;
+
+END;

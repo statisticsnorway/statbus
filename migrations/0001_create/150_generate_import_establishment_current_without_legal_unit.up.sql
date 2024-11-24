@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.generate_import_establishment_current_without_legal_unit()
 CREATE PROCEDURE admin.generate_import_establishment_current_without_legal_unit()
 LANGUAGE plpgsql AS $generate_import_establishment_current_without_legal_unit$
@@ -188,3 +190,5 @@ CALL lifecycle_callbacks.add(
 
 \echo Generating admin.generate_import_establishment_current_without_legal_unit
 CALL admin.generate_import_establishment_current_without_legal_unit();
+
+END;

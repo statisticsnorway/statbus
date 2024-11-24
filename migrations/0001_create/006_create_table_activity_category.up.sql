@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TABLE public.activity_category (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     standard_id integer NOT NULL REFERENCES public.activity_category_standard(id) ON DELETE RESTRICT,
@@ -61,3 +63,5 @@ CREATE TRIGGER lookup_parent_and_derive_code_before_insert_update
 BEFORE INSERT OR UPDATE ON public.activity_category
 FOR EACH ROW
 EXECUTE FUNCTION public.lookup_parent_and_derive_code();
+
+END;

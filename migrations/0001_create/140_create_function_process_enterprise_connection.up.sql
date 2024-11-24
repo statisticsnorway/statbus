@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.process_enterprise_connection
 CREATE FUNCTION admin.process_enterprise_connection(
     IN prior_unit_id INTEGER,
@@ -111,3 +113,5 @@ $process_enterprise_connection$;
 -- ========================================================
 -- END:  Helper functions for import
 -- ========================================================
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.region_used
 CREATE MATERIALIZED VIEW public.region_used AS
 SELECT r.id
@@ -12,3 +14,5 @@ ORDER BY public.nlevel(path), path;
 
 CREATE UNIQUE INDEX "region_used_key"
     ON public.region_used (path);
+
+END;

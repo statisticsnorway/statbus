@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.timeline_establishment
 CREATE VIEW public.timeline_establishment
     ( unit_type
@@ -175,3 +177,5 @@ CREATE VIEW public.timeline_establishment
       --
       ORDER BY t.unit_type, t.unit_id, t.valid_after
 ;
+
+END;

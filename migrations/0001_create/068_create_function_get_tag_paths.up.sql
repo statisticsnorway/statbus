@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.get_tag_paths
 CREATE FUNCTION public.get_tag_paths(
   unit_type public.statistical_unit_type,
@@ -21,3 +23,5 @@ CREATE FUNCTION public.get_tag_paths(
   SELECT COALESCE(tag_paths, ARRAY[]::public.ltree[]) AS tag_paths
   FROM agg_data;
 $$;
+
+END;

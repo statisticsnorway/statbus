@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.tag_for_unit_hierarchy
 CREATE FUNCTION public.tag_for_unit_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
@@ -26,3 +28,5 @@ CREATE FUNCTION public.tag_for_unit_hierarchy(
   FROM data_list;
   ;
 $$;
+
+END;

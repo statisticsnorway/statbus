@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Activate era handling
 SELECT sql_saga.add_era('public.enterprise_group', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.enterprise_group', ARRAY['id']);
@@ -35,3 +37,5 @@ SELECT sql_saga.add_foreign_key('public.location', ARRAY['legal_unit_id'], 'vali
 TABLE sql_saga.era;
 TABLE sql_saga.unique_keys;
 TABLE sql_saga.foreign_keys;
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.activity_category_available
 CREATE VIEW public.activity_category_available
 WITH (security_invoker=on) AS
@@ -217,3 +219,5 @@ CREATE TRIGGER activity_category_available_custom_upsert_custom
 INSTEAD OF INSERT ON public.activity_category_available_custom
 FOR EACH ROW
 EXECUTE FUNCTION admin.activity_category_available_custom_upsert_custom();
+
+END;

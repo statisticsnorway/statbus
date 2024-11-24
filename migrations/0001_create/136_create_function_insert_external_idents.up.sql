@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.insert_external_idents
 CREATE FUNCTION admin.insert_external_idents(
     new_jsonb JSONB,
@@ -98,3 +100,5 @@ BEGIN
   END IF;
 END;
 $insert_external_idents$;
+
+END;

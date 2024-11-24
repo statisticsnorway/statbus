@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.generate_import_legal_unit_era()
 CREATE PROCEDURE admin.generate_import_legal_unit_era()
 LANGUAGE plpgsql AS $generate_import_legal_unit_era$
@@ -86,3 +88,5 @@ CALL lifecycle_callbacks.add(
 -- defined external_ident_type's.
 \echo Generating public.import_legal_unit_era
 CALL admin.generate_import_legal_unit_era();
+
+END;

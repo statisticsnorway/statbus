@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Ref https://stackoverflow.com/a/76356252/1023558
 \echo public.websearch_to_wildcard_tsquery
 CREATE FUNCTION public.websearch_to_wildcard_tsquery(query text)
@@ -18,3 +20,5 @@ RETURNS tsquery AS $$
     END;
 $$ LANGUAGE plpgsql;
 --
+
+END;

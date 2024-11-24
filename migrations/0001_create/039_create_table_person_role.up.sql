@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.person_role
 CREATE TABLE public.person_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -7,3 +9,5 @@ CREATE TABLE public.person_role (
     custom boolean NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.prevent_id_update
 CREATE OR REPLACE FUNCTION admin.prevent_id_update()
   RETURNS TRIGGER
@@ -35,3 +37,5 @@ $$ LANGUAGE plpgsql;
 SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.prevent_id_update_on_public_tables();
 SET LOCAL client_min_messages TO INFO;
+
+END;

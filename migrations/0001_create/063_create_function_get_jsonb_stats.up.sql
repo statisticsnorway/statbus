@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.get_jsonb_stats
 CREATE OR REPLACE FUNCTION public.get_jsonb_stats(
     p_establishment_id INTEGER,
@@ -21,3 +23,5 @@ CREATE OR REPLACE FUNCTION public.get_jsonb_stats(
       AND daterange(p_valid_after, p_valid_to, '(]')
       && daterange(sfu.valid_after, sfu.valid_to, '(]')
 $get_jsonb_stats$;
+
+END;

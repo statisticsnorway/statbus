@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.timesegments
 CREATE VIEW public.timesegments AS
   WITH timesegments_with_trailing_point AS (
@@ -14,3 +16,5 @@ CREATE VIEW public.timesegments AS
   WHERE valid_to IS NOT NULL
   ORDER BY unit_type, unit_id, valid_after
 ;
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.activity_category_isic_v4
 CREATE VIEW public.activity_category_isic_v4
 WITH (security_invoker=on) AS
@@ -24,3 +26,5 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.delete_stale_activity_category();
 
 \copy public.activity_category_isic_v4(path, name) FROM 'dbseed/activity-category-standards/ISIC_Rev_4_english_structure.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"');
+
+END;

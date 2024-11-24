@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.statistical_unit_def
 CREATE VIEW public.statistical_unit_def
     ( unit_type
@@ -270,3 +272,5 @@ CREATE VIEW public.statistical_unit_def
          , public.get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
     FROM data;
 ;
+
+END;

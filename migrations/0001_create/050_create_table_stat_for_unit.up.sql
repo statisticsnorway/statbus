@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.stat_for_unit
 CREATE TABLE public.stat_for_unit (
     id SERIAL NOT NULL,
@@ -23,3 +25,5 @@ CREATE TABLE public.stat_for_unit (
         (value_int IS     NULL AND value_float IS     NULL AND value_string IS     NULL AND value_bool IS NOT NULL)
     )
 );
+
+END;

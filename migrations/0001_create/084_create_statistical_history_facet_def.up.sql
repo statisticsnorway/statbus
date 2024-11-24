@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.statistical_history_facet_def
 SELECT pg_catalog.set_config('search_path', 'public', false);
 CREATE VIEW public.statistical_history_facet_def AS
@@ -247,3 +249,5 @@ UNION ALL
 SELECT * FROM year_and_month_with_unit_per_facet
 ;
 SELECT pg_catalog.set_config('search_path', '', false);
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TYPE public.reset_scope AS ENUM('data','getting-started','all');
 
 \echo public.reset(boolean confirmed, scope public.reset_scope)
@@ -259,3 +261,5 @@ BEGIN
     RETURN result;
 END;
 $$;
+
+END;

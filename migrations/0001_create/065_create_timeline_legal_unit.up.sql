@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.timeline_legal_unit
 CREATE VIEW public.timeline_legal_unit
     ( unit_type
@@ -264,3 +266,5 @@ CREATE VIEW public.timeline_legal_unit
       --
       ORDER BY unit_type, unit_id, valid_after
 ;
+
+END;

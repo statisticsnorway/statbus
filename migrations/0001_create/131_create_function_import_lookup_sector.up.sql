@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.import_lookup_sector
 CREATE FUNCTION admin.import_lookup_sector(
     new_jsonb JSONB,
@@ -24,3 +26,5 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+END;

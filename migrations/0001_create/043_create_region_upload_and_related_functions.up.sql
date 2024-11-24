@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Create a view for region upload using path and name
 \echo public.region_upload
 CREATE VIEW public.region_upload
@@ -47,3 +49,5 @@ CREATE TRIGGER region_upload_upsert
 INSTEAD OF INSERT ON public.region_upload
 FOR EACH ROW
 EXECUTE FUNCTION admin.region_upload_upsert();
+
+END;

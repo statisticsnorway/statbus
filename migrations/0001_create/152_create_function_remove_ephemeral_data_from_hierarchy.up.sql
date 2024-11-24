@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Add helpers
 CREATE FUNCTION public.remove_ephemeral_data_from_hierarchy(data JSONB) RETURNS JSONB
 LANGUAGE plpgsql IMMUTABLE STRICT AS $$
@@ -36,3 +38,5 @@ BEGIN
     RETURN result;
 END;
 $$;
+
+END;

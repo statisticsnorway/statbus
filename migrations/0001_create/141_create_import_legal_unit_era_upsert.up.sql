@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.import_legal_unit_era_upsert
 CREATE FUNCTION admin.import_legal_unit_era_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $import_legal_unit_era_upsert$
@@ -420,3 +422,5 @@ BEGIN
     RETURN NULL;
 END;
 $import_legal_unit_era_upsert$;
+
+END;

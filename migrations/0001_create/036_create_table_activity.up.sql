@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 
 \echo public.activity
@@ -23,3 +25,5 @@ CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establ
 CREATE INDEX ix_activity_legal_unit_id ON public.activity USING btree (legal_unit_id);
 CREATE INDEX ix_activity_updated_by_user_id ON public.activity USING btree (updated_by_user_id);
 CREATE INDEX ix_activity_establishment_valid_after_valid_to ON public.activity USING btree (establishment_id, valid_after, valid_to);
+
+END;

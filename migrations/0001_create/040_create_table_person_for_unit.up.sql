@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.person_for_unit
 CREATE TABLE public.person_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -14,3 +16,5 @@ CREATE INDEX ix_person_for_unit_legal_unit_id ON public.person_for_unit USING bt
 CREATE INDEX ix_person_for_unit_establishment_id ON public.person_for_unit USING btree (establishment_id);
 CREATE INDEX ix_person_for_unit_person_id ON public.person_for_unit USING btree (person_id);
 CREATE UNIQUE INDEX ix_person_for_unit_person_type_id_establishment_id_legal_unit_id_ ON public.person_for_unit USING btree (person_type_id, establishment_id, legal_unit_id, person_id);
+
+END;

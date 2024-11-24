@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.enable_rls_on_public_tables
 CREATE OR REPLACE FUNCTION admin.enable_rls_on_public_tables()
 RETURNS void AS $$
@@ -19,3 +21,5 @@ $$ LANGUAGE plpgsql;
 SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.enable_rls_on_public_tables();
 SET LOCAL client_min_messages TO INFO;
+
+END;

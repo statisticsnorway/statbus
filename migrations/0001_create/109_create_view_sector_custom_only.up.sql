@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.sector_custom_only
 CREATE VIEW public.sector_custom_only(path, name, description)
 WITH (security_invoker=on) AS
@@ -103,3 +105,5 @@ CREATE TRIGGER sector_custom_only_prepare_trigger
 BEFORE INSERT ON public.sector_custom_only
 FOR EACH STATEMENT
 EXECUTE FUNCTION admin.sector_custom_only_prepare();
+
+END;

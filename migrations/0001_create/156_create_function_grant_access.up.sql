@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Allow access read to the admin schema for all users,
 -- as some nested UPSERT queries use views that call functions that require this.
 -- This is strange, as there is no specific access to anything inside
@@ -43,3 +45,5 @@ $$ LANGUAGE plpgsql;
 --SET LOCAL client_min_messages TO DEBUG;
 --SELECT admin.grant_type_and_function_access_to_authenticated();
 --SET LOCAL client_min_messages TO INFO;
+
+END;

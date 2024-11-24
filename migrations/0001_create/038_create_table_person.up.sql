@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TYPE public.person_sex AS ENUM ('Male', 'Female');
 \echo public.person
 CREATE TABLE public.person (
@@ -16,3 +18,5 @@ CREATE TABLE public.person (
 );
 CREATE INDEX ix_person_country_id ON public.person USING btree (country_id);
 CREATE INDEX ix_person_given_name_surname ON public.person USING btree (given_name, middle_name, family_name);
+
+END;

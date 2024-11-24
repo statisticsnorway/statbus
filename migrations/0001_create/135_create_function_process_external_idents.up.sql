@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.process_external_idents
 CREATE FUNCTION admin.process_external_idents(
     new_jsonb JSONB,
@@ -100,3 +102,5 @@ BEGIN
     END IF;
 END; -- Process external identifiers
 $process_external_idents$ LANGUAGE plpgsql;
+
+END;

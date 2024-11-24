@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.upsert_generic_valid_time_table
 CREATE FUNCTION admin.upsert_generic_valid_time_table
     ( schema_name text
@@ -251,3 +253,5 @@ BEGIN
   RETURN result.id;
 END;
 $upsert_generic_valid_time_table$ LANGUAGE plpgsql;
+
+END;

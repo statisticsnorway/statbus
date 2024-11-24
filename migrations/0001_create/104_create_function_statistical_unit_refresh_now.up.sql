@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.statistical_unit_refresh_now
 CREATE OR REPLACE FUNCTION public.statistical_unit_refresh_now()
 RETURNS TABLE(view_name text, refresh_time_ms numeric) AS $$
@@ -37,3 +39,5 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 SELECT public.statistical_unit_refresh_now();
+
+END;
