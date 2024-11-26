@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.statistical_unit_facet
 CREATE MATERIALIZED VIEW public.statistical_unit_facet AS
 SELECT valid_from
@@ -20,3 +22,5 @@ GROUP BY valid_from
        , legal_form_id
        , physical_country_id
 ;
+
+END;

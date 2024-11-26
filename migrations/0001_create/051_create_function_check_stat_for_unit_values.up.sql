@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.check_stat_for_unit_values
 CREATE OR REPLACE FUNCTION admin.check_stat_for_unit_values()
 RETURNS trigger AS $$
@@ -38,3 +40,5 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER check_stat_for_unit_values_trigger
 BEFORE INSERT OR UPDATE ON public.stat_for_unit
 FOR EACH ROW EXECUTE FUNCTION admin.check_stat_for_unit_values();
+
+END;

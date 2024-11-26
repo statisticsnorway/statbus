@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Add security.
 
 \echo auth.has_statbus_role
@@ -65,3 +67,5 @@ $$
           AND rr.region_id  = $2
    )
 $$;
+
+END;

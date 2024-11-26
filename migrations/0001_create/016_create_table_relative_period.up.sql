@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.relative_period_code
 CREATE TYPE public.relative_period_code AS ENUM (
     -- For data entry with context_valid_from and context_valid_to. context_valid_on should be context_valid_from when infinity, else context_valid_to
@@ -61,3 +63,5 @@ CREATE TABLE public.relative_period (
         END
     )
 );
+
+END;

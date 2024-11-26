@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.statistical_unit
 CREATE MATERIALIZED VIEW public.statistical_unit AS
 SELECT * FROM public.statistical_unit_def;
@@ -69,3 +71,5 @@ CREATE INDEX idx_gist_statistical_unit_external_idents ON public.statistical_uni
 CREATE INDEX idx_statistical_unit_tag_paths ON public.statistical_unit(tag_paths);
 \echo idx_gist_statistical_unit_tag_paths
 CREATE INDEX idx_gist_statistical_unit_tag_paths ON public.statistical_unit USING GIST (tag_paths);
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.generate_import_legal_unit_current()
 CREATE PROCEDURE admin.generate_import_legal_unit_current()
 LANGUAGE plpgsql AS $generate_import_legal_unit_current$
@@ -187,3 +189,5 @@ CALL lifecycle_callbacks.add(
 \echo Generating public.import_legal_unit_current
 \echo Generating admin.import_legal_unit_current_upsert
 CALL admin.generate_import_legal_unit_current();
+
+END;

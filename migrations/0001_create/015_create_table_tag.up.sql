@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.tag_type
 CREATE TYPE public.tag_type AS ENUM ('custom', 'system');
 
@@ -27,3 +29,5 @@ CREATE TABLE public.tag (
          OR context_valid_from IS NOT NULL AND context_valid_to IS NOT NULL
          )
 );
+
+END;

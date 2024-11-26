@@ -1,3 +1,5 @@
+BEGIN;
+
 ---- Create function for deleting stale countries
 --CREATE FUNCTION admin.delete_stale_legal_unit_era()
 --RETURNS TRIGGER AS $$
@@ -12,3 +14,5 @@
 --AFTER INSERT ON public.legal_unit_era
 --FOR EACH STATEMENT
 --EXECUTE FUNCTION admin.delete_stale_legal_unit_era();
+
+END;

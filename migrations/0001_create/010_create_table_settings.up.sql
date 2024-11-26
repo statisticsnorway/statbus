@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Settings as configured by the system.
 \echo public.settings
 CREATE TABLE public.settings (
@@ -7,3 +9,5 @@ CREATE TABLE public.settings (
     CHECK(only_one_setting),
     UNIQUE(only_one_setting)
 );
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.legal_unit
 CREATE TABLE public.legal_unit (
     id SERIAL NOT NULL,
@@ -9,7 +11,6 @@ CREATE TABLE public.legal_unit (
     name character varying(256),
     birth_date date,
     death_date date,
-    parent_org_link integer,
     web_address character varying(200),
     telephone_no character varying(50),
     email_address character varying(50),
@@ -17,9 +18,6 @@ CREATE TABLE public.legal_unit (
     notes text,
     sector_id integer REFERENCES public.sector(id),
     legal_form_id integer REFERENCES public.legal_form(id),
-    reorg_date timestamp with time zone,
-    reorg_references integer,
-    reorg_type_id integer REFERENCES public.reorg_type(id),
     edit_by_user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
     unit_size_id integer REFERENCES public.unit_size(id),
@@ -44,8 +42,6 @@ CREATE INDEX ix_legal_unit_sector_id ON public.legal_unit USING btree (sector_id
 CREATE INDEX ix_legal_unit_legal_form_id ON public.legal_unit USING btree (legal_form_id);
 \echo ix_legal_unit_name
 CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
-\echo ix_legal_unit_reorg_type_id
-CREATE INDEX ix_legal_unit_reorg_type_id ON public.legal_unit USING btree (reorg_type_id);
 \echo ix_legal_unit_size_id
 CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_id);
 
@@ -54,3 +50,5 @@ CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_i
 CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
 $$;
+
+END;

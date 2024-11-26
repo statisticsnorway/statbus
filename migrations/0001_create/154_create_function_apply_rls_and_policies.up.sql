@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.apply_rls_and_policies
 CREATE OR REPLACE FUNCTION admin.apply_rls_and_policies(table_regclass regclass)
 RETURNS void AS $$
@@ -42,3 +44,5 @@ BEGIN
     EXECUTE format('CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
 END;
 $$ LANGUAGE plpgsql;
+
+END;

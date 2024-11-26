@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.upsert_activity_category
 CREATE FUNCTION admin.upsert_activity_category()
 RETURNS TRIGGER AS $$
@@ -66,3 +68,5 @@ BEGIN
     RETURN NULL;
 END;
 $$ LANGUAGE plpgsql;
+
+END;

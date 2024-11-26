@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TYPE public.statbus_role_type AS ENUM('super_user','regular_user', 'restricted_user', 'external_user');
 
 \echo public.statbus_role
@@ -85,3 +87,6 @@ INSERT INTO public.statbus_role(type, name, description) VALUES ('external_user'
 --CREATE POLICY "Public users are viewable by everyone." ON "user" FOR SELECT USING ( true );
 --CREATE POLICY "Users can insert their own data." ON "user" FOR INSERT WITH check ( auth.uid() = id );
 --CREATE POLICY "Users can update own data." ON "user" FOR UPDATE USING ( auth.uid() = id );
+
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.activity_category_role
 CREATE TABLE public.activity_category_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -7,3 +9,5 @@ CREATE TABLE public.activity_category_role (
 );
 CREATE INDEX ix_activity_category_role_activity_category_id ON public.activity_category_role USING btree (activity_category_id);
 CREATE INDEX ix_activity_category_role_role_id ON public.activity_category_role USING btree (role_id);
+
+END;

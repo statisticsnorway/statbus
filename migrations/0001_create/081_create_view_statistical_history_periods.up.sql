@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.history_resolution
 CREATE TYPE public.history_resolution AS ENUM('year','year-month');
 
@@ -35,3 +37,5 @@ LATERAL generate_series(
     interval '1 month'
 ) AS series(curr_start)
 ;
+
+END;

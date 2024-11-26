@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.type_date_field
 CREATE FUNCTION admin.type_date_field(
     IN new_jsonb JSONB,
@@ -22,3 +24,5 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+END;

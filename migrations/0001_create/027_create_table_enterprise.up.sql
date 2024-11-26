@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.enterprise
 CREATE TABLE public.enterprise (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -7,3 +9,5 @@ CREATE TABLE public.enterprise (
     edit_by_user_id character varying(100) NOT NULL,
     edit_comment character varying(500)
 );
+
+END;

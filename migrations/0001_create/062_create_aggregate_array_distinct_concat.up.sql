@@ -1,3 +1,5 @@
+BEGIN;
+
 -- Final function to remove duplicates from concatenated arrays
 CREATE FUNCTION public.array_distinct_concat_final(anycompatiblearray)
 RETURNS anycompatiblearray LANGUAGE sql AS $$
@@ -12,3 +14,5 @@ CREATE AGGREGATE public.array_distinct_concat(anycompatiblearray) (
   FINALFUNC = public.array_distinct_concat_final,
   INITCOND = '{}'
 );
+
+END;

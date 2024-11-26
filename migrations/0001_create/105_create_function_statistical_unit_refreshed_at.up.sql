@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.statistical_unit_refreshed_at
 CREATE FUNCTION public.statistical_unit_refreshed_at()
 RETURNS TABLE(view_name text, modified_at timestamp) AS $$
@@ -39,3 +41,5 @@ BEGIN
     END LOOP;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+END;

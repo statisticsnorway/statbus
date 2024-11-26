@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.statistical_history_def
 SELECT pg_catalog.set_config('search_path', 'public', false);
 CREATE VIEW public.statistical_history_def AS
@@ -230,3 +232,5 @@ SELECT * FROM year_and_month_with_unit
 
 -- Reset the search path such that all things must have an explicit namespace.
 SELECT pg_catalog.set_config('search_path', '', false);
+
+END;

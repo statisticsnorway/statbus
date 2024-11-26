@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.process_stats_for_unit
 CREATE PROCEDURE admin.process_stats_for_unit(
     new_jsonb JSONB,
@@ -100,3 +102,5 @@ BEGIN
     END LOOP; -- public.stat_definition
 END;
 $process_stats_for_unit$;
+
+END;

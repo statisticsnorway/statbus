@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.jsonb_stats_summary_merge
 CREATE FUNCTION public.jsonb_stats_summary_merge(a jsonb, b jsonb) RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT AS $$
 DECLARE
@@ -148,3 +150,5 @@ CREATE AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb) (
     initcond = '{}',
     finalfunc = public.jsonb_stats_to_summary_round
 );
+
+END;

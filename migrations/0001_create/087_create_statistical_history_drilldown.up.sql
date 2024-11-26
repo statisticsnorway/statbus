@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.statistical_history_drilldown
 CREATE FUNCTION public.statistical_history_drilldown(
     unit_type public.statistical_unit_type DEFAULT 'enterprise',
@@ -292,3 +294,5 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
         )
     FROM params;
 $$;
+
+END;

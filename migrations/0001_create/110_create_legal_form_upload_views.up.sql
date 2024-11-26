@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.legal_form_custom_only
 CREATE VIEW public.legal_form_custom_only(code, name)
 WITH (security_invoker=on) AS
@@ -67,3 +69,5 @@ CREATE TRIGGER legal_form_custom_only_prepare_trigger
 BEFORE INSERT ON public.legal_form_custom_only
 FOR EACH STATEMENT
 EXECUTE FUNCTION admin.legal_form_custom_only_prepare();
+
+END;

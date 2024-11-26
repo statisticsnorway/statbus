@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.enterprise_group
 CREATE TABLE public.enterprise_group (
     id SERIAL NOT NULL,
@@ -35,3 +37,5 @@ CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree 
 CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
 $$;
+
+END;

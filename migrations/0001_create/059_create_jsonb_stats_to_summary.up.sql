@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.jsonb_stats_to_summary
 /*
  * ======================================================================================
@@ -286,3 +288,5 @@ CREATE AGGREGATE public.jsonb_stats_to_summary_agg(jsonb) (
     initcond = '{}',
     finalfunc = public.jsonb_stats_to_summary_round
 );
+
+END;

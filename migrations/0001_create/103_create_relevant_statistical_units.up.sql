@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.relevant_statistical_units
 CREATE FUNCTION public.relevant_statistical_units(
     unit_type public.statistical_unit_type, -- $1
@@ -26,3 +28,5 @@ CREATE FUNCTION public.relevant_statistical_units(
     )
     SELECT * FROM relevant_units;
 $$;
+
+END;

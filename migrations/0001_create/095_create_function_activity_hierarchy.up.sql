@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.activity_hierarchy
 CREATE OR REPLACE FUNCTION public.activity_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
@@ -25,3 +27,5 @@ CREATE OR REPLACE FUNCTION public.activity_hierarchy(
   FROM data_list;
   ;
 $$;
+
+END;

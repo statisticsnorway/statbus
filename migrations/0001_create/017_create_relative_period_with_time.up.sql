@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.relative_period_with_time
 CREATE VIEW public.relative_period_with_time AS
 -- Notice that all input types also has a valid_on date for query,
@@ -74,3 +76,5 @@ SELECT *,
        END::DATE as valid_to
        --
 FROM public.relative_period;
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.get_external_idents
 CREATE FUNCTION public.get_external_idents(
   unit_type public.statistical_unit_type,
@@ -34,3 +36,5 @@ CREATE VIEW public.enterprise_external_idents AS
   FROM public.establishment pes
   WHERE pes.enterprise_id IS NOT NULL
 ; -- END public.enterprise_external_idents
+
+END;

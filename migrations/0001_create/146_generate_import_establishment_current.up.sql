@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.generate_import_establishment_current()
 CREATE PROCEDURE admin.generate_import_establishment_current()
 LANGUAGE plpgsql AS $generate_import_establishment_current$
@@ -183,3 +185,5 @@ CALL lifecycle_callbacks.add(
 \echo Generating public.import_establishment_current
 \echo Generating admin.import_establishment_current_upsert
 CALL admin.generate_import_establishment_current();
+
+END;

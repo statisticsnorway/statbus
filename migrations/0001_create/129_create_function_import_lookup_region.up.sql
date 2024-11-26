@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.import_lookup_region
 CREATE FUNCTION admin.import_lookup_region(
     IN new_jsonb JSONB,
@@ -57,3 +59,5 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+END;

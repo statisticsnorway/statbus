@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.activity_category_nace_v2_1
 CREATE VIEW public.activity_category_nace_v2_1
 WITH (security_invoker=on) AS
@@ -24,3 +26,5 @@ FOR EACH STATEMENT
 EXECUTE FUNCTION admin.delete_stale_activity_category();
 
 \copy public.activity_category_nace_v2_1(path, name, description) FROM 'dbseed/activity-category-standards/NACE2.1_Structure_Label_Notes_EN.import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"');
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo statistical_history_facet_month_key
 CREATE UNIQUE INDEX "statistical_history_facet_month_key"
     ON public.statistical_history_facet
@@ -64,3 +66,5 @@ CREATE INDEX idx_statistical_history_facet_physical_country_id ON public.statist
 CREATE INDEX idx_statistical_history_facet_count ON public.statistical_history_facet (count);
 \echo idx_statistical_history_facet_stats_summary
 CREATE INDEX idx_statistical_history_facet_stats_summary ON public.statistical_history_facet USING GIN (stats_summary jsonb_path_ops);
+
+END;

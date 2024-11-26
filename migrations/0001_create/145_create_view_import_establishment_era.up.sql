@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE PROCEDURE admin.generate_import_establishment_era()
 LANGUAGE plpgsql AS $generate_import_establishment_era$
 DECLARE
@@ -94,3 +96,5 @@ CALL lifecycle_callbacks.add(
 
 \echo Generating public.generate_import_establishment_era
 CALL admin.generate_import_establishment_era();
+
+END;

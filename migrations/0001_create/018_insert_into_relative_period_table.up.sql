@@ -1,3 +1,5 @@
+BEGIN;
+
 DO $$
 DECLARE
     parent_id integer;
@@ -35,3 +37,5 @@ BEGIN
         ('start_of_decade_prev'       , 'Start of Previous Decade'           , NULL                             , 'query'           , false)
     ;
 END $$;
+
+END;

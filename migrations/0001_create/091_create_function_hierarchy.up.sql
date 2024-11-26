@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.region_hierarchy
 CREATE OR REPLACE FUNCTION public.region_hierarchy(region_id INTEGER)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
@@ -19,3 +21,5 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
     )
     SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
 $$;
+
+END;

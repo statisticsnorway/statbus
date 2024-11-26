@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.sector_used
 CREATE MATERIALIZED VIEW public.sector_used AS
 SELECT s.id
@@ -12,3 +14,5 @@ ORDER BY s.path;
 
 CREATE UNIQUE INDEX "sector_used_key"
     ON public.sector_used (path);
+
+END;

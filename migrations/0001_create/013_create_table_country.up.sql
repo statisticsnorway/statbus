@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.country
 CREATE TABLE public.country (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -13,3 +15,5 @@ CREATE TABLE public.country (
 CREATE UNIQUE INDEX ix_country_iso_2 ON public.country USING btree (iso_2) WHERE active;
 CREATE UNIQUE INDEX ix_country_iso_3 ON public.country USING btree (iso_3) WHERE active;
 CREATE UNIQUE INDEX ix_country_iso_num ON public.country USING btree (iso_num) WHERE active;
+
+END;

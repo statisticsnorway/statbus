@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.country_used
 CREATE MATERIALIZED VIEW public.country_used AS
 SELECT c.id
@@ -10,3 +12,5 @@ ORDER BY c.id;
 
 CREATE UNIQUE INDEX "country_used_key"
     ON public.country_used (iso_2);
+
+END;

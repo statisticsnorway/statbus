@@ -1,3 +1,5 @@
+BEGIN;
+
 -- =================================================================
 -- BEGIN: Callbacks for code generation based on naming conventions.
 -- =================================================================
@@ -345,3 +347,5 @@ GRANT EXECUTE ON FUNCTION lifecycle_callbacks.cleanup_and_generate() TO authenti
 -- =================================================================
 -- END: Callbacks for code generation based on naming conventions.
 -- =================================================================
+
+END;

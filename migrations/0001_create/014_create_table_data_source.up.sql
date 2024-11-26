@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.data_source
 CREATE TABLE public.data_source (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -8,3 +10,5 @@ CREATE TABLE public.data_source (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 CREATE UNIQUE INDEX ix_data_source_code ON public.data_source USING btree (code) WHERE active;
+
+END;

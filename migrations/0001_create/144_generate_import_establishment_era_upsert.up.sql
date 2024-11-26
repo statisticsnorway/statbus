@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo admin.import_establishment_era_upsert
 CREATE FUNCTION admin.import_establishment_era_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
@@ -457,3 +459,5 @@ BEGIN
     RETURN NULL;
 END;
 $$;
+
+END;

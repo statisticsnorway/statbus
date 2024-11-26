@@ -1,3 +1,5 @@
+BEGIN;
+
 -- TODO Later: Move to sql_saga
 CREATE TYPE admin.existing_upsert_case AS ENUM
     -- n is NEW
@@ -54,3 +56,5 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
 -- that that you insert should modify things outside the specified timeline.
 
 -- TODO Later: CREATE FUNCTION sql_saga.api_upsert(NEW record, ...)
+
+END;

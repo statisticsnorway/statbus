@@ -1,3 +1,5 @@
+BEGIN;
+
 -- View for current information about a activity.
 \echo public.activity_era
 CREATE VIEW public.activity_era
@@ -35,3 +37,5 @@ CREATE TRIGGER activity_era_upsert
 INSTEAD OF INSERT ON public.activity_era
 FOR EACH ROW
 EXECUTE FUNCTION admin.activity_era_upsert();
+
+END;

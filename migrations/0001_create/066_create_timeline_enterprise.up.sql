@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.timeline_enterprise
 CREATE VIEW public.timeline_enterprise
     ( unit_type
@@ -590,3 +592,5 @@ CREATE VIEW public.timeline_enterprise
         SELECT * FROM enterprise_with_primary_and_aggregation_and_derived
          ORDER BY unit_type, unit_id, valid_after
 ;
+
+END;

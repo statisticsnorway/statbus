@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.establishment_hierarchy
 CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
     parent_legal_unit_id INTEGER DEFAULT NULL,
@@ -59,3 +61,5 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
     END
   FROM data_list;
 $$;
+
+END;

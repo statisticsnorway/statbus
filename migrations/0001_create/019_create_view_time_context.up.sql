@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.time_context_type
 CREATE TYPE public.time_context_type AS ENUM (
     'relative_period',
@@ -52,3 +54,5 @@ WITH combined_data AS (
 SELECT *
 FROM combined_data
 ORDER BY type, code, path;
+
+END;

@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.tag_for_unit
 CREATE TABLE public.tag_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -24,3 +26,5 @@ CREATE INDEX ix_tag_for_unit_legal_unit_id_id ON public.tag_for_unit USING btree
 CREATE INDEX ix_tag_for_unit_enterprise_id_id ON public.tag_for_unit USING btree (enterprise_id);
 CREATE INDEX ix_tag_for_unit_enterprise_group_id_id ON public.tag_for_unit USING btree (enterprise_group_id);
 CREATE INDEX ix_tag_for_unit_updated_by_user_id ON public.tag_for_unit USING btree (updated_by_user_id);
+
+END;

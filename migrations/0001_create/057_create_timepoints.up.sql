@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.timepoints
 CREATE VIEW public.timepoints AS
     WITH es AS (
@@ -277,3 +279,5 @@ CREATE VIEW public.timepoints AS
     FROM timepoint
     ORDER BY unit_type, unit_id, timepoint
 ;
+
+END;

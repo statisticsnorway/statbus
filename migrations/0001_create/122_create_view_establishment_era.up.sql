@@ -1,3 +1,5 @@
+BEGIN;
+
 -- View for current information about a legal unit.
 \echo public.establishment_era
 CREATE VIEW public.establishment_era
@@ -35,3 +37,5 @@ CREATE TRIGGER establishment_era_upsert
 INSTEAD OF INSERT ON public.establishment_era
 FOR EACH ROW
 EXECUTE FUNCTION admin.establishment_era_upsert();
+
+END;

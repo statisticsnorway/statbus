@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.sector
 CREATE TABLE public.sector (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -14,3 +16,5 @@ CREATE TABLE public.sector (
 );
 CREATE UNIQUE INDEX sector_code_active_key ON public.sector USING btree (code) WHERE active;
 CREATE INDEX sector_parent_id_idx ON public.sector USING btree (parent_id);
+
+END;

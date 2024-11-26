@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.legal_form
 CREATE TABLE public.legal_form (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -10,3 +12,5 @@ CREATE TABLE public.legal_form (
 );
 \echo ix_legal_form_code
 CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE active;
+
+END;

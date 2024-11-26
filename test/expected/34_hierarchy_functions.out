@@ -202,7 +202,6 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": true                                                                                               +
                  },                                                                                                               +
-                 "reorg_date": null,                                                                                              +
                  "short_name": null,                                                                                              +
                  "valid_from": "2024-01-01",                                                                                      +
                  "data_source": {                                                                                                 +
@@ -295,7 +294,6 @@ SELECT jsonb_pretty(
                          "valid_to": "infinity",                                                                                  +
                          "birth_date": null,                                                                                      +
                          "death_date": null,                                                                                      +
-                         "reorg_date": null,                                                                                      +
                          "short_name": null,                                                                                      +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
@@ -365,8 +363,6 @@ SELECT jsonb_pretty(
                              "tax_ident": "92212760144",                                                                          +
                              "stat_ident": "2000"                                                                                 +
                          },                                                                                                       +
-                         "parent_org_link": null,                                                                                 +
-                         "reorg_references": null,                                                                                +
                          "primary_for_enterprise": null,                                                                          +
                          "primary_for_legal_unit": true                                                                           +
                      },                                                                                                           +
@@ -448,7 +444,6 @@ SELECT jsonb_pretty(
                          "valid_to": "infinity",                                                                                  +
                          "birth_date": null,                                                                                      +
                          "death_date": null,                                                                                      +
-                         "reorg_date": null,                                                                                      +
                          "short_name": null,                                                                                      +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
@@ -518,8 +513,6 @@ SELECT jsonb_pretty(
                              "tax_ident": "82612760118",                                                                          +
                              "stat_ident": "2008"                                                                                 +
                          },                                                                                                       +
-                         "parent_org_link": null,                                                                                 +
-                         "reorg_references": null,                                                                                +
                          "primary_for_enterprise": null,                                                                          +
                          "primary_for_legal_unit": false                                                                          +
                      }                                                                                                            +
@@ -580,8 +573,6 @@ SELECT jsonb_pretty(
                      "tax_ident": "2212760144",                                                                                   +
                      "stat_ident": "1000"                                                                                         +
                  },                                                                                                               +
-                 "parent_org_link": null,                                                                                         +
-                 "reorg_references": null,                                                                                        +
                  "primary_for_enterprise": true                                                                                   +
              }                                                                                                                    +
          ],                                                                                                                       +
@@ -696,7 +687,6 @@ SELECT jsonb_pretty(
                  "valid_to": "infinity",                                                                                  +
                  "birth_date": null,                                                                                      +
                  "death_date": null,                                                                                      +
-                 "reorg_date": null,                                                                                      +
                  "short_name": null,                                                                                      +
                  "valid_from": "2024-01-01",                                                                              +
                  "data_source": {                                                                                         +
@@ -766,8 +756,6 @@ SELECT jsonb_pretty(
                      "tax_ident": "82602025168",                                                                          +
                      "stat_ident": "3001"                                                                                 +
                  },                                                                                                       +
-                 "parent_org_link": null,                                                                                 +
-                 "reorg_references": null,                                                                                +
                  "primary_for_enterprise": true,                                                                          +
                  "primary_for_legal_unit": null                                                                           +
              }                                                                                                            +
@@ -878,7 +866,6 @@ SELECT jsonb_pretty(
                  "valid_to": "infinity",                                                                       +
                  "birth_date": "2016-01-10",                                                                   +
                  "death_date": null,                                                                           +
-                 "reorg_date": null,                                                                           +
                  "short_name": null,                                                                           +
                  "valid_from": "2024-01-01",                                                                   +
                  "valid_after": "2023-12-31",                                                                  +
@@ -965,7 +952,6 @@ SELECT jsonb_pretty(
                          "valid_to": "infinity",                                                               +
                          "birth_date": null,                                                                   +
                          "death_date": null,                                                                   +
-                         "reorg_date": null,                                                                   +
                          "short_name": null,                                                                   +
                          "valid_from": "2024-01-01",                                                           +
                          "valid_after": "2023-12-31",                                                          +
@@ -979,8 +965,6 @@ SELECT jsonb_pretty(
                              "tax_ident": "92212760144",                                                       +
                              "stat_ident": "2000"                                                              +
                          },                                                                                    +
-                         "parent_org_link": null,                                                              +
-                         "reorg_references": null,                                                             +
                          "primary_for_enterprise": null,                                                       +
                          "primary_for_legal_unit": true                                                        +
                      },                                                                                        +
@@ -1062,7 +1046,6 @@ SELECT jsonb_pretty(
                          "valid_to": "infinity",                                                               +
                          "birth_date": null,                                                                   +
                          "death_date": null,                                                                   +
-                         "reorg_date": null,                                                                   +
                          "short_name": null,                                                                   +
                          "valid_from": "2024-01-01",                                                           +
                          "valid_after": "2023-12-31",                                                          +
@@ -1076,8 +1059,6 @@ SELECT jsonb_pretty(
                              "tax_ident": "82612760118",                                                       +
                              "stat_ident": "2008"                                                              +
                          },                                                                                    +
-                         "parent_org_link": null,                                                              +
-                         "reorg_references": null,                                                             +
                          "primary_for_enterprise": null,                                                       +
                          "primary_for_legal_unit": false                                                       +
                      }                                                                                         +
@@ -1088,8 +1069,6 @@ SELECT jsonb_pretty(
                      "tax_ident": "2212760144",                                                                +
                      "stat_ident": "1000"                                                                      +
                  },                                                                                            +
-                 "parent_org_link": null,                                                                      +
-                 "reorg_references": null,                                                                     +
                  "primary_for_enterprise": true                                                                +
              }                                                                                                 +
          ],                                                                                                    +
@@ -1213,7 +1192,6 @@ SELECT jsonb_pretty(
                  "active": true,                                                                                      +
                  "custom": true                                                                                       +
              },                                                                                                       +
-             "reorg_date": null,                                                                                      +
              "short_name": null,                                                                                      +
              "valid_from": "2024-01-01",                                                                              +
              "data_source": {                                                                                         +
@@ -1283,8 +1261,6 @@ SELECT jsonb_pretty(
                  "tax_ident": "2212760144",                                                                           +
                  "stat_ident": "1000"                                                                                 +
              },                                                                                                       +
-             "parent_org_link": null,                                                                                 +
-             "reorg_references": null,                                                                                +
              "primary_for_enterprise": true                                                                           +
          }                                                                                                            +
      ]                                                                                                                +

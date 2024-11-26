@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TYPE public.stat_type AS ENUM(
   'int',
   'float',
@@ -42,3 +44,5 @@ CREATE VIEW public.stat_definition_active AS
     FROM public.stat_definition_ordered
     WHERE NOT archived
 ;
+
+END;

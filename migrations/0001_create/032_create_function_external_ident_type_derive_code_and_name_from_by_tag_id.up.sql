@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo lifecycle_callbacks.add_table('public.external_ident_type');
 CALL lifecycle_callbacks.add_table('public.external_ident_type');
 
@@ -27,3 +29,5 @@ BEFORE UPDATE ON public.external_ident_type
 FOR EACH ROW
 WHEN (NEW.by_tag_id IS NOT NULL AND NEW.by_tag_id IS DISTINCT FROM OLD.by_tag_id)
 EXECUTE FUNCTION public.external_ident_type_derive_code_and_name_from_by_tag_id();
+
+END;

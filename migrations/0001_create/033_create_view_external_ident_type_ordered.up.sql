@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE VIEW public.external_ident_type_ordered AS
     SELECT *
     FROM public.external_ident_type
@@ -9,3 +11,5 @@ CREATE VIEW public.external_ident_type_active AS
     FROM public.external_ident_type_ordered
     WHERE NOT archived
 ;
+
+END;

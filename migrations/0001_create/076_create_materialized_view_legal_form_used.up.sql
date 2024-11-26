@@ -1,3 +1,5 @@
+BEGIN;
+
 \echo public.legal_form_used
 CREATE MATERIALIZED VIEW public.legal_form_used AS
 SELECT lf.id
@@ -10,3 +12,5 @@ ORDER BY lf.id;
 
 CREATE UNIQUE INDEX "legal_form_used_key"
     ON public.legal_form_used (code);
+
+END;
