@@ -576,15 +576,14 @@ EOS
         if $(which psql > /dev/null); then
           psql "$@"
         else
-          # Default to non-interactive mode
-          args="-i"
-          # Only add -t if we're in an interactive shell AND stdin is not redirected
-          if [ -t 0 -a -t 1 ] && [ ! -p /dev/stdin ]; then
+          # Only add -t and -i if we're in an interactive shell with no redirections
+          if test -t 0 && test -t 1 && test ! -p /dev/stdin && test ! -f /dev/stdin; then
             # Enable the TTY in docker with -t for interactive psql prompt
-            args="-ti"
+            docker compose exec -ti -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
+          else
+            # Non-interactive mode - no -t or -i flags
+            docker compose exec -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
           fi
-          COMPOSE_INSTANCE_NAME=$(./devops/dotenv --file .env get COMPOSE_INSTANCE_NAME)
-          docker compose exec $args -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
         fi
       ;;
      'generate-db-documentation' )
