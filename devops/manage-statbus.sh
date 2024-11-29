@@ -576,13 +576,12 @@ EOS
         if $(which psql > /dev/null); then
           psql "$@"
         else
-          # Only add -t and -i if we're in an interactive shell with no redirections
           if test -t 0 && test -t 1 && test ! -p /dev/stdin && test ! -f /dev/stdin; then
-            # Enable the TTY in docker with -t for interactive psql prompt
-            docker compose exec -ti -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
-          else
-            # Non-interactive mode - no -t or -i flags
+            # Interactive mode - use default TTY allocation
             docker compose exec -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
+          else
+            # Non-interactive mode - explicitly disable TTY allocation
+            docker compose exec -T -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
           fi
         fi
       ;;
