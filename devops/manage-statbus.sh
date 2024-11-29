@@ -576,11 +576,11 @@ EOS
         if $(which psql > /dev/null); then
           psql "$@"
         else
-          # When using scripted input, such as "< some.sql" then interactive TTY is required.
+          # Default to non-interactive mode
           args="-i"
-          if test -t 0; then
-            # Enable the TTY in docker,with -t
-            # as required for an interactive psql promp
+          # Only add -t if we're in an interactive shell AND stdin is not redirected
+          if [ -t 0 -a -t 1 ] && [ ! -p /dev/stdin ]; then
+            # Enable the TTY in docker with -t for interactive psql prompt
             args="-ti"
           fi
           COMPOSE_INSTANCE_NAME=$(./devops/dotenv --file .env get COMPOSE_INSTANCE_NAME)
