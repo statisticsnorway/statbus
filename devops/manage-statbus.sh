@@ -559,7 +559,8 @@ EOS
         PGHOST=127.0.0.1
         PGPORT=$(./devops/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
         PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_DB)
-        PGUSER=postgres
+        # Preserve the USER if already setup, to allow overrides.
+        PGUSER=${PGUSER:-postgres}
         PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_PASSWORD)
         cat <<EOS
 export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD
@@ -569,10 +570,7 @@ EOS
         echo 'select statistical_unit_refresh_now();' | ./devops/manage-statbus.sh psql
       ;;
      'psql' )
-        # Only set postgres variables if they're not already set
-        if [ -z "${PGHOST:-}" ] || [ -z "${PGPORT:-}" ] || [ -z "${PGDATABASE:-}" ] || [ -z "${PGUSER:-}" ] || [ -z "${PGPASSWORD:-}" ]; then
-            eval $(./devops/manage-statbus.sh postgres-variables)
-        fi
+        eval $(./devops/manage-statbus.sh postgres-variables)
         # The local psql is always tried first, as it has access to files
         # used for copying in data.
         if $(which psql > /dev/null); then
