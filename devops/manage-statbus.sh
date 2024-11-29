@@ -244,8 +244,7 @@ case "$action" in
       done
     ;;
     'activate_sql_saga' )
-        eval $(./devops/manage-statbus.sh postgres-variables)
-        PGUSER=supabase_admin psql -c 'create extension sql_saga cascade;'
+        PGUSER=supabase_admin ./devops/manage-statbus.sh psql -c 'create extension sql_saga cascade;'
       ;;
     'create-db-structure' )
         pushd cli
@@ -570,7 +569,10 @@ EOS
         echo 'select statistical_unit_refresh_now();' | ./devops/manage-statbus.sh psql
       ;;
      'psql' )
-        eval $(./devops/manage-statbus.sh postgres-variables)
+        # Only set postgres variables if they're not already set
+        if [ -z "${PGHOST:-}" ] || [ -z "${PGPORT:-}" ] || [ -z "${PGDATABASE:-}" ] || [ -z "${PGUSER:-}" ] || [ -z "${PGPASSWORD:-}" ]; then
+            eval $(./devops/manage-statbus.sh postgres-variables)
+        fi
         # The local psql is always tried first, as it has access to files
         # used for copying in data.
         if $(which psql > /dev/null); then
