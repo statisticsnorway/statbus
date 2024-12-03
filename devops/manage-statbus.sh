@@ -387,7 +387,13 @@ EOF
 }
 EOF
 )
-        # brew install mike-engel/jwt-cli/jwt-cli
+        # Check if jwt command is available
+        if ! command -v jwt >/dev/null 2>&1; then
+            echo "Error: 'jwt' command not found. Please install jwt-cli with:"
+            echo "  brew install mike-engel/jwt-cli/jwt-cli"
+            exit 1
+        fi
+        
         export ANON_KEY=$(jwt encode --secret "$JWT_SECRET" "$jwt_anon_payload")
         ANON_KEY=$(./devops/dotenv --file $CREDENTIALS_FILE generate ANON_KEY echo $ANON_KEY)
 
