@@ -16,7 +16,7 @@ DECLARE
     sector RECORD;
     data_source RECORD;
     legal_form RECORD;
-    upsert_data RECORD;
+    meta_data RECORD;
     new_typed RECORD;
     external_idents_to_add public.external_ident[] := ARRAY[]::public.external_ident[];
     prior_legal_unit_id INTEGER;
@@ -119,14 +119,10 @@ BEGIN
     INTO   external_idents_to_add , prior_legal_unit_id
     FROM admin.process_external_idents(new_jsonb,'legal_unit') AS r;
 
-    SELECT NEW.tax_ident AS tax_ident
-         , NEW.name AS name
-         , new_typed.birth_date AS birth_date
-         , new_typed.death_date AS death_date
-         , true AS active
+    SELECT true AS active
          , 'Batch import' AS edit_comment
          , CASE WHEN invalid_codes <@ '{}'::jsonb THEN NULL ELSE invalid_codes END AS invalid_codes
-      INTO upsert_data;
+      INTO meta_data;
 
     IF NOT statbus_constraints_already_deferred THEN
         SET CONSTRAINTS ALL DEFERRED;
@@ -160,14 +156,14 @@ BEGIN
         ( new_typed.valid_from
         , new_typed.valid_to
         , prior_legal_unit_id
-        , upsert_data.name
-        , upsert_data.birth_date
-        , upsert_data.death_date
-        , upsert_data.active
-        , upsert_data.edit_comment
+        , NEW.name
+        , new_typed.birth_date
+        , new_typed.death_date
+        , meta_data.active
+        , meta_data.edit_comment
         , sector.id
         , legal_form.id
-        , upsert_data.invalid_codes
+        , meta_data.invalid_codes
         , enterprise.id
         , is_primary_for_enterprise
         , data_source.id
