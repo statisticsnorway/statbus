@@ -34,7 +34,7 @@ export default function ReportsPageClient({
       { value: "count", label: "Count", title: "Number of enterprises" },
       ...(statDefinitions.map(({ code, name }) => ({
         value: code!,
-        label: code!,
+        label: name!,
         title: name!,
       })) ?? []),
     ];

@@ -29,7 +29,7 @@ export function StatisticalUnitTableHeader({
               return (
                 <SortableTableHead name="name" label="Name" key={`h-cell-${headerCellSuffix(column)}`}>
                   <small className="flex">
-                    {externalIdentTypes.map(({ code }) => code).join(" | ")}
+                    {externalIdentTypes.map(({ name }) => name).join(" | ")}
                   </small>
                 </SortableTableHead>
               );
@@ -92,7 +92,7 @@ export function StatisticalUnitTableHeader({
                     key={`h-cell-${headerCellSuffix(column)}`}
                     className="text-right hidden lg:table-cell [&>*]:capitalize"
                     name={statDefinition.code!}
-                    label={statDefinition.code!}
+                      label={statDefinition.name!}
                   />
                 );
               }
