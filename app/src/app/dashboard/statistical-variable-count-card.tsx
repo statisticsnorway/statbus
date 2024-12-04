@@ -6,7 +6,7 @@ export const StatisticalVariableCountCard = async () => {
   const client = await createSupabaseSSRClient();
 
   const { count, error } = await client
-    .from("stat_definition")
+    .from("stat_definition_active")
     .select("", { count: "exact" })
     .limit(0);
 

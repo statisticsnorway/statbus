@@ -82,7 +82,7 @@ export function TopologyItem({
                   <TopologyItemInfo
                     key={statDefinition.id}
                     className="flex-1"
-                    title={statDefinition.code || ""}
+                    title={statDefinition.name!}
                     value={formattedValue}
                   />
                 );
