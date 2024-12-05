@@ -12445,7 +12445,7 @@ statistical_unit_hierarchy
                                 "value_string": null,
                                 "stat_definition": {
                                     "code": "employees",
-                                    "name": "Number of people employed",
+                                    "name": "Employees",
                                     "type": "int",
                                     "archived": false,
                                     "priority": 1,
@@ -12455,7 +12455,7 @@ statistical_unit_hierarchy
                             },
                             {
                                 "valid_to": "2012-12-31",
-                                "value_int": 1500000,
+                                "value_int": null,
                                 "valid_from": "2010-01-01",
                                 "value_bool": null,
                                 "data_source": {
@@ -12465,16 +12465,16 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2009-12-31",
-                                "value_float": null,
+                                "value_float": 1500000,
                                 "value_string": null,
                                 "stat_definition": {
                                     "code": "turnover",
                                     "name": "Turnover",
-                                    "type": "int",
+                                    "type": "float",
                                     "archived": false,
                                     "priority": 2,
                                     "frequency": "yearly",
-                                    "description": "The amount (EUR)"
+                                    "description": "The amount (Local Currency)"
                                 }
                             }
                         ],
@@ -12732,7 +12732,7 @@ statistical_unit_hierarchy
                                 "value_string": null,
                                 "stat_definition": {
                                     "code": "employees",
-                                    "name": "Number of people employed",
+                                    "name": "Employees",
                                     "type": "int",
                                     "archived": false,
                                     "priority": 1,
@@ -12742,7 +12742,7 @@ statistical_unit_hierarchy
                             },
                             {
                                 "valid_to": "infinity",
-                                "value_int": 70000000,
+                                "value_int": null,
                                 "valid_from": "2020-01-01",
                                 "value_bool": null,
                                 "data_source": {
@@ -12752,16 +12752,16 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2019-12-31",
-                                "value_float": null,
+                                "value_float": 70000000,
                                 "value_string": null,
                                 "stat_definition": {
                                     "code": "turnover",
                                     "name": "Turnover",
-                                    "type": "int",
+                                    "type": "float",
                                     "archived": false,
                                     "priority": 2,
                                     "frequency": "yearly",
-                                    "description": "The amount (EUR)"
+                                    "description": "The amount (Local Currency)"
                                 }
                             }
                         ],
@@ -13018,7 +13018,7 @@ statistical_unit_hierarchy
                                 "value_string": null,
                                 "stat_definition": {
                                     "code": "employees",
-                                    "name": "Number of people employed",
+                                    "name": "Employees",
                                     "type": "int",
                                     "archived": false,
                                     "priority": 1,
@@ -13028,7 +13028,7 @@ statistical_unit_hierarchy
                             },
                             {
                                 "valid_to": "infinity",
-                                "value_int": 70000000,
+                                "value_int": null,
                                 "valid_from": "2020-01-01",
                                 "value_bool": null,
                                 "data_source": {
@@ -13038,16 +13038,16 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2019-12-31",
-                                "value_float": null,
+                                "value_float": 70000000,
                                 "value_string": null,
                                 "stat_definition": {
                                     "code": "turnover",
                                     "name": "Turnover",
-                                    "type": "int",
+                                    "type": "float",
                                     "archived": false,
                                     "priority": 2,
                                     "frequency": "yearly",
-                                    "description": "The amount (EUR)"
+                                    "description": "The amount (Local Currency)"
                                 }
                             }
                         ],

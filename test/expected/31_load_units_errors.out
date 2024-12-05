@@ -159,7 +159,7 @@ SQL statement "SELECT admin.insert_external_idents(
       p_establishment_id => inserted_establishment.id,
       p_updated_by_user_id => edited_by_user.id
       )"
-PL/pgSQL function admin.import_establishment_era_upsert() line 230 at PERFORM
+PL/pgSQL function admin.import_establishment_era_upsert() line 225 at PERFORM
 SQL statement "INSERT INTO public.import_establishment_era (
         valid_from,
         valid_to,

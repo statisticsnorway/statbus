@@ -325,7 +325,7 @@ SELECT jsonb_pretty(
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "employees",                                                                         +
-                                     "name": "Number of people employed",                                                         +
+                                     "name": "Employees",                                                                         +
                                      "type": "int",                                                                               +
                                      "archived": false,                                                                           +
                                      "priority": 1,                                                                               +
@@ -335,7 +335,7 @@ SELECT jsonb_pretty(
                              },                                                                                                   +
                              {                                                                                                    +
                                  "valid_to": "infinity",                                                                          +
-                                 "value_int": 5000000,                                                                            +
+                                 "value_int": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "value_bool": null,                                                                              +
                                  "data_source": {                                                                                 +
@@ -345,16 +345,16 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "value_float": null,                                                                             +
+                                 "value_float": 5000000,                                                                          +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "turnover",                                                                          +
                                      "name": "Turnover",                                                                          +
-                                     "type": "int",                                                                               +
+                                     "type": "float",                                                                             +
                                      "archived": false,                                                                           +
                                      "priority": 2,                                                                               +
                                      "frequency": "yearly",                                                                       +
-                                     "description": "The amount (EUR)"                                                            +
+                                     "description": "The amount (Local Currency)"                                                 +
                                  }                                                                                                +
                              }                                                                                                    +
                          ],                                                                                                       +
@@ -475,7 +475,7 @@ SELECT jsonb_pretty(
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "employees",                                                                         +
-                                     "name": "Number of people employed",                                                         +
+                                     "name": "Employees",                                                                         +
                                      "type": "int",                                                                               +
                                      "archived": false,                                                                           +
                                      "priority": 1,                                                                               +
@@ -485,7 +485,7 @@ SELECT jsonb_pretty(
                              },                                                                                                   +
                              {                                                                                                    +
                                  "valid_to": "infinity",                                                                          +
-                                 "value_int": 10000000,                                                                           +
+                                 "value_int": null,                                                                               +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "value_bool": null,                                                                              +
                                  "data_source": {                                                                                 +
@@ -495,16 +495,16 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "value_float": null,                                                                             +
+                                 "value_float": 10000000,                                                                         +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "turnover",                                                                          +
                                      "name": "Turnover",                                                                          +
-                                     "type": "int",                                                                               +
+                                     "type": "float",                                                                             +
                                      "archived": false,                                                                           +
                                      "priority": 2,                                                                               +
                                      "frequency": "yearly",                                                                       +
-                                     "description": "The amount (EUR)"                                                            +
+                                     "description": "The amount (Local Currency)"                                                 +
                                  }                                                                                                +
                              }                                                                                                    +
                          ],                                                                                                       +
@@ -535,7 +535,7 @@ SELECT jsonb_pretty(
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "employees",                                                                                 +
-                             "name": "Number of people employed",                                                                 +
+                             "name": "Employees",                                                                                 +
                              "type": "int",                                                                                       +
                              "archived": false,                                                                                   +
                              "priority": 1,                                                                                       +
@@ -545,7 +545,7 @@ SELECT jsonb_pretty(
                      },                                                                                                           +
                      {                                                                                                            +
                          "valid_to": "infinity",                                                                                  +
-                         "value_int": 0,                                                                                          +
+                         "value_int": null,                                                                                       +
                          "valid_from": "2024-01-01",                                                                              +
                          "value_bool": null,                                                                                      +
                          "data_source": {                                                                                         +
@@ -555,16 +555,16 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "value_float": null,                                                                                     +
+                         "value_float": 0,                                                                                        +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "turnover",                                                                                  +
                              "name": "Turnover",                                                                                  +
-                             "type": "int",                                                                                       +
+                             "type": "float",                                                                                     +
                              "archived": false,                                                                                   +
                              "priority": 2,                                                                                       +
                              "frequency": "yearly",                                                                               +
-                             "description": "The amount (EUR)"                                                                    +
+                             "description": "The amount (Local Currency)"                                                         +
                          }                                                                                                        +
                      }                                                                                                            +
                  ],                                                                                                               +
@@ -718,7 +718,7 @@ SELECT jsonb_pretty(
                          "value_string": null,                                                                            +
                          "stat_definition": {                                                                             +
                              "code": "employees",                                                                         +
-                             "name": "Number of people employed",                                                         +
+                             "name": "Employees",                                                                         +
                              "type": "int",                                                                               +
                              "archived": false,                                                                           +
                              "priority": 1,                                                                               +
@@ -728,7 +728,7 @@ SELECT jsonb_pretty(
                      },                                                                                                   +
                      {                                                                                                    +
                          "valid_to": "infinity",                                                                          +
-                         "value_int": 4400000,                                                                            +
+                         "value_int": null,                                                                               +
                          "valid_from": "2024-01-01",                                                                      +
                          "value_bool": null,                                                                              +
                          "data_source": {                                                                                 +
@@ -738,16 +738,16 @@ SELECT jsonb_pretty(
                              "custom": false                                                                              +
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
-                         "value_float": null,                                                                             +
+                         "value_float": 4400000,                                                                          +
                          "value_string": null,                                                                            +
                          "stat_definition": {                                                                             +
                              "code": "turnover",                                                                          +
                              "name": "Turnover",                                                                          +
-                             "type": "int",                                                                               +
+                             "type": "float",                                                                             +
                              "archived": false,                                                                           +
                              "priority": 2,                                                                               +
                              "frequency": "yearly",                                                                       +
-                             "description": "The amount (EUR)"                                                            +
+                             "description": "The amount (Local Currency)"                                                 +
                          }                                                                                                +
                      }                                                                                                    +
                  ],                                                                                                       +
@@ -1223,7 +1223,7 @@ SELECT jsonb_pretty(
                      "value_string": null,                                                                            +
                      "stat_definition": {                                                                             +
                          "code": "employees",                                                                         +
-                         "name": "Number of people employed",                                                         +
+                         "name": "Employees",                                                                         +
                          "type": "int",                                                                               +
                          "archived": false,                                                                           +
                          "priority": 1,                                                                               +
@@ -1233,7 +1233,7 @@ SELECT jsonb_pretty(
                  },                                                                                                   +
                  {                                                                                                    +
                      "valid_to": "infinity",                                                                          +
-                     "value_int": 0,                                                                                  +
+                     "value_int": null,                                                                               +
                      "valid_from": "2024-01-01",                                                                      +
                      "value_bool": null,                                                                              +
                      "data_source": {                                                                                 +
@@ -1243,16 +1243,16 @@ SELECT jsonb_pretty(
                          "custom": false                                                                              +
                      },                                                                                               +
                      "valid_after": "2023-12-31",                                                                     +
-                     "value_float": null,                                                                             +
+                     "value_float": 0,                                                                                +
                      "value_string": null,                                                                            +
                      "stat_definition": {                                                                             +
                          "code": "turnover",                                                                          +
                          "name": "Turnover",                                                                          +
-                         "type": "int",                                                                               +
+                         "type": "float",                                                                             +
                          "archived": false,                                                                           +
                          "priority": 2,                                                                               +
                          "frequency": "yearly",                                                                       +
-                         "description": "The amount (EUR)"                                                            +
+                         "description": "The amount (Local Currency)"                                                 +
                      }                                                                                                +
                  }                                                                                                    +
              ],                                                                                                       +
