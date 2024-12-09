@@ -43,11 +43,11 @@ case "$action" in
         ./devops/dotenv --file .env set VERSION=$VERSION
         set_profile_arg "$@"
 
-        # Conditionally add the --build argument if the profile is 'all'
+        # Conditionally add the --build argument if the profile is 'all' or 'required'
         # since docker compose does not use the --profile to determine
         # if a build is required.
         build_arg=""
-        if [ "$profile" = "all" ]; then
+        if [ "$profile" = "all" ] || [ "$profile" = "required" ]; then
             build_arg="--build"
         fi
 
@@ -393,7 +393,7 @@ EOF
             echo "  brew install mike-engel/jwt-cli/jwt-cli"
             exit 1
         fi
-        
+
         export ANON_KEY=$(jwt encode --secret "$JWT_SECRET" "$jwt_anon_payload")
         ANON_KEY=$(./devops/dotenv --file $CREDENTIALS_FILE generate ANON_KEY echo $ANON_KEY)
 
@@ -725,6 +725,17 @@ EOS
           setpath($i | path; $i) # and put in each node, using its original path
         ) ' supabase_docker/docker-compose.yml | tr -d "'" > docker-compose.supabase_docker.erase-ports.yml
 
+        echo Generating docker-compose.supabase_docker.erase-depends_on.yml
+        yq '(
+          .. | # recurse through all the nodes
+          select(has("depends_on")) | # match parents that have volume
+          (.depends_on) | # select those children
+          select(.) # filter out nulls
+          | . |= "!reset []"
+        ) as $i ireduce({};  # using that set of nodes, create a new result map
+          setpath($i | path; $i) # and put in each node, using its original path
+        ) ' supabase_docker/docker-compose.yml | tr -d "'" > docker-compose.supabase_docker.erase-depends_on.yml
+
         echo Generating docker-compose.supabase_docker.customize-container_name.yml
         yq '(
           .. | # recurse through all the nodes
@@ -735,14 +746,14 @@ EOS
           setpath($i | path; $i) # and put in each node, using its original path
         ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.customize-container_name.yml
 
-        echo Generating docker-compose.supabase_docker.add-profile.yml
+        echo Generating docker-compose.supabase_docker.add-all-profile.yml
         yq '(
           .services[] | # recurse through all service definitions
-          .profiles = ["all", "not_app"] | # set profiles
+          .profiles = ["all", "all_not_app"] | # set profiles
           (.profiles) # Only retain profiles
         ) as $i ireduce({};  # using that set of nodes, create a new result map
           setpath($i | path; $i) # and put in each node, using its original path
-        ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.add-profile.yml
+        ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.add-all-profile.yml
       ;;
      * )
       echo "Unknown action '$action', select one of"

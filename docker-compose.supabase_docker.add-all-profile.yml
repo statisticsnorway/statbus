@@ -2,52 +2,52 @@ services:
   studio:
     profiles:
       - all
-      - not_app
+      - all_not_app
   kong:
     profiles:
       - all
-      - not_app
+      - all_not_app
   auth:
     profiles:
       - all
-      - not_app
+      - all_not_app
   rest:
     profiles:
       - all
-      - not_app
+      - all_not_app
   realtime:
     profiles:
       - all
-      - not_app
+      - all_not_app
   storage:
     profiles:
       - all
-      - not_app
+      - all_not_app
   imgproxy:
     profiles:
       - all
-      - not_app
+      - all_not_app
   meta:
     profiles:
       - all
-      - not_app
+      - all_not_app
   functions:
     profiles:
       - all
-      - not_app
+      - all_not_app
   analytics:
     profiles:
       - all
-      - not_app
+      - all_not_app
   db:
     profiles:
       - all
-      - not_app
+      - all_not_app
   vector:
     profiles:
       - all
-      - not_app
+      - all_not_app
   supavisor:
     profiles:
       - all
-      - not_app
+      - all_not_app

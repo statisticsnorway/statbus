@@ -1,5 +1,9 @@
 # Adapt Supabase.
 services:
+  auth:
+    depends_on:
+      db:
+        condition: service_healthy
   kong:
     # Expose API endpoint
     ports:
@@ -12,6 +16,9 @@ services:
       # and `select=count(),physical_region_id`
       # and uses indices for this.
       PGRST_DB_AGGREGATES_ENABLED: true
+    depends_on:
+      db:
+        condition: service_healthy
   db:
     # Use a custom build with sql_saga extension for temporal tables.
     image: ghcr.io/veridit/supabase_postgres:c035263a
@@ -62,7 +69,7 @@ services:
           "--no-verbose",
           "--tries=1",
           "--spider",
-          "http://127.0.0.1:5000/status"
+          "http://127.0.0.1:5000/status",
         ]
   studio:
     # Override the address of the healthcheck from localhost that resolves to 127.0.0.1 (IPv4) that studio
@@ -74,5 +81,5 @@ services:
           "CMD",
           "node",
           "-e",
-          "require('http').get('http://studio:3000/api/profile', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})"
+          "require('http').get('http://studio:3000/api/profile', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})",
         ]

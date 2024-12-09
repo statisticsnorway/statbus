@@ -1,0 +1,23 @@
+services:
+  studio:
+    depends_on: !reset []
+  kong:
+    depends_on: !reset []
+  auth:
+    depends_on: !reset []
+  rest:
+    depends_on: !reset []
+  realtime:
+    depends_on: !reset []
+  storage:
+    depends_on: !reset []
+  meta:
+    depends_on: !reset []
+  functions:
+    depends_on: !reset []
+  analytics:
+    depends_on: !reset []
+  db:
+    depends_on: !reset []
+  supavisor:
+    depends_on: !reset []
