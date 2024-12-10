@@ -1,35 +1,31 @@
 ```sql
-                                                                                  Table "public.establishment"
-         Column         |           Type           | Collation | Nullable |                            Default                            | Storage  | Compression | Stats target | Description 
-------------------------+--------------------------+-----------+----------+---------------------------------------------------------------+----------+-------------+--------------+-------------
- id                     | integer                  |           | not null | nextval('establishment_id_seq'::regclass)                     | plain    |             |              | 
- valid_after            | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored | plain    |             |              | 
- valid_from             | date                     |           | not null | CURRENT_DATE                                                  | plain    |             |              | 
- valid_to               | date                     |           | not null | 'infinity'::date                                              | plain    |             |              | 
- active                 | boolean                  |           | not null | true                                                          | plain    |             |              | 
- short_name             | character varying(16)    |           |          |                                                               | extended |             |              | 
- name                   | character varying(256)   |           |          |                                                               | extended |             |              | 
- birth_date             | date                     |           |          |                                                               | plain    |             |              | 
- death_date             | date                     |           |          |                                                               | plain    |             |              | 
- parent_org_link        | integer                  |           |          |                                                               | plain    |             |              | 
- web_address            | character varying(200)   |           |          |                                                               | extended |             |              | 
- telephone_no           | character varying(50)    |           |          |                                                               | extended |             |              | 
- email_address          | character varying(50)    |           |          |                                                               | extended |             |              | 
- free_econ_zone         | boolean                  |           |          |                                                               | plain    |             |              | 
- notes                  | text                     |           |          |                                                               | extended |             |              | 
- sector_id              | integer                  |           |          |                                                               | plain    |             |              | 
- reorg_date             | timestamp with time zone |           |          |                                                               | plain    |             |              | 
- reorg_references       | integer                  |           |          |                                                               | plain    |             |              | 
- reorg_type_id          | integer                  |           |          |                                                               | plain    |             |              | 
- edit_by_user_id        | character varying(100)   |           | not null |                                                               | extended |             |              | 
- edit_comment           | character varying(500)   |           |          |                                                               | extended |             |              | 
- unit_size_id           | integer                  |           |          |                                                               | plain    |             |              | 
- data_source_id         | integer                  |           |          |                                                               | plain    |             |              | 
- enterprise_id          | integer                  |           |          |                                                               | plain    |             |              | 
- legal_unit_id          | integer                  |           |          |                                                               | plain    |             |              | 
- primary_for_legal_unit | boolean                  |           |          |                                                               | plain    |             |              | 
- primary_for_enterprise | boolean                  |           |          |                                                               | plain    |             |              | 
- invalid_codes          | jsonb                    |           |          |                                                               | extended |             |              | 
+                                                                                 Table "public.establishment"
+         Column         |          Type          | Collation | Nullable |                            Default                            | Storage  | Compression | Stats target | Description 
+------------------------+------------------------+-----------+----------+---------------------------------------------------------------+----------+-------------+--------------+-------------
+ id                     | integer                |           | not null | nextval('establishment_id_seq'::regclass)                     | plain    |             |              | 
+ valid_after            | date                   |           | not null | generated always as ((valid_from - '1 day'::interval)) stored | plain    |             |              | 
+ valid_from             | date                   |           | not null | CURRENT_DATE                                                  | plain    |             |              | 
+ valid_to               | date                   |           | not null | 'infinity'::date                                              | plain    |             |              | 
+ active                 | boolean                |           | not null | true                                                          | plain    |             |              | 
+ short_name             | character varying(16)  |           |          |                                                               | extended |             |              | 
+ name                   | character varying(256) |           |          |                                                               | extended |             |              | 
+ birth_date             | date                   |           |          |                                                               | plain    |             |              | 
+ death_date             | date                   |           |          |                                                               | plain    |             |              | 
+ web_address            | character varying(200) |           |          |                                                               | extended |             |              | 
+ telephone_no           | character varying(50)  |           |          |                                                               | extended |             |              | 
+ email_address          | character varying(50)  |           |          |                                                               | extended |             |              | 
+ free_econ_zone         | boolean                |           |          |                                                               | plain    |             |              | 
+ notes                  | text                   |           |          |                                                               | extended |             |              | 
+ sector_id              | integer                |           |          |                                                               | plain    |             |              | 
+ edit_by_user_id        | character varying(100) |           | not null |                                                               | extended |             |              | 
+ edit_comment           | character varying(500) |           |          |                                                               | extended |             |              | 
+ unit_size_id           | integer                |           |          |                                                               | plain    |             |              | 
+ data_source_id         | integer                |           |          |                                                               | plain    |             |              | 
+ enterprise_id          | integer                |           |          |                                                               | plain    |             |              | 
+ legal_unit_id          | integer                |           |          |                                                               | plain    |             |              | 
+ primary_for_legal_unit | boolean                |           |          |                                                               | plain    |             |              | 
+ primary_for_enterprise | boolean                |           |          |                                                               | plain    |             |              | 
+ invalid_codes          | jsonb                  |           |          |                                                               | extended |             |              | 
 Indexes:
     "establishment_active_idx" btree (active)
     "establishment_enterprise_id_primary_for_enterprise_idx" btree (enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL
@@ -40,7 +36,6 @@ Indexes:
     "ix_establishment_enterprise_id" btree (enterprise_id)
     "ix_establishment_legal_unit_id" btree (legal_unit_id)
     "ix_establishment_name" btree (name)
-    "ix_establishment_reorg_type_id" btree (reorg_type_id)
     "ix_establishment_sector_id" btree (sector_id)
     "ix_establishment_size_id" btree (unit_size_id)
 Check constraints:
@@ -56,7 +51,6 @@ END)
 Foreign-key constraints:
     "establishment_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE RESTRICT
     "establishment_enterprise_id_fkey" FOREIGN KEY (enterprise_id) REFERENCES enterprise(id) ON DELETE RESTRICT
-    "establishment_reorg_type_id_fkey" FOREIGN KEY (reorg_type_id) REFERENCES reorg_type(id)
     "establishment_sector_id_fkey" FOREIGN KEY (sector_id) REFERENCES sector(id)
     "establishment_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
 Policies:

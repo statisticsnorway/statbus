@@ -1,42 +1,37 @@
 ```sql
-                                                         Table "public.legal_unit"
-          Column          |           Type           | Collation | Nullable |                            Default                            
---------------------------+--------------------------+-----------+----------+---------------------------------------------------------------
- id                       | integer                  |           | not null | nextval('legal_unit_id_seq'::regclass)
- valid_after              | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
- valid_from               | date                     |           | not null | CURRENT_DATE
- valid_to                 | date                     |           | not null | 'infinity'::date
- active                   | boolean                  |           | not null | true
- short_name               | character varying(16)    |           |          | 
- name                     | character varying(256)   |           |          | 
- birth_date               | date                     |           |          | 
- death_date               | date                     |           |          | 
- parent_org_link          | integer                  |           |          | 
- web_address              | character varying(200)   |           |          | 
- telephone_no             | character varying(50)    |           |          | 
- email_address            | character varying(50)    |           |          | 
- free_econ_zone           | boolean                  |           |          | 
- notes                    | text                     |           |          | 
- sector_id                | integer                  |           |          | 
- legal_form_id            | integer                  |           |          | 
- reorg_date               | timestamp with time zone |           |          | 
- reorg_references         | integer                  |           |          | 
- reorg_type_id            | integer                  |           |          | 
- edit_by_user_id          | character varying(100)   |           | not null | 
- edit_comment             | character varying(500)   |           |          | 
- unit_size_id             | integer                  |           |          | 
- foreign_participation_id | integer                  |           |          | 
- data_source_id           | integer                  |           |          | 
- enterprise_id            | integer                  |           | not null | 
- primary_for_enterprise   | boolean                  |           | not null | 
- invalid_codes            | jsonb                    |           |          | 
+                                                        Table "public.legal_unit"
+          Column          |          Type          | Collation | Nullable |                            Default                            
+--------------------------+------------------------+-----------+----------+---------------------------------------------------------------
+ id                       | integer                |           | not null | nextval('legal_unit_id_seq'::regclass)
+ valid_after              | date                   |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
+ valid_from               | date                   |           | not null | CURRENT_DATE
+ valid_to                 | date                   |           | not null | 'infinity'::date
+ active                   | boolean                |           | not null | true
+ short_name               | character varying(16)  |           |          | 
+ name                     | character varying(256) |           |          | 
+ birth_date               | date                   |           |          | 
+ death_date               | date                   |           |          | 
+ web_address              | character varying(200) |           |          | 
+ telephone_no             | character varying(50)  |           |          | 
+ email_address            | character varying(50)  |           |          | 
+ free_econ_zone           | boolean                |           |          | 
+ notes                    | text                   |           |          | 
+ sector_id                | integer                |           |          | 
+ legal_form_id            | integer                |           |          | 
+ edit_by_user_id          | character varying(100) |           | not null | 
+ edit_comment             | character varying(500) |           |          | 
+ unit_size_id             | integer                |           |          | 
+ foreign_participation_id | integer                |           |          | 
+ data_source_id           | integer                |           |          | 
+ enterprise_id            | integer                |           | not null | 
+ primary_for_enterprise   | boolean                |           | not null | 
+ invalid_codes            | jsonb                  |           |          | 
 Indexes:
     "ix_legal_unit_data_source_id" btree (data_source_id)
     "ix_legal_unit_enterprise_id" btree (enterprise_id)
     "ix_legal_unit_foreign_participation_id" btree (foreign_participation_id)
     "ix_legal_unit_legal_form_id" btree (legal_form_id)
     "ix_legal_unit_name" btree (name)
-    "ix_legal_unit_reorg_type_id" btree (reorg_type_id)
     "ix_legal_unit_sector_id" btree (sector_id)
     "ix_legal_unit_size_id" btree (unit_size_id)
     "legal_unit_active_idx" btree (active)
@@ -49,7 +44,6 @@ Foreign-key constraints:
     "legal_unit_enterprise_id_fkey" FOREIGN KEY (enterprise_id) REFERENCES enterprise(id) ON DELETE RESTRICT
     "legal_unit_foreign_participation_id_fkey" FOREIGN KEY (foreign_participation_id) REFERENCES foreign_participation(id)
     "legal_unit_legal_form_id_fkey" FOREIGN KEY (legal_form_id) REFERENCES legal_form(id)
-    "legal_unit_reorg_type_id_fkey" FOREIGN KEY (reorg_type_id) REFERENCES reorg_type(id)
     "legal_unit_sector_id_fkey" FOREIGN KEY (sector_id) REFERENCES sector(id)
     "legal_unit_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
 Policies:
