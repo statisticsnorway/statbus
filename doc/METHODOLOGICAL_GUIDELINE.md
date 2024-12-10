@@ -171,43 +171,30 @@ The system as a whole either uses NACE (EU) or ISIC (UN) for economic activity c
 - Eurostat recommendations
 - National adaptations
 
-## 10. Technical Implementation
 
-### 10.1 Database Structure
-- Temporal tables for historical tracking
-- Relationship management
-- Version control
-- Audit trails
+## 10. Governance
 
-### 10.2 Data Management
-- Input validation
-- Error correction
-- Backup procedures
-- Recovery protocols
-
-## 11. Governance
-
-### 11.1 Roles and Responsibilities
+### 10.1 Roles and Responsibilities
 - Register management
 - Quality control
 - User support
 - System administration
 
-### 11.2 Documentation
+### 10.2 Documentation
 - Methodological documentation
 - Technical documentation
 - User guides
 - Training materials
 
-## 12. Future Developments
+## 11. Future Developments
 
-### 12.1 Planned Improvements
+### 11.1 Planned Improvements
 - Coverage extensions
 - Quality enhancements
 - New data sources
 - Technical upgrades
 
-### 12.2 Emerging Needs
+### 11.2 Emerging Needs
 - New statistical requirements
 - Changing business structures
 - Technological advances
