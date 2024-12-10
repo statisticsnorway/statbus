@@ -11,6 +11,10 @@ services:
     profiles:
       - required
       - required_not_app
+  meta:
+    profiles:
+      - required
+      - required_not_app
   rest:
     profiles:
       - required
