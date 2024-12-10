@@ -35,7 +35,7 @@ This document outlines the methodological principles and practices for maintaini
   * Formal: Grouping of Legal Units into an Enterprise (LU => EN)
   * Informal: Grouping of Establishments into an Enterprise (ES => EN)
 
-### 2.4 Power Groups
+### 2.4 Power Groups TBC (enterprisegroups)
 - Collection of Legal Units based on ownership relationships
 - Represents control and ownership structures
 - Maps ownership networks and power relationships
