@@ -28,6 +28,7 @@ ${statbus_users}
 ############################################################
 API: ${NEXT_PUBLIC_BROWSER_SUPABASE_URL}
 API Username ${DASHBOARD_USERNAME}
+API Password ${DASHBOARD_PASSWORD}
 Shell Access: 'ssh ${USER}@niue.statbus.org'
 ############################################################
 
@@ -41,4 +42,3 @@ for SUFFIX in $SUFFIXES; do
   user="statbus_${SUFFIX}"
   extract_info "$user"
 done
-
