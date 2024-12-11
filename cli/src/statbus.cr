@@ -964,6 +964,7 @@ class StatBus
       when MigrateMode::New
         create_new_migration
       when MigrateMode::Redo
+        @migrate_all = false  # Ensure we only do one migration
         migrate_down
         migrate_up
       when MigrateMode::Renumber
