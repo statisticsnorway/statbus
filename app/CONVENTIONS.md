@@ -28,3 +28,13 @@ This project uses **App Routing** with the `app/` directory structure. Do not us
  • Use layout.tsx in app/ for global providers, not `_app.tsx`. 
 
 When CWD is the app dir then shell commands must remove the initial 'app/' from paths.
+
+## SQL
+When defining functions and procedures use the function name as part of the literal string quote
+for the body and specify the LANGUAGE before the body, so one knows how to parse it up front.
+```
+CREATE FUNCTION public.example() RETURNS void LANGUAGE plpgsql AS $example$
+BEGIN
+  ...
+END;
+$$;
