@@ -115,7 +115,16 @@ export function StatisticalUnitTableHeader({
                   label="Sector"
                 />
               );
-            case 'activity':
+            case "legal_form":
+              return (
+                <SortableTableHead
+                  className="text-left hidden lg:table-cell"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                  name="legal_form_code"
+                  label="Legal Form"
+                />
+              );
+            case "activity":
               return (
                 <SortableTableHead
                   className="text-left hidden lg:table-cell"
@@ -124,7 +133,16 @@ export function StatisticalUnitTableHeader({
                   label="Activity Category"
                 />
               );
-            case 'data_sources':
+            case "physical_address":
+              return (
+                <TableHead
+                  className="text-left hidden lg:table-cell"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                >
+                  Address
+                </TableHead>
+              );
+            case "data_sources":
               return (
                 <TableHead
                   className="text-left hidden lg:table-cell"

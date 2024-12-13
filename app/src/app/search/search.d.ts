@@ -69,7 +69,18 @@ export type SearchAction = SetQuery | ResetAll | SetOrder | SetPage;
 export type TableColumnVisibilityType = 'Adaptable' | 'Always';
 export type ColumnProfile = "Brief" | "Regular" | "All";
 
-export type TableColumnCode = 'name' | 'activity_section' | 'activity' | 'top_region' | 'region' | 'statistic' | 'unit_counts' | 'sector' | 'data_sources';
+export type TableColumnCode =
+  | "name"
+  | "activity_section"
+  | "activity"
+  | "top_region"
+  | "region"
+  | "statistic"
+  | "unit_counts"
+  | "sector"
+  | "legal_form"
+  | "data_sources"
+  | "physical_address";
 
 // Extend the base interface based on visibility type
 export interface AdaptableTableColumn{

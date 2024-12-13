@@ -117,6 +117,22 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
         },
         {
           type: "Adaptable",
+          code: "legal_form",
+          label: "Legal Form",
+          visible: false,
+          stat_code: null,
+          profiles: ["All"],
+        },
+        {
+          type: "Adaptable",
+          code: "physical_address",
+          label: "Address",
+          visible: false,
+          stat_code: null,
+          profiles: ["All"],
+        },
+        {
+          type: "Adaptable",
           code: "data_sources",
           label: "Data Source",
           visible: false,
