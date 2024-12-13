@@ -54,10 +54,10 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           visible: statDefinition.priority! <= 1,
           profiles:
             statDefinition.priority === 1
-              ? ["Brief", "Regular", "Detailed"]
+              ? ["Brief", "Regular", "All"]
               : statDefinition.priority === 2
-                ? ["Regular", "Detailed"]
-                : ["Detailed"],
+                ? ["Regular", "All"]
+                : ["All"],
         }) as AdaptableTableColumn
     );
 
@@ -72,7 +72,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Activity Section",
           visible: true,
           stat_code: null,
-          profiles: ["Brief", "Detailed"],
+          profiles: ["Brief", "All"],
         },
         {
           type: "Adaptable",
@@ -80,7 +80,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Activity",
           visible: false,
           stat_code: null,
-          profiles: ["Regular", "Detailed"],
+          profiles: ["Regular", "All"],
         },
         {
           type: "Adaptable",
@@ -88,7 +88,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Top Region",
           visible: true,
           stat_code: null,
-          profiles: ["Brief", "Detailed"],
+          profiles: ["Brief", "All"],
         },
         {
           type: "Adaptable",
@@ -96,7 +96,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Region",
           visible: false,
           stat_code: null,
-          profiles: ["Regular", "Detailed"],
+          profiles: ["Regular", "All"],
         },
         ...statisticColumns,
         {
@@ -105,7 +105,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Unit Counts",
           visible: false,
           stat_code: null,
-          profiles: ["Detailed"],
+          profiles: ["All"],
         },
         {
           type: "Adaptable",
@@ -113,7 +113,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Sector",
           visible: false,
           stat_code: null,
-          profiles: ["Detailed"],
+          profiles: ["All"],
         },
         {
           type: "Adaptable",
@@ -121,7 +121,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Data Source",
           visible: false,
           stat_code: null,
-          profiles: ["Detailed"],
+          profiles: ["All"],
         },
       ];
     }
@@ -156,7 +156,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
 
     // Try loading from localStorage first
     try {
-    const saved = localStorage.getItem(COLUMN_LOCALSTORAGE_NAME);
+      const saved = localStorage.getItem(COLUMN_LOCALSTORAGE_NAME);
       const savedColumns = saved ? JSON.parse(saved) : [];
       const currentColumns = updateColumnsWithPreferences(savedColumns);
       setColumns(currentColumns);
@@ -166,9 +166,9 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           JSON.stringify(currentColumns)
         );
       }
-      } catch (e) {
-        console.error("Failed to parse stored columns state:", e);
-        localStorage.removeItem(COLUMN_LOCALSTORAGE_NAME);
+    } catch (e) {
+      console.error("Failed to parse stored columns state:", e);
+      localStorage.removeItem(COLUMN_LOCALSTORAGE_NAME);
       setColumns(fallbackColumns);
     }
 
@@ -267,11 +267,11 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
             visible: col.profiles.includes("Regular"),
           }),
       })),
-      Detailed: columns.map((col) => ({
+      All: columns.map((col) => ({
         ...col,
         ...(col.type === "Adaptable" &&
           "profiles" in col && {
-            visible: col.profiles.includes("Detailed"),
+            visible: col.profiles.includes("All"),
           }),
       })),
     }),

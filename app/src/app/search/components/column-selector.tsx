@@ -79,19 +79,19 @@ export function ColumnSelector({
             <span>Regular</span>
           </CommandItem>
           <CommandItem
-            onSelect={() => setProfile("Detailed")}
-            value="Detailed"
+            onSelect={() => setProfile("All")}
+            value="All"
             className="space-x-2"
           >
             <Check
               size={14}
               className={
-                profiles && isEqual(columns, profiles["Detailed"])
+                profiles && isEqual(columns, profiles["All"])
                   ? "opacity-100"
                   : "opacity-0"
               }
             />
-            <span>Detailed</span>
+            <span>All</span>
           </CommandItem>
         </CommandGroup>
       </CommandList>
