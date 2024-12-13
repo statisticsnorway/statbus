@@ -187,5 +187,3 @@ This prevents Git from converting LF to CRLF, which could break the application.
 With this guide, you should now have a working local installation of STATBUS. You can start adding data, creating reports, and managing business activities over time. For further configuration or custom setups, refer to the official documentation.
 
 ---
-
-*This guide will be updated whenever needed. This version was last updated December 2024.*
