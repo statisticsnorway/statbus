@@ -4,7 +4,6 @@ import { useBaseData } from "@/app/BaseDataClient";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useTableColumns } from "../table-columns";
-import { ColumnSelector } from "./column-selector";
 
 interface StatisticalUnitTableHeaderProps {
   regionLevel: number;
@@ -18,7 +17,8 @@ export function StatisticalUnitTableHeader({
   maxRegionLevel,
 }: StatisticalUnitTableHeaderProps) {
   const { statDefinitions, externalIdentTypes } = useBaseData();
-  const { columns, visibleColumns, toggleColumn, profiles, setProfile, headerRowSuffix, headerCellSuffix } = useTableColumns();
+  const { visibleColumns, headerRowSuffix, headerCellSuffix } =
+    useTableColumns();
 
   return (
     <TableHeader className="bg-gray-50">
@@ -134,15 +134,7 @@ export function StatisticalUnitTableHeader({
               );
           }
         })}
-        <TableHead className="py-2 p-1 text-right hidden lg:table-cell" key="header-column-selector">
-          <ColumnSelector
-            columns={columns}
-            onToggleColumn={toggleColumn}
-            profiles={profiles}
-            setProfile={setProfile}
-          />
-        </TableHead>
-        <TableHead className="lg:hidden" />
+        <TableHead />
       </TableRow>
     </TableHeader>
   );

@@ -13,10 +13,13 @@ import { ResetFilterButton } from "@/app/search/components/reset-filter-button";
 import { FilterWrapper } from "./filter-wrapper";
 import { IURLSearchParamsDict } from "@/lib/url-search-params-dict";
 import DataSourceFilter from "../filters/data-source/data-source-filter";
+import { ColumnSelectorButton } from "./column-selector-button";
 
-export default function TableToolbar({ initialUrlSearchParamsDict }: IURLSearchParamsDict) {
+export default function TableToolbar({
+  initialUrlSearchParamsDict,
+}: IURLSearchParamsDict) {
   return (
-    <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-full">
+    <div className="flex flex-wrap items-center gap-2 mb-4 p-1 lg:p-0 w-full">
       <FilterWrapper columnCode="name">
         <FullTextSearchFilter/>
         <ExternalIdentFilter/>
@@ -32,20 +35,21 @@ export default function TableToolbar({ initialUrlSearchParamsDict }: IURLSearchP
           <RegionFilter/>
         </Suspense>
       </FilterWrapper>
-      <LegalFormFilter/>
+      <LegalFormFilter />
       <FilterWrapper columnCode="activity">
         <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
-          <ActivityCategoryFilter/>
+          <ActivityCategoryFilter />
         </Suspense>
       </FilterWrapper>
       <FilterWrapper columnCode="data_sources">
         <Suspense fallback={<FilterSkeleton title="Data Source" />}>
-          <DataSourceFilter/>
+          <DataSourceFilter />
         </Suspense>
       </FilterWrapper>
-      <StatisticalVariablesFilter/>
-      <InvalidCodesFilter/>
+      <StatisticalVariablesFilter />
+      <InvalidCodesFilter />
       <ResetFilterButton />
+      <ColumnSelectorButton />
     </div>
   );
 }
