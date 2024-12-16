@@ -23,25 +23,62 @@ BEGIN
         HAVING COUNT(*) = 2
     ) INTO has_custom_and_active;
 
-    RAISE NOTICE '%s.%s: Enabling Row Level Security', schema_name_str, table_name_str;
-    EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', schema_name_str, table_name_str);
+    -- Check if RLS is already enabled
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_tables 
+        WHERE schemaname = schema_name_str 
+        AND tablename = table_name_str 
+        AND rowsecurity = true
+    ) THEN
+        RAISE NOTICE '%s.%s: Enabling Row Level Security', schema_name_str, table_name_str;
+        EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', schema_name_str, table_name_str);
+    END IF;
 
-    RAISE NOTICE '%s.%s: Authenticated users can read', schema_name_str, table_name_str;
-    EXECUTE format('CREATE POLICY %s_authenticated_read ON %I.%I FOR SELECT TO authenticated USING (true)', table_name_str, schema_name_str, table_name_str);
+    -- Check if authenticated read policy exists before creating
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = schema_name_str 
+        AND tablename = table_name_str 
+        AND policyname = table_name_str || '_authenticated_read'
+    ) THEN
+        RAISE NOTICE '%s.%s: Creating authenticated users read policy', schema_name_str, table_name_str;
+        EXECUTE format('CREATE POLICY %s_authenticated_read ON %I.%I FOR SELECT TO authenticated USING (true)', table_name_str, schema_name_str, table_name_str);
+    END IF;
 
     -- The tables with custom and active are managed through views,
     -- where one _system view is used for system updates, and the
     -- _custom view is used for managing custom rows by the super_user.
     IF has_custom_and_active THEN
-        RAISE NOTICE '%s.%s: regular_user(s) can read', schema_name_str, table_name_str;
-        EXECUTE format('CREATE POLICY %s_regular_user_read ON %I.%I FOR SELECT TO authenticated USING (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_policies 
+            WHERE schemaname = schema_name_str 
+            AND tablename = table_name_str 
+            AND policyname = table_name_str || '_regular_user_read'
+        ) THEN
+            RAISE NOTICE '%s.%s: Creating regular_user read policy', schema_name_str, table_name_str;
+            EXECUTE format('CREATE POLICY %s_regular_user_read ON %I.%I FOR SELECT TO authenticated USING (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
+        END IF;
     ELSE
-        RAISE NOTICE '%s.%s: regular_user(s) can manage', schema_name_str, table_name_str;
-        EXECUTE format('CREATE POLICY %s_regular_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_policies 
+            WHERE schemaname = schema_name_str 
+            AND tablename = table_name_str 
+            AND policyname = table_name_str || '_regular_user_manage'
+        ) THEN
+            RAISE NOTICE '%s.%s: Creating regular_user manage policy', schema_name_str, table_name_str;
+            EXECUTE format('CREATE POLICY %s_regular_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type)) WITH CHECK (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
+        END IF;
     END IF;
 
-    RAISE NOTICE '%s.%s: super_user(s) can manage', schema_name_str, table_name_str;
-    EXECUTE format('CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_policies 
+        WHERE schemaname = schema_name_str 
+        AND tablename = table_name_str 
+        AND policyname = table_name_str || '_super_user_manage'
+    ) THEN
+        RAISE NOTICE '%s.%s: Creating super_user manage policy', schema_name_str, table_name_str;
+        EXECUTE format('CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type)) WITH CHECK (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))', table_name_str, schema_name_str, table_name_str);
+    END IF;
 END;
 $$ LANGUAGE plpgsql;
 
