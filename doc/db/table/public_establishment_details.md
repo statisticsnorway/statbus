@@ -60,9 +60,11 @@ Policies:
     POLICY "establishment_regular_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
     POLICY "establishment_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Triggers:
     activity_establishment_id_valid_uk_delete AFTER DELETE ON establishment FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check('activity_establishment_id_valid')
     activity_establishment_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON establishment FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check('activity_establishment_id_valid')

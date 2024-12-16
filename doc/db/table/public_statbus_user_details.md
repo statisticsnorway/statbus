@@ -23,9 +23,11 @@ Policies:
     POLICY "statbus_user_regular_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
     POLICY "statbus_user_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Triggers:
     trigger_prevent_statbus_user_id_update BEFORE UPDATE OF id ON statbus_user FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

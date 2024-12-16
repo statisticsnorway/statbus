@@ -33,9 +33,11 @@ Policies:
     POLICY "stat_for_unit_regular_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
     POLICY "stat_for_unit_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Triggers:
     check_stat_for_unit_values_trigger BEFORE INSERT OR UPDATE ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION admin.check_stat_for_unit_values()
     stat_for_unit_establishment_id_valid_fk_insert AFTER INSERT ON stat_for_unit FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('stat_for_unit_establishment_id_valid')

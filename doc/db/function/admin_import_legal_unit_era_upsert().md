@@ -55,8 +55,7 @@ BEGIN
 
     SELECT * INTO edited_by_user
     FROM public.statbus_user
-    -- TODO: Uncomment when going into production
-    -- WHERE uuid = auth.uid()
+    WHERE uuid = auth.uid()
     LIMIT 1;
 
     SELECT tag_id INTO tag.id FROM admin.import_lookup_tag(new_jsonb);

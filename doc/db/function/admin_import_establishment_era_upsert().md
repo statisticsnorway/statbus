@@ -60,11 +60,14 @@ BEGIN
     SELECT NULL::int AS employees
          , NULL::int AS turnover
         INTO stats;
+    SELECT NULL::int AS id INTO inserted_establishment;
+    SELECT NULL::int AS id INTO inserted_location;
+    SELECT NULL::int AS id INTO inserted_activity;
+    SELECT NULL::int AS id INTO inserted_stat_for_unit;
 
     SELECT * INTO edited_by_user
     FROM public.statbus_user
-    -- TODO: Uncomment when going into production
-    -- WHERE uuid = auth.uid()
+    WHERE uuid = auth.uid()
     LIMIT 1;
 
     SELECT tag_id INTO tag.id FROM admin.import_lookup_tag(new_jsonb);

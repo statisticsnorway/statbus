@@ -25,6 +25,7 @@ Policies:
     POLICY "legal_form_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Triggers:
     trigger_prevent_legal_form_id_update BEFORE UPDATE OF id ON legal_form FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 

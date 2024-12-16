@@ -36,16 +36,22 @@ Policies:
     POLICY "activity_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "activity_employee_manage"
-      TO authenticated
-      USING ((auth.has_statbus_role(auth.uid(), 'restricted_user'::statbus_role_type) AND auth.has_activity_category_access(auth.uid(), category_id)))
-      WITH CHECK ((auth.has_statbus_role(auth.uid(), 'restricted_user'::statbus_role_type) AND auth.has_activity_category_access(auth.uid(), category_id)))
     POLICY "activity_regular_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
     POLICY "activity_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+    POLICY "regular_and_super_user_activity_access"
+      TO authenticated
+      USING (auth.has_one_of_statbus_roles(auth.uid(), ARRAY['super_user'::statbus_role_type, 'regular_user'::statbus_role_type]))
+      WITH CHECK (auth.has_one_of_statbus_roles(auth.uid(), ARRAY['super_user'::statbus_role_type, 'regular_user'::statbus_role_type]))
+    POLICY "restricted_user_activity_access"
+      TO authenticated
+      USING ((auth.has_statbus_role(auth.uid(), 'restricted_user'::statbus_role_type) AND auth.has_activity_category_access(auth.uid(), category_id)))
+      WITH CHECK ((auth.has_statbus_role(auth.uid(), 'restricted_user'::statbus_role_type) AND auth.has_activity_category_access(auth.uid(), category_id)))
 Triggers:
     activity_establishment_id_valid_fk_insert AFTER INSERT ON activity FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('activity_establishment_id_valid')
     activity_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON activity FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('activity_establishment_id_valid')
