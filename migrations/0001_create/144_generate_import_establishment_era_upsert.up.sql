@@ -1,7 +1,7 @@
 BEGIN;
 
 \echo admin.import_establishment_era_upsert
-CREATE FUNCTION admin.import_establishment_era_upsert()
+CREATE OR REPLACE FUNCTION admin.import_establishment_era_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     new_jsonb JSONB := to_jsonb(NEW);
@@ -60,6 +60,10 @@ BEGIN
     SELECT NULL::int AS employees
          , NULL::int AS turnover
         INTO stats;
+    SELECT NULL::int AS id INTO inserted_establishment;
+    SELECT NULL::int AS id INTO inserted_location;
+    SELECT NULL::int AS id INTO inserted_activity;
+    SELECT NULL::int AS id INTO inserted_stat_for_unit;
 
     SELECT * INTO edited_by_user
     FROM public.statbus_user
