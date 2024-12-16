@@ -417,4 +417,7 @@ DROP FUNCTION admin.grant_type_and_function_access_to_authenticated();
 DROP EXTENSION ltree;
 DROP SCHEMA admin CASCADE;
 
+-- Clear out any users possibly left after removal of statbus_user.
+DELETE FROM auth.users;
+
 END;
