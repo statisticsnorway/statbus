@@ -1,23 +1,20 @@
-import { Button } from "@/components/ui/button";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuCheckboxItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Settings2 } from "lucide-react";
+import { Check } from "lucide-react";
 import { ColumnProfile, TableColumn } from "../search.d";
 import { isEqual } from "moderndash";
-
+import {
+  Command,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from "@/components/ui/command";
 interface ColumnSelectorProps {
   columns: TableColumn[];
   onToggleColumn: (column: TableColumn) => void;
   profiles: Record<ColumnProfile, TableColumn[]>;
   setProfile: (profile: ColumnProfile) => void;
 }
-
 export function ColumnSelector({
   columns,
   onToggleColumn,
@@ -25,47 +22,79 @@ export function ColumnSelector({
   setProfile,
 }: ColumnSelectorProps) {
   return (
-    <DropdownMenu modal={false}>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm">
-          <Settings2 className="h-4 w-4" />
-          <span className="sr-only">Column Settings</span>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[200px]">
-        <DropdownMenuLabel>Toggle Columns</DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {columns.map((column) => (
-          <DropdownMenuCheckboxItem
-            key={`column-selector-${column.code}${column.type === "Adaptable" ? "-" + column.stat_code : ""}`}
-            checked={column.type == "Always" ? true : column.visible}
-            onCheckedChange={() => onToggleColumn(column)}
-            disabled={column.type == "Always" ? true : false}
+    <Command>
+      <CommandInput placeholder="Columns" />
+      <CommandList>
+        <CommandGroup heading="Toggle Columns">
+          {columns.map((column) => (
+            <CommandItem
+              key={`column-selector-${column.code}${column.type === "Adaptable" ? "-" + column.stat_code : ""}`}
+              value={column.label}
+              onSelect={() => onToggleColumn(column)}
+              disabled={column.type == "Always" ? true : false}
+              className="space-x-2"
+            >
+              <Check
+                size={14}
+                className={
+                  column.type === "Always" || column.visible
+                    ? "opacity-100"
+                    : "opacity-0"
+                }
+              />
+              <span>{column.label}</span>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+        <CommandSeparator />
+        <CommandGroup heading="Profiles">
+          <CommandItem
+            onSelect={() => setProfile("Brief")}
+            value="Brief"
+            className="space-x-2"
           >
-            {column.label}
-          </DropdownMenuCheckboxItem>
-        ))}
-        <DropdownMenuSeparator />
-        <DropdownMenuLabel>Profiles</DropdownMenuLabel>
-        <DropdownMenuCheckboxItem
-          checked={profiles && isEqual(columns, profiles["Brief"])}
-          onCheckedChange={() => setProfile("Brief")}
-        >
-          Brief
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuCheckboxItem
-          checked={profiles && isEqual(columns, profiles["Regular"])}
-          onCheckedChange={() => setProfile("Regular")}
-        >
-          Regular
-        </DropdownMenuCheckboxItem>
-        <DropdownMenuCheckboxItem
-          checked={profiles && isEqual(columns, profiles["Detailed"])}
-          onCheckedChange={() => setProfile("Detailed")}
-        >
-          Detailed
-        </DropdownMenuCheckboxItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+            <Check
+              size={14}
+              className={
+                profiles && isEqual(columns, profiles["Brief"])
+                  ? "opacity-100"
+                  : "opacity-0"
+              }
+            />
+            <span>Brief</span>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => setProfile("Regular")}
+            value="Regular"
+            className="space-x-2"
+          >
+            <Check
+              size={14}
+              className={
+                profiles && isEqual(columns, profiles["Regular"])
+                  ? "opacity-100"
+                  : "opacity-0"
+              }
+            />
+            <span>Regular</span>
+          </CommandItem>
+          <CommandItem
+            onSelect={() => setProfile("All")}
+            value="All"
+            className="space-x-2"
+          >
+            <Check
+              size={14}
+              className={
+                profiles && isEqual(columns, profiles["All"])
+                  ? "opacity-100"
+                  : "opacity-0"
+              }
+            />
+            <span>All</span>
+          </CommandItem>
+        </CommandGroup>
+      </CommandList>
+    </Command>
   );
 }

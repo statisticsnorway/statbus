@@ -54,10 +54,10 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           visible: statDefinition.priority! <= 1,
           profiles:
             statDefinition.priority === 1
-              ? ["Brief", "Regular", "Detailed"]
+              ? ["Brief", "Regular", "All"]
               : statDefinition.priority === 2
-                ? ["Regular", "Detailed"]
-                : ["Detailed"],
+                ? ["Regular", "All"]
+                : ["All"],
         }) as AdaptableTableColumn
     );
 
@@ -72,7 +72,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Activity Section",
           visible: true,
           stat_code: null,
-          profiles: ["Brief", "Detailed"],
+          profiles: ["Brief", "All"],
         },
         {
           type: "Adaptable",
@@ -80,7 +80,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Activity",
           visible: false,
           stat_code: null,
-          profiles: ["Regular", "Detailed"],
+          profiles: ["Regular", "All"],
         },
         {
           type: "Adaptable",
@@ -88,7 +88,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Top Region",
           visible: true,
           stat_code: null,
-          profiles: ["Brief", "Detailed"],
+          profiles: ["Brief", "All"],
         },
         {
           type: "Adaptable",
@@ -96,7 +96,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Region",
           visible: false,
           stat_code: null,
-          profiles: ["Regular", "Detailed"],
+          profiles: ["Regular", "All"],
         },
         ...statisticColumns,
         {
@@ -105,7 +105,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Unit Counts",
           visible: false,
           stat_code: null,
-          profiles: ["Detailed"],
+          profiles: ["All"],
         },
         {
           type: "Adaptable",
@@ -113,7 +113,23 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Sector",
           visible: false,
           stat_code: null,
-          profiles: ["Detailed"],
+          profiles: ["All"],
+        },
+        {
+          type: "Adaptable",
+          code: "legal_form",
+          label: "Legal Form",
+          visible: false,
+          stat_code: null,
+          profiles: ["All"],
+        },
+        {
+          type: "Adaptable",
+          code: "physical_address",
+          label: "Address",
+          visible: false,
+          stat_code: null,
+          profiles: ["All"],
         },
         {
           type: "Adaptable",
@@ -121,7 +137,7 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           label: "Data Source",
           visible: false,
           stat_code: null,
-          profiles: ["Detailed"],
+          profiles: ["All"],
         },
       ];
     }
@@ -129,45 +145,68 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
 
   const [columns, setColumns] = useState<TableColumns>([]);
 
-  useEffect(() => {
-    if (available_columns.length === 0) {
-      return; // Wait for default columns to be available
-    }
+  // Update columns and keep user preferences
+  const updateColumnsWithPreferences = useCallback(
+    (userColumns: AdaptableTableColumn[] = []): TableColumns => {
+      return available_columns.map((col) => {
+        if (col.type === "Adaptable") {
+          const userColumn = userColumns.find(
+            (userCol) =>
+              userCol.type === "Adaptable" &&
+              userCol.code === col.code &&
+              userCol.stat_code === col.stat_code
+          );
+          return { ...col, visible: userColumn?.visible ?? col.visible };
+        }
+        return col;
+      });
+    },
+    [available_columns]
+  );
 
-    // Try loading from localStorage first
-    const saved = localStorage.getItem(COLUMN_LOCALSTORAGE_NAME);
-    if (saved) {
-      try {
-        const state = JSON.parse(saved);
-        setColumns(state);
-      } catch (e) {
-        console.error("Failed to parse stored columns state:", e);
-        localStorage.removeItem(COLUMN_LOCALSTORAGE_NAME);
-        setColumns(available_columns); // Fall back to defaults on error
-      }
+  useEffect(() => {
+    const fallbackColumns = updateColumnsWithPreferences();
+    if (fallbackColumns.length === 0) {
       return;
     }
 
-    // Fall back to default columns if no localStorage data
-    setColumns(available_columns);
+    // Try loading from localStorage first
+    try {
+      const saved = localStorage.getItem(COLUMN_LOCALSTORAGE_NAME);
+      const savedColumns = saved ? JSON.parse(saved) : [];
+      const currentColumns = updateColumnsWithPreferences(savedColumns);
+      setColumns(currentColumns);
+      if (!isEqual(savedColumns, currentColumns)) {
+        localStorage.setItem(
+          COLUMN_LOCALSTORAGE_NAME,
+          JSON.stringify(currentColumns)
+        );
+      }
+    } catch (e) {
+      console.error("Failed to parse stored columns state:", e);
+      localStorage.removeItem(COLUMN_LOCALSTORAGE_NAME);
+      setColumns(fallbackColumns);
+    }
 
     // Listen for changes in other tabs
     const handleStorageChange = (e: StorageEvent) => {
       if (e.key === COLUMN_LOCALSTORAGE_NAME && e.newValue) {
         try {
-          const newState = JSON.parse(e.newValue);
-          setColumns(newState);
+          const updatedPreferences = JSON.parse(e.newValue);
+          const updatedColumns =
+            updateColumnsWithPreferences(updatedPreferences);
+          setColumns(updatedColumns);
         } catch (e) {
           console.error("Failed to parse columns state from storage event:", e);
           localStorage.removeItem(COLUMN_LOCALSTORAGE_NAME);
-          setColumns(available_columns); // Fall back to defaults on error
+          setColumns(fallbackColumns);
         }
       }
     };
 
     window.addEventListener("storage", handleStorageChange);
     return () => window.removeEventListener("storage", handleStorageChange);
-  }, [available_columns]);
+  }, [updateColumnsWithPreferences]);
 
   const toggleColumn = useCallback(
     (column: TableColumn) => {
@@ -244,11 +283,11 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
             visible: col.profiles.includes("Regular"),
           }),
       })),
-      Detailed: columns.map((col) => ({
+      All: columns.map((col) => ({
         ...col,
         ...(col.type === "Adaptable" &&
           "profiles" in col && {
-            visible: col.profiles.includes("Detailed"),
+            visible: col.profiles.includes("All"),
           }),
       })),
     }),

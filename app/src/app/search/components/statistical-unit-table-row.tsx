@@ -60,6 +60,14 @@ export const StatisticalUnitTableRow = ({
 
   const region = getRegionByPath(unit.physical_region_path);
 
+  const physical_address = [
+    unit.physical_address_part1,
+    unit.physical_address_part2,
+    unit.physical_address_part3,
+  ]
+    .filter(Boolean)
+    .join(", ");
+
   const prettifyUnitType = (type: UnitType | null): string => {
     switch (type) {
       case "enterprise":
@@ -121,7 +129,9 @@ export const StatisticalUnitTableRow = ({
                     <small className="text-gray-700 flex items-center space-x-1">
                       <span className="flex">
                         {externalIdentTypes
-                          ?.map(({ code }) => unit.external_idents[code!] || "")
+                          ?.map(
+                            ({ code }) => unit.external_idents[code!] || "-"
+                          )
                           .join(" | ")}
                       </span>
                       {unit.invalid_codes && (
@@ -272,7 +282,39 @@ export const StatisticalUnitTableRow = ({
                 </div>
               </TableCell>
             );
-
+          case 'legal_form':
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={unit.legal_form_name ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
+                  <span>{unit.legal_form_code}</span>
+                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
+                    {unit.legal_form_name}
+                  </small>
+                </div>
+              </TableCell>
+            );
+          case 'physical_address':
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={physical_address}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
+                  <small className="text-gray-700 min-w-40 line-clamp-3 lg:max-w-48">
+                    {physical_address}
+                  </small>
+                </div>
+              </TableCell>
+            );
           case 'data_sources':
             return (
               <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>
