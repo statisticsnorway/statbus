@@ -291,14 +291,6 @@ case "$action" in
       ;;
     'create-users' )
         export $(awk -F= '/^[^#]/{output=output" "$1"="$2} END {print output}' .env)
-        echo "Wait for admin api (gotrue) to start"
-        starting=true
-        while $starting; do
-            sleep 1
-            curl "http://$SUPABASE_BIND_ADDRESS/auth/v1/health" \
-            -H 'accept: application/json' \
-            -H "apikey: $SERVICE_ROLE_KEY" && starting=false
-        done
 
         echo Create users for the developers
         echo 'Creating users defined in .users.yml'
@@ -309,21 +301,12 @@ case "$action" in
           email=$(echo "${user_details}" | awk '{print $1}')
           password=$(echo "${user_details}" | awk '{print $2}')
 
-          # Use the official API, since there isn't an SQL route for this! :-(
-          # Run the curl command for each user
-          curl "http://$SUPABASE_BIND_ADDRESS/auth/v1/admin/users" \
-            -H 'accept: application/json' \
-            -H "apikey: $SERVICE_ROLE_KEY" \
-            -H "authorization: Bearer $SERVICE_ROLE_KEY" \
-            -H 'content-type: application/json' \
-            --data-raw "{\"email\":\"$email\", \"password\":\"$password\", \"email_confirm\":true}"
           ./devops/manage-statbus.sh psql <<EOS
-            INSERT INTO public.statbus_user (uuid, role_id)
-            SELECT id, (SELECT id FROM public.statbus_role WHERE type = 'super_user')
-            FROM auth.users
-            WHERE email like '$email'
-            ON CONFLICT (uuid)
-            DO UPDATE SET role_id = EXCLUDED.role_id;
+            SELECT * FROM public.statbus_user_create(
+              p_email := '$email',
+              p_role_type := 'super_user',
+              p_password := '$password'
+            );
 EOS
         done
       ;;
