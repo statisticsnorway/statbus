@@ -188,36 +188,34 @@ BEGIN
         is_sso_user,
         is_anonymous
     ) VALUES (
-        '00000000-0000-0000-0000-000000000000',
-        v_user_id,
-        'authenticated',
-        'authenticated',
-        v_email,
-        v_encrypted_password,
-        now(),
-        NULL,
-        now(),
-        now(),
-        now(),
-        '',
-        '',
-        '',
-        '',
-        '{"provider": "email", "providers": ["email"]}'::jsonb,
-        '{}'::jsonb,
-        now(),
-        now(),
-        false,
-        false
+        '00000000-0000-0000-0000-000000000000', -- instance_id -- For use with multiple installations, and NULL would have been a better absent marker.
+        v_user_id, -- id
+        'authenticated', -- aud
+        'authenticated', -- role
+        v_email, -- email
+        v_encrypted_password, -- encrypted_password
+        now(), -- email_confirmed_at
+        NULL, -- phone_confirmed_at
+        NULL, -- recovery_sent_at
+        NULL, -- last_sign_in_at
+        NULL, -- confirmation_sent_at
+        '', -- confirmation_token
+        '', -- email_change
+        '', -- email_change_token_new
+        '', -- recovery_token
+        '{"provider": "email", "providers": ["email"]}'::jsonb, -- raw_app_meta_data
+        '{}'::jsonb, -- raw_user_meta_data
+        now(), -- created_at
+        now(), -- updated_at
+        false, -- is_sso_user
+        false -- is_anonymous
     )
     ON CONFLICT ON CONSTRAINT "users_email_key" DO UPDATE
     SET
         encrypted_password = EXCLUDED.encrypted_password,
         updated_at = now(),
-        raw_app_meta_data = EXCLUDED.raw_app_meta_data,
-        recovery_sent_at = EXCLUDED.recovery_sent_at,
-        last_sign_in_at = EXCLUDED.last_sign_in_at,
-        confirmation_sent_at = EXCLUDED.confirmation_sent_at
+        email_confirmed_at = EXCLUDED.email_confirmed_at,
+        raw_app_meta_data = EXCLUDED.raw_app_meta_data
     RETURNING id INTO v_user_id;
 
     -- Insert or update auth.identities
@@ -229,17 +227,17 @@ BEGIN
         created_at,
         updated_at
     ) VALUES (
-        v_user_id,
-        v_user_id,
+        v_user_id, -- provider_id -- Same as user_id if email is provider
+        v_user_id, -- user_id
         json_build_object(
             'sub', v_user_id,
             'email', v_email,
-            'email_verified', true,
+            'email_verified', false,
             'phone_verified', false
-        ),
-        'email',
-        now(),
-        now()
+        ), -- identity_data
+        'email', -- provider
+        now(), -- created_at
+        now() -- updated_at
     )
     ON CONFLICT ON CONSTRAINT identities_provider_id_provider_unique DO UPDATE
     SET
