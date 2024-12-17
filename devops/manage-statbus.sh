@@ -265,7 +265,7 @@ case "$action" in
         ./devops/manage-statbus.sh create-users
       ;;
     'create-db' )
-        ./devops/manage-statbus.sh start not_app
+        ./devops/manage-statbus.sh start required_not_app
         ./devops/manage-statbus.sh activate_sql_saga
         ./devops/manage-statbus.sh create-db-structure
         ./devops/manage-statbus.sh create-users
