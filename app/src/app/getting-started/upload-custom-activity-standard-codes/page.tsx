@@ -36,7 +36,7 @@ export default function UploadCustomActivityCategoryCodesPage() {
 
       <UploadCSVForm
         uploadView="activity_category_available_custom"
-        nextPage="/getting-started/summary"
+        nextPage="/getting-started/upload-regions"
         refreshRelevantCounts={refreshNumberOfCustomActivityCategoryCodes}
       />
 
