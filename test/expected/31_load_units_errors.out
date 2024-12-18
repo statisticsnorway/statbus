@@ -1,6 +1,8 @@
 BEGIN;
 \echo "Setting up Statbus using the web provided examples"
 "Setting up Statbus using the web provided examples"
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.super@statbus.org');
 \echo "User selected the Activity Category Standard"
 "User selected the Activity Category Standard"
 INSERT INTO settings(activity_category_standard_id,only_one_setting)
@@ -44,7 +46,7 @@ ERROR:  The external identifier stat_ident for establishment already taken by a 
 CONTEXT:  PL/pgSQL function admin.process_external_idents(jsonb,text) line 75 at RAISE
 SQL statement "SELECT external_idents        , prior_id
                                                                FROM admin.process_external_idents(new_jsonb,'establishment') AS r"
-PL/pgSQL function admin.import_establishment_era_upsert() line 118 at SQL statement
+PL/pgSQL function admin.import_establishment_era_upsert() line 121 at SQL statement
 SQL statement "INSERT INTO public.import_establishment_era(
         valid_from,
         valid_to,
@@ -148,10 +150,10 @@ SELECT
 \echo "User uploads informal establishments with same stat_idents as formal establishments"
 "User uploads informal establishments with same stat_idents as formal establishments"
 \copy public.import_establishment_era_without_legal_unit(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'test/data/31_informal_establishments_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  Another establishment {"tax_ident": "92212760144", "stat_ident": "2000"} already uses the same identier(s) as the establishment in row {"name": "THE NILE PEARL WATER", "tag_path": null, "turnover": "1200", "valid_to": "infinity", "employees": "1", "tax_ident": "82212760144", "birth_date": null, "death_date": null, "stat_ident": "2000", "valid_from": "2024-01-01", "sector_code": null, "postal_postcode": null, "data_source_code": "nlr", "postal_postplace": null, "physical_postcode": null, "physical_postplace": null, "postal_region_code": null, "postal_region_path": null, "legal_unit_tax_ident": null, "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "legal_unit_stat_ident": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null}
+ERROR:  Identifier conflicts [{"code": "tax_ident", "problem": "unstable_identifier", "new_ident": "82212760144", "unit_type": "establishment", "current_ident": "92212760144"}] for row {"name": "THE NILE PEARL WATER", "tag_path": null, "turnover": "1200", "valid_to": "infinity", "employees": "1", "tax_ident": "82212760144", "birth_date": null, "death_date": null, "stat_ident": "2000", "valid_from": "2024-01-01", "sector_code": null, "postal_postcode": null, "data_source_code": "nlr", "postal_postplace": null, "physical_postcode": null, "physical_postplace": null, "postal_region_code": null, "postal_region_path": null, "legal_unit_tax_ident": null, "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "legal_unit_stat_ident": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null}
 DETAIL:  Key constraint (type_id, establishment_id) is violated.
 HINT:  Check for other units already using the same identifier
-CONTEXT:  PL/pgSQL function admin.insert_external_idents(jsonb,external_ident[],integer,integer,integer) line 79 at RAISE
+CONTEXT:  PL/pgSQL function admin.insert_external_idents(jsonb,external_ident[],integer,integer,integer) line 95 at RAISE
 SQL statement "SELECT admin.insert_external_idents(
       new_jsonb,
       external_idents_to_add,
@@ -159,7 +161,7 @@ SQL statement "SELECT admin.insert_external_idents(
       p_establishment_id => inserted_establishment.id,
       p_updated_by_user_id => edited_by_user.id
       )"
-PL/pgSQL function admin.import_establishment_era_upsert() line 225 at PERFORM
+PL/pgSQL function admin.import_establishment_era_upsert() line 228 at PERFORM
 SQL statement "INSERT INTO public.import_establishment_era (
         valid_from,
         valid_to,

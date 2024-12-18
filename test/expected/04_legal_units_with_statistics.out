@@ -1,6 +1,8 @@
 BEGIN;
 \echo "Setting up Statbus to load legal_unit without establishment with statistics"
 "Setting up Statbus to load legal_unit without establishment with statistics"
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.super@statbus.org');
 \echo "This is the use case for Morocco, so sample data from them"
 "This is the use case for Morocco, so sample data from them"
 \echo "User selected the Activity Category Standard"

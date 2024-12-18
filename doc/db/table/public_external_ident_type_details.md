@@ -25,9 +25,11 @@ Policies:
     POLICY "external_ident_type_regular_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
     POLICY "external_ident_type_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Triggers:
     external_ident_type_derive_code_and_name_from_by_tag_id_insert BEFORE INSERT ON external_ident_type FOR EACH ROW WHEN (new.by_tag_id IS NOT NULL) EXECUTE FUNCTION external_ident_type_derive_code_and_name_from_by_tag_id()
     external_ident_type_derive_code_and_name_from_by_tag_id_update BEFORE UPDATE ON external_ident_type FOR EACH ROW WHEN (new.by_tag_id IS NOT NULL AND new.by_tag_id IS DISTINCT FROM old.by_tag_id) EXECUTE FUNCTION external_ident_type_derive_code_and_name_from_by_tag_id()

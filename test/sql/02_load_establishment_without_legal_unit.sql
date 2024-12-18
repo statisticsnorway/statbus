@@ -2,6 +2,9 @@ BEGIN;
 
 \echo "Setting up Statbus to load establishments without legal units"
 
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.super@statbus.org');
+
 \echo "User selected the Activity Category Standard"
 INSERT INTO settings(activity_category_standard_id,only_one_setting)
 SELECT id, true FROM activity_category_standard WHERE code = 'nace_v2.1'

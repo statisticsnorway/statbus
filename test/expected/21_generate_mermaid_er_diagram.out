@@ -183,14 +183,11 @@ erDiagram
 	}
 	db_migration["db.migration"] {
 		"integer" id
-		"text" major_version
-		"text" minor_version
+		"text" version
 		"text" filename
-		"text" sha256_hash
+		"text" description
 		"timestamp with time zone" applied_at
 		"integer" duration_ms
-		"text" major_description
-		"text" minor_description
 	}
 	lifecycle_callbacks_registered_callback["lifecycle_callbacks.registered_callback"] {
 		"text" label
@@ -604,26 +601,6 @@ erDiagram
 		"boolean" custom
 		"timestamp with time zone" updated_at
 	}
-	realtime_messages["realtime.messages"] {
-		"bigint" id
-		"text" topic
-		"text" extension
-		"timestamp(0) without time zone" inserted_at
-		"timestamp(0) without time zone" updated_at
-	}
-	realtime_schema_migrations["realtime.schema_migrations"] {
-		"bigint" version
-		"timestamp(0) without time zone" inserted_at
-	}
-	realtime_subscription["realtime.subscription"] {
-		"bigint" id
-		"uuid" subscription_id
-		"regclass" entity
-		"realtime.user_defined_filter[]" filters
-		"jsonb" claims
-		"regrole" claims_role
-		"timestamp without time zone" created_at
-	}
 	sql_saga_api_view["sql_saga.api_view"] {
 		"regclass" table_name
 		"name" era_name
@@ -667,11 +644,6 @@ erDiagram
 		"uuid" owner
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
-		"boolean" public
-		"boolean" avif_autodetection
-		"bigint" file_size_limit
-		"text[]" allowed_mime_types
-		"text" owner_id
 	}
 	storage_migrations["storage.migrations"] {
 		"integer" id
@@ -688,33 +660,6 @@ erDiagram
 		"timestamp with time zone" updated_at
 		"timestamp with time zone" last_accessed_at
 		"jsonb" metadata
-		"text[]" path_tokens
-		"text" version
-		"text" owner_id
-		"jsonb" user_metadata
-	}
-	storage_s3_multipart_uploads["storage.s3_multipart_uploads"] {
-		"text" id
-		"bigint" in_progress_size
-		"text" upload_signature
-		"text" bucket_id
-		"text" key
-		"text" version
-		"text" owner_id
-		"timestamp with time zone" created_at
-		"jsonb" user_metadata
-	}
-	storage_s3_multipart_uploads_parts["storage.s3_multipart_uploads_parts"] {
-		"uuid" id
-		"text" upload_id
-		"bigint" size
-		"integer" part_number
-		"text" bucket_id
-		"text" key
-		"text" etag
-		"text" owner_id
-		"text" version
-		"timestamp with time zone" created_at
 	}
 	supabase_functions_hooks["supabase_functions.hooks"] {
 		"bigint" id
@@ -802,9 +747,8 @@ erDiagram
 	sql_saga_foreign_keys }o--|| sql_saga.unique_keys : foreign_keys_unique_key_fkey
 	sql_saga_unique_keys }o--|| sql_saga.era : unique_keys_table_name_era_name_fkey
 	sql_saga_unique_keys }o--|| sql_saga.era : unique_keys_table_name_era_name_fkey
+	storage_buckets }o--o| auth.users : buckets_owner_fkey
+	storage_objects }o--o| auth.users : objects_owner_fkey
 	storage_objects }o--o| storage.buckets : objects_bucketId_fkey
-	storage_s3_multipart_uploads }o--|| storage.buckets : s3_multipart_uploads_bucket_id_fkey
-	storage_s3_multipart_uploads_parts }o--|| storage.buckets : s3_multipart_uploads_parts_bucket_id_fkey
-	storage_s3_multipart_uploads_parts }o--|| storage.s3_multipart_uploads : s3_multipart_uploads_parts_upload_id_fkey
 	vault_secrets }o--o| pgsodium.key : secrets_key_id_fkey
 ########################################

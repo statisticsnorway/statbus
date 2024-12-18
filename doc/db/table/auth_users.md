@@ -44,6 +44,7 @@ Indexes:
     "email_change_token_new_idx" UNIQUE, btree (email_change_token_new) WHERE email_change_token_new::text !~ '^[0-9 ]*$'::text
     "reauthentication_token_idx" UNIQUE, btree (reauthentication_token) WHERE reauthentication_token::text !~ '^[0-9 ]*$'::text
     "recovery_token_idx" UNIQUE, btree (recovery_token) WHERE recovery_token::text !~ '^[0-9 ]*$'::text
+    "users_email_key" UNIQUE CONSTRAINT, btree (email)
     "users_email_partial_key" UNIQUE, btree (email) WHERE is_sso_user = false
     "users_instance_id_email_idx" btree (instance_id, lower(email::text))
     "users_instance_id_idx" btree (instance_id)

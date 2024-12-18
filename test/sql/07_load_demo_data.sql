@@ -1,5 +1,10 @@
 BEGIN;
+
 \echo "Setting up Statbus using the web provided examples"
+
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.super@statbus.org');
+
 \echo "User selected the Activity Category Standard"
 INSERT INTO settings(activity_category_standard_id,only_one_setting)
 SELECT id, true FROM activity_category_standard WHERE code = 'isic_v4'

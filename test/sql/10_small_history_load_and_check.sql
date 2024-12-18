@@ -1,11 +1,35 @@
 BEGIN;
 
-\echo "Setting up Statbus for Norway"
-\i samples/norway/getting-started.sql
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$ LANGUAGE plpgsql SECURITY DEFINER;
 
-\echo "Adding tags for insert into right part of history"
-\i samples/norway/small-history/add-tags.sql
-
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
 
 CREATE TEMP TABLE prepared_small_history (
     valid_from DATE,
@@ -132,8 +156,6 @@ FOR EACH ROW
 EXECUTE FUNCTION insert_into_import_small_history();
 
 
-\echo "Loading historical units"
-
 -- Function to update valid_from and valid_to
 CREATE OR REPLACE FUNCTION update_validity_dates(year INTEGER) RETURNS VOID AS $$
 BEGIN
@@ -144,6 +166,23 @@ BEGIN
     WHERE valid_from IS NULL AND valid_to IS NULL;
 END;
 $$ LANGUAGE plpgsql;
+
+-- Grant access to temporary tables and functions
+GRANT SELECT, INSERT, UPDATE ON prepared_small_history TO PUBLIC;
+GRANT SELECT, INSERT, UPDATE ON import_small_history TO PUBLIC;
+GRANT EXECUTE ON FUNCTION insert_into_import_small_history() TO PUBLIC;
+GRANT EXECUTE ON FUNCTION update_validity_dates(INTEGER) TO PUBLIC;
+
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.super@statbus.org');
+
+\echo "Setting up Statbus for Norway"
+\i samples/norway/getting-started.sql
+
+\echo "Adding tags for insert into right part of history"
+\i samples/norway/small-history/add-tags.sql
+
+\echo "Loading historical units"
 
 -- 2015 data
 \copy import_small_history FROM 'samples/norway/small-history/2015-enheter.csv' WITH CSV HEADER;
@@ -206,24 +245,28 @@ ORDER BY valid_from, tax_ident;
 -- Validate all inserted rows.
 SET CONSTRAINTS ALL IMMEDIATE;
 
-CREATE INDEX IF NOT EXISTS tidx_establishment_valid_after_valid_to ON establishment (valid_after, valid_to);
-CREATE INDEX IF NOT EXISTS tidx_stat_for_unit_establishment_id ON stat_for_unit (establishment_id);
-CREATE INDEX IF NOT EXISTS tidx_activity_establishment_id ON activity (establishment_id);
-CREATE INDEX IF NOT EXISTS tidx_legal_unit_valid_after_valid_to ON legal_unit (valid_after, valid_to);
-CREATE INDEX IF NOT EXISTS tidx_stat_for_unit_legal_unit_id ON stat_for_unit (legal_unit_id);
-CREATE INDEX IF NOT EXISTS tidx_location_legal_unit_id ON location (legal_unit_id);
-CREATE INDEX IF NOT EXISTS tidx_legal_activity_date ON legal_unit (id, valid_after, valid_to);
+SELECT test.sudo_exec($sql$
+  CREATE INDEX IF NOT EXISTS tidx_establishment_valid_after_valid_to ON establishment (valid_after, valid_to);
+  CREATE INDEX IF NOT EXISTS tidx_stat_for_unit_establishment_id ON stat_for_unit (establishment_id);
+  CREATE INDEX IF NOT EXISTS tidx_activity_establishment_id ON activity (establishment_id);
+  CREATE INDEX IF NOT EXISTS tidx_legal_unit_valid_after_valid_to ON legal_unit (valid_after, valid_to);
+  CREATE INDEX IF NOT EXISTS tidx_stat_for_unit_legal_unit_id ON stat_for_unit (legal_unit_id);
+  CREATE INDEX IF NOT EXISTS tidx_location_legal_unit_id ON location (legal_unit_id);
+  CREATE INDEX IF NOT EXISTS tidx_legal_activity_date ON legal_unit (id, valid_after, valid_to);
+$sql$);
 
-ANALYZE establishment;
-ANALYZE stat_for_unit;
-ANALYZE activity;
-ANALYZE legal_unit;
-ANALYZE location;
+SELECT test.sudo_exec($sql$
+  ANALYZE establishment;
+  ANALYZE stat_for_unit;
+  ANALYZE activity;
+  ANALYZE legal_unit;
+  ANALYZE location;
+$sql$);
 
 -- Check the query efficiency of the views used for building statistical_unit.
 \a
 \t
-SELECT pg_stat_statements_reset();
+SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
 
 \o tmp/timepoints.log
 EXPLAIN ANALYZE SELECT * FROM public.timepoints;
@@ -232,7 +275,7 @@ FROM pg_stat_statements
 WHERE query LIKE '%SELECT * FROM public.timepoints%';
 \o
 
-SELECT pg_stat_statements_reset();
+SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
 
 \o tmp/timesegments.log
 EXPLAIN ANALYZE SELECT * FROM public.timesegments;
@@ -241,7 +284,7 @@ FROM pg_stat_statements
 WHERE query LIKE '%SELECT * FROM public.timesegments%';
 \o
 
-SELECT pg_stat_statements_reset();
+SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
 
 \o tmp/timeline_establishment.log
 EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment;
@@ -250,7 +293,7 @@ FROM pg_stat_statements
 WHERE query LIKE '%SELECT * FROM public.timeline_establishment%';
 \o
 
-SELECT pg_stat_statements_reset();
+SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
 
 \o tmp/timeline_legal_unit.log
 EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit;
@@ -259,7 +302,7 @@ FROM pg_stat_statements
 WHERE query LIKE '%SELECT * FROM public.timeline_legal_unit%';
 \o
 
-SELECT pg_stat_statements_reset();
+SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
 
 \o tmp/timeline_enterprise.log
 EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise;
@@ -268,7 +311,7 @@ FROM pg_stat_statements
 WHERE query LIKE '%SELECT * FROM public.timeline_enterprise%';
 \o
 
-SELECT pg_stat_statements_reset();
+SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
 
 \o tmp/statistical_unit_def.log
 EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
@@ -277,7 +320,7 @@ FROM pg_stat_statements
 WHERE query LIKE '%SELECT * FROM public.statistical_unit_def%';
 \o
 
-SELECT pg_stat_statements_reset();
+SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
 
 \a
 \t
