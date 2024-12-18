@@ -32,9 +32,14 @@ When CWD is the app dir then shell commands must remove the initial 'app/' from 
 ## SQL
 When defining functions and procedures use the function name as part of the literal string quote
 for the body and specify the LANGUAGE before the body, so one knows how to parse it up front.
+Ensure that parameters are documentation friendly, and therefore always use the long form
+to avoid ambiguity.
 ```
-CREATE FUNCTION public.example() RETURNS void LANGUAGE plpgsql AS $example$
+CREATE FUNCTION public.example(email text) RETURNS void LANGUAGE plpgsql AS $example$
 BEGIN
+  ...
+  SELECT * FROM ...
+  WHERE email = example.email
   ...
 END;
 $$;
