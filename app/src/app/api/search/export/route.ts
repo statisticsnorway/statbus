@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
   if (!searchParams.has("order")) {
-    searchParams.set("order", "tax_ident.desc");
+    searchParams.set("order", "name.asc");
   }
 
   const client = await createSupabaseSSRClient();
