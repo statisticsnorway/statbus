@@ -1,17 +1,14 @@
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { Github, Globe } from "lucide-react";
-import { SSBLogo } from "@/components/ssb-logo";
-import { Session } from "@supabase/auth-js/src/lib/types"
+import { Session } from "@supabase/auth-js/src/lib/types";
 import { CommandPaletteTriggerButton } from "@/components/command-palette/command-palette-trigger-button";
 
 export function FooterSkeleton() {
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
       <div className="mx-auto max-w-screen-xl p-6 lg:py-12 lg:px-24">
-        <div className="flex items-center justify-between space-x-2">
-          <SSBLogo className="h-8 lg:h-12 w-auto" />
-        </div>
+        <div className="flex items-center justify-between space-x-2"></div>
       </div>
     </footer>
   );
@@ -24,9 +21,11 @@ export default async function Footer() {
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
       <div className="mx-auto max-w-screen-xl p-6 lg:py-12 lg:px-24">
-        <div className="flex items-center justify-between space-x-2">
-          <SSBLogo className="h-8 lg:h-12 w-auto" />
-
+        <div
+          className={`flex items-center space-x-2 ${
+            session != null ? "justify-between" : "justify-center"
+          }`}
+        >
           <div className="flex items-center justify-between space-x-3">
             <Link
               href="https://github.com/statisticsnorway/statbus/"
@@ -34,7 +33,7 @@ export default async function Footer() {
             >
               <Github size={22} className="stroke-ssb-neon" />
             </Link>
-            <Link href="https://www.statbus.org" aria-label="SSB homepage">
+            <Link href="https://www.statbus.org" aria-label="Statbus homepage">
               <Globe size={22} className="stroke-ssb-neon" />
             </Link>
           </div>
