@@ -38,6 +38,7 @@ class StatBus
     Down
     New
     Redo
+    Convert
   end
   # Mappings for a configuration, where every field is present.
   # Nil records the intention of not using an sql field
@@ -58,10 +59,16 @@ class StatBus
     def self.parse(path : Path)
       filename = path.basename
 
-      # Parse migration files: YYYY_NNN_description.(up|down).sql
-      if match = filename.match(/^([\d_]+?)_([^0-9].+)\.(up|down)\.sql$/)
+      # Parse migration files: YYYYMMDDHHMMSS_description.(up|down).sql
+      if match = filename.match(/^(\d{14})_([^0-9].+)\.(up|down)\.sql$/)
         version = match[1]
-        description = match[3]
+        # Validate timestamp format
+        begin
+          Time.parse(version, "%Y%m%d%H%M%S", Time::Location::UTC)
+        rescue
+          raise "Invalid timestamp format in migration filename: #{path}"
+        end
+        description = match[2]
         is_up = match[3] == "up"
 
         return new(
@@ -72,7 +79,7 @@ class StatBus
         )
       end
 
-      raise "Invalid migration filename format: #{path} - expected NNNN_description.(up|down).sql"
+      raise "Invalid migration filename format: #{path} - expected YYYYMMDDHHMMSS_description.(up|down).sql"
     end
   end
 
@@ -177,6 +184,8 @@ class StatBus
   @offset = 0
   @migrate_mode : MigrateMode | Nil = nil
   @migrate_all = true
+  @convert_start_date = Time.utc(2024, 1, 1)
+  @convert_spacing = 1.day
   @migration_major_description : String | Nil = nil
   @migration_minor_description : String | Nil = nil
   @valid_from : String = Time.utc.to_s("%Y-%m-%d")
@@ -687,6 +696,15 @@ class StatBus
         parser.on("redo", "Roll back last migration and reapply it") do
           @migrate_mode = MigrateMode::Redo
         end
+        parser.on("convert", "Convert existing migrations to timestamp format") do
+          @migrate_mode = MigrateMode::Convert
+          parser.on("--start=DATE", "Start date for conversion (default: 2024-01-01)") do |date|
+            @convert_start_date = Time.parse(date, "%Y-%m-%d", Time::Location::UTC)
+          end
+          parser.on("--spacing=DAYS", "Days between migrations (default: 1)") do |days|
+            @convert_spacing = days.to_i.days
+          end
+        end
       end
       parser.on("welcome", "Print a greeting message") do
         @mode = Mode::Welcome
@@ -875,12 +893,51 @@ class StatBus
         @migrate_all = false # Ensure we only do one migration
         migrate_down
         migrate_up
+      when MigrateMode::Convert
+        convert_migrations
       else
         STDERR.puts "Unknown migrate mode #{@migrate_mode}"
         exit(1)
       end
     else
       puts "Unknown mode #{@mode}"
+    end
+  end
+
+  private def convert_migrations
+    Dir.cd(@project_directory) do
+      # Get all existing migrations
+      migration_paths = Dir.glob("migrations/*.up.sql")
+
+      # Sort them by current version to maintain order
+      migrations = migration_paths.map { |path|
+        path = Path[path]
+        if match = path.basename.match(/^(\d{4}_\d{3})_([^.]+)\.up\.sql$/)
+          {
+            old_version: match[1],
+            description: match[2],
+            path:        path,
+          }
+        end
+      }.compact.sort_by { |m| m[:old_version] }
+
+      # Rename each file with new timestamp-based version
+      migrations.each_with_index do |migration, i|
+        new_timestamp = @convert_start_date + (@convert_spacing * (i + 1))
+        new_name = "#{format_migration_timestamp(new_timestamp)}_#{migration[:description]}"
+
+        # Rename up file
+        up_old_path = migration[:path]
+        up_new_path = up_old_path.parent.join("#{new_name}.up.sql")
+        File.rename(up_old_path.to_s, up_new_path.to_s)
+
+        # Rename corresponding down file
+        down_old_path = up_old_path.to_s.sub(".up.sql", ".down.sql")
+        down_new_path = up_new_path.to_s.sub(".up.sql", ".down.sql")
+        File.rename(down_old_path, down_new_path) if File.exists?(down_old_path)
+
+        puts "Renamed: #{up_old_path.basename} -> #{up_new_path.basename}"
+      end
     end
   end
 
@@ -892,32 +949,19 @@ class StatBus
         exit(1)
       end
 
-      # Get current year
-      current_year = Time.utc.year.to_s
-
-      # Find latest migration number for this year
-      migration_paths = Dir.glob("migrations/#{current_year}_*.up.sql")
-      latest_number = migration_paths.map do |path|
-        if match = Path[path].basename.match(/^#{current_year}_(\d{3})_/)
-          match[1].to_i
-        else
-          0
-        end
-      end.max || 0
-
-      # Generate next migration number
-      next_number = (latest_number + 1).to_s.rjust(3, '0')
+      # Generate timestamp version
+      timestamp = format_migration_timestamp(Time.utc)
 
       # Create safe description
       safe_desc = @migration_minor_description.not_nil!.downcase.gsub(/[^a-z0-9]+/, "_")
 
       # Generate filenames
-      up_file = "migrations/#{current_year}_#{next_number}_#{safe_desc}.up.sql"
-      down_file = "migrations/#{current_year}_#{next_number}_#{safe_desc}.down.sql"
+      up_file = "migrations/#{timestamp}_#{safe_desc}.up.sql"
+      down_file = "migrations/#{timestamp}_#{safe_desc}.down.sql"
 
       # Write migration files
       File.write(up_file, <<-SQL
-        -- Migration #{current_year}_#{next_number}: #{@migration_minor_description}
+        -- Migration #{timestamp}: #{@migration_minor_description}
         BEGIN;
 
         -- Add your migration SQL here
@@ -927,7 +971,7 @@ class StatBus
       )
 
       File.write(down_file, <<-SQL
-        -- Down Migration #{current_year}_#{next_number}: #{@migration_minor_description}
+        -- Down Migration #{timestamp}: #{@migration_minor_description}
         BEGIN;
 
         -- Add your down migration SQL here
@@ -1013,6 +1057,10 @@ class StatBus
         end
       end
     end
+  end
+
+  private def format_migration_timestamp(time : Time) : String
+    time.to_s("%Y%m%d%H%M%S")
   end
 
   private def cleanup_migration_schema(db)
