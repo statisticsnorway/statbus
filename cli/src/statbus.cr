@@ -1074,8 +1074,19 @@ class StatBus
   private def execute_down_migration(db, down_path : Path, version : String)
     Dir.cd(@project_directory) do
       migration = MigrationFile.parse(down_path)
-      result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_path}")
-      if result
+
+      # Check if migration file is empty (size 0)
+      if File.size(down_path) == 0
+        puts "Skipping empty migration #{down_path}" if @verbose
+        # Remove the migration record without running the file
+        versions = db.query_all(<<-SQL, version, as: {version: String})
+          DELETE FROM db.migration
+             WHERE version = $1
+             RETURNING version;
+          SQL
+      else
+        result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_path}")
+        if result
         # Remove the migration record(s)
         versions = db.query_all(<<-SQL, version, as: {version: String})
           DELETE FROM db.migration
