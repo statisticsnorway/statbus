@@ -76,10 +76,19 @@ services:
     # does *NOT* listen to, as it binds to the exposed interface only!!
     # Use the docker lookup of studio to the assigned IP address instead.
     healthcheck:
+      # Increase timeout for beign able to do first time install of curl.
+      timeout: 10s
+      interval: 15s
+      retries: 3
       test:
+        # Use bash script for efficient health checking:
+        # 1. Avoids loading Node.js which was causing high I/O
+        # 2. Installs curl only if needed (first run)
+        # 3. Uses lightweight curl for subsequent health checks
+        # 4. Uses internal Docker DNS resolution with 'studio' hostname
         [
           "CMD",
-          "node",
-          "-e",
-          "require('http').get('http://studio:3000/api/profile', (r) => {if (r.statusCode !== 200) throw new Error(r.statusCode)})",
+          "/bin/bash",
+          "-c",
+          "which curl || (apt-get update && apt-get install -y curl) && curl -f http://studio:3000/api/profile || exit 1",
         ]
