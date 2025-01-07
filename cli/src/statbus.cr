@@ -1087,26 +1087,27 @@ class StatBus
       else
         result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_path}")
         if result
-        # Remove the migration record(s)
-        versions = db.query_all(<<-SQL, version, as: {version: String})
+          # Remove the migration record(s)
+          versions = db.query_all(<<-SQL, version, as: {version: String})
           DELETE FROM db.migration
              WHERE version = $1
              RETURNING version;
           SQL
 
-        if @verbose
-          versions = versions.map { |m| m[:version] }
-          STDOUT.puts "Rolled back migration(s) #{versions.join(", ")} "
-        end
+          if @verbose
+            versions = versions.map { |m| m[:version] }
+            STDOUT.puts "Rolled back migration(s) #{versions.join(", ")} "
+          end
 
-        # Notify PostgREST to reload
-        db.transaction do |tx|
-          puts "Notifying PostgREST to reload with changes." if @verbose
-          tx.connection.exec("NOTIFY pgrst, 'reload config'")
-          tx.connection.exec("NOTIFY pgrst, 'reload schema'")
+          # Notify PostgREST to reload
+          db.transaction do |tx|
+            puts "Notifying PostgREST to reload with changes." if @verbose
+            tx.connection.exec("NOTIFY pgrst, 'reload config'")
+            tx.connection.exec("NOTIFY pgrst, 'reload schema'")
+          end
+        else
+          raise "Failed to roll back migration #{down_path}. Check the PostgreSQL logs for details."
         end
-      else
-        raise "Failed to roll back migration #{down_path}. Check the PostgreSQL logs for details."
       end
     end
   end
