@@ -3,6 +3,18 @@
 set -e # Exit on any failure for any command
 
 CLI_EXTRA_ARGS=""
+# Check for required USER_EMAIL environment variable
+if [ -z "${USER_EMAIL}" ]; then
+  echo "Error: USER_EMAIL environment variable must be set"
+  exit 1
+fi
+
+# Verify user exists in auth.users
+if ! ./devops/manage-statbus.sh psql -t -c "SELECT id FROM auth.users WHERE email = '${USER_EMAIL}'" | grep -q .; then
+  echo "Error: No user found with email ${USER_EMAIL}"
+  exit 1
+fi
+
 if test -n "$DEBUG"; then
   set -x # Print all commands before running them - for easy debugging.
   CLI_EXTRA_ARGS=" --verbose"
@@ -29,9 +41,9 @@ for YEAR in $YEARS; do
     TAG="census.$YEAR"
     echo "Loading data for year: $YEAR with $TAG"
     echo "Loading legal_units"
-    time ./bin/statbus import legal_unit --tag "$TAG" -f "../samples/norway/small-history/${YEAR}-enheter.csv" --config ../samples/norway/legal_unit/enheter-selection-cli-mapping.json --strategy insert --skip-refresh-of-materialized-views --immediate-constraint-checking$CLI_EXTRA_ARGS
+    time ./bin/statbus import legal_unit --user "$USER_EMAIL" --tag "$TAG" -f "../samples/norway/small-history/${YEAR}-enheter.csv" --config ../samples/norway/legal_unit/enheter-selection-cli-mapping.json --strategy insert --skip-refresh-of-materialized-views --immediate-constraint-checking$CLI_EXTRA_ARGS
     echo "Loading establishments"
-    time ./bin/statbus import establishment --tag "$TAG" -f "../samples/norway/small-history/${YEAR}-underenheter.csv" --config ../samples/norway/establishment/underenheter-selection-cli-mapping.json --strategy insert --skip-refresh-of-materialized-views --immediate-constraint-checking$CLI_EXTRA_ARGS
+    time ./bin/statbus import establishment --user "$USER_EMAIL" --tag "$TAG" -f "../samples/norway/small-history/${YEAR}-underenheter.csv" --config ../samples/norway/establishment/underenheter-selection-cli-mapping.json --strategy insert --skip-refresh-of-materialized-views --immediate-constraint-checking$CLI_EXTRA_ARGS
 done
 
 popd

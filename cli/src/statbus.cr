@@ -190,6 +190,7 @@ class StatBus
   @migration_minor_description : String | Nil = nil
   @valid_from : String = Time.utc.to_s("%Y-%m-%d")
   @valid_to = "infinity"
+  @user_email : String | Nil = nil
 
   def initialize
     @project_directory = initialize_project_directory
@@ -421,6 +422,17 @@ class StatBus
           @valid_to = tag[:context_valid_to].not_nil!
         end
 
+        # Verify user exists
+        user = db.query_one?(
+          "SELECT id::TEXT FROM auth.users WHERE email = $1",
+          @user_email,
+          as: {id: String}
+        )
+
+        if user.nil?
+          raise ArgumentError.new("User with email #{@user_email} not found")
+        end
+
         @sql_field_mapping = [
           SqlFieldMapping.new(sql: "valid_from", value: @valid_from),
           SqlFieldMapping.new(sql: "valid_to", value: @valid_to),
@@ -450,6 +462,7 @@ class StatBus
 
         case @import_strategy
         when ImportStrategy::Copy
+          db.exec "CALL test.set_user_from_email($1)", @user_email
           copy_stream = db.exec_copy "COPY public.#{upload_view_name}(#{sql_fields_str}) FROM STDIN"
           start_time = Time.monotonic
           row_count = 0
@@ -480,6 +493,7 @@ class StatBus
           sql_statement = "INSERT INTO public.#{upload_view_name}(#{sql_fields_str}) VALUES(#{sql_args})"
           puts "sql_statement = #{sql_statement}" if @verbose
           db.exec "BEGIN;"
+          db.exec "CALL test.set_user_from_email($1)", @user_email
           # Set a config that prevents inner trigger functions form activating constraints,
           # make the deferral moot.
           if @delayed_constraint_checking
@@ -518,6 +532,7 @@ class StatBus
                   puts "Refreshing completed (#{refresh_duration.total_seconds.round(2)} seconds)"
                 end
                 db.exec "BEGIN;"
+                db.exec "CALL test.set_user_from_email($1)", @user_email
                 if @delayed_constraint_checking
                   db.exec "SET LOCAL statbus.constraints_already_deferred TO 'true';"
                   db.exec "SET CONSTRAINTS ALL DEFERRED;"
@@ -668,6 +683,9 @@ class StatBus
         end
         parser.on("--skip-refresh-of-materialized-views", "Avoid refreshing materialized views during and after load") do
           @refresh_materialized_views = false
+        end
+        parser.on("-u EMAIL", "--user=EMAIL", "Email of the user performing the import") do |user_email|
+          @user_email = user_email
         end
       end
       parser.on("migrate", "Run database migrations") do
@@ -865,9 +883,13 @@ class StatBus
         exit(1)
       end
     when Mode::Import
-      if @import_file_name.nil?
-        STDERR.puts "missing required name of file to read from"
-        # puts parser
+      if @import_file_name.nil? || @user_email.nil?
+        if @import_file_name.nil?
+          STDERR.puts "missing required name of file to read from"
+        end
+        if @user_email.nil?
+          STDERR.puts "missing required user email (use -u or --user)"
+        end
         exit(1)
       else
         case @import_mode
