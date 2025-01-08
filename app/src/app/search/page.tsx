@@ -13,7 +13,7 @@ import { defaultOrder } from "./search-filter-reducer";
 import { SearchOrder } from "./search";
 
 export const metadata: Metadata = {
-  title: "Statbus | Search statistical units",
+  title: "Search statistical units",
 };
 
 export default async function SearchPage({ searchParams: initialUrlSearchParamsDict }: { searchParams: URLSearchParamsDict }) {

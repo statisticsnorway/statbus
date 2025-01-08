@@ -3,7 +3,7 @@ import ReportsPageClient from "./ReportsPageClient";
 import { Suspense } from "react";
 
 export const metadata: Metadata = {
-  title: "Statbus | Reports",
+  title: "Reports",
 };
 
 export default function ReportsPage({
