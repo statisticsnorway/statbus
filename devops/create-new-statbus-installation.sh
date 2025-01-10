@@ -35,6 +35,34 @@ for subdomain in "" "api." "www."; do
     fi
 done
 
+# Generate GitHub workflow file for deployment if it doesn't exist
+if [ ! -f ".github/workflows/master-to-${DEPLOYMENT_SLOT_CODE}.yaml" ]; then
+    echo "Generating GitHub workflow file..."
+    if [ -f ".github/workflows/master-to-demo.yaml" ]; then
+        mkdir -p .github/workflows
+        sed "s/demo/${DEPLOYMENT_SLOT_CODE}/g" .github/workflows/master-to-demo.yaml > ".github/workflows/master-to-${DEPLOYMENT_SLOT_CODE}.yaml"
+        echo "Created GitHub workflow file for ${DEPLOYMENT_SLOT_CODE}"
+    else
+        echo "Warning: Could not find template workflow file .github/workflows/master-to-demo.yaml"
+    fi
+else
+    echo "GitHub workflow file for ${DEPLOYMENT_SLOT_CODE} already exists"
+fi
+
+# Generate deploy-to workflow file if it doesn't exist
+if [ ! -f ".github/workflows/deploy-to-${DEPLOYMENT_SLOT_CODE}.yaml" ]; then
+    echo "Generating deploy-to workflow file..."
+    if [ -f ".github/workflows/deploy-to-demo.yaml" ]; then
+        mkdir -p .github/workflows
+        sed "s/demo/${DEPLOYMENT_SLOT_CODE}/g" .github/workflows/deploy-to-demo.yaml > ".github/workflows/deploy-to-${DEPLOYMENT_SLOT_CODE}.yaml"
+        echo "Created deploy-to workflow file for ${DEPLOYMENT_SLOT_CODE}"
+    else
+        echo "Warning: Could not find template workflow file .github/workflows/deploy-to-demo.yaml"
+    fi
+else
+    echo "Deploy-to workflow file for ${DEPLOYMENT_SLOT_CODE} already exists"
+fi
+
 echo "Configuring server..."
 
 echo "Creating user"
@@ -269,19 +297,5 @@ ssh $DEPLOYMENT_USER@$HOST bash <<START_STATBUS
     ./devops/manage-statbus.sh create-db-structure
     ./devops/manage-statbus.sh create-users
 START_STATBUS
-
-# Generate GitHub workflow file for deployment if it doesn't exist
-if [ ! -f ".github/workflows/master-to-${DEPLOYMENT_SLOT_CODE}.yaml" ]; then
-    echo "Generating GitHub workflow file..."
-    if [ -f ".github/workflows/master-to-demo.yaml" ]; then
-        mkdir -p .github/workflows
-        sed "s/demo/${DEPLOYMENT_SLOT_CODE}/g" .github/workflows/master-to-demo.yaml > ".github/workflows/master-to-${DEPLOYMENT_SLOT_CODE}.yaml"
-        echo "Created GitHub workflow file for ${DEPLOYMENT_SLOT_CODE}"
-    else
-        echo "Warning: Could not find template workflow file .github/workflows/master-to-demo.yaml"
-    fi
-else
-    echo "GitHub workflow file for ${DEPLOYMENT_SLOT_CODE} already exists"
-fi
 
 echo "Setup of ${DEPLOYMENT_SLOT_NAME}(${DEPLOYMENT_SLOT_CODE}) completed successfully!"
