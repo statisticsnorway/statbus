@@ -283,6 +283,32 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
     fi
 UPDATE_SETTINGS
 
+
+# Regenerate configuration with updated settings
+ssh $DEPLOYMENT_USER@$HOST bash <<USE_ADAPTED_CONFIG
+    # Print commands if VERBOSE is defined
+    if [ -n "${VERBOSE}" ]; then
+        set -x
+    fi
+    cd ~/statbus && ./devops/manage-statbus.sh generate-config
+    echo "Generated .env configuration with updated settings"
+USE_ADAPTED_CONFIG
+
+# Configure Caddy access permissions
+ssh root@$HOST bash <<CONFIGURE_CADDY_ACCESS
+    # Print commands if VERBOSE is defined
+    if [ -n "${VERBOSE}" ]; then
+        set -x
+    fi
+    # Give Caddy access to the deployment user's home directory
+    setfacl -m u:caddy:rx "/home/$DEPLOYMENT_USER"
+    # Give Caddy access to the statbus directory
+    setfacl -m u:caddy:rx "/home/$DEPLOYMENT_USER/statbus"
+    # Give Caddy read access to the deployment config file
+    setfacl -m u:caddy:r "/home/$DEPLOYMENT_USER/statbus/deployment.caddyfile"
+    echo "Configured Caddy access permissions"
+CONFIGURE_CADDY_ACCESS
+
 echo "Starting StatBus services..."
 ssh $DEPLOYMENT_USER@$HOST bash <<START_STATBUS
     # Print commands if VERBOSE is defined
