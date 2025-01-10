@@ -9,7 +9,10 @@ auto-commits: false
 auto-lint: false
 #lint-cmd: ["sql: true"]
 
-#subtree-only: true
+# Enable/disable watching files for ai coding comments (default: False)
+watch-files: true
+
+subtree-only: true
 
 ##########################################################
 # Sample .aider.conf.yml
