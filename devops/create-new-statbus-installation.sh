@@ -270,4 +270,18 @@ ssh $DEPLOYMENT_USER@$HOST bash <<START_STATBUS
     ./devops/manage-statbus.sh create-users
 START_STATBUS
 
+# Generate GitHub workflow file for deployment if it doesn't exist
+if [ ! -f ".github/workflows/master-to-${DEPLOYMENT_SLOT_CODE}.yaml" ]; then
+    echo "Generating GitHub workflow file..."
+    if [ -f ".github/workflows/master-to-demo.yaml" ]; then
+        mkdir -p .github/workflows
+        sed "s/demo/${DEPLOYMENT_SLOT_CODE}/g" .github/workflows/master-to-demo.yaml > ".github/workflows/master-to-${DEPLOYMENT_SLOT_CODE}.yaml"
+        echo "Created GitHub workflow file for ${DEPLOYMENT_SLOT_CODE}"
+    else
+        echo "Warning: Could not find template workflow file .github/workflows/master-to-demo.yaml"
+    fi
+else
+    echo "GitHub workflow file for ${DEPLOYMENT_SLOT_CODE} already exists"
+fi
+
 echo "Setup of ${DEPLOYMENT_SLOT_NAME}(${DEPLOYMENT_SLOT_CODE}) completed successfully!"
