@@ -211,7 +211,7 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
     cd ~/statbus
 
     # Only update port offset if different
-    current_offset=\$(grep '^DEPLOYMENT_SLOT_PORT_OFFSET=' .env.config | cut -d'=' -f2 | tr -d '"')
+    current_offset=\$(grep '^DEPLOYMENT_SLOT_PORT_OFFSET=' .env.config | cut -d'=' -f2)
     if [ "\$current_offset" != "$OFFSET" ]; then
         sed -i "s/DEPLOYMENT_SLOT_PORT_OFFSET=.*/DEPLOYMENT_SLOT_PORT_OFFSET=$OFFSET/" .env.config
         echo "Updated port offset to $OFFSET"
@@ -220,35 +220,35 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
     fi
 
     # Only update slot name if different
-    current_name=\$(grep '^DEPLOYMENT_SLOT_NAME=' .env.config | cut -d'=' -f2 | tr -d '"')
+    current_name=\$(grep '^DEPLOYMENT_SLOT_NAME=' .env.config | cut -d'=' -f2)
     if [ "\$current_name" != "$DEPLOYMENT_SLOT_NAME" ]; then
-        sed -i "s/DEPLOYMENT_SLOT_NAME=.*/DEPLOYMENT_SLOT_NAME=\"$DEPLOYMENT_SLOT_NAME\"/" .env.config
+        sed -i "s/DEPLOYMENT_SLOT_NAME=.*/DEPLOYMENT_SLOT_NAME=$DEPLOYMENT_SLOT_NAME/" .env.config
         echo "Updated slot name to $DEPLOYMENT_SLOT_NAME"
     else
         echo "Slot name is already $DEPLOYMENT_SLOT_NAME"
     fi
 
     # Only update slot code if different
-    current_code=\$(grep '^DEPLOYMENT_SLOT_CODE=' .env.config | cut -d'=' -f2 | tr -d '"')
+    current_code=\$(grep '^DEPLOYMENT_SLOT_CODE=' .env.config | cut -d'=' -f2)
     if [ "\$current_code" != "$DEPLOYMENT_SLOT_CODE" ]; then
-        sed -i "s/DEPLOYMENT_SLOT_CODE=.*/DEPLOYMENT_SLOT_CODE=\"$DEPLOYMENT_SLOT_CODE\"/" .env.config
+        sed -i "s/DEPLOYMENT_SLOT_CODE=.*/DEPLOYMENT_SLOT_CODE=$DEPLOYMENT_SLOT_CODE/" .env.config
         echo "Updated slot code to $DEPLOYMENT_SLOT_CODE"
     else
         echo "Slot code is already $DEPLOYMENT_SLOT_CODE"
     fi
 
     # Only update URLs if different
-    current_statbus_url=\$(grep '^STATBUS_URL=' .env.config | cut -d'=' -f2 | tr -d '"')
+    current_statbus_url=\$(grep '^STATBUS_URL=' .env.config | cut -d'=' -f2)
     if [ "\$current_statbus_url" != "https://www.$DOMAIN" ]; then
-        sed -i "s#STATBUS_URL=.*#STATBUS_URL=\"https://www.$DOMAIN\"#" .env.config
+        sed -i "s#STATBUS_URL=.*#STATBUS_URL=https://www.$DOMAIN#" .env.config
         echo "Updated StatBus URL"
     else
         echo "StatBus URL is already https://www.$DOMAIN"
     fi
 
-    current_supabase_url=\$(grep '^BROWSER_SUPABASE_URL=' .env.config | cut -d'=' -f2 | tr -d '"')
+    current_supabase_url=\$(grep '^BROWSER_SUPABASE_URL=' .env.config | cut -d'=' -f2)
     if [ "\$current_supabase_url" != "https://api.$DOMAIN" ]; then
-        sed -i "s#BROWSER_SUPABASE_URL=.*#BROWSER_SUPABASE_URL=\"https://api.$DOMAIN\"#" .env.config
+        sed -i "s#BROWSER_SUPABASE_URL=.*#BROWSER_SUPABASE_URL=https://api.$DOMAIN#" .env.config
         echo "Updated Supabase URL"
     else
         echo "Supabase URL is already https://api.$DOMAIN"
@@ -264,7 +264,7 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
     fi
 
     # Check and update API keys from statbus_dev if defaults are present
-    current_seq_key=\$(grep '^SEQ_API_KEY=' .env.config | cut -d'=' -f2 | tr -d '"')
+    current_seq_key=\$(grep '^SEQ_API_KEY=' .env.config | cut -d'=' -f2)
     if [ "\$current_seq_key" = "secret_seq_api_key" ]; then
         dev_seq_key=\$(grep '^SEQ_API_KEY=' /home/statbus_dev/statbus/.env.config | cut -d'=' -f2)
         sed -i "s#SEQ_API_KEY=.*#SEQ_API_KEY=\$dev_seq_key#" .env.config
@@ -273,7 +273,7 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
         echo "SEQ_API_KEY already configured with non-default value"
     fi
 
-    current_slack_token=\$(grep '^SLACK_TOKEN=' .env.config | cut -d'=' -f2 | tr -d '"')
+    current_slack_token=\$(grep '^SLACK_TOKEN=' .env.config | cut -d'=' -f2)
     if [ "\$current_slack_token" = "secret_slack_api_token" ]; then
         dev_slack_token=\$(grep '^SLACK_TOKEN=' /home/statbus_dev/statbus/.env.config | cut -d'=' -f2)
         sed -i "s#SLACK_TOKEN=.*#SLACK_TOKEN=\$dev_slack_token#" .env.config
