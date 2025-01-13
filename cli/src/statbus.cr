@@ -9,6 +9,7 @@ require "db"
 require "pg"
 require "file"
 require "csv"
+require "yaml"
 
 # The `Statbus` module is designed to manage and import data for a statistical business registry.
 # It supports various operations like installation, management (start, stop, status), and data import.
@@ -28,6 +29,7 @@ class StatBus
     Start
     Stop
     Status
+    CreateUsers
   end
   enum ImportStrategy
     Copy
@@ -191,9 +193,25 @@ class StatBus
   @valid_from : String = Time.utc.to_s("%Y-%m-%d")
   @valid_to = "infinity"
   @user_email : String | Nil = nil
+  @available_roles : Array(String) = ["super_user", "regular_user", "restricted_user", "external_user"]
+
+  private def load_available_roles
+    Dir.cd(@project_directory) do
+      config = StatBusConfig.new(@project_directory, @verbose)
+      DB.connect(config.connection_string) do |db|
+        @available_roles = db.query_all(
+          "SELECT unnest(enum_range(NULL::public.statbus_role_type))::text AS role",
+          as: {role: String}
+        ).map { |r| r[:role] }
+      end
+    end
+  rescue ex
+    STDERR.puts "Warning: Could not load roles from database: #{ex.message}"
+  end
 
   def initialize
     @project_directory = initialize_project_directory
+    load_available_roles
     begin
       option_parser = build_option_parser
       option_parser.parse
@@ -621,6 +639,9 @@ class StatBus
         parser.on("status", "Status on StatBus") do
           @manage_mode = ManageMode::Status
         end
+        parser.on("create-users", "Create users from .users.yml file") do
+          @manage_mode = ManageMode::CreateUsers
+        end
       end
       parser.on("import", "Import into installed StatBus") do
         @mode = Mode::Import
@@ -877,6 +898,8 @@ class StatBus
         manage_stop
       when ManageMode::Status
         manage_status
+      when ManageMode::CreateUsers
+        create_users
       else
         puts "Unknown manage mode #{@manage_mode}"
         # puts parser
@@ -1083,6 +1106,46 @@ class StatBus
 
   private def format_migration_timestamp(time : Time) : String
     time.to_s("%Y%m%d%H%M%S")
+  end
+
+  private def create_users
+    Dir.cd(@project_directory) do
+      config = StatBusConfig.new(@project_directory, @verbose)
+
+      if !File.exists?(".users.yml")
+        STDERR.puts "Error: .users.yml file not found"
+        exit(1)
+      end
+
+      DB.connect(config.connection_string) do |db|
+        # Read users from YAML file
+        users_yaml = File.read(".users.yml")
+        users = YAML.parse(users_yaml)
+
+        users.as_a.each do |user|
+          email = user["email"].as_s
+          password = user["password"].as_s
+          # Default to regular_user if role not specified
+          role = user["role"]?.try(&.as_s) || "regular_user"
+
+          # Validate role
+          if !@available_roles.includes?(role)
+            STDERR.puts "Error: Invalid role '#{role}' for user #{email}"
+            STDERR.puts "Available roles: #{@available_roles.join(", ")}"
+            exit(1)
+          end
+
+          puts "Creating user: #{email} with role: #{role}" if @verbose
+
+          db.exec(
+            "SELECT * FROM public.statbus_user_create($1, $2, $3)",
+            email,
+            role,
+            password
+          )
+        end
+      end
+    end
   end
 
   private def cleanup_migration_schema(db)

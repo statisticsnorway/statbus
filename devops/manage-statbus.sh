@@ -290,25 +290,7 @@ case "$action" in
         fi
       ;;
     'create-users' )
-        export $(awk -F= '/^[^#]/{output=output" "$1"="$2} END {print output}' .env)
-
-        echo Create users for the developers
-        echo 'Creating users defined in .users.yml'
-
-        # Read from the YAML file directly and iterate over each object
-        yq -r '.[] | "\(.email) \(.password)"' .users.yml | while read -r user_details; do
-          # Extract user details from the formatted output
-          email=$(echo "${user_details}" | awk '{print $1}')
-          password=$(echo "${user_details}" | awk '{print $2}')
-
-          ./devops/manage-statbus.sh psql <<EOS
-            SELECT * FROM public.statbus_user_create(
-              p_email := '$email',
-              p_role_type := 'super_user',
-              p_password := '$password'
-            );
-EOS
-        done
+        ./cli/bin/statbus manage create-users
       ;;
      'upgrade_supabase' )
         git reset supabase_docker
