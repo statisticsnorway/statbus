@@ -17,7 +17,7 @@ Before installing STATBUS, ensure you have the following tools and services inst
 
 **Statbus Server Minimum Requirements:**
 
-- **Operating System**: Linux (Ubuntu)
+- **Operating System**: Linux (Ubuntu 24 LTS)
 - **Ubuntu Upgrades**: Can be downloaded from Ubuntu Releases
 - **CPU**: 4 cores
 - **RAM**: 16 GB
