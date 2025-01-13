@@ -79,7 +79,7 @@ This will create the `.env`, `.env.credentials`, and `.env.config` files, which 
 
 To start the Docker containers (which will include the database, API, and other required services):
 ```bash
-./devops/manage-statbus.sh start
+./devops/manage-statbus.sh start required
 ```
 
 ### Step 5: Initialize and Seed the Database
@@ -111,7 +111,7 @@ To stop the services:
 
 To restart the services:
 ```bash
-./devops/manage-statbus.sh start
+./devops/manage-statbus.sh start required
 ```
 
 ### Teardown and Reset
@@ -129,7 +129,7 @@ rm -f .env.credentials .env.config .env
 
 To start the backend services without the frontend app:
 ```bash
-./devops/manage-statbus.sh start not_app
+./devops/manage-statbus.sh start required_not_app
 ```
 
 ### Frontend (App) Setup
