@@ -193,25 +193,9 @@ class StatBus
   @valid_from : String = Time.utc.to_s("%Y-%m-%d")
   @valid_to = "infinity"
   @user_email : String | Nil = nil
-  @available_roles : Array(String) = ["super_user", "regular_user", "restricted_user", "external_user"]
-
-  private def load_available_roles
-    Dir.cd(@project_directory) do
-      config = StatBusConfig.new(@project_directory, @verbose)
-      DB.connect(config.connection_string) do |db|
-        @available_roles = db.query_all(
-          "SELECT unnest(enum_range(NULL::public.statbus_role_type))::text AS role",
-          as: {role: String}
-        ).map { |r| r[:role] }
-      end
-    end
-  rescue ex
-    STDERR.puts "Warning: Could not load roles from database: #{ex.message}"
-  end
 
   def initialize
     @project_directory = initialize_project_directory
-    load_available_roles
     begin
       option_parser = build_option_parser
       option_parser.parse
@@ -1118,6 +1102,19 @@ class StatBus
       end
 
       DB.connect(config.connection_string) do |db|
+        available_roles : Array(String) = ["super_user", "regular_user", "restricted_user", "external_user"]
+        begin
+          Dir.cd(@project_directory) do
+            available_roles = db.query_all(
+              "SELECT unnest(enum_range(NULL::public.statbus_role_type))::text AS role",
+              as: {role: String}
+            ).map { |r| r[:role] }
+          end
+        rescue ex
+          STDERR.puts "Warning: Could not load roles from database: #{ex.message}"
+          available_roles = ["super_user", "regular_user", "restricted_user", "external_user"]
+        end
+
         # Read users from YAML file
         users_yaml = File.read(".users.yml")
         users = YAML.parse(users_yaml)
@@ -1129,9 +1126,9 @@ class StatBus
           role = user["role"]?.try(&.as_s) || "regular_user"
 
           # Validate role
-          if !@available_roles.includes?(role)
+          if !available_roles.includes?(role)
             STDERR.puts "Error: Invalid role '#{role}' for user #{email}"
-            STDERR.puts "Available roles: #{@available_roles.join(", ")}"
+            STDERR.puts "Available roles: #{available_roles.join(", ")}"
             exit(1)
           end
 
