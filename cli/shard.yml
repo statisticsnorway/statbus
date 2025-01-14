@@ -21,3 +21,6 @@ dependencies:
   poncho:
     github: icyleaf/poncho
     branch: master
+  commander:
+    github: mrrooijen/commander
+    version: ~> 0.4.0

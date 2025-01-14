@@ -1,4 +1,4 @@
-require "option_parser"
+require "commander"
 require "file_utils"
 
 # The Dotenv class provides functionality to read and manipulate .env files
@@ -159,15 +159,15 @@ class Dotenv
         key = match[2].strip
         value = match[3]
         comment = match[4]?
-        
+
         # Handle quotes
         quote = nil
-        if value.starts_with?('"') && value.ends_with?('"') || 
+        if value.starts_with?('"') && value.ends_with?('"') ||
            value.starts_with?('\'') && value.ends_with?('\'')
           quote = value[0]
           value = value[1..-2] # Strip quotes
         end
-        
+
         KeyValueLine.new(key, value, whitespace, comment.presence, quote)
       else
         InvalidLine.new(line)
@@ -258,57 +258,119 @@ class Dotenv
   end
 
   def self.run(dotenv_file : String = ".env")
-    dotenv = from_file(dotenv_file)
-    option_parser = OptionParser.parse do |parser|
-      parser.banner = "Usage: dotenv [options]"
+    cli = Commander::Command.new do |cmd|
+      cmd.use = "dotenv"
+      cmd.long = "Manage .env files containing environment variables"
 
-      parser.on("-v", "--verbose", "Enable verbose output") { dotenv.verbose = true }
-
-      parser.on("-f FILE", "--file=FILE", "Specify dotenv file") do |file|
-        dotenv = from_file(file, dotenv.verbose)
+      # Global flags
+      cmd.flags.add do |flag|
+        flag.name = "file"
+        flag.short = "-f"
+        flag.long = "--file"
+        flag.default = ".env"
+        flag.description = "Specify dotenv file"
+        flag.persistent = true
       end
 
-      parser.on("get", "Get the value of a key") do
-        parser.on("-k KEY", "--key KEY", "The key") do |key|
-          puts "Got a key #{key}"
-          @@key = key
+      cmd.flags.add do |flag|
+        flag.name = "verbose"
+        flag.short = "-v"
+        flag.long = "--verbose"
+        flag.default = false
+        flag.description = "Enable verbose output"
+        flag.persistent = true
+      end
+
+      # Get command
+      cmd.commands.add do |cmd|
+        cmd.use = "get <key>"
+        cmd.short = "Get the value of a key"
+        cmd.long = cmd.short
+        cmd.run do |options, arguments|
+          dotenv = self.from_file(options.string["file"], options.bool["verbose"])
+          key = arguments[0]?
+          if key.nil? || key.empty?
+            STDERR.puts "Error: get requires a key"
+            exit(1)
+          else
+            puts dotenv.get(key) || "Key not found"
+          end
         end
-        key = @@key
-        if key.nil? || key == ""
-          puts "Error: get requires a key"
-          exit(1)
-        else
-          puts dotenv.get(key) || "Key not found"
+      end
+
+      # Set command
+      cmd.commands.add do |cmd|
+        cmd.use = "set <key> <value>"
+        cmd.short = "Set the value of a key"
+        cmd.long = cmd.short
+        cmd.run do |options, arguments|
+          dotenv = self.from_file(options.string["file"], options.bool["verbose"])
+          key = arguments[0]?
+          value = arguments[1]?
+          if key.nil? || value.nil?
+            STDERR.puts "Error: set requires key and value"
+            exit(1)
+          else
+            dotenv.set(key, value)
+          end
         end
       end
 
-      parser.on("set KEY=VALUE", "Set the value of a key") do |pair|
-        key, value = pair.split("=", 2)
-        dotenv.set(key, value)
+      # Export command
+      cmd.commands.add do |cmd|
+        cmd.use = "export"
+        cmd.short = "Export all keys to environment"
+        cmd.long = cmd.short
+        cmd.run do |options, arguments|
+          dotenv = self.from_file(options.string["file"], options.bool["verbose"])
+          dotenv.export
+        end
       end
 
-      parser.on("export", "Export all keys to environment") do
-        dotenv.export
+      # Parse command
+      cmd.commands.add do |cmd|
+        cmd.use = "parse [keys...]"
+        cmd.short = "Parse and print specified keys (or all if none specified)"
+        cmd.long = cmd.short
+        cmd.run do |options, arguments|
+          dotenv = self.from_file(options.string["file"], options.bool["verbose"])
+          puts dotenv.parse(arguments).map { |k, v| "#{k}=#{v}" }.join("\n")
+        end
       end
 
-      parser.on("parse [KEYS...]", "Parse and print keys") do |keys|
-        keys_array = keys.is_a?(Array) ? keys : [] of String
-        puts dotenv.parse(keys_array).map { |k, v| "#{k}=#{v}" }.join("\n")
+      # Generate command
+      cmd.commands.add do |cmd|
+        cmd.use = "generate <key> <command>"
+        cmd.short = "Generate a key using a shell command"
+        cmd.long = cmd.short
+        cmd.run do |options, arguments|
+          dotenv = self.from_file(options.string["file"], options.bool["verbose"])
+          key = arguments[0]?
+          command = arguments[1]?
+          if key.nil? || command.nil?
+            STDERR.puts "Error: generate requires key and command"
+            exit(1)
+          else
+            dotenv.generate(key) { `#{command}`.strip }
+          end
+        end
       end
 
-      parser.on("generate KEY CMD", "Generate a key using a command") do |args|
-        key, cmd = args.split(" ", 2)
-        dotenv.generate(key) { `#{cmd}`.strip }
-      end
-
-      parser.on("-h", "--help", "Show this help") do
-        puts parser
-        exit
+      # Default command if no other match
+      cmd.run do |options, arguments|
+        puts cmd.help
       end
     end
+
+    Commander.run(cli, ARGV)
   end
 end
 
-if File.basename(Path.new(PROGRAM_NAME)) == File.basename(Path.new(__FILE__), ".cr")
+# Support running as a standalone binary or as a crystal script.
+file_name = File.basename(Path.new(__FILE__), ".cr")
+script_name = "crystal-run-#{file_name}.tmp"
+executable_name = File.basename(Path.new(PROGRAM_NAME))
+
+if file_name == executable_name || script_name == executable_name
   Dotenv.run
 end
