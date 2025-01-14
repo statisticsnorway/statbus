@@ -248,17 +248,17 @@ case "$action" in
       ;;
     'create-db-structure' )
         pushd cli
-          shards build && ./bin/statbus migrate up
+          shards build statbus && ./bin/statbus migrate up
         popd
       ;;
     'delete-db-structure' )
         pushd cli
-          shards build && ./bin/statbus migrate down all
+          shards build statbus&& ./bin/statbus migrate down all
         popd
       ;;
     'reset-db-structure' )
         pushd cli
-          shards build
+          shards build statbus
         popd
         ./cli/bin/statbus migrate down all
         ./cli/bin/statbus migrate up
