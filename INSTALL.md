@@ -25,29 +25,13 @@ Before installing STATBUS, ensure you have the following tools and services inst
 
 ### Platform-Specific Setup
 
-#### Windows
+#### Linux (Ubuntu 24 LTS)
 
-1. **Git for Windows** (includes Git Bash): Download from [gitforwindows.org](https://gitforwindows.org/)
-2. **Scoop**: A command-line installer for Windows. Install from [scoop.sh](https://scoop.sh/)
-3. **NVM-Windows**: Node Version Manager for Windows. Install using:
-   ```bash
-   scoop install nvm
-   ```
+Install Crystal (Programming Language) compiler
+```
+curl -fsSL https://crystal-lang.org/install.sh | sudo bash
+```
 
-#### macOS
-
-1. **Homebrew**: A package manager for macOS. Install from [brew.sh](https://brew.sh/)
-2. **NVM (Node Version Manager)**: Install using Homebrew:
-   ```bash
-   brew install nvm
-   ```
-
-#### Linux (Ubuntu/Debian)
-
-1. **NVM (Node Version Manager)**: Install using the package manager:
-   ```bash
-   sudo apt install nvm
-   ```
 
 ## Installation Steps
 
