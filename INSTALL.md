@@ -11,7 +11,6 @@ Before installing STATBUS, ensure you have the following tools and services inst
 - **Git**: For source control and cloning the repository.
 - **Docker**: For managing application containers.
 - **Docker Compose**: To orchestrate multiple containers.
-- **Unix Shell**: Comes with macOS and most Linux distros. For Windows, you’ll need Git Bash.
 
 ### System-specific Requirements
 
@@ -27,7 +26,37 @@ Before installing STATBUS, ensure you have the following tools and services inst
 
 #### Linux (Ubuntu 24 LTS)
 
-Install Crystal (Programming Language) compiler
+// AI! Add instructions to install git, docker and docker compose
+##### Install Docker for running various services
+
+Add Docker's official GPG key:
+```
+apt update
+apt install -y ca-certificates curl gnupg
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+chmod a+r /etc/apt/keyrings/docker.gpg
+```
+
+Add the repository to Apt sources:
+```
+echo \
+  "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
+  "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
+  tee /etc/apt/sources.list.d/docker.list
+apt update
+
+apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+NOTE: Docker compose circumvents UFW - so make sure you check what ports are exposed.
+There is as of 2023-10 no known workaround, that does not prevent docker compose
+hosts from reaching internet. This is handled by statbus through careful adjustments
+of the docker compose setup from Supabase.
+
+
+
+##### Install Crystal (Programming Language) compiler
 ```
 curl -fsSL https://crystal-lang.org/install.sh | sudo bash
 ```
