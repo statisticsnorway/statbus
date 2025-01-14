@@ -246,4 +246,32 @@ describe Dotenv do
       end
     end
   end
+
+  describe ".using" do
+    it "automatically saves changes" do
+      with_tempfile("KEY=value") do |path|
+        initial_content = File.read(path)
+        
+        Dotenv.using(path) do |dotenv|
+          dotenv.set("KEY", "new_value")
+        end
+        
+        File.read(path).should_not eq(initial_content)
+        File.read(path).should contain("KEY=new_value")
+      end
+    end
+
+    it "doesn't save if no changes" do
+      with_tempfile("KEY=value") do |path|
+        initial_content = File.read(path)
+        
+        Dotenv.using(path) do |dotenv|
+          # Just read, no changes
+          dotenv.get("KEY")
+        end
+        
+        File.read(path).should eq(initial_content)
+      end
+    end
+  end
 end

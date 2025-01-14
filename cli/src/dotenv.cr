@@ -146,6 +146,17 @@ class Dotenv
     new(file, verbose)
   end
 
+  # Opens a .env file, yields it to the block, and saves it if modified
+  def self.using(file : String, verbose = false)
+    dotenv = from_file(file, verbose)
+    initial_content = dotenv.env_file.to_s
+    yield dotenv
+    # Only save if content changed
+    if dotenv.env_file.to_s != initial_content
+      dotenv.save_file
+    end
+  end
+
   # Parses a line into an appropriate EnvLine object
   private def parse_line(line : String) : EnvLine
     case
