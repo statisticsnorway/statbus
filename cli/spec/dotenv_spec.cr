@@ -218,7 +218,8 @@ describe Dotenv do
 
         quotes = dotenv.env_file.lines[6].as(Dotenv::KeyValueLine)
         quotes.key.should eq("QUOTES")
-        quotes.value.should eq("\"quoted value\"")
+        quotes.value.should eq("quoted value")
+        quotes.quote.should eq('"')
 
         escaped = dotenv.env_file.lines[7].as(Dotenv::KeyValueLine)
         escaped.key.should eq("ESCAPED")

@@ -79,13 +79,15 @@ class Dotenv
     property value : String
     property leading_whitespace : String
     property inline_comment : String?
+    property quote : Char?
 
-    def initialize(@key, @value, @leading_whitespace = "", @inline_comment = nil)
+    def initialize(@key, @value, @leading_whitespace = "", @inline_comment = nil, @quote = nil)
       super("#{@leading_whitespace}#{@key}=#{@value}#{@inline_comment ? " #{@inline_comment}" : ""}")
     end
 
     def to_s : String
-      "#{@leading_whitespace}#{@key}=#{@value}#{@inline_comment ? "#{@inline_comment}" : ""}"
+      quoted_value = @quote ? "#{@quote}#{@value}#{@quote}" : @value
+      "#{@leading_whitespace}#{@key}=#{quoted_value}#{@inline_comment ? "#{@inline_comment}" : ""}"
     end
   end
 
@@ -157,7 +159,16 @@ class Dotenv
         key = match[2].strip
         value = match[3]
         comment = match[4]?
-        KeyValueLine.new(key, value, whitespace, comment.presence)
+        
+        # Handle quotes
+        quote = nil
+        if value.starts_with?('"') && value.ends_with?('"') || 
+           value.starts_with?('\'') && value.ends_with?('\'')
+          quote = value[0]
+          value = value[1..-2] # Strip quotes
+        end
+        
+        KeyValueLine.new(key, value, whitespace, comment.presence, quote)
       else
         InvalidLine.new(line)
       end
