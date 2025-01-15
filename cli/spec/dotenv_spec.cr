@@ -5,7 +5,7 @@ private def with_tempfile(content : String)
   tempfile = File.tempfile(".env-test")
   begin
     File.write(tempfile.path, content)
-    yield tempfile.path
+    yield Path.new(tempfile.path)
   ensure
     tempfile.delete
   end
@@ -43,8 +43,8 @@ describe Dotenv do
 
       with_tempfile(content) do |path|
         dotenv = Dotenv.from_file(path)
-        dotenv.env_file.lines[0].should be_a(Dotenv::CommentLine)
-        dotenv.env_file.lines[2].should be_a(Dotenv::CommentLine)
+        dotenv.dotenv_content.lines[0].should be_a(Dotenv::CommentLine)
+        dotenv.dotenv_content.lines[2].should be_a(Dotenv::CommentLine)
       end
     end
 
@@ -57,7 +57,7 @@ describe Dotenv do
 
       with_tempfile(content) do |path|
         dotenv = Dotenv.from_file(path)
-        dotenv.env_file.lines[1].should be_a(Dotenv::BlankLine)
+        dotenv.dotenv_content.lines[1].should be_a(Dotenv::BlankLine)
       end
     end
 
@@ -66,7 +66,7 @@ describe Dotenv do
 
       with_tempfile(content) do |path|
         dotenv = Dotenv.from_file(path)
-        line = dotenv.env_file.lines[0].as(Dotenv::KeyValueLine)
+        line = dotenv.dotenv_content.lines[0].as(Dotenv::KeyValueLine)
         line.key.should eq("KEY")
         line.value.should eq("value")
         line.inline_comment.should eq(" # inline comment")
@@ -77,7 +77,7 @@ describe Dotenv do
 
       with_tempfile(content) do |path|
         dotenv = Dotenv.from_file(path)
-        line = dotenv.env_file.lines[0].as(Dotenv::KeyValueLine)
+        line = dotenv.dotenv_content.lines[0].as(Dotenv::KeyValueLine)
         line.key.should eq("KEY")
         line.value.should eq("value")
         line.inline_comment.should eq("                  # inline comment")
@@ -204,32 +204,32 @@ describe Dotenv do
         dotenv = Dotenv.from_file(path)
 
         # Verify specific aspects
-        dotenv.env_file.lines[0].should be_a(Dotenv::CommentLine)
-        dotenv.env_file.lines[1].should be_a(Dotenv::BlankLine)
+        dotenv.dotenv_content.lines[0].should be_a(Dotenv::CommentLine)
+        dotenv.dotenv_content.lines[1].should be_a(Dotenv::BlankLine)
 
-        empty = dotenv.env_file.lines[4].as(Dotenv::KeyValueLine)
+        empty = dotenv.dotenv_content.lines[4].as(Dotenv::KeyValueLine)
         empty.key.should eq("EMPTY")
         empty.value.should eq("")
 
-        spaces = dotenv.env_file.lines[5].as(Dotenv::KeyValueLine)
+        spaces = dotenv.dotenv_content.lines[5].as(Dotenv::KeyValueLine)
         spaces.key.should eq("SPACES")
         spaces.value.should eq("   spaced   value")
         spaces.inline_comment.should eq("   # With trailing comment")
 
-        quotes = dotenv.env_file.lines[6].as(Dotenv::KeyValueLine)
+        quotes = dotenv.dotenv_content.lines[6].as(Dotenv::KeyValueLine)
         quotes.key.should eq("QUOTES")
         quotes.value.should eq("quoted value")
         quotes.quote.should eq('"')
 
-        escaped = dotenv.env_file.lines[7].as(Dotenv::KeyValueLine)
+        escaped = dotenv.dotenv_content.lines[7].as(Dotenv::KeyValueLine)
         escaped.key.should eq("ESCAPED")
         escaped.value.should eq("escaped\\\"quote")
 
-        newlines = dotenv.env_file.lines[8].as(Dotenv::KeyValueLine)
+        newlines = dotenv.dotenv_content.lines[8].as(Dotenv::KeyValueLine)
         newlines.key.should eq("NEWLINES")
         newlines.value.should eq("multi\\nline")
 
-        inline = dotenv.env_file.lines[9].as(Dotenv::KeyValueLine)
+        inline = dotenv.dotenv_content.lines[9].as(Dotenv::KeyValueLine)
         inline.key.should eq("KEY")
         inline.value.should eq("value")
         inline.inline_comment.should eq(" # inline comment")
@@ -242,35 +242,53 @@ describe Dotenv do
         reloaded = Dotenv.from_file(path)
 
         # Verify file contents are identical
-        reloaded.env_file.to_s.should eq(content)
+        reloaded.dotenv_content.to_s.should eq(content)
       end
     end
   end
 
   describe ".using" do
-    it "automatically saves changes" do
+    it "automatically saves changes when using Path" do
       with_tempfile("KEY=value") do |path|
         initial_content = File.read(path)
-        
+
         Dotenv.using(path) do |dotenv|
           dotenv.set("KEY", "new_value")
         end
-        
+
         File.read(path).should_not eq(initial_content)
         File.read(path).should contain("KEY=new_value")
       end
     end
 
-    it "doesn't save if no changes" do
+    it "doesn't save if no changes when using Path" do
       with_tempfile("KEY=value") do |path|
         initial_content = File.read(path)
-        
+
         Dotenv.using(path) do |dotenv|
           # Just read, no changes
           dotenv.get("KEY")
         end
-        
+
         File.read(path).should eq(initial_content)
+      end
+    end
+
+    it "works with string content" do
+      content = "KEY=value"
+      result = Dotenv.using(content) do |dotenv|
+        dotenv.get("KEY").should eq("value")
+        dotenv.set("NEW_KEY", "new_value")
+        "return value"
+      end
+      result.should eq("return value")
+    end
+
+    it "doesn't try to save when using string content" do
+      content = "KEY=value"
+      Dotenv.using(content) do |dotenv|
+        dotenv.set("KEY", "new_value")
+        # No file should be created/modified
       end
     end
   end

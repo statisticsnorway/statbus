@@ -15,6 +15,8 @@ crystal: ">= 1.10.1"
 license: MIT
 
 dependencies:
+  jwt:
+    github: crystal-community/jwt
   pg:
     github: 17dec/crystal-pg
     branch: copyout

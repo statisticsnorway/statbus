@@ -38,8 +38,6 @@ require "file_utils"
 # - Leading whitespace
 # - Original line ordering
 class Dotenv
-  @@key : String | Nil = nil
-
   class Error < Exception; end
 
   # Represents different types of lines in a .env file
@@ -92,7 +90,7 @@ class Dotenv
   end
 
   # Represents the entire .env file
-  class EnvFile
+  class DotenvContent
     property lines : Array(EnvLine)
     property mapping : Hash(String, KeyValueLine)
 
@@ -105,7 +103,9 @@ class Dotenv
       @mapping[key]?.try(&.value)
     end
 
-    def set(key : String, value : String)
+    # Sets or updates a dotenv variable value
+    # Returns the value that was set
+    def set(key : String, value : String) : String
       if line = @mapping[key]?
         # Update existing line
         line.value = value
@@ -116,6 +116,7 @@ class Dotenv
         @lines << line
         @mapping[key] = line
       end
+      value
     end
 
     def parse(keys : Array(String) = [] of String) : Hash(String, String)
@@ -133,28 +134,50 @@ class Dotenv
     end
   end
 
-  property env_file : EnvFile
-  property dotenv_file : String
+  property dotenv_content : DotenvContent
+  property dotenv_path : Path?
   property verbose : Bool
 
-  def initialize(@dotenv_file = ".env", @verbose = false)
-    @env_file = EnvFile.new
-    load_file
+  def initialize(dotenv_path : String | Path | Nil = ".env", content : String? = nil, @verbose = false)
+    @dotenv_path = dotenv_path.try { |path| path.is_a?(Path) ? path : Path.new(path) }
+    @dotenv_content = DotenvContent.new
+
+    if content
+      parse_content(content)
+    elsif dotenv_path
+      load_file
+    end
   end
 
-  def self.from_file(file : String, verbose = false) : Dotenv
-    new(file, verbose)
+  def self.from_file(file : String | Path, verbose = false) : Dotenv
+    new(dotenv_path: file, verbose: verbose)
   end
 
-  # Opens a .env file, yields it to the block, and saves it if modified
-  def self.using(file : String, verbose = false)
-    dotenv = from_file(file, verbose)
-    initial_content = dotenv.env_file.to_s
-    yield dotenv
-    # Only save if content changed
-    if dotenv.env_file.to_s != initial_content
+  def self.from_string(content : String, verbose = false) : Dotenv
+    new(dotenv_path: nil, content: content, verbose: verbose)
+  end
+
+  # Opens a .env file or parses content, yields it to the block, and saves if modified
+  # and we have a Path.
+  def self.using(source : Path | String, verbose = false, &block : Dotenv -> T) forall T
+    dotenv = case source
+             when Path
+               from_file(source, verbose)
+             when String
+               from_string(source, verbose)
+             else
+               raise "Unsupported source type"
+             end
+
+    initial_content = dotenv.dotenv_content.to_s
+    result = block.call(dotenv)
+
+    # Only save if content changed and we're working with a file
+    if source.is_a?(Path) && dotenv.dotenv_content.to_s != initial_content
       dotenv.save_file
     end
+
+    return result
   end
 
   # Parses a line into an appropriate EnvLine object
@@ -186,50 +209,59 @@ class Dotenv
     end
   end
 
-  # Appends a line to the .env file and updates the in-memory representation
+  # Appends a line to the dotenv contents and updates the in-memory representation
   def puts(line : String)
     env_line = parse_line(line)
     if env_line.is_a?(KeyValueLine)
       STDERR.puts "Adding line: #{env_line.key}=#{env_line.value}" if @verbose
-      File.open(@dotenv_file, "a") do |file|
+      File.open(@dotenv_path, "a") do |file|
         file.puts(line)
       end
-      @env_file.lines << env_line
-      @env_file.mapping[env_line.key] = env_line
+      @dotenv_content.lines << env_line
+      @dotenv_content.mapping[env_line.key] = env_line
     else
-      File.open(@dotenv_file, "a") do |file|
+      File.open(@dotenv_path, "a") do |file|
         file.puts(line)
       end
-      @env_file.lines << env_line
+      @dotenv_content.lines << env_line
     end
   end
 
   # Loads and parses the .env file into memory
-  def load_file
-    return unless File.exists?(@dotenv_file)
+  # Parses content from a string
+  def parse_content(content : String)
+    STDERR.puts "Parsing content" if @verbose
+    @dotenv_content = DotenvContent.new
 
-    STDERR.puts "Loading #{@dotenv_file}" if @verbose
-    @env_file = EnvFile.new
-
-    File.each_line(@dotenv_file) do |line|
+    content.each_line do |line|
       env_line = parse_line(line)
-      @env_file.lines << env_line
+      @dotenv_content.lines << env_line
       if env_line.is_a?(KeyValueLine)
-        STDERR.puts "Loaded: #{env_line.key}=#{env_line.value}" if @verbose
-        @env_file.mapping[env_line.key] = env_line
+        STDERR.puts "Parsed: #{env_line.key}=#{env_line.value}" if @verbose
+        @dotenv_content.mapping[env_line.key] = env_line
       end
     end
-    STDERR.puts "Finished loading #{@dotenv_file}" if @verbose
+  end
+
+  # Loads and parses from a file
+  def load_file
+    return unless @dotenv_path && File.exists?(@dotenv_path.not_nil!)
+
+    STDERR.puts "Loading #{@dotenv_path}" if @verbose
+    parse_content(File.read(@dotenv_path.not_nil!))
+    STDERR.puts "Finished loading #{@dotenv_path}" if @verbose
   end
 
   def save_file
-    STDERR.puts "Saving to #{@dotenv_file}" if @verbose
-    File.write(@dotenv_file, @env_file.to_s)
-    STDERR.puts "Saved #{@env_file.mapping.size} entries" if @verbose
+    raise "Cannot save - no path specified" unless @dotenv_path
+
+    STDERR.puts "Saving to #{@dotenv_path}" if @verbose
+    File.write(@dotenv_path.not_nil!, @dotenv_content.to_s)
+    STDERR.puts "Saved #{@dotenv_content.mapping.size} entries" if @verbose
   end
 
   def get(key : String) : String?
-    value = @env_file.get(key)
+    value = @dotenv_content.get(key)
     STDERR.puts "Getting #{key}=#{value}" if @verbose
     return value
   end
@@ -240,35 +272,39 @@ class Dotenv
     STDERR.puts "Setting #{key}" if @verbose
     if value.starts_with?("+")
       default_value = value[1..-1]
-      if @env_file.mapping.has_key?(key)
+      if @dotenv_content.mapping.has_key?(key)
         STDERR.puts "Key #{key} exists, keeping current value" if @verbose
       else
         STDERR.puts "Key #{key} not found, setting default: #{default_value}" if @verbose
-        @env_file.set(key, default_value)
+        @dotenv_content.set(key, default_value)
       end
     else
       STDERR.puts "Setting #{key}=#{value}" if @verbose
-      @env_file.set(key, value)
+      @dotenv_content.set(key, value)
     end
-    save_file
   end
 
   def export
-    @env_file.mapping.each { |k, v| ENV[k] = v.value }
+    @dotenv_content.mapping.each { |k, v| ENV[k] = v.value }
   end
 
   def parse(keys : Array(String) = [] of String)
-    @env_file.parse(keys)
+    @dotenv_content.parse(keys)
   end
 
-  def generate(key : String, &block : -> String)
-    return if @env_file.mapping[key]?
-    value = block.call
-    @env_file.set(key, value)
-    save_file
+  # Generates a value for a key if it doesn't exist
+  # Returns the generated value or the existing value
+  def generate(key : String, &block : -> String) : String
+    if existing = @dotenv_content.mapping[key]?
+      existing.value
+    else
+      value = block.call
+      @dotenv_content.set(key, value)
+      value
+    end
   end
 
-  def self.run(dotenv_file : String = ".env")
+  def self.run(dotenv_filename : String = ".env")
     cli = Commander::Command.new do |cmd|
       cmd.use = "dotenv"
       cmd.long = "Manage .env files containing environment variables"
@@ -323,6 +359,7 @@ class Dotenv
             exit(1)
           else
             dotenv.set(key, value)
+            dotenv.save_file
           end
         end
       end
@@ -363,6 +400,7 @@ class Dotenv
             exit(1)
           else
             dotenv.generate(key) { `#{command}`.strip }
+            dotenv.save_file
           end
         end
       end

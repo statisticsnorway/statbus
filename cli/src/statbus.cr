@@ -1,6 +1,7 @@
 require "http/client"
 require "json"
 require "digest/sha256"
+require "./dotenv"
 require "time"
 require "option_parser"
 require "dir"
@@ -10,6 +11,7 @@ require "pg"
 require "file"
 require "csv"
 require "yaml"
+require "jwt"
 
 # The `Statbus` module is designed to manage and import data for a statistical business registry.
 # It supports various operations like installation, management (start, stop, status), and data import.
@@ -30,6 +32,7 @@ class StatBus
     Stop
     Status
     CreateUsers
+    GenerateConfig
   end
   enum ImportStrategy
     Copy
@@ -146,7 +149,7 @@ class StatBus
   @refresh_materialized_views = true
   @import_file_name : String | Nil = nil
   @config_field_mapping = Array(ConfigFieldMapping).new
-  @config_file_path : Path | Nil = nil
+  @config_field_mapping_file_path : Path | Nil = nil
   @sql_field_mapping = Array(SqlFieldMapping).new
   @working_directory = Dir.current
   @project_directory : Path
@@ -154,7 +157,7 @@ class StatBus
   private def initialize_project_directory : Path
     # First try from current directory
     current = Path.new(Dir.current)
-    found = find_env_in_parents(current)
+    found = find_statbus_in_parents(current)
 
     if found.nil?
       # Fall back to executable path
@@ -163,17 +166,18 @@ class StatBus
         current # Last resort: use current dir
       else
         exec_dir = Path.new(Path.new(executable_path).dirname)
-        find_env_in_parents(exec_dir) || current
+        find_statbus_in_parents(exec_dir) || current
       end
     else
       found
     end
   end
 
-  private def find_env_in_parents(start_path : Path) : Path?
+  private def find_statbus_in_parents(start_path : Path) : Path?
     current = start_path
     while current.to_s != "/"
-      if File.exists?(current.join(".env"))
+      # The .statbus is an empty marker file placed in the statbus directory.
+      if File.exists?(current.join(".statbus"))
         return current
       end
       current = current.parent
@@ -212,13 +216,9 @@ class StatBus
     Dir.cd(@project_directory) do
       if File.exists? ".env"
         puts "The config is already generated"
-      elsif File.exists? ".env.example"
-        puts "Generating a new config file"
-        # Read .env.example
-        # Generate random secrets and JWT's
-        # Write .env
       else
         puts "Could not find template for .env"
+        manage_generate_config
       end
     end
     puts "installed"
@@ -376,10 +376,10 @@ class StatBus
         # This mapping can be printed for the user.
         puts "Example mapping:"
         Dir.cd(@working_directory) do
-          if !@config_file_path.nil?
-            if !File.exists?(@config_file_path.not_nil!)
+          if !@config_field_mapping_file_path.nil?
+            if !File.exists?(@config_field_mapping_file_path.not_nil!)
               File.write(
-                @config_file_path.not_nil!,
+                @config_field_mapping_file_path.not_nil!,
                 @config_field_mapping.to_pretty_json
               )
             end
@@ -392,11 +392,11 @@ class StatBus
       puts "@config_field_mapping = #{@config_field_mapping}" if @verbose
 
       Dir.cd(@working_directory) do
-        if !@config_file_path.nil?
-          if !File.exists?(@config_file_path.not_nil!)
-            puts "Writing file #{@config_file_path}"
+        if !@config_field_mapping_file_path.nil?
+          if !File.exists?(@config_field_mapping_file_path.not_nil!)
+            puts "Writing file #{@config_field_mapping_file_path}"
             File.write(
-              @config_file_path.not_nil!,
+              @config_field_mapping_file_path.not_nil!,
               @config_field_mapping.to_pretty_json
             )
             puts @config_field_mapping.to_pretty_json
@@ -626,6 +626,9 @@ class StatBus
         parser.on("create-users", "Create users from .users.yml file") do
           @manage_mode = ManageMode::CreateUsers
         end
+        parser.on("generate-config", "Generate configuration files") do
+          @manage_mode = ManageMode::GenerateConfig
+        end
       end
       parser.on("import", "Import into installed StatBus") do
         @mode = Mode::Import
@@ -663,13 +666,13 @@ class StatBus
         end
         parser.on("-c FILENAME", "--config=FILENAME", "A config file with field mappings. Will be written to with an example if the file does not exist.") do |file_name|
           Dir.cd(@working_directory) do
-            @config_file_path = Path.new(file_name)
-            if File.exists?(@config_file_path.not_nil!)
+            @config_field_mapping_file_path = Path.new(file_name)
+            if File.exists?(@config_field_mapping_file_path.not_nil!)
               puts "Loading mapping from #{file_name}"
-              config_data = File.read(@config_file_path.not_nil!)
+              config_data = File.read(@config_field_mapping_file_path.not_nil!)
               @config_field_mapping = Array(ConfigFieldMapping).from_json(config_data)
             else
-              STDERR.puts "Could not find #{@config_file_path}"
+              STDERR.puts "Could not find #{@config_field_mapping_file_path}"
             end
           end
         end
@@ -884,6 +887,8 @@ class StatBus
         manage_status
       when ManageMode::CreateUsers
         create_users
+      when ManageMode::GenerateConfig
+        manage_generate_config
       else
         puts "Unknown manage mode #{@manage_mode}"
         # puts parser
@@ -1143,6 +1148,351 @@ class StatBus
         end
       end
     end
+  end
+
+  # Ref. https://forum.crystal-lang.org/t/is-this-a-good-way-to-generate-a-random-string/6986/2
+  private def random_string(len) : String
+    chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    String.new(len) do |bytes|
+      bytes.to_slice(len).fill { chars.to_slice.sample }
+      {len, len}
+    end
+  end
+
+  # Type-safe credentials structure
+  record CredentialsEnv,
+    postgres_password : String,
+    jwt_secret : String,
+    dashboard_username : String,
+    dashboard_password : String,
+    anon_key : String,
+    service_role_key : String
+
+  # Type-safe configuration structure
+  record ConfigEnv,
+    deployment_slot_name : String,
+    deployment_slot_code : String,
+    deployment_slot_port_offset : String,
+    statbus_url : String,
+    browser_supabase_url : String,
+    server_supabase_url : String,
+    seq_server_url : String,
+    seq_api_key : String,
+    slack_token : String
+
+  # Configuration values that are derived from other settings
+  record DerivedEnv,
+    app_bind_address : String,
+    supabase_bind_address : String,
+    db_public_localhost_port : String,
+    version : String,
+    site_url : String,
+    api_external_url : String,
+    supabase_public_url : String,
+    enable_email_signup : Bool,
+    enable_email_autoconfirm : Bool,
+    disable_signup : Bool,
+    studio_default_project : String
+
+  private def manage_generate_config
+    Dir.cd(@project_directory) do
+      credentials_file = Path.new(".env.credentials")
+      if File.exists?(credentials_file)
+        puts "Using existing credentials from #{credentials_file}" if @verbose
+      else
+        puts "Generating new credentials in #{credentials_file}" if @verbose
+      end
+
+      # Generate or read existing credentials
+
+      credentials = Dotenv.using(credentials_file) do |credentials_env|
+        jwt_secret = credentials_env.generate("JWT_SECRET") { random_string(32) }
+
+        # Generate JWT tokens
+        # While the JWT tokens are calculated, the way Supabase is configured, it seems it does a TEXTUAL
+        # equality check of the ANON JWT, and not an actual secret based calculation.
+        # so if the JWT token is generated again, with a different timestamp, even if it is signed
+        # with the same secret, it fails.
+        # Therefore we store the derived JWT tokens as a credential, because it can not change without
+        # invalidating the deployed or copied tokens. 🤦‍♂️
+
+        # Issued At Time: Current timestamp in seconds since the Unix epoch
+        iat = Time.utc.to_unix
+        # Expiration Time: Calculate exp as iat plus the seconds in 5 years
+        exp = iat + (5 * 365 * 24 * 60 * 60) # 5 years
+
+        anon_payload = {
+          role: "anon",
+          iss:  "supabase",
+          iat:  iat,
+          exp:  exp,
+        }
+
+        service_role_payload = {
+          role: "service_role",
+          iss:  "supabase",
+          iat:  iat,
+          exp:  exp,
+        }
+
+        anon_key = JWT.encode(anon_payload, jwt_secret, JWT::Algorithm::HS256)
+        service_role_key = JWT.encode(service_role_payload, jwt_secret, JWT::Algorithm::HS256)
+
+        CredentialsEnv.new(
+          postgres_password: credentials_env.generate("POSTGRES_PASSWORD") { random_string(20) },
+          jwt_secret: jwt_secret,
+          dashboard_username: credentials_env.generate("DASHBOARD_USERNAME") { "admin" },
+          dashboard_password: credentials_env.generate("DASHBOARD_PASSWORD") { random_string(20) },
+          anon_key: credentials_env.generate("ANON_KEY") { anon_key },
+          service_role_key: credentials_env.generate("SERVICE_ROLE_KEY") { service_role_key },
+        )
+      end
+
+      # Load or generate config
+      config_file = Path.new(".env.config")
+      if File.exists?(config_file)
+        puts "Using existing config from #{config_file}" if @verbose
+      else
+        puts "Generating new config in #{config_file}" if @verbose
+      end
+
+      config = Dotenv.using(config_file) do |config_env|
+        ConfigEnv.new(
+          deployment_slot_name: config_env.generate("DEPLOYMENT_SLOT_NAME") { "Development" },
+          deployment_slot_code: config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" },
+          deployment_slot_port_offset: config_env.generate("DEPLOYMENT_SLOT_PORT_OFFSET") { "1" },
+          statbus_url: config_env.generate("STATBUS_URL") { "http://localhost:3010" },
+          browser_supabase_url: config_env.generate("BROWSER_SUPABASE_URL") { "http://localhost:3011" },
+          server_supabase_url: config_env.generate("SERVER_SUPABASE_URL") { "http://kong:8000" },
+          seq_server_url: config_env.generate("SEQ_SERVER_URL") { "https://log.statbus.org" },
+          seq_api_key: config_env.generate("SEQ_API_KEY") { "secret_seq_api_key" },
+          slack_token: config_env.generate("SLACK_TOKEN") { "secret_slack_api_token" }
+        )
+      end
+
+      # Calculate derived values
+      base_port = 3000
+      slot_multiplier = 10
+      port_offset = base_port + (config.deployment_slot_port_offset.to_i * slot_multiplier)
+
+      derived = DerivedEnv.new(
+        # The host address connected to the STATBUS app
+        app_bind_address: "127.0.0.1:#{port_offset}",
+        # The host address connected to Supabase
+        supabase_bind_address: "127.0.0.1:#{port_offset + 1}",
+        # The publicly exposed address of PostgreSQL inside Supabase
+        db_public_localhost_port: (port_offset + 2).to_s,
+        # Git version of the deployed commit
+        version: `git describe --always`.strip,
+        # URL where the site is hosted
+        site_url: config.statbus_url,
+        # External URL for the API
+        api_external_url: config.browser_supabase_url,
+        # Public URL for Supabase access
+        supabase_public_url: config.browser_supabase_url,
+        # Maps to GOTRUE_EXTERNAL_EMAIL_ENABLED to allow authentication with Email at all.
+        # So SIGNUP really means SIGNIN
+        enable_email_signup: true,
+        # Allow creating users and setting the email as verified,
+        # rather than sending an actual email where the user must
+        # click the link.
+        enable_email_autoconfirm: true,
+        # Disables signup with EMAIL, when ENABLE_EMAIL_SIGNUP=true
+        disable_signup: true,
+        # Sets the project name in the Supabase API portal
+        studio_default_project: config.deployment_slot_name
+      )
+
+      # Generate or update .env file
+      new_content = generate_env_content(credentials, config, derived)
+      if File.exists?(".env")
+        puts "Checking existing .env for changes" if @verbose
+        current_content = File.read(".env")
+
+        if new_content != current_content
+          backup_suffix = Time.utc.to_s("%Y-%m-%d")
+          counter = 1
+          while File.exists?(".env.backup.#{backup_suffix}")
+            backup_suffix = "#{Time.utc.to_s("%Y-%m-%d")}_#{counter}"
+            counter += 1
+          end
+
+          puts "Updating .env with changes - old version backed up as .env.backup.#{backup_suffix}" if @verbose
+          File.write(".env.backup.#{backup_suffix}", current_content)
+          File.write(".env", new_content)
+          return # Skip the File.write below since we already wrote the file
+        else
+          puts "No changes detected in .env, skipping backup" if @verbose
+        end
+      else
+        puts "Creating new .env file" if @verbose
+        File.write(".env", new_content)
+      end
+
+      begin
+        # Generate Caddy configuration
+        deployment_slot_code = config.deployment_slot_code
+        deployment_user = "statbus_#{deployment_slot_code}"
+        domain = "#{deployment_slot_code}.statbus.org"
+        app_port = config.statbus_url.match(/:\d+/).not_nil![0].gsub(":", "")
+        api_port = config.browser_supabase_url.match(/:\d+/).not_nil![0].gsub(":", "")
+
+        # Generate new Caddy content
+        new_caddy_content = generate_caddy_content(
+          deployment_user: deployment_user,
+          domain: domain,
+          app_port: app_port,
+          api_port: api_port
+        )
+
+        # Check if file exists and content differs
+        if File.exists?("deployment.caddyfile")
+          current_content = File.read("deployment.caddyfile")
+          if new_caddy_content != current_content
+            puts "Updating deployment.caddyfile with changes for #{domain}" if @verbose
+            File.write("deployment.caddyfile", new_caddy_content)
+          else
+            puts "No changes needed in deployment.caddyfile for #{domain}" if @verbose
+          end
+        else
+          puts "Creating new deployment.caddyfile for #{domain}" if @verbose
+          File.write("deployment.caddyfile", new_caddy_content)
+        end
+      end
+    end
+  end
+
+  private def generate_env_content(credentials : CredentialsEnv, config : ConfigEnv, derived : DerivedEnv) : String
+    content = <<-EOS
+    ################################################################
+    # Statbus Environment Variables
+    # Generated by `statbus manage generate-config`
+    # Used by docker compose, both for statbus containers
+    # and for the included supabase containers.
+    # The files:
+    #   `.env.credentials` generated if missing, with stable credentials.
+    #   `.env.config` generated if missing, configuration for installation.
+    #   `.env` generated with input from `.env.credentials` and `.env.config`
+    # The `.env` file contains settings used both by
+    # the statbus app (Backend/frontend) and by the Supabase Docker
+    # containers.
+    #
+    # The top level `docker-compose.yml` file includes all configuration
+    # required for all statbus docker containers, but must be managed
+    # by `./devops/manage-statbus.sh` that also sets the VERSION
+    # required for precise logging by the statbus app.
+    ################################################################
+
+    ################################################################
+    # Statbus Container Configuration
+    ################################################################
+
+    # The name displayed on the web
+    DEPLOYMENT_SLOT_NAME=#{config.deployment_slot_name}
+    # Urls configured in Caddy and DNS.
+    STATBUS_URL=#{config.statbus_url}
+    BROWSER_SUPABASE_URL=#{config.browser_supabase_url}
+    SERVER_SUPABASE_URL=#{config.server_supabase_url}
+    # Logging server
+    SEQ_SERVER_URL=#{config.seq_server_url}
+    SEQ_API_KEY=#{config.seq_api_key}
+    # Deployment Messages
+    SLACK_TOKEN=#{config.slack_token}
+    # The prefix used for all container names in docker
+    COMPOSE_INSTANCE_NAME=statbus-#{config.deployment_slot_code}
+    # The host address connected to the STATBUS app
+    APP_BIND_ADDRESS=#{derived.app_bind_address}
+    # The host address connected to Supabase
+    SUPABASE_BIND_ADDRESS=#{derived.supabase_bind_address}
+    # The publicly exposed address of PostgreSQL inside Supabase
+    DB_PUBLIC_LOCALHOST_PORT=#{derived.db_public_localhost_port}
+    # Updated by manage-statbus.sh start required
+    VERSION=#{derived.version}
+    EOS
+    content += "\n\n"
+
+    supabase_env_filename = "supabase_docker/.env.example"
+    content += <<-EOS
+    ################################################################
+    # Supabase Container Configuration
+    # Adapted from #{supabase_env_filename}
+    ################################################################
+    EOS
+    content += "\n\n"
+
+    # Add Supabase Docker content with overrides
+    supabase_env_path = Path.new(@project_directory, supabase_env_filename)
+    supabase_env_content = File.read(supabase_env_path)
+    content += Dotenv.using(supabase_env_content) do |env|
+      # Override credentials
+      env.set("POSTGRES_PASSWORD", credentials.postgres_password)
+      env.set("JWT_SECRET", credentials.jwt_secret)
+      env.set("ANON_KEY", credentials.anon_key)
+      env.set("SERVICE_ROLE_KEY", credentials.service_role_key)
+      env.set("DASHBOARD_USERNAME", credentials.dashboard_username)
+      env.set("DASHBOARD_PASSWORD", credentials.dashboard_password)
+
+      # Set derived values
+      env.set("SITE_URL", derived.site_url)
+      env.set("API_EXTERNAL_URL", derived.api_external_url)
+      env.set("SUPABASE_PUBLIC_URL", derived.supabase_public_url)
+      env.set("ENABLE_EMAIL_SIGNUP", derived.enable_email_signup.to_s)
+      env.set("ENABLE_EMAIL_AUTOCONFIRM", derived.enable_email_autoconfirm.to_s)
+      env.set("DISABLE_SIGNUP", derived.disable_signup.to_s)
+      env.set("STUDIO_DEFAULT_PROJECT", derived.studio_default_project)
+
+      # Return modified content without saving changes to example file
+      env.dotenv_content.to_s
+    end
+    content += "\n\n"
+
+    content += <<-EOS
+    ################################################################
+    # Statbus App Environment Variables
+    # Next.js only exposes environment variables with the 'NEXT_PUBLIC_' prefix
+    # to the browser cdoe.
+    # Add all the variables here that are exposed publicly,
+    # i.e. available in the web page source code for all to see.
+    #
+    NEXT_PUBLIC_SUPABASE_ANON_KEY=#{credentials.anon_key}
+    NEXT_PUBLIC_BROWSER_SUPABASE_URL=#{config.browser_supabase_url}
+    NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=#{config.deployment_slot_name}
+    NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=#{config.deployment_slot_code}
+    #
+    ################################################################
+    EOS
+
+    return content
+  end
+
+  private def generate_caddy_content(deployment_user : String, domain : String, app_port : String, api_port : String) : String
+    <<-EOS
+    # Generated by statbus migrate generate-config
+    # Do not edit directly - changes will be lost
+    #{domain} {
+            redir https://www.#{domain}
+    }
+
+    www.#{domain} {
+            @maintenance {
+                    file {
+                            try_files /home/#{deployment_user}/maintenance
+                    }
+            }
+            handle @maintenance {
+                    root * /home/#{deployment_user}/statbus/app/public
+                    rewrite * /maintenance.html
+                    file_server {
+                            status 503
+                    }
+            }
+            reverse_proxy 127.0.0.1:#{app_port}
+    }
+
+    api.#{domain} {
+            reverse_proxy 127.0.0.1:#{api_port}
+    }
+    EOS
   end
 
   private def cleanup_migration_schema(db)
