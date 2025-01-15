@@ -26,7 +26,12 @@ Before installing STATBUS, ensure you have the following tools and services inst
 
 #### Linux (Ubuntu 24 LTS)
 
-// AI! Add instructions to install git, docker and docker compose
+##### Install Git for Version Control
+```bash
+apt update
+apt install -y git
+```
+
 ##### Install Docker for running various services
 
 Add Docker's official GPG key:
@@ -57,10 +62,19 @@ of the docker compose setup from Supabase.
 
 
 ##### Install Crystal (Programming Language) compiler
-```
+```bash
 curl -fsSL https://crystal-lang.org/install.sh | sudo bash
 ```
 
+Verify Crystal and Shards are installed correctly:
+```bash
+crystal --version
+shards --version
+```
+You should see version numbers displayed for both commands. If either command is not found, ensure `/usr/local/bin` is in your PATH:
+```bash
+echo $PATH | grep "/usr/local/bin"
+```
 
 ## Installation Steps
 
@@ -112,6 +126,17 @@ Once the services are up and running, you can access STATBUS in your browser at:
 - **Supabase Admin Panel**: [http://localhost:3001](http://localhost:3001)
 
 Use the credentials in `.env.credentials` to log in to the Supabase admin panel.
+
+### Step 7: Configure HTTPS certificates and setup VPN
+
+To run statbus on a local installation requires setting up Caddy with a HTTPS certificate
+that can be renewed for a private server.
+
+The Caddy configuration for this is found in `deployment.caddyfile`.
+
+The Statbus Team plans to provide an integrated service for providing such certificates with
+let's encrypt for approved local statbus installations, if they have correctly configured a
+VPN to our systems for management of this.
 
 ## Managing Services
 
