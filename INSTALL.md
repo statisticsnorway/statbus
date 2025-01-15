@@ -86,6 +86,11 @@ git clone https://github.com/statisticsnorway/statbus.git
 cd statbus
 ```
 
+Then build the command line tool for statbus
+```bash
+./devops/manage-statbus.sh build-statbus-cli
+```
+
 ### Step 2: Configure Users
 
 Create an initial users configuration file:

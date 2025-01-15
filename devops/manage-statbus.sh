@@ -246,6 +246,11 @@ case "$action" in
     'activate_sql_saga' )
         PGUSER=supabase_admin ./devops/manage-statbus.sh psql -c 'create extension sql_saga cascade;'
       ;;
+    'build-statbus-cli' )
+        pushd cli
+          shards build statbus
+        popd
+      ;;
     'create-db-structure' )
         pushd cli
           shards build statbus && ./bin/statbus migrate up
