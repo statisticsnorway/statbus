@@ -1331,7 +1331,6 @@ class StatBus
           puts "Updating .env with changes - old version backed up as .env.backup.#{backup_suffix}" if @verbose
           File.write(".env.backup.#{backup_suffix}", current_content)
           File.write(".env", new_content)
-          return # Skip the File.write below since we already wrote the file
         else
           puts "No changes detected in .env, skipping backup" if @verbose
         end
