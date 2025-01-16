@@ -2867,18 +2867,6 @@ unit_type     | establishment
 count         | 1305
 invalid_codes | [{"primary_activity_category_code": "00.000"}]
 stats_summary | {                                             +
-              |     "employees": {                            +
-              |         "max": 1840,                          +
-              |         "min": 5,                             +
-              |         "sum": 23800,                         +
-              |         "mean": 67.81,                        +
-              |         "type": "number",                     +
-              |         "count": 351,                         +
-              |         "stddev": 166.99,                     +
-              |         "variance": 27884.99,                 +
-              |         "sum_sq_diff": 9759746.83,            +
-              |         "coefficient_of_variation_pct": 246.27+
-              |     }                                         +
               | }
 -[ RECORD 2 ]-+-----------------------------------------------
 unit_type     | legal_unit
