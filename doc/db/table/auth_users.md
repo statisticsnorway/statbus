@@ -53,8 +53,10 @@ Indexes:
 Check constraints:
     "users_email_change_confirm_status_check" CHECK (email_change_confirm_status >= 0 AND email_change_confirm_status <= 2)
 Referenced by:
+    TABLE "storage.buckets" CONSTRAINT "buckets_owner_fkey" FOREIGN KEY (owner) REFERENCES auth.users(id)
     TABLE "auth.identities" CONSTRAINT "identities_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
     TABLE "auth.mfa_factors" CONSTRAINT "mfa_factors_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
+    TABLE "storage.objects" CONSTRAINT "objects_owner_fkey" FOREIGN KEY (owner) REFERENCES auth.users(id)
     TABLE "auth.one_time_tokens" CONSTRAINT "one_time_tokens_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
     TABLE "auth.sessions" CONSTRAINT "sessions_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE CASCADE
     TABLE "statbus_user" CONSTRAINT "statbus_user_uuid_fkey" FOREIGN KEY (uuid) REFERENCES auth.users(id) ON DELETE CASCADE
