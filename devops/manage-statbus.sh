@@ -434,6 +434,7 @@ EOS
           FROM pg_proc p
           JOIN pg_namespace n ON p.pronamespace = n.oid
           WHERE n.nspname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
+          AND p.prokind != 'a'  -- Exclude aggregate functions
           AND NOT (
               (n.nspname = 'public' AND p.proname LIKE '\_%') OR
               (n.nspname = 'public' AND p.proname LIKE 'index') OR
