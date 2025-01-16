@@ -6,7 +6,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import * as React from "react";
-import { useCallback, useState } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import {
@@ -42,12 +42,19 @@ export function ConditionalFilter({
   const [operator, setOperator] = useState<string | null>(
     selected?.operator ?? "eq"
   );
-  const [operand, setOperand] = useState<string | null>(selected?.operand ?? null);
+  const [operand, setOperand] = useState<string | null>(
+    selected?.operand ?? null
+  );
 
   const updateFilter = useCallback(() => {
     if (!operand || !operator) return;
     onChange({ operator, operand: operand });
   }, [operator, operand, onChange]);
+
+  useEffect(() => {
+    setOperator(selected?.operator ?? "eq");
+    setOperand(selected?.operand ?? "");
+  }, [selected]);
 
   return (
     <Popover>
@@ -93,7 +100,7 @@ export function ConditionalFilter({
             value={operand ?? ""}
             onChange={(e) => setOperand(e.target.value.trim())}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') {
+              if (e.key === "Enter") {
                 updateFilter();
               }
             }}
