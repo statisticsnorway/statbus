@@ -352,11 +352,15 @@ EOS
         echo "Cleaning documentation files..."
         find doc/db -type f -delete
 
-        # Get list of all tables and views from specified schemas
+        # Get list of all tables, materialized views, and regular views from specified schemas
         tables=$(./devops/manage-statbus.sh psql -t -c "
-          SELECT schemaname || '.' || tablename
-          FROM pg_catalog.pg_tables
-          WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
+          (SELECT schemaname || '.' || tablename
+           FROM pg_catalog.pg_tables
+           WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth'))
+          UNION ALL
+          (SELECT schemaname || '.' || matviewname
+           FROM pg_catalog.pg_matviews
+           WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth'))
           ORDER BY 1;")
 
         views=$(./devops/manage-statbus.sh psql -t -c "
