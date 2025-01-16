@@ -106,7 +106,7 @@ CREATE VIEW public.statistical_unit_def
            , NULL::INT[] AS legal_unit_ids
            , NULL::INT[] AS enterprise_ids
            , stats
-           , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
+           , NULL::JSONB AS stats_summary
       FROM public.timeline_establishment
       UNION ALL
       SELECT unit_type

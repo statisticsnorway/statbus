@@ -196,7 +196,7 @@ WITH year_with_unit_basis AS (
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_address_changed)            AS physical_address_change_count
          --
-         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
+         , public.jsonb_stats_summary_merge_agg(COALESCE(source.stats_summary,public.jsonb_stats_to_summary('{}'::JSONB,source.stats))) AS stats_summary
          --
     FROM year_with_unit_derived AS source
     GROUP BY resolution, year, unit_type
@@ -220,7 +220,7 @@ WITH year_with_unit_basis AS (
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_address_changed)            AS physical_address_change_count
          --
-         , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
+         , public.jsonb_stats_summary_merge_agg(COALESCE(source.stats_summary,public.jsonb_stats_to_summary('{}'::JSONB,source.stats))) AS stats_summary
          --
     FROM year_and_month_with_unit_derived AS source
     GROUP BY resolution, year, month, unit_type
