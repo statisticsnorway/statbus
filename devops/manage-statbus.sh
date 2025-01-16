@@ -435,9 +435,21 @@ EOS
           JOIN pg_namespace n ON p.pronamespace = n.oid
           WHERE n.nspname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
           AND NOT (
-            (n.nspname = 'public' AND p.proname LIKE '_%')
-            OR (n.nspname = 'public' AND p.proname LIKE '%_dist')
-            OR (n.nspname = 'public' AND p.proname LIKE 'gbt_%')
+              (n.nspname = 'public' AND p.proname LIKE '\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'index') OR
+              (n.nspname = 'public' AND p.proname LIKE 'lca') OR
+              (n.nspname = 'public' AND p.proname LIKE 'lquery\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'lt\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'ltq\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'ltxtq\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'nlevel') OR
+              (n.nspname = 'public' AND p.proname LIKE 'subltree') OR
+              (n.nspname = 'public' AND p.proname LIKE 'subpath') OR
+              (n.nspname = 'public' AND p.proname LIKE 'text2ltree') OR
+              (n.nspname = 'public' AND p.proname LIKE 'gbtree%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'ltree%') OR
+              (n.nspname = 'public' AND p.proname LIKE '%\_dist') OR
+              (n.nspname = 'public' AND p.proname LIKE 'gbt\_%')
           )
           ORDER BY 1;")
 
