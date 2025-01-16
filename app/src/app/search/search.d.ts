@@ -12,7 +12,7 @@ export type SearchFilterOption = {
 
 export type SearchOrder = {
   readonly name: string;
-  readonly direction: "asc" | "desc";
+  readonly direction: "asc" | "desc.nullslast";
 };
 
 export type SearchPagination = {
