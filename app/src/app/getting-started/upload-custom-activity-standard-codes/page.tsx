@@ -10,9 +10,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 
 export default function UploadCustomActivityCategoryCodesPage() {
-  const { numberOfCustomActivityCategoryCodes, refreshNumberOfCustomActivityCategoryCodes } = useGettingStarted();
+  const {
+    numberOfCustomActivityCategoryCodes,
+    refreshNumberOfCustomActivityCategoryCodes,
+  } = useGettingStarted();
 
   return (
     <section className="space-y-8">
@@ -27,10 +32,18 @@ export default function UploadCustomActivityCategoryCodesPage() {
       {!!numberOfCustomActivityCategoryCodes &&
         numberOfCustomActivityCategoryCodes > 0 && (
           <InfoBox>
-            <p>
-              There are already {numberOfCustomActivityCategoryCodes} custom
-              activity category codes defined
-            </p>
+            <div className="flex justify-between items-center">
+              <p>
+                There are already {numberOfCustomActivityCategoryCodes} custom
+                activity category codes defined
+              </p>
+              <Link
+                href="/activity-categories?custom=true"
+                className={buttonVariants({ variant: "outline" })}
+              >
+                View all
+              </Link>
+            </div>
           </InfoBox>
         )}
 
