@@ -127,8 +127,8 @@ For the first run, you will need to set up the database and seed it with initial
 
 Once the services are up and running, you can access STATBUS in your browser at:
 
-- **Main Application**: [http://localhost:3000](http://localhost:3000)
-- **Supabase Admin Panel**: [http://localhost:3001](http://localhost:3001)
+- **Main Application**: [http://localhost:3000](http://localhost:3010)
+- **Supabase Admin Panel**: [http://localhost:3001](http://localhost:3011)
 
 Use the credentials in `.env.credentials` to log in to the Supabase admin panel.
 
