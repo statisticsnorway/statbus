@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.generate_import_legal_unit_era()
 CREATE PROCEDURE admin.generate_import_legal_unit_era()
 LANGUAGE plpgsql AS $generate_import_legal_unit_era$
 DECLARE
@@ -67,7 +66,6 @@ BEGIN
 END;
 $generate_import_legal_unit_era$;
 
-\echo admin.cleanup_import_legal_unit_era()
 CREATE PROCEDURE admin.cleanup_import_legal_unit_era()
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -77,7 +75,6 @@ END;
 $$;
 
 
-\echo Add import_legal_unit_era callbacks
 CALL lifecycle_callbacks.add(
     'import_legal_unit_era',
     ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
@@ -86,7 +83,6 @@ CALL lifecycle_callbacks.add(
     );
 -- Call the generate function once to generate the view with the currently
 -- defined external_ident_type's.
-\echo Generating public.import_legal_unit_era
 CALL admin.generate_import_legal_unit_era();
 
 END;

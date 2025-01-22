@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.generate_mermaid_er_diagram
 /*
   Function: public.generate_mermaid_er_diagram()
   Purpose: Generates a Mermaid syntax ER diagram representing the schema of the database.

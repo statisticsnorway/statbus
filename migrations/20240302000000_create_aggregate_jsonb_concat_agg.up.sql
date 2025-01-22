@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.jsonb_concat_agg()
 -- Aggregate: jsonb_concat_agg
 -- Purpose: Aggregate function to concatenate JSONB objects from multiple rows into a single JSONB object.
 -- Example:

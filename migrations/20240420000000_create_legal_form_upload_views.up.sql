@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.legal_form_custom_only
 CREATE VIEW public.legal_form_custom_only(code, name)
 WITH (security_invoker=on) AS
 SELECT ac.code
@@ -10,7 +9,6 @@ WHERE ac.active
   AND ac.custom
 ORDER BY code;
 
-\echo admin.legal_form_custom_only_upsert
 CREATE FUNCTION admin.legal_form_custom_only_upsert()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -52,7 +50,6 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.legal_form_custom_only_upsert();
 
 
-\echo admin.legal_form_custom_only_prepare
 CREATE OR REPLACE FUNCTION admin.legal_form_custom_only_prepare()
 RETURNS TRIGGER AS $$
 BEGIN

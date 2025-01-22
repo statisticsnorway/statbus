@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.upsert_activity_category
 CREATE FUNCTION admin.upsert_activity_category()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -51,7 +50,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-\echo admin.delete_stale_activity_category
 CREATE FUNCTION admin.delete_stale_activity_category()
 RETURNS TRIGGER AS $$
 BEGIN

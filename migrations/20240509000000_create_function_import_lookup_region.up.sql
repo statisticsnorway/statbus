@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.import_lookup_region
 CREATE FUNCTION admin.import_lookup_region(
     IN new_jsonb JSONB,
     IN region_type TEXT,

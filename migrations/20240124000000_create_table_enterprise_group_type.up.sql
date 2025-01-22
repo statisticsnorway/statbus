@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.enterprise_group_type
 CREATE TABLE public.enterprise_group_type (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text UNIQUE NOT NULL,

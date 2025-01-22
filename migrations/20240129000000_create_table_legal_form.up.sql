@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.legal_form
 CREATE TABLE public.legal_form (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,
@@ -10,7 +9,6 @@ CREATE TABLE public.legal_form (
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(code, active, custom)
 );
-\echo ix_legal_form_code
 CREATE UNIQUE INDEX ix_legal_form_code ON public.legal_form USING btree (code) WHERE active;
 
 END;

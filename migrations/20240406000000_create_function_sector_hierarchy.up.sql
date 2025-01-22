@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.sector_hierarchy
 CREATE OR REPLACE FUNCTION public.sector_hierarchy(sector_id INTEGER)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (

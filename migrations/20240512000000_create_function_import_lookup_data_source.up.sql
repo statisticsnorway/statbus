@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.import_lookup_data_source
 CREATE FUNCTION admin.import_lookup_data_source(
     new_jsonb JSONB,
     OUT data_source_id INTEGER,

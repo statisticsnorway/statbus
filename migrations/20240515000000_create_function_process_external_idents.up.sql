@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.process_external_idents
 CREATE FUNCTION admin.process_external_idents(
     new_jsonb JSONB,
     unit_type TEXT,

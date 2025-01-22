@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.enterprise
 CREATE TABLE public.enterprise (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     active boolean NOT NULL DEFAULT true,

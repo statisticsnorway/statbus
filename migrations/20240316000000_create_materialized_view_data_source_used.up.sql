@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.data_source_used
 CREATE MATERIALIZED VIEW public.data_source_used AS
 SELECT s.id
      , s.code

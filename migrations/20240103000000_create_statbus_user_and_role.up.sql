@@ -2,7 +2,6 @@ BEGIN;
 
 CREATE TYPE public.statbus_role_type AS ENUM('super_user','regular_user', 'restricted_user', 'external_user');
 
-\echo public.statbus_role
 CREATE TABLE public.statbus_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     type public.statbus_role_type NOT NULL,
@@ -13,7 +12,6 @@ CREATE TABLE public.statbus_role (
 -- while there can be many different restricted_user roles, depending on the actual restrictions.
 CREATE UNIQUE INDEX statbus_role_role_type ON public.statbus_role(type) WHERE type = 'super_user' OR type = 'regular_user' OR type = 'external_user';
 
-\echo public.statbus_user
 CREATE TABLE public.statbus_user (
   id SERIAL PRIMARY KEY,
   uuid uuid NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -23,7 +21,6 @@ CREATE TABLE public.statbus_user (
 
 
 -- inserts a row into public.profiles
-\echo admin.create_new_statbus_user
 CREATE FUNCTION admin.create_new_statbus_user()
 RETURNS TRIGGER
 LANGUAGE PLPGSQL

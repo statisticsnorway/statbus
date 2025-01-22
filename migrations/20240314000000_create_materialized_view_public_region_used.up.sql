@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.region_used
 CREATE MATERIALIZED VIEW public.region_used AS
 SELECT r.id
      , r.path

@@ -4,7 +4,6 @@ BEGIN;
 -- BEGIN:  Helper functions for import
 -- ========================================================
 
-\echo admin.import_lookup_tag
 CREATE FUNCTION admin.import_lookup_tag(
     new_jsonb JSONB,
     OUT tag_id INTEGER

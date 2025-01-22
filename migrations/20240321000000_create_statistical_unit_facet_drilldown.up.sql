@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.statistical_unit_facet_drilldown
 CREATE FUNCTION public.statistical_unit_facet_drilldown(
     unit_type public.statistical_unit_type DEFAULT 'enterprise',
     region_path public.ltree DEFAULT NULL,

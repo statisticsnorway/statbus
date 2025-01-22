@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.sector_custom_only
 CREATE VIEW public.sector_custom_only(path, name, description)
 WITH (security_invoker=on) AS
 SELECT ac.path
@@ -11,7 +10,6 @@ WHERE ac.active
   AND ac.custom
 ORDER BY path;
 
-\echo admin.sector_custom_only_upsert
 CREATE FUNCTION admin.sector_custom_only_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
@@ -88,7 +86,6 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.sector_custom_only_upsert();
 
 
-\echo admin.sector_custom_only_prepare
 CREATE OR REPLACE FUNCTION admin.sector_custom_only_prepare()
 RETURNS TRIGGER AS $$
 BEGIN

@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.jsonb_stats_to_summary
 /*
  * ======================================================================================
  * Function: jsonb_stats_to_summary
@@ -281,7 +280,6 @@ END;
 $$;
 
 
-\echo public.jsonb_stats_to_summary_agg
 CREATE AGGREGATE public.jsonb_stats_to_summary_agg(jsonb) (
     sfunc = public.jsonb_stats_to_summary,
     stype = jsonb,

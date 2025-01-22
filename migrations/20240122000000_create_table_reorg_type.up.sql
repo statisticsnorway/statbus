@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.reorg_type
 CREATE TABLE public.reorg_type (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text UNIQUE NOT NULL,

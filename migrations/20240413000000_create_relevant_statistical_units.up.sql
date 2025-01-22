@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.relevant_statistical_units
 CREATE FUNCTION public.relevant_statistical_units(
     unit_type public.statistical_unit_type, -- $1
     unit_id INTEGER,                        -- $2

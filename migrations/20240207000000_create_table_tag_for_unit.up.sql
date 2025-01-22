@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.tag_for_unit
 CREATE TABLE public.tag_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     tag_id integer NOT NULL REFERENCES public.tag(id) ON DELETE CASCADE,

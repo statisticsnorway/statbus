@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.generate_import_legal_unit_current()
 CREATE PROCEDURE admin.generate_import_legal_unit_current()
 LANGUAGE plpgsql AS $generate_import_legal_unit_current$
 DECLARE
@@ -167,7 +166,6 @@ BEGIN
 END;
 $generate_import_legal_unit_current$;
 
-\echo admin.cleanup_import_legal_unit_current()
 CREATE PROCEDURE admin.cleanup_import_legal_unit_current()
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -178,7 +176,6 @@ BEGIN
 END;
 $$;
 
-\echo Add import_legal_unit_current callbacks
 CALL lifecycle_callbacks.add(
     'import_legal_unit_current',
     ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
@@ -186,8 +183,6 @@ CALL lifecycle_callbacks.add(
     'admin.cleanup_import_legal_unit_current'
     );
 
-\echo Generating public.import_legal_unit_current
-\echo Generating admin.import_legal_unit_current_upsert
 CALL admin.generate_import_legal_unit_current();
 
 END;

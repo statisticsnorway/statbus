@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.import_establishment_era_upsert
 CREATE OR REPLACE FUNCTION admin.import_establishment_era_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE

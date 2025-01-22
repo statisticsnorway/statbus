@@ -1,7 +1,6 @@
 BEGIN;
 
 -- Create function for upsert operation on country
-\echo admin.upsert_country
 CREATE FUNCTION admin.upsert_country()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -18,7 +17,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create function for deleting stale countries
-\echo admin.delete_stale_country
 CREATE FUNCTION admin.delete_stale_country()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -29,7 +27,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- Create a view for country
-\echo public.country_view
 CREATE VIEW public.country_view
 WITH (security_invoker=on) AS
 SELECT id, iso_2, iso_3, iso_num, name, active, custom

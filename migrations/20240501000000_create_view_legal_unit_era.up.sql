@@ -1,14 +1,12 @@
 BEGIN;
 
 -- View for current information about a legal unit.
-\echo public.legal_unit_era
 CREATE VIEW public.legal_unit_era
 WITH (security_invoker=on) AS
 SELECT *
 FROM public.legal_unit
   ;
 
-\echo admin.legal_unit_era_upsert
 CREATE FUNCTION admin.legal_unit_era_upsert()
 RETURNS TRIGGER AS $legal_unit_era_upsert$
 DECLARE

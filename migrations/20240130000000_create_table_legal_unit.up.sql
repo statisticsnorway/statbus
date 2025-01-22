@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.legal_unit
 CREATE TABLE public.legal_unit (
     id SERIAL NOT NULL,
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
@@ -28,25 +27,16 @@ CREATE TABLE public.legal_unit (
     invalid_codes jsonb
 );
 
-\echo legal_unit_active_idx
 CREATE INDEX legal_unit_active_idx ON public.legal_unit(active);
-\echo ix_legal_unit_data_source_id
 CREATE INDEX ix_legal_unit_data_source_id ON public.legal_unit USING btree (data_source_id);
-\echo ix_legal_unit_enterprise_id
 CREATE INDEX ix_legal_unit_enterprise_id ON public.legal_unit USING btree (enterprise_id);
-\echo ix_legal_unit_foreign_participation_id
 CREATE INDEX ix_legal_unit_foreign_participation_id ON public.legal_unit USING btree (foreign_participation_id);
-\echo ix_legal_unit_sector_id
 CREATE INDEX ix_legal_unit_sector_id ON public.legal_unit USING btree (sector_id);
-\echo ix_legal_unit_legal_form_id
 CREATE INDEX ix_legal_unit_legal_form_id ON public.legal_unit USING btree (legal_form_id);
-\echo ix_legal_unit_name
 CREATE INDEX ix_legal_unit_name ON public.legal_unit USING btree (name);
-\echo ix_legal_unit_size_id
 CREATE INDEX ix_legal_unit_size_id ON public.legal_unit USING btree (unit_size_id);
 
 
-\echo admin.legal_unit_id_exists
 CREATE FUNCTION admin.legal_unit_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.legal_unit WHERE id = fk_id);
 $$;

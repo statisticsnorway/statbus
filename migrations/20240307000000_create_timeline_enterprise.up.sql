@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.timeline_enterprise
 CREATE VIEW public.timeline_enterprise
     ( unit_type
     , unit_id

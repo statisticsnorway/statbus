@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.set_primary_legal_unit_for_enterprise
 -- Functions to manage connections between enterprise <-> legal_unit <-> establishment
 CREATE OR REPLACE FUNCTION public.set_primary_legal_unit_for_enterprise(
     legal_unit_id integer,

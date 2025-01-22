@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.enterprise_hierarchy
 CREATE OR REPLACE FUNCTION public.enterprise_hierarchy(enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (

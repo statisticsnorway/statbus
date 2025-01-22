@@ -1,7 +1,6 @@
 BEGIN;
 
 -- Create a view for region upload using path and name
-\echo public.region_upload
 CREATE VIEW public.region_upload
 WITH (security_invoker=on) AS
 SELECT path, name, center_latitude, center_longitude, center_altitude
@@ -9,7 +8,6 @@ FROM public.region
 ORDER BY path;
 COMMENT ON VIEW public.region_upload IS 'Upload of region by path,name that automatically connects parent_id';
 
-\echo admin.region_upload_upsert
 CREATE FUNCTION admin.region_upload_upsert()
 RETURNS TRIGGER AS $$
 DECLARE

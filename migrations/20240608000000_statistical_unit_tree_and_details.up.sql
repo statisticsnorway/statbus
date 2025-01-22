@@ -12,7 +12,6 @@ DROP FUNCTION public.establishment_hierarchy(INTEGER, INTEGER, DATE);
 -- Create enum type for hierarchy scope
 CREATE TYPE public.hierarchy_scope AS ENUM ('all', 'tree', 'details');
 
-\echo public.establishment_hierarchy
 CREATE FUNCTION public.establishment_hierarchy(
     establishment_id INTEGER,
     parent_legal_unit_id INTEGER,
@@ -48,7 +47,6 @@ CREATE FUNCTION public.establishment_hierarchy(
 $$;
 
 
-\echo public.legal_unit_hierarchy
 CREATE FUNCTION public.legal_unit_hierarchy(
   legal_unit_id INTEGER,
   parent_enterprise_id INTEGER,
@@ -83,7 +81,6 @@ CREATE FUNCTION public.legal_unit_hierarchy(
   FROM data_list;
 $$;
 
-\echo public.enterprise_hierarchy
 CREATE FUNCTION public.enterprise_hierarchy(
   enterprise_id INTEGER,
   scope public.hierarchy_scope DEFAULT 'all',
@@ -106,7 +103,6 @@ CREATE FUNCTION public.enterprise_hierarchy(
 $$;
 
 
-\echo public.statistical_unit_hierarchy
 CREATE FUNCTION public.statistical_unit_hierarchy(
   unit_type public.statistical_unit_type,
   unit_id INTEGER,
@@ -130,7 +126,6 @@ CREATE FUNCTION public.statistical_unit_hierarchy(
 $$;
 
 
-\echo public.statistical_unit_tree
 CREATE FUNCTION public.statistical_unit_tree(
     unit_type public.statistical_unit_type,
     unit_id INTEGER,
@@ -140,7 +135,6 @@ CREATE FUNCTION public.statistical_unit_tree(
 $$;
 
 
-\echo public.statistical_unit_details
 CREATE FUNCTION public.statistical_unit_details(
     unit_type public.statistical_unit_type,
     unit_id INTEGER,
@@ -155,7 +149,6 @@ CREATE FUNCTION public.statistical_unit_details(
 $$;
 
 
-\echo public.statistical_unit_stats
 CREATE TYPE public.statistical_unit_stats AS (
     unit_type public.statistical_unit_type,
     unit_id integer,

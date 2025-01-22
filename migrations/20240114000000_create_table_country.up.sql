@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.country
 CREATE TABLE public.country (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     iso_2 text UNIQUE NOT NULL,

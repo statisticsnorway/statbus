@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.statistical_unit_facet
 CREATE MATERIALIZED VIEW public.statistical_unit_facet AS
 SELECT valid_from
      , valid_to

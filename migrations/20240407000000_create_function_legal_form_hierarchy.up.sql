@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.legal_form_hierarchy
 CREATE OR REPLACE FUNCTION public.legal_form_hierarchy(legal_form_id INTEGER)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (

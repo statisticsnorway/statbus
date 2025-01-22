@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.foreign_participation
 CREATE TABLE public.foreign_participation (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,

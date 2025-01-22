@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.activity_category_hierarchy
 CREATE OR REPLACE FUNCTION public.activity_category_hierarchy(activity_category_id INTEGER)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
     WITH data AS (

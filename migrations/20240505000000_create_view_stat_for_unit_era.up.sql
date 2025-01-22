@@ -1,12 +1,10 @@
 BEGIN;
 
-\echo public.stat_for_unit_era
 CREATE VIEW public.stat_for_unit_era
 WITH (security_invoker=on) AS
 SELECT *
 FROM public.stat_for_unit;
 
-\echo admin.stat_for_unit_era_upsert
 CREATE FUNCTION admin.stat_for_unit_era_upsert()
 RETURNS TRIGGER AS $stat_for_unit_era_upsert$
 DECLARE
@@ -31,7 +29,6 @@ BEGIN
 END;
 $stat_for_unit_era_upsert$ LANGUAGE plpgsql;
 
-\echo stat_for_unit_era_upsert
 CREATE TRIGGER stat_for_unit_era_upsert
 INSTEAD OF INSERT ON public.stat_for_unit_era
 FOR EACH ROW

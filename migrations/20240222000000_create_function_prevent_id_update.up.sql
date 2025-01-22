@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.prevent_id_update
 CREATE OR REPLACE FUNCTION admin.prevent_id_update()
   RETURNS TRIGGER
   AS $$
@@ -14,7 +13,6 @@ $$
 LANGUAGE plpgsql;
 
 
-\echo admin.prevent_id_update_on_public_tables
 CREATE OR REPLACE FUNCTION admin.prevent_id_update_on_public_tables()
 RETURNS void AS $$
 DECLARE

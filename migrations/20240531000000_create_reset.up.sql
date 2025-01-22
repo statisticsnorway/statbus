@@ -2,7 +2,6 @@ BEGIN;
 
 CREATE TYPE public.reset_scope AS ENUM('data','getting-started','all');
 
-\echo public.reset(boolean confirmed, scope public.reset_scope)
 CREATE FUNCTION public.reset (confirmed boolean, scope public.reset_scope)
 RETURNS JSONB
 LANGUAGE plpgsql AS $$

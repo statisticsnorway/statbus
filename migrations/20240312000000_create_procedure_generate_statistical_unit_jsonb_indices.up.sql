@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.generate_statistical_unit_jsonb_indices()
 CREATE PROCEDURE admin.generate_statistical_unit_jsonb_indices()
 LANGUAGE plpgsql AS $generate_statistical_unit_jsonb_indices$
 DECLARE
@@ -27,7 +26,6 @@ $$, stat_definition.code);
 END;
 $generate_statistical_unit_jsonb_indices$;
 
-\echo admin.cleanup_statistical_unit_jsonb_indices()
 CREATE PROCEDURE admin.cleanup_statistical_unit_jsonb_indices()
 LANGUAGE plpgsql AS $cleanup_statistical_unit_jsonb_indices$
 DECLARE
@@ -51,7 +49,6 @@ BEGIN
 END;
 $cleanup_statistical_unit_jsonb_indices$;
 
-\echo Add statistical_unit callbacks for jsonb indices
 CALL lifecycle_callbacks.add(
     'statistical_unit_jsonb_indices',
     ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
@@ -59,7 +56,6 @@ CALL lifecycle_callbacks.add(
     'admin.cleanup_statistical_unit_jsonb_indices'
     );
 
-\echo Calling public.generate_statistical_unit_jsonb_indices
 CALL admin.generate_statistical_unit_jsonb_indices();
 
 END;

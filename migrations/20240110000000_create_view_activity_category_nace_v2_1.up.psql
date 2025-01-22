@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.activity_category_nace_v2_1
 CREATE VIEW public.activity_category_nace_v2_1
 WITH (security_invoker=on) AS
 SELECT acs.code AS standard

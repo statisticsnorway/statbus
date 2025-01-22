@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.check_stat_for_unit_values
 CREATE OR REPLACE FUNCTION admin.check_stat_for_unit_values()
 RETURNS trigger AS $$
 DECLARE

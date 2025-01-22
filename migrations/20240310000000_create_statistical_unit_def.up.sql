@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.statistical_unit_def
 CREATE VIEW public.statistical_unit_def
     ( unit_type
     , unit_id

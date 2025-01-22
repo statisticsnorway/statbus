@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.get_tag_paths
 CREATE FUNCTION public.get_tag_paths(
   unit_type public.statistical_unit_type,
   unit_id INTEGER

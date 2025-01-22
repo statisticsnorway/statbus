@@ -1,13 +1,11 @@
 BEGIN;
 
 -- View for current information about a location.
-\echo public.location_era
 CREATE VIEW public.location_era
 WITH (security_invoker=on) AS
 SELECT *
 FROM public.location;
 
-\echo admin.location_era_upsert
 CREATE FUNCTION admin.location_era_upsert()
 RETURNS TRIGGER AS $location_era_upsert$
 DECLARE

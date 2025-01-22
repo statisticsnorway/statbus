@@ -57,15 +57,20 @@ class StatBus
     property path : Path
     property description : String
     property is_up : Bool
+    property extension : String
 
-    def initialize(@version : Int64, @path : Path, @description : String, @is_up : Bool)
+    def initialize(@version : Int64, @path : Path, @description : String, @is_up : Bool, @extension : String)
+      @extension = @path.extension.lchop('.') if @extension.empty?
+      unless ["sql", "psql"].includes?(@extension)
+        raise "Invalid migration extension: '#{@extension}' Must be 'sql' or 'psql'"
+      end
     end
 
     def self.parse(path : Path)
       filename = path.basename
 
-      # Parse migration files: YYYYMMDDHHMMSS_description.(up|down).sql
-      if match = filename.match(/^(\d{14})_([^0-9].+)\.(up|down)\.sql$/)
+      # Parse migration files: YYYYMMDDHHMMSS_description.(up|down).(sql|psql)
+      if match = filename.match(/^(\d{14})_([^0-9].+)\.(up|down)\.(sql|psql)$/)
         version = match[1].to_i64
         # Validate timestamp format
         begin
@@ -75,12 +80,14 @@ class StatBus
         end
         description = match[2]
         is_up = match[3] == "up"
+        extension = match[4]
 
         return new(
           version: version,
           path: path,
           description: description,
-          is_up: is_up
+          is_up: is_up,
+          extension: extension
         )
       end
 
@@ -196,6 +203,7 @@ class StatBus
   @convert_spacing = 1.day
   @migration_major_description : String | Nil = nil
   @migration_minor_description : String | Nil = nil
+  @migration_extension : String | Nil = nil
   @valid_from : String = Time.utc.to_s("%Y-%m-%d")
   @valid_to = "infinity"
   @user_email : String | Nil = nil
@@ -717,6 +725,13 @@ class StatBus
           parser.on("-d DESC", "--description=DESC", "Description for the migration") do |desc|
             @migration_minor_description = desc
           end
+          parser.on("-e EXT", "--extension=EXT", "File extension for the migration (sql or psql, defaults to sql)") do |ext|
+            if ext != "sql" && ext != "psql"
+              STDERR.puts "Error: Extension must be 'sql' or 'psql'"
+              exit(1)
+            end
+            @migration_extension = ext
+          end
         end
         parser.on("down", "Roll back migrations") do
           @migrate_mode = MigrateMode::Down
@@ -809,34 +824,50 @@ class StatBus
       STDOUT.flush
     end
 
-    # Start timing
     start_time = Time.monotonic
+    success = false
 
-    # Use system command to execute psql with the migration file
-    Dir.cd(@project_directory) do
-      # Capture command output using backticks
-      output = `./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{migration.path} 2>&1`
-      result = $?.success?
-      if result
-        # Calculate duration in milliseconds
-        duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
-
-        # Record successful migration in migrations table
-        db.exec(
-          "INSERT INTO db.migration (version, filename, description, duration_ms)
-           VALUES ($1, $2, $3, $4)",
-          migration.version,
-          migration.path.basename,
-          migration.description,
-          duration_ms
-        )
-
-        if @verbose
-          STDOUT.puts "done (#{duration_ms}ms)"
-          STDOUT.puts output if @debug && !output.empty?
+    case migration.extension
+    when "sql"
+      # Direct SQL execution
+      begin
+        sql_content = File.read(migration.path)
+        db.transaction do |tx|
+          tx.connection.exec_all(sql_content)
         end
-      else
-        raise "Failed to apply migration #{migration.path.basename}. Check the PostgreSQL logs for details."
+        success = true
+      rescue ex
+        raise "Failed to apply SQL migration #{migration.path.basename}: #{ex.message}"
+      end
+    when "psql"
+      # Execute via psql command (existing behavior)
+      Dir.cd(@project_directory) do
+        output = `./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{migration.path} 2>&1`
+        success = $?.success?
+        if @debug && !output.empty?
+          STDOUT.puts output
+        end
+        raise "Failed to apply PSQL migration #{migration.path.basename}. Check the PostgreSQL logs for details." unless success
+      end
+    else
+      raise "Unknown migration extension: #{migration.extension}"
+    end
+
+    if success
+      duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
+
+      # Record successful migration
+      db.exec(
+        "INSERT INTO db.migration (version, filename, description, duration_ms)
+         VALUES ($1, $2, $3, $4)",
+        migration.version,
+        migration.path.basename,
+        migration.description,
+        duration_ms
+      )
+
+      if @verbose
+        STDOUT.puts "done (#{duration_ms}ms)"
       end
     end
 
@@ -1006,9 +1037,12 @@ class StatBus
       # Create safe description
       safe_desc = @migration_minor_description.not_nil!.downcase.gsub(/[^a-z0-9]+/, "_")
 
+      # Default to .sql extension for new migrations
+      extension = @migration_extension || "sql"
+
       # Generate filenames
-      up_file = "migrations/#{timestamp}_#{safe_desc}.up.sql"
-      down_file = "migrations/#{timestamp}_#{safe_desc}.down.sql"
+      up_file = "migrations/#{timestamp}_#{safe_desc}.up.#{extension}"
+      down_file = "migrations/#{timestamp}_#{safe_desc}.down.#{extension}"
 
       # Write migration files
       File.write(up_file, <<-SQL
@@ -1038,7 +1072,7 @@ class StatBus
   end
 
   private def find_down_migration(version : String) : Path?
-    down_paths = [Path["migrations/#{version}_*.down.sql"]]
+    down_paths = [Path["migrations/#{version}_*.down.sql"], Path["migrations/#{version}_*.down.psql"]]
     down_globs = down_paths.map { |p| Dir.glob(p) }.flatten
     down_globs.first?.try { |path| Path[path] }
   end
@@ -1552,10 +1586,33 @@ class StatBus
         # Start timing
         start_time = Time.monotonic
 
-        # Capture command output using backticks
-        output = `./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_path} 2>&1`
-        result = $?.success?
-        if result
+        success = false
+        output = ""
+        case migration.extension
+        when "sql"
+          # Direct SQL execution
+          begin
+            sql_content = File.read(down_path)
+            db.transaction do |tx|
+              tx.connection.exec_all(sql_content)
+            end
+            success = true
+          rescue ex
+            raise "Failed to roll back SQL migration #{down_path.basename}: #{ex.message}"
+          end
+        when "psql"
+          # Execute via psql command
+          output = `./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_path} 2>&1`
+          success = $?.success?
+          if @debug && !output.empty?
+            STDOUT.puts output
+          end
+          raise "Failed to roll back PSQL migration #{down_path.basename}. Check the PostgreSQL logs for details." unless success
+        else
+          raise "Unknown migration extension: #{migration.extension}"
+        end
+
+        if success
           # Calculate duration in milliseconds
           duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
 

@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.legal_form_used
 CREATE MATERIALIZED VIEW public.legal_form_used AS
 SELECT lf.id
      , lf.code

@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.data_source
 CREATE TABLE public.data_source (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,

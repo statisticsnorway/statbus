@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.establishment
 CREATE TABLE public.establishment (
     id SERIAL NOT NULL,
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
@@ -42,27 +41,17 @@ CREATE TABLE public.establishment (
     CHECK( CASE WHEN enterprise_id IS NULL THEN sector_id IS NULL END)
 );
 
-\echo establishment_active_idx
 CREATE INDEX establishment_active_idx ON public.establishment(active);
-\echo ix_establishment_data_source_id
 CREATE INDEX ix_establishment_data_source_id ON public.establishment USING btree (data_source_id);
-\echo ix_establishment_sector_id
 CREATE INDEX ix_establishment_sector_id ON public.establishment USING btree (sector_id);
-\echo ix_establishment_enterprise_id
 CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree (enterprise_id);
-\echo ix_establishment_legal_unit_id
 CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
-\echo ix_establishment_name
 CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
-\echo ix_establishment_size_id
 CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
 
-\echo establishment_enterprise_id_primary_for_enterprise_idx
 CREATE INDEX establishment_enterprise_id_primary_for_enterprise_idx ON public.establishment(enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL;
-\echo establishment_legal_unit_id_primary_for_legal_unit_idx
 CREATE INDEX establishment_legal_unit_id_primary_for_legal_unit_idx ON public.establishment(legal_unit_id, primary_for_legal_unit) WHERE legal_unit_id IS NOT NULL;
 
-\echo admin.establishment_id_exists
 CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
 $$;

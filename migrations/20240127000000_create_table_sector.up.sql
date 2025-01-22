@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.sector
 CREATE TABLE public.sector (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     path public.ltree UNIQUE NOT NULL,

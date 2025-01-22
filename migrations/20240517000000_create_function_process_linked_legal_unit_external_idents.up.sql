@@ -2,7 +2,6 @@ BEGIN;
 
 -- Find a connected legal_unit - i.e. a field with a `legal_unit`
 -- prefix that points to an external identifier.
-\echo admin.process_linked_legal_unit_external_idents
 CREATE FUNCTION admin.process_linked_legal_unit_external_idents(
     new_jsonb JSONB,
     OUT legal_unit_id INTEGER,

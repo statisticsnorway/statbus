@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.external_idents_hierarchy
 CREATE FUNCTION public.external_idents_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
   parent_legal_unit_id INTEGER DEFAULT NULL,

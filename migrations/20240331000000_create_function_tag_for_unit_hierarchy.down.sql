@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.tag_for_unit_hierarchy
 DROP FUNCTION public.tag_for_unit_hierarchy(INTEGER,INTEGER,INTEGER,INTEGER);
 
 END;

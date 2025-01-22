@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.external_ident
 CREATE TABLE public.external_ident (
     id SERIAL NOT NULL,
     ident VARCHAR(50) NOT NULL,

@@ -1,7 +1,6 @@
 BEGIN;
 
 CREATE TYPE public.person_sex AS ENUM ('Male', 'Female');
-\echo public.person
 CREATE TABLE public.person (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     personal_ident text UNIQUE,

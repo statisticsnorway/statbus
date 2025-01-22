@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.activity_category_used
 CREATE MATERIALIZED VIEW public.activity_category_used AS
 SELECT acs.code AS standard_code
      , ac.id

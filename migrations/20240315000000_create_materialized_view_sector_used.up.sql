@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.sector_used
 CREATE MATERIALIZED VIEW public.sector_used AS
 SELECT s.id
      , s.path

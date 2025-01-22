@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.country_used
 CREATE MATERIALIZED VIEW public.country_used AS
 SELECT c.id
      , c.iso_2

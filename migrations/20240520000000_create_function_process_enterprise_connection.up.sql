@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.process_enterprise_connection
 CREATE FUNCTION admin.process_enterprise_connection(
     IN prior_unit_id INTEGER,
     IN unit_type TEXT,

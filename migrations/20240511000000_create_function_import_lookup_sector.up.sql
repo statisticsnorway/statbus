@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.import_lookup_sector
 CREATE FUNCTION admin.import_lookup_sector(
     new_jsonb JSONB,
     OUT sector_id INTEGER,

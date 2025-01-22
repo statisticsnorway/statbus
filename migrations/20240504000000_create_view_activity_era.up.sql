@@ -1,13 +1,11 @@
 BEGIN;
 
 -- View for current information about a activity.
-\echo public.activity_era
 CREATE VIEW public.activity_era
 WITH (security_invoker=on) AS
 SELECT *
 FROM public.activity;
 
-\echo admin.activity_era_upsert
 CREATE FUNCTION admin.activity_era_upsert()
 RETURNS TRIGGER AS $activity_era_upsert$
 DECLARE

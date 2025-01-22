@@ -2,7 +2,6 @@ BEGIN;
 
 CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 
-\echo public.activity
 CREATE TABLE public.activity (
     id SERIAL NOT NULL,
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,

@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.statistical_history_facet_def
 SELECT pg_catalog.set_config('search_path', 'public', false);
 CREATE VIEW public.statistical_history_facet_def AS
 WITH year_with_unit_basis AS (

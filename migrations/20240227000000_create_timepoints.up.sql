@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.timepoints
 CREATE VIEW public.timepoints AS
     WITH es AS (
         -- establishment

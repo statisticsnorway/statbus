@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.activity_hierarchy
 CREATE OR REPLACE FUNCTION public.activity_hierarchy(
   parent_establishment_id INTEGER DEFAULT NULL,
   parent_legal_unit_id INTEGER DEFAULT NULL,

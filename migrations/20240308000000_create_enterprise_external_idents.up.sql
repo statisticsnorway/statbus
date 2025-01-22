@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.get_external_idents
 CREATE FUNCTION public.get_external_idents(
   unit_type public.statistical_unit_type,
   unit_id INTEGER
@@ -18,7 +17,6 @@ CREATE FUNCTION public.get_external_idents(
 $$;
 
 
-\echo public.enterprise_external_idents
 CREATE VIEW public.enterprise_external_idents AS
   SELECT 'enterprise'::public.statistical_unit_type AS unit_type
         , plu.enterprise_id AS unit_id

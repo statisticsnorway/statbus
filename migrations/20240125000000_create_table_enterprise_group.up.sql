@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.enterprise_group
 CREATE TABLE public.enterprise_group (
     id SERIAL NOT NULL,
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
@@ -33,7 +32,6 @@ CREATE INDEX ix_enterprise_group_reorg_type_id ON public.enterprise_group USING 
 CREATE INDEX ix_enterprise_group_size_id ON public.enterprise_group USING btree (unit_size_id);
 
 
-\echo admin.enterprise_group_id_exists
 CREATE FUNCTION admin.enterprise_group_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.enterprise_group WHERE id = fk_id);
 $$;

@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.location
 CREATE TABLE public.location (
     id SERIAL NOT NULL,
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,

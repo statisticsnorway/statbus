@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.relative_period_code
 CREATE TYPE public.relative_period_code AS ENUM (
     -- For data entry with context_valid_from and context_valid_to. context_valid_on should be context_valid_from when infinity, else context_valid_to
     'today',
@@ -39,14 +38,12 @@ CREATE TYPE public.relative_period_code AS ENUM (
     'start_of_decade_prev'
 );
 
-\echo public.relative_period_scope
 CREATE TYPE public.relative_period_scope AS ENUM (
     'input_and_query',
     'query',
     'input'
 );
 
-\echo public.relative_period
 CREATE TABLE public.relative_period (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code public.relative_period_code UNIQUE NOT NULL,

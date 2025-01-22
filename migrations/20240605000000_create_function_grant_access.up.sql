@@ -7,7 +7,6 @@ BEGIN;
 GRANT USAGE ON SCHEMA admin TO authenticated;
 
 
-\echo admin.grant_type_and_function_access_to_authenticated
 CREATE OR REPLACE FUNCTION admin.grant_type_and_function_access_to_authenticated()
 RETURNS void AS $$
 DECLARE

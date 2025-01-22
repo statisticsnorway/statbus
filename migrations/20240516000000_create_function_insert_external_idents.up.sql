@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.insert_external_idents
 CREATE OR REPLACE FUNCTION admin.insert_external_idents(
     new_jsonb JSONB,
     external_idents_to_add public.external_ident[],

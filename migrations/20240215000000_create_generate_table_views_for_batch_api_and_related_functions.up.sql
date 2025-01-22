@@ -15,7 +15,6 @@ CREATE TYPE admin.batch_api_table_properties AS (
     table_name text
 );
 
-\echo admin.generate_view
 CREATE FUNCTION admin.generate_view(
     table_properties admin.batch_api_table_properties,
     view_type admin.view_type_enum)
@@ -139,7 +138,6 @@ END;
 $get_unique_columns$;
 
 
-\echo admin.generate_active_code_custom_unique_constraint
 CREATE FUNCTION admin.generate_active_code_custom_unique_constraint(
     table_properties admin.batch_api_table_properties)
 RETURNS VOID LANGUAGE plpgsql AS $generate_active_code_custom_unique_constraint$
@@ -168,7 +166,6 @@ END;
 $generate_active_code_custom_unique_constraint$;
 
 
-\echo admin.generate_code_upsert_function
 CREATE FUNCTION admin.generate_code_upsert_function(
     table_properties admin.batch_api_table_properties,
     view_type admin.view_type_enum)
@@ -254,7 +251,6 @@ END;
 $generate_code_upsert_function$;
 
 
-\echo admin.generate_path_upsert_function
 CREATE FUNCTION admin.generate_path_upsert_function(
     table_properties admin.batch_api_table_properties,
     view_type admin.view_type_enum)
@@ -324,7 +320,6 @@ END;
 $generate_path_upsert_function$ LANGUAGE plpgsql;
 
 
-\echo admin.generate_prepare_function_for_custom
 CREATE FUNCTION admin.generate_prepare_function_for_custom(
   table_properties admin.batch_api_table_properties
 )
@@ -370,7 +365,6 @@ END;
 $generate_prepare_function_for_custom$;
 
 
-\echo admin.generate_view_triggers
 CREATE FUNCTION admin.generate_view_triggers(view_name regclass, upsert_function_name regprocedure, prepare_function_name regprocedure)
 RETURNS text[] AS $generate_triggers$
 DECLARE
@@ -500,7 +494,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-\echo admin.generate_table_views_for_batch_api
 CREATE FUNCTION admin.generate_table_views_for_batch_api(table_name regclass)
 RETURNS void AS $$
 DECLARE
@@ -545,7 +538,6 @@ END;
 $$ LANGUAGE plpgsql;
 
 
-\echo admin.drop_table_views_for_batch_api
 CREATE OR REPLACE FUNCTION admin.drop_table_views_for_batch_api(table_name regclass)
 RETURNS void AS $$
 DECLARE

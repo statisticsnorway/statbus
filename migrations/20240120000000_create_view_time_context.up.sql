@@ -1,12 +1,10 @@
 BEGIN;
 
-\echo public.time_context_type
 CREATE TYPE public.time_context_type AS ENUM (
     'relative_period',
     'tag'
 );
 
-\echo public.time_context
 CREATE VIEW public.time_context
   ( type
   , ident

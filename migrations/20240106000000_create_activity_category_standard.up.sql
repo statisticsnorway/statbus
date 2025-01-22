@@ -1,9 +1,7 @@
 BEGIN;
 
-\echo public.activity_category_code_behaviour
 CREATE TYPE public.activity_category_code_behaviour AS ENUM ('digits', 'dot_after_two_digits');
 
-\echo public.activity_category_standard
 CREATE TABLE public.activity_category_standard (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code character varying(16) UNIQUE NOT NULL,

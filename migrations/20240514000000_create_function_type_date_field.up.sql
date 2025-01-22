@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.type_date_field
 CREATE FUNCTION admin.type_date_field(
     IN new_jsonb JSONB,
     IN field_name TEXT,

@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.import_lookup_country
 CREATE FUNCTION admin.import_lookup_country(
     new_jsonb JSONB,
     country_type TEXT,

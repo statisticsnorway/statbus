@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo INSERT INTO public.external_ident_type
 -- Prepare the per-configured external identifiers.
 INSERT INTO public.external_ident_type (code, name, priority, description) VALUES
 ('tax_ident', 'Tax Identifier', 1, 'Stable and country unique identifier used for tax reporting.'),

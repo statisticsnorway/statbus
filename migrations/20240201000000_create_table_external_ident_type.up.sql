@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.external_ident_type
 CREATE TABLE public.external_ident_type (
     id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code VARCHAR(128) UNIQUE NOT NULL,

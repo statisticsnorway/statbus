@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.statistical_history_drilldown
 CREATE FUNCTION public.statistical_history_drilldown(
     unit_type public.statistical_unit_type DEFAULT 'enterprise',
     resolution public.history_resolution DEFAULT 'year',

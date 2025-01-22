@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.set_primary_establishment_for_legal_unit
 CREATE OR REPLACE FUNCTION public.set_primary_establishment_for_legal_unit(
     establishment_id integer,
     valid_from_param date DEFAULT current_date,

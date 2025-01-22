@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.get_jsonb_stats
 CREATE OR REPLACE FUNCTION public.get_jsonb_stats(
     p_establishment_id INTEGER,
     p_legal_unit_id INTEGER,

@@ -1,30 +1,19 @@
 BEGIN;
 
-\echo statistical_unit_facet_valid_from
 CREATE INDEX statistical_unit_facet_valid_from ON public.statistical_unit_facet(valid_from);
-\echo statistical_unit_facet_valid_to
 CREATE INDEX statistical_unit_facet_valid_to ON public.statistical_unit_facet(valid_to);
-\echo statistical_unit_facet_unit_type
 CREATE INDEX statistical_unit_facet_unit_type ON public.statistical_unit_facet(unit_type);
 
-\echo statistical_unit_facet_physical_region_path_btree
 CREATE INDEX statistical_unit_facet_physical_region_path_btree ON public.statistical_unit_facet USING BTREE (physical_region_path);
-\echo statistical_unit_facet_physical_region_path_gist
 CREATE INDEX statistical_unit_facet_physical_region_path_gist ON public.statistical_unit_facet USING GIST (physical_region_path);
 
-\echo statistical_unit_facet_primary_activity_category_path_btree
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_btree ON public.statistical_unit_facet USING BTREE (primary_activity_category_path);
-\echo statistical_unit_facet_primary_activity_category_path_gist
 CREATE INDEX statistical_unit_facet_primary_activity_category_path_gist ON public.statistical_unit_facet USING GIST (primary_activity_category_path);
 
-\echo statistical_unit_facet_sector_path_btree
 CREATE INDEX statistical_unit_facet_sector_path_btree ON public.statistical_unit_facet USING BTREE (sector_path);
-\echo statistical_unit_facet_sector_path_gist
 CREATE INDEX statistical_unit_facet_sector_path_gist ON public.statistical_unit_facet USING GIST (sector_path);
 
-\echo statistical_unit_facet_legal_form_id_btree
 CREATE INDEX statistical_unit_facet_legal_form_id_btree ON public.statistical_unit_facet USING BTREE (legal_form_id);
-\echo statistical_unit_facet_physical_country_id_btree
 CREATE INDEX statistical_unit_facet_physical_country_id_btree ON public.statistical_unit_facet USING BTREE (physical_country_id);
 
 END;

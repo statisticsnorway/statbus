@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.apply_rls_and_policies
 CREATE OR REPLACE FUNCTION admin.apply_rls_and_policies(table_regclass regclass)
 RETURNS void AS $$
 DECLARE

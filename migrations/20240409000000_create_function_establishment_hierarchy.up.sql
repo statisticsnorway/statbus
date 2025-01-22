@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.establishment_hierarchy
 CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
     parent_legal_unit_id INTEGER DEFAULT NULL,
     parent_enterprise_id INTEGER DEFAULT NULL,
@@ -33,7 +32,6 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
 $$;
 
 
-\echo public.legal_unit_hierarchy
 CREATE OR REPLACE FUNCTION public.legal_unit_hierarchy(parent_enterprise_id INTEGER, valid_on DATE DEFAULT current_date)
 RETURNS JSONB LANGUAGE sql STABLE AS $$
   WITH ordered_data AS (

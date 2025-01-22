@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.activity_category_available
 CREATE VIEW public.activity_category_available
 WITH (security_invoker=on) AS
 SELECT acs.code AS standard_code
@@ -20,7 +19,6 @@ WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
 ORDER BY path;
 
 
-\echo admin.activity_category_available_upsert_custom
 CREATE FUNCTION admin.activity_category_available_upsert_custom()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -112,7 +110,6 @@ FOR EACH ROW
 EXECUTE FUNCTION admin.activity_category_available_upsert_custom();
 
 
-\echo public.activity_category_available_custom
 CREATE VIEW public.activity_category_available_custom(path, name, description)
 WITH (security_invoker=on) AS
 SELECT ac.path
@@ -124,7 +121,6 @@ WHERE ac.standard_id = (SELECT activity_category_standard_id FROM public.setting
   AND ac.custom
 ORDER BY path;
 
-\echo admin.activity_category_available_custom_upsert_custom
 CREATE FUNCTION admin.activity_category_available_custom_upsert_custom()
 RETURNS TRIGGER AS $$
 DECLARE

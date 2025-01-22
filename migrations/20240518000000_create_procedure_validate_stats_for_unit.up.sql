@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.validate_stats_for_unit
 CREATE PROCEDURE admin.validate_stats_for_unit(new_jsonb JSONB)
 LANGUAGE plpgsql AS $validate_stats_for_unit$
 DECLARE

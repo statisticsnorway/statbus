@@ -1,9 +1,7 @@
 BEGIN;
 
-\echo public.tag_type
 CREATE TYPE public.tag_type AS ENUM ('custom', 'system');
 
-\echo public.tag
 CREATE TABLE public.tag (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     path public.ltree UNIQUE NOT NULL,

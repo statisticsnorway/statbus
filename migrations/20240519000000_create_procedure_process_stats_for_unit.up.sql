@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.process_stats_for_unit
 CREATE PROCEDURE admin.process_stats_for_unit(
     new_jsonb JSONB,
     unit_type TEXT,

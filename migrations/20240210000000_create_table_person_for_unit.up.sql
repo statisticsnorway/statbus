@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.person_for_unit
 CREATE TABLE public.person_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     person_id integer NOT NULL REFERENCES public.person(id) ON DELETE CASCADE,

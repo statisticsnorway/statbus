@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.enable_rls_on_public_tables
 CREATE OR REPLACE FUNCTION admin.enable_rls_on_public_tables()
 RETURNS void AS $$
 DECLARE

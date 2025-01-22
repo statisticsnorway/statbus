@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo admin.generate_import_establishment_era_without_legal_unit()
 CREATE PROCEDURE admin.generate_import_establishment_era_without_legal_unit()
 LANGUAGE plpgsql AS $generate_import_establishment_era_without_legal_unit$
 DECLARE
@@ -167,7 +166,6 @@ BEGIN
 END;
 $generate_import_establishment_era_without_legal_unit$;
 
-\echo admin.cleanup_import_establishment_era_without_legal_unit()
 CREATE PROCEDURE admin.cleanup_import_establishment_era_without_legal_unit()
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -178,7 +176,6 @@ BEGIN
 END;
 $$;
 
-\echo Add import_legal_unit_current callbacks
 CALL lifecycle_callbacks.add(
     'import_establishment_era_without_legal_unit',
     ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
@@ -186,7 +183,6 @@ CALL lifecycle_callbacks.add(
     'admin.cleanup_import_establishment_era_without_legal_unit'
     );
 
-\echo Generating admin.generate_import_establishment_era_without_legal_unit
 CALL admin.generate_import_establishment_era_without_legal_unit();
 
 END;

@@ -18,7 +18,6 @@ CREATE TYPE public.stat_frequency AS ENUM(
   'yearly'
 );
 --
-\echo public.stat_definition
 CREATE TABLE public.stat_definition(
   id serial PRIMARY KEY,
   code varchar NOT NULL UNIQUE,

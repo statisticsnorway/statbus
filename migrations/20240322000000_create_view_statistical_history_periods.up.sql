@@ -1,9 +1,7 @@
 BEGIN;
 
-\echo public.history_resolution
 CREATE TYPE public.history_resolution AS ENUM('year','year-month');
 
-\echo public.statistical_history_periods
 CREATE VIEW public.statistical_history_periods AS
 WITH year_range AS (
   SELECT

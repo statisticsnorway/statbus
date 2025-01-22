@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.unit_size
 CREATE TABLE public.unit_size (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     code text NOT NULL,

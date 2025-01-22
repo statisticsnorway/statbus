@@ -77,7 +77,6 @@ BEGIN
 END;
 $generate_import_establishment_era$;
 
-\echo admin.cleanup_import_establishment_era()
 CREATE PROCEDURE admin.cleanup_import_establishment_era()
 LANGUAGE plpgsql AS $$
 BEGIN
@@ -86,7 +85,6 @@ BEGIN
 END;
 $$;
 
-\echo Add import_establishment_era callbacks
 CALL lifecycle_callbacks.add(
     'import_establishment_era',
     ARRAY['public.external_ident_type','public.stat_definition']::regclass[],
@@ -94,7 +92,6 @@ CALL lifecycle_callbacks.add(
     'admin.cleanup_import_establishment_era'
     );
 
-\echo Generating public.generate_import_establishment_era
 CALL admin.generate_import_establishment_era();
 
 END;

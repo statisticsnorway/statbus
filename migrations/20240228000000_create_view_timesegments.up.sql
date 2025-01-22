@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.timesegments
 CREATE VIEW public.timesegments AS
   WITH timesegments_with_trailing_point AS (
       SELECT

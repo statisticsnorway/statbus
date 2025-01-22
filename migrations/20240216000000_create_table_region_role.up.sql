@@ -1,6 +1,5 @@
 BEGIN;
 
-\echo public.region_role
 CREATE TABLE public.region_role (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     role_id integer NOT NULL REFERENCES public.statbus_role(id) ON DELETE CASCADE,
