@@ -6,7 +6,7 @@ ALTER TABLE auth.users
 ADD CONSTRAINT users_email_key
 UNIQUE (email);
 
-CREATE VIEW statbus_user_with_email_and_role WITH (security_barrier = true) AS
+CREATE VIEW public.statbus_user_with_email_and_role WITH (security_barrier = true) AS
 SELECT
     au.email,
     sr.type AS role_type
@@ -32,7 +32,7 @@ $$ LANGUAGE plpgsql;
 CREATE FUNCTION auth.check_is_super_user() RETURNS boolean AS $$
 BEGIN
   RETURN (auth.uid() IS NOT NULL)
-    AND auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type);
+    AND auth.has_statbus_role(auth.uid(), 'super_user'::public.statbus_role_type);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
@@ -74,7 +74,7 @@ $$ LANGUAGE plpgsql;
 GRANT EXECUTE ON PROCEDURE test.set_user_from_email TO authenticated;
 GRANT USAGE ON SCHEMA test TO authenticated;
 
-CREATE FUNCTION trigger_update_statbus_user_with_email_and_role()
+CREATE FUNCTION admin.trigger_update_statbus_user_with_email_and_role()
 RETURNS TRIGGER AS $$
 BEGIN
     RAISE DEBUG 'Trigger executing for user: %, session user: %, current user: %',
@@ -92,14 +92,14 @@ END;
 $$ LANGUAGE plpgsql;
 
 CREATE TRIGGER update_statbus_user_with_email_and_role
-    INSTEAD OF UPDATE ON statbus_user_with_email_and_role
+    INSTEAD OF UPDATE ON public.statbus_user_with_email_and_role
     FOR EACH ROW
-    EXECUTE FUNCTION trigger_update_statbus_user_with_email_and_role();
+    EXECUTE FUNCTION admin.trigger_update_statbus_user_with_email_and_role();
 
 -- Helper function to handle the actual update
 CREATE FUNCTION public.statbus_user_update_role(
     p_email text,
-    p_role_type statbus_role_type
+    p_role_type public.statbus_role_type
 ) RETURNS void AS $$
 BEGIN
     UPDATE public.statbus_user
@@ -113,13 +113,13 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Grant appropriate permissions
-GRANT SELECT ON statbus_user_with_email_and_role TO authenticated;
-GRANT UPDATE ON statbus_user_with_email_and_role TO authenticated;
+GRANT SELECT ON public.statbus_user_with_email_and_role TO authenticated;
+GRANT UPDATE ON public.statbus_user_with_email_and_role TO authenticated;
 GRANT EXECUTE ON FUNCTION public.statbus_user_update_role TO authenticated;
 
 CREATE FUNCTION public.statbus_user_create(
     p_email text,
-    p_role_type statbus_role_type,
+    p_role_type public.statbus_role_type,
     p_password text DEFAULT NULL
 ) RETURNS TABLE (
     email text,
