@@ -430,7 +430,9 @@ SELECT jsonb_pretty(
           NULL::public.ltree,
           NULL::public.ltree,
           NULL::INTEGER,
-          NULL::INTEGER
+          NULL::INTEGER,
+          2010,
+          2024
      ))) AS statistical_history_drilldown;
 
 \echo "Test yearly drilldown - legal_unit"
@@ -444,7 +446,9 @@ SELECT jsonb_pretty(
           NULL::public.ltree,
           NULL::public.ltree,
           NULL::INTEGER,
-          NULL::INTEGER
+          NULL::INTEGER,
+          2010,
+          2024
      ))) AS statistical_history_drilldown;
 
 \echo "Test yearly drilldown - establishment"
@@ -458,7 +462,9 @@ SELECT jsonb_pretty(
           NULL::public.ltree,
           NULL::public.ltree,
           NULL::INTEGER,
-          NULL::INTEGER
+          NULL::INTEGER,
+          2010,
+          2024
      ))) AS statistical_history_drilldown;
 
 \echo "Test yearly drilldown - enterprise - with all filters as top level"
@@ -472,7 +478,9 @@ SELECT jsonb_pretty(
           'H'::public.ltree, -- activity_category_path
           'innl'::public.ltree, -- sector_path
           (SELECT id FROM public.legal_form WHERE code = 'AS'), -- legal_form_id
-          (SELECT id FROM public.country WHERE iso_2 = 'NO') -- country_id
+          (SELECT id FROM public.country WHERE iso_2 = 'NO'), -- country_id
+          2010, -- year_min
+          2024  -- year_max
      ))) AS statistical_history_drilldown;
 
 \echo "Test yearly drilldown - enterprise - with all filters as bottom level"
@@ -486,7 +494,9 @@ SELECT jsonb_pretty(
           'H.49.4.1.0'::public.ltree, -- activity_category_path
           'innl.a_ikke_fin.2100'::public.ltree, -- sector_path
           (SELECT id FROM public.legal_form WHERE code = 'AS'), -- legal_form_id
-          (SELECT id FROM public.country WHERE iso_2 = 'NO') -- country_id
+          (SELECT id FROM public.country WHERE iso_2 = 'NO'), -- country_id
+          2010, -- year_min
+          2024  -- year_max
      ))) AS statistical_history_drilldown;
 
 
@@ -501,7 +511,9 @@ SELECT jsonb_pretty(
           NULL::public.ltree,
           NULL::public.ltree,
           NULL::INTEGER,
-          NULL::INTEGER
+          NULL::INTEGER,
+          2010,
+          2024
      ))) AS statistical_history_drilldown;
 
 \echo "Test statistical_unit_hierarchy - For a date when it does not exist"

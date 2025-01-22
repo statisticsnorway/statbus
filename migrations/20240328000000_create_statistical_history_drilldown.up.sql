@@ -9,7 +9,9 @@ CREATE FUNCTION public.statistical_history_drilldown(
     activity_category_path public.ltree DEFAULT NULL,
     sector_path public.ltree DEFAULT NULL,
     legal_form_id INTEGER DEFAULT NULL,
-    country_id INTEGER DEFAULT NULL
+    country_id INTEGER DEFAULT NULL,
+    year_min INTEGER DEFAULT NULL,
+    year_max INTEGER DEFAULT NULL
 )
 RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
     -- Use a params intermediary to avoid conflicts
@@ -53,6 +55,14 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
           AND (
               param_country_id IS NULL
               OR sh.physical_country_id IS NOT NULL AND sh.physical_country_id = param_country_id
+              )
+          AND (
+              statistical_history_drilldown.year_min IS NULL
+              OR sh.year IS NOT NULL AND sh.year >= statistical_history_drilldown.year_min
+              )
+          AND (
+              statistical_history_drilldown.year_max IS NULL
+              OR sh.year IS NOT NULL AND sh.year <= statistical_history_drilldown.year_max
               )
     ), available_history_stats AS (
         SELECT year, month
