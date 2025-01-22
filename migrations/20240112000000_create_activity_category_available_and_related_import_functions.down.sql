@@ -1,0 +1,11 @@
+BEGIN;
+
+DROP TRIGGER activity_category_available_custom_upsert_custom ON public.activity_category_available_custom;
+DROP FUNCTION admin.activity_category_available_custom_upsert_custom();
+DROP VIEW public.activity_category_available_custom;
+
+DROP TRIGGER activity_category_available_upsert_custom ON public.activity_category_available;
+DROP FUNCTION admin.activity_category_available_upsert_custom();
+DROP VIEW public.activity_category_available;
+
+END;

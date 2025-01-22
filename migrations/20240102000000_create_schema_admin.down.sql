@@ -1,0 +1,6 @@
+BEGIN;
+
+DROP EXTENSION ltree;
+DROP SCHEMA admin CASCADE;
+
+END;
