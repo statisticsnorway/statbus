@@ -293,7 +293,7 @@ SELECT unit_type
 \echo "Verify the generation of ranges"
 SELECT * FROM public.statistical_history_periods
 -- Only list previous years, so the test is stable over time.
-WHERE year <= 2023;
+WHERE year <= 2024;
 
 \echo "Test yearly data"
 SELECT year
@@ -309,6 +309,7 @@ SELECT year
      , physical_country_change_count
 FROM public.statistical_history
 WHERE resolution = 'year'
+  AND year <= 2024
 ORDER BY year,unit_type;
 
 \echo "Test yearly stats"
@@ -317,6 +318,7 @@ SELECT year
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history
 WHERE resolution = 'year'
+  AND year <= 2024
 ORDER BY year,unit_type;
 
 \echo "Test monthly data for 2019"
@@ -376,6 +378,7 @@ SELECT year
      , physical_country_change_count
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
+  AND year <= 2024
 ORDER BY year,unit_type;
 
 \echo "Test yearly facet stats"
@@ -384,9 +387,10 @@ SELECT year
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
+  AND year <= 2024
 ORDER BY year,unit_type;
 
-\echo "Test monthly facet data"
+\echo "Test monthly facet data for 2019"
 SELECT year, month
      , unit_type
      , primary_activity_category_path

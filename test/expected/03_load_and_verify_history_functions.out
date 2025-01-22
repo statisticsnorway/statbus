@@ -3660,7 +3660,7 @@ stats_summary       | {                                            +
 "Verify the generation of ranges"
 SELECT * FROM public.statistical_history_periods
 -- Only list previous years, so the test is stable over time.
-WHERE year <= 2023;
+WHERE year <= 2024;
  resolution | year | month | prev_stop  | curr_start | curr_stop  
 ------------+------+-------+------------+------------+------------
  year       | 2010 |       | 2009-12-31 | 2010-01-01 | 2010-12-31
@@ -3677,6 +3677,7 @@ WHERE year <= 2023;
  year       | 2021 |       | 2020-12-31 | 2021-01-01 | 2021-12-31
  year       | 2022 |       | 2021-12-31 | 2022-01-01 | 2022-12-31
  year       | 2023 |       | 2022-12-31 | 2023-01-01 | 2023-12-31
+ year       | 2024 |       | 2023-12-31 | 2024-01-01 | 2024-12-31
  year-month | 2010 |     1 | 2009-12-31 | 2010-01-01 | 2010-01-31
  year-month | 2010 |     2 | 2010-01-31 | 2010-02-01 | 2010-02-28
  year-month | 2010 |     3 | 2010-02-28 | 2010-03-01 | 2010-03-31
@@ -3845,7 +3846,19 @@ WHERE year <= 2023;
  year-month | 2023 |    10 | 2023-09-30 | 2023-10-01 | 2023-10-31
  year-month | 2023 |    11 | 2023-10-31 | 2023-11-01 | 2023-11-30
  year-month | 2023 |    12 | 2023-11-30 | 2023-12-01 | 2023-12-31
-(182 rows)
+ year-month | 2024 |     1 | 2023-12-31 | 2024-01-01 | 2024-01-31
+ year-month | 2024 |     2 | 2024-01-31 | 2024-02-01 | 2024-02-29
+ year-month | 2024 |     3 | 2024-02-29 | 2024-03-01 | 2024-03-31
+ year-month | 2024 |     4 | 2024-03-31 | 2024-04-01 | 2024-04-30
+ year-month | 2024 |     5 | 2024-04-30 | 2024-05-01 | 2024-05-31
+ year-month | 2024 |     6 | 2024-05-31 | 2024-06-01 | 2024-06-30
+ year-month | 2024 |     7 | 2024-06-30 | 2024-07-01 | 2024-07-31
+ year-month | 2024 |     8 | 2024-07-31 | 2024-08-01 | 2024-08-31
+ year-month | 2024 |     9 | 2024-08-31 | 2024-09-01 | 2024-09-30
+ year-month | 2024 |    10 | 2024-09-30 | 2024-10-01 | 2024-10-31
+ year-month | 2024 |    11 | 2024-10-31 | 2024-11-01 | 2024-11-30
+ year-month | 2024 |    12 | 2024-11-30 | 2024-12-01 | 2024-12-31
+(195 rows)
 
 \echo "Test yearly data"
 "Test yearly data"
@@ -3862,6 +3875,7 @@ SELECT year
      , physical_country_change_count
 FROM public.statistical_history
 WHERE resolution = 'year'
+  AND year <= 2024
 ORDER BY year,unit_type;
  year |   unit_type   | count | births | deaths | primary_activity_category_change_count | secondary_activity_category_change_count | sector_change_count | legal_form_change_count | physical_region_change_count | physical_country_change_count 
 ------+---------------+-------+--------+--------+----------------------------------------+------------------------------------------+---------------------+-------------------------+------------------------------+-------------------------------
@@ -3919,6 +3933,7 @@ SELECT year
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history
 WHERE resolution = 'year'
+  AND year <= 2024
 ORDER BY year,unit_type;
  year |   unit_type   |                stats_summary                 
 ------+---------------+----------------------------------------------
@@ -7153,6 +7168,7 @@ SELECT year
      , physical_country_change_count
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
+  AND year <= 2024
 ORDER BY year,unit_type;
  year |   unit_type   | primary_activity_category_path | secondary_activity_category_path |     sector_path      | physical_region_path | count | births | deaths | primary_activity_category_change_count | secondary_activity_category_change_count | sector_change_count | legal_form_change_count | physical_region_change_count | physical_country_change_count 
 ------+---------------+--------------------------------+----------------------------------+----------------------+----------------------+-------+--------+--------+----------------------------------------+------------------------------------------+---------------------+-------------------------+------------------------------+-------------------------------
@@ -7210,6 +7226,7 @@ SELECT year
      , jsonb_pretty(stats_summary) AS stats_summary
 FROM public.statistical_history_facet
 WHERE resolution = 'year'
+  AND year <= 2024
 ORDER BY year,unit_type;
  year |   unit_type   |                stats_summary                 
 ------+---------------+----------------------------------------------
@@ -8385,8 +8402,8 @@ ORDER BY year,unit_type;
       |               | }
 (45 rows)
 
-\echo "Test monthly facet data"
-"Test monthly facet data"
+\echo "Test monthly facet data for 2019"
+"Test monthly facet data for 2019"
 SELECT year, month
      , unit_type
      , primary_activity_category_path
