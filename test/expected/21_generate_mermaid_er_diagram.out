@@ -467,7 +467,7 @@ erDiagram
 	person_for_unit["person_for_unit"] {
 		"integer" id
 		"integer" person_id
-		"integer" person_type_id
+		"integer" person_role_id
 		"integer" establishment_id
 		"integer" legal_unit_id
 	}
@@ -727,7 +727,7 @@ erDiagram
 	location }o--|| statbus_user : location_updated_by_user_id_fkey
 	person }|--o| country : person_country_id_fkey
 	person_for_unit }|--|| person : person_for_unit_person_id_fkey
-	person_for_unit }|--o| person_role : person_for_unit_person_type_id_fkey
+	person_for_unit }|--o| person_role : person_for_unit_person_role_id_fkey
 	region }o--o| region : region_parent_id_fkey
 	region_role }o--|| region : region_role_region_id_fkey
 	region_role }o--|| statbus_role : region_role_role_id_fkey
