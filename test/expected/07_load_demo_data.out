@@ -1041,6 +1041,30 @@ unit_type     | establishment
 count         | 50
 invalid_codes | 
 stats_summary | {                                             +
+              |     "turnover": {                             +
+              |         "max": 4400,                          +
+              |         "min": 0,                             +
+              |         "sum": 51036,                         +
+              |         "mean": 1020.72,                      +
+              |         "type": "number",                     +
+              |         "count": 50,                          +
+              |         "stddev": 1517.97,                    +
+              |         "variance": 2304235.88,               +
+              |         "sum_sq_diff": 112907558.08,          +
+              |         "coefficient_of_variation_pct": 148.72+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 5,                             +
+              |         "min": 0,                             +
+              |         "sum": 75,                            +
+              |         "mean": 1.50,                         +
+              |         "type": "number",                     +
+              |         "count": 50,                          +
+              |         "stddev": 1.82,                       +
+              |         "variance": 3.32,                     +
+              |         "sum_sq_diff": 162.50,                +
+              |         "coefficient_of_variation_pct": 121.41+
+              |     }                                         +
               | }
 -[ RECORD 2 ]-+-----------------------------------------------
 unit_type     | legal_unit
@@ -1162,6 +1186,30 @@ unit_type     | establishment
 count         | 25
 invalid_codes | 
 stats_summary | {                                             +
+              |     "turnover": {                             +
+              |         "max": 0,                             +
+              |         "min": 0,                             +
+              |         "sum": 0,                             +
+              |         "mean": 0.00,                         +
+              |         "type": "number",                     +
+              |         "count": 25,                          +
+              |         "stddev": 0.00,                       +
+              |         "variance": 0.00,                     +
+              |         "sum_sq_diff": 0.00,                  +
+              |         "coefficient_of_variation_pct": null  +
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 0,                             +
+              |         "min": 0,                             +
+              |         "sum": 0,                             +
+              |         "mean": 0.00,                         +
+              |         "type": "number",                     +
+              |         "count": 25,                          +
+              |         "stddev": 0.00,                       +
+              |         "variance": 0.00,                     +
+              |         "sum_sq_diff": 0.00,                  +
+              |         "coefficient_of_variation_pct": null  +
+              |     }                                         +
               | }
 -[ RECORD 2 ]-+-----------------------------------------------
 unit_type     | legal_unit
@@ -1392,6 +1440,30 @@ unit_type     | establishment
 count         | 25
 invalid_codes | 
 stats_summary | {                                            +
+              |     "turnover": {                            +
+              |         "max": 4400,                         +
+              |         "min": 100,                          +
+              |         "sum": 51036,                        +
+              |         "mean": 2041.44,                     +
+              |         "type": "number",                    +
+              |         "count": 25,                         +
+              |         "stddev": 1591.83,                   +
+              |         "variance": 2533920.51,              +
+              |         "sum_sq_diff": 60814092.16,          +
+              |         "coefficient_of_variation_pct": 77.98+
+              |     },                                       +
+              |     "employees": {                           +
+              |         "max": 5,                            +
+              |         "min": 1,                            +
+              |         "sum": 75,                           +
+              |         "mean": 3.00,                        +
+              |         "type": "number",                    +
+              |         "count": 25,                         +
+              |         "stddev": 1.44,                      +
+              |         "variance": 2.08,                    +
+              |         "sum_sq_diff": 50.00,                +
+              |         "coefficient_of_variation_pct": 48.11+
+              |     }                                        +
               | }
 -[ RECORD 2 ]-+----------------------------------------------
 unit_type     | enterprise

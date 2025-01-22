@@ -131,7 +131,8 @@ name              | GRAPHICS BY MIA
 external_idents   | {"tax_ident": "825481982"}
 data_source_codes | {brreg}
 stats             | {}
-stats_summary     | 
+stats_summary     | {                                           +
+                  | }
 -[ RECORD 2 ]-----+---------------------------------------------
 unit_type         | enterprise
 name              | GRAPHICS BY MIA
@@ -146,7 +147,20 @@ name              | KRAN & SPESIALLØFT AS
 external_idents   | {"tax_ident": "895406732"}
 data_source_codes | {brreg}
 stats             | {"employees": 19}
-stats_summary     | 
+stats_summary     | {                                           +
+                  |     "employees": {                          +
+                  |         "max": 19,                          +
+                  |         "min": 19,                          +
+                  |         "sum": 19,                          +
+                  |         "mean": 19,                         +
+                  |         "type": "number",                   +
+                  |         "count": 1,                         +
+                  |         "stddev": 0,                        +
+                  |         "variance": 0,                      +
+                  |         "sum_sq_diff": 0,                   +
+                  |         "coefficient_of_variation_pct": 0   +
+                  |     }                                       +
+                  | }
 -[ RECORD 4 ]-----+---------------------------------------------
 unit_type         | enterprise
 name              | KRAN & SPESIALLØFT AS
@@ -173,7 +187,8 @@ name              | NETT & EL TEKNIKK AS
 external_idents   | {"tax_ident": "819097232"}
 data_source_codes | {brreg}
 stats             | {}
-stats_summary     | 
+stats_summary     | {                                           +
+                  | }
 -[ RECORD 6 ]-----+---------------------------------------------
 unit_type         | enterprise
 name              | NETT & EL TEKNIKK AS
@@ -188,7 +203,20 @@ name              | NORSVIN SA TESTESTASJON DELTA
 external_idents   | {"tax_ident": "873124032"}
 data_source_codes | {brreg}
 stats             | {"employees": 16}
-stats_summary     | 
+stats_summary     | {                                           +
+                  |     "employees": {                          +
+                  |         "max": 16,                          +
+                  |         "min": 16,                          +
+                  |         "sum": 16,                          +
+                  |         "mean": 16,                         +
+                  |         "type": "number",                   +
+                  |         "count": 1,                         +
+                  |         "stddev": 0,                        +
+                  |         "variance": 0,                      +
+                  |         "sum_sq_diff": 0,                   +
+                  |         "coefficient_of_variation_pct": 0   +
+                  |     }                                       +
+                  | }
 -[ RECORD 8 ]-----+---------------------------------------------
 unit_type         | enterprise
 name              | NORSVIN SA TESTESTASJON DELTA
@@ -215,7 +243,20 @@ name              | VIKEDAL LEGEKONTOR
 external_idents   | {"tax_ident": "911856174"}
 data_source_codes | {brreg}
 stats             | {"employees": 5}
-stats_summary     | 
+stats_summary     | {                                           +
+                  |     "employees": {                          +
+                  |         "max": 5,                           +
+                  |         "min": 5,                           +
+                  |         "sum": 5,                           +
+                  |         "mean": 5,                          +
+                  |         "type": "number",                   +
+                  |         "count": 1,                         +
+                  |         "stddev": 0,                        +
+                  |         "variance": 0,                      +
+                  |         "sum_sq_diff": 0,                   +
+                  |         "coefficient_of_variation_pct": 0   +
+                  |     }                                       +
+                  | }
 -[ RECORD 10 ]----+---------------------------------------------
 unit_type         | enterprise
 name              | VIKEDAL LEGEKONTOR
@@ -250,6 +291,18 @@ unit_type           | establishment
 distinct_unit_count | 5
 invalid_codes       | 
 stats_summary       | {                                            +
+                    |     "employees": {                           +
+                    |         "max": 19,                           +
+                    |         "min": 5,                            +
+                    |         "sum": 40,                           +
+                    |         "mean": 13.33,                       +
+                    |         "type": "number",                    +
+                    |         "count": 3,                          +
+                    |         "stddev": 7.37,                      +
+                    |         "variance": 54.33,                   +
+                    |         "sum_sq_diff": 108.67,               +
+                    |         "coefficient_of_variation_pct": 55.28+
+                    |     }                                        +
                     | }
 -[ RECORD 2 ]-------+----------------------------------------------
 unit_type           | enterprise

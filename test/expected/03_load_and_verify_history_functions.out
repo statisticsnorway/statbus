@@ -1353,7 +1353,32 @@ stats                 | {                                                  +
                       |     "turnover": 1500000,                           +
                       |     "employees": 1                                 +
                       | }
-stats_summary         | 
+stats_summary         | {                                                  +
+                      |     "turnover": {                                  +
+                      |         "max": 1500000,                            +
+                      |         "min": 1500000,                            +
+                      |         "sum": 1500000,                            +
+                      |         "mean": 1500000,                           +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     },                                             +
+                      |     "employees": {                                 +
+                      |         "max": 1,                                  +
+                      |         "min": 1,                                  +
+                      |         "sum": 1,                                  +
+                      |         "mean": 1,                                 +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     }                                              +
+                      | }
 -[ RECORD 2 ]---------+----------------------------------------------------
 valid_after           | 2009-12-31
 valid_from            | 2010-01-01
@@ -1553,7 +1578,32 @@ stats                 | {                                                  +
                       |     "turnover": 3000000,                           +
                       |     "employees": 3                                 +
                       | }
-stats_summary         | 
+stats_summary         | {                                                  +
+                      |     "turnover": {                                  +
+                      |         "max": 3000000,                            +
+                      |         "min": 3000000,                            +
+                      |         "sum": 3000000,                            +
+                      |         "mean": 3000000,                           +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     },                                             +
+                      |     "employees": {                                 +
+                      |         "max": 3,                                  +
+                      |         "min": 3,                                  +
+                      |         "sum": 3,                                  +
+                      |         "mean": 3,                                 +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     }                                              +
+                      | }
 -[ RECORD 5 ]---------+----------------------------------------------------
 valid_after           | 2012-12-31
 valid_from            | 2013-01-01
@@ -1753,7 +1803,32 @@ stats                 | {                                                  +
                       |     "turnover": 12000000,                          +
                       |     "employees": 9                                 +
                       | }
-stats_summary         | 
+stats_summary         | {                                                  +
+                      |     "turnover": {                                  +
+                      |         "max": 12000000,                           +
+                      |         "min": 12000000,                           +
+                      |         "sum": 12000000,                           +
+                      |         "mean": 12000000,                          +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     },                                             +
+                      |     "employees": {                                 +
+                      |         "max": 9,                                  +
+                      |         "min": 9,                                  +
+                      |         "sum": 9,                                  +
+                      |         "mean": 9,                                 +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     }                                              +
+                      | }
 -[ RECORD 8 ]---------+----------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
@@ -1953,7 +2028,32 @@ stats                 | {                                                  +
                       |     "turnover": 60000000,                          +
                       |     "employees": 25                                +
                       | }
-stats_summary         | 
+stats_summary         | {                                                  +
+                      |     "turnover": {                                  +
+                      |         "max": 60000000,                           +
+                      |         "min": 60000000,                           +
+                      |         "sum": 60000000,                           +
+                      |         "mean": 60000000,                          +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     },                                             +
+                      |     "employees": {                                 +
+                      |         "max": 25,                                 +
+                      |         "min": 25,                                 +
+                      |         "sum": 25,                                 +
+                      |         "mean": 25,                                +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     }                                              +
+                      | }
 -[ RECORD 11 ]--------+----------------------------------------------------
 valid_after           | 2018-12-31
 valid_from            | 2019-01-01
@@ -2153,7 +2253,32 @@ stats                 | {                                                  +
                       |     "turnover": 60000000,                          +
                       |     "employees": 30                                +
                       | }
-stats_summary         | 
+stats_summary         | {                                                  +
+                      |     "turnover": {                                  +
+                      |         "max": 60000000,                           +
+                      |         "min": 60000000,                           +
+                      |         "sum": 60000000,                           +
+                      |         "mean": 60000000,                          +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     },                                             +
+                      |     "employees": {                                 +
+                      |         "max": 30,                                 +
+                      |         "min": 30,                                 +
+                      |         "sum": 30,                                 +
+                      |         "mean": 30,                                +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     }                                              +
+                      | }
 -[ RECORD 14 ]--------+----------------------------------------------------
 valid_after           | 2019-02-28
 valid_from            | 2019-03-01
@@ -2353,7 +2478,32 @@ stats                 | {                                                  +
                       |     "turnover": 60000000,                          +
                       |     "employees": 35                                +
                       | }
-stats_summary         | 
+stats_summary         | {                                                  +
+                      |     "turnover": {                                  +
+                      |         "max": 60000000,                           +
+                      |         "min": 60000000,                           +
+                      |         "sum": 60000000,                           +
+                      |         "mean": 60000000,                          +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     },                                             +
+                      |     "employees": {                                 +
+                      |         "max": 35,                                 +
+                      |         "min": 35,                                 +
+                      |         "sum": 35,                                 +
+                      |         "mean": 35,                                +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     }                                              +
+                      | }
 -[ RECORD 17 ]--------+----------------------------------------------------
 valid_after           | 2019-04-30
 valid_from            | 2019-05-01
@@ -2553,7 +2703,32 @@ stats                 | {                                                  +
                       |     "turnover": 60000000,                          +
                       |     "employees": 40                                +
                       | }
-stats_summary         | 
+stats_summary         | {                                                  +
+                      |     "turnover": {                                  +
+                      |         "max": 60000000,                           +
+                      |         "min": 60000000,                           +
+                      |         "sum": 60000000,                           +
+                      |         "mean": 60000000,                          +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     },                                             +
+                      |     "employees": {                                 +
+                      |         "max": 40,                                 +
+                      |         "min": 40,                                 +
+                      |         "sum": 40,                                 +
+                      |         "mean": 40,                                +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     }                                              +
+                      | }
 -[ RECORD 20 ]--------+----------------------------------------------------
 valid_after           | 2019-06-30
 valid_from            | 2019-07-01
@@ -2753,7 +2928,32 @@ stats                 | {                                                  +
                       |     "turnover": 60000000,                          +
                       |     "employees": 50                                +
                       | }
-stats_summary         | 
+stats_summary         | {                                                  +
+                      |     "turnover": {                                  +
+                      |         "max": 60000000,                           +
+                      |         "min": 60000000,                           +
+                      |         "sum": 60000000,                           +
+                      |         "mean": 60000000,                          +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     },                                             +
+                      |     "employees": {                                 +
+                      |         "max": 50,                                 +
+                      |         "min": 50,                                 +
+                      |         "sum": 50,                                 +
+                      |         "mean": 50,                                +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     }                                              +
+                      | }
 -[ RECORD 23 ]--------+----------------------------------------------------
 valid_after           | 2019-08-31
 valid_from            | 2019-09-01
@@ -2953,7 +3153,32 @@ stats                 | {                                                  +
                       |     "turnover": 60000000,                          +
                       |     "employees": 40                                +
                       | }
-stats_summary         | 
+stats_summary         | {                                                  +
+                      |     "turnover": {                                  +
+                      |         "max": 60000000,                           +
+                      |         "min": 60000000,                           +
+                      |         "sum": 60000000,                           +
+                      |         "mean": 60000000,                          +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     },                                             +
+                      |     "employees": {                                 +
+                      |         "max": 40,                                 +
+                      |         "min": 40,                                 +
+                      |         "sum": 40,                                 +
+                      |         "mean": 40,                                +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     }                                              +
+                      | }
 -[ RECORD 26 ]--------+----------------------------------------------------
 valid_after           | 2019-10-31
 valid_from            | 2019-11-01
@@ -3153,7 +3378,32 @@ stats                 | {                                                  +
                       |     "turnover": 70000000,                          +
                       |     "employees": 45                                +
                       | }
-stats_summary         | 
+stats_summary         | {                                                  +
+                      |     "turnover": {                                  +
+                      |         "max": 70000000,                           +
+                      |         "min": 70000000,                           +
+                      |         "sum": 70000000,                           +
+                      |         "mean": 70000000,                          +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     },                                             +
+                      |     "employees": {                                 +
+                      |         "max": 45,                                 +
+                      |         "min": 45,                                 +
+                      |         "sum": 45,                                 +
+                      |         "mean": 45,                                +
+                      |         "type": "number",                          +
+                      |         "count": 1,                                +
+                      |         "stddev": 0,                               +
+                      |         "variance": 0,                             +
+                      |         "sum_sq_diff": 0,                          +
+                      |         "coefficient_of_variation_pct": 0          +
+                      |     }                                              +
+                      | }
 -[ RECORD 29 ]--------+----------------------------------------------------
 valid_after           | 2019-12-31
 valid_from            | 2020-01-01
@@ -3317,6 +3567,30 @@ unit_type           | establishment
 distinct_unit_count | 1
 invalid_codes       | 
 stats_summary       | {                                            +
+                    |     "turnover": {                            +
+                    |         "max": 70000000,                     +
+                    |         "min": 1500000,                      +
+                    |         "sum": 446500000,                    +
+                    |         "mean": 44650000.00,                 +
+                    |         "type": "number",                    +
+                    |         "count": 10,                         +
+                    |         "stddev": 27323219.67,               +
+                    |         "variance": 746558333333333.33,      +
+                    |         "sum_sq_diff": 6719025000000000.00,  +
+                    |         "coefficient_of_variation_pct": 61.19+
+                    |     },                                       +
+                    |     "employees": {                           +
+                    |         "max": 50,                           +
+                    |         "min": 1,                            +
+                    |         "sum": 278,                          +
+                    |         "mean": 27.80,                       +
+                    |         "type": "number",                    +
+                    |         "count": 10,                         +
+                    |         "stddev": 17.76,                     +
+                    |         "variance": 315.29,                  +
+                    |         "sum_sq_diff": 2837.60,              +
+                    |         "coefficient_of_variation_pct": 63.87+
+                    |     }                                        +
                     | }
 -[ RECORD 2 ]-------+----------------------------------------------
 unit_type           | legal_unit
@@ -3636,10 +3910,7 @@ ORDER BY year,unit_type;
  2024 | establishment |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2024 | legal_unit    |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2024 | enterprise    |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
- 2025 | establishment |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
- 2025 | legal_unit    |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
- 2025 | enterprise    |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
-(48 rows)
+(45 rows)
 
 \echo "Test yearly stats"
 "Test yearly stats"
@@ -4821,85 +5092,7 @@ ORDER BY year,unit_type;
       |               |         "coefficient_of_variation_pct": 0.00+
       |               |     }                                       +
       |               | }
- 2025 | establishment | {                                           +
-      |               |     "turnover": {                           +
-      |               |         "max": 70000000,                    +
-      |               |         "min": 70000000,                    +
-      |               |         "sum": 70000000,                    +
-      |               |         "mean": 70000000.00,                +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     },                                      +
-      |               |     "employees": {                          +
-      |               |         "max": 45,                          +
-      |               |         "min": 45,                          +
-      |               |         "sum": 45,                          +
-      |               |         "mean": 45.00,                      +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     }                                       +
-      |               | }
- 2025 | legal_unit    | {                                           +
-      |               |     "turnover": {                           +
-      |               |         "max": 70000000,                    +
-      |               |         "min": 70000000,                    +
-      |               |         "sum": 70000000,                    +
-      |               |         "mean": 70000000.00,                +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     },                                      +
-      |               |     "employees": {                          +
-      |               |         "max": 45,                          +
-      |               |         "min": 45,                          +
-      |               |         "sum": 45,                          +
-      |               |         "mean": 45.00,                      +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     }                                       +
-      |               | }
- 2025 | enterprise    | {                                           +
-      |               |     "turnover": {                           +
-      |               |         "max": 70000000,                    +
-      |               |         "min": 70000000,                    +
-      |               |         "sum": 70000000,                    +
-      |               |         "mean": 70000000.00,                +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     },                                      +
-      |               |     "employees": {                          +
-      |               |         "max": 45,                          +
-      |               |         "min": 45,                          +
-      |               |         "sum": 45,                          +
-      |               |         "mean": 45.00,                      +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     }                                       +
-      |               | }
-(48 rows)
+(45 rows)
 
 \echo "Test monthly data for 2019"
 "Test monthly data for 2019"
@@ -5928,6 +6121,30 @@ primary_activity_category_path | H.49.4.1.0
 sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 1500000,                     +
+                               |         "min": 1500000,                     +
+                               |         "sum": 1500000,                     +
+                               |         "mean": 1500000.00,                 +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 1,                           +
+                               |         "min": 1,                           +
+                               |         "sum": 1,                           +
+                               |         "mean": 1.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
                                | }
 -[ RECORD 2 ]------------------+---------------------------------------------
 valid_from                     | 2010-01-01
@@ -6006,6 +6223,30 @@ primary_activity_category_path | H.49.4.1.0
 sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 3000000,                     +
+                               |         "min": 3000000,                     +
+                               |         "sum": 3000000,                     +
+                               |         "mean": 3000000.00,                 +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 3,                           +
+                               |         "min": 3,                           +
+                               |         "sum": 3,                           +
+                               |         "mean": 3.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
                                | }
 -[ RECORD 5 ]------------------+---------------------------------------------
 valid_from                     | 2013-01-01
@@ -6084,6 +6325,30 @@ primary_activity_category_path | H.49.4.1.0
 sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 12000000,                    +
+                               |         "min": 12000000,                    +
+                               |         "sum": 12000000,                    +
+                               |         "mean": 12000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 9,                           +
+                               |         "min": 9,                           +
+                               |         "sum": 9,                           +
+                               |         "mean": 9.00,                       +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
                                | }
 -[ RECORD 8 ]------------------+---------------------------------------------
 valid_from                     | 2016-01-01
@@ -6162,6 +6427,30 @@ primary_activity_category_path | H.49.4.1.0
 sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 25,                          +
+                               |         "min": 25,                          +
+                               |         "sum": 25,                          +
+                               |         "mean": 25.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
                                | }
 -[ RECORD 11 ]-----------------+---------------------------------------------
 valid_from                     | 2019-01-01
@@ -6240,6 +6529,30 @@ primary_activity_category_path | H.49.4.1.0
 sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 30,                          +
+                               |         "min": 30,                          +
+                               |         "sum": 30,                          +
+                               |         "mean": 30.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
                                | }
 -[ RECORD 14 ]-----------------+---------------------------------------------
 valid_from                     | 2019-03-01
@@ -6318,6 +6631,30 @@ primary_activity_category_path | H.49.4.1.0
 sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 35,                          +
+                               |         "min": 35,                          +
+                               |         "sum": 35,                          +
+                               |         "mean": 35.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
                                | }
 -[ RECORD 17 ]-----------------+---------------------------------------------
 valid_from                     | 2019-05-01
@@ -6396,6 +6733,30 @@ primary_activity_category_path | H.49.4.1.0
 sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 40,                          +
+                               |         "min": 40,                          +
+                               |         "sum": 40,                          +
+                               |         "mean": 40.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
                                | }
 -[ RECORD 20 ]-----------------+---------------------------------------------
 valid_from                     | 2019-07-01
@@ -6474,6 +6835,30 @@ primary_activity_category_path | H.49.4.1.0
 sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 50,                          +
+                               |         "min": 50,                          +
+                               |         "sum": 50,                          +
+                               |         "mean": 50.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
                                | }
 -[ RECORD 23 ]-----------------+---------------------------------------------
 valid_from                     | 2019-09-01
@@ -6552,6 +6937,30 @@ primary_activity_category_path | H.49.4.1.0
 sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 60000000,                    +
+                               |         "min": 60000000,                    +
+                               |         "sum": 60000000,                    +
+                               |         "mean": 60000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 40,                          +
+                               |         "min": 40,                          +
+                               |         "sum": 40,                          +
+                               |         "mean": 40.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
                                | }
 -[ RECORD 26 ]-----------------+---------------------------------------------
 valid_from                     | 2019-11-01
@@ -6630,6 +7039,30 @@ primary_activity_category_path | H.49.4.1.0
 sector_path                    | 
 count                          | 1
 stats_summary                  | {                                           +
+                               |     "turnover": {                           +
+                               |         "max": 70000000,                    +
+                               |         "min": 70000000,                    +
+                               |         "sum": 70000000,                    +
+                               |         "mean": 70000000.00,                +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     },                                      +
+                               |     "employees": {                          +
+                               |         "max": 45,                          +
+                               |         "min": 45,                          +
+                               |         "sum": 45,                          +
+                               |         "mean": 45.00,                      +
+                               |         "type": "number",                   +
+                               |         "count": 1,                         +
+                               |         "stddev": 0.00,                     +
+                               |         "variance": 0.00,                   +
+                               |         "sum_sq_diff": 0.00,                +
+                               |         "coefficient_of_variation_pct": 0.00+
+                               |     }                                       +
                                | }
 -[ RECORD 29 ]-----------------+---------------------------------------------
 valid_from                     | 2020-01-01
@@ -6768,10 +7201,7 @@ ORDER BY year,unit_type;
  2024 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2024 | legal_unit    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
  2024 | enterprise    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
- 2025 | establishment | H.49.4.1.0                     |                                  |                      | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
- 2025 | legal_unit    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
- 2025 | enterprise    | H.49.4.1.0                     |                                  | innl.a_ikke_fin.2100 | 11.21                |     1 |      0 |      0 |                                      0 |                                        0 |                   0 |                       0 |                            0 |                             0
-(48 rows)
+(45 rows)
 
 \echo "Test yearly facet stats"
 "Test yearly facet stats"
@@ -7953,85 +8383,7 @@ ORDER BY year,unit_type;
       |               |         "coefficient_of_variation_pct": 0.00+
       |               |     }                                       +
       |               | }
- 2025 | establishment | {                                           +
-      |               |     "turnover": {                           +
-      |               |         "max": 70000000,                    +
-      |               |         "min": 70000000,                    +
-      |               |         "sum": 70000000,                    +
-      |               |         "mean": 70000000.00,                +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     },                                      +
-      |               |     "employees": {                          +
-      |               |         "max": 45,                          +
-      |               |         "min": 45,                          +
-      |               |         "sum": 45,                          +
-      |               |         "mean": 45.00,                      +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     }                                       +
-      |               | }
- 2025 | legal_unit    | {                                           +
-      |               |     "turnover": {                           +
-      |               |         "max": 70000000,                    +
-      |               |         "min": 70000000,                    +
-      |               |         "sum": 70000000,                    +
-      |               |         "mean": 70000000.00,                +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     },                                      +
-      |               |     "employees": {                          +
-      |               |         "max": 45,                          +
-      |               |         "min": 45,                          +
-      |               |         "sum": 45,                          +
-      |               |         "mean": 45.00,                      +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     }                                       +
-      |               | }
- 2025 | enterprise    | {                                           +
-      |               |     "turnover": {                           +
-      |               |         "max": 70000000,                    +
-      |               |         "min": 70000000,                    +
-      |               |         "sum": 70000000,                    +
-      |               |         "mean": 70000000.00,                +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     },                                      +
-      |               |     "employees": {                          +
-      |               |         "max": 45,                          +
-      |               |         "min": 45,                          +
-      |               |         "sum": 45,                          +
-      |               |         "mean": 45.00,                      +
-      |               |         "type": "number",                   +
-      |               |         "count": 1,                         +
-      |               |         "stddev": 0.00,                     +
-      |               |         "variance": 0.00,                   +
-      |               |         "sum_sq_diff": 0.00,                +
-      |               |         "coefficient_of_variation_pct": 0.00+
-      |               |     }                                       +
-      |               | }
-(48 rows)
+(45 rows)
 
 \echo "Test monthly facet data"
 "Test monthly facet data"
@@ -9628,44 +9980,6 @@ statistical_history_drilldown
             "physical_region_change_count": 0,
             "physical_country_change_count": 0,
             "primary_activity_category_change_count": 0
-        },
-        {
-            "year": 2025,
-            "count": 1,
-            "month": null,
-            "births": 0,
-            "deaths": 0,
-            "stats_summary": {
-                "turnover": {
-                    "max": 70000000,
-                    "min": 70000000,
-                    "sum": 70000000,
-                    "mean": 70000000.00,
-                    "type": "number",
-                    "count": 1,
-                    "stddev": 0.00,
-                    "variance": 0.00,
-                    "sum_sq_diff": 0.00,
-                    "coefficient_of_variation_pct": 0.00
-                },
-                "employees": {
-                    "max": 45,
-                    "min": 45,
-                    "sum": 45,
-                    "mean": 45.00,
-                    "type": "number",
-                    "count": 1,
-                    "stddev": 0.00,
-                    "variance": 0.00,
-                    "sum_sq_diff": 0.00,
-                    "coefficient_of_variation_pct": 0.00
-                }
-            },
-            "sector_change_count": 0,
-            "legal_form_change_count": 0,
-            "physical_region_change_count": 0,
-            "physical_country_change_count": 0,
-            "primary_activity_category_change_count": 0
         }
     ],
     "filter": {
@@ -9682,7 +9996,7 @@ statistical_history_drilldown
                 "code": "11",
                 "name": "Rogaland",
                 "path": "11",
-                "count": 15,
+                "count": 14,
                 "label": "11",
                 "has_children": true
             }
@@ -9692,7 +10006,7 @@ statistical_history_drilldown
                 "code": null,
                 "name": "Innenlandske sektorer",
                 "path": "innl",
-                "count": 15,
+                "count": 14,
                 "label": "innl",
                 "has_children": true
             }
@@ -9700,7 +10014,7 @@ statistical_history_drilldown
         "country": [
             {
                 "name": "Norway",
-                "count": 15,
+                "count": 14,
                 "iso_2": "NO",
                 "has_children": false
             }
@@ -9709,7 +10023,7 @@ statistical_history_drilldown
             {
                 "code": "AS",
                 "name": "Aksjeselskap",
-                "count": 13,
+                "count": 12,
                 "has_children": false
             },
             {
@@ -9724,7 +10038,7 @@ statistical_history_drilldown
                 "code": "",
                 "name": "Transport og lagring",
                 "path": "H",
-                "count": 15,
+                "count": 14,
                 "label": "H",
                 "has_children": true
             }
@@ -10326,44 +10640,6 @@ statistical_history_drilldown
             "physical_region_change_count": 0,
             "physical_country_change_count": 0,
             "primary_activity_category_change_count": 0
-        },
-        {
-            "year": 2025,
-            "count": 1,
-            "month": null,
-            "births": 0,
-            "deaths": 0,
-            "stats_summary": {
-                "turnover": {
-                    "max": 70000000,
-                    "min": 70000000,
-                    "sum": 70000000,
-                    "mean": 70000000.00,
-                    "type": "number",
-                    "count": 1,
-                    "stddev": 0.00,
-                    "variance": 0.00,
-                    "sum_sq_diff": 0.00,
-                    "coefficient_of_variation_pct": 0.00
-                },
-                "employees": {
-                    "max": 45,
-                    "min": 45,
-                    "sum": 45,
-                    "mean": 45.00,
-                    "type": "number",
-                    "count": 1,
-                    "stddev": 0.00,
-                    "variance": 0.00,
-                    "sum_sq_diff": 0.00,
-                    "coefficient_of_variation_pct": 0.00
-                }
-            },
-            "sector_change_count": 0,
-            "legal_form_change_count": 0,
-            "physical_region_change_count": 0,
-            "physical_country_change_count": 0,
-            "primary_activity_category_change_count": 0
         }
     ],
     "filter": {
@@ -10380,7 +10656,7 @@ statistical_history_drilldown
                 "code": "11",
                 "name": "Rogaland",
                 "path": "11",
-                "count": 15,
+                "count": 14,
                 "label": "11",
                 "has_children": true
             }
@@ -10390,7 +10666,7 @@ statistical_history_drilldown
                 "code": null,
                 "name": "Innenlandske sektorer",
                 "path": "innl",
-                "count": 15,
+                "count": 14,
                 "label": "innl",
                 "has_children": true
             }
@@ -10398,7 +10674,7 @@ statistical_history_drilldown
         "country": [
             {
                 "name": "Norway",
-                "count": 15,
+                "count": 14,
                 "iso_2": "NO",
                 "has_children": false
             }
@@ -10407,7 +10683,7 @@ statistical_history_drilldown
             {
                 "code": "AS",
                 "name": "Aksjeselskap",
-                "count": 13,
+                "count": 12,
                 "has_children": false
             },
             {
@@ -10422,7 +10698,7 @@ statistical_history_drilldown
                 "code": "",
                 "name": "Transport og lagring",
                 "path": "H",
-                "count": 15,
+                "count": 14,
                 "label": "H",
                 "has_children": true
             }
@@ -11024,44 +11300,6 @@ statistical_history_drilldown
             "physical_region_change_count": 0,
             "physical_country_change_count": 0,
             "primary_activity_category_change_count": 0
-        },
-        {
-            "year": 2025,
-            "count": 1,
-            "month": null,
-            "births": 0,
-            "deaths": 0,
-            "stats_summary": {
-                "turnover": {
-                    "max": 70000000,
-                    "min": 70000000,
-                    "sum": 70000000,
-                    "mean": 70000000.00,
-                    "type": "number",
-                    "count": 1,
-                    "stddev": 0.00,
-                    "variance": 0.00,
-                    "sum_sq_diff": 0.00,
-                    "coefficient_of_variation_pct": 0.00
-                },
-                "employees": {
-                    "max": 45,
-                    "min": 45,
-                    "sum": 45,
-                    "mean": 45.00,
-                    "type": "number",
-                    "count": 1,
-                    "stddev": 0.00,
-                    "variance": 0.00,
-                    "sum_sq_diff": 0.00,
-                    "coefficient_of_variation_pct": 0.00
-                }
-            },
-            "sector_change_count": 0,
-            "legal_form_change_count": 0,
-            "physical_region_change_count": 0,
-            "physical_country_change_count": 0,
-            "primary_activity_category_change_count": 0
         }
     ],
     "filter": {
@@ -11078,7 +11316,7 @@ statistical_history_drilldown
                 "code": "11",
                 "name": "Rogaland",
                 "path": "11",
-                "count": 16,
+                "count": 15,
                 "label": "11",
                 "has_children": true
             }
@@ -11087,7 +11325,7 @@ statistical_history_drilldown
         "country": [
             {
                 "name": "Norway",
-                "count": 16,
+                "count": 15,
                 "iso_2": "NO",
                 "has_children": false
             }
@@ -11098,7 +11336,7 @@ statistical_history_drilldown
                 "code": "",
                 "name": "Transport og lagring",
                 "path": "H",
-                "count": 16,
+                "count": 15,
                 "label": "H",
                 "has_children": true
             }
@@ -12957,6 +13195,31 @@ stats           | {                                           +
                 |     "turnover": 70000000,                   +
                 |     "employees": 45                         +
                 | }
-stats_summary   | 
+stats_summary   | {                                           +
+                |     "turnover": {                           +
+                |         "max": 70000000,                    +
+                |         "min": 70000000,                    +
+                |         "sum": 70000000,                    +
+                |         "mean": 70000000,                   +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     },                                      +
+                |     "employees": {                          +
+                |         "max": 45,                          +
+                |         "min": 45,                          +
+                |         "sum": 45,                          +
+                |         "mean": 45,                         +
+                |         "type": "number",                   +
+                |         "count": 1,                         +
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
+                |     }                                       +
+                | }
 
 ROLLBACK;

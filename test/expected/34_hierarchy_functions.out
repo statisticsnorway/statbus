@@ -1351,14 +1351,64 @@ jsonb_pretty | {                                                               +
              |     "turnover": 5000000,                                        +
              |     "employees": 5                                              +
              | }
-jsonb_pretty | 
+jsonb_pretty | {                                                               +
+             |     "turnover": {                                               +
+             |         "max": 5000000,                                         +
+             |         "min": 5000000,                                         +
+             |         "sum": 5000000,                                         +
+             |         "mean": 5000000,                                        +
+             |         "type": "number",                                       +
+             |         "count": 1,                                             +
+             |         "stddev": 0,                                            +
+             |         "variance": 0,                                          +
+             |         "sum_sq_diff": 0,                                       +
+             |         "coefficient_of_variation_pct": 0                       +
+             |     },                                                          +
+             |     "employees": {                                              +
+             |         "max": 5,                                               +
+             |         "min": 5,                                               +
+             |         "sum": 5,                                               +
+             |         "mean": 5,                                              +
+             |         "type": "number",                                       +
+             |         "count": 1,                                             +
+             |         "stddev": 0,                                            +
+             |         "variance": 0,                                          +
+             |         "sum_sq_diff": 0,                                       +
+             |         "coefficient_of_variation_pct": 0                       +
+             |     }                                                           +
+             | }
 -[ RECORD 4 ]+-----------------------------------------------------------------
 unit_type    | establishment
 jsonb_pretty | {                                                               +
              |     "turnover": 10000000,                                       +
              |     "employees": 10                                             +
              | }
-jsonb_pretty | 
+jsonb_pretty | {                                                               +
+             |     "turnover": {                                               +
+             |         "max": 10000000,                                        +
+             |         "min": 10000000,                                        +
+             |         "sum": 10000000,                                        +
+             |         "mean": 10000000,                                       +
+             |         "type": "number",                                       +
+             |         "count": 1,                                             +
+             |         "stddev": 0,                                            +
+             |         "variance": 0,                                          +
+             |         "sum_sq_diff": 0,                                       +
+             |         "coefficient_of_variation_pct": 0                       +
+             |     },                                                          +
+             |     "employees": {                                              +
+             |         "max": 10,                                              +
+             |         "min": 10,                                              +
+             |         "sum": 10,                                              +
+             |         "mean": 10,                                             +
+             |         "type": "number",                                       +
+             |         "count": 1,                                             +
+             |         "stddev": 0,                                            +
+             |         "variance": 0,                                          +
+             |         "sum_sq_diff": 0,                                       +
+             |         "coefficient_of_variation_pct": 0                       +
+             |     }                                                           +
+             | }
 
 \echo "Test statistical_unit_stats - for THE MARINE SERVICES"
 "Test statistical_unit_stats - for THE MARINE SERVICES"
@@ -1409,7 +1459,32 @@ jsonb_pretty | {                                           +
              |     "turnover": 4400000,                    +
              |     "employees": 75                         +
              | }
-jsonb_pretty | 
+jsonb_pretty | {                                           +
+             |     "turnover": {                           +
+             |         "max": 4400000,                     +
+             |         "min": 4400000,                     +
+             |         "sum": 4400000,                     +
+             |         "mean": 4400000,                    +
+             |         "type": "number",                   +
+             |         "count": 1,                         +
+             |         "stddev": 0,                        +
+             |         "variance": 0,                      +
+             |         "sum_sq_diff": 0,                   +
+             |         "coefficient_of_variation_pct": 0   +
+             |     },                                      +
+             |     "employees": {                          +
+             |         "max": 75,                          +
+             |         "min": 75,                          +
+             |         "sum": 75,                          +
+             |         "mean": 75,                         +
+             |         "type": "number",                   +
+             |         "count": 1,                         +
+             |         "stddev": 0,                        +
+             |         "variance": 0,                      +
+             |         "sum_sq_diff": 0,                   +
+             |         "coefficient_of_variation_pct": 0   +
+             |     }                                       +
+             | }
 
 \x
 ROLLBACK;
