@@ -53,12 +53,12 @@ class StatBus
   end
 
   private struct MigrationFile
-    property version : String
+    property version : Int64
     property path : Path
     property description : String
     property is_up : Bool
 
-    def initialize(@version : String, @path : Path, @description : String, @is_up : Bool)
+    def initialize(@version : Int64, @path : Path, @description : String, @is_up : Bool)
     end
 
     def self.parse(path : Path)
@@ -66,10 +66,10 @@ class StatBus
 
       # Parse migration files: YYYYMMDDHHMMSS_description.(up|down).sql
       if match = filename.match(/^(\d{14})_([^0-9].+)\.(up|down)\.sql$/)
-        version = match[1]
+        version = match[1].to_i64
         # Validate timestamp format
         begin
-          Time.parse(version, "%Y%m%d%H%M%S", Time::Location::UTC)
+          Time.parse(version.to_s, "%Y%m%d%H%M%S", Time::Location::UTC)
         rescue
           raise "Invalid timestamp format in migration filename: #{path}"
         end
@@ -145,6 +145,7 @@ class StatBus
   @manage_mode : ManageMode | Nil = nil
   @name = "statbus"
   @verbose = false
+  @debug = false
   @delayed_constraint_checking = true
   @refresh_materialized_views = true
   @import_file_name : String | Nil = nil
@@ -190,6 +191,7 @@ class StatBus
   @offset = 0
   @migrate_mode : MigrateMode | Nil = nil
   @migrate_all = true
+  @migrate_to : Int64? = nil
   @convert_start_date = Time.utc(2024, 1, 1)
   @convert_spacing = 1.day
   @migration_major_description : String | Nil = nil
@@ -607,6 +609,7 @@ class StatBus
     OptionParser.new do |parser|
       parser.banner = "Usage: #{@name} [subcommand] [arguments]"
       parser.on("-v", "--verbose", "Enable verbose output") { @verbose = true }
+      parser.on("-d", "--debug", "Enable debug output") { @debug = true }
       parser.on("install", "Install StatBus") do
         @mode = Mode::Install
         parser.banner = "Usage: #{@name} install [arguments]"
@@ -699,9 +702,12 @@ class StatBus
       parser.on("migrate", "Run database migrations") do
         @mode = Mode::Migrate
         parser.banner = "Usage: #{@name} migrate [arguments]"
-        parser.on("up", "Run all pending migrations") do
+        parser.on("up", "Run pending migrations") do
           @migrate_mode = MigrateMode::Up
           @migrate_all = true
+          parser.on("--to VERSION", "Migrate up to specific version") do |version|
+            @migrate_to = version.to_i64
+          end
           parser.on("one", "Run one up migration") do
             @migrate_all = false
           end
@@ -712,9 +718,12 @@ class StatBus
             @migration_minor_description = desc
           end
         end
-        parser.on("down", "Roll back the last applied migration") do
+        parser.on("down", "Roll back migrations") do
           @migrate_mode = MigrateMode::Down
           @migrate_all = false
+          parser.on("--to VERSION", "Roll back to specific version") do |version|
+            @migrate_to = version.to_i64
+          end
           parser.on("all", "Run all down migrations") do
             @migrate_all = true
           end
@@ -760,7 +769,7 @@ class StatBus
 
       CREATE TABLE db.migration (
         id SERIAL PRIMARY KEY,
-        version text NOT NULL,
+        version BIGINT NOT NULL,
         filename text NOT NULL,
         description text NOT NULL,
         applied_at timestamp with time zone NOT NULL DEFAULT now(),
@@ -787,7 +796,7 @@ class StatBus
     existing = db.query_one?(
       "SELECT version FROM db.migration WHERE version = $1",
       migration.version,
-      as: String?
+      as: Int64?
     )
 
     if existing
@@ -805,7 +814,9 @@ class StatBus
 
     # Use system command to execute psql with the migration file
     Dir.cd(@project_directory) do
-      result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{migration.path}")
+      # Capture command output using backticks
+      output = `./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{migration.path} 2>&1`
+      result = $?.success?
       if result
         # Calculate duration in milliseconds
         duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
@@ -820,7 +831,10 @@ class StatBus
           duration_ms
         )
 
-        STDOUT.puts "done (#{duration_ms}ms)" if @verbose
+        if @verbose
+          STDOUT.puts "done (#{duration_ms}ms)"
+          STDOUT.puts output if @debug && !output.empty?
+        end
       else
         raise "Failed to apply migration #{migration.path.basename}. Check the PostgreSQL logs for details."
       end
@@ -849,8 +863,11 @@ class StatBus
 
         applied_count = 0
         sorted_migrations.each do |migration|
-          # Stop if we've already applied one migration and we're in "one" mode
-          if !@migrate_all && applied_count > 0
+          # Stop if we've hit our target conditions
+          migrate_to = @migrate_to # Thread safe access to variable for null handling
+
+          if (!@migrate_all && applied_count > 0) ||
+             (migrate_to && migration.version > migrate_to)
             break
           end
 
@@ -1020,6 +1037,24 @@ class StatBus
     end
   end
 
+  private def find_down_migration(version : String) : Path?
+    down_paths = [Path["migrations/#{version}_*.down.sql"]]
+    down_globs = down_paths.map { |p| Dir.glob(p) }.flatten
+    down_globs.first?.try { |path| Path[path] }
+  end
+
+  private def get_migrations_to_rollback(db, migrate_to : Int64?) : Array(NamedTuple(version: String))
+    query = <<-SQL
+      SELECT version::TEXT
+      FROM db.migration
+      WHERE version #{migrate_to ? ">= $1" : "IS NOT NULL"}
+      ORDER BY version DESC
+    SQL
+
+    args = migrate_to ? [migrate_to.to_i64] : [] of String
+    db.query_all(query, args: args, as: {version: String})
+  end
+
   private def migrate_down
     Dir.cd(@project_directory) do
       config = StatBusConfig.new(@project_directory, @verbose)
@@ -1037,57 +1072,36 @@ class StatBus
           return
         end
 
-        if @migrate_all
-          # Get all migrations in reverse order by version
-          while (last_migration = db.query_one?(
-                  "SELECT version, filename
-                   FROM db.migration
-                   ORDER BY version DESC
-                   LIMIT 1",
-                  as: {version: String, filename: String}
-                ))
-            version = last_migration[:version]
-            down_paths = [] of Path
-            down_paths << Path["migrations/#{version}_*.down.sql"]
+        migrations_to_rollback = if @migrate_all || @migrate_to
+                                   get_migrations_to_rollback(db, @migrate_to)
+                                 else
+                                   # Get just the last migration
+                                   [db.query_one?(
+                                     "SELECT version::TEXT FROM db.migration ORDER BY version DESC LIMIT 1",
+                                     as: {version: String}
+                                   )].compact
+                                 end
 
-            down_globs = down_paths.map { |p| Dir.glob(p) }.flatten
-            if found_path = down_globs.first?
-              execute_down_migration(db, Path[found_path], version.to_s)
-            else
-              raise "Missing down migration for #{version}"
-            end
+        applied_count = 0
+        migrations_to_rollback.each do |migration|
+          version = migration[:version]
+          if down_path = find_down_migration(version)
+            execute_down_migration(db, down_path, version)
+            applied_count += 1
+          else
+            raise "Missing down migration for version #{version}"
           end
-
-          # After all migrations are down, clean up
-          cleanup_migration_schema(db)
-          return
         end
 
-        # Get the last applied migration
-        last_migration = db.query_one?(
-          "SELECT version
-           FROM db.migration
-           ORDER BY version DESC
-           LIMIT 1",
-          as: {version: String}
-        )
+        cleanup_migration_schema(db) if @migrate_all || (!@migrate_all && applied_count == 0)
 
-        if last_migration.nil?
-          # No more migrations, clean up
-          cleanup_migration_schema(db)
-          return
-        end
-
-        version = last_migration[:version]
-
-        # Look for corresponding down migration
-        down_paths = [] of Path
-        down_paths << Path["migrations/#{version}_*.down.sql"]
-        down_globs = down_paths.map { |p| Dir.glob(p) }.flatten
-        if found_path = down_globs.first?
-          execute_down_migration(db, Path[found_path], version)
-        else
-          raise "Missing down migration file for version #{version}. Expected file matching pattern: migrations/#{version}_*.down.sql"
+        # Only notify if any migrations were actually rolled back
+        if applied_count > 0
+          db.transaction do |tx|
+            puts "Notifying PostgREST to reload with changes." if @verbose
+            tx.connection.exec("NOTIFY pgrst, 'reload config'")
+            tx.connection.exec("NOTIFY pgrst, 'reload schema'")
+          end
         end
       end
     end
@@ -1511,35 +1525,46 @@ class StatBus
     Dir.cd(@project_directory) do
       migration = MigrationFile.parse(down_path)
 
+      if @verbose
+        STDOUT.print "Migration #{version} (#{migration.description}) "
+        STDOUT.flush
+      end
+
+      delete_sql = <<-SQL
+        DELETE FROM db.migration
+          WHERE version = $1
+          RETURNING version::TEXT;
+      SQL
+
       # Check if migration file is empty (size 0)
       if File.size(down_path) == 0
-        puts "Skipping empty migration #{down_path}" if @verbose
+        if @verbose
+          STDOUT.puts "[empty - skipped]"
+        end
         # Remove the migration record without running the file
-        versions = db.query_all(<<-SQL, version, as: {version: String})
-          DELETE FROM db.migration
-             WHERE version = $1
-             RETURNING version;
-          SQL
+        db.query_all(delete_sql, version, as: {version: String})
       else
-        result = system("./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_path}")
+        if @verbose
+          STDOUT.print "[rolling back] "
+          STDOUT.flush
+        end
+
+        # Start timing
+        start_time = Time.monotonic
+
+        # Capture command output using backticks
+        output = `./devops/manage-statbus.sh psql --variable=ON_ERROR_STOP=on < #{down_path} 2>&1`
+        result = $?.success?
         if result
+          # Calculate duration in milliseconds
+          duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
+
           # Remove the migration record(s)
-          versions = db.query_all(<<-SQL, version, as: {version: String})
-          DELETE FROM db.migration
-             WHERE version = $1
-             RETURNING version;
-          SQL
+          db.query_all(delete_sql, version, as: {version: String})
 
           if @verbose
-            versions = versions.map { |m| m[:version] }
-            STDOUT.puts "Rolled back migration(s) #{versions.join(", ")} "
-          end
-
-          # Notify PostgREST to reload
-          db.transaction do |tx|
-            puts "Notifying PostgREST to reload with changes." if @verbose
-            tx.connection.exec("NOTIFY pgrst, 'reload config'")
-            tx.connection.exec("NOTIFY pgrst, 'reload schema'")
+            STDOUT.puts "done (#{duration_ms}ms)"
+            STDOUT.puts output if @debug && !output.empty?
           end
         else
           raise "Failed to roll back migration #{down_path}. Check the PostgreSQL logs for details."

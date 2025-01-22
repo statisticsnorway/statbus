@@ -587,6 +587,9 @@ BEGIN
     EXECUTE 'DROP FUNCTION ' || upsert_function_name_custom || '()';
 
     EXECUTE 'DROP FUNCTION ' || prepare_function_name_custom || '()';
+
+    -- Drop the unique index created by generate_active_code_custom_unique_constraint
+    EXECUTE format('DROP INDEX IF EXISTS ix_%I_active_code', table_name_str);
 END;
 $$ LANGUAGE plpgsql;
 
