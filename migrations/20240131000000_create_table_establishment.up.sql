@@ -12,8 +12,8 @@ CREATE TABLE public.establishment (
     death_date date,
     free_econ_zone boolean,
     sector_id integer REFERENCES public.sector(id),
-    edit_by_user_id character varying(100) NOT NULL,
-    edit_comment character varying(500),
+    edit_comment character varying(512),
+    edit_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
     unit_size_id integer REFERENCES public.unit_size(id),
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
     enterprise_id integer REFERENCES public.enterprise(id) ON DELETE RESTRICT,
@@ -44,6 +44,7 @@ CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree 
 CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
 CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
 CREATE INDEX ix_establishment_size_id ON public.establishment USING btree (unit_size_id);
+CREATE INDEX ix_establishment_edit_by_user_id ON public.establishment USING btree (edit_by_user_id);
 
 CREATE INDEX establishment_enterprise_id_primary_for_enterprise_idx ON public.establishment(enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL;
 CREATE INDEX establishment_legal_unit_id_primary_for_legal_unit_idx ON public.establishment(legal_unit_id, primary_for_legal_unit) WHERE legal_unit_id IS NOT NULL;

@@ -27,12 +27,13 @@ CREATE TABLE public.contact (
         OR establishment_id IS     NULL AND legal_unit_id IS NOT NULL
         ),
     data_source_id integer REFERENCES public.data_source(id),
-    edited_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT
+    edit_comment character varying(512),
+    edit_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT
 );
 
 CREATE INDEX ix_contact_establishment_id ON public.contact USING btree (establishment_id);
 CREATE INDEX ix_contact_legal_unit_id ON public.contact USING btree (legal_unit_id);
 CREATE INDEX ix_contact_data_source_id ON public.contact USING btree (data_source_id);
-CREATE INDEX ix_contact_edited_by_user_id ON public.contact USING btree (edited_by_user_id);
+CREATE INDEX ix_contact_edit_by_user_id ON public.contact USING btree (edit_by_user_id);
 
 END;
