@@ -12,8 +12,10 @@ CREATE VIEW public.timeline_enterprise
     , search
     , primary_activity_category_id
     , primary_activity_category_path
+    , primary_activity_category_code
     , secondary_activity_category_id
     , secondary_activity_category_path
+    , secondary_activity_category_code
     , activity_category_paths
     , sector_id
     , sector_path
@@ -31,6 +33,7 @@ CREATE VIEW public.timeline_enterprise
     , physical_postplace
     , physical_region_id
     , physical_region_path
+    , physical_region_code
     , physical_country_id
     , physical_country_iso_2
     , postal_address_part1
@@ -40,6 +43,7 @@ CREATE VIEW public.timeline_enterprise
     , postal_postplace
     , postal_region_id
     , postal_region_path
+    , postal_region_code
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
@@ -71,9 +75,11 @@ CREATE VIEW public.timeline_enterprise
            --
            , pa.category_id AS primary_activity_category_id
            , pac.path                AS primary_activity_category_path
+           , pac.code                AS primary_activity_category_code
            --
            , sa.category_id AS secondary_activity_category_id
            , sac.path                AS secondary_activity_category_path
+           , sac.code                AS secondary_activity_category_code
            --
            , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
            --
@@ -96,6 +102,7 @@ CREATE VIEW public.timeline_enterprise
            , phl.postplace AS physical_postplace
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
+           , phr.code                AS physical_region_code
            , phl.country_id AS physical_country_id
            , phc.iso_2     AS physical_country_iso_2
            --
@@ -106,6 +113,7 @@ CREATE VIEW public.timeline_enterprise
            , pol.postplace AS postal_postplace
            , pol.region_id           AS postal_region_id
            , por.path                AS postal_region_path
+           , por.code                AS postal_region_code
            , pol.country_id AS postal_country_id
            , poc.iso_2     AS postal_country_iso_2
            --
@@ -194,9 +202,11 @@ CREATE VIEW public.timeline_enterprise
            --
            , pa.category_id AS primary_activity_category_id
            , pac.path                AS primary_activity_category_path
+           , pac.code                AS primary_activity_category_code
            --
            , sa.category_id AS secondary_activity_category_id
            , sac.path                AS secondary_activity_category_path
+           , sac.code                AS secondary_activity_category_code
            --
            , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
            --
@@ -220,6 +230,7 @@ CREATE VIEW public.timeline_enterprise
            , phl.postplace AS physical_postplace
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
+           , phr.code                AS physical_region_code
            , phl.country_id AS physical_country_id
            , phc.iso_2     AS physical_country_iso_2
            --
@@ -230,6 +241,7 @@ CREATE VIEW public.timeline_enterprise
            , pol.postplace AS postal_postplace
            , pol.region_id           AS postal_region_id
            , por.path                AS postal_region_path
+           , por.code                AS postal_region_code
            , pol.country_id AS postal_country_id
            , poc.iso_2     AS postal_country_iso_2
            --
@@ -313,9 +325,11 @@ CREATE VIEW public.timeline_enterprise
            --
            , COALESCE(enplu.primary_activity_category_id,enpes.primary_activity_category_id) AS primary_activity_category_id
            , COALESCE(enplu.primary_activity_category_path,enpes.primary_activity_category_path) AS primary_activity_category_path
+           , COALESCE(enplu.primary_activity_category_code,enpes.primary_activity_category_code) AS primary_activity_category_code
            --
            , COALESCE(enplu.secondary_activity_category_id,enpes.secondary_activity_category_id) AS secondary_activity_category_id
            , COALESCE(enplu.secondary_activity_category_path,enpes.secondary_activity_category_path) AS secondary_activity_category_path
+           , COALESCE(enplu.secondary_activity_category_code,enpes.secondary_activity_category_code) AS secondary_activity_category_code
            --
            , COALESCE(enplu.sector_id,enpes.sector_id) AS sector_id
            , COALESCE(enplu.sector_path,enpes.sector_path) AS sector_path
@@ -350,6 +364,7 @@ CREATE VIEW public.timeline_enterprise
            , COALESCE(enplu.physical_postplace, enpes.physical_postplace) AS physical_postplace
            , COALESCE(enplu.physical_region_id, enpes.physical_region_id) AS physical_region_id
            , COALESCE(enplu.physical_region_path, enpes.physical_region_path) AS physical_region_path
+           , COALESCE(enplu.physical_region_code, enpes.physical_region_code) AS physical_region_code
            , COALESCE(enplu.physical_country_id, enpes.physical_country_id) AS physical_country_id
            , COALESCE(enplu.physical_country_iso_2, enpes.physical_country_iso_2) AS physical_country_iso_2
            --
@@ -360,6 +375,7 @@ CREATE VIEW public.timeline_enterprise
            , COALESCE(enplu.postal_postplace, enpes.postal_postplace) AS postal_postplace
            , COALESCE(enplu.postal_region_id, enpes.postal_region_id) AS postal_region_id
            , COALESCE(enplu.postal_region_path, enpes.postal_region_path) AS postal_region_path
+           , COALESCE(enplu.postal_region_code, enpes.postal_region_code) AS postal_region_code
            , COALESCE(enplu.postal_country_id, enpes.postal_country_id) AS postal_country_id
            , COALESCE(enplu.postal_country_iso_2, enpes.postal_country_iso_2) AS postal_country_iso_2
            --
@@ -464,8 +480,10 @@ CREATE VIEW public.timeline_enterprise
                , basis.death_date
                , basis.primary_activity_category_id
                , basis.primary_activity_category_path
+               , basis.primary_activity_category_code
                , basis.secondary_activity_category_id
                , basis.secondary_activity_category_path
+               , basis.secondary_activity_category_code
                , basis.sector_id
                , basis.sector_path
                , basis.sector_code
@@ -496,6 +514,7 @@ CREATE VIEW public.timeline_enterprise
                , basis.physical_postplace
                , basis.physical_region_id
                , basis.physical_region_path
+               , basis.physical_region_code
                , basis.physical_country_id
                , basis.physical_country_iso_2
                , basis.postal_address_part1
@@ -505,6 +524,7 @@ CREATE VIEW public.timeline_enterprise
                , basis.postal_postplace
                , basis.postal_region_id
                , basis.postal_region_path
+               , basis.postal_region_code
                , basis.postal_country_id
                , basis.postal_country_iso_2
                , basis.invalid_codes
@@ -534,9 +554,11 @@ CREATE VIEW public.timeline_enterprise
              --
              , primary_activity_category_id
              , primary_activity_category_path
+             , primary_activity_category_code
              --
              , secondary_activity_category_id
              , secondary_activity_category_path
+             , secondary_activity_category_code
              --
              , NULLIF(ARRAY_REMOVE(ARRAY[
                 primary_activity_category_path,
@@ -562,6 +584,7 @@ CREATE VIEW public.timeline_enterprise
              , physical_postplace
              , physical_region_id
              , physical_region_path
+             , physical_region_code
              , physical_country_id
              , physical_country_iso_2
              --
@@ -572,6 +595,7 @@ CREATE VIEW public.timeline_enterprise
              ,  postal_postplace
              ,  postal_region_id
              ,  postal_region_path
+             ,  postal_region_code
              ,  postal_country_id
              ,  postal_country_iso_2
              --

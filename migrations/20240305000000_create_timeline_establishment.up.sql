@@ -12,8 +12,10 @@ CREATE VIEW public.timeline_establishment
     , search
     , primary_activity_category_id
     , primary_activity_category_path
+    , primary_activity_category_code
     , secondary_activity_category_id
     , secondary_activity_category_path
+    , secondary_activity_category_code
     , activity_category_paths
     , sector_id
     , sector_path
@@ -31,6 +33,7 @@ CREATE VIEW public.timeline_establishment
     , physical_postplace
     , physical_region_id
     , physical_region_path
+    , physical_region_code
     , physical_country_id
     , physical_country_iso_2
     , postal_address_part1
@@ -40,6 +43,7 @@ CREATE VIEW public.timeline_establishment
     , postal_postplace
     , postal_region_id
     , postal_region_path
+    , postal_region_code
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
@@ -63,9 +67,11 @@ CREATE VIEW public.timeline_establishment
            --
            , pa.category_id AS primary_activity_category_id
            , pac.path                AS primary_activity_category_path
+           , pac.code                AS primary_activity_category_code
            --
            , sa.category_id AS secondary_activity_category_id
            , sac.path                AS secondary_activity_category_path
+           , sac.code                AS secondary_activity_category_code
            --
            , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
            --
@@ -88,6 +94,7 @@ CREATE VIEW public.timeline_establishment
            , phl.postplace AS physical_postplace
            , phl.region_id           AS physical_region_id
            , phr.path                AS physical_region_path
+           , phr.code                AS physical_region_code
            , phl.country_id AS physical_country_id
            , phc.iso_2     AS physical_country_iso_2
            --
@@ -98,6 +105,7 @@ CREATE VIEW public.timeline_establishment
            , pol.postplace AS postal_postplace
            , pol.region_id           AS postal_region_id
            , por.path                AS postal_region_path
+           , por.code                AS postal_region_code
            , pol.country_id AS postal_country_id
            , poc.iso_2     AS postal_country_iso_2
            --

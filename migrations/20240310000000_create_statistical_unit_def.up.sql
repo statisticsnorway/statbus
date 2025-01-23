@@ -13,8 +13,10 @@ CREATE VIEW public.statistical_unit_def
     , search
     , primary_activity_category_id
     , primary_activity_category_path
+    , primary_activity_category_code
     , secondary_activity_category_id
     , secondary_activity_category_path
+    , secondary_activity_category_code
     , activity_category_paths
     , sector_id
     , sector_path
@@ -32,6 +34,7 @@ CREATE VIEW public.statistical_unit_def
     , physical_postplace
     , physical_region_id
     , physical_region_path
+    , physical_region_code
     , physical_country_id
     , physical_country_iso_2
     , postal_address_part1
@@ -41,6 +44,7 @@ CREATE VIEW public.statistical_unit_def
     , postal_postplace
     , postal_region_id
     , postal_region_path
+    , postal_region_code
     , postal_country_id
     , postal_country_iso_2
     , invalid_codes
@@ -69,8 +73,10 @@ CREATE VIEW public.statistical_unit_def
            , search
            , primary_activity_category_id
            , primary_activity_category_path
+           , primary_activity_category_code
            , secondary_activity_category_id
            , secondary_activity_category_path
+           , secondary_activity_category_code
            , activity_category_paths
            , sector_id
            , sector_path
@@ -88,6 +94,7 @@ CREATE VIEW public.statistical_unit_def
            , physical_postplace
            , physical_region_id
            , physical_region_path
+           , physical_region_code
            , physical_country_id
            , physical_country_iso_2
            , postal_address_part1
@@ -97,6 +104,7 @@ CREATE VIEW public.statistical_unit_def
            , postal_postplace
            , postal_region_id
            , postal_region_path
+           , postal_region_code
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
@@ -120,8 +128,10 @@ CREATE VIEW public.statistical_unit_def
            , search
            , primary_activity_category_id
            , primary_activity_category_path
+           , primary_activity_category_code
            , secondary_activity_category_id
            , secondary_activity_category_path
+           , secondary_activity_category_code
            , activity_category_paths
            , sector_id
            , sector_path
@@ -139,6 +149,7 @@ CREATE VIEW public.statistical_unit_def
            , physical_postplace
            , physical_region_id
            , physical_region_path
+           , physical_region_code
            , physical_country_id
            , physical_country_iso_2
            , postal_address_part1
@@ -148,6 +159,7 @@ CREATE VIEW public.statistical_unit_def
            , postal_postplace
            , postal_region_id
            , postal_region_path
+           , postal_region_code
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
@@ -175,8 +187,10 @@ CREATE VIEW public.statistical_unit_def
            , search
            , primary_activity_category_id
            , primary_activity_category_path
+           , primary_activity_category_code
            , secondary_activity_category_id
            , secondary_activity_category_path
+           , secondary_activity_category_code
            , activity_category_paths
            , sector_id
            , sector_path
@@ -194,6 +208,7 @@ CREATE VIEW public.statistical_unit_def
            , physical_postplace
            , physical_region_id
            , physical_region_path
+           , physical_region_code
            , physical_country_id
            , physical_country_iso_2
            , postal_address_part1
@@ -203,6 +218,7 @@ CREATE VIEW public.statistical_unit_def
            , postal_postplace
            , postal_region_id
            , postal_region_path
+           , postal_region_code
            , postal_country_id
            , postal_country_iso_2
            , invalid_codes
@@ -228,8 +244,10 @@ CREATE VIEW public.statistical_unit_def
          , data.search
          , data.primary_activity_category_id
          , data.primary_activity_category_path
+         , data.primary_activity_category_code
          , data.secondary_activity_category_id
          , data.secondary_activity_category_path
+         , data.secondary_activity_category_code
          , data.activity_category_paths
          , data.sector_id
          , data.sector_path
@@ -247,6 +265,7 @@ CREATE VIEW public.statistical_unit_def
          , data.physical_postplace
          , data.physical_region_id
          , data.physical_region_path
+         , data.physical_region_code
          , data.physical_country_id
          , data.physical_country_iso_2
          , data.postal_address_part1
@@ -256,6 +275,7 @@ CREATE VIEW public.statistical_unit_def
          , data.postal_postplace
          , data.postal_region_id
          , data.postal_region_path
+         , data.postal_region_code
          , data.postal_country_id
          , data.postal_country_iso_2
          , data.invalid_codes
