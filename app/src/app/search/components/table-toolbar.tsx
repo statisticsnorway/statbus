@@ -35,7 +35,11 @@ export default function TableToolbar({
           <RegionFilter/>
         </Suspense>
       </FilterWrapper>
-      <LegalFormFilter />
+      <FilterWrapper columnCode="legal_form">
+        <Suspense fallback={<FilterSkeleton title="Legal Form" />}>
+          <LegalFormFilter />
+        </Suspense>
+      </FilterWrapper>
       <FilterWrapper columnCode="activity">
         <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
           <ActivityCategoryFilter />
