@@ -5,7 +5,7 @@ CREATE OR REPLACE FUNCTION admin.insert_external_idents(
     external_idents_to_add public.external_ident[],
     p_legal_unit_id INTEGER,
     p_establishment_id INTEGER,
-    p_updated_by_user_id INTEGER
+    p_edit_by_user_id INTEGER
 ) RETURNS void LANGUAGE plpgsql AS $insert_external_idents$
 DECLARE
   unit_type TEXT;
@@ -27,13 +27,15 @@ BEGIN
           , ident
           , legal_unit_id
           , establishment_id
-          , updated_by_user_id
+          , edit_by_user_id
+          , edit_at
           )
       SELECT type_id
             , ident
             , p_legal_unit_id
             , p_establishment_id
-            , p_updated_by_user_id
+            , p_edit_by_user_id
+            , now()
       FROM unnest(external_idents_to_add);
     EXCEPTION WHEN unique_violation THEN
       DECLARE
@@ -60,7 +62,7 @@ BEGIN
         --     "enterprise_id": null,
         --     "legal_unit_id": null,
         --     "establishment_id": null,
-        --     "updated_by_user_id": null,
+        --     "edit_by_user_id": null,
         --     "enterprise_group_id": null
         --   }
         -- ]
