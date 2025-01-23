@@ -450,8 +450,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
+                      |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
                       |     "postal_address_part2": null,                                      +
@@ -464,7 +466,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -498,8 +502,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "1406",                                       +
                       |     "physical_postplace": "SKI",                                       +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3207",                                    +
                       |     "physical_region_path": "32.07",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -512,7 +518,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -546,8 +554,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3114",                                       +
                       |     "physical_postplace": "TØNSBERG",                                  +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3905",                                    +
                       |     "physical_region_path": "39.05",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -560,7 +570,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -594,8 +606,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "2005",                                       +
                       |     "physical_postplace": "RÆLINGEN",                                  +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3224",                                    +
                       |     "physical_region_path": "32.24",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -608,7 +622,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -642,8 +658,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "physical_postplace": "FARSUND",                                   +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -656,7 +674,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -690,8 +710,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "physical_postplace": "HØNEFOSS",                                  +
+                      |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
@@ -704,7 +726,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "49.41",                         +
                       |     "primary_activity_category_path": "H.49.4.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -751,8 +775,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "physical_postplace": "HØNEFOSS",                                  +
+                      |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
@@ -765,7 +791,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -812,8 +840,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "physical_postplace": "HØNEFOSS",                                  +
+                      |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
@@ -826,7 +856,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -873,8 +905,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "physical_postplace": "HØNEFOSS",                                  +
+                      |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
@@ -887,7 +921,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -934,8 +970,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "physical_postplace": "FARSUND",                                   +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -948,7 +986,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -982,8 +1022,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "physical_postplace": "FARSUND",                                   +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -996,7 +1038,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -1030,8 +1074,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3014",                                       +
                       |     "physical_postplace": "DRAMMEN",                                   +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3301",                                    +
                       |     "physical_region_path": "33.01",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1044,7 +1090,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -1078,8 +1126,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "physical_postplace": "BRYNE",                                     +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1092,7 +1142,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "47.75",                         +
                       |     "primary_activity_category_path": "G.47.7.5",                      +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -1139,8 +1191,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "physical_postplace": "BRYNE",                                     +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1153,7 +1207,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -1200,8 +1256,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "physical_postplace": "BRYNE",                                     +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1214,7 +1272,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
@@ -1261,8 +1321,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "5350",                                       +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
+                      |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
                       |     "postal_address_part2": null,                                      +
@@ -1275,7 +1337,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1308,8 +1372,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "1406",                                       +
                       |     "physical_postplace": "SKI",                                       +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3207",                                    +
                       |     "physical_region_path": "32.07",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1322,7 +1388,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1355,8 +1423,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3114",                                       +
                       |     "physical_postplace": "TØNSBERG",                                  +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3905",                                    +
                       |     "physical_region_path": "39.05",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1369,7 +1439,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1402,8 +1474,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "2005",                                       +
                       |     "physical_postplace": "RÆLINGEN",                                  +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3224",                                    +
                       |     "physical_region_path": "32.24",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1416,7 +1490,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1449,8 +1525,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "physical_postplace": "FARSUND",                                   +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1463,7 +1541,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1496,8 +1576,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "physical_postplace": "HØNEFOSS",                                  +
+                      |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
@@ -1510,7 +1592,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "49.41",                         +
                       |     "primary_activity_category_path": "H.49.4.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1555,8 +1639,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "physical_postplace": "HØNEFOSS",                                  +
+                      |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
@@ -1569,7 +1655,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1614,8 +1702,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "physical_postplace": "HØNEFOSS",                                  +
+                      |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
@@ -1628,7 +1718,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1673,8 +1765,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3516",                                       +
                       |     "physical_postplace": "HØNEFOSS",                                  +
+                      |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
                       |     "postal_address_part2": null,                                      +
@@ -1687,7 +1781,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1732,8 +1828,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "physical_postplace": "FARSUND",                                   +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1746,7 +1844,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1779,8 +1879,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4550",                                       +
                       |     "physical_postplace": "FARSUND",                                   +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1793,7 +1895,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1826,8 +1930,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "3014",                                       +
                       |     "physical_postplace": "DRAMMEN",                                   +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "3301",                                    +
                       |     "physical_region_path": "33.01",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1840,7 +1946,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1873,8 +1981,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "physical_postplace": "BRYNE",                                     +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1887,7 +1997,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "47.75",                         +
                       |     "primary_activity_category_path": "G.47.7.5",                      +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1932,8 +2044,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "physical_postplace": "BRYNE",                                     +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -1946,7 +2060,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
@@ -1991,8 +2107,10 @@ statistical_unit_data | {                                                       
                       |     "data_source_codes": null,                                         +
                       |     "physical_postcode": "4340",                                       +
                       |     "physical_postplace": "BRYNE",                                     +
+                      |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
                       |     "establishment_count": null,                                       +
+                      |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
                       |     "postal_address_part2": null,                                      +
@@ -2005,7 +2123,9 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
+                      |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 

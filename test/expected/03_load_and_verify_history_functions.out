@@ -1332,8 +1332,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": null,                   +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -1346,7 +1348,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -1409,8 +1413,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -1423,7 +1429,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -1484,8 +1492,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -1498,7 +1508,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | 
@@ -1557,8 +1569,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": null,                   +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -1571,7 +1585,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -1634,8 +1650,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -1648,7 +1666,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -1709,8 +1729,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -1723,7 +1745,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | 
@@ -1782,8 +1806,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": null,                   +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -1796,7 +1822,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -1859,8 +1887,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -1873,7 +1903,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -1934,8 +1966,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -1948,7 +1982,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | 
@@ -2007,8 +2043,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": null,                   +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2021,7 +2059,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -2084,8 +2124,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2098,7 +2140,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -2159,8 +2203,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2173,7 +2219,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | 
@@ -2232,8 +2280,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": null,                   +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2246,7 +2296,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -2309,8 +2361,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2323,7 +2377,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -2384,8 +2440,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2398,7 +2456,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | 
@@ -2457,8 +2517,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": null,                   +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2471,7 +2533,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -2534,8 +2598,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2548,7 +2614,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -2609,8 +2677,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2623,7 +2693,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | 
@@ -2682,8 +2754,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": null,                   +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2696,7 +2770,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -2759,8 +2835,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2773,7 +2851,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -2834,8 +2914,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2848,7 +2930,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | 
@@ -2907,8 +2991,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": null,                   +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2921,7 +3007,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -2984,8 +3072,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -2998,7 +3088,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -3059,8 +3151,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -3073,7 +3167,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | 
@@ -3132,8 +3228,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": null,                   +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -3146,7 +3244,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -3209,8 +3309,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -3223,7 +3325,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -3284,8 +3388,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -3298,7 +3404,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | 
@@ -3357,8 +3465,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": null,                   +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -3371,7 +3481,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -3434,8 +3546,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -3448,7 +3562,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | {                                                  +
@@ -3509,8 +3625,10 @@ statistical_unit_data | {                                                  +
                       |     ],                                             +
                       |     "physical_postcode": "4347",                   +
                       |     "physical_postplace": "LYE",                   +
+                      |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
                       |     "establishment_count": 1,                      +
+                      |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
                       |     "postal_address_part2": null,                  +
@@ -3523,7 +3641,9 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
+                      |     "secondary_activity_category_code": null,      +
                       |     "secondary_activity_category_path": null       +
                       | }
 stats                 | 
