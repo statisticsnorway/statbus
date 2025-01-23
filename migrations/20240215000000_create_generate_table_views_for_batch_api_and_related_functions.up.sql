@@ -580,8 +580,21 @@ BEGIN
 
     EXECUTE 'DROP FUNCTION ' || prepare_function_name_custom || '()';
 
-    -- Drop the unique index created by generate_active_code_custom_unique_constraint
-    EXECUTE format('DROP INDEX IF EXISTS ix_%I_active_code', table_name_str);
+    -- Get unique columns and construct index name using same logic as in generate_active_code_custom_unique_constraint
+    DECLARE
+        table_properties admin.batch_api_table_properties;
+        unique_columns text[];
+        index_name text;
+    BEGIN
+        table_properties := admin.detect_batch_api_table_properties(table_name);
+        unique_columns := admin.get_unique_columns(table_properties);
+        
+        -- Only attempt to drop if we have unique columns
+        IF array_length(unique_columns, 1) IS NOT NULL THEN
+            index_name := 'ix_' || table_name_str || '_' || array_to_string(unique_columns, '_');
+            EXECUTE format('DROP INDEX IF EXISTS %I', index_name);
+        END IF;
+    END;
 END;
 $$ LANGUAGE plpgsql;
 
