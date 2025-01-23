@@ -6,6 +6,7 @@ CREATE TABLE public.person_role (
     name text UNIQUE NOT NULL,
     active boolean NOT NULL,
     custom boolean NOT NULL,
+    created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL
 );
 

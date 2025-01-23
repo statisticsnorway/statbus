@@ -12,6 +12,7 @@ CREATE TABLE public.activity_category (
     description text,
     active boolean NOT NULL,
     custom bool NOT NULL,
+    created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(standard_id, path, active)
 );

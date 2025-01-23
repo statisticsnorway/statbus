@@ -8,6 +8,7 @@ CREATE TABLE public.country (
     name text UNIQUE NOT NULL,
     active boolean NOT NULL,
     custom boolean NOT NULL,
+    created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(iso_2, iso_3, iso_num, name)
 );

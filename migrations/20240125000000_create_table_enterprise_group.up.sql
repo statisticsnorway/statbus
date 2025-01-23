@@ -8,7 +8,6 @@ CREATE TABLE public.enterprise_group (
     active boolean NOT NULL DEFAULT true,
     short_name varchar(16),
     name varchar(256),
-    created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     enterprise_group_type_id integer REFERENCES public.enterprise_group_type(id),
     contact_person text,
     edit_comment character varying(512),

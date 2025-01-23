@@ -18,8 +18,8 @@ CREATE TABLE public.tag (
     context_valid_to date,
     context_valid_on date,
     is_scoped_tag bool NOT NULL DEFAULT false,
-    updated_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
+    updated_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     CONSTRAINT "context_valid_from leq context_valid_to"
     CHECK(context_valid_from <= context_valid_to),
     CONSTRAINT "context_valid_dates_same_nullability"
