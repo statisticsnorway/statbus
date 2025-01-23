@@ -877,7 +877,7 @@ class StatBus
   private def migrate_up
     Dir.cd(@project_directory) do
       config = StatBusConfig.new(@project_directory, @verbose)
-      migration_paths = [Path["migrations/**/*.up.sql"]]
+      migration_paths = [Path["migrations/**/*.up.sql"], Path["migrations/**/*.up.psql"]]
       migration_filenames = Dir.glob(migration_paths)
 
       # Parse and sort migrations by version number
