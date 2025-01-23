@@ -11,7 +11,6 @@ CREATE TABLE public.legal_unit (
     birth_date date,
     death_date date,
     free_econ_zone boolean,
-    notes text,
     sector_id integer REFERENCES public.sector(id),
     legal_form_id integer REFERENCES public.legal_form(id),
     edit_by_user_id character varying(100) NOT NULL,

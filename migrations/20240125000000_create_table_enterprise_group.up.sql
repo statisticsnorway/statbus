@@ -11,7 +11,6 @@ CREATE TABLE public.enterprise_group (
     created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     enterprise_group_type_id integer REFERENCES public.enterprise_group_type(id),
     contact_person text,
-    notes text,
     edit_by_user_id integer NOT NULL,
     edit_comment text,
     unit_size_id integer REFERENCES public.unit_size(id),

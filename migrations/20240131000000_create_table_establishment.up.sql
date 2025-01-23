@@ -11,7 +11,6 @@ CREATE TABLE public.establishment (
     birth_date date,
     death_date date,
     free_econ_zone boolean,
-    notes text,
     sector_id integer REFERENCES public.sector(id),
     edit_by_user_id character varying(100) NOT NULL,
     edit_comment character varying(500),
