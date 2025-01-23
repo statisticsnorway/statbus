@@ -161,12 +161,10 @@ class Dotenv
   # and we have a Path.
   def self.using(source : Path | String, verbose = false, &block : Dotenv -> T) forall T
     dotenv = case source
-             when Path
+             in Path
                from_file(source, verbose)
-             when String
+             in String
                from_string(source, verbose)
-             else
-               raise "Unsupported source type"
              end
 
     initial_content = dotenv.dotenv_content.to_s
@@ -212,18 +210,14 @@ class Dotenv
   # Appends a line to the dotenv contents and updates the in-memory representation
   def puts(line : String)
     env_line = parse_line(line)
-    if env_line.is_a?(KeyValueLine)
+    File.open(@dotenv_path, "a") do |file|
+      file.puts(line)
+    end
+    @dotenv_content.lines << env_line
+    case env_line
+    in KeyValueLine
       STDERR.puts "Adding line: #{env_line.key}=#{env_line.value}" if @verbose
-      File.open(@dotenv_path, "a") do |file|
-        file.puts(line)
-      end
-      @dotenv_content.lines << env_line
       @dotenv_content.mapping[env_line.key] = env_line
-    else
-      File.open(@dotenv_path, "a") do |file|
-        file.puts(line)
-      end
-      @dotenv_content.lines << env_line
     end
   end
 
