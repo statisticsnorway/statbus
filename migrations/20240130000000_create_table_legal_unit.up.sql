@@ -15,6 +15,7 @@ CREATE TABLE public.legal_unit (
     legal_form_id integer REFERENCES public.legal_form(id),
     edit_comment character varying(512),
     edit_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
+    edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     unit_size_id integer REFERENCES public.unit_size(id),
     foreign_participation_id integer REFERENCES public.foreign_participation(id),
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,

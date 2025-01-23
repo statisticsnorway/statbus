@@ -12,6 +12,7 @@ CREATE TABLE public.enterprise_group (
     contact_person text,
     edit_comment character varying(512),
     edit_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
+    edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     unit_size_id integer REFERENCES public.unit_size(id),
     data_source_id integer REFERENCES public.data_source(id),
     reorg_references text,
