@@ -88,7 +88,7 @@ export const DrillDownChart = ({
         },
         tooltip: {
           headerFormat: "",
-          pointFormat: "{point.name}: <b>{point.y}</b>",
+          pointFormat: "{point.name}: <b>\u200e{point.y}</b>",
           outside: true,
           useHTML: true,
         },
