@@ -43,16 +43,26 @@ export default function ReportsPageClient({
   // Calculate max values only for unfiltered top-level data
   useEffect(() => {
     if (drillDown && !region && !activityCategory) {
-      setMaxStatValuesNoFiltering(prevMaxValues => {
+      setMaxStatValuesNoFiltering((prevMaxValues) => {
         const newMaxValues = { ...prevMaxValues };
 
         statisticalVariables.forEach(({ value }) => {
-          const regionMax = Math.max(...drillDown.available.region.map(point =>
-            value === "count" ? point.count : (point.stats_summary?.[value]?.sum as number) ?? 0
-          ));
-          const categoryMax = Math.max(...drillDown.available.activity_category.map(point =>
-            value === "count" ? point.count : (point.stats_summary?.[value]?.sum as number) ?? 0
-          ));
+          const regionMax = Math.max(
+            0,
+            ...(drillDown.available.region?.map((point) =>
+              value === "count"
+                ? point.count
+                : ((point.stats_summary?.[value]?.sum as number) ?? 0)
+            ) || [])
+          );
+          const categoryMax = Math.max(
+            0,
+            ...(drillDown.available.activity_category?.map((point) =>
+              value === "count"
+                ? point.count
+                : ((point.stats_summary?.[value]?.sum as number) ?? 0)
+            ) || [])
+          );
 
           // Initialize if not exists
           if (!newMaxValues[value]) {
@@ -62,7 +72,7 @@ export default function ReportsPageClient({
           // Update only if new values are larger
           newMaxValues[value] = {
             region: Math.max(newMaxValues[value].region, regionMax),
-            activity: Math.max(newMaxValues[value].activity, categoryMax)
+            activity: Math.max(newMaxValues[value].activity, categoryMax),
           };
         });
 
