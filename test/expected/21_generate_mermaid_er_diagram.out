@@ -183,7 +183,7 @@ erDiagram
 	}
 	db_migration["db.migration"] {
 		"integer" id
-		"text" version
+		"bigint" version
 		"text" filename
 		"text" description
 		"timestamp with time zone" applied_at
