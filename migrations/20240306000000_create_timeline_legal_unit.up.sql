@@ -26,6 +26,7 @@ CREATE VIEW public.timeline_legal_unit
     , legal_form_id
     , legal_form_code
     , legal_form_name
+    --
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
@@ -36,6 +37,10 @@ CREATE VIEW public.timeline_legal_unit
     , physical_region_code
     , physical_country_id
     , physical_country_iso_2
+    , physical_latitude
+    , physical_longitude
+    , physical_altitude
+    --
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
@@ -46,6 +51,10 @@ CREATE VIEW public.timeline_legal_unit
     , postal_region_code
     , postal_country_id
     , postal_country_iso_2
+    , postal_latitude
+    , postal_longitude
+    , postal_altitude
+    --
     , status_id
     , status_code
     --
@@ -102,6 +111,9 @@ CREATE VIEW public.timeline_legal_unit
            , phr.code                AS physical_region_code
            , phl.country_id AS physical_country_id
            , phc.iso_2     AS physical_country_iso_2
+           , phl.latitude  AS physical_latitude
+           , phl.longitude AS physical_longitude
+           , phl.altitude  AS physical_altitude
            --
            , pol.address_part1 AS postal_address_part1
            , pol.address_part2 AS postal_address_part2
@@ -113,6 +125,10 @@ CREATE VIEW public.timeline_legal_unit
            , por.code                AS postal_region_code
            , pol.country_id AS postal_country_id
            , poc.iso_2     AS postal_country_iso_2
+           , pol.latitude  AS postal_latitude
+           , pol.longitude AS postal_longitude
+           , pol.altitude  AS postal_altitude
+           --
            , lu.status_id AS status_id
            , st.code AS status_code
            --
@@ -255,6 +271,10 @@ CREATE VIEW public.timeline_legal_unit
            , basis.physical_region_code
            , basis.physical_country_id
            , basis.physical_country_iso_2
+           , basis.physical_latitude
+           , basis.physical_longitude
+           , basis.physical_altitude
+           --
            , basis.postal_address_part1
            , basis.postal_address_part2
            , basis.postal_address_part3
@@ -265,6 +285,10 @@ CREATE VIEW public.timeline_legal_unit
            , basis.postal_region_code
            , basis.postal_country_id
            , basis.postal_country_iso_2
+           , basis.postal_latitude
+           , basis.postal_longitude
+           , basis.postal_altitude
+           --
            , basis.status_id
            , basis.status_code
            --
