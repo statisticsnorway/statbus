@@ -52,6 +52,12 @@ CREATE VIEW public.timeline_establishment
     , postal_latitude
     , postal_longitude
     , postal_altitude
+    , web_address
+    , email_address
+    , phone_number
+    , landline
+    , mobile_number
+    , fax_number
     , status_id
     , status_code
     , invalid_codes
@@ -123,6 +129,13 @@ CREATE VIEW public.timeline_establishment
            , pol.longitude AS postal_longitude
            , pol.altitude  AS postal_altitude
            --
+           , c.web_address AS web_address
+           , c.email_address AS email_address
+           , c.phone_number AS phone_number
+           , c.landline AS landline
+           , c.mobile_number AS mobile_number
+           , c.fax_number AS fax_number
+           --
            , es.status_id AS status_id
            , st.code AS status_code
            --
@@ -180,6 +193,10 @@ CREATE VIEW public.timeline_establishment
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
+      LEFT OUTER JOIN public.contact AS c
+              ON c.establishment_id = es.id
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(c.valid_after, c.valid_to, '(]')
       LEFT JOIN public.status AS st
               ON es.status_id = st.id
       LEFT JOIN LATERAL (
