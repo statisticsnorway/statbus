@@ -26,6 +26,7 @@ CREATE VIEW public.timeline_establishment
     , legal_form_id
     , legal_form_code
     , legal_form_name
+    --
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
@@ -39,6 +40,7 @@ CREATE VIEW public.timeline_establishment
     , physical_latitude
     , physical_longitude
     , physical_altitude
+    --
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
@@ -52,14 +54,17 @@ CREATE VIEW public.timeline_establishment
     , postal_latitude
     , postal_longitude
     , postal_altitude
+    --
     , web_address
     , email_address
     , phone_number
     , landline
     , mobile_number
     , fax_number
+    --
     , status_id
     , status_code
+    --
     , invalid_codes
     , has_legal_unit
     , establishment_id

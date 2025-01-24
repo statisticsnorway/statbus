@@ -10,6 +10,7 @@ CREATE VIEW public.timeline_legal_unit
     , birth_date
     , death_date
     , search
+    --
     , primary_activity_category_id
     , primary_activity_category_path
     , primary_activity_category_code
@@ -17,12 +18,15 @@ CREATE VIEW public.timeline_legal_unit
     , secondary_activity_category_path
     , secondary_activity_category_code
     , activity_category_paths
+    --
     , sector_id
     , sector_path
     , sector_code
     , sector_name
+    --
     , data_source_ids
     , data_source_codes
+    --
     , legal_form_id
     , legal_form_code
     , legal_form_name
@@ -70,6 +74,7 @@ CREATE VIEW public.timeline_legal_unit
     , establishment_ids
     , legal_unit_id
     , enterprise_id
+    --
     , stats
     , stats_summary
     )
