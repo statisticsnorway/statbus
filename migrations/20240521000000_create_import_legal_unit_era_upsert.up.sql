@@ -149,6 +149,7 @@ BEGIN
         , primary_for_enterprise
         , data_source_id
         , edit_by_user_id
+        , edit_at
         )
     VALUES
         ( new_typed.valid_from
@@ -166,6 +167,7 @@ BEGIN
         , is_primary_for_enterprise
         , data_source.id
         , edit_by_user.id
+        , statement_timestamp()
         )
      RETURNING *
      INTO inserted_legal_unit;
@@ -211,6 +213,7 @@ BEGIN
             , country_id
             , data_source_id
             , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( new_typed.valid_from
@@ -226,6 +229,7 @@ BEGIN
             , physical_country.id
             , data_source.id
             , edit_by_user.id
+            , statement_timestamp()
             )
         RETURNING *
         INTO inserted_location;
@@ -263,6 +267,7 @@ BEGIN
             , country_id
             , data_source_id
             , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( new_typed.valid_from
@@ -278,6 +283,7 @@ BEGIN
             , postal_country.id
             , data_source.id
             , edit_by_user.id
+            , statement_timestamp()
             )
         RETURNING *
         INTO inserted_location;
