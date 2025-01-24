@@ -188,6 +188,7 @@ BEGIN
         , primary_for_enterprise
         , data_source_id
         , edit_by_user_id
+        , edit_at
         )
     VALUES
         ( new_typed.valid_from
@@ -206,6 +207,7 @@ BEGIN
         , is_primary_for_enterprise
         , data_source.id
         , edit_by_user.id
+        , statement_timestamp()
         )
      RETURNING *
      INTO inserted_establishment;
