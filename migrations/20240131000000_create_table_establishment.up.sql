@@ -11,7 +11,8 @@ CREATE TABLE public.establishment (
     birth_date date,
     death_date date,
     free_econ_zone boolean,
-    sector_id integer REFERENCES public.sector(id),
+    sector_id integer REFERENCES public.sector(id) ON DELETE RESTRICT,
+    status_id integer REFERENCES public.status(id) ON DELETE RESTRICT,
     edit_comment character varying(512),
     edit_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
     edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
@@ -41,6 +42,7 @@ CREATE TABLE public.establishment (
 CREATE INDEX establishment_active_idx ON public.establishment(active);
 CREATE INDEX ix_establishment_data_source_id ON public.establishment USING btree (data_source_id);
 CREATE INDEX ix_establishment_sector_id ON public.establishment USING btree (sector_id);
+CREATE INDEX ix_establishment_status_id ON public.establishment USING btree (status_id);
 CREATE INDEX ix_establishment_enterprise_id ON public.establishment USING btree (enterprise_id);
 CREATE INDEX ix_establishment_legal_unit_id ON public.establishment USING btree (legal_unit_id);
 CREATE INDEX ix_establishment_name ON public.establishment USING btree (name);
