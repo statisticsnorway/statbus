@@ -55,6 +55,13 @@ CREATE VIEW public.timeline_legal_unit
     , postal_longitude
     , postal_altitude
     --
+    , web_address
+    , email_address
+    , phone_number
+    , landline
+    , mobile_number
+    , fax_number
+    --
     , status_id
     , status_code
     --
@@ -129,6 +136,13 @@ CREATE VIEW public.timeline_legal_unit
            , pol.longitude AS postal_longitude
            , pol.altitude  AS postal_altitude
            --
+           , c.web_address AS web_address
+           , c.email_address AS email_address
+           , c.phone_number AS phone_number
+           , c.landline AS landline
+           , c.mobile_number AS mobile_number
+           , c.fax_number AS fax_number
+           --
            , lu.status_id AS status_id
            , st.code AS status_code
            --
@@ -187,6 +201,10 @@ CREATE VIEW public.timeline_legal_unit
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
+      LEFT OUTER JOIN public.contact AS c
+              ON c.legal_unit_id = lu.id
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(c.valid_after, c.valid_to, '(]')
       LEFT JOIN public.status AS st
               ON lu.status_id = st.id
       LEFT JOIN LATERAL (
@@ -261,6 +279,7 @@ CREATE VIEW public.timeline_legal_unit
            , basis.legal_form_id
            , basis.legal_form_code
            , basis.legal_form_name
+           --
            , basis.physical_address_part1
            , basis.physical_address_part2
            , basis.physical_address_part3
@@ -288,6 +307,13 @@ CREATE VIEW public.timeline_legal_unit
            , basis.postal_latitude
            , basis.postal_longitude
            , basis.postal_altitude
+           --
+           , basis.web_address
+           , basis.email_address
+           , basis.phone_number
+           , basis.landline
+           , basis.mobile_number
+           , basis.fax_number
            --
            , basis.status_id
            , basis.status_code
