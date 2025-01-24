@@ -46,6 +46,8 @@ CREATE VIEW public.timeline_establishment
     , postal_region_code
     , postal_country_id
     , postal_country_iso_2
+    , status_id
+    , status_code
     , invalid_codes
     , has_legal_unit
     , establishment_id
@@ -109,6 +111,9 @@ CREATE VIEW public.timeline_establishment
            , pol.country_id AS postal_country_id
            , poc.iso_2     AS postal_country_iso_2
            --
+           , es.status_id AS status_id
+           , st.code AS status_code
+           --
            , es.invalid_codes AS invalid_codes
            --
            , (es.legal_unit_id IS NOT NULL) AS has_legal_unit
@@ -163,6 +168,8 @@ CREATE VIEW public.timeline_establishment
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
+      LEFT JOIN public.status AS st
+              ON es.status_id = st.id
       LEFT JOIN LATERAL (
             SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
             FROM public.stat_for_unit AS sfu
