@@ -8,8 +8,6 @@ BEGIN;
 
 SELECT sql_saga.drop_foreign_key('public.contact', 'contact_establishment_id_valid');
 SELECT sql_saga.drop_foreign_key('public.contact', 'contact_legal_unit_id_valid');
-SELECT sql_saga.drop_unique_key('public.contact', 'contact_person_id_person_role_id_legal_unit_id_valid');
-SELECT sql_saga.drop_unique_key('public.contact', 'contact_person_id_person_role_id_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.contact', 'contact_id_valid');
 SELECT sql_saga.drop_era('public.contact');
 
@@ -22,6 +20,8 @@ SELECT sql_saga.drop_era('public.location');
 
 SELECT sql_saga.drop_foreign_key('public.person_for_unit', 'person_for_unit_establishment_id_valid');
 SELECT sql_saga.drop_foreign_key('public.person_for_unit', 'person_for_unit_legal_unit_id_valid');
+SELECT sql_saga.drop_unique_key('public.person_for_unit', 'person_for_uni_person_id_person_role_id_establishment__valid');
+SELECT sql_saga.drop_unique_key('public.person_for_unit', 'person_for_unit_person_id_person_role_id_legal_unit_id_valid');
 SELECT sql_saga.drop_unique_key('public.person_for_unit', 'person_for_unit_id_valid');
 SELECT sql_saga.drop_era('public.person_for_unit');
 
