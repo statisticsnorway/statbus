@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TABLE public.stat_for_unit (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    id SERIAL NOT NULL,
     stat_definition_id integer NOT NULL REFERENCES public.stat_definition(id) ON DELETE RESTRICT,
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
