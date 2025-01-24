@@ -1,7 +1,7 @@
 BEGIN;
 
 CREATE TABLE public.stat_for_unit (
-    id SERIAL NOT NULL,
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     stat_definition_id integer NOT NULL REFERENCES public.stat_definition(id) ON DELETE RESTRICT,
     valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
@@ -24,5 +24,10 @@ CREATE TABLE public.stat_for_unit (
         (value_int IS     NULL AND value_float IS     NULL AND value_string IS     NULL AND value_bool IS NOT NULL)
     )
 );
+
+CREATE INDEX ix_stat_for_unit_stat_definition_id ON public.stat_for_unit USING btree (stat_definition_id);
+CREATE INDEX ix_stat_for_unit_data_source_id ON public.stat_for_unit USING btree (data_source_id);
+CREATE INDEX ix_stat_for_unit_legal_unit_id ON public.stat_for_unit USING btree (legal_unit_id);
+CREATE INDEX ix_stat_for_unit_establishment_id ON public.stat_for_unit USING btree (establishment_id);
 
 END;
