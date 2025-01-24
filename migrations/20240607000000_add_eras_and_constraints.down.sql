@@ -15,9 +15,9 @@ SELECT sql_saga.drop_era('public.contact');
 
 SELECT sql_saga.drop_foreign_key('public.location', 'location_establishment_id_valid');
 SELECT sql_saga.drop_foreign_key('public.location', 'location_legal_unit_id_valid');
-SELECT sql_saga.drop_unique_key('public.location', 'location_id_valid');
-SELECT sql_saga.drop_unique_key('public.location', 'location_type_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.location', 'location_type_legal_unit_id_valid');
+SELECT sql_saga.drop_unique_key('public.location', 'location_type_establishment_id_valid');
+SELECT sql_saga.drop_unique_key('public.location', 'location_id_valid');
 SELECT sql_saga.drop_era('public.location');
 
 SELECT sql_saga.drop_foreign_key('public.person_for_unit', 'person_for_unit_establishment_id_valid');
