@@ -26,6 +26,7 @@ SELECT sql_saga.drop_unique_key('public.person_for_unit', 'person_for_unit_id_va
 SELECT sql_saga.drop_era('public.person_for_unit');
 
 SELECT sql_saga.drop_foreign_key('public.stat_for_unit', 'stat_for_unit_establishment_id_valid');
+SELECT sql_saga.drop_foreign_key('public.stat_for_unit', 'stat_for_unit_legal_unit_id_valid');
 SELECT sql_saga.drop_unique_key('public.stat_for_unit', 'stat_for_unit_stat_definition_id_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.stat_for_unit', 'stat_for_unit_id_valid');
 SELECT sql_saga.drop_era('public.stat_for_unit');
