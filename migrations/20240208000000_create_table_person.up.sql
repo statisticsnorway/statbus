@@ -11,9 +11,11 @@ CREATE TABLE public.person (
     family_name character varying(150),
     birth_date date,
     sex public.person_sex,
-    phone_number_1 text,
-    phone_number_2 text,
-    address text
+    phone_number text,
+    mobile_number text,
+    address_part1 character varying(200),
+    address_part2 character varying(200),
+    address_part3 character varying(200),
 );
 CREATE INDEX ix_person_country_id ON public.person USING btree (country_id);
 CREATE INDEX ix_person_given_name_surname ON public.person USING btree (given_name, middle_name, family_name);
