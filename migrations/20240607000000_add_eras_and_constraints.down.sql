@@ -4,7 +4,14 @@ BEGIN;
 --   SELECT table_name, column_names, key_name FROM sql_saga.unique_keys;
 --   SELECT table_name, column_names, key_name FROM sql_saga.foreign_keys;
 
--- Drop era handling
+-- Drop era handling in reverse order of creation
+
+SELECT sql_saga.drop_foreign_key('public.contact', 'contact_establishment_id_valid');
+SELECT sql_saga.drop_foreign_key('public.contact', 'contact_legal_unit_id_valid');
+SELECT sql_saga.drop_unique_key('public.contact', 'contact_person_id_person_role_id_legal_unit_id_valid');
+SELECT sql_saga.drop_unique_key('public.contact', 'contact_person_id_person_role_id_establishment_id_valid');
+SELECT sql_saga.drop_unique_key('public.contact', 'contact_id_valid');
+SELECT sql_saga.drop_era('public.contact');
 
 SELECT sql_saga.drop_foreign_key('public.location', 'location_establishment_id_valid');
 SELECT sql_saga.drop_foreign_key('public.location', 'location_legal_unit_id_valid');
