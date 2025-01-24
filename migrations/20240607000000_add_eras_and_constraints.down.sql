@@ -13,6 +13,11 @@ SELECT sql_saga.drop_unique_key('public.location', 'location_type_establishment_
 SELECT sql_saga.drop_unique_key('public.location', 'location_type_legal_unit_id_valid');
 SELECT sql_saga.drop_era('public.location');
 
+SELECT sql_saga.drop_foreign_key('public.person_for_unit', 'person_for_unit_establishment_id_valid');
+SELECT sql_saga.drop_foreign_key('public.person_for_unit', 'person_for_unit_legal_unit_id_valid');
+SELECT sql_saga.drop_unique_key('public.person_for_unit', 'person_for_unit_id_valid');
+SELECT sql_saga.drop_era('public.person_for_unit');
+
 SELECT sql_saga.drop_foreign_key('public.stat_for_unit', 'stat_for_unit_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.stat_for_unit', 'stat_for_unit_stat_definition_id_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.stat_for_unit', 'stat_for_unit_id_valid');
