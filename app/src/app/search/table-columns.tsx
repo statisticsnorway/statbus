@@ -84,6 +84,14 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
         },
         {
           type: "Adaptable",
+          code: "secondary_activity",
+          label: "Secondary Activity",
+          visible: false,
+          stat_code: null,
+          profiles: ["Regular", "All"],
+        },
+        {
+          type: "Adaptable",
           code: "top_region",
           label: "Top Region",
           visible: true,

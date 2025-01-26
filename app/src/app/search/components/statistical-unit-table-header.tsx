@@ -133,6 +133,15 @@ export function StatisticalUnitTableHeader({
                   label="Activity Category"
                 />
               );
+            case "secondary_activity":
+              return (
+                <SortableTableHead
+                  className="text-left hidden lg:table-cell"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                  name="secondary_activity_category_path"
+                  label="Secondary Activity"
+                />
+              );
             case "physical_address":
               return (
                 <TableHead

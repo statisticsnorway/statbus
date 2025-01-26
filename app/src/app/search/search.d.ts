@@ -73,6 +73,7 @@ export type TableColumnCode =
   | "name"
   | "activity_section"
   | "activity"
+  | "secondary_activity"
   | "top_region"
   | "region"
   | "statistic"

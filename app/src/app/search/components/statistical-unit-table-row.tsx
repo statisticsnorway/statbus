@@ -50,6 +50,10 @@ export const StatisticalUnitTableRow = ({
     unit.primary_activity_category_path
   );
 
+   const secondaryActivityCategory = getActivityCategoryByPath(
+     unit.secondary_activity_category_path
+   );
+
   const getDataSourcesByIds = (data_source_ids: number[] | null) => {
     if (!data_source_ids) return [];
     return data_source_ids
@@ -182,6 +186,24 @@ export const StatisticalUnitTableRow = ({
                   <span>{activityCategory?.code}</span>
                   <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
                     {activityCategory?.name}
+                  </small>
+                </div>
+              </TableCell>
+            );
+
+          case "secondary_activity":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={secondaryActivityCategory?.name ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
+                  <span>{secondaryActivityCategory?.code}</span>
+                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
+                    {secondaryActivityCategory?.name}
                   </small>
                 </div>
               </TableCell>
