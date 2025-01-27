@@ -106,7 +106,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 \echo "Check sector for legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 
 \echo "Check statistical unit history by year - sector_change_count should be 1 for year 2011"
@@ -154,7 +155,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 \echo "Check sector for legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 
 \echo "Check statistical unit history by year - sector_change_count should be 1 for year 2011 and 2012"

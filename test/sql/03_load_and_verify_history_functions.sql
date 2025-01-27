@@ -423,80 +423,80 @@ ORDER BY year,month,unit_type;
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'enterprise'::public.statistical_unit_type,
-          'year'::public.history_resolution,
-          NULL::INTEGER,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::INTEGER,
-          NULL::INTEGER,
-          2010,
-          2024
+          unit_type := 'enterprise'::public.statistical_unit_type,
+          resolution := 'year'::public.history_resolution,
+          year := NULL::INTEGER,
+          region_path := NULL::public.ltree,
+          activity_category_path := NULL::public.ltree,
+          sector_path := NULL::public.ltree,
+          legal_form_id := NULL::INTEGER,
+          country_id := NULL::INTEGER,
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 
 \echo "Test yearly drilldown - legal_unit"
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'legal_unit'::public.statistical_unit_type,
-          'year'::public.history_resolution,
-          NULL::INTEGER,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::INTEGER,
-          NULL::INTEGER,
-          2010,
-          2024
+          unit_type := 'legal_unit'::public.statistical_unit_type,
+          resolution := 'year'::public.history_resolution,
+          year := NULL::INTEGER,
+          region_path := NULL::public.ltree,
+          activity_category_path := NULL::public.ltree,
+          sector_path := NULL::public.ltree,
+          legal_form_id := NULL::INTEGER,
+          country_id := NULL::INTEGER,
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 
 \echo "Test yearly drilldown - establishment"
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'establishment'::public.statistical_unit_type,
-          'year'::public.history_resolution,
-          NULL::INTEGER,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::INTEGER,
-          NULL::INTEGER,
-          2010,
-          2024
+          unit_type := 'establishment'::public.statistical_unit_type,
+          resolution := 'year'::public.history_resolution,
+          year := NULL::INTEGER,
+          region_path := NULL::public.ltree,
+          activity_category_path := NULL::public.ltree,
+          sector_path := NULL::public.ltree,
+          legal_form_id := NULL::INTEGER,
+          country_id := NULL::INTEGER,
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 
 \echo "Test yearly drilldown - enterprise - with all filters as top level"
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'enterprise'::public.statistical_unit_type, -- unit_type
-          'year'::public.history_resolution, -- resolution
-          2019, -- year
-          '11'::public.ltree, -- region_path
-          'H'::public.ltree, -- activity_category_path
-          'innl'::public.ltree, -- sector_path
-          (SELECT id FROM public.legal_form WHERE code = 'AS'), -- legal_form_id
-          (SELECT id FROM public.country WHERE iso_2 = 'NO'), -- country_id
-          2010, -- year_min
-          2024  -- year_max
+          unit_type := 'enterprise'::public.statistical_unit_type,
+          resolution := 'year'::public.history_resolution,
+          year := 2019,
+          region_path := '11'::public.ltree,
+          activity_category_path := 'H'::public.ltree,
+          sector_path := 'innl'::public.ltree,
+          legal_form_id := (SELECT id FROM public.legal_form WHERE code = 'AS'),
+          country_id := (SELECT id FROM public.country WHERE iso_2 = 'NO'),
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 
 \echo "Test yearly drilldown - enterprise - with all filters as bottom level"
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'enterprise'::public.statistical_unit_type, -- unit_type
-          'year'::public.history_resolution, -- resolution
-          2019, -- year
-          '11.21'::public.ltree, -- region_path
-          'H.49.4.1.0'::public.ltree, -- activity_category_path
-          'innl.a_ikke_fin.2100'::public.ltree, -- sector_path
-          (SELECT id FROM public.legal_form WHERE code = 'AS'), -- legal_form_id
-          (SELECT id FROM public.country WHERE iso_2 = 'NO'), -- country_id
-          2010, -- year_min
-          2024  -- year_max
+          unit_type := 'enterprise'::public.statistical_unit_type,
+          resolution := 'year'::public.history_resolution,
+          year := 2019,
+          region_path := '11.21'::public.ltree,
+          activity_category_path := 'H.49.4.1.0'::public.ltree,
+          sector_path := 'innl.a_ikke_fin.2100'::public.ltree,
+          legal_form_id := (SELECT id FROM public.legal_form WHERE code = 'AS'),
+          country_id := (SELECT id FROM public.country WHERE iso_2 = 'NO'),
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 
 
@@ -504,16 +504,16 @@ SELECT jsonb_pretty(
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'enterprise'::public.statistical_unit_type,
-          'year-month'::public.history_resolution,
-          2019,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::INTEGER,
-          NULL::INTEGER,
-          2010,
-          2024
+          unit_type := 'enterprise'::public.statistical_unit_type,
+          resolution := 'year-month'::public.history_resolution,
+          year := 2019,
+          region_path := NULL::public.ltree,
+          activity_category_path := NULL::public.ltree,
+          sector_path := NULL::public.ltree,
+          legal_form_id := NULL::INTEGER,
+          country_id := NULL::INTEGER,
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 
 \echo "Test statistical_unit_hierarchy - For a date when it does not exist"

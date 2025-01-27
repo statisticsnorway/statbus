@@ -479,6 +479,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -544,6 +545,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -609,6 +611,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -674,6 +677,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -739,6 +743,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -804,6 +809,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "49.41",                         +
                       |     "primary_activity_category_path": "H.49.4.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -882,6 +888,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -960,6 +967,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -1038,6 +1046,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -1116,6 +1125,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -1181,6 +1191,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -1246,6 +1257,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -1311,6 +1323,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "47.75",                         +
                       |     "primary_activity_category_path": "G.47.7.5",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -1389,6 +1402,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -1467,6 +1481,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -1545,6 +1560,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -1609,6 +1625,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -1673,6 +1690,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -1737,6 +1755,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -1801,6 +1820,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -1865,6 +1885,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "49.41",                         +
                       |     "primary_activity_category_path": "H.49.4.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -1941,6 +1962,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -2017,6 +2039,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -2093,6 +2116,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -2169,6 +2193,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -2233,6 +2258,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -2297,6 +2323,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -2361,6 +2388,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "47.75",                         +
                       |     "primary_activity_category_path": "G.47.7.5",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -2437,6 +2465,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -2513,6 +2542,7 @@ statistical_unit_data | {                                                       
                       |     "activity_category_paths": [                                       +
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
                       |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
                       |     "secondary_activity_category_code": null,                          +

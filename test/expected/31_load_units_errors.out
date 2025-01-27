@@ -42,7 +42,7 @@ SELECT
 \echo "User uploads formal establishments with same stat_ident as legal units"
 "User uploads formal establishments with same stat_ident as legal units"
 \copy public.import_establishment_era_for_legal_unit(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'test/data/31_formal_establishments_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  The external identifier stat_ident for establishment already taken by a legal_unit for row {"name": "NILE PEARL WATER", "tag_path": null, "turnover": "0", "valid_to": "infinity", "employees": "0", "tax_ident": "92212760144", "birth_date": null, "death_date": null, "stat_ident": "1000", "valid_from": "2024-01-01", "sector_code": null, "status_code": null, "postal_postcode": null, "data_source_code": "nlr", "postal_postplace": null, "physical_postcode": null, "physical_postplace": null, "postal_region_code": null, "postal_region_path": null, "legal_unit_tax_ident": "2212760144", "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "legal_unit_stat_ident": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null}
+ERROR:  The external identifier stat_ident for establishment already taken by a legal_unit for row {"name": "NILE PEARL WATER", "landline": null, "tag_path": null, "turnover": "0", "valid_to": "infinity", "employees": "0", "tax_ident": "92212760144", "birth_date": null, "death_date": null, "fax_number": null, "stat_ident": "1000", "valid_from": "2024-01-01", "sector_code": null, "status_code": null, "web_address": null, "phone_number": null, "email_address": null, "mobile_number": null, "postal_altitude": null, "postal_latitude": null, "postal_postcode": null, "data_source_code": "nlr", "postal_longitude": null, "postal_postplace": null, "physical_altitude": null, "physical_latitude": null, "physical_postcode": null, "physical_longitude": null, "physical_postplace": null, "postal_region_code": null, "postal_region_path": null, "legal_unit_tax_ident": "2212760144", "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "legal_unit_stat_ident": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null}
 CONTEXT:  PL/pgSQL function admin.process_external_idents(jsonb,text) line 75 at RAISE
 SQL statement "SELECT external_idents        , prior_id
                                                                FROM admin.process_external_idents(new_jsonb,'establishment') AS r"
@@ -65,6 +65,9 @@ SQL statement "INSERT INTO public.import_establishment_era(
         physical_address_part3,
         physical_postcode,
         physical_postplace,
+        physical_latitude,
+        physical_longitude,
+        physical_altitude,
         physical_region_code,
         physical_region_path,
         physical_country_iso_2,
@@ -73,9 +76,18 @@ SQL statement "INSERT INTO public.import_establishment_era(
         postal_address_part3,
         postal_postcode,
         postal_postplace,
+        postal_latitude,
+        postal_longitude,
+        postal_altitude,
         postal_region_code,
         postal_region_path,
         postal_country_iso_2,
+        web_address,
+        email_address,
+        phone_number,
+        landline,
+        mobile_number,
+        fax_number,
         primary_activity_category_code,
         secondary_activity_category_code,
         status_code,
@@ -101,6 +113,9 @@ SQL statement "INSERT INTO public.import_establishment_era(
         NEW.physical_address_part3,
         NEW.physical_postcode,
         NEW.physical_postplace,
+        NEW.physical_latitude,
+        NEW.physical_longitude,
+        NEW.physical_altitude,
         NEW.physical_region_code,
         NEW.physical_region_path,
         NEW.physical_country_iso_2,
@@ -109,9 +124,18 @@ SQL statement "INSERT INTO public.import_establishment_era(
         NEW.postal_address_part3,
         NEW.postal_postcode,
         NEW.postal_postplace,
+        NEW.postal_latitude,
+        NEW.postal_longitude,
+        NEW.postal_altitude,
         NEW.postal_region_code,
         NEW.postal_region_path,
         NEW.postal_country_iso_2,
+        NEW.web_address,
+        NEW.email_address,
+        NEW.phone_number,
+        NEW.landline,
+        NEW.mobile_number,
+        NEW.fax_number,
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
         NEW.status_code,
@@ -152,7 +176,7 @@ SELECT
 \echo "User uploads informal establishments with same stat_idents as formal establishments"
 "User uploads informal establishments with same stat_idents as formal establishments"
 \copy public.import_establishment_era_without_legal_unit(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'test/data/31_informal_establishments_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  Identifier conflicts [{"code": "tax_ident", "problem": "unstable_identifier", "new_ident": "82212760144", "unit_type": "establishment", "current_ident": "92212760144"}] for row {"name": "THE NILE PEARL WATER", "tag_path": null, "turnover": "1200", "valid_to": "infinity", "employees": "1", "tax_ident": "82212760144", "birth_date": null, "death_date": null, "stat_ident": "2000", "valid_from": "2024-01-01", "sector_code": null, "status_code": null, "postal_postcode": null, "data_source_code": "nlr", "postal_postplace": null, "physical_postcode": null, "physical_postplace": null, "postal_region_code": null, "postal_region_path": null, "legal_unit_tax_ident": null, "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "legal_unit_stat_ident": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null}
+ERROR:  Identifier conflicts [{"code": "tax_ident", "problem": "unstable_identifier", "new_ident": "82212760144", "unit_type": "establishment", "current_ident": "92212760144"}] for row {"name": "THE NILE PEARL WATER", "landline": null, "tag_path": null, "turnover": "1200", "valid_to": "infinity", "employees": "1", "tax_ident": "82212760144", "birth_date": null, "death_date": null, "fax_number": null, "stat_ident": "2000", "valid_from": "2024-01-01", "sector_code": null, "status_code": null, "web_address": null, "phone_number": null, "email_address": null, "mobile_number": null, "postal_altitude": null, "postal_latitude": null, "postal_postcode": null, "data_source_code": "nlr", "postal_longitude": null, "postal_postplace": null, "physical_altitude": null, "physical_latitude": null, "physical_postcode": null, "physical_longitude": null, "physical_postplace": null, "postal_region_code": null, "postal_region_path": null, "legal_unit_tax_ident": null, "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "legal_unit_stat_ident": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null}
 DETAIL:  Key constraint (type_id, establishment_id) is violated.
 HINT:  Check for other units already using the same identifier
 CONTEXT:  PL/pgSQL function admin.insert_external_idents(jsonb,external_ident[],integer,integer,integer) line 97 at RAISE
@@ -177,6 +201,9 @@ SQL statement "INSERT INTO public.import_establishment_era (
         physical_address_part3,
         physical_postcode,
         physical_postplace,
+        physical_latitude,
+        physical_longitude,
+        physical_altitude,
         physical_region_code,
         physical_region_path,
         physical_country_iso_2,
@@ -185,9 +212,18 @@ SQL statement "INSERT INTO public.import_establishment_era (
         postal_address_part3,
         postal_postcode,
         postal_postplace,
+        postal_latitude,
+        postal_longitude,
+        postal_altitude,
         postal_region_code,
         postal_region_path,
         postal_country_iso_2,
+        web_address,
+        email_address,
+        phone_number,
+        landline,
+        mobile_number,
+        fax_number,
         primary_activity_category_code,
         secondary_activity_category_code,
         sector_code,
@@ -209,6 +245,9 @@ SQL statement "INSERT INTO public.import_establishment_era (
         NEW.physical_address_part3,
         NEW.physical_postcode,
         NEW.physical_postplace,
+        NEW.physical_latitude,
+        NEW.physical_longitude,
+        NEW.physical_altitude,
         NEW.physical_region_code,
         NEW.physical_region_path,
         NEW.physical_country_iso_2,
@@ -217,9 +256,18 @@ SQL statement "INSERT INTO public.import_establishment_era (
         NEW.postal_address_part3,
         NEW.postal_postcode,
         NEW.postal_postplace,
+        NEW.postal_latitude,
+        NEW.postal_longitude,
+        NEW.postal_altitude,
         NEW.postal_region_code,
         NEW.postal_region_path,
         NEW.postal_country_iso_2,
+        NEW.web_address,
+        NEW.email_address,
+        NEW.phone_number,
+        NEW.landline,
+        NEW.mobile_number,
+        NEW.fax_number,
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
         NEW.sector_code,

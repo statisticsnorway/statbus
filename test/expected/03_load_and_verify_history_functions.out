@@ -1361,6 +1361,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1455,6 +1456,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1547,6 +1549,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1637,6 +1640,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1731,6 +1735,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1823,6 +1828,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1913,6 +1919,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2007,6 +2014,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2099,6 +2107,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2189,6 +2198,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2283,6 +2293,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2375,6 +2386,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2465,6 +2477,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2559,6 +2572,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2651,6 +2665,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2741,6 +2756,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2835,6 +2851,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2927,6 +2944,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3017,6 +3035,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3111,6 +3130,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3203,6 +3223,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3293,6 +3314,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3387,6 +3409,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3479,6 +3502,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3569,6 +3593,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3663,6 +3688,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3755,6 +3781,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3845,6 +3872,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3939,6 +3967,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -4031,6 +4060,7 @@ statistical_unit_data | {                                                  +
                       |     "activity_category_paths": [                   +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
+                      |     "include_unit_in_reports": true,               +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -9926,16 +9956,16 @@ ORDER BY year,month,unit_type;
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'enterprise'::public.statistical_unit_type,
-          'year'::public.history_resolution,
-          NULL::INTEGER,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::INTEGER,
-          NULL::INTEGER,
-          2010,
-          2024
+          unit_type := 'enterprise'::public.statistical_unit_type,
+          resolution := 'year'::public.history_resolution,
+          year := NULL::INTEGER,
+          region_path := NULL::public.ltree,
+          activity_category_path := NULL::public.ltree,
+          sector_path := NULL::public.ltree,
+          legal_form_id := NULL::INTEGER,
+          country_id := NULL::INTEGER,
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 statistical_history_drilldown
 {
@@ -10540,6 +10570,14 @@ statistical_history_drilldown
                 "has_children": true
             }
         ],
+        "status": [
+            {
+                "code": "active",
+                "name": "Active",
+                "count": 14,
+                "has_children": false
+            }
+        ],
         "country": [
             {
                 "name": "Norway",
@@ -10577,6 +10615,7 @@ statistical_history_drilldown
     "breadcrumb": {
         "region": null,
         "sector": null,
+        "status": null,
         "country": null,
         "legal_form": null,
         "activity_category": null
@@ -10588,16 +10627,16 @@ statistical_history_drilldown
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'legal_unit'::public.statistical_unit_type,
-          'year'::public.history_resolution,
-          NULL::INTEGER,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::INTEGER,
-          NULL::INTEGER,
-          2010,
-          2024
+          unit_type := 'legal_unit'::public.statistical_unit_type,
+          resolution := 'year'::public.history_resolution,
+          year := NULL::INTEGER,
+          region_path := NULL::public.ltree,
+          activity_category_path := NULL::public.ltree,
+          sector_path := NULL::public.ltree,
+          legal_form_id := NULL::INTEGER,
+          country_id := NULL::INTEGER,
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 statistical_history_drilldown
 {
@@ -11202,6 +11241,14 @@ statistical_history_drilldown
                 "has_children": true
             }
         ],
+        "status": [
+            {
+                "code": "active",
+                "name": "Active",
+                "count": 14,
+                "has_children": false
+            }
+        ],
         "country": [
             {
                 "name": "Norway",
@@ -11239,6 +11286,7 @@ statistical_history_drilldown
     "breadcrumb": {
         "region": null,
         "sector": null,
+        "status": null,
         "country": null,
         "legal_form": null,
         "activity_category": null
@@ -11250,16 +11298,16 @@ statistical_history_drilldown
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'establishment'::public.statistical_unit_type,
-          'year'::public.history_resolution,
-          NULL::INTEGER,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::INTEGER,
-          NULL::INTEGER,
-          2010,
-          2024
+          unit_type := 'establishment'::public.statistical_unit_type,
+          resolution := 'year'::public.history_resolution,
+          year := NULL::INTEGER,
+          region_path := NULL::public.ltree,
+          activity_category_path := NULL::public.ltree,
+          sector_path := NULL::public.ltree,
+          legal_form_id := NULL::INTEGER,
+          country_id := NULL::INTEGER,
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 statistical_history_drilldown
 {
@@ -11855,6 +11903,14 @@ statistical_history_drilldown
             }
         ],
         "sector": null,
+        "status": [
+            {
+                "code": "active",
+                "name": "Active",
+                "count": 15,
+                "has_children": false
+            }
+        ],
         "country": [
             {
                 "name": "Norway",
@@ -11879,6 +11935,7 @@ statistical_history_drilldown
     "breadcrumb": {
         "region": null,
         "sector": null,
+        "status": null,
         "country": null,
         "legal_form": null,
         "activity_category": null
@@ -11890,16 +11947,16 @@ statistical_history_drilldown
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'enterprise'::public.statistical_unit_type, -- unit_type
-          'year'::public.history_resolution, -- resolution
-          2019, -- year
-          '11'::public.ltree, -- region_path
-          'H'::public.ltree, -- activity_category_path
-          'innl'::public.ltree, -- sector_path
-          (SELECT id FROM public.legal_form WHERE code = 'AS'), -- legal_form_id
-          (SELECT id FROM public.country WHERE iso_2 = 'NO'), -- country_id
-          2010, -- year_min
-          2024  -- year_max
+          unit_type := 'enterprise'::public.statistical_unit_type,
+          resolution := 'year'::public.history_resolution,
+          year := 2019,
+          region_path := '11'::public.ltree,
+          activity_category_path := 'H'::public.ltree,
+          sector_path := 'innl'::public.ltree,
+          legal_form_id := (SELECT id FROM public.legal_form WHERE code = 'AS'),
+          country_id := (SELECT id FROM public.country WHERE iso_2 = 'NO'),
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 statistical_history_drilldown
 {
@@ -11972,6 +12029,14 @@ statistical_history_drilldown
                 "has_children": true
             }
         ],
+        "status": [
+            {
+                "code": "active",
+                "name": "Active",
+                "count": 1,
+                "has_children": false
+            }
+        ],
         "country": null,
         "legal_form": null,
         "activity_category": [
@@ -12003,6 +12068,7 @@ statistical_history_drilldown
                 "label": "innl"
             }
         ],
+        "status": null,
         "country": [
             {
                 "name": "Norway",
@@ -12031,16 +12097,16 @@ statistical_history_drilldown
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'enterprise'::public.statistical_unit_type, -- unit_type
-          'year'::public.history_resolution, -- resolution
-          2019, -- year
-          '11.21'::public.ltree, -- region_path
-          'H.49.4.1.0'::public.ltree, -- activity_category_path
-          'innl.a_ikke_fin.2100'::public.ltree, -- sector_path
-          (SELECT id FROM public.legal_form WHERE code = 'AS'), -- legal_form_id
-          (SELECT id FROM public.country WHERE iso_2 = 'NO'), -- country_id
-          2010, -- year_min
-          2024  -- year_max
+          unit_type := 'enterprise'::public.statistical_unit_type,
+          resolution := 'year'::public.history_resolution,
+          year := 2019,
+          region_path := '11.21'::public.ltree,
+          activity_category_path := 'H.49.4.1.0'::public.ltree,
+          sector_path := 'innl.a_ikke_fin.2100'::public.ltree,
+          legal_form_id := (SELECT id FROM public.legal_form WHERE code = 'AS'),
+          country_id := (SELECT id FROM public.country WHERE iso_2 = 'NO'),
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 statistical_history_drilldown
 {
@@ -12095,6 +12161,14 @@ statistical_history_drilldown
     "available": {
         "region": null,
         "sector": null,
+        "status": [
+            {
+                "code": "active",
+                "name": "Active",
+                "count": 1,
+                "has_children": false
+            }
+        ],
         "country": null,
         "legal_form": null,
         "activity_category": null
@@ -12135,6 +12209,7 @@ statistical_history_drilldown
                 "label": "innla_ikke_fin2100"
             }
         ],
+        "status": null,
         "country": [
             {
                 "name": "Norway",
@@ -12187,16 +12262,16 @@ statistical_history_drilldown
 SELECT jsonb_pretty(
      public.remove_ephemeral_data_from_hierarchy(
      public.statistical_history_drilldown(
-          'enterprise'::public.statistical_unit_type,
-          'year-month'::public.history_resolution,
-          2019,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::public.ltree,
-          NULL::INTEGER,
-          NULL::INTEGER,
-          2010,
-          2024
+          unit_type := 'enterprise'::public.statistical_unit_type,
+          resolution := 'year-month'::public.history_resolution,
+          year := 2019,
+          region_path := NULL::public.ltree,
+          activity_category_path := NULL::public.ltree,
+          sector_path := NULL::public.ltree,
+          legal_form_id := NULL::INTEGER,
+          country_id := NULL::INTEGER,
+          year_min := 2010,
+          year_max := 2024
      ))) AS statistical_history_drilldown;
 statistical_history_drilldown
 {
@@ -12687,6 +12762,14 @@ statistical_history_drilldown
                 "has_children": true
             }
         ],
+        "status": [
+            {
+                "code": "active",
+                "name": "Active",
+                "count": 12,
+                "has_children": false
+            }
+        ],
         "country": [
             {
                 "name": "Norway",
@@ -12718,6 +12801,7 @@ statistical_history_drilldown
     "breadcrumb": {
         "region": null,
         "sector": null,
+        "status": null,
         "country": null,
         "legal_form": null,
         "activity_category": null
@@ -13700,33 +13784,36 @@ SELECT valid_after
 valid_after     | 2019-12-31
 valid_from      | 2020-01-01
 valid_to        | infinity
-unit_type       | enterprise
-external_idents | {"tax_ident": "921835809"}
-stats           | 
+unit_type       | establishment
+external_idents | {"tax_ident": "895406732"}
+stats           | {                                           +
+                |     "turnover": 70000000,                   +
+                |     "employees": 45                         +
+                | }
 stats_summary   | {                                           +
                 |     "turnover": {                           +
                 |         "max": 70000000,                    +
                 |         "min": 70000000,                    +
                 |         "sum": 70000000,                    +
-                |         "mean": 70000000.00,                +
+                |         "mean": 70000000,                   +
                 |         "type": "number",                   +
                 |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
                 |     },                                      +
                 |     "employees": {                          +
                 |         "max": 45,                          +
                 |         "min": 45,                          +
                 |         "sum": 45,                          +
-                |         "mean": 45.00,                      +
+                |         "mean": 45,                         +
                 |         "type": "number",                   +
                 |         "count": 1,                         +
-                |         "stddev": 0.00,                     +
-                |         "variance": 0.00,                   +
-                |         "sum_sq_diff": 0.00,                +
-                |         "coefficient_of_variation_pct": 0.00+
+                |         "stddev": 0,                        +
+                |         "variance": 0,                      +
+                |         "sum_sq_diff": 0,                   +
+                |         "coefficient_of_variation_pct": 0   +
                 |     }                                       +
                 | }
 -[ RECORD 2 ]---+---------------------------------------------
@@ -13767,36 +13854,33 @@ stats_summary   | {                                           +
 valid_after     | 2019-12-31
 valid_from      | 2020-01-01
 valid_to        | infinity
-unit_type       | establishment
-external_idents | {"tax_ident": "895406732"}
-stats           | {                                           +
-                |     "turnover": 70000000,                   +
-                |     "employees": 45                         +
-                | }
+unit_type       | enterprise
+external_idents | {"tax_ident": "921835809"}
+stats           | 
 stats_summary   | {                                           +
                 |     "turnover": {                           +
                 |         "max": 70000000,                    +
                 |         "min": 70000000,                    +
                 |         "sum": 70000000,                    +
-                |         "mean": 70000000,                   +
+                |         "mean": 70000000.00,                +
                 |         "type": "number",                   +
                 |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
                 |     },                                      +
                 |     "employees": {                          +
                 |         "max": 45,                          +
                 |         "min": 45,                          +
                 |         "sum": 45,                          +
-                |         "mean": 45,                         +
+                |         "mean": 45.00,                      +
                 |         "type": "number",                   +
                 |         "count": 1,                         +
-                |         "stddev": 0,                        +
-                |         "variance": 0,                      +
-                |         "sum_sq_diff": 0,                   +
-                |         "coefficient_of_variation_pct": 0   +
+                |         "stddev": 0.00,                     +
+                |         "variance": 0.00,                   +
+                |         "sum_sq_diff": 0.00,                +
+                |         "coefficient_of_variation_pct": 0.00+
                 |     }                                       +
                 | }
 

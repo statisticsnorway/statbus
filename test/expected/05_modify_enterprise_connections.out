@@ -1541,131 +1541,30 @@ SELECT valid_after
 valid_after     | 2009-12-31
 valid_from      | 2010-01-01
 valid_to        | infinity
-unit_type       | enterprise
-external_idents | {"tax_ident": "823573673"}
-stats           | 
-stats_summary   | {                                            +
-                |     "turnover": {                            +
-                |         "max": 30000000,                     +
-                |         "min": 12000000,                     +
-                |         "sum": 67000000,                     +
-                |         "mean": 22333333.33,                 +
-                |         "type": "number",                    +
-                |         "count": 3,                          +
-                |         "stddev": 9291573.24,                +
-                |         "variance": 86333333333333.33,       +
-                |         "sum_sq_diff": 172666666666666.67,   +
-                |         "coefficient_of_variation_pct": 41.60+
-                |     },                                       +
-                |     "employees": {                           +
-                |         "max": 14,                           +
-                |         "min": 7,                            +
-                |         "sum": 31,                           +
-                |         "mean": 10.33,                       +
-                |         "type": "number",                    +
-                |         "count": 3,                          +
-                |         "stddev": 3.51,                      +
-                |         "variance": 12.33,                   +
-                |         "sum_sq_diff": 24.67,                +
-                |         "coefficient_of_variation_pct": 33.99+
-                |     }                                        +
-                | }
--[ RECORD 2 ]---+----------------------------------------------
-valid_after     | 2009-12-31
-valid_from      | 2010-01-01
-valid_to        | infinity
-unit_type       | legal_unit
-external_idents | {"tax_ident": "921835809"}
+unit_type       | establishment
+external_idents | {"tax_ident": "595875335"}
 stats           | {                                            +
+                |     "turnover": 25000000,                    +
+                |     "employees": 10                          +
                 | }
 stats_summary   | {                                            +
                 |     "turnover": {                            +
                 |         "max": 25000000,                     +
-                |         "min": 12000000,                     +
-                |         "sum": 37000000,                     +
-                |         "mean": 18500000.00,                 +
+                |         "min": 25000000,                     +
+                |         "sum": 25000000,                     +
+                |         "mean": 25000000,                    +
                 |         "type": "number",                    +
-                |         "count": 2,                          +
-                |         "stddev": 9192388.16,                +
-                |         "variance": 84500000000000.00,       +
-                |         "sum_sq_diff": 84500000000000.00,    +
-                |         "coefficient_of_variation_pct": 49.69+
+                |         "count": 1,                          +
+                |         "stddev": 0,                         +
+                |         "variance": 0,                       +
+                |         "sum_sq_diff": 0,                    +
+                |         "coefficient_of_variation_pct": 0    +
                 |     },                                       +
                 |     "employees": {                           +
                 |         "max": 10,                           +
-                |         "min": 7,                            +
-                |         "sum": 17,                           +
-                |         "mean": 8.50,                        +
-                |         "type": "number",                    +
-                |         "count": 2,                          +
-                |         "stddev": 2.12,                      +
-                |         "variance": 4.50,                    +
-                |         "sum_sq_diff": 4.50,                 +
-                |         "coefficient_of_variation_pct": 24.96+
-                |     }                                        +
-                | }
--[ RECORD 3 ]---+----------------------------------------------
-valid_after     | 2009-12-31
-valid_from      | 2010-01-01
-valid_to        | infinity
-unit_type       | legal_unit
-external_idents | {"tax_ident": "823573673"}
-stats           | {                                            +
-                | }
-stats_summary   | {                                            +
-                |     "turnover": {                            +
-                |         "max": 30000000,                     +
-                |         "min": 30000000,                     +
-                |         "sum": 30000000,                     +
-                |         "mean": 30000000.00,                 +
-                |         "type": "number",                    +
-                |         "count": 1,                          +
-                |         "stddev": 0.00,                      +
-                |         "variance": 0.00,                    +
-                |         "sum_sq_diff": 0.00,                 +
-                |         "coefficient_of_variation_pct": 0.00 +
-                |     },                                       +
-                |     "employees": {                           +
-                |         "max": 14,                           +
-                |         "min": 14,                           +
-                |         "sum": 14,                           +
-                |         "mean": 14.00,                       +
-                |         "type": "number",                    +
-                |         "count": 1,                          +
-                |         "stddev": 0.00,                      +
-                |         "variance": 0.00,                    +
-                |         "sum_sq_diff": 0.00,                 +
-                |         "coefficient_of_variation_pct": 0.00 +
-                |     }                                        +
-                | }
--[ RECORD 4 ]---+----------------------------------------------
-valid_after     | 2009-12-31
-valid_from      | 2010-01-01
-valid_to        | infinity
-unit_type       | establishment
-external_idents | {"tax_ident": "895406732"}
-stats           | {                                            +
-                |     "turnover": 30000000,                    +
-                |     "employees": 14                          +
-                | }
-stats_summary   | {                                            +
-                |     "turnover": {                            +
-                |         "max": 30000000,                     +
-                |         "min": 30000000,                     +
-                |         "sum": 30000000,                     +
-                |         "mean": 30000000,                    +
-                |         "type": "number",                    +
-                |         "count": 1,                          +
-                |         "stddev": 0,                         +
-                |         "variance": 0,                       +
-                |         "sum_sq_diff": 0,                    +
-                |         "coefficient_of_variation_pct": 0    +
-                |     },                                       +
-                |     "employees": {                           +
-                |         "max": 14,                           +
-                |         "min": 14,                           +
-                |         "sum": 14,                           +
-                |         "mean": 14,                          +
+                |         "min": 10,                           +
+                |         "sum": 10,                           +
+                |         "mean": 10,                          +
                 |         "type": "number",                    +
                 |         "count": 1,                          +
                 |         "stddev": 0,                         +
@@ -1674,7 +1573,7 @@ stats_summary   | {                                            +
                 |         "coefficient_of_variation_pct": 0    +
                 |     }                                        +
                 | }
--[ RECORD 5 ]---+----------------------------------------------
+-[ RECORD 2 ]---+----------------------------------------------
 valid_after     | 2009-12-31
 valid_from      | 2010-01-01
 valid_to        | infinity
@@ -1710,22 +1609,22 @@ stats_summary   | {                                            +
                 |         "coefficient_of_variation_pct": 0    +
                 |     }                                        +
                 | }
--[ RECORD 6 ]---+----------------------------------------------
+-[ RECORD 3 ]---+----------------------------------------------
 valid_after     | 2009-12-31
 valid_from      | 2010-01-01
 valid_to        | infinity
 unit_type       | establishment
-external_idents | {"tax_ident": "595875335"}
+external_idents | {"tax_ident": "895406732"}
 stats           | {                                            +
-                |     "turnover": 25000000,                    +
-                |     "employees": 10                          +
+                |     "turnover": 30000000,                    +
+                |     "employees": 14                          +
                 | }
 stats_summary   | {                                            +
                 |     "turnover": {                            +
-                |         "max": 25000000,                     +
-                |         "min": 25000000,                     +
-                |         "sum": 25000000,                     +
-                |         "mean": 25000000,                    +
+                |         "max": 30000000,                     +
+                |         "min": 30000000,                     +
+                |         "sum": 30000000,                     +
+                |         "mean": 30000000,                    +
                 |         "type": "number",                    +
                 |         "count": 1,                          +
                 |         "stddev": 0,                         +
@@ -1734,16 +1633,117 @@ stats_summary   | {                                            +
                 |         "coefficient_of_variation_pct": 0    +
                 |     },                                       +
                 |     "employees": {                           +
-                |         "max": 10,                           +
-                |         "min": 10,                           +
-                |         "sum": 10,                           +
-                |         "mean": 10,                          +
+                |         "max": 14,                           +
+                |         "min": 14,                           +
+                |         "sum": 14,                           +
+                |         "mean": 14,                          +
                 |         "type": "number",                    +
                 |         "count": 1,                          +
                 |         "stddev": 0,                         +
                 |         "variance": 0,                       +
                 |         "sum_sq_diff": 0,                    +
                 |         "coefficient_of_variation_pct": 0    +
+                |     }                                        +
+                | }
+-[ RECORD 4 ]---+----------------------------------------------
+valid_after     | 2009-12-31
+valid_from      | 2010-01-01
+valid_to        | infinity
+unit_type       | legal_unit
+external_idents | {"tax_ident": "823573673"}
+stats           | {                                            +
+                | }
+stats_summary   | {                                            +
+                |     "turnover": {                            +
+                |         "max": 30000000,                     +
+                |         "min": 30000000,                     +
+                |         "sum": 30000000,                     +
+                |         "mean": 30000000.00,                 +
+                |         "type": "number",                    +
+                |         "count": 1,                          +
+                |         "stddev": 0.00,                      +
+                |         "variance": 0.00,                    +
+                |         "sum_sq_diff": 0.00,                 +
+                |         "coefficient_of_variation_pct": 0.00 +
+                |     },                                       +
+                |     "employees": {                           +
+                |         "max": 14,                           +
+                |         "min": 14,                           +
+                |         "sum": 14,                           +
+                |         "mean": 14.00,                       +
+                |         "type": "number",                    +
+                |         "count": 1,                          +
+                |         "stddev": 0.00,                      +
+                |         "variance": 0.00,                    +
+                |         "sum_sq_diff": 0.00,                 +
+                |         "coefficient_of_variation_pct": 0.00 +
+                |     }                                        +
+                | }
+-[ RECORD 5 ]---+----------------------------------------------
+valid_after     | 2009-12-31
+valid_from      | 2010-01-01
+valid_to        | infinity
+unit_type       | legal_unit
+external_idents | {"tax_ident": "921835809"}
+stats           | {                                            +
+                | }
+stats_summary   | {                                            +
+                |     "turnover": {                            +
+                |         "max": 25000000,                     +
+                |         "min": 12000000,                     +
+                |         "sum": 37000000,                     +
+                |         "mean": 18500000.00,                 +
+                |         "type": "number",                    +
+                |         "count": 2,                          +
+                |         "stddev": 9192388.16,                +
+                |         "variance": 84500000000000.00,       +
+                |         "sum_sq_diff": 84500000000000.00,    +
+                |         "coefficient_of_variation_pct": 49.69+
+                |     },                                       +
+                |     "employees": {                           +
+                |         "max": 10,                           +
+                |         "min": 7,                            +
+                |         "sum": 17,                           +
+                |         "mean": 8.50,                        +
+                |         "type": "number",                    +
+                |         "count": 2,                          +
+                |         "stddev": 2.12,                      +
+                |         "variance": 4.50,                    +
+                |         "sum_sq_diff": 4.50,                 +
+                |         "coefficient_of_variation_pct": 24.96+
+                |     }                                        +
+                | }
+-[ RECORD 6 ]---+----------------------------------------------
+valid_after     | 2009-12-31
+valid_from      | 2010-01-01
+valid_to        | infinity
+unit_type       | enterprise
+external_idents | {"tax_ident": "823573673"}
+stats           | 
+stats_summary   | {                                            +
+                |     "turnover": {                            +
+                |         "max": 30000000,                     +
+                |         "min": 12000000,                     +
+                |         "sum": 67000000,                     +
+                |         "mean": 22333333.33,                 +
+                |         "type": "number",                    +
+                |         "count": 3,                          +
+                |         "stddev": 9291573.24,                +
+                |         "variance": 86333333333333.33,       +
+                |         "sum_sq_diff": 172666666666666.67,   +
+                |         "coefficient_of_variation_pct": 41.60+
+                |     },                                       +
+                |     "employees": {                           +
+                |         "max": 14,                           +
+                |         "min": 7,                            +
+                |         "sum": 31,                           +
+                |         "mean": 10.33,                       +
+                |         "type": "number",                    +
+                |         "count": 3,                          +
+                |         "stddev": 3.51,                      +
+                |         "variance": 12.33,                   +
+                |         "sum_sq_diff": 24.67,                +
+                |         "coefficient_of_variation_pct": 33.99+
                 |     }                                        +
                 | }
 

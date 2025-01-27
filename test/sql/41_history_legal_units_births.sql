@@ -62,7 +62,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 \echo "Check legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 \echo "Check statistical unit history by year - births should be 1 for year 2010 and 2011"
 SELECT resolution, year, month, unit_type, count, births, deaths
@@ -108,7 +109,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 \echo "Check legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 \echo "Check statistical unit history by year - births should be 1 for year 2010 and 2011"
 SELECT resolution, year, month, unit_type, count, births, deaths
@@ -154,7 +156,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 \echo "Check legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 
 \echo "Check statistical unit history by year - births should be 1 for year 2010 and 2011"
