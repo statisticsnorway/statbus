@@ -7,6 +7,7 @@
  name       | text                     |           | not null | 
  active     | boolean                  |           | not null | 
  custom     | boolean                  |           | not null | 
+ created_at | timestamp with time zone |           | not null | statement_timestamp()
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "person_role_pkey" PRIMARY KEY, btree (id)
@@ -14,7 +15,7 @@ Indexes:
     "person_role_code_key" UNIQUE CONSTRAINT, btree (code)
     "person_role_name_key" UNIQUE CONSTRAINT, btree (name)
 Referenced by:
-    TABLE "person_for_unit" CONSTRAINT "person_for_unit_person_type_id_fkey" FOREIGN KEY (person_type_id) REFERENCES person_role(id)
+    TABLE "person_for_unit" CONSTRAINT "person_for_unit_person_role_id_fkey" FOREIGN KEY (person_role_id) REFERENCES person_role(id)
 Policies:
     POLICY "person_role_authenticated_read" FOR SELECT
       TO authenticated

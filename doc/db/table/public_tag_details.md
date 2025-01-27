@@ -17,8 +17,8 @@
  context_valid_to    | date                     |           |          |                                                                                                                | plain    |             |              | 
  context_valid_on    | date                     |           |          |                                                                                                                | plain    |             |              | 
  is_scoped_tag       | boolean                  |           | not null | false                                                                                                          | plain    |             |              | 
- updated_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
  created_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
+ updated_at          | timestamp with time zone |           | not null | statement_timestamp()                                                                                          | plain    |             |              | 
 Indexes:
     "tag_pkey" PRIMARY KEY, btree (id)
     "tag_path_key" UNIQUE CONSTRAINT, btree (path)

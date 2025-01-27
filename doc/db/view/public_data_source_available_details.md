@@ -7,6 +7,7 @@
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT data_source_ordered.id,
@@ -14,6 +15,7 @@ View definition:
     data_source_ordered.name,
     data_source_ordered.active,
     data_source_ordered.custom,
+    data_source_ordered.created_at,
     data_source_ordered.updated_at
    FROM data_source_ordered
   WHERE data_source_ordered.active;

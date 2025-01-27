@@ -8,6 +8,7 @@
  description | text                     |           | not null | 
  active      | boolean                  |           | not null | 
  custom      | boolean                  |           | not null | 
+ created_at  | timestamp with time zone |           | not null | statement_timestamp()
  updated_at  | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "reorg_type_pkey" PRIMARY KEY, btree (id)

@@ -7,6 +7,7 @@
  name       | text                     |           | not null |                              | extended |             |              | 
  active     | boolean                  |           | not null |                              | plain    |             |              | 
  custom     | boolean                  |           | not null |                              | plain    |             |              | 
+ created_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
  updated_at | timestamp with time zone |           | not null | statement_timestamp()        | plain    |             |              | 
 Indexes:
     "enterprise_group_role_pkey" PRIMARY KEY, btree (id)

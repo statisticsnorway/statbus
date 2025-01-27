@@ -12,10 +12,16 @@ Foreign-key constraints:
     "statbus_user_role_id_fkey" FOREIGN KEY (role_id) REFERENCES statbus_role(id) ON DELETE CASCADE
     "statbus_user_uuid_fkey" FOREIGN KEY (uuid) REFERENCES auth.users(id) ON DELETE CASCADE
 Referenced by:
-    TABLE "activity" CONSTRAINT "activity_updated_by_user_id_fkey" FOREIGN KEY (updated_by_user_id) REFERENCES statbus_user(id) ON DELETE CASCADE
-    TABLE "external_ident" CONSTRAINT "external_ident_updated_by_user_id_fkey" FOREIGN KEY (updated_by_user_id) REFERENCES statbus_user(id) ON DELETE CASCADE
-    TABLE "location" CONSTRAINT "location_updated_by_user_id_fkey" FOREIGN KEY (updated_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
-    TABLE "tag_for_unit" CONSTRAINT "tag_for_unit_updated_by_user_id_fkey" FOREIGN KEY (updated_by_user_id) REFERENCES statbus_user(id) ON DELETE CASCADE
+    TABLE "activity" CONSTRAINT "activity_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    TABLE "contact" CONSTRAINT "contact_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    TABLE "enterprise" CONSTRAINT "enterprise_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    TABLE "enterprise_group" CONSTRAINT "enterprise_group_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    TABLE "establishment" CONSTRAINT "establishment_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    TABLE "external_ident" CONSTRAINT "external_ident_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    TABLE "legal_unit" CONSTRAINT "legal_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    TABLE "location" CONSTRAINT "location_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    TABLE "tag_for_unit" CONSTRAINT "tag_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    TABLE "unit_notes" CONSTRAINT "unit_notes_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
 Policies:
     POLICY "statbus_user_authenticated_read" FOR SELECT
       TO authenticated

@@ -9,15 +9,11 @@
  active                   | boolean                  |           | not null | true                                                          | plain    |             |              | 
  short_name               | character varying(16)    |           |          |                                                               | extended |             |              | 
  name                     | character varying(256)   |           |          |                                                               | extended |             |              | 
- created_at               | timestamp with time zone |           | not null | statement_timestamp()                                         | plain    |             |              | 
  enterprise_group_type_id | integer                  |           |          |                                                               | plain    |             |              | 
- telephone_no             | text                     |           |          |                                                               | extended |             |              | 
- email_address            | text                     |           |          |                                                               | extended |             |              | 
- web_address              | text                     |           |          |                                                               | extended |             |              | 
  contact_person           | text                     |           |          |                                                               | extended |             |              | 
- notes                    | text                     |           |          |                                                               | extended |             |              | 
+ edit_comment             | character varying(512)   |           |          |                                                               | extended |             |              | 
  edit_by_user_id          | integer                  |           | not null |                                                               | plain    |             |              | 
- edit_comment             | text                     |           |          |                                                               | extended |             |              | 
+ edit_at                  | timestamp with time zone |           | not null | statement_timestamp()                                         | plain    |             |              | 
  unit_size_id             | integer                  |           |          |                                                               | plain    |             |              | 
  data_source_id           | integer                  |           |          |                                                               | plain    |             |              | 
  reorg_references         | text                     |           |          |                                                               | extended |             |              | 
@@ -28,6 +24,7 @@ Indexes:
     "enterprise_group_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
     "enterprise_group_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
     "ix_enterprise_group_data_source_id" btree (data_source_id)
+    "ix_enterprise_group_edit_by_user_id" btree (edit_by_user_id)
     "ix_enterprise_group_enterprise_group_type_id" btree (enterprise_group_type_id)
     "ix_enterprise_group_foreign_participation_id" btree (foreign_participation_id)
     "ix_enterprise_group_name" btree (name)
@@ -37,6 +34,7 @@ Check constraints:
     "enterprise_group_valid_check" CHECK (valid_after < valid_to)
 Foreign-key constraints:
     "enterprise_group_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id)
+    "enterprise_group_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
     "enterprise_group_enterprise_group_type_id_fkey" FOREIGN KEY (enterprise_group_type_id) REFERENCES enterprise_group_type(id)
     "enterprise_group_foreign_participation_id_fkey" FOREIGN KEY (foreign_participation_id) REFERENCES foreign_participation(id)
     "enterprise_group_reorg_type_id_fkey" FOREIGN KEY (reorg_type_id) REFERENCES reorg_type(id)

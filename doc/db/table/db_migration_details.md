@@ -3,7 +3,7 @@
    Column    |           Type           | Collation | Nullable |                 Default                  | Storage  | Compression | Stats target | Description 
 -------------+--------------------------+-----------+----------+------------------------------------------+----------+-------------+--------------+-------------
  id          | integer                  |           | not null | nextval('db.migration_id_seq'::regclass) | plain    |             |              | 
- version     | text                     |           | not null |                                          | extended |             |              | 
+ version     | bigint                   |           | not null |                                          | plain    |             |              | 
  filename    | text                     |           | not null |                                          | extended |             |              | 
  description | text                     |           | not null |                                          | extended |             |              | 
  applied_at  | timestamp with time zone |           | not null | now()                                    | plain    |             |              | 

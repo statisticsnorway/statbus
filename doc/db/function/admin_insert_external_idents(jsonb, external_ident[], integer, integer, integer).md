@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE FUNCTION admin.insert_external_idents(new_jsonb jsonb, external_idents_to_add external_ident[], p_legal_unit_id integer, p_establishment_id integer, p_updated_by_user_id integer)
+CREATE OR REPLACE FUNCTION admin.insert_external_idents(new_jsonb jsonb, external_idents_to_add external_ident[], p_legal_unit_id integer, p_establishment_id integer, p_edit_by_user_id integer)
  RETURNS void
  LANGUAGE plpgsql
 AS $function$
@@ -23,13 +23,15 @@ BEGIN
           , ident
           , legal_unit_id
           , establishment_id
-          , updated_by_user_id
+          , edit_by_user_id
+          , edit_at
           )
       SELECT type_id
             , ident
             , p_legal_unit_id
             , p_establishment_id
-            , p_updated_by_user_id
+            , p_edit_by_user_id
+            , now()
       FROM unnest(external_idents_to_add);
     EXCEPTION WHEN unique_violation THEN
       DECLARE
@@ -56,7 +58,7 @@ BEGIN
         --     "enterprise_id": null,
         --     "legal_unit_id": null,
         --     "establishment_id": null,
-        --     "updated_by_user_id": null,
+        --     "edit_by_user_id": null,
         --     "enterprise_group_id": null
         --   }
         -- ]

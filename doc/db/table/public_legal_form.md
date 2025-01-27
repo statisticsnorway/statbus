@@ -7,6 +7,7 @@
  name       | text                     |           | not null | 
  active     | boolean                  |           | not null | 
  custom     | boolean                  |           | not null | 
+ created_at | timestamp with time zone |           | not null | statement_timestamp()
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "legal_form_pkey" PRIMARY KEY, btree (id)

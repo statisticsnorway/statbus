@@ -1,31 +1,33 @@
 ```sql
                                                                                  Table "public.location"
-       Column       |          Type          | Collation | Nullable |                            Default                            | Storage  | Compression | Stats target | Description 
---------------------+------------------------+-----------+----------+---------------------------------------------------------------+----------+-------------+--------------+-------------
- id                 | integer                |           | not null | nextval('location_id_seq'::regclass)                          | plain    |             |              | 
- valid_after        | date                   |           | not null | generated always as ((valid_from - '1 day'::interval)) stored | plain    |             |              | 
- valid_from         | date                   |           | not null | CURRENT_DATE                                                  | plain    |             |              | 
- valid_to           | date                   |           | not null | 'infinity'::date                                              | plain    |             |              | 
- type               | location_type          |           | not null |                                                               | plain    |             |              | 
- address_part1      | character varying(200) |           |          |                                                               | extended |             |              | 
- address_part2      | character varying(200) |           |          |                                                               | extended |             |              | 
- address_part3      | character varying(200) |           |          |                                                               | extended |             |              | 
- postcode           | character varying(200) |           |          |                                                               | extended |             |              | 
- postplace          | character varying(200) |           |          |                                                               | extended |             |              | 
- region_id          | integer                |           |          |                                                               | plain    |             |              | 
- country_id         | integer                |           | not null |                                                               | plain    |             |              | 
- latitude           | numeric(9,6)           |           |          |                                                               | main     |             |              | 
- longitude          | numeric(9,6)           |           |          |                                                               | main     |             |              | 
- altitude           | numeric(6,1)           |           |          |                                                               | main     |             |              | 
- establishment_id   | integer                |           |          |                                                               | plain    |             |              | 
- legal_unit_id      | integer                |           |          |                                                               | plain    |             |              | 
- data_source_id     | integer                |           |          |                                                               | plain    |             |              | 
- updated_by_user_id | integer                |           | not null |                                                               | plain    |             |              | 
+      Column      |           Type           | Collation | Nullable |                            Default                            | Storage  | Compression | Stats target | Description 
+------------------+--------------------------+-----------+----------+---------------------------------------------------------------+----------+-------------+--------------+-------------
+ id               | integer                  |           | not null | nextval('location_id_seq'::regclass)                          | plain    |             |              | 
+ valid_after      | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored | plain    |             |              | 
+ valid_from       | date                     |           | not null | CURRENT_DATE                                                  | plain    |             |              | 
+ valid_to         | date                     |           | not null | 'infinity'::date                                              | plain    |             |              | 
+ type             | location_type            |           | not null |                                                               | plain    |             |              | 
+ address_part1    | character varying(200)   |           |          |                                                               | extended |             |              | 
+ address_part2    | character varying(200)   |           |          |                                                               | extended |             |              | 
+ address_part3    | character varying(200)   |           |          |                                                               | extended |             |              | 
+ postcode         | character varying(200)   |           |          |                                                               | extended |             |              | 
+ postplace        | character varying(200)   |           |          |                                                               | extended |             |              | 
+ region_id        | integer                  |           |          |                                                               | plain    |             |              | 
+ country_id       | integer                  |           | not null |                                                               | plain    |             |              | 
+ latitude         | numeric(9,6)             |           |          |                                                               | main     |             |              | 
+ longitude        | numeric(9,6)             |           |          |                                                               | main     |             |              | 
+ altitude         | numeric(6,1)             |           |          |                                                               | main     |             |              | 
+ establishment_id | integer                  |           |          |                                                               | plain    |             |              | 
+ legal_unit_id    | integer                  |           |          |                                                               | plain    |             |              | 
+ data_source_id   | integer                  |           |          |                                                               | plain    |             |              | 
+ edit_comment     | character varying(512)   |           |          |                                                               | extended |             |              | 
+ edit_by_user_id  | integer                  |           | not null |                                                               | plain    |             |              | 
+ edit_at          | timestamp with time zone |           | not null | statement_timestamp()                                         | plain    |             |              | 
 Indexes:
     "ix_address_region_id" btree (region_id)
+    "ix_location_edit_by_user_id" btree (edit_by_user_id)
     "ix_location_establishment_id_id" btree (establishment_id)
     "ix_location_legal_unit_id_id" btree (legal_unit_id)
-    "ix_location_updated_by_user_id" btree (updated_by_user_id)
     "location_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
     "location_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
     "location_type_establishment_id_daterange_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
@@ -44,8 +46,8 @@ END)
 Foreign-key constraints:
     "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     "location_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL
+    "location_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
     "location_region_id_fkey" FOREIGN KEY (region_id) REFERENCES region(id) ON DELETE RESTRICT
-    "location_updated_by_user_id_fkey" FOREIGN KEY (updated_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
 Policies:
     POLICY "location_authenticated_read" FOR SELECT
       TO authenticated

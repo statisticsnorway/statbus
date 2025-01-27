@@ -14,8 +14,10 @@
  search                           | tsvector               |           |          |         | extended |             |              | 
  primary_activity_category_id     | integer                |           |          |         | plain    |             |              | 
  primary_activity_category_path   | ltree                  |           |          |         | extended |             |              | 
+ primary_activity_category_code   | character varying      |           |          |         | extended |             |              | 
  secondary_activity_category_id   | integer                |           |          |         | plain    |             |              | 
  secondary_activity_category_path | ltree                  |           |          |         | extended |             |              | 
+ secondary_activity_category_code | character varying      |           |          |         | extended |             |              | 
  activity_category_paths          | ltree[]                |           |          |         | extended |             |              | 
  sector_id                        | integer                |           |          |         | plain    |             |              | 
  sector_path                      | ltree                  |           |          |         | extended |             |              | 
@@ -33,8 +35,12 @@
  physical_postplace               | character varying(200) |           |          |         | extended |             |              | 
  physical_region_id               | integer                |           |          |         | plain    |             |              | 
  physical_region_path             | ltree                  |           |          |         | extended |             |              | 
+ physical_region_code             | character varying      |           |          |         | extended |             |              | 
  physical_country_id              | integer                |           |          |         | plain    |             |              | 
  physical_country_iso_2           | text                   |           |          |         | extended |             |              | 
+ physical_latitude                | numeric(9,6)           |           |          |         | main     |             |              | 
+ physical_longitude               | numeric(9,6)           |           |          |         | main     |             |              | 
+ physical_altitude                | numeric(6,1)           |           |          |         | main     |             |              | 
  postal_address_part1             | character varying(200) |           |          |         | extended |             |              | 
  postal_address_part2             | character varying(200) |           |          |         | extended |             |              | 
  postal_address_part3             | character varying(200) |           |          |         | extended |             |              | 
@@ -42,8 +48,20 @@
  postal_postplace                 | character varying(200) |           |          |         | extended |             |              | 
  postal_region_id                 | integer                |           |          |         | plain    |             |              | 
  postal_region_path               | ltree                  |           |          |         | extended |             |              | 
+ postal_region_code               | character varying      |           |          |         | extended |             |              | 
  postal_country_id                | integer                |           |          |         | plain    |             |              | 
  postal_country_iso_2             | text                   |           |          |         | extended |             |              | 
+ postal_latitude                  | numeric(9,6)           |           |          |         | main     |             |              | 
+ postal_longitude                 | numeric(9,6)           |           |          |         | main     |             |              | 
+ postal_altitude                  | numeric(6,1)           |           |          |         | main     |             |              | 
+ web_address                      | character varying(256) |           |          |         | extended |             |              | 
+ email_address                    | character varying(50)  |           |          |         | extended |             |              | 
+ phone_number                     | character varying(50)  |           |          |         | extended |             |              | 
+ landline                         | character varying(50)  |           |          |         | extended |             |              | 
+ mobile_number                    | character varying(50)  |           |          |         | extended |             |              | 
+ fax_number                       | character varying(50)  |           |          |         | extended |             |              | 
+ status_id                        | integer                |           |          |         | plain    |             |              | 
+ status_code                      | character varying      |           |          |         | extended |             |              | 
  invalid_codes                    | jsonb                  |           |          |         | extended |             |              | 
  has_legal_unit                   | boolean                |           |          |         | plain    |             |              | 
  establishment_ids                | integer[]              |           |          |         | extended |             |              | 
@@ -104,8 +122,10 @@ View definition:
     statistical_unit_def.search,
     statistical_unit_def.primary_activity_category_id,
     statistical_unit_def.primary_activity_category_path,
+    statistical_unit_def.primary_activity_category_code,
     statistical_unit_def.secondary_activity_category_id,
     statistical_unit_def.secondary_activity_category_path,
+    statistical_unit_def.secondary_activity_category_code,
     statistical_unit_def.activity_category_paths,
     statistical_unit_def.sector_id,
     statistical_unit_def.sector_path,
@@ -123,8 +143,12 @@ View definition:
     statistical_unit_def.physical_postplace,
     statistical_unit_def.physical_region_id,
     statistical_unit_def.physical_region_path,
+    statistical_unit_def.physical_region_code,
     statistical_unit_def.physical_country_id,
     statistical_unit_def.physical_country_iso_2,
+    statistical_unit_def.physical_latitude,
+    statistical_unit_def.physical_longitude,
+    statistical_unit_def.physical_altitude,
     statistical_unit_def.postal_address_part1,
     statistical_unit_def.postal_address_part2,
     statistical_unit_def.postal_address_part3,
@@ -132,8 +156,20 @@ View definition:
     statistical_unit_def.postal_postplace,
     statistical_unit_def.postal_region_id,
     statistical_unit_def.postal_region_path,
+    statistical_unit_def.postal_region_code,
     statistical_unit_def.postal_country_id,
     statistical_unit_def.postal_country_iso_2,
+    statistical_unit_def.postal_latitude,
+    statistical_unit_def.postal_longitude,
+    statistical_unit_def.postal_altitude,
+    statistical_unit_def.web_address,
+    statistical_unit_def.email_address,
+    statistical_unit_def.phone_number,
+    statistical_unit_def.landline,
+    statistical_unit_def.mobile_number,
+    statistical_unit_def.fax_number,
+    statistical_unit_def.status_id,
+    statistical_unit_def.status_code,
     statistical_unit_def.invalid_codes,
     statistical_unit_def.has_legal_unit,
     statistical_unit_def.establishment_ids,

@@ -11,6 +11,7 @@
  description | text                     |           |          |         | extended | 
  active      | boolean                  |           |          |         | plain    | 
  custom      | boolean                  |           |          |         | plain    | 
+ created_at  | timestamp with time zone |           |          |         | plain    | 
  updated_at  | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT sector.id,
@@ -22,6 +23,7 @@ View definition:
     sector.description,
     sector.active,
     sector.custom,
+    sector.created_at,
     sector.updated_at
    FROM sector
   ORDER BY sector.path;

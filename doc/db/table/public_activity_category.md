@@ -13,6 +13,7 @@
  description | text                     |           |          | 
  active      | boolean                  |           | not null | 
  custom      | boolean                  |           | not null | 
+ created_at  | timestamp with time zone |           | not null | statement_timestamp()
  updated_at  | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "activity_category_pkey" PRIMARY KEY, btree (id)

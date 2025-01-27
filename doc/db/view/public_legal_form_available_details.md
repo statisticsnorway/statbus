@@ -7,6 +7,7 @@
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT legal_form_ordered.id,
@@ -14,6 +15,7 @@ View definition:
     legal_form_ordered.name,
     legal_form_ordered.active,
     legal_form_ordered.custom,
+    legal_form_ordered.created_at,
     legal_form_ordered.updated_at
    FROM legal_form_ordered
   WHERE legal_form_ordered.active;

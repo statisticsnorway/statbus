@@ -14,8 +14,10 @@
  search                           | tsvector               |           |          | 
  primary_activity_category_id     | integer                |           |          | 
  primary_activity_category_path   | ltree                  |           |          | 
+ primary_activity_category_code   | character varying      |           |          | 
  secondary_activity_category_id   | integer                |           |          | 
  secondary_activity_category_path | ltree                  |           |          | 
+ secondary_activity_category_code | character varying      |           |          | 
  activity_category_paths          | ltree[]                |           |          | 
  sector_id                        | integer                |           |          | 
  sector_path                      | ltree                  |           |          | 
@@ -33,8 +35,12 @@
  physical_postplace               | character varying(200) |           |          | 
  physical_region_id               | integer                |           |          | 
  physical_region_path             | ltree                  |           |          | 
+ physical_region_code             | character varying      |           |          | 
  physical_country_id              | integer                |           |          | 
  physical_country_iso_2           | text                   |           |          | 
+ physical_latitude                | numeric(9,6)           |           |          | 
+ physical_longitude               | numeric(9,6)           |           |          | 
+ physical_altitude                | numeric(6,1)           |           |          | 
  postal_address_part1             | character varying(200) |           |          | 
  postal_address_part2             | character varying(200) |           |          | 
  postal_address_part3             | character varying(200) |           |          | 
@@ -42,8 +48,20 @@
  postal_postplace                 | character varying(200) |           |          | 
  postal_region_id                 | integer                |           |          | 
  postal_region_path               | ltree                  |           |          | 
+ postal_region_code               | character varying      |           |          | 
  postal_country_id                | integer                |           |          | 
  postal_country_iso_2             | text                   |           |          | 
+ postal_latitude                  | numeric(9,6)           |           |          | 
+ postal_longitude                 | numeric(9,6)           |           |          | 
+ postal_altitude                  | numeric(6,1)           |           |          | 
+ web_address                      | character varying(256) |           |          | 
+ email_address                    | character varying(50)  |           |          | 
+ phone_number                     | character varying(50)  |           |          | 
+ landline                         | character varying(50)  |           |          | 
+ mobile_number                    | character varying(50)  |           |          | 
+ fax_number                       | character varying(50)  |           |          | 
+ status_id                        | integer                |           |          | 
+ status_code                      | character varying      |           |          | 
  invalid_codes                    | jsonb                  |           |          | 
  has_legal_unit                   | boolean                |           |          | 
  establishment_ids                | integer[]              |           |          | 
