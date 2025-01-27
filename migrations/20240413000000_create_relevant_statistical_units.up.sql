@@ -24,8 +24,96 @@ CREATE FUNCTION public.relevant_statistical_units(
         SELECT * FROM root_unit
             UNION ALL
         SELECT * FROM related_units
+    ), ordered_units AS (
+      SELECT ru.*
+          , first_external.ident AS first_external_ident
+        FROM relevant_units ru
+      LEFT JOIN LATERAL (
+          SELECT eit.code, (ru.external_idents->>eit.code)::text AS ident
+          FROM public.external_ident_type eit
+          ORDER BY eit.priority
+          LIMIT 1
+      ) first_external ON true
+      ORDER BY unit_type, first_external_ident NULLS LAST, unit_id
     )
-    SELECT * FROM relevant_units;
+    SELECT unit_type
+         , unit_id
+         , valid_after
+         , valid_from
+         , valid_to
+         , external_idents
+         , name
+         , birth_date
+         , death_date
+         , search
+         , primary_activity_category_id
+         , primary_activity_category_path
+         , primary_activity_category_code
+         , secondary_activity_category_id
+         , secondary_activity_category_path
+         , secondary_activity_category_code
+         , activity_category_paths
+         , sector_id
+         , sector_path
+         , sector_code
+         , sector_name
+         , data_source_ids
+         , data_source_codes
+         , legal_form_id
+         , legal_form_code
+         , legal_form_name
+         --
+         , physical_address_part1
+         , physical_address_part2
+         , physical_address_part3
+         , physical_postcode
+         , physical_postplace
+         , physical_region_id
+         , physical_region_path
+         , physical_region_code
+         , physical_country_id
+         , physical_country_iso_2
+         , physical_latitude
+         , physical_longitude
+         , physical_altitude
+         --
+         , postal_address_part1
+         , postal_address_part2
+         , postal_address_part3
+         , postal_postcode
+         , postal_postplace
+         , postal_region_id
+         , postal_region_path
+         , postal_region_code
+         , postal_country_id
+         , postal_country_iso_2
+         , postal_latitude
+         , postal_longitude
+         , postal_altitude
+         --
+         , web_address
+         , email_address
+         , phone_number
+         , landline
+         , mobile_number
+         , fax_number
+         --
+         , status_id
+         , status_code
+         , include_unit_in_reports
+         --
+         , invalid_codes
+         , has_legal_unit
+         , establishment_ids
+         , legal_unit_ids
+         , enterprise_ids
+         , stats
+         , stats_summary
+         , establishment_count
+         , legal_unit_count
+         , enterprise_count
+         , tag_paths
+    FROM ordered_units;
 $$;
 
 END;
