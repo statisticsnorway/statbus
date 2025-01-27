@@ -108,12 +108,11 @@ SELECT jsonb_pretty(
 -----------------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                                +
      "enterprise": {                                                                                                              +
-         "notes": null,                                                                                                           +
          "active": true,                                                                                                          +
+         "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                                           +
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
-                 "notes": null,                                                                                                   +
                  "active": true,                                                                                                  +
                  "sector": {                                                                                                      +
                      "code": "6100",                                                                                              +
@@ -124,9 +123,11 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
+                 "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                                   +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                           +
                          "valid_to": "infinity",                                                                                  +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
@@ -136,6 +137,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
@@ -176,6 +178,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                           +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
                          "postcode": null,                                                                                        +
@@ -190,6 +193,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -213,18 +217,16 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "web_address": null,                                                                                             +
                  "edit_comment": "Batch import",                                                                                  +
-                 "telephone_no": null,                                                                                            +
-                 "email_address": null,                                                                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
-                         "notes": null,                                                                                           +
                          "active": true,                                                                                          +
+                         "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                           +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
+                                 "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                   +
                                  "valid_to": "infinity",                                                                          +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "data_source": {                                                                                 +
@@ -234,6 +236,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -274,6 +277,7 @@ SELECT jsonb_pretty(
                                      "custom": false,                                                                             +
                                      "iso_num": "800"                                                                             +
                                  },                                                                                               +
+                                 "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                   +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
                                  "postcode": null,                                                                                +
@@ -288,6 +292,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -305,10 +310,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "web_address": null,                                                                                     +
                          "edit_comment": "Batch import",                                                                          +
-                         "telephone_no": null,                                                                                    +
-                         "email_address": null,                                                                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -456,18 +458,19 @@ SELECT jsonb_pretty(
 ---------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                        +
      "enterprise": {                                                                                                      +
-         "notes": null,                                                                                                   +
          "active": true,                                                                                                  +
+         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                                   +
          "short_name": null,                                                                                              +
          "edit_comment": "Batch import",                                                                                  +
          "establishment": [                                                                                               +
              {                                                                                                            +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                   +
-                 "notes": null,                                                                                           +
                  "active": true,                                                                                          +
+                 "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                           +
                  "activity": [                                                                                            +
                      {                                                                                                    +
                          "type": "primary",                                                                               +
+                         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                   +
                          "valid_to": "infinity",                                                                          +
                          "valid_from": "2024-01-01",                                                                      +
                          "data_source": {                                                                                 +
@@ -477,6 +480,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                              +
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
+                         "edit_comment": null,                                                                            +
                          "activity_category": {                                                                           +
                              "code": "5610",                                                                              +
                              "name": "Restaurants and mobile food service activities",                                    +
@@ -517,6 +521,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                             +
                              "iso_num": "800"                                                                             +
                          },                                                                                               +
+                         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                   +
                          "altitude": null,                                                                                +
                          "latitude": null,                                                                                +
                          "postcode": null,                                                                                +
@@ -531,6 +536,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                              +
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
+                         "edit_comment": null,                                                                            +
                          "address_part1": null,                                                                           +
                          "address_part2": null,                                                                           +
                          "address_part3": null                                                                            +
@@ -548,10 +554,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                      +
                  },                                                                                                       +
                  "valid_after": "2023-12-31",                                                                             +
-                 "web_address": null,                                                                                     +
                  "edit_comment": "Batch import",                                                                          +
-                 "telephone_no": null,                                                                                    +
-                 "email_address": null,                                                                                   +
                  "invalid_codes": null,                                                                                   +
                  "stat_for_unit": [                                                                                       +
                      {                                                                                                    +
@@ -736,12 +739,11 @@ SELECT jsonb_pretty(
 -----------------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                                +
      "enterprise": {                                                                                                              +
-         "notes": null,                                                                                                           +
          "active": true,                                                                                                          +
+         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                                           +
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
-                 "notes": null,                                                                                                   +
                  "active": true,                                                                                                  +
                  "sector": {                                                                                                      +
                      "code": "6100",                                                                                              +
@@ -752,9 +754,11 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
+                 "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                                   +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                           +
                          "valid_to": "infinity",                                                                                  +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
@@ -764,6 +768,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
@@ -804,6 +809,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                           +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
                          "postcode": null,                                                                                        +
@@ -818,6 +824,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -841,18 +848,16 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "web_address": null,                                                                                             +
                  "edit_comment": "Batch import",                                                                                  +
-                 "telephone_no": null,                                                                                            +
-                 "email_address": null,                                                                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
-                         "notes": null,                                                                                           +
                          "active": true,                                                                                          +
+                         "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                           +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
+                                 "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                   +
                                  "valid_to": "infinity",                                                                          +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "data_source": {                                                                                 +
@@ -862,6 +867,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -902,6 +908,7 @@ SELECT jsonb_pretty(
                                      "custom": false,                                                                             +
                                      "iso_num": "800"                                                                             +
                                  },                                                                                               +
+                                 "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                   +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
                                  "postcode": null,                                                                                +
@@ -916,6 +923,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -933,10 +941,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "web_address": null,                                                                                     +
                          "edit_comment": "Batch import",                                                                          +
-                         "telephone_no": null,                                                                                    +
-                         "email_address": null,                                                                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -1061,11 +1066,12 @@ SELECT jsonb_pretty(
          "establishment": [                                                                                                       +
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
-                 "notes": null,                                                                                                   +
                  "active": true,                                                                                                  +
+                 "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                                   +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                           +
                          "valid_to": "infinity",                                                                                  +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
@@ -1075,6 +1081,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "activity_category": {                                                                                   +
                              "code": "5610",                                                                                      +
                              "name": "Restaurants and mobile food service activities",                                            +
@@ -1115,6 +1122,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                           +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
                          "postcode": null,                                                                                        +
@@ -1129,6 +1137,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1146,10 +1155,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "web_address": null,                                                                                             +
                  "edit_comment": "Batch import",                                                                                  +
-                 "telephone_no": null,                                                                                            +
-                 "email_address": null,                                                                                           +
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
@@ -1236,12 +1242,11 @@ SELECT jsonb_pretty(
 -----------------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                                +
      "enterprise": {                                                                                                              +
-         "notes": null,                                                                                                           +
          "active": true,                                                                                                          +
+         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                                           +
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
-                 "notes": null,                                                                                                   +
                  "active": true,                                                                                                  +
                  "sector": {                                                                                                      +
                      "code": "6100",                                                                                              +
@@ -1252,9 +1257,11 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
+                 "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                                   +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                           +
                          "valid_to": "infinity",                                                                                  +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
@@ -1264,6 +1271,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
@@ -1304,6 +1312,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                           +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
                          "postcode": null,                                                                                        +
@@ -1318,6 +1327,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1341,18 +1351,16 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "web_address": null,                                                                                             +
                  "edit_comment": "Batch import",                                                                                  +
-                 "telephone_no": null,                                                                                            +
-                 "email_address": null,                                                                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
-                         "notes": null,                                                                                           +
                          "active": true,                                                                                          +
+                         "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                           +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
+                                 "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                   +
                                  "valid_to": "infinity",                                                                          +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "data_source": {                                                                                 +
@@ -1362,6 +1370,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -1402,6 +1411,7 @@ SELECT jsonb_pretty(
                                      "custom": false,                                                                             +
                                      "iso_num": "800"                                                                             +
                                  },                                                                                               +
+                                 "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                   +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
                                  "postcode": null,                                                                                +
@@ -1416,6 +1426,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -1433,10 +1444,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "web_address": null,                                                                                     +
                          "edit_comment": "Batch import",                                                                          +
-                         "telephone_no": null,                                                                                    +
-                         "email_address": null,                                                                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -1561,11 +1569,12 @@ SELECT jsonb_pretty(
          "establishment": [                                                                                                       +
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
-                 "notes": null,                                                                                                   +
                  "active": true,                                                                                                  +
+                 "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                                   +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                           +
                          "valid_to": "infinity",                                                                                  +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
@@ -1575,6 +1584,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "activity_category": {                                                                                   +
                              "code": "5610",                                                                                      +
                              "name": "Restaurants and mobile food service activities",                                            +
@@ -1615,6 +1625,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                           +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
                          "postcode": null,                                                                                        +
@@ -1629,6 +1640,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1646,10 +1658,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "web_address": null,                                                                                             +
                  "edit_comment": "Batch import",                                                                                  +
-                 "telephone_no": null,                                                                                            +
-                 "email_address": null,                                                                                           +
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
@@ -1736,12 +1745,11 @@ SELECT jsonb_pretty(
 -----------------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                                +
      "enterprise": {                                                                                                              +
-         "notes": null,                                                                                                           +
          "active": true,                                                                                                          +
+         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                                           +
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
-                 "notes": null,                                                                                                   +
                  "active": true,                                                                                                  +
                  "sector": {                                                                                                      +
                      "code": "6100",                                                                                              +
@@ -1752,9 +1760,11 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
+                 "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                                   +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                           +
                          "valid_to": "infinity",                                                                                  +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
@@ -1764,6 +1774,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
@@ -1804,6 +1815,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.244398-08:00",                                                           +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
                          "postcode": null,                                                                                        +
@@ -1818,6 +1830,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1841,18 +1854,16 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "web_address": null,                                                                                             +
                  "edit_comment": "Batch import",                                                                                  +
-                 "telephone_no": null,                                                                                            +
-                 "email_address": null,                                                                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
-                         "notes": null,                                                                                           +
                          "active": true,                                                                                          +
+                         "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                           +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
+                                 "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                   +
                                  "valid_to": "infinity",                                                                          +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "data_source": {                                                                                 +
@@ -1862,6 +1873,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -1902,6 +1914,7 @@ SELECT jsonb_pretty(
                                      "custom": false,                                                                             +
                                      "iso_num": "800"                                                                             +
                                  },                                                                                               +
+                                 "edit_at": "2025-01-27T06:36:36.306231-08:00",                                                   +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
                                  "postcode": null,                                                                                +
@@ -1916,6 +1929,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -1933,10 +1947,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "web_address": null,                                                                                     +
                          "edit_comment": "Batch import",                                                                          +
-                         "telephone_no": null,                                                                                    +
-                         "email_address": null,                                                                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -2061,11 +2072,12 @@ SELECT jsonb_pretty(
          "establishment": [                                                                                                       +
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
-                 "notes": null,                                                                                                   +
                  "active": true,                                                                                                  +
+                 "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                                   +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                           +
                          "valid_to": "infinity",                                                                                  +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
@@ -2075,6 +2087,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "activity_category": {                                                                                   +
                              "code": "5610",                                                                                      +
                              "name": "Restaurants and mobile food service activities",                                            +
@@ -2115,6 +2128,7 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
+                         "edit_at": "2025-01-27T06:36:36.331768-08:00",                                                           +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
                          "postcode": null,                                                                                        +
@@ -2129,6 +2143,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -2146,10 +2161,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "web_address": null,                                                                                             +
                  "edit_comment": "Batch import",                                                                                  +
-                 "telephone_no": null,                                                                                            +
-                 "email_address": null,                                                                                           +
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +

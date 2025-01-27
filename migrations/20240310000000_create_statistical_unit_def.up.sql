@@ -27,6 +27,7 @@ CREATE VIEW public.statistical_unit_def
     , legal_form_id
     , legal_form_code
     , legal_form_name
+    --
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
@@ -37,6 +38,10 @@ CREATE VIEW public.statistical_unit_def
     , physical_region_code
     , physical_country_id
     , physical_country_iso_2
+    , physical_latitude
+    , physical_longitude
+    , physical_altitude
+    --
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
@@ -47,6 +52,20 @@ CREATE VIEW public.statistical_unit_def
     , postal_region_code
     , postal_country_id
     , postal_country_iso_2
+    , postal_latitude
+    , postal_longitude
+    , postal_altitude
+    --
+    , web_address
+    , email_address
+    , phone_number
+    , landline
+    , mobile_number
+    , fax_number
+    --
+    , status_id
+    , status_code
+    --
     , invalid_codes
     , has_legal_unit
     , establishment_ids
@@ -87,6 +106,7 @@ CREATE VIEW public.statistical_unit_def
            , legal_form_id
            , legal_form_code
            , legal_form_name
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -97,6 +117,10 @@ CREATE VIEW public.statistical_unit_def
            , physical_region_code
            , physical_country_id
            , physical_country_iso_2
+           , physical_latitude
+           , physical_longitude
+           , physical_altitude
+           --
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
@@ -107,6 +131,20 @@ CREATE VIEW public.statistical_unit_def
            , postal_region_code
            , postal_country_id
            , postal_country_iso_2
+           , postal_latitude
+           , postal_longitude
+           , postal_altitude
+           --
+           , web_address
+           , email_address
+           , phone_number
+           , landline
+           , mobile_number
+           , fax_number
+           --
+           , status_id
+           , status_code
+           --
            , invalid_codes
            , has_legal_unit
            , NULL::INT[] AS establishment_ids
@@ -142,6 +180,7 @@ CREATE VIEW public.statistical_unit_def
            , legal_form_id
            , legal_form_code
            , legal_form_name
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -152,6 +191,10 @@ CREATE VIEW public.statistical_unit_def
            , physical_region_code
            , physical_country_id
            , physical_country_iso_2
+           , physical_latitude
+           , physical_longitude
+           , physical_altitude
+           --
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
@@ -162,6 +205,20 @@ CREATE VIEW public.statistical_unit_def
            , postal_region_code
            , postal_country_id
            , postal_country_iso_2
+           , postal_latitude
+           , postal_longitude
+           , postal_altitude
+           --
+           , web_address
+           , email_address
+           , phone_number
+           , landline
+           , mobile_number
+           , fax_number
+           --
+           , status_id
+           , status_code
+           --
            , invalid_codes
            , has_legal_unit
            , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
@@ -201,6 +258,7 @@ CREATE VIEW public.statistical_unit_def
            , legal_form_id
            , legal_form_code
            , legal_form_name
+           --
            , physical_address_part1
            , physical_address_part2
            , physical_address_part3
@@ -211,6 +269,10 @@ CREATE VIEW public.statistical_unit_def
            , physical_region_code
            , physical_country_id
            , physical_country_iso_2
+           , physical_latitude
+           , physical_longitude
+           , physical_altitude
+           --
            , postal_address_part1
            , postal_address_part2
            , postal_address_part3
@@ -221,6 +283,20 @@ CREATE VIEW public.statistical_unit_def
            , postal_region_code
            , postal_country_id
            , postal_country_iso_2
+           , postal_latitude
+           , postal_longitude
+           , postal_altitude
+           --
+           , web_address
+           , email_address
+           , phone_number
+           , landline
+           , mobile_number
+           , fax_number
+           --
+           , status_id
+           , status_code
+           --
            , invalid_codes
            , has_legal_unit
            , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
@@ -258,6 +334,7 @@ CREATE VIEW public.statistical_unit_def
          , data.legal_form_id
          , data.legal_form_code
          , data.legal_form_name
+         --
          , data.physical_address_part1
          , data.physical_address_part2
          , data.physical_address_part3
@@ -268,6 +345,10 @@ CREATE VIEW public.statistical_unit_def
          , data.physical_region_code
          , data.physical_country_id
          , data.physical_country_iso_2
+         , data.physical_latitude
+         , data.physical_longitude
+         , data.physical_altitude
+         --
          , data.postal_address_part1
          , data.postal_address_part2
          , data.postal_address_part3
@@ -278,6 +359,20 @@ CREATE VIEW public.statistical_unit_def
          , data.postal_region_code
          , data.postal_country_id
          , data.postal_country_iso_2
+         , data.postal_latitude
+         , data.postal_longitude
+         , data.postal_altitude
+         --
+         , data.web_address
+         , data.email_address
+         , data.phone_number
+         , data.landline
+         , data.mobile_number
+         , data.fax_number
+         --
+         , data.status_id
+         , data.status_code
+         --
          , data.invalid_codes
          , data.has_legal_unit
          , data.establishment_ids

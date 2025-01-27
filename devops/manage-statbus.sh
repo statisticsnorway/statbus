@@ -243,6 +243,21 @@ case "$action" in
           esac
       done
     ;;
+    'make-all-failed-test-results-expected' )
+        if [ ! -f "$WORKSPACE/test/regression.out" ]; then
+            echo "No regression.out file found. Run tests first to generate failures."
+            exit 1
+        fi
+
+        grep 'FAILED' "$WORKSPACE/test/regression.out" | awk '{print $2}' | while read -r test; do
+            if [ -f "$WORKSPACE/test/results/$test.out" ]; then
+                echo "Copying results to expected for test: $test"
+                cp -f "$WORKSPACE/test/results/$test.out" "$WORKSPACE/test/expected/$test.out"
+            else
+                echo "Warning: No results file found for test: $test"
+            fi
+        done
+    ;;
     'activate_sql_saga' )
         PGUSER=supabase_admin ./devops/manage-statbus.sh psql -c 'create extension sql_saga cascade;'
       ;;

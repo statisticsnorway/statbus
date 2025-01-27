@@ -1312,25 +1312,38 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRANLØFT ENK",                        +
                       |     "search": "'enk':2 'kranløft':1",              +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": null,                           +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -1392,26 +1405,39 @@ external_idents       | {"tax_ident": "823573673"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRANLØFT ENK",                        +
                       |     "search": "'enk':2 'kranløft':1",              +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": "2012-12-31",                    +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "ENK",                      +
                       |     "legal_form_name": "Enkeltpersonforetak",      +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -1471,26 +1497,39 @@ external_idents       | {"tax_ident": "823573673"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRANLØFT ENK",                        +
                       |     "search": "'enk':2 'kranløft':1",              +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": "2012-12-31",                    +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "ENK",                      +
                       |     "legal_form_name": "Enkeltpersonforetak",      +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -1549,25 +1588,38 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": null,                           +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -1629,26 +1681,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -1708,26 +1773,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -1786,25 +1864,38 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": null,                           +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -1866,26 +1957,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -1945,26 +2049,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2023,25 +2140,38 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": null,                           +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2103,26 +2233,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2182,26 +2325,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2260,25 +2416,38 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": null,                           +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2340,26 +2509,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2419,26 +2601,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2497,25 +2692,38 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": null,                           +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2577,26 +2785,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2656,26 +2877,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2734,25 +2968,38 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": null,                           +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2814,26 +3061,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2893,26 +3153,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -2971,25 +3244,38 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": null,                           +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -3051,26 +3337,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -3130,26 +3429,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -3208,25 +3520,38 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": null,                           +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -3288,26 +3613,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -3367,26 +3705,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -3445,25 +3796,38 @@ external_idents       | {"tax_ident": "895406732"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2010-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": null,                           +
                       |     "sector_name": null,                           +
                       |     "sector_path": null,                           +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -3525,26 +3889,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": null,                      +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -3604,26 +3981,39 @@ external_idents       | {"tax_ident": "921835809"}
 statistical_unit_data | {                                                  +
                       |     "name": "KRAN & SPESIALLØFT AS",               +
                       |     "search": "'as':3 'kran':1 'spesialløft':2",   +
+                      |     "landline": null,                              +
                       |     "tag_paths": [                                 +
                       |     ],                                             +
                       |     "birth_date": "2013-01-01",                    +
                       |     "death_date": null,                            +
+                      |     "fax_number": null,                            +
                       |     "sector_code": "2100",                         +
                       |     "sector_name": "Private aksjeselskaper mv.",   +
                       |     "sector_path": "innl.a_ikke_fin.2100",         +
+                      |     "status_code": null,                           +
+                      |     "web_address": null,                           +
+                      |     "phone_number": null,                          +
+                      |     "email_address": null,                         +
                       |     "invalid_codes": null,                         +
+                      |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
+                      |     "postal_altitude": null,                       +
+                      |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
                       |     "enterprise_count": null,                      +
                       |     "legal_unit_count": 1,                         +
+                      |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
                       |         "nlr",                                     +
                       |         "ntr"                                      +
                       |     ],                                             +
+                      |     "physical_altitude": null,                     +
+                      |     "physical_latitude": null,                     +
                       |     "physical_postcode": "4347",                   +
+                      |     "physical_longitude": null,                    +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
@@ -12377,12 +12767,11 @@ SELECT jsonb_pretty(
 statistical_unit_hierarchy
 {
     "enterprise": {
-        "notes": null,
         "active": true,
+        "edit_at": "2025-01-27T06:36:11.306198-08:00",
         "legal_unit": [
             {
                 "name": "KRANLØFT ENK",
-                "notes": null,
                 "active": true,
                 "sector": {
                     "code": "2100",
@@ -12393,9 +12782,11 @@ statistical_unit_hierarchy
                     "custom": true,
                     "description": "### Notes:\nSektoren omfatter markedsproduserende ikke-finansielle selskaper med begrenset økonomisk ansvar hvor private nasjonale aktører eller utlendinger direkte eller indirekte eier mer enn 50 prosent av innbetalt eierkapital."
                 },
+                "edit_at": "2025-01-27T06:36:11.306198-08:00",
                 "activity": [
                     {
                         "type": "primary",
+                        "edit_at": "2025-01-27T06:36:11.306198-08:00",
                         "valid_to": "2012-12-31",
                         "valid_from": "2010-01-01",
                         "data_source": {
@@ -12405,6 +12796,7 @@ statistical_unit_hierarchy
                             "custom": false
                         },
                         "valid_after": "2009-12-31",
+                        "edit_comment": null,
                         "activity_category": {
                             "code": "49.410",
                             "name": "Godstransport på vei",
@@ -12445,6 +12837,7 @@ statistical_unit_hierarchy
                             "custom": false,
                             "iso_num": "578"
                         },
+                        "edit_at": "2025-01-27T06:36:11.306198-08:00",
                         "altitude": null,
                         "latitude": null,
                         "postcode": "4347",
@@ -12459,6 +12852,7 @@ statistical_unit_hierarchy
                             "custom": false
                         },
                         "valid_after": "2009-12-31",
+                        "edit_comment": null,
                         "address_part1": "Vestlyvegen 219",
                         "address_part2": null,
                         "address_part3": null
@@ -12482,18 +12876,16 @@ statistical_unit_hierarchy
                     "custom": false
                 },
                 "valid_after": "2009-12-31",
-                "web_address": null,
                 "edit_comment": "Batch import",
-                "telephone_no": null,
-                "email_address": null,
                 "establishment": [
                     {
                         "name": "KRANLØFT ENK",
-                        "notes": null,
                         "active": true,
+                        "edit_at": "2025-01-27T06:36:11.340643-08:00",
                         "activity": [
                             {
                                 "type": "primary",
+                                "edit_at": "2025-01-27T06:36:11.340643-08:00",
                                 "valid_to": "infinity",
                                 "valid_from": "2010-01-01",
                                 "data_source": {
@@ -12503,6 +12895,7 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2009-12-31",
+                                "edit_comment": null,
                                 "activity_category": {
                                     "code": "49.410",
                                     "name": "Godstransport på vei",
@@ -12543,6 +12936,7 @@ statistical_unit_hierarchy
                                     "custom": false,
                                     "iso_num": "578"
                                 },
+                                "edit_at": "2025-01-27T06:36:11.340643-08:00",
                                 "altitude": null,
                                 "latitude": null,
                                 "postcode": "4347",
@@ -12557,6 +12951,7 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2009-12-31",
+                                "edit_comment": null,
                                 "address_part1": "Vestlyvegen 219",
                                 "address_part2": null,
                                 "address_part3": null
@@ -12574,10 +12969,7 @@ statistical_unit_hierarchy
                             "custom": false
                         },
                         "valid_after": "2009-12-31",
-                        "web_address": null,
                         "edit_comment": "Batch import",
-                        "telephone_no": null,
-                        "email_address": null,
                         "invalid_codes": null,
                         "stat_for_unit": [
                             {
@@ -12664,12 +13056,11 @@ SELECT jsonb_pretty(
 statistical_unit_hierarchy
 {
     "enterprise": {
-        "notes": null,
         "active": true,
+        "edit_at": "2025-01-27T06:36:11.306198-08:00",
         "legal_unit": [
             {
                 "name": "KRAN & SPESIALLØFT AS",
-                "notes": null,
                 "active": true,
                 "sector": {
                     "code": "2100",
@@ -12680,9 +13071,11 @@ statistical_unit_hierarchy
                     "custom": true,
                     "description": "### Notes:\nSektoren omfatter markedsproduserende ikke-finansielle selskaper med begrenset økonomisk ansvar hvor private nasjonale aktører eller utlendinger direkte eller indirekte eier mer enn 50 prosent av innbetalt eierkapital."
                 },
+                "edit_at": "2025-01-27T06:36:11.306198-08:00",
                 "activity": [
                     {
                         "type": "primary",
+                        "edit_at": "2025-01-27T06:36:11.306198-08:00",
                         "valid_to": "infinity",
                         "valid_from": "2013-01-01",
                         "data_source": {
@@ -12692,6 +13085,7 @@ statistical_unit_hierarchy
                             "custom": false
                         },
                         "valid_after": "2012-12-31",
+                        "edit_comment": null,
                         "activity_category": {
                             "code": "49.410",
                             "name": "Godstransport på vei",
@@ -12732,6 +13126,7 @@ statistical_unit_hierarchy
                             "custom": false,
                             "iso_num": "578"
                         },
+                        "edit_at": "2025-01-27T06:36:11.306198-08:00",
                         "altitude": null,
                         "latitude": null,
                         "postcode": "4347",
@@ -12746,6 +13141,7 @@ statistical_unit_hierarchy
                             "custom": false
                         },
                         "valid_after": "2012-12-31",
+                        "edit_comment": null,
                         "address_part1": "Vestlyvegen 219",
                         "address_part2": null,
                         "address_part3": null
@@ -12769,18 +13165,16 @@ statistical_unit_hierarchy
                     "custom": false
                 },
                 "valid_after": "2012-12-31",
-                "web_address": null,
                 "edit_comment": "Batch import",
-                "telephone_no": null,
-                "email_address": null,
                 "establishment": [
                     {
                         "name": "KRAN & SPESIALLØFT AS",
-                        "notes": null,
                         "active": true,
+                        "edit_at": "2025-01-27T06:36:11.340643-08:00",
                         "activity": [
                             {
                                 "type": "primary",
+                                "edit_at": "2025-01-27T06:36:11.340643-08:00",
                                 "valid_to": "infinity",
                                 "valid_from": "2010-01-01",
                                 "data_source": {
@@ -12790,6 +13184,7 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2009-12-31",
+                                "edit_comment": null,
                                 "activity_category": {
                                     "code": "49.410",
                                     "name": "Godstransport på vei",
@@ -12830,6 +13225,7 @@ statistical_unit_hierarchy
                                     "custom": false,
                                     "iso_num": "578"
                                 },
+                                "edit_at": "2025-01-27T06:36:11.340643-08:00",
                                 "altitude": null,
                                 "latitude": null,
                                 "postcode": "4347",
@@ -12844,6 +13240,7 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2009-12-31",
+                                "edit_comment": null,
                                 "address_part1": "Vestlyvegen 219",
                                 "address_part2": null,
                                 "address_part3": null
@@ -12861,10 +13258,7 @@ statistical_unit_hierarchy
                             "custom": false
                         },
                         "valid_after": "2012-12-31",
-                        "web_address": null,
                         "edit_comment": "Batch import",
-                        "telephone_no": null,
-                        "email_address": null,
                         "invalid_codes": null,
                         "stat_for_unit": [
                             {
@@ -12950,12 +13344,11 @@ SELECT jsonb_pretty(
 statistical_unit_hierarchy
 {
     "enterprise": {
-        "notes": null,
         "active": true,
+        "edit_at": "2025-01-27T06:36:11.306198-08:00",
         "legal_unit": [
             {
                 "name": "KRAN & SPESIALLØFT AS",
-                "notes": null,
                 "active": true,
                 "sector": {
                     "code": "2100",
@@ -12966,9 +13359,11 @@ statistical_unit_hierarchy
                     "custom": true,
                     "description": "### Notes:\nSektoren omfatter markedsproduserende ikke-finansielle selskaper med begrenset økonomisk ansvar hvor private nasjonale aktører eller utlendinger direkte eller indirekte eier mer enn 50 prosent av innbetalt eierkapital."
                 },
+                "edit_at": "2025-01-27T06:36:11.306198-08:00",
                 "activity": [
                     {
                         "type": "primary",
+                        "edit_at": "2025-01-27T06:36:11.306198-08:00",
                         "valid_to": "infinity",
                         "valid_from": "2013-01-01",
                         "data_source": {
@@ -12978,6 +13373,7 @@ statistical_unit_hierarchy
                             "custom": false
                         },
                         "valid_after": "2012-12-31",
+                        "edit_comment": null,
                         "activity_category": {
                             "code": "49.410",
                             "name": "Godstransport på vei",
@@ -13018,6 +13414,7 @@ statistical_unit_hierarchy
                             "custom": false,
                             "iso_num": "578"
                         },
+                        "edit_at": "2025-01-27T06:36:11.306198-08:00",
                         "altitude": null,
                         "latitude": null,
                         "postcode": "4347",
@@ -13032,6 +13429,7 @@ statistical_unit_hierarchy
                             "custom": false
                         },
                         "valid_after": "2012-12-31",
+                        "edit_comment": null,
                         "address_part1": "Vestlyvegen 219",
                         "address_part2": null,
                         "address_part3": null
@@ -13055,18 +13453,16 @@ statistical_unit_hierarchy
                     "custom": false
                 },
                 "valid_after": "2012-12-31",
-                "web_address": null,
                 "edit_comment": "Batch import",
-                "telephone_no": null,
-                "email_address": null,
                 "establishment": [
                     {
                         "name": "KRAN & SPESIALLØFT AS",
-                        "notes": null,
                         "active": true,
+                        "edit_at": "2025-01-27T06:36:11.340643-08:00",
                         "activity": [
                             {
                                 "type": "primary",
+                                "edit_at": "2025-01-27T06:36:11.340643-08:00",
                                 "valid_to": "infinity",
                                 "valid_from": "2010-01-01",
                                 "data_source": {
@@ -13076,6 +13472,7 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2009-12-31",
+                                "edit_comment": null,
                                 "activity_category": {
                                     "code": "49.410",
                                     "name": "Godstransport på vei",
@@ -13116,6 +13513,7 @@ statistical_unit_hierarchy
                                     "custom": false,
                                     "iso_num": "578"
                                 },
+                                "edit_at": "2025-01-27T06:36:11.340643-08:00",
                                 "altitude": null,
                                 "latitude": null,
                                 "postcode": "4347",
@@ -13130,6 +13528,7 @@ statistical_unit_hierarchy
                                     "custom": false
                                 },
                                 "valid_after": "2009-12-31",
+                                "edit_comment": null,
                                 "address_part1": "Vestlyvegen 219",
                                 "address_part2": null,
                                 "address_part3": null
@@ -13147,10 +13546,7 @@ statistical_unit_hierarchy
                             "custom": false
                         },
                         "valid_after": "2012-12-31",
-                        "web_address": null,
                         "edit_comment": "Batch import",
-                        "telephone_no": null,
-                        "email_address": null,
                         "invalid_codes": null,
                         "stat_for_unit": [
                             {

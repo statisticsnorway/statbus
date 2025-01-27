@@ -20,10 +20,11 @@ CREATE TABLE public.unit_notes (
         )
 );
 
-CREATE INDEX ix_unit_notes_establishment_id ON public.unit_notes USING btree (establishment_id);
-CREATE INDEX ix_unit_notes_legal_unit_id ON public.unit_notes USING btree (legal_unit_id);
-CREATE INDEX ix_unit_notes_enterprise_id ON public.unit_notes USING btree (enterprise_id);
-CREATE INDEX ix_unit_notes_enterprise_group_id ON public.unit_notes USING btree (enterprise_group_id);
+CREATE UNIQUE INDEX ix_unit_notes_establishment_id ON public.unit_notes USING btree (establishment_id);
+CREATE UNIQUE INDEX ix_unit_notes_legal_unit_id ON public.unit_notes USING btree (legal_unit_id);
+CREATE UNIQUE INDEX ix_unit_notes_enterprise_id ON public.unit_notes USING btree (enterprise_id);
+CREATE UNIQUE INDEX ix_unit_notes_enterprise_group_id ON public.unit_notes USING btree (enterprise_group_id);
+
 CREATE INDEX ix_unit_notes_edit_by_user_id ON public.unit_notes USING btree (edit_by_user_id);
 
 END;
