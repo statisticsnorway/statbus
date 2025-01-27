@@ -217,6 +217,9 @@ BEGIN
             , address_part3
             , postcode
             , postplace
+            , latitude
+            , longitude
+            , altitude
             , region_id
             , country_id
             , data_source_id
@@ -233,6 +236,9 @@ BEGIN
             , NULLIF(NEW.physical_address_part3,'')
             , NULLIF(NEW.physical_postcode,'')
             , NULLIF(NEW.physical_postplace,'')
+            , NULLIF(NEW.physical_latitude,'')
+            , NULLIF(NEW.physical_longitude,'')
+            , NULLIF(NEW.physical_altitude,'')
             , physical_region.id
             , physical_country.id
             , data_source.id
@@ -271,6 +277,9 @@ BEGIN
             , address_part3
             , postcode
             , postplace
+            , latitude
+            , longitude
+            , altitude
             , region_id
             , country_id
             , data_source_id
@@ -287,6 +296,9 @@ BEGIN
             , NULLIF(NEW.postal_address_part3,'')
             , NULLIF(NEW.postal_postcode,'')
             , NULLIF(NEW.postal_postplace,'')
+            , NULLIF(NEW.postal_latitude,'')
+            , NULLIF(NEW.postal_longitude,'')
+            , NULLIF(NEW.postal_altitude,'')
             , postal_region.id
             , postal_country.id
             , data_source.id
