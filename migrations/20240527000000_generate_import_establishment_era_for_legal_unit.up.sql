@@ -45,8 +45,9 @@ SELECT valid_from,
        postal_country_iso_2,
        primary_activity_category_code,
        secondary_activity_category_code,
+       -- sector_code is Disabled because the legal unit provides the sector_code
+       status_code,
        data_source_code,
-     -- sector_code is Disabled because the legal unit provides the sector_code
 {{stat_definition_columns}}
        tag_path
 FROM public.import_establishment_era;
@@ -89,6 +90,7 @@ BEGIN
         postal_country_iso_2,
         primary_activity_category_code,
         secondary_activity_category_code,
+        status_code,
         data_source_code,
 {{stats_insert_labels}}
         tag_path
@@ -121,6 +123,7 @@ BEGIN
         NEW.postal_country_iso_2,
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
+        NEW.status_code,
         NEW.data_source_code,
 {{stats_value_labels}}
         NEW.tag_path

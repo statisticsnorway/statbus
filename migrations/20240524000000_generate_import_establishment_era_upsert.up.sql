@@ -17,6 +17,7 @@ DECLARE
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
     sector RECORD;
+    status RECORD;
     data_source RECORD;
     meta_data RECORD;
     new_typed RECORD;
@@ -55,6 +56,7 @@ BEGIN
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
     SELECT NULL::int AS id INTO sector;
+    SELECT NULL::int AS id INTO status;
     SELECT NULL::int AS id INTO data_source;
     SELECT NULL::int AS employees
          , NULL::int AS turnover
@@ -116,6 +118,10 @@ BEGIN
     SELECT sector_id , updated_invalid_codes
     INTO   sector.id , invalid_codes
     FROM admin.import_lookup_sector(new_jsonb, invalid_codes);
+
+    SELECT status_id , updated_invalid_codes
+    INTO   status.id , invalid_codes
+    FROM admin.import_lookup_status(new_jsonb, invalid_codes);
 
     SELECT data_source_id , updated_invalid_codes
     INTO   data_source.id , invalid_codes
@@ -181,6 +187,7 @@ BEGIN
         , active
         , edit_comment
         , sector_id
+        , status_id
         , invalid_codes
         , enterprise_id
         , legal_unit_id
@@ -200,6 +207,7 @@ BEGIN
         , meta_data.active
         , meta_data.edit_comment
         , sector.id
+        , status.id
         , meta_data.invalid_codes
         , enterprise.id
         , legal_unit.id
