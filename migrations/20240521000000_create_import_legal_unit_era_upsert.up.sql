@@ -246,9 +246,9 @@ BEGIN
             , NULLIF(NEW.physical_address_part3,'')
             , NULLIF(NEW.physical_postcode,'')
             , NULLIF(NEW.physical_postplace,'')
-            , NULLIF(NEW.physical_latitude,'')
-            , NULLIF(NEW.physical_longitude,'')
-            , NULLIF(NEW.physical_altitude,'')
+            , NULLIF(NEW.physical_latitude,'')::numeric(9, 6)
+            , NULLIF(NEW.physical_longitude,'')::numeric(9, 6)
+            , NULLIF(NEW.physical_altitude,'')::numeric(6, 1)
             , physical_region.id
             , physical_country.id
             , data_source.id
@@ -306,9 +306,9 @@ BEGIN
             , NULLIF(NEW.postal_address_part3,'')
             , NULLIF(NEW.postal_postcode,'')
             , NULLIF(NEW.postal_postplace,'')
-            , NULLIF(NEW.postal_latitude,'')
-            , NULLIF(NEW.postal_longitude,'')
-            , NULLIF(NEW.postal_altitude,'')
+            , NULLIF(NEW.postal_latitude,'')::numeric(9, 6)
+            , NULLIF(NEW.postal_longitude,'')::numeric(9, 6)
+            , NULLIF(NEW.postal_altitude,'')::numeric(6, 1)
             , postal_region.id
             , postal_country.id
             , data_source.id
