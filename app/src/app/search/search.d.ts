@@ -81,7 +81,9 @@ export type TableColumnCode =
   | "sector"
   | "legal_form"
   | "data_sources"
-  | "physical_address";
+  | "physical_address"
+  | "birth_date"
+  | "death_date";
 
 // Extend the base interface based on visibility type
 export interface AdaptableTableColumn{

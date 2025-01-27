@@ -337,6 +337,39 @@ export const StatisticalUnitTableRow = ({
                 </div>
               </TableCell>
             );
+
+          case "birth_date":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={unit.birth_date ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
+                  <small className="text-gray-700 whitespace-nowrap">
+                    {unit.birth_date}
+                  </small>
+                </div>
+              </TableCell>
+            );
+          case "death_date":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={unit.death_date ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
+                  <small className="text-gray-700 whitespace-nowrap">
+                    {unit.death_date}
+                  </small>
+                </div>
+              </TableCell>
+            );
           case 'data_sources':
             return (
               <TableCell key={`cell-${bodyCellSuffix(unit, column)}`} className={getCellClassName(column)}>

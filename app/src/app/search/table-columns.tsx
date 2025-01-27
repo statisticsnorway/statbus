@@ -141,6 +141,22 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
         },
         {
           type: "Adaptable",
+          code: "birth_date",
+          label: "Birth Date",
+          visible: false,
+          stat_code: null,
+          profiles: ["All"],
+        },
+        {
+          type: "Adaptable",
+          code: "death_date",
+          label: "Death Date",
+          visible: false,
+          stat_code: null,
+          profiles: ["All"],
+        },
+        {
+          type: "Adaptable",
           code: "data_sources",
           label: "Data Source",
           visible: false,

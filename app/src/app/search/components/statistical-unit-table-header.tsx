@@ -151,6 +151,24 @@ export function StatisticalUnitTableHeader({
                   Address
                 </TableHead>
               );
+            case "birth_date":
+              return (
+                <TableHead
+                  className="text-left hidden lg:table-cell"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                >
+                  Birth Date
+                </TableHead>
+              );
+            case "death_date":
+              return (
+                <TableHead
+                  className="text-left hidden lg:table-cell"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                >
+                  Death Date
+                </TableHead>
+              );
             case "data_sources":
               return (
                 <TableHead
