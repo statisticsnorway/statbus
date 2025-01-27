@@ -65,6 +65,7 @@ CREATE VIEW public.statistical_unit_def
     --
     , status_id
     , status_code
+    , include_unit_in_reports
     --
     , invalid_codes
     , has_legal_unit
@@ -372,7 +373,7 @@ CREATE VIEW public.statistical_unit_def
          --
          , data.status_id
          , data.status_code
-         --
+         , s.include_unit_in_reports
          , data.invalid_codes
          , data.has_legal_unit
          , data.establishment_ids
@@ -384,7 +385,8 @@ CREATE VIEW public.statistical_unit_def
          , array_length(data.legal_unit_ids,1) AS legal_unit_count
          , array_length(data.enterprise_ids,1) AS enterprise_count
          , public.get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
-    FROM data;
+    FROM data
+    LEFT JOIN public.status s ON s.id = data.status_id;
 ;
 
 END;
