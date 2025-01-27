@@ -30,6 +30,7 @@ export default function UploadRegionsPage() {
             <p>There are already {numberOfRegions} regions defined</p>
             <Link
               href="/regions"
+              target="_blank"
               className={buttonVariants({ variant: "outline" })}
             >
               View all

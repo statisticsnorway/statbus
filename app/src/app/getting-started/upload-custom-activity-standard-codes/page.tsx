@@ -39,6 +39,7 @@ export default function UploadCustomActivityCategoryCodesPage() {
               </p>
               <Link
                 href="/activity-categories?custom=true"
+                target="_blank"
                 className={buttonVariants({ variant: "outline" })}
               >
                 View all
