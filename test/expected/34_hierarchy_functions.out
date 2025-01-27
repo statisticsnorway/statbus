@@ -122,6 +122,15 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
+                 "status": {                                                                                                      +
+                     "code": "active",                                                                                            +
+                     "name": "Active",                                                                                            +
+                     "active": true,                                                                                              +
+                     "custom": false,                                                                                             +
+                     "priority": 1,                                                                                               +
+                     "assigned_by_default": true,                                                                                 +
+                     "include_unit_in_reports": true                                                                              +
+                 },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
@@ -218,6 +227,15 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
                          "active": true,                                                                                          +
+                         "status": {                                                                                              +
+                             "code": "active",                                                                                    +
+                             "name": "Active",                                                                                    +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "priority": 1,                                                                                       +
+                             "assigned_by_default": true,                                                                         +
+                             "include_unit_in_reports": true                                                                      +
+                         },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
@@ -366,6 +384,15 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "name": "NILE TEXTILES",                                                                                 +
                          "active": true,                                                                                          +
+                         "status": {                                                                                              +
+                             "code": "active",                                                                                    +
+                             "name": "Active",                                                                                    +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "priority": 1,                                                                                       +
+                             "assigned_by_default": true,                                                                         +
+                             "include_unit_in_reports": true                                                                      +
+                         },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
@@ -606,6 +633,15 @@ SELECT jsonb_pretty(
              {                                                                                                            +
                  "name": "THE MARINE SERVICES",                                                                           +
                  "active": true,                                                                                          +
+                 "status": {                                                                                              +
+                     "code": "active",                                                                                    +
+                     "name": "Active",                                                                                    +
+                     "active": true,                                                                                      +
+                     "custom": false,                                                                                     +
+                     "priority": 1,                                                                                       +
+                     "assigned_by_default": true,                                                                         +
+                     "include_unit_in_reports": true                                                                      +
+                 },                                                                                                       +
                  "activity": [                                                                                            +
                      {                                                                                                    +
                          "type": "primary",                                                                               +
@@ -1095,6 +1131,15 @@ SELECT jsonb_pretty(
                  "active": true,                                                                                      +
                  "custom": true,                                                                                      +
                  "description": "Central government"                                                                  +
+             },                                                                                                       +
+             "status": {                                                                                              +
+                 "code": "active",                                                                                    +
+                 "name": "Active",                                                                                    +
+                 "active": true,                                                                                      +
+                 "custom": false,                                                                                     +
+                 "priority": 1,                                                                                       +
+                 "assigned_by_default": true,                                                                         +
+                 "include_unit_in_reports": true                                                                      +
              },                                                                                                       +
              "activity": [                                                                                            +
                  {                                                                                                    +

@@ -122,6 +122,15 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
+                 "status": {                                                                                                      +
+                     "code": "active",                                                                                            +
+                     "name": "Active",                                                                                            +
+                     "active": true,                                                                                              +
+                     "custom": false,                                                                                             +
+                     "priority": 1,                                                                                               +
+                     "assigned_by_default": true,                                                                                 +
+                     "include_unit_in_reports": true                                                                              +
+                 },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
@@ -218,6 +227,15 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
                          "active": true,                                                                                          +
+                         "status": {                                                                                              +
+                             "code": "active",                                                                                    +
+                             "name": "Active",                                                                                    +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "priority": 1,                                                                                       +
+                             "assigned_by_default": true,                                                                         +
+                             "include_unit_in_reports": true                                                                      +
+                         },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
@@ -458,6 +476,15 @@ SELECT jsonb_pretty(
              {                                                                                                            +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                   +
                  "active": true,                                                                                          +
+                 "status": {                                                                                              +
+                     "code": "active",                                                                                    +
+                     "name": "Active",                                                                                    +
+                     "active": true,                                                                                      +
+                     "custom": false,                                                                                     +
+                     "priority": 1,                                                                                       +
+                     "assigned_by_default": true,                                                                         +
+                     "include_unit_in_reports": true                                                                      +
+                 },                                                                                                       +
                  "activity": [                                                                                            +
                      {                                                                                                    +
                          "type": "primary",                                                                               +
@@ -742,6 +769,15 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
+                 "status": {                                                                                                      +
+                     "code": "active",                                                                                            +
+                     "name": "Active",                                                                                            +
+                     "active": true,                                                                                              +
+                     "custom": false,                                                                                             +
+                     "priority": 1,                                                                                               +
+                     "assigned_by_default": true,                                                                                 +
+                     "include_unit_in_reports": true                                                                              +
+                 },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
@@ -838,6 +874,15 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
                          "active": true,                                                                                          +
+                         "status": {                                                                                              +
+                             "code": "active",                                                                                    +
+                             "name": "Active",                                                                                    +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "priority": 1,                                                                                       +
+                             "assigned_by_default": true,                                                                         +
+                             "include_unit_in_reports": true                                                                      +
+                         },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
@@ -1049,6 +1094,15 @@ SELECT jsonb_pretty(
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
                  "active": true,                                                                                                  +
+                 "status": {                                                                                                      +
+                     "code": "active",                                                                                            +
+                     "name": "Active",                                                                                            +
+                     "active": true,                                                                                              +
+                     "custom": false,                                                                                             +
+                     "priority": 1,                                                                                               +
+                     "assigned_by_default": true,                                                                                 +
+                     "include_unit_in_reports": true                                                                              +
+                 },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
@@ -1235,6 +1289,15 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
+                 "status": {                                                                                                      +
+                     "code": "active",                                                                                            +
+                     "name": "Active",                                                                                            +
+                     "active": true,                                                                                              +
+                     "custom": false,                                                                                             +
+                     "priority": 1,                                                                                               +
+                     "assigned_by_default": true,                                                                                 +
+                     "include_unit_in_reports": true                                                                              +
+                 },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
@@ -1331,6 +1394,15 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
                          "active": true,                                                                                          +
+                         "status": {                                                                                              +
+                             "code": "active",                                                                                    +
+                             "name": "Active",                                                                                    +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "priority": 1,                                                                                       +
+                             "assigned_by_default": true,                                                                         +
+                             "include_unit_in_reports": true                                                                      +
+                         },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
@@ -1542,6 +1614,15 @@ SELECT jsonb_pretty(
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
                  "active": true,                                                                                                  +
+                 "status": {                                                                                                      +
+                     "code": "active",                                                                                            +
+                     "name": "Active",                                                                                            +
+                     "active": true,                                                                                              +
+                     "custom": false,                                                                                             +
+                     "priority": 1,                                                                                               +
+                     "assigned_by_default": true,                                                                                 +
+                     "include_unit_in_reports": true                                                                              +
+                 },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
@@ -1728,6 +1809,15 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
+                 "status": {                                                                                                      +
+                     "code": "active",                                                                                            +
+                     "name": "Active",                                                                                            +
+                     "active": true,                                                                                              +
+                     "custom": false,                                                                                             +
+                     "priority": 1,                                                                                               +
+                     "assigned_by_default": true,                                                                                 +
+                     "include_unit_in_reports": true                                                                              +
+                 },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
@@ -1824,6 +1914,15 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
                          "active": true,                                                                                          +
+                         "status": {                                                                                              +
+                             "code": "active",                                                                                    +
+                             "name": "Active",                                                                                    +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "priority": 1,                                                                                       +
+                             "assigned_by_default": true,                                                                         +
+                             "include_unit_in_reports": true                                                                      +
+                         },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
@@ -2035,6 +2134,15 @@ SELECT jsonb_pretty(
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
                  "active": true,                                                                                                  +
+                 "status": {                                                                                                      +
+                     "code": "active",                                                                                            +
+                     "name": "Active",                                                                                            +
+                     "active": true,                                                                                              +
+                     "custom": false,                                                                                             +
+                     "priority": 1,                                                                                               +
+                     "assigned_by_default": true,                                                                                 +
+                     "include_unit_in_reports": true                                                                              +
+                 },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +

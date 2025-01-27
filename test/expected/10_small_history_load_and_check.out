@@ -441,7 +441,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -506,7 +506,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -571,7 +571,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -636,7 +636,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -701,7 +701,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -766,7 +766,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -844,7 +844,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -922,7 +922,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1000,7 +1000,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1078,7 +1078,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1143,7 +1143,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1208,7 +1208,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1273,7 +1273,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1351,7 +1351,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1429,7 +1429,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1507,7 +1507,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1571,7 +1571,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1635,7 +1635,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1699,7 +1699,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1763,7 +1763,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1827,7 +1827,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1903,7 +1903,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -1979,7 +1979,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -2055,7 +2055,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -2131,7 +2131,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -2195,7 +2195,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -2259,7 +2259,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -2323,7 +2323,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -2399,7 +2399,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
@@ -2475,7 +2475,7 @@ statistical_unit_data | {                                                       
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
-                      |     "status_code": null,                                               +
+                      |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
                       |     "email_address": null,                                             +
