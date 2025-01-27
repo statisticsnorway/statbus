@@ -13,7 +13,7 @@ import { defaultOrder } from "./search-filter-reducer";
 import { SearchOrder } from "./search";
 
 export const metadata: Metadata = {
-  title: "Statbus | Search statistical units",
+  title: "Search statistical units",
 };
 
 export default async function SearchPage({ searchParams: initialUrlSearchParamsDict }: { searchParams: URLSearchParamsDict }) {
@@ -39,8 +39,9 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
   const orderParam = initialUrlSearchParams.get("order")
   if (orderParam){
     const [orderBy, orderDirection] = orderParam.split(".");
-    const validOrderDirection: "asc" | "desc" = orderDirection === "desc" ? "desc" : "asc"; // Default to "asc" if invalid
-    order = {name: orderBy, direction: validOrderDirection} as SearchOrder;
+    const validOrderDirection: "asc" | "desc.nullslast" =
+      orderDirection === "desc.nullslast" ? "desc.nullslast" : "asc"; // Default to "asc" if invalid
+    order = { name: orderBy, direction: validOrderDirection } as SearchOrder;
   }
 
   const defaultCurrentPage = 1;

@@ -33,7 +33,7 @@ export default function UploadCustomSectorsPage() {
 
       <UploadCSVForm
         uploadView="legal_form_custom_only"
-        nextPage="/getting-started/upload-custom-activity-standard-codes"
+        nextPage="/getting-started/summary"
         refreshRelevantCounts={refreshNumberOfCustomLegalForms}
       />
 

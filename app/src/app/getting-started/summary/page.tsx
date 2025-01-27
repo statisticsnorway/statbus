@@ -34,6 +34,12 @@ export default function OnboardingCompletedPage() {
           failureLink={"/getting-started/activity-standard"}
         />
         <SummaryBlock
+          success={!!numberOfCustomActivityCategoryCodes}
+          successText={`You have uploaded ${numberOfCustomActivityCategoryCodes} custom activity categories.`}
+          failureText="You have not uploaded any custom activity categories"
+          failureLink={"/getting-started/upload-custom-activity-standard-codes"}
+        />
+        <SummaryBlock
           success={!!numberOfRegions}
           required={true}
           successText={`You have uploaded ${numberOfRegions} regions.`}
@@ -51,12 +57,6 @@ export default function OnboardingCompletedPage() {
           successText={`You have uploaded ${numberOfCustomLegalForms} custom legal forms.`}
           failureText="You have not uploaded any custom legal forms"
           failureLink={"/getting-started/upload-custom-legal-forms"}
-        />
-        <SummaryBlock
-          success={!!numberOfCustomActivityCategoryCodes}
-          successText={`You have uploaded ${numberOfCustomActivityCategoryCodes} custom activity categories.`}
-          failureText="You have not uploaded any custom activity categories"
-          failureLink={"/getting-started/upload-custom-activity-standard-codes"}
         />
       </div>
       {!!activity_category_standard && numberOfRegions ? (

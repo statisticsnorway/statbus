@@ -43,7 +43,8 @@ export function modifySearchStateReducer(
       };
     case "set_order": {
       const name = action.payload.name;
-      const flippedDirection = state.order.direction === 'desc' ? 'asc' : 'desc';
+      const flippedDirection =
+        state.order.direction === "desc.nullslast" ? "asc" : "desc.nullslast";
 
       const order: SearchOrder = name === state.order.name
         ? { ...state.order, direction: flippedDirection }

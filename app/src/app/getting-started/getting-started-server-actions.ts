@@ -61,7 +61,7 @@ export async function uploadFile(
 }
 
 export async function setCategoryStandard(formData: FormData) {
-  "use server";
+  ("use server");
   const client = await createSupabaseSSRClient();
   const logger = await createServerLogger();
 
@@ -102,5 +102,8 @@ export async function setCategoryStandard(formData: FormData) {
     return { error: "Error setting category standard" };
   }
 
-  redirect("/getting-started/upload-regions", RedirectType.push);
+  redirect(
+    "/getting-started/upload-custom-activity-standard-codes",
+    RedirectType.push
+  );
 }

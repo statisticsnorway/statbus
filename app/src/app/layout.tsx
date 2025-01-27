@@ -12,11 +12,15 @@ import PopStateHandler from "@/components/PopStateHandler";
 import { ServerBaseDataProvider } from "@/app/BaseDataServer";
 import { AuthProvider } from "@/context/AuthContext";
 import { TimeContextProvider } from "@/app/time-context";
+import { deploymentSlotName } from "@/lib/deployment-variables";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Statbus",
+  title: {
+    template: `${deploymentSlotName} Statbus | %s`,
+    default: `${deploymentSlotName} Statbus`,
+  },
   description: "Simple To Use, Simple To Understand, Simply useful!",
 };
 

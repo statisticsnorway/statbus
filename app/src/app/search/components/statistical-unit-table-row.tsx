@@ -50,6 +50,10 @@ export const StatisticalUnitTableRow = ({
     unit.primary_activity_category_path
   );
 
+   const secondaryActivityCategory = getActivityCategoryByPath(
+     unit.secondary_activity_category_path
+   );
+
   const getDataSourcesByIds = (data_source_ids: number[] | null) => {
     if (!data_source_ids) return [];
     return data_source_ids
@@ -187,6 +191,24 @@ export const StatisticalUnitTableRow = ({
               </TableCell>
             );
 
+          case "secondary_activity":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={secondaryActivityCategory?.name ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
+                  <span>{secondaryActivityCategory?.code}</span>
+                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
+                    {secondaryActivityCategory?.name}
+                  </small>
+                </div>
+              </TableCell>
+            );
+
             case 'top_region':
               const topRegion = unit.physical_region_path ? allRegions.find(
                 ({ path }) => path === (unit.physical_region_path as string | null)?.split('.')[0]
@@ -311,6 +333,39 @@ export const StatisticalUnitTableRow = ({
                 >
                   <small className="text-gray-700 min-w-40 line-clamp-3 lg:max-w-48">
                     {physical_address}
+                  </small>
+                </div>
+              </TableCell>
+            );
+
+          case "birth_date":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={unit.birth_date ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
+                  <small className="text-gray-700 whitespace-nowrap">
+                    {unit.birth_date}
+                  </small>
+                </div>
+              </TableCell>
+            );
+          case "death_date":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={unit.death_date ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
+                  <small className="text-gray-700 whitespace-nowrap">
+                    {unit.death_date}
                   </small>
                 </div>
               </TableCell>

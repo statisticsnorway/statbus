@@ -27,8 +27,16 @@ export default function SetupStatus() {
         </li>
         <li className="mb-6">
           <NavItem
+            done={!!numberOfCustomActivityCategoryCodes}
+            title="2. Upload Custom Activity Category Standard Codes (optional)"
+            href="/getting-started/upload-custom-activity-standard-codes"
+            subtitle={`${numberOfCustomActivityCategoryCodes} custom activity category codes uploaded`}
+          />
+        </li>
+        <li className="mb-6">
+          <NavItem
             done={!!numberOfRegions}
-            title="2. Upload Region Hierarchy"
+            title="3. Upload Region Hierarchy"
             href="/getting-started/upload-regions"
             subtitle={`${numberOfRegions} regions uploaded`}
           />
@@ -36,7 +44,7 @@ export default function SetupStatus() {
         <li className="mb-6">
           <NavItem
             done={!!numberOfCustomSectors}
-            title="3. Upload Custom Sectors (optional)"
+            title="4. Upload Custom Sectors (optional)"
             href="/getting-started/upload-custom-sectors"
             subtitle={`${numberOfCustomSectors} custom sectors uploaded`}
           />
@@ -44,17 +52,9 @@ export default function SetupStatus() {
         <li className="mb-6">
           <NavItem
             done={!!numberOfCustomLegalForms}
-            title="4. Upload Custom Legal Forms (optional)"
+            title="5. Upload Custom Legal Forms (optional)"
             href="/getting-started/upload-custom-legal-forms"
             subtitle={`${numberOfCustomLegalForms} custom legal forms codes uploaded`}
-          />
-        </li>
-        <li className="mb-6">
-          <NavItem
-            done={!!numberOfCustomActivityCategoryCodes}
-            title="5. Upload Custom Activity Category Standard Codes (optional)"
-            href="/getting-started/upload-custom-activity-standard-codes"
-            subtitle={`${numberOfCustomActivityCategoryCodes} custom activity category codes uploaded`}
           />
         </li>
         <li>

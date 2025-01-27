@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
   if (!searchParams.has("order")) {
-    searchParams.set("order", "tax_ident.desc");
+    searchParams.set("order", "name.asc");
   }
 
   const client = await createSupabaseSSRClient();
@@ -24,16 +24,15 @@ export async function GET(request: NextRequest) {
       [
         "name",
         "unit_type",
-        "primary_activity_category_id",
-        "physical_region_id"
+        "primary_activity_category_code",
+        "secondary_activity_category_code",
+        "physical_region_code",
       ],
       statDefinitionColumns,
       [
         "physical_country_iso_2",
         "sector_code",
-        "sector_name",
-        "legal_form_code",
-        "legal_form_name"
+       "legal_form_code",
       ]
     ].flat().join(",")
   );

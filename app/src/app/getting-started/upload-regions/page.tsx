@@ -10,6 +10,8 @@ import {
 } from "@/components/ui/accordion";
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
+import Link from "next/link";
+import { buttonVariants } from "@/components/ui/button";
 
 export default function UploadRegionsPage() {
   const { numberOfRegions, refreshNumberOfRegions } = useGettingStarted();
@@ -24,7 +26,16 @@ export default function UploadRegionsPage() {
 
       {!!numberOfRegions && numberOfRegions > 0 && (
         <InfoBox>
-          <p>There are already {numberOfRegions} regions defined</p>
+          <div className="flex justify-between items-center">
+            <p>There are already {numberOfRegions} regions defined</p>
+            <Link
+              href="/regions"
+              target="_blank"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              View all
+            </Link>
+          </div>
         </InfoBox>
       )}
 

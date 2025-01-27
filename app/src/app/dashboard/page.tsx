@@ -14,7 +14,7 @@ import { Database, Gauge } from "lucide-react";
 import { TotalActivityCategoryCard } from "./total-activity-category-card";
 
 export const metadata: Metadata = {
-  title: "Statbus | Dashboard",
+  title: "Dashboard",
 };
 
 export default async function Dashboard() {
