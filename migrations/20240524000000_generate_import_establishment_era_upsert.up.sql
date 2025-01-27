@@ -246,6 +246,16 @@ BEGIN
       p_edit_by_user_id => edit_by_user.id
       );
 
+    PERFORM admin.process_contact_columns(
+        new_jsonb,
+        NULL,
+        inserted_legal_unit.id,
+        new_typed.valid_from,
+        new_typed.valid_to,
+        data_source.id,
+        edit_by_user.id
+    );
+
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
             ( valid_from
