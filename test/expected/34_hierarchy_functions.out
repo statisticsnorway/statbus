@@ -109,7 +109,6 @@ SELECT jsonb_pretty(
  {                                                                                                                                +
      "enterprise": {                                                                                                              +
          "active": true,                                                                                                          +
-         "edit_at": "2025-01-27T06:36:37.667957-08:00",                                                                           +
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
@@ -123,11 +122,9 @@ SELECT jsonb_pretty(
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
                  },                                                                                                               +
-                 "edit_at": "2025-01-27T06:36:37.667957-08:00",                                                                   +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
                          "type": "primary",                                                                                       +
-                         "edit_at": "2025-01-27T06:36:37.667957-08:00",                                                           +
                          "valid_to": "infinity",                                                                                  +
                          "valid_from": "2024-01-01",                                                                              +
                          "data_source": {                                                                                         +
@@ -178,7 +175,6 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                                     +
                              "iso_num": "800"                                                                                     +
                          },                                                                                                       +
-                         "edit_at": "2025-01-27T06:36:37.667957-08:00",                                                           +
                          "altitude": null,                                                                                        +
                          "latitude": null,                                                                                        +
                          "postcode": null,                                                                                        +
@@ -222,11 +218,9 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
                          "active": true,                                                                                          +
-                         "edit_at": "2025-01-27T06:36:37.719713-08:00",                                                           +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
-                                 "edit_at": "2025-01-27T06:36:37.719713-08:00",                                                   +
                                  "valid_to": "infinity",                                                                          +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "data_source": {                                                                                 +
@@ -277,7 +271,6 @@ SELECT jsonb_pretty(
                                      "custom": false,                                                                             +
                                      "iso_num": "800"                                                                             +
                                  },                                                                                               +
-                                 "edit_at": "2025-01-27T06:36:37.719713-08:00",                                                   +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
                                  "postcode": null,                                                                                +
@@ -373,11 +366,9 @@ SELECT jsonb_pretty(
                      {                                                                                                            +
                          "name": "NILE TEXTILES",                                                                                 +
                          "active": true,                                                                                          +
-                         "edit_at": "2025-01-27T06:36:37.719713-08:00",                                                           +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
-                                 "edit_at": "2025-01-27T06:36:37.719713-08:00",                                                   +
                                  "valid_to": "infinity",                                                                          +
                                  "valid_from": "2024-01-01",                                                                      +
                                  "data_source": {                                                                                 +
@@ -428,7 +419,6 @@ SELECT jsonb_pretty(
                                      "custom": false,                                                                             +
                                      "iso_num": "800"                                                                             +
                                  },                                                                                               +
-                                 "edit_at": "2025-01-27T06:36:37.719713-08:00",                                                   +
                                  "altitude": null,                                                                                +
                                  "latitude": null,                                                                                +
                                  "postcode": null,                                                                                +
@@ -610,18 +600,15 @@ SELECT jsonb_pretty(
  {                                                                                                                        +
      "enterprise": {                                                                                                      +
          "active": true,                                                                                                  +
-         "edit_at": "2025-01-27T06:36:37.75203-08:00",                                                                    +
          "short_name": null,                                                                                              +
          "edit_comment": "Batch import",                                                                                  +
          "establishment": [                                                                                               +
              {                                                                                                            +
                  "name": "THE MARINE SERVICES",                                                                           +
                  "active": true,                                                                                          +
-                 "edit_at": "2025-01-27T06:36:37.75203-08:00",                                                            +
                  "activity": [                                                                                            +
                      {                                                                                                    +
                          "type": "primary",                                                                               +
-                         "edit_at": "2025-01-27T06:36:37.75203-08:00",                                                    +
                          "valid_to": "infinity",                                                                          +
                          "valid_from": "2024-01-01",                                                                      +
                          "data_source": {                                                                                 +
@@ -672,7 +659,6 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                             +
                              "iso_num": "800"                                                                             +
                          },                                                                                               +
-                         "edit_at": "2025-01-27T06:36:37.75203-08:00",                                                    +
                          "altitude": null,                                                                                +
                          "latitude": null,                                                                                +
                          "postcode": null,                                                                                +
@@ -792,16 +778,13 @@ SELECT jsonb_pretty(
  {                                                                                                             +
      "enterprise": {                                                                                           +
          "active": true,                                                                                       +
-         "edit_at": "2025-01-27T06:36:37.667957-08:00",                                                        +
          "legal_unit": [                                                                                       +
              {                                                                                                 +
                  "name": "NILE PEARL WATER",                                                                   +
                  "active": true,                                                                               +
-                 "edit_at": "2025-01-27T06:36:37.667957-08:00",                                                +
                  "activity": [                                                                                 +
                      {                                                                                         +
                          "type": "primary",                                                                    +
-                         "edit_at": "2025-01-27T06:36:37.667957-08:00",                                        +
                          "valid_to": "infinity",                                                               +
                          "valid_from": "2024-01-01",                                                           +
                          "data_source": {                                                                      +
@@ -852,7 +835,6 @@ SELECT jsonb_pretty(
                              "custom": false,                                                                  +
                              "iso_num": "800"                                                                  +
                          },                                                                                    +
-                         "edit_at": "2025-01-27T06:36:37.667957-08:00",                                        +
                          "altitude": null,                                                                     +
                          "latitude": null,                                                                     +
                          "postcode": null,                                                                     +
@@ -884,11 +866,9 @@ SELECT jsonb_pretty(
                      {                                                                                         +
                          "name": "NILE PEARL WATER",                                                           +
                          "active": true,                                                                       +
-                         "edit_at": "2025-01-27T06:36:37.719713-08:00",                                        +
                          "activity": [                                                                         +
                              {                                                                                 +
                                  "type": "primary",                                                            +
-                                 "edit_at": "2025-01-27T06:36:37.719713-08:00",                                +
                                  "valid_to": "infinity",                                                       +
                                  "valid_from": "2024-01-01",                                                   +
                                  "data_source": {                                                              +
@@ -939,7 +919,6 @@ SELECT jsonb_pretty(
                                      "custom": false,                                                          +
                                      "iso_num": "800"                                                          +
                                  },                                                                            +
-                                 "edit_at": "2025-01-27T06:36:37.719713-08:00",                                +
                                  "altitude": null,                                                             +
                                  "latitude": null,                                                             +
                                  "postcode": null,                                                             +
@@ -979,11 +958,9 @@ SELECT jsonb_pretty(
                      {                                                                                         +
                          "name": "NILE TEXTILES",                                                              +
                          "active": true,                                                                       +
-                         "edit_at": "2025-01-27T06:36:37.719713-08:00",                                        +
                          "activity": [                                                                         +
                              {                                                                                 +
                                  "type": "primary",                                                            +
-                                 "edit_at": "2025-01-27T06:36:37.719713-08:00",                                +
                                  "valid_to": "infinity",                                                       +
                                  "valid_from": "2024-01-01",                                                   +
                                  "data_source": {                                                              +
@@ -1034,7 +1011,6 @@ SELECT jsonb_pretty(
                                      "custom": false,                                                          +
                                      "iso_num": "800"                                                          +
                                  },                                                                            +
-                                 "edit_at": "2025-01-27T06:36:37.719713-08:00",                                +
                                  "altitude": null,                                                             +
                                  "latitude": null,                                                             +
                                  "postcode": null,                                                             +
@@ -1120,11 +1096,9 @@ SELECT jsonb_pretty(
                  "custom": true,                                                                                      +
                  "description": "Central government"                                                                  +
              },                                                                                                       +
-             "edit_at": "2025-01-27T06:36:37.667957-08:00",                                                           +
              "activity": [                                                                                            +
                  {                                                                                                    +
                      "type": "primary",                                                                               +
-                     "edit_at": "2025-01-27T06:36:37.667957-08:00",                                                   +
                      "valid_to": "infinity",                                                                          +
                      "valid_from": "2024-01-01",                                                                      +
                      "data_source": {                                                                                 +
@@ -1175,7 +1149,6 @@ SELECT jsonb_pretty(
                          "custom": false,                                                                             +
                          "iso_num": "800"                                                                             +
                      },                                                                                               +
-                     "edit_at": "2025-01-27T06:36:37.667957-08:00",                                                   +
                      "altitude": null,                                                                                +
                      "latitude": null,                                                                                +
                      "postcode": null,                                                                                +

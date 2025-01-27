@@ -11,6 +11,7 @@
  description | text                     |           |          |         | extended | 
  active      | boolean                  |           |          |         | plain    | 
  custom      | boolean                  |           |          |         | plain    | 
+ created_at  | timestamp with time zone |           |          |         | plain    | 
  updated_at  | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT sector.id,
@@ -22,6 +23,7 @@ View definition:
     sector.description,
     sector.active,
     sector.custom,
+    sector.created_at,
     sector.updated_at
    FROM sector
   ORDER BY sector.path;
@@ -40,6 +42,7 @@ Options: security_invoker=on
  description | text                     |           |          |         | extended | 
  active      | boolean                  |           |          |         | plain    | 
  custom      | boolean                  |           |          |         | plain    | 
+ created_at  | timestamp with time zone |           |          |         | plain    | 
  updated_at  | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT sector_ordered.id,
@@ -51,6 +54,7 @@ View definition:
     sector_ordered.description,
     sector_ordered.active,
     sector_ordered.custom,
+    sector_ordered.created_at,
     sector_ordered.updated_at
    FROM sector_ordered
   WHERE sector_ordered.active;
@@ -65,6 +69,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT legal_form.id,
@@ -72,6 +77,7 @@ View definition:
     legal_form.name,
     legal_form.active,
     legal_form.custom,
+    legal_form.created_at,
     legal_form.updated_at
    FROM legal_form
   ORDER BY legal_form.code;
@@ -86,6 +92,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT legal_form_ordered.id,
@@ -93,6 +100,7 @@ View definition:
     legal_form_ordered.name,
     legal_form_ordered.active,
     legal_form_ordered.custom,
+    legal_form_ordered.created_at,
     legal_form_ordered.updated_at
    FROM legal_form_ordered
   WHERE legal_form_ordered.active;
@@ -108,6 +116,7 @@ Options: security_invoker=on
  description | text                     |           |          |         | extended | 
  active      | boolean                  |           |          |         | plain    | 
  custom      | boolean                  |           |          |         | plain    | 
+ created_at  | timestamp with time zone |           |          |         | plain    | 
  updated_at  | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT reorg_type.id,
@@ -116,6 +125,7 @@ View definition:
     reorg_type.description,
     reorg_type.active,
     reorg_type.custom,
+    reorg_type.created_at,
     reorg_type.updated_at
    FROM reorg_type
   ORDER BY reorg_type.code;
@@ -131,6 +141,7 @@ Options: security_invoker=on
  description | text                     |           |          |         | extended | 
  active      | boolean                  |           |          |         | plain    | 
  custom      | boolean                  |           |          |         | plain    | 
+ created_at  | timestamp with time zone |           |          |         | plain    | 
  updated_at  | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT reorg_type_ordered.id,
@@ -139,6 +150,7 @@ View definition:
     reorg_type_ordered.description,
     reorg_type_ordered.active,
     reorg_type_ordered.custom,
+    reorg_type_ordered.created_at,
     reorg_type_ordered.updated_at
    FROM reorg_type_ordered
   WHERE reorg_type_ordered.active;
@@ -153,6 +165,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT foreign_participation.id,
@@ -160,6 +173,7 @@ View definition:
     foreign_participation.name,
     foreign_participation.active,
     foreign_participation.custom,
+    foreign_participation.created_at,
     foreign_participation.updated_at
    FROM foreign_participation
   ORDER BY foreign_participation.code;
@@ -174,6 +188,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT foreign_participation_ordered.id,
@@ -181,6 +196,7 @@ View definition:
     foreign_participation_ordered.name,
     foreign_participation_ordered.active,
     foreign_participation_ordered.custom,
+    foreign_participation_ordered.created_at,
     foreign_participation_ordered.updated_at
    FROM foreign_participation_ordered
   WHERE foreign_participation_ordered.active;
@@ -195,6 +211,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT data_source.id,
@@ -202,6 +219,7 @@ View definition:
     data_source.name,
     data_source.active,
     data_source.custom,
+    data_source.created_at,
     data_source.updated_at
    FROM data_source
   ORDER BY data_source.code;
@@ -216,6 +234,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT data_source_ordered.id,
@@ -223,6 +242,7 @@ View definition:
     data_source_ordered.name,
     data_source_ordered.active,
     data_source_ordered.custom,
+    data_source_ordered.created_at,
     data_source_ordered.updated_at
    FROM data_source_ordered
   WHERE data_source_ordered.active;
@@ -237,6 +257,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT unit_size.id,
@@ -244,6 +265,7 @@ View definition:
     unit_size.name,
     unit_size.active,
     unit_size.custom,
+    unit_size.created_at,
     unit_size.updated_at
    FROM unit_size
   ORDER BY unit_size.code;
@@ -258,6 +280,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT unit_size_ordered.id,
@@ -265,6 +288,7 @@ View definition:
     unit_size_ordered.name,
     unit_size_ordered.active,
     unit_size_ordered.custom,
+    unit_size_ordered.created_at,
     unit_size_ordered.updated_at
    FROM unit_size_ordered
   WHERE unit_size_ordered.active;
@@ -279,6 +303,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT person_role.id,
@@ -286,6 +311,7 @@ View definition:
     person_role.name,
     person_role.active,
     person_role.custom,
+    person_role.created_at,
     person_role.updated_at
    FROM person_role
   ORDER BY person_role.code;
@@ -300,6 +326,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT person_role_ordered.id,
@@ -307,6 +334,7 @@ View definition:
     person_role_ordered.name,
     person_role_ordered.active,
     person_role_ordered.custom,
+    person_role_ordered.created_at,
     person_role_ordered.updated_at
    FROM person_role_ordered
   WHERE person_role_ordered.active;
@@ -321,6 +349,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT enterprise_group_type.id,
@@ -328,6 +357,7 @@ View definition:
     enterprise_group_type.name,
     enterprise_group_type.active,
     enterprise_group_type.custom,
+    enterprise_group_type.created_at,
     enterprise_group_type.updated_at
    FROM enterprise_group_type
   ORDER BY enterprise_group_type.code;
@@ -342,6 +372,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT enterprise_group_type_ordered.id,
@@ -349,6 +380,7 @@ View definition:
     enterprise_group_type_ordered.name,
     enterprise_group_type_ordered.active,
     enterprise_group_type_ordered.custom,
+    enterprise_group_type_ordered.created_at,
     enterprise_group_type_ordered.updated_at
    FROM enterprise_group_type_ordered
   WHERE enterprise_group_type_ordered.active;
@@ -363,6 +395,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT enterprise_group_role.id,
@@ -370,6 +403,7 @@ View definition:
     enterprise_group_role.name,
     enterprise_group_role.active,
     enterprise_group_role.custom,
+    enterprise_group_role.created_at,
     enterprise_group_role.updated_at
    FROM enterprise_group_role
   ORDER BY enterprise_group_role.code;
@@ -384,6 +418,7 @@ Options: security_invoker=on
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT enterprise_group_role_ordered.id,
@@ -391,6 +426,7 @@ View definition:
     enterprise_group_role_ordered.name,
     enterprise_group_role_ordered.active,
     enterprise_group_role_ordered.custom,
+    enterprise_group_role_ordered.created_at,
     enterprise_group_role_ordered.updated_at
    FROM enterprise_group_role_ordered
   WHERE enterprise_group_role_ordered.active;

@@ -432,23 +432,36 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -484,23 +497,36 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "1406",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -536,23 +562,36 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3114",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "TØNSBERG",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -588,23 +627,36 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "2005",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "RÆLINGEN",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -640,23 +692,36 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -692,23 +757,36 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -757,23 +835,36 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -822,23 +913,36 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -887,23 +991,36 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -952,23 +1069,36 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1004,23 +1134,36 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1056,23 +1199,36 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3014",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "DRAMMEN",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1108,23 +1264,36 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1173,23 +1342,36 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1238,23 +1420,36 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": null,                                          +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1303,23 +1498,36 @@ external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BOBILER AS",                                              +
                       |     "search": "'as':2 'bobiler':1",                                    +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
@@ -1354,23 +1562,36 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "1406",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1405,23 +1626,36 @@ external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3114",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "TØNSBERG",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1456,23 +1690,36 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "2005",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "RÆLINGEN",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1507,23 +1754,36 @@ external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
                       |     "name": "REPPE GEIR RYTMISKE TJENESTER",                           +
                       |     "search": "'geir':2 'reppe':1 'rytmiske':3 'tjenester':4",         +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1558,23 +1818,36 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -1621,23 +1894,36 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -1684,23 +1970,36 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -1747,23 +2046,36 @@ external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
                       |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
@@ -1810,23 +2122,36 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1861,23 +2186,36 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1912,23 +2250,36 @@ external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
                       |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3014",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "DRAMMEN",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -1963,23 +2314,36 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -2026,23 +2390,36 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
@@ -2089,23 +2466,36 @@ external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
                       |     "name": "DONNA CLASSICA AS",                                       +
                       |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
                       |     "birth_date": null,                                                +
                       |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
                       |     "sector_code": null,                                               +
                       |     "sector_name": null,                                               +
                       |     "sector_path": null,                                               +
+                      |     "status_code": null,                                               +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
                       |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "enterprise_count": null,                                          +
                       |     "legal_unit_count": 1,                                             +
+                      |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
+                      |     "physical_longitude": null,                                        +
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
