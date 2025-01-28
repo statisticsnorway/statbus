@@ -10,6 +10,7 @@
  sector_path                    | ltree                 |           |          | 
  legal_form_id                  | integer               |           |          | 
  physical_country_id            | integer               |           |          | 
+ status_id                      | integer               |           |          | 
  count                          | bigint                |           |          | 
  stats_summary                  | jsonb                 |           |          | 
 Indexes:

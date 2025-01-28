@@ -22,10 +22,9 @@ Policies:
     POLICY "external_ident_type_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "external_ident_type_regular_user_manage"
+    POLICY "external_ident_type_regular_user_read" FOR SELECT
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
     POLICY "external_ident_type_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))

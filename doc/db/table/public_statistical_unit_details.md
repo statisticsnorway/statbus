@@ -62,6 +62,7 @@
  fax_number                       | character varying(50)  |           |          |         | extended |             |              | 
  status_id                        | integer                |           |          |         | plain    |             |              | 
  status_code                      | character varying      |           |          |         | extended |             |              | 
+ include_unit_in_reports          | boolean                |           |          |         | plain    |             |              | 
  invalid_codes                    | jsonb                  |           |          |         | extended |             |              | 
  has_legal_unit                   | boolean                |           |          |         | plain    |             |              | 
  establishment_ids                | integer[]              |           |          |         | extended |             |              | 
@@ -170,6 +171,7 @@ View definition:
     statistical_unit_def.fax_number,
     statistical_unit_def.status_id,
     statistical_unit_def.status_code,
+    statistical_unit_def.include_unit_in_reports,
     statistical_unit_def.invalid_codes,
     statistical_unit_def.has_legal_unit,
     statistical_unit_def.establishment_ids,
