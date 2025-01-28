@@ -62,6 +62,7 @@
  fax_number                       | character varying(50)  |           |          |         | extended | 
  status_id                        | integer                |           |          |         | plain    | 
  status_code                      | character varying      |           |          |         | extended | 
+ include_unit_in_reports          | boolean                |           |          |         | plain    | 
  invalid_codes                    | jsonb                  |           |          |         | extended | 
  has_legal_unit                   | boolean                |           |          |         | plain    | 
  establishment_ids                | integer[]              |           |          |         | extended | 
@@ -342,6 +343,7 @@ View definition:
     data.fax_number,
     data.status_id,
     data.status_code,
+    s.include_unit_in_reports,
     data.invalid_codes,
     data.has_legal_unit,
     data.establishment_ids,
@@ -353,6 +355,7 @@ View definition:
     array_length(data.legal_unit_ids, 1) AS legal_unit_count,
     array_length(data.enterprise_ids, 1) AS enterprise_count,
     get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
-   FROM data;
+   FROM data
+     LEFT JOIN status s ON s.id = data.status_id;
 
 ```

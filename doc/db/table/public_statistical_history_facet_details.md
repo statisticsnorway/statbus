@@ -12,6 +12,7 @@
  legal_form_id                            | integer               |           |          |         | plain    |             |              | 
  physical_region_path                     | ltree                 |           |          |         | extended |             |              | 
  physical_country_id                      | integer               |           |          |         | plain    |             |              | 
+ status_id                                | integer               |           |          |         | plain    |             |              | 
  count                                    | bigint                |           |          |         | plain    |             |              | 
  births                                   | bigint                |           |          |         | plain    |             |              | 
  deaths                                   | bigint                |           |          |         | plain    |             |              | 
@@ -23,6 +24,7 @@
  physical_region_change_count             | bigint                |           |          |         | plain    |             |              | 
  physical_country_change_count            | bigint                |           |          |         | plain    |             |              | 
  physical_address_change_count            | bigint                |           |          |         | plain    |             |              | 
+ status_change_count                      | bigint                |           |          |         | plain    |             |              | 
  stats_summary                            | jsonb                 |           |          |         | extended |             |              | 
 Indexes:
     "idx_gist_statistical_history_facet_physical_region_path" gist (physical_region_path)
@@ -54,6 +56,7 @@ View definition:
     statistical_history_facet_def.legal_form_id,
     statistical_history_facet_def.physical_region_path,
     statistical_history_facet_def.physical_country_id,
+    statistical_history_facet_def.status_id,
     statistical_history_facet_def.count,
     statistical_history_facet_def.births,
     statistical_history_facet_def.deaths,
@@ -65,6 +68,7 @@ View definition:
     statistical_history_facet_def.physical_region_change_count,
     statistical_history_facet_def.physical_country_change_count,
     statistical_history_facet_def.physical_address_change_count,
+    statistical_history_facet_def.status_change_count,
     statistical_history_facet_def.stats_summary
    FROM statistical_history_facet_def
   ORDER BY statistical_history_facet_def.year, statistical_history_facet_def.month;

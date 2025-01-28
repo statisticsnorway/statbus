@@ -114,6 +114,7 @@ View definition:
                     range_units.fax_number,
                     range_units.status_id,
                     range_units.status_code,
+                    range_units.include_unit_in_reports,
                     range_units.invalid_codes,
                     range_units.has_legal_unit,
                     range_units.establishment_ids,
@@ -186,6 +187,7 @@ View definition:
                             su_range.fax_number,
                             su_range.status_id,
                             su_range.status_code,
+                            su_range.include_unit_in_reports,
                             su_range.invalid_codes,
                             su_range.has_legal_unit,
                             su_range.establishment_ids,
@@ -199,9 +201,9 @@ View definition:
                             su_range.tag_paths,
                             row_number() OVER (PARTITION BY su_range.unit_type, su_range.unit_id ORDER BY su_range.valid_from DESC) = 1 AS last_in_range
                            FROM statistical_unit su_range
-                          WHERE daterange(su_range.valid_from, su_range.valid_to, '[]'::text) && daterange(range.curr_start, range.curr_stop, '[]'::text) AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date) AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)) range_units
+                          WHERE daterange(su_range.valid_from, su_range.valid_to, '[]'::text) && daterange(range.curr_start, range.curr_stop, '[]'::text) AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date) AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop) AND su_range.include_unit_in_reports) range_units
                   WHERE range_units.last_in_range) su_curr ON true
-             LEFT JOIN statistical_unit su_prev ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
+             LEFT JOIN statistical_unit su_prev ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id AND su_prev.include_unit_in_reports
           WHERE range.resolution = 'year'::history_resolution
         ), year_with_unit_derived AS (
          SELECT basis.resolution,
@@ -342,6 +344,7 @@ View definition:
                     range_units.fax_number,
                     range_units.status_id,
                     range_units.status_code,
+                    range_units.include_unit_in_reports,
                     range_units.invalid_codes,
                     range_units.has_legal_unit,
                     range_units.establishment_ids,
@@ -414,6 +417,7 @@ View definition:
                             su_range.fax_number,
                             su_range.status_id,
                             su_range.status_code,
+                            su_range.include_unit_in_reports,
                             su_range.invalid_codes,
                             su_range.has_legal_unit,
                             su_range.establishment_ids,
@@ -427,9 +431,9 @@ View definition:
                             su_range.tag_paths,
                             row_number() OVER (PARTITION BY su_range.unit_type, su_range.unit_id ORDER BY su_range.valid_from DESC) = 1 AS last_in_range
                            FROM statistical_unit su_range
-                          WHERE daterange(su_range.valid_from, su_range.valid_to, '[]'::text) && daterange(range.curr_start, range.curr_stop, '[]'::text) AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date) AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)) range_units
+                          WHERE daterange(su_range.valid_from, su_range.valid_to, '[]'::text) && daterange(range.curr_start, range.curr_stop, '[]'::text) AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date) AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop) AND su_range.include_unit_in_reports) range_units
                   WHERE range_units.last_in_range) su_curr ON true
-             LEFT JOIN statistical_unit su_prev ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
+             LEFT JOIN statistical_unit su_prev ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id AND su_prev.include_unit_in_reports
           WHERE range.resolution = 'year-month'::history_resolution
         ), year_and_month_with_unit_derived AS (
          SELECT basis.resolution,

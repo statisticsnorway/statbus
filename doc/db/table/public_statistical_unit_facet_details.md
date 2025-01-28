@@ -10,6 +10,7 @@
  sector_path                    | ltree                 |           |          |         | extended |             |              | 
  legal_form_id                  | integer               |           |          |         | plain    |             |              | 
  physical_country_id            | integer               |           |          |         | plain    |             |              | 
+ status_id                      | integer               |           |          |         | plain    |             |              | 
  count                          | bigint                |           |          |         | plain    |             |              | 
  stats_summary                  | jsonb                 |           |          |         | extended |             |              | 
 Indexes:
@@ -33,10 +34,11 @@ View definition:
     statistical_unit.sector_path,
     statistical_unit.legal_form_id,
     statistical_unit.physical_country_id,
+    statistical_unit.status_id,
     count(*) AS count,
     jsonb_stats_summary_merge_agg(statistical_unit.stats_summary) AS stats_summary
    FROM statistical_unit
-  GROUP BY statistical_unit.valid_from, statistical_unit.valid_to, statistical_unit.unit_type, statistical_unit.physical_region_path, statistical_unit.primary_activity_category_path, statistical_unit.sector_path, statistical_unit.legal_form_id, statistical_unit.physical_country_id;
+  GROUP BY statistical_unit.valid_from, statistical_unit.valid_to, statistical_unit.unit_type, statistical_unit.physical_region_path, statistical_unit.primary_activity_category_path, statistical_unit.sector_path, statistical_unit.legal_form_id, statistical_unit.physical_country_id, statistical_unit.status_id;
 Access method: heap
 
 ```

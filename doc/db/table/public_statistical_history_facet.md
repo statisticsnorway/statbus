@@ -12,6 +12,7 @@
  legal_form_id                            | integer               |           |          | 
  physical_region_path                     | ltree                 |           |          | 
  physical_country_id                      | integer               |           |          | 
+ status_id                                | integer               |           |          | 
  count                                    | bigint                |           |          | 
  births                                   | bigint                |           |          | 
  deaths                                   | bigint                |           |          | 
@@ -23,6 +24,7 @@
  physical_region_change_count             | bigint                |           |          | 
  physical_country_change_count            | bigint                |           |          | 
  physical_address_change_count            | bigint                |           |          | 
+ status_change_count                      | bigint                |           |          | 
  stats_summary                            | jsonb                 |           |          | 
 Indexes:
     "idx_gist_statistical_history_facet_physical_region_path" gist (physical_region_path)

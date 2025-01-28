@@ -20,10 +20,9 @@ Policies:
     POLICY "stat_definition_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "stat_definition_regular_user_manage"
+    POLICY "stat_definition_regular_user_read" FOR SELECT
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
     POLICY "stat_definition_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))

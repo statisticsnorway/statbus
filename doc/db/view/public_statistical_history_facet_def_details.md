@@ -12,6 +12,7 @@
  legal_form_id                            | integer               |           |          |         | plain    | 
  physical_region_path                     | ltree                 |           |          |         | extended | 
  physical_country_id                      | integer               |           |          |         | plain    | 
+ status_id                                | integer               |           |          |         | plain    | 
  count                                    | bigint                |           |          |         | plain    | 
  births                                   | bigint                |           |          |         | plain    | 
  deaths                                   | bigint                |           |          |         | plain    | 
@@ -23,6 +24,7 @@
  physical_region_change_count             | bigint                |           |          |         | plain    | 
  physical_country_change_count            | bigint                |           |          |         | plain    | 
  physical_address_change_count            | bigint                |           |          |         | plain    | 
+ status_change_count                      | bigint                |           |          |         | plain    | 
  stats_summary                            | jsonb                 |           |          |         | extended | 
 View definition:
  WITH year_with_unit_basis AS (
@@ -46,6 +48,8 @@ View definition:
             su_prev.physical_address_part1 AS prev_physical_address_part1,
             su_prev.physical_address_part2 AS prev_physical_address_part2,
             su_prev.physical_address_part3 AS prev_physical_address_part3,
+            su_prev.status_id AS prev_status_id,
+            su_prev.status_code AS prev_status_code,
             su_curr.name AS curr_name,
             su_curr.primary_activity_category_path AS curr_primary_activity_category_path,
             su_curr.secondary_activity_category_path AS curr_secondary_activity_category_path,
@@ -56,6 +60,8 @@ View definition:
             su_curr.physical_address_part1 AS curr_physical_address_part1,
             su_curr.physical_address_part2 AS curr_physical_address_part2,
             su_curr.physical_address_part3 AS curr_physical_address_part3,
+            su_curr.status_id AS curr_status_id,
+            su_curr.status_code AS curr_status_code,
             su_prev.stats AS prev_stats,
             su_curr.stats AS curr_stats,
             su_curr.stats,
@@ -121,6 +127,7 @@ View definition:
                     range_units.fax_number,
                     range_units.status_id,
                     range_units.status_code,
+                    range_units.include_unit_in_reports,
                     range_units.invalid_codes,
                     range_units.has_legal_unit,
                     range_units.establishment_ids,
@@ -193,6 +200,7 @@ View definition:
                             su_range.fax_number,
                             su_range.status_id,
                             su_range.status_code,
+                            su_range.include_unit_in_reports,
                             su_range.invalid_codes,
                             su_range.has_legal_unit,
                             su_range.establishment_ids,
@@ -206,9 +214,9 @@ View definition:
                             su_range.tag_paths,
                             row_number() OVER (PARTITION BY su_range.unit_type, su_range.unit_id ORDER BY su_range.valid_from DESC) = 1 AS last_in_range
                            FROM statistical_unit su_range
-                          WHERE daterange(su_range.valid_from, su_range.valid_to, '[]'::text) && daterange(range.curr_start, range.curr_stop, '[]'::text) AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date) AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)) range_units
+                          WHERE daterange(su_range.valid_from, su_range.valid_to, '[]'::text) && daterange(range.curr_start, range.curr_stop, '[]'::text) AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date) AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop) AND su_range.include_unit_in_reports) range_units
                   WHERE range_units.last_in_range) su_curr ON true
-             LEFT JOIN statistical_unit su_prev ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
+             LEFT JOIN statistical_unit su_prev ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id AND su_prev.include_unit_in_reports
           WHERE range.resolution = 'year'::history_resolution
         ), year_with_unit_derived AS (
          SELECT basis.resolution,
@@ -231,6 +239,8 @@ View definition:
             basis.prev_physical_address_part1,
             basis.prev_physical_address_part2,
             basis.prev_physical_address_part3,
+            basis.prev_status_id,
+            basis.prev_status_code,
             basis.curr_name,
             basis.curr_primary_activity_category_path,
             basis.curr_secondary_activity_category_path,
@@ -241,6 +251,8 @@ View definition:
             basis.curr_physical_address_part1,
             basis.curr_physical_address_part2,
             basis.curr_physical_address_part3,
+            basis.curr_status_id,
+            basis.curr_status_code,
             basis.prev_stats,
             basis.curr_stats,
             basis.stats,
@@ -252,7 +264,8 @@ View definition:
             basis.track_changes AND NOT basis.born AND NOT basis.died AND basis.prev_legal_form_id IS DISTINCT FROM basis.curr_legal_form_id AS legal_form_changed,
             basis.track_changes AND NOT basis.born AND NOT basis.died AND basis.prev_physical_region_path IS DISTINCT FROM basis.curr_physical_region_path AS physical_region_changed,
             basis.track_changes AND NOT basis.born AND NOT basis.died AND basis.prev_physical_country_id IS DISTINCT FROM basis.curr_physical_country_id AS physical_country_changed,
-            basis.track_changes AND NOT basis.born AND NOT basis.died AND (basis.prev_physical_address_part1::text IS DISTINCT FROM basis.curr_physical_address_part1::text OR basis.prev_physical_address_part2::text IS DISTINCT FROM basis.curr_physical_address_part2::text OR basis.prev_physical_address_part3::text IS DISTINCT FROM basis.curr_physical_address_part3::text) AS physical_address_changed
+            basis.track_changes AND NOT basis.born AND NOT basis.died AND (basis.prev_physical_address_part1::text IS DISTINCT FROM basis.curr_physical_address_part1::text OR basis.prev_physical_address_part2::text IS DISTINCT FROM basis.curr_physical_address_part2::text OR basis.prev_physical_address_part3::text IS DISTINCT FROM basis.curr_physical_address_part3::text) AS physical_address_changed,
+            basis.track_changes AND NOT basis.born AND NOT basis.died AND basis.prev_status_code::text IS DISTINCT FROM basis.curr_status_code::text AS status_code_changed
            FROM year_with_unit_basis basis
         ), year_and_month_with_unit_basis AS (
          SELECT range.resolution,
@@ -275,6 +288,8 @@ View definition:
             su_prev.physical_address_part1 AS prev_physical_address_part1,
             su_prev.physical_address_part2 AS prev_physical_address_part2,
             su_prev.physical_address_part3 AS prev_physical_address_part3,
+            su_prev.status_id AS prev_status_id,
+            su_prev.status_code AS prev_status_code,
             su_curr.name AS curr_name,
             su_curr.primary_activity_category_path AS curr_primary_activity_category_path,
             su_curr.secondary_activity_category_path AS curr_secondary_activity_category_path,
@@ -285,6 +300,8 @@ View definition:
             su_curr.physical_address_part1 AS curr_physical_address_part1,
             su_curr.physical_address_part2 AS curr_physical_address_part2,
             su_curr.physical_address_part3 AS curr_physical_address_part3,
+            su_curr.status_id AS curr_status_id,
+            su_curr.status_code AS curr_status_code,
             su_prev.stats AS prev_stats,
             su_curr.stats AS curr_stats,
             su_curr.stats,
@@ -350,6 +367,7 @@ View definition:
                     range_units.fax_number,
                     range_units.status_id,
                     range_units.status_code,
+                    range_units.include_unit_in_reports,
                     range_units.invalid_codes,
                     range_units.has_legal_unit,
                     range_units.establishment_ids,
@@ -422,6 +440,7 @@ View definition:
                             su_range.fax_number,
                             su_range.status_id,
                             su_range.status_code,
+                            su_range.include_unit_in_reports,
                             su_range.invalid_codes,
                             su_range.has_legal_unit,
                             su_range.establishment_ids,
@@ -435,9 +454,9 @@ View definition:
                             su_range.tag_paths,
                             row_number() OVER (PARTITION BY su_range.unit_type, su_range.unit_id ORDER BY su_range.valid_from DESC) = 1 AS last_in_range
                            FROM statistical_unit su_range
-                          WHERE daterange(su_range.valid_from, su_range.valid_to, '[]'::text) && daterange(range.curr_start, range.curr_stop, '[]'::text) AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date) AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)) range_units
+                          WHERE daterange(su_range.valid_from, su_range.valid_to, '[]'::text) && daterange(range.curr_start, range.curr_stop, '[]'::text) AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date) AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop) AND su_range.include_unit_in_reports) range_units
                   WHERE range_units.last_in_range) su_curr ON true
-             LEFT JOIN statistical_unit su_prev ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
+             LEFT JOIN statistical_unit su_prev ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id AND su_prev.include_unit_in_reports
           WHERE range.resolution = 'year-month'::history_resolution
         ), year_and_month_with_unit_derived AS (
          SELECT basis.resolution,
@@ -460,6 +479,8 @@ View definition:
             basis.prev_physical_address_part1,
             basis.prev_physical_address_part2,
             basis.prev_physical_address_part3,
+            basis.prev_status_id,
+            basis.prev_status_code,
             basis.curr_name,
             basis.curr_primary_activity_category_path,
             basis.curr_secondary_activity_category_path,
@@ -470,6 +491,8 @@ View definition:
             basis.curr_physical_address_part1,
             basis.curr_physical_address_part2,
             basis.curr_physical_address_part3,
+            basis.curr_status_id,
+            basis.curr_status_code,
             basis.prev_stats,
             basis.curr_stats,
             basis.stats,
@@ -481,7 +504,8 @@ View definition:
             basis.track_changes AND NOT basis.born AND NOT basis.died AND basis.prev_legal_form_id IS DISTINCT FROM basis.curr_legal_form_id AS legal_form_changed,
             basis.track_changes AND NOT basis.born AND NOT basis.died AND basis.prev_physical_region_path IS DISTINCT FROM basis.curr_physical_region_path AS physical_region_changed,
             basis.track_changes AND NOT basis.born AND NOT basis.died AND basis.prev_physical_country_id IS DISTINCT FROM basis.curr_physical_country_id AS physical_country_changed,
-            basis.track_changes AND NOT basis.born AND NOT basis.died AND (basis.prev_physical_address_part1::text IS DISTINCT FROM basis.curr_physical_address_part1::text OR basis.prev_physical_address_part2::text IS DISTINCT FROM basis.curr_physical_address_part2::text OR basis.prev_physical_address_part3::text IS DISTINCT FROM basis.curr_physical_address_part3::text) AS physical_address_changed
+            basis.track_changes AND NOT basis.born AND NOT basis.died AND (basis.prev_physical_address_part1::text IS DISTINCT FROM basis.curr_physical_address_part1::text OR basis.prev_physical_address_part2::text IS DISTINCT FROM basis.curr_physical_address_part2::text OR basis.prev_physical_address_part3::text IS DISTINCT FROM basis.curr_physical_address_part3::text) AS physical_address_changed,
+            basis.track_changes AND NOT basis.born AND NOT basis.died AND basis.prev_status_code::text IS DISTINCT FROM basis.curr_status_code::text AS status_code_changed
            FROM year_and_month_with_unit_basis basis
         ), year_with_unit_per_facet AS (
          SELECT source.resolution,
@@ -494,6 +518,7 @@ View definition:
             source.curr_legal_form_id AS legal_form_id,
             source.curr_physical_region_path AS physical_region_path,
             source.curr_physical_country_id AS physical_country_id,
+            source.curr_status_id AS status_id,
             count(source.*) FILTER (WHERE NOT source.died) AS count,
             count(source.*) FILTER (WHERE source.born) AS births,
             count(source.*) FILTER (WHERE source.died) AS deaths,
@@ -505,9 +530,10 @@ View definition:
             count(source.*) FILTER (WHERE source.physical_region_changed) AS physical_region_change_count,
             count(source.*) FILTER (WHERE source.physical_country_changed) AS physical_country_change_count,
             count(source.*) FILTER (WHERE source.physical_address_changed) AS physical_address_change_count,
+            count(source.*) FILTER (WHERE source.status_code_changed) AS status_change_count,
             jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
            FROM year_with_unit_derived source
-          GROUP BY source.resolution, source.year, source.unit_type, source.curr_primary_activity_category_path, source.curr_secondary_activity_category_path, source.curr_sector_path, source.curr_legal_form_id, source.curr_physical_region_path, source.curr_physical_country_id
+          GROUP BY source.resolution, source.year, source.unit_type, source.curr_primary_activity_category_path, source.curr_secondary_activity_category_path, source.curr_sector_path, source.curr_legal_form_id, source.curr_physical_region_path, source.curr_physical_country_id, source.curr_status_id
         ), year_and_month_with_unit_per_facet AS (
          SELECT source.resolution,
             source.year,
@@ -519,6 +545,7 @@ View definition:
             source.curr_legal_form_id AS legal_form_id,
             source.curr_physical_region_path AS physical_region_path,
             source.curr_physical_country_id AS physical_country_id,
+            source.curr_status_id AS status_id,
             count(source.*) FILTER (WHERE NOT source.died) AS count,
             count(source.*) FILTER (WHERE source.born) AS births,
             count(source.*) FILTER (WHERE source.died) AS deaths,
@@ -530,9 +557,10 @@ View definition:
             count(source.*) FILTER (WHERE source.physical_region_changed) AS physical_region_change_count,
             count(source.*) FILTER (WHERE source.physical_country_changed) AS physical_country_change_count,
             count(source.*) FILTER (WHERE source.physical_address_changed) AS physical_address_change_count,
+            count(source.*) FILTER (WHERE source.status_code_changed) AS status_change_count,
             jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
            FROM year_and_month_with_unit_derived source
-          GROUP BY source.resolution, source.year, source.month, source.unit_type, source.curr_primary_activity_category_path, source.curr_secondary_activity_category_path, source.curr_sector_path, source.curr_legal_form_id, source.curr_physical_region_path, source.curr_physical_country_id
+          GROUP BY source.resolution, source.year, source.month, source.unit_type, source.curr_primary_activity_category_path, source.curr_secondary_activity_category_path, source.curr_sector_path, source.curr_legal_form_id, source.curr_physical_region_path, source.curr_physical_country_id, source.curr_status_id
         )
  SELECT year_with_unit_per_facet.resolution,
     year_with_unit_per_facet.year,
@@ -544,6 +572,7 @@ View definition:
     year_with_unit_per_facet.legal_form_id,
     year_with_unit_per_facet.physical_region_path,
     year_with_unit_per_facet.physical_country_id,
+    year_with_unit_per_facet.status_id,
     year_with_unit_per_facet.count,
     year_with_unit_per_facet.births,
     year_with_unit_per_facet.deaths,
@@ -555,6 +584,7 @@ View definition:
     year_with_unit_per_facet.physical_region_change_count,
     year_with_unit_per_facet.physical_country_change_count,
     year_with_unit_per_facet.physical_address_change_count,
+    year_with_unit_per_facet.status_change_count,
     year_with_unit_per_facet.stats_summary
    FROM year_with_unit_per_facet
 UNION ALL
@@ -568,6 +598,7 @@ UNION ALL
     year_and_month_with_unit_per_facet.legal_form_id,
     year_and_month_with_unit_per_facet.physical_region_path,
     year_and_month_with_unit_per_facet.physical_country_id,
+    year_and_month_with_unit_per_facet.status_id,
     year_and_month_with_unit_per_facet.count,
     year_and_month_with_unit_per_facet.births,
     year_and_month_with_unit_per_facet.deaths,
@@ -579,6 +610,7 @@ UNION ALL
     year_and_month_with_unit_per_facet.physical_region_change_count,
     year_and_month_with_unit_per_facet.physical_country_change_count,
     year_and_month_with_unit_per_facet.physical_address_change_count,
+    year_and_month_with_unit_per_facet.status_change_count,
     year_and_month_with_unit_per_facet.stats_summary
    FROM year_and_month_with_unit_per_facet;
 
