@@ -1,5 +1,10 @@
 BEGIN;
 
+DROP FUNCTION admin.verify_all_tables_have_rls();
+DROP FUNCTION admin.apply_rls_to_all_tables();
+DROP FUNCTION admin.add_rls_regular_user_can_read(regclass);
+DROP FUNCTION admin.add_rls_regular_user_can_edit(regclass);
+
 CREATE OR REPLACE FUNCTION admin.drop_all_rls_policies()
 RETURNS void AS $$
 DECLARE
@@ -32,8 +37,5 @@ $$ LANGUAGE plpgsql;
 
 SELECT admin.drop_all_rls_policies();
 DROP FUNCTION admin.drop_all_rls_policies();
-DROP FUNCTION admin.enable_rls_on_public_tables();
-
-DROP FUNCTION admin.apply_rls_and_policies(regclass);
 
 END;
