@@ -14,8 +14,10 @@
  search                           | tsvector               |           |          |         | extended | 
  primary_activity_category_id     | integer                |           |          |         | plain    | 
  primary_activity_category_path   | ltree                  |           |          |         | extended | 
+ primary_activity_category_code   | character varying      |           |          |         | extended | 
  secondary_activity_category_id   | integer                |           |          |         | plain    | 
  secondary_activity_category_path | ltree                  |           |          |         | extended | 
+ secondary_activity_category_code | character varying      |           |          |         | extended | 
  activity_category_paths          | ltree[]                |           |          |         | extended | 
  sector_id                        | integer                |           |          |         | plain    | 
  sector_path                      | ltree                  |           |          |         | extended | 
@@ -33,8 +35,12 @@
  physical_postplace               | character varying(200) |           |          |         | extended | 
  physical_region_id               | integer                |           |          |         | plain    | 
  physical_region_path             | ltree                  |           |          |         | extended | 
+ physical_region_code             | character varying      |           |          |         | extended | 
  physical_country_id              | integer                |           |          |         | plain    | 
  physical_country_iso_2           | text                   |           |          |         | extended | 
+ physical_latitude                | numeric(9,6)           |           |          |         | main     | 
+ physical_longitude               | numeric(9,6)           |           |          |         | main     | 
+ physical_altitude                | numeric(6,1)           |           |          |         | main     | 
  postal_address_part1             | character varying(200) |           |          |         | extended | 
  postal_address_part2             | character varying(200) |           |          |         | extended | 
  postal_address_part3             | character varying(200) |           |          |         | extended | 
@@ -42,8 +48,20 @@
  postal_postplace                 | character varying(200) |           |          |         | extended | 
  postal_region_id                 | integer                |           |          |         | plain    | 
  postal_region_path               | ltree                  |           |          |         | extended | 
+ postal_region_code               | character varying      |           |          |         | extended | 
  postal_country_id                | integer                |           |          |         | plain    | 
  postal_country_iso_2             | text                   |           |          |         | extended | 
+ postal_latitude                  | numeric(9,6)           |           |          |         | main     | 
+ postal_longitude                 | numeric(9,6)           |           |          |         | main     | 
+ postal_altitude                  | numeric(6,1)           |           |          |         | main     | 
+ web_address                      | character varying(256) |           |          |         | extended | 
+ email_address                    | character varying(50)  |           |          |         | extended | 
+ phone_number                     | character varying(50)  |           |          |         | extended | 
+ landline                         | character varying(50)  |           |          |         | extended | 
+ mobile_number                    | character varying(50)  |           |          |         | extended | 
+ fax_number                       | character varying(50)  |           |          |         | extended | 
+ status_id                        | integer                |           |          |         | plain    | 
+ status_code                      | character varying      |           |          |         | extended | 
  invalid_codes                    | jsonb                  |           |          |         | extended | 
  has_legal_unit                   | boolean                |           |          |         | plain    | 
  establishment_ids                | integer[]              |           |          |         | extended | 
@@ -69,8 +87,10 @@ View definition:
             timeline_establishment.search,
             timeline_establishment.primary_activity_category_id,
             timeline_establishment.primary_activity_category_path,
+            timeline_establishment.primary_activity_category_code,
             timeline_establishment.secondary_activity_category_id,
             timeline_establishment.secondary_activity_category_path,
+            timeline_establishment.secondary_activity_category_code,
             timeline_establishment.activity_category_paths,
             timeline_establishment.sector_id,
             timeline_establishment.sector_path,
@@ -88,8 +108,12 @@ View definition:
             timeline_establishment.physical_postplace,
             timeline_establishment.physical_region_id,
             timeline_establishment.physical_region_path,
+            timeline_establishment.physical_region_code,
             timeline_establishment.physical_country_id,
             timeline_establishment.physical_country_iso_2,
+            timeline_establishment.physical_latitude,
+            timeline_establishment.physical_longitude,
+            timeline_establishment.physical_altitude,
             timeline_establishment.postal_address_part1,
             timeline_establishment.postal_address_part2,
             timeline_establishment.postal_address_part3,
@@ -97,8 +121,20 @@ View definition:
             timeline_establishment.postal_postplace,
             timeline_establishment.postal_region_id,
             timeline_establishment.postal_region_path,
+            timeline_establishment.postal_region_code,
             timeline_establishment.postal_country_id,
             timeline_establishment.postal_country_iso_2,
+            timeline_establishment.postal_latitude,
+            timeline_establishment.postal_longitude,
+            timeline_establishment.postal_altitude,
+            timeline_establishment.web_address,
+            timeline_establishment.email_address,
+            timeline_establishment.phone_number,
+            timeline_establishment.landline,
+            timeline_establishment.mobile_number,
+            timeline_establishment.fax_number,
+            timeline_establishment.status_id,
+            timeline_establishment.status_code,
             timeline_establishment.invalid_codes,
             timeline_establishment.has_legal_unit,
             NULL::integer[] AS establishment_ids,
@@ -120,8 +156,10 @@ View definition:
             timeline_legal_unit.search,
             timeline_legal_unit.primary_activity_category_id,
             timeline_legal_unit.primary_activity_category_path,
+            timeline_legal_unit.primary_activity_category_code,
             timeline_legal_unit.secondary_activity_category_id,
             timeline_legal_unit.secondary_activity_category_path,
+            timeline_legal_unit.secondary_activity_category_code,
             timeline_legal_unit.activity_category_paths,
             timeline_legal_unit.sector_id,
             timeline_legal_unit.sector_path,
@@ -139,8 +177,12 @@ View definition:
             timeline_legal_unit.physical_postplace,
             timeline_legal_unit.physical_region_id,
             timeline_legal_unit.physical_region_path,
+            timeline_legal_unit.physical_region_code,
             timeline_legal_unit.physical_country_id,
             timeline_legal_unit.physical_country_iso_2,
+            timeline_legal_unit.physical_latitude,
+            timeline_legal_unit.physical_longitude,
+            timeline_legal_unit.physical_altitude,
             timeline_legal_unit.postal_address_part1,
             timeline_legal_unit.postal_address_part2,
             timeline_legal_unit.postal_address_part3,
@@ -148,8 +190,20 @@ View definition:
             timeline_legal_unit.postal_postplace,
             timeline_legal_unit.postal_region_id,
             timeline_legal_unit.postal_region_path,
+            timeline_legal_unit.postal_region_code,
             timeline_legal_unit.postal_country_id,
             timeline_legal_unit.postal_country_iso_2,
+            timeline_legal_unit.postal_latitude,
+            timeline_legal_unit.postal_longitude,
+            timeline_legal_unit.postal_altitude,
+            timeline_legal_unit.web_address,
+            timeline_legal_unit.email_address,
+            timeline_legal_unit.phone_number,
+            timeline_legal_unit.landline,
+            timeline_legal_unit.mobile_number,
+            timeline_legal_unit.fax_number,
+            timeline_legal_unit.status_id,
+            timeline_legal_unit.status_code,
             timeline_legal_unit.invalid_codes,
             timeline_legal_unit.has_legal_unit,
             COALESCE(timeline_legal_unit.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
@@ -171,8 +225,10 @@ View definition:
             timeline_enterprise.search,
             timeline_enterprise.primary_activity_category_id,
             timeline_enterprise.primary_activity_category_path,
+            timeline_enterprise.primary_activity_category_code,
             timeline_enterprise.secondary_activity_category_id,
             timeline_enterprise.secondary_activity_category_path,
+            timeline_enterprise.secondary_activity_category_code,
             timeline_enterprise.activity_category_paths,
             timeline_enterprise.sector_id,
             timeline_enterprise.sector_path,
@@ -190,8 +246,12 @@ View definition:
             timeline_enterprise.physical_postplace,
             timeline_enterprise.physical_region_id,
             timeline_enterprise.physical_region_path,
+            timeline_enterprise.physical_region_code,
             timeline_enterprise.physical_country_id,
             timeline_enterprise.physical_country_iso_2,
+            timeline_enterprise.physical_latitude,
+            timeline_enterprise.physical_longitude,
+            timeline_enterprise.physical_altitude,
             timeline_enterprise.postal_address_part1,
             timeline_enterprise.postal_address_part2,
             timeline_enterprise.postal_address_part3,
@@ -199,8 +259,20 @@ View definition:
             timeline_enterprise.postal_postplace,
             timeline_enterprise.postal_region_id,
             timeline_enterprise.postal_region_path,
+            timeline_enterprise.postal_region_code,
             timeline_enterprise.postal_country_id,
             timeline_enterprise.postal_country_iso_2,
+            timeline_enterprise.postal_latitude,
+            timeline_enterprise.postal_longitude,
+            timeline_enterprise.postal_altitude,
+            timeline_enterprise.web_address,
+            timeline_enterprise.email_address,
+            timeline_enterprise.phone_number,
+            timeline_enterprise.landline,
+            timeline_enterprise.mobile_number,
+            timeline_enterprise.fax_number,
+            timeline_enterprise.status_id,
+            timeline_enterprise.status_code,
             timeline_enterprise.invalid_codes,
             timeline_enterprise.has_legal_unit,
             COALESCE(timeline_enterprise.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
@@ -222,8 +294,10 @@ View definition:
     data.search,
     data.primary_activity_category_id,
     data.primary_activity_category_path,
+    data.primary_activity_category_code,
     data.secondary_activity_category_id,
     data.secondary_activity_category_path,
+    data.secondary_activity_category_code,
     data.activity_category_paths,
     data.sector_id,
     data.sector_path,
@@ -241,8 +315,12 @@ View definition:
     data.physical_postplace,
     data.physical_region_id,
     data.physical_region_path,
+    data.physical_region_code,
     data.physical_country_id,
     data.physical_country_iso_2,
+    data.physical_latitude,
+    data.physical_longitude,
+    data.physical_altitude,
     data.postal_address_part1,
     data.postal_address_part2,
     data.postal_address_part3,
@@ -250,8 +328,20 @@ View definition:
     data.postal_postplace,
     data.postal_region_id,
     data.postal_region_path,
+    data.postal_region_code,
     data.postal_country_id,
     data.postal_country_iso_2,
+    data.postal_latitude,
+    data.postal_longitude,
+    data.postal_altitude,
+    data.web_address,
+    data.email_address,
+    data.phone_number,
+    data.landline,
+    data.mobile_number,
+    data.fax_number,
+    data.status_id,
+    data.status_code,
     data.invalid_codes,
     data.has_legal_unit,
     data.establishment_ids,

@@ -107,8 +107,8 @@ FROM public.statistical_unit
 WHERE unit_type = 'legal_unit';
  tax_ident |       name        | valid_after | valid_from |  valid_to  | sector_code 
 -----------+-------------------+-------------+------------+------------+-------------
- 823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2011-01-14 | 2100
  823573673 | Kranløft Vestland | 2011-01-14  | 2011-01-15 | infinity   | 8200
+ 823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2011-01-14 | 2100
 (2 rows)
 
 \echo "Test statistical unit history by year - sector_change_count should be 1 for year 2011"
@@ -220,7 +220,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 "Check sector for legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_after | valid_from |  valid_to  | sector_code 
 -----------+-------------------+-------------+------------+------------+-------------
  823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2011-01-31 | 2100
@@ -323,7 +324,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 "Check sector for legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_after | valid_from |  valid_to  | sector_code 
 -----------+-------------------+-------------+------------+------------+-------------
  823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2010-12-31 | 2100

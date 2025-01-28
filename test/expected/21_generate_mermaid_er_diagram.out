@@ -244,8 +244,9 @@ erDiagram
 		"activity_type" type
 		"integer" category_id
 		"integer" data_source_id
-		"integer" updated_by_user_id
-		"timestamp with time zone" updated_at
+		"character varying(512)" edit_comment
+		"integer" edit_by_user_id
+		"timestamp with time zone" edit_at
 		"integer" establishment_id
 		"integer" legal_unit_id
 	}
@@ -261,6 +262,7 @@ erDiagram
 		"text" description
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	activity_category_role["activity_category_role"] {
@@ -276,6 +278,24 @@ erDiagram
 		"activity_category_code_behaviour" code_pattern
 		"boolean" obsolete
 	}
+	contact["contact"] {
+		"integer" id
+		"date" valid_after
+		"date" valid_from
+		"date" valid_to
+		"character varying(256)" web_address
+		"character varying(50)" email_address
+		"character varying(50)" phone_number
+		"character varying(50)" landline
+		"character varying(50)" mobile_number
+		"character varying(50)" fax_number
+		"integer" establishment_id
+		"integer" legal_unit_id
+		"integer" data_source_id
+		"character varying(512)" edit_comment
+		"integer" edit_by_user_id
+		"timestamp with time zone" edit_at
+	}
 	country["country"] {
 		"integer" id
 		"text" iso_2
@@ -284,6 +304,7 @@ erDiagram
 		"text" name
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	data_source["data_source"] {
@@ -292,15 +313,16 @@ erDiagram
 		"text" name
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	enterprise["enterprise"] {
 		"integer" id
 		"boolean" active
 		"character varying(16)" short_name
-		"text" notes
-		"character varying(100)" edit_by_user_id
-		"character varying(500)" edit_comment
+		"character varying(512)" edit_comment
+		"integer" edit_by_user_id
+		"timestamp with time zone" edit_at
 	}
 	enterprise_group["enterprise_group"] {
 		"integer" id
@@ -310,15 +332,11 @@ erDiagram
 		"boolean" active
 		"character varying(16)" short_name
 		"character varying(256)" name
-		"timestamp with time zone" created_at
 		"integer" enterprise_group_type_id
-		"text" telephone_no
-		"text" email_address
-		"text" web_address
 		"text" contact_person
-		"text" notes
+		"character varying(512)" edit_comment
 		"integer" edit_by_user_id
-		"text" edit_comment
+		"timestamp with time zone" edit_at
 		"integer" unit_size_id
 		"integer" data_source_id
 		"text" reorg_references
@@ -332,6 +350,7 @@ erDiagram
 		"text" name
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	enterprise_group_type["enterprise_group_type"] {
@@ -340,6 +359,7 @@ erDiagram
 		"text" name
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	establishment["establishment"] {
@@ -352,14 +372,12 @@ erDiagram
 		"character varying(256)" name
 		"date" birth_date
 		"date" death_date
-		"character varying(200)" web_address
-		"character varying(50)" telephone_no
-		"character varying(50)" email_address
 		"boolean" free_econ_zone
-		"text" notes
 		"integer" sector_id
-		"character varying(100)" edit_by_user_id
-		"character varying(500)" edit_comment
+		"integer" status_id
+		"character varying(512)" edit_comment
+		"integer" edit_by_user_id
+		"timestamp with time zone" edit_at
 		"integer" unit_size_id
 		"integer" data_source_id
 		"integer" enterprise_id
@@ -376,7 +394,9 @@ erDiagram
 		"integer" legal_unit_id
 		"integer" enterprise_id
 		"integer" enterprise_group_id
-		"integer" updated_by_user_id
+		"character varying(512)" edit_comment
+		"integer" edit_by_user_id
+		"timestamp with time zone" edit_at
 	}
 	external_ident_type["external_ident_type"] {
 		"integer" id
@@ -393,6 +413,7 @@ erDiagram
 		"text" name
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	legal_form["legal_form"] {
@@ -401,6 +422,7 @@ erDiagram
 		"text" name
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	legal_unit["legal_unit"] {
@@ -413,15 +435,13 @@ erDiagram
 		"character varying(256)" name
 		"date" birth_date
 		"date" death_date
-		"character varying(200)" web_address
-		"character varying(50)" telephone_no
-		"character varying(50)" email_address
 		"boolean" free_econ_zone
-		"text" notes
 		"integer" sector_id
+		"integer" status_id
 		"integer" legal_form_id
-		"character varying(100)" edit_by_user_id
-		"character varying(500)" edit_comment
+		"character varying(512)" edit_comment
+		"integer" edit_by_user_id
+		"timestamp with time zone" edit_at
 		"integer" unit_size_id
 		"integer" foreign_participation_id
 		"integer" data_source_id
@@ -448,7 +468,9 @@ erDiagram
 		"integer" establishment_id
 		"integer" legal_unit_id
 		"integer" data_source_id
-		"integer" updated_by_user_id
+		"character varying(512)" edit_comment
+		"integer" edit_by_user_id
+		"timestamp with time zone" edit_at
 	}
 	person["person"] {
 		"integer" id
@@ -460,14 +482,20 @@ erDiagram
 		"character varying(150)" family_name
 		"date" birth_date
 		"person_sex" sex
-		"text" phone_number_1
-		"text" phone_number_2
-		"text" address
+		"text" phone_number
+		"text" mobile_number
+		"character varying(200)" address_part1
+		"character varying(200)" address_part2
+		"character varying(200)" address_part3
 	}
 	person_for_unit["person_for_unit"] {
 		"integer" id
+		"date" valid_after
+		"date" valid_from
+		"date" valid_to
 		"integer" person_id
 		"integer" person_role_id
+		"integer" data_source_id
 		"integer" establishment_id
 		"integer" legal_unit_id
 	}
@@ -477,6 +505,7 @@ erDiagram
 		"text" name
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	region["region"] {
@@ -511,6 +540,7 @@ erDiagram
 		"text" description
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	sector["sector"] {
@@ -523,6 +553,7 @@ erDiagram
 		"text" description
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	settings["settings"] {
@@ -565,6 +596,18 @@ erDiagram
 		"uuid" uuid
 		"integer" role_id
 	}
+	status["status"] {
+		"integer" id
+		"character varying" code
+		"text" name
+		"boolean" assigned_by_default
+		"boolean" include_unit_in_reports
+		"integer" priority
+		"boolean" active
+		"boolean" custom
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+	}
 	tag["tag"] {
 		"integer" id
 		"ltree" path
@@ -581,8 +624,8 @@ erDiagram
 		"date" context_valid_to
 		"date" context_valid_on
 		"boolean" is_scoped_tag
-		"timestamp with time zone" updated_at
 		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
 	}
 	tag_for_unit["tag_for_unit"] {
 		"integer" id
@@ -591,7 +634,22 @@ erDiagram
 		"integer" legal_unit_id
 		"integer" enterprise_id
 		"integer" enterprise_group_id
-		"integer" updated_by_user_id
+		"timestamp with time zone" created_at
+		"character varying(512)" edit_comment
+		"integer" edit_by_user_id
+		"timestamp with time zone" edit_at
+	}
+	unit_notes["unit_notes"] {
+		"integer" id
+		"text" notes
+		"integer" establishment_id
+		"integer" legal_unit_id
+		"integer" enterprise_id
+		"integer" enterprise_group_id
+		"timestamp with time zone" created_at
+		"character varying(512)" edit_comment
+		"integer" edit_by_user_id
+		"timestamp with time zone" edit_at
 	}
 	unit_size["unit_size"] {
 		"integer" id
@@ -599,6 +657,7 @@ erDiagram
 		"text" name
 		"boolean" active
 		"boolean" custom
+		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
 	sql_saga_api_view["sql_saga.api_view"] {
@@ -697,37 +756,46 @@ erDiagram
 	pgsodium_key }o--o| pgsodium.key : key_parent_key_fkey
 	activity }o--|| activity_category : activity_category_id_fkey
 	activity }o--o| data_source : activity_data_source_id_fkey
-	activity }o--|| statbus_user : activity_updated_by_user_id_fkey
+	activity }o--|| statbus_user : activity_edit_by_user_id_fkey
 	activity_category }o--o| activity_category : activity_category_parent_id_fkey
 	activity_category }|--|| activity_category_standard : activity_category_standard_id_fkey
 	activity_category_role }o--|| activity_category : activity_category_role_activity_category_id_fkey
 	activity_category_role }o--|| statbus_role : activity_category_role_role_id_fkey
+	contact }o--o| data_source : contact_data_source_id_fkey
+	contact }o--|| statbus_user : contact_edit_by_user_id_fkey
+	enterprise }o--|| statbus_user : enterprise_edit_by_user_id_fkey
 	enterprise_group }o--o| data_source : enterprise_group_data_source_id_fkey
 	enterprise_group }o--o| enterprise_group_type : enterprise_group_enterprise_group_type_id_fkey
 	enterprise_group }o--o| foreign_participation : enterprise_group_foreign_participation_id_fkey
 	enterprise_group }o--o| reorg_type : enterprise_group_reorg_type_id_fkey
+	enterprise_group }o--|| statbus_user : enterprise_group_edit_by_user_id_fkey
 	enterprise_group }o--o| unit_size : enterprise_group_unit_size_id_fkey
 	establishment }o--o| data_source : establishment_data_source_id_fkey
 	establishment }o--o| enterprise : establishment_enterprise_id_fkey
 	establishment }o--o| sector : establishment_sector_id_fkey
+	establishment }o--|| statbus_user : establishment_edit_by_user_id_fkey
+	establishment }o--o| status : establishment_status_id_fkey
 	establishment }o--o| unit_size : establishment_unit_size_id_fkey
 	external_ident }o--o| enterprise : external_ident_enterprise_id_fkey
 	external_ident }o--|| external_ident_type : external_ident_type_id_fkey
-	external_ident }o--|| statbus_user : external_ident_updated_by_user_id_fkey
+	external_ident }o--|| statbus_user : external_ident_edit_by_user_id_fkey
 	external_ident_type }o--o| tag : external_ident_type_by_tag_id_fkey
 	legal_unit }o--o| data_source : legal_unit_data_source_id_fkey
 	legal_unit }o--|| enterprise : legal_unit_enterprise_id_fkey
 	legal_unit }o--o| foreign_participation : legal_unit_foreign_participation_id_fkey
 	legal_unit }o--o| legal_form : legal_unit_legal_form_id_fkey
 	legal_unit }o--o| sector : legal_unit_sector_id_fkey
+	legal_unit }o--|| statbus_user : legal_unit_edit_by_user_id_fkey
+	legal_unit }o--o| status : legal_unit_status_id_fkey
 	legal_unit }o--o| unit_size : legal_unit_unit_size_id_fkey
 	location }o--|| country : location_country_id_fkey
 	location }o--o| data_source : location_data_source_id_fkey
 	location }o--o| region : location_region_id_fkey
-	location }o--|| statbus_user : location_updated_by_user_id_fkey
+	location }o--|| statbus_user : location_edit_by_user_id_fkey
 	person }|--o| country : person_country_id_fkey
-	person_for_unit }|--|| person : person_for_unit_person_id_fkey
-	person_for_unit }|--o| person_role : person_for_unit_person_role_id_fkey
+	person_for_unit }o--o| data_source : person_for_unit_data_source_id_fkey
+	person_for_unit }o--|| person : person_for_unit_person_id_fkey
+	person_for_unit }o--o| person_role : person_for_unit_person_role_id_fkey
 	region }o--o| region : region_parent_id_fkey
 	region_role }o--|| region : region_role_region_id_fkey
 	region_role }o--|| statbus_role : region_role_role_id_fkey
@@ -738,8 +806,10 @@ erDiagram
 	statbus_user }|--|| statbus_role : statbus_user_role_id_fkey
 	tag }o--o| tag : tag_parent_id_fkey
 	tag_for_unit }o--o| enterprise : tag_for_unit_enterprise_id_fkey
-	tag_for_unit }o--|| statbus_user : tag_for_unit_updated_by_user_id_fkey
+	tag_for_unit }o--|| statbus_user : tag_for_unit_edit_by_user_id_fkey
 	tag_for_unit }|--|| tag : tag_for_unit_tag_id_fkey
+	unit_notes }o--o| enterprise : unit_notes_enterprise_id_fkey
+	unit_notes }o--|| statbus_user : unit_notes_edit_by_user_id_fkey
 	sql_saga_api_view }|--|| sql_saga.era : api_view_table_name_era_name_fkey
 	sql_saga_api_view }|--|| sql_saga.era : api_view_table_name_era_name_fkey
 	sql_saga_foreign_keys }o--|| sql_saga.era : foreign_keys_table_name_era_name_fkey

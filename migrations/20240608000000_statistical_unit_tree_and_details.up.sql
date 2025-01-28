@@ -12,6 +12,49 @@ DROP FUNCTION public.establishment_hierarchy(INTEGER, INTEGER, DATE);
 -- Create enum type for hierarchy scope
 CREATE TYPE public.hierarchy_scope AS ENUM ('all', 'tree', 'details');
 
+CREATE FUNCTION public.notes_for_unit(
+  parent_establishment_id INTEGER,
+  parent_legal_unit_id INTEGER,
+  parent_enterprise_id INTEGER,
+  parent_enterprise_group_id INTEGER
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
+  SELECT COALESCE(
+    (SELECT jsonb_build_object('notes',to_jsonb(un.*))
+     FROM public.unit_notes AS un
+     WHERE (  parent_establishment_id    IS NOT NULL AND un.establishment_id    = parent_establishment_id
+           OR parent_legal_unit_id       IS NOT NULL AND un.legal_unit_id       = parent_legal_unit_id
+           OR parent_enterprise_id       IS NOT NULL AND un.enterprise_id       = parent_enterprise_id
+           OR parent_enterprise_group_id IS NOT NULL AND un.enterprise_group_id = parent_enterprise_group_id
+           )),
+    '{}'::JSONB
+  );
+$$;
+
+CREATE FUNCTION public.contact_hierarchy(
+  parent_establishment_id INTEGER,
+  parent_legal_unit_id INTEGER
+) RETURNS JSONB LANGUAGE sql STABLE AS $$
+  SELECT COALESCE(
+    (SELECT jsonb_build_object('contact',to_jsonb(c.*))
+     FROM public.contact AS c
+     WHERE (  parent_establishment_id IS NOT NULL AND c.establishment_id = parent_establishment_id
+           OR parent_legal_unit_id    IS NOT NULL AND c.legal_unit_id    = parent_legal_unit_id
+           )),
+    '{}'::JSONB
+  );
+$$;
+
+CREATE FUNCTION public.status_hierarchy(status_id INTEGER)
+RETURNS JSONB LANGUAGE sql STABLE AS $$
+    WITH data AS (
+        SELECT jsonb_build_object('status', to_jsonb(s.*)) AS data
+          FROM public.status AS s
+         WHERE status_id IS NOT NULL AND s.id = status_id
+         ORDER BY s.code
+    )
+    SELECT COALESCE((SELECT data FROM data),'{}'::JSONB);
+$$;
+
 CREATE FUNCTION public.establishment_hierarchy(
     establishment_id INTEGER,
     parent_legal_unit_id INTEGER,
@@ -26,7 +69,10 @@ CREATE FUNCTION public.establishment_hierarchy(
         || (SELECT public.location_hierarchy(es.id,NULL,valid_on))
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.stat_for_unit_hierarchy(es.id,NULL,valid_on)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.sector_hierarchy(es.sector_id)) ELSE '{}'::JSONB END
+        || CASE WHEN scope IN ('all','details') THEN (SELECT public.status_hierarchy(es.status_id)) ELSE '{}'::JSONB END
+        || CASE WHEN scope IN ('all','details') THEN (SELECT public.contact_hierarchy(es.id,NULL)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.data_source_hierarchy(es.data_source_id)) ELSE '{}'::JSONB END
+        || CASE WHEN scope IN ('all','details') THEN (SELECT public.notes_for_unit(es.id,NULL,NULL,NULL)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.tag_for_unit_hierarchy(es.id,NULL,NULL,NULL)) ELSE '{}'::JSONB END
         AS data
     FROM public.establishment AS es
@@ -61,8 +107,11 @@ CREATE FUNCTION public.legal_unit_hierarchy(
         || (SELECT public.location_hierarchy(NULL,lu.id,valid_on))
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.stat_for_unit_hierarchy(NULL,lu.id,valid_on)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.sector_hierarchy(lu.sector_id)) ELSE '{}'::JSONB END
+        || CASE WHEN scope IN ('all','details') THEN (SELECT public.status_hierarchy(lu.status_id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.legal_form_hierarchy(lu.legal_form_id)) ELSE '{}'::JSONB END
+        || CASE WHEN scope IN ('all','details') THEN (SELECT public.contact_hierarchy(NULL,lu.id)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.data_source_hierarchy(lu.data_source_id)) ELSE '{}'::JSONB END
+        || CASE WHEN scope IN ('all','details') THEN (SELECT public.notes_for_unit(NULL,lu.id,NULL,NULL)) ELSE '{}'::JSONB END
         || CASE WHEN scope IN ('all','details') THEN (SELECT public.tag_for_unit_hierarchy(NULL,lu.id,NULL,NULL)) ELSE '{}'::JSONB END
         AS data
     FROM public.legal_unit AS lu
@@ -93,6 +142,7 @@ CREATE FUNCTION public.enterprise_hierarchy(
                  || (SELECT public.external_idents_hierarchy(NULL,NULL,en.id,NULL))
                  || CASE WHEN scope IN ('all','tree') THEN (SELECT public.legal_unit_hierarchy(NULL, en.id, scope, valid_on)) ELSE '{}'::JSONB END
                  || CASE WHEN scope IN ('all','tree') THEN (SELECT public.establishment_hierarchy(NULL, NULL, en.id, scope, valid_on)) ELSE '{}'::JSONB END
+                 || CASE WHEN scope IN ('all','details') THEN (SELECT public.notes_for_unit(NULL,NULL,en.id,NULL)) ELSE '{}'::JSONB END
                  || CASE WHEN scope IN ('all','details') THEN (SELECT public.tag_for_unit_hierarchy(NULL,NULL,en.id,NULL)) ELSE '{}'::JSONB END
                 ) AS data
           FROM public.enterprise AS en

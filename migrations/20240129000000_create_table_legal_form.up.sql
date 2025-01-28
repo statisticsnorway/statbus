@@ -6,6 +6,7 @@ CREATE TABLE public.legal_form (
     name text NOT NULL,
     active boolean NOT NULL,
     custom boolean NOT NULL,
+    created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(code, active, custom)
 );

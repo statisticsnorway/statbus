@@ -13,8 +13,10 @@
  search                           | tsvector               |           |          |         | extended | 
  primary_activity_category_id     | integer                |           |          |         | plain    | 
  primary_activity_category_path   | ltree                  |           |          |         | extended | 
+ primary_activity_category_code   | character varying      |           |          |         | extended | 
  secondary_activity_category_id   | integer                |           |          |         | plain    | 
  secondary_activity_category_path | ltree                  |           |          |         | extended | 
+ secondary_activity_category_code | character varying      |           |          |         | extended | 
  activity_category_paths          | ltree[]                |           |          |         | extended | 
  sector_id                        | integer                |           |          |         | plain    | 
  sector_path                      | ltree                  |           |          |         | extended | 
@@ -32,8 +34,12 @@
  physical_postplace               | character varying(200) |           |          |         | extended | 
  physical_region_id               | integer                |           |          |         | plain    | 
  physical_region_path             | ltree                  |           |          |         | extended | 
+ physical_region_code             | character varying      |           |          |         | extended | 
  physical_country_id              | integer                |           |          |         | plain    | 
  physical_country_iso_2           | text                   |           |          |         | extended | 
+ physical_latitude                | numeric(9,6)           |           |          |         | main     | 
+ physical_longitude               | numeric(9,6)           |           |          |         | main     | 
+ physical_altitude                | numeric(6,1)           |           |          |         | main     | 
  postal_address_part1             | character varying(200) |           |          |         | extended | 
  postal_address_part2             | character varying(200) |           |          |         | extended | 
  postal_address_part3             | character varying(200) |           |          |         | extended | 
@@ -41,8 +47,20 @@
  postal_postplace                 | character varying(200) |           |          |         | extended | 
  postal_region_id                 | integer                |           |          |         | plain    | 
  postal_region_path               | ltree                  |           |          |         | extended | 
+ postal_region_code               | character varying      |           |          |         | extended | 
  postal_country_id                | integer                |           |          |         | plain    | 
  postal_country_iso_2             | text                   |           |          |         | extended | 
+ postal_latitude                  | numeric(9,6)           |           |          |         | main     | 
+ postal_longitude                 | numeric(9,6)           |           |          |         | main     | 
+ postal_altitude                  | numeric(6,1)           |           |          |         | main     | 
+ web_address                      | character varying(256) |           |          |         | extended | 
+ email_address                    | character varying(50)  |           |          |         | extended | 
+ phone_number                     | character varying(50)  |           |          |         | extended | 
+ landline                         | character varying(50)  |           |          |         | extended | 
+ mobile_number                    | character varying(50)  |           |          |         | extended | 
+ fax_number                       | character varying(50)  |           |          |         | extended | 
+ status_id                        | integer                |           |          |         | plain    | 
+ status_code                      | character varying      |           |          |         | extended | 
  invalid_codes                    | jsonb                  |           |          |         | extended | 
  has_legal_unit                   | boolean                |           |          |         | plain    | 
  establishment_ids                | integer[]              |           |          |         | extended | 
@@ -60,9 +78,9 @@ View definition:
             en.id,
             en.active,
             en.short_name,
-            en.notes,
-            en.edit_by_user_id,
             en.edit_comment,
+            en.edit_by_user_id,
+            en.edit_at,
             en.id AS enterprise_id
            FROM timesegments t
              JOIN enterprise en ON t.unit_type = 'enterprise'::statistical_unit_type AND t.unit_id = en.id
@@ -77,8 +95,10 @@ View definition:
             to_tsvector('simple'::regconfig, plu.name::text) AS search,
             pa.category_id AS primary_activity_category_id,
             pac.path AS primary_activity_category_path,
+            pac.code AS primary_activity_category_code,
             sa.category_id AS secondary_activity_category_id,
             sac.path AS secondary_activity_category_path,
+            sac.code AS secondary_activity_category_code,
             NULLIF(array_remove(ARRAY[pac.path, sac.path], NULL::ltree), '{}'::ltree[]) AS activity_category_paths,
             s.id AS sector_id,
             s.path AS sector_path,
@@ -96,8 +116,12 @@ View definition:
             phl.postplace AS physical_postplace,
             phl.region_id AS physical_region_id,
             phr.path AS physical_region_path,
+            phr.code AS physical_region_code,
             phl.country_id AS physical_country_id,
             phc.iso_2 AS physical_country_iso_2,
+            phl.latitude AS physical_latitude,
+            phl.longitude AS physical_longitude,
+            phl.altitude AS physical_altitude,
             pol.address_part1 AS postal_address_part1,
             pol.address_part2 AS postal_address_part2,
             pol.address_part3 AS postal_address_part3,
@@ -105,8 +129,20 @@ View definition:
             pol.postplace AS postal_postplace,
             pol.region_id AS postal_region_id,
             por.path AS postal_region_path,
+            por.code AS postal_region_code,
             pol.country_id AS postal_country_id,
             poc.iso_2 AS postal_country_iso_2,
+            pol.latitude AS postal_latitude,
+            pol.longitude AS postal_longitude,
+            pol.altitude AS postal_altitude,
+            c.web_address,
+            c.email_address,
+            c.phone_number,
+            c.landline,
+            c.mobile_number,
+            c.fax_number,
+            st.id AS status_id,
+            st.code AS status_code,
             plu.invalid_codes,
             true AS has_legal_unit,
             ten.id AS enterprise_id,
@@ -125,6 +161,8 @@ View definition:
              LEFT JOIN location pol ON pol.legal_unit_id = plu.id AND pol.type = 'postal'::location_type AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(pol.valid_after, pol.valid_to, '(]'::text)
              LEFT JOIN region por ON pol.region_id = por.id
              LEFT JOIN country poc ON pol.country_id = poc.id
+             LEFT JOIN contact c ON c.legal_unit_id = plu.id
+             LEFT JOIN status st ON st.id = plu.status_id
              LEFT JOIN LATERAL ( SELECT array_agg(sfu_1.data_source_id) AS data_source_ids
                    FROM stat_for_unit sfu_1
                   WHERE sfu_1.legal_unit_id = plu.id AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(sfu_1.valid_after, sfu_1.valid_to, '(]'::text)) sfu ON true
@@ -143,8 +181,10 @@ View definition:
             to_tsvector('simple'::regconfig, pes.name::text) AS search,
             pa.category_id AS primary_activity_category_id,
             pac.path AS primary_activity_category_path,
+            pac.code AS primary_activity_category_code,
             sa.category_id AS secondary_activity_category_id,
             sac.path AS secondary_activity_category_path,
+            sac.code AS secondary_activity_category_code,
             NULLIF(array_remove(ARRAY[pac.path, sac.path], NULL::ltree), '{}'::ltree[]) AS activity_category_paths,
             s.id AS sector_id,
             s.path AS sector_path,
@@ -162,8 +202,12 @@ View definition:
             phl.postplace AS physical_postplace,
             phl.region_id AS physical_region_id,
             phr.path AS physical_region_path,
+            phr.code AS physical_region_code,
             phl.country_id AS physical_country_id,
             phc.iso_2 AS physical_country_iso_2,
+            phl.latitude AS physical_latitude,
+            phl.longitude AS physical_longitude,
+            phl.altitude AS physical_altitude,
             pol.address_part1 AS postal_address_part1,
             pol.address_part2 AS postal_address_part2,
             pol.address_part3 AS postal_address_part3,
@@ -171,8 +215,20 @@ View definition:
             pol.postplace AS postal_postplace,
             pol.region_id AS postal_region_id,
             por.path AS postal_region_path,
+            por.code AS postal_region_code,
             pol.country_id AS postal_country_id,
             poc.iso_2 AS postal_country_iso_2,
+            pol.latitude AS postal_latitude,
+            pol.longitude AS postal_longitude,
+            pol.altitude AS postal_altitude,
+            c.web_address,
+            c.email_address,
+            c.phone_number,
+            c.landline,
+            c.mobile_number,
+            c.fax_number,
+            st.id AS status_id,
+            st.code AS status_code,
             pes.invalid_codes,
             false AS has_legal_unit,
             ten.id AS enterprise_id,
@@ -190,6 +246,8 @@ View definition:
              LEFT JOIN location pol ON pol.establishment_id = pes.id AND pol.type = 'postal'::location_type AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(pol.valid_after, pol.valid_to, '(]'::text)
              LEFT JOIN region por ON pol.region_id = por.id
              LEFT JOIN country poc ON pol.country_id = poc.id
+             LEFT JOIN contact c ON c.establishment_id = pes.id
+             LEFT JOIN status st ON st.id = pes.status_id
              LEFT JOIN LATERAL ( SELECT array_agg(sfu_1.data_source_id) AS data_source_ids
                    FROM stat_for_unit sfu_1
                   WHERE sfu_1.legal_unit_id = pes.id AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(sfu_1.valid_after, sfu_1.valid_to, '(]'::text)) sfu ON true
@@ -207,8 +265,10 @@ View definition:
             COALESCE(enplu.death_date, enpes.death_date) AS death_date,
             COALESCE(enplu.primary_activity_category_id, enpes.primary_activity_category_id) AS primary_activity_category_id,
             COALESCE(enplu.primary_activity_category_path, enpes.primary_activity_category_path) AS primary_activity_category_path,
+            COALESCE(enplu.primary_activity_category_code, enpes.primary_activity_category_code) AS primary_activity_category_code,
             COALESCE(enplu.secondary_activity_category_id, enpes.secondary_activity_category_id) AS secondary_activity_category_id,
             COALESCE(enplu.secondary_activity_category_path, enpes.secondary_activity_category_path) AS secondary_activity_category_path,
+            COALESCE(enplu.secondary_activity_category_code, enpes.secondary_activity_category_code) AS secondary_activity_category_code,
             COALESCE(enplu.sector_id, enpes.sector_id) AS sector_id,
             COALESCE(enplu.sector_path, enpes.sector_path) AS sector_path,
             COALESCE(enplu.sector_code, enpes.sector_code) AS sector_code,
@@ -231,8 +291,12 @@ View definition:
             COALESCE(enplu.physical_postplace, enpes.physical_postplace) AS physical_postplace,
             COALESCE(enplu.physical_region_id, enpes.physical_region_id) AS physical_region_id,
             COALESCE(enplu.physical_region_path, enpes.physical_region_path) AS physical_region_path,
+            COALESCE(enplu.physical_region_code, enpes.physical_region_code) AS physical_region_code,
             COALESCE(enplu.physical_country_id, enpes.physical_country_id) AS physical_country_id,
             COALESCE(enplu.physical_country_iso_2, enpes.physical_country_iso_2) AS physical_country_iso_2,
+            COALESCE(enplu.physical_latitude, enpes.physical_latitude) AS physical_latitude,
+            COALESCE(enplu.physical_longitude, enpes.physical_longitude) AS physical_longitude,
+            COALESCE(enplu.physical_altitude, enpes.physical_altitude) AS physical_altitude,
             COALESCE(enplu.postal_address_part1, enpes.postal_address_part1) AS postal_address_part1,
             COALESCE(enplu.postal_address_part2, enpes.postal_address_part2) AS postal_address_part2,
             COALESCE(enplu.postal_address_part3, enpes.postal_address_part3) AS postal_address_part3,
@@ -240,8 +304,20 @@ View definition:
             COALESCE(enplu.postal_postplace, enpes.postal_postplace) AS postal_postplace,
             COALESCE(enplu.postal_region_id, enpes.postal_region_id) AS postal_region_id,
             COALESCE(enplu.postal_region_path, enpes.postal_region_path) AS postal_region_path,
+            COALESCE(enplu.postal_region_code, enpes.postal_region_code) AS postal_region_code,
             COALESCE(enplu.postal_country_id, enpes.postal_country_id) AS postal_country_id,
             COALESCE(enplu.postal_country_iso_2, enpes.postal_country_iso_2) AS postal_country_iso_2,
+            COALESCE(enplu.postal_latitude, enpes.postal_latitude) AS postal_latitude,
+            COALESCE(enplu.postal_longitude, enpes.postal_longitude) AS postal_longitude,
+            COALESCE(enplu.postal_altitude, enpes.postal_altitude) AS postal_altitude,
+            COALESCE(enplu.web_address, enpes.web_address) AS web_address,
+            COALESCE(enplu.email_address, enpes.email_address) AS email_address,
+            COALESCE(enplu.phone_number, enpes.phone_number) AS phone_number,
+            COALESCE(enplu.landline, enpes.landline) AS landline,
+            COALESCE(enplu.mobile_number, enpes.mobile_number) AS mobile_number,
+            COALESCE(enplu.fax_number, enpes.fax_number) AS fax_number,
+            COALESCE(enplu.status_id, enpes.status_id) AS status_id,
+            COALESCE(enplu.status_code, enpes.status_code) AS status_code,
             COALESCE(enplu.invalid_codes || enpes.invalid_codes, enplu.invalid_codes, enpes.invalid_codes) AS invalid_codes,
             GREATEST(enplu.has_legal_unit, enpes.has_legal_unit) AS has_legal_unit,
             ten.enterprise_id,
@@ -292,8 +368,10 @@ View definition:
             basis.death_date,
             basis.primary_activity_category_id,
             basis.primary_activity_category_path,
+            basis.primary_activity_category_code,
             basis.secondary_activity_category_id,
             basis.secondary_activity_category_path,
+            basis.secondary_activity_category_code,
             basis.sector_id,
             basis.sector_path,
             basis.sector_code,
@@ -316,8 +394,12 @@ View definition:
             basis.physical_postplace,
             basis.physical_region_id,
             basis.physical_region_path,
+            basis.physical_region_code,
             basis.physical_country_id,
             basis.physical_country_iso_2,
+            basis.physical_latitude,
+            basis.physical_longitude,
+            basis.physical_altitude,
             basis.postal_address_part1,
             basis.postal_address_part2,
             basis.postal_address_part3,
@@ -325,8 +407,20 @@ View definition:
             basis.postal_postplace,
             basis.postal_region_id,
             basis.postal_region_path,
+            basis.postal_region_code,
             basis.postal_country_id,
             basis.postal_country_iso_2,
+            basis.postal_latitude,
+            basis.postal_longitude,
+            basis.postal_altitude,
+            basis.web_address,
+            basis.email_address,
+            basis.phone_number,
+            basis.landline,
+            basis.mobile_number,
+            basis.fax_number,
+            basis.status_id,
+            basis.status_code,
             basis.invalid_codes,
             basis.has_legal_unit,
             COALESCE(aggregation.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
@@ -349,8 +443,10 @@ View definition:
             to_tsvector('simple'::regconfig, enterprise_with_primary_and_aggregation.name::text) AS search,
             enterprise_with_primary_and_aggregation.primary_activity_category_id,
             enterprise_with_primary_and_aggregation.primary_activity_category_path,
+            enterprise_with_primary_and_aggregation.primary_activity_category_code,
             enterprise_with_primary_and_aggregation.secondary_activity_category_id,
             enterprise_with_primary_and_aggregation.secondary_activity_category_path,
+            enterprise_with_primary_and_aggregation.secondary_activity_category_code,
             NULLIF(array_remove(ARRAY[enterprise_with_primary_and_aggregation.primary_activity_category_path, enterprise_with_primary_and_aggregation.secondary_activity_category_path], NULL::ltree), '{}'::ltree[]) AS activity_category_paths,
             enterprise_with_primary_and_aggregation.sector_id,
             enterprise_with_primary_and_aggregation.sector_path,
@@ -368,8 +464,12 @@ View definition:
             enterprise_with_primary_and_aggregation.physical_postplace,
             enterprise_with_primary_and_aggregation.physical_region_id,
             enterprise_with_primary_and_aggregation.physical_region_path,
+            enterprise_with_primary_and_aggregation.physical_region_code,
             enterprise_with_primary_and_aggregation.physical_country_id,
             enterprise_with_primary_and_aggregation.physical_country_iso_2,
+            enterprise_with_primary_and_aggregation.physical_latitude,
+            enterprise_with_primary_and_aggregation.physical_longitude,
+            enterprise_with_primary_and_aggregation.physical_altitude,
             enterprise_with_primary_and_aggregation.postal_address_part1,
             enterprise_with_primary_and_aggregation.postal_address_part2,
             enterprise_with_primary_and_aggregation.postal_address_part3,
@@ -377,8 +477,20 @@ View definition:
             enterprise_with_primary_and_aggregation.postal_postplace,
             enterprise_with_primary_and_aggregation.postal_region_id,
             enterprise_with_primary_and_aggregation.postal_region_path,
+            enterprise_with_primary_and_aggregation.postal_region_code,
             enterprise_with_primary_and_aggregation.postal_country_id,
             enterprise_with_primary_and_aggregation.postal_country_iso_2,
+            enterprise_with_primary_and_aggregation.postal_latitude,
+            enterprise_with_primary_and_aggregation.postal_longitude,
+            enterprise_with_primary_and_aggregation.postal_altitude,
+            enterprise_with_primary_and_aggregation.web_address,
+            enterprise_with_primary_and_aggregation.email_address,
+            enterprise_with_primary_and_aggregation.phone_number,
+            enterprise_with_primary_and_aggregation.landline,
+            enterprise_with_primary_and_aggregation.mobile_number,
+            enterprise_with_primary_and_aggregation.fax_number,
+            enterprise_with_primary_and_aggregation.status_id,
+            enterprise_with_primary_and_aggregation.status_code,
             enterprise_with_primary_and_aggregation.invalid_codes,
             enterprise_with_primary_and_aggregation.has_legal_unit,
             enterprise_with_primary_and_aggregation.establishment_ids,
@@ -400,8 +512,10 @@ View definition:
     enterprise_with_primary_and_aggregation_and_derived.search,
     enterprise_with_primary_and_aggregation_and_derived.primary_activity_category_id,
     enterprise_with_primary_and_aggregation_and_derived.primary_activity_category_path,
+    enterprise_with_primary_and_aggregation_and_derived.primary_activity_category_code,
     enterprise_with_primary_and_aggregation_and_derived.secondary_activity_category_id,
     enterprise_with_primary_and_aggregation_and_derived.secondary_activity_category_path,
+    enterprise_with_primary_and_aggregation_and_derived.secondary_activity_category_code,
     enterprise_with_primary_and_aggregation_and_derived.activity_category_paths,
     enterprise_with_primary_and_aggregation_and_derived.sector_id,
     enterprise_with_primary_and_aggregation_and_derived.sector_path,
@@ -419,8 +533,12 @@ View definition:
     enterprise_with_primary_and_aggregation_and_derived.physical_postplace,
     enterprise_with_primary_and_aggregation_and_derived.physical_region_id,
     enterprise_with_primary_and_aggregation_and_derived.physical_region_path,
+    enterprise_with_primary_and_aggregation_and_derived.physical_region_code,
     enterprise_with_primary_and_aggregation_and_derived.physical_country_id,
     enterprise_with_primary_and_aggregation_and_derived.physical_country_iso_2,
+    enterprise_with_primary_and_aggregation_and_derived.physical_latitude,
+    enterprise_with_primary_and_aggregation_and_derived.physical_longitude,
+    enterprise_with_primary_and_aggregation_and_derived.physical_altitude,
     enterprise_with_primary_and_aggregation_and_derived.postal_address_part1,
     enterprise_with_primary_and_aggregation_and_derived.postal_address_part2,
     enterprise_with_primary_and_aggregation_and_derived.postal_address_part3,
@@ -428,8 +546,20 @@ View definition:
     enterprise_with_primary_and_aggregation_and_derived.postal_postplace,
     enterprise_with_primary_and_aggregation_and_derived.postal_region_id,
     enterprise_with_primary_and_aggregation_and_derived.postal_region_path,
+    enterprise_with_primary_and_aggregation_and_derived.postal_region_code,
     enterprise_with_primary_and_aggregation_and_derived.postal_country_id,
     enterprise_with_primary_and_aggregation_and_derived.postal_country_iso_2,
+    enterprise_with_primary_and_aggregation_and_derived.postal_latitude,
+    enterprise_with_primary_and_aggregation_and_derived.postal_longitude,
+    enterprise_with_primary_and_aggregation_and_derived.postal_altitude,
+    enterprise_with_primary_and_aggregation_and_derived.web_address,
+    enterprise_with_primary_and_aggregation_and_derived.email_address,
+    enterprise_with_primary_and_aggregation_and_derived.phone_number,
+    enterprise_with_primary_and_aggregation_and_derived.landline,
+    enterprise_with_primary_and_aggregation_and_derived.mobile_number,
+    enterprise_with_primary_and_aggregation_and_derived.fax_number,
+    enterprise_with_primary_and_aggregation_and_derived.status_id,
+    enterprise_with_primary_and_aggregation_and_derived.status_code,
     enterprise_with_primary_and_aggregation_and_derived.invalid_codes,
     enterprise_with_primary_and_aggregation_and_derived.has_legal_unit,
     enterprise_with_primary_and_aggregation_and_derived.establishment_ids,

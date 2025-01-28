@@ -108,12 +108,10 @@ SELECT jsonb_pretty(
 -----------------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                                +
      "enterprise": {                                                                                                              +
-         "notes": null,                                                                                                           +
          "active": true,                                                                                                          +
          "legal_unit": [                                                                                                          +
              {                                                                                                                    +
                  "name": "NILE PEARL WATER",                                                                                      +
-                 "notes": null,                                                                                                   +
                  "active": true,                                                                                                  +
                  "sector": {                                                                                                      +
                      "code": "6100",                                                                                              +
@@ -123,6 +121,15 @@ SELECT jsonb_pretty(
                      "active": true,                                                                                              +
                      "custom": true,                                                                                              +
                      "description": "Central government"                                                                          +
+                 },                                                                                                               +
+                 "status": {                                                                                                      +
+                     "code": "active",                                                                                            +
+                     "name": "Active",                                                                                            +
+                     "active": true,                                                                                              +
+                     "custom": false,                                                                                             +
+                     "priority": 1,                                                                                               +
+                     "assigned_by_default": true,                                                                                 +
+                     "include_unit_in_reports": true                                                                              +
                  },                                                                                                               +
                  "activity": [                                                                                                    +
                      {                                                                                                            +
@@ -136,6 +143,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
@@ -190,6 +198,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
+                         "edit_comment": null,                                                                                    +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -213,15 +222,20 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "web_address": null,                                                                                             +
                  "edit_comment": "Batch import",                                                                                  +
-                 "telephone_no": null,                                                                                            +
-                 "email_address": null,                                                                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
-                         "notes": null,                                                                                           +
                          "active": true,                                                                                          +
+                         "status": {                                                                                              +
+                             "code": "active",                                                                                    +
+                             "name": "Active",                                                                                    +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "priority": 1,                                                                                       +
+                             "assigned_by_default": true,                                                                         +
+                             "include_unit_in_reports": true                                                                      +
+                         },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
@@ -234,6 +248,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -288,6 +303,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -305,10 +321,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "web_address": null,                                                                                     +
                          "edit_comment": "Batch import",                                                                          +
-                         "telephone_no": null,                                                                                    +
-                         "email_address": null,                                                                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -370,8 +383,16 @@ SELECT jsonb_pretty(
                      },                                                                                                           +
                      {                                                                                                            +
                          "name": "NILE TEXTILES",                                                                                 +
-                         "notes": null,                                                                                           +
                          "active": true,                                                                                          +
+                         "status": {                                                                                              +
+                             "code": "active",                                                                                    +
+                             "name": "Active",                                                                                    +
+                             "active": true,                                                                                      +
+                             "custom": false,                                                                                     +
+                             "priority": 1,                                                                                       +
+                             "assigned_by_default": true,                                                                         +
+                             "include_unit_in_reports": true                                                                      +
+                         },                                                                                                       +
                          "activity": [                                                                                            +
                              {                                                                                                    +
                                  "type": "primary",                                                                               +
@@ -384,6 +405,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "activity_category": {                                                                           +
                                      "code": "1311",                                                                              +
                                      "name": "Preparation and spinning of textile fibres",                                        +
@@ -438,6 +460,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
+                                 "edit_comment": null,                                                                            +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -455,10 +478,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "web_address": null,                                                                                     +
                          "edit_comment": "Batch import",                                                                          +
-                         "telephone_no": null,                                                                                    +
-                         "email_address": null,                                                                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -606,15 +626,22 @@ SELECT jsonb_pretty(
 ---------------------------------------------------------------------------------------------------------------------------
  {                                                                                                                        +
      "enterprise": {                                                                                                      +
-         "notes": null,                                                                                                   +
          "active": true,                                                                                                  +
          "short_name": null,                                                                                              +
          "edit_comment": "Batch import",                                                                                  +
          "establishment": [                                                                                               +
              {                                                                                                            +
                  "name": "THE MARINE SERVICES",                                                                           +
-                 "notes": null,                                                                                           +
                  "active": true,                                                                                          +
+                 "status": {                                                                                              +
+                     "code": "active",                                                                                    +
+                     "name": "Active",                                                                                    +
+                     "active": true,                                                                                      +
+                     "custom": false,                                                                                     +
+                     "priority": 1,                                                                                       +
+                     "assigned_by_default": true,                                                                         +
+                     "include_unit_in_reports": true                                                                      +
+                 },                                                                                                       +
                  "activity": [                                                                                            +
                      {                                                                                                    +
                          "type": "primary",                                                                               +
@@ -627,6 +654,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                              +
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
+                         "edit_comment": null,                                                                            +
                          "activity_category": {                                                                           +
                              "code": "0123",                                                                              +
                              "name": "Growing of citrus fruits",                                                          +
@@ -681,6 +709,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                              +
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
+                         "edit_comment": null,                                                                            +
                          "address_part1": null,                                                                           +
                          "address_part2": null,                                                                           +
                          "address_part3": null                                                                            +
@@ -698,10 +727,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                      +
                  },                                                                                                       +
                  "valid_after": "2023-12-31",                                                                             +
-                 "web_address": null,                                                                                     +
                  "edit_comment": "Batch import",                                                                          +
-                 "telephone_no": null,                                                                                    +
-                 "email_address": null,                                                                                   +
                  "invalid_codes": null,                                                                                   +
                  "stat_for_unit": [                                                                                       +
                      {                                                                                                    +
@@ -787,12 +813,10 @@ SELECT jsonb_pretty(
 ----------------------------------------------------------------------------------------------------------------
  {                                                                                                             +
      "enterprise": {                                                                                           +
-         "notes": null,                                                                                        +
          "active": true,                                                                                       +
          "legal_unit": [                                                                                       +
              {                                                                                                 +
                  "name": "NILE PEARL WATER",                                                                   +
-                 "notes": null,                                                                                +
                  "active": true,                                                                               +
                  "activity": [                                                                                 +
                      {                                                                                         +
@@ -806,6 +830,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                   +
                          },                                                                                    +
                          "valid_after": "2023-12-31",                                                          +
+                         "edit_comment": null,                                                                 +
                          "activity_category": {                                                                +
                              "code": "4752",                                                                   +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",        +
@@ -860,6 +885,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                   +
                          },                                                                                    +
                          "valid_after": "2023-12-31",                                                          +
+                         "edit_comment": null,                                                                 +
                          "address_part1": null,                                                                +
                          "address_part2": null,                                                                +
                          "address_part3": null                                                                 +
@@ -871,14 +897,10 @@ SELECT jsonb_pretty(
                  "short_name": null,                                                                           +
                  "valid_from": "2024-01-01",                                                                   +
                  "valid_after": "2023-12-31",                                                                  +
-                 "web_address": null,                                                                          +
                  "edit_comment": "Batch import",                                                               +
-                 "telephone_no": null,                                                                         +
-                 "email_address": null,                                                                        +
                  "establishment": [                                                                            +
                      {                                                                                         +
                          "name": "NILE PEARL WATER",                                                           +
-                         "notes": null,                                                                        +
                          "active": true,                                                                       +
                          "activity": [                                                                         +
                              {                                                                                 +
@@ -892,6 +914,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                           +
                                  },                                                                            +
                                  "valid_after": "2023-12-31",                                                  +
+                                 "edit_comment": null,                                                         +
                                  "activity_category": {                                                        +
                                      "code": "4752",                                                           +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",+
@@ -946,6 +969,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                           +
                                  },                                                                            +
                                  "valid_after": "2023-12-31",                                                  +
+                                 "edit_comment": null,                                                         +
                                  "address_part1": null,                                                        +
                                  "address_part2": null,                                                        +
                                  "address_part3": null                                                         +
@@ -957,10 +981,7 @@ SELECT jsonb_pretty(
                          "short_name": null,                                                                   +
                          "valid_from": "2024-01-01",                                                           +
                          "valid_after": "2023-12-31",                                                          +
-                         "web_address": null,                                                                  +
                          "edit_comment": "Batch import",                                                       +
-                         "telephone_no": null,                                                                 +
-                         "email_address": null,                                                                +
                          "invalid_codes": null,                                                                +
                          "free_econ_zone": null,                                                               +
                          "external_idents": {                                                                  +
@@ -972,7 +993,6 @@ SELECT jsonb_pretty(
                      },                                                                                        +
                      {                                                                                         +
                          "name": "NILE TEXTILES",                                                              +
-                         "notes": null,                                                                        +
                          "active": true,                                                                       +
                          "activity": [                                                                         +
                              {                                                                                 +
@@ -986,6 +1006,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                           +
                                  },                                                                            +
                                  "valid_after": "2023-12-31",                                                  +
+                                 "edit_comment": null,                                                         +
                                  "activity_category": {                                                        +
                                      "code": "1311",                                                           +
                                      "name": "Preparation and spinning of textile fibres",                     +
@@ -1040,6 +1061,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                           +
                                  },                                                                            +
                                  "valid_after": "2023-12-31",                                                  +
+                                 "edit_comment": null,                                                         +
                                  "address_part1": null,                                                        +
                                  "address_part2": null,                                                        +
                                  "address_part3": null                                                         +
@@ -1051,10 +1073,7 @@ SELECT jsonb_pretty(
                          "short_name": null,                                                                   +
                          "valid_from": "2024-01-01",                                                           +
                          "valid_after": "2023-12-31",                                                          +
-                         "web_address": null,                                                                  +
                          "edit_comment": "Batch import",                                                       +
-                         "telephone_no": null,                                                                 +
-                         "email_address": null,                                                                +
                          "invalid_codes": null,                                                                +
                          "free_econ_zone": null,                                                               +
                          "external_idents": {                                                                  +
@@ -1103,7 +1122,6 @@ SELECT jsonb_pretty(
      "legal_unit": [                                                                                                  +
          {                                                                                                            +
              "name": "NILE PEARL WATER",                                                                              +
-             "notes": null,                                                                                           +
              "active": true,                                                                                          +
              "sector": {                                                                                              +
                  "code": "6100",                                                                                      +
@@ -1113,6 +1131,15 @@ SELECT jsonb_pretty(
                  "active": true,                                                                                      +
                  "custom": true,                                                                                      +
                  "description": "Central government"                                                                  +
+             },                                                                                                       +
+             "status": {                                                                                              +
+                 "code": "active",                                                                                    +
+                 "name": "Active",                                                                                    +
+                 "active": true,                                                                                      +
+                 "custom": false,                                                                                     +
+                 "priority": 1,                                                                                       +
+                 "assigned_by_default": true,                                                                         +
+                 "include_unit_in_reports": true                                                                      +
              },                                                                                                       +
              "activity": [                                                                                            +
                  {                                                                                                    +
@@ -1126,6 +1153,7 @@ SELECT jsonb_pretty(
                          "custom": false                                                                              +
                      },                                                                                               +
                      "valid_after": "2023-12-31",                                                                     +
+                     "edit_comment": null,                                                                            +
                      "activity_category": {                                                                           +
                          "code": "4752",                                                                              +
                          "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -1180,6 +1208,7 @@ SELECT jsonb_pretty(
                          "custom": false                                                                              +
                      },                                                                                               +
                      "valid_after": "2023-12-31",                                                                     +
+                     "edit_comment": null,                                                                            +
                      "address_part1": null,                                                                           +
                      "address_part2": null,                                                                           +
                      "address_part3": null                                                                            +
@@ -1203,10 +1232,7 @@ SELECT jsonb_pretty(
                  "custom": false                                                                                      +
              },                                                                                                       +
              "valid_after": "2023-12-31",                                                                             +
-             "web_address": null,                                                                                     +
              "edit_comment": "Batch import",                                                                          +
-             "telephone_no": null,                                                                                    +
-             "email_address": null,                                                                                   +
              "invalid_codes": null,                                                                                   +
              "stat_for_unit": [                                                                                       +
                  {                                                                                                    +
@@ -1285,99 +1311,6 @@ FROM public.statistical_unit_stats(
         '2024-01-01'::DATE
     );
 -[ RECORD 1 ]+-----------------------------------------------------------------
-unit_type    | enterprise
-jsonb_pretty | 
-jsonb_pretty | {                                                               +
-             |     "turnover": {                                               +
-             |         "max": 10000000,                                        +
-             |         "min": 0,                                               +
-             |         "sum": 15000000,                                        +
-             |         "mean": 5000000.00,                                     +
-             |         "type": "number",                                       +
-             |         "count": 3,                                             +
-             |         "stddev": 5000000.00,                                   +
-             |         "variance": 25000000000000.00,                          +
-             |         "sum_sq_diff": 50000000000000.00,                       +
-             |         "coefficient_of_variation_pct": 100.00                  +
-             |     },                                                          +
-             |     "employees": {                                              +
-             |         "max": 10,                                              +
-             |         "min": 0,                                               +
-             |         "sum": 15,                                              +
-             |         "mean": 5.00,                                           +
-             |         "type": "number",                                       +
-             |         "count": 3,                                             +
-             |         "stddev": 5.00,                                         +
-             |         "variance": 25.00,                                      +
-             |         "sum_sq_diff": 50.00,                                   +
-             |         "coefficient_of_variation_pct": 100.00                  +
-             |     }                                                           +
-             | }
--[ RECORD 2 ]+-----------------------------------------------------------------
-unit_type    | legal_unit
-jsonb_pretty | {                                                               +
-             |     "turnover": 0,                                              +
-             |     "employees": 0                                              +
-             | }
-jsonb_pretty | {                                                               +
-             |     "turnover": {                                               +
-             |         "max": 10000000,                                        +
-             |         "min": 0,                                               +
-             |         "sum": 15000000,                                        +
-             |         "mean": 5000000.000000000000,                           +
-             |         "type": "number",                                       +
-             |         "count": 3,                                             +
-             |         "stddev": 5000000.00000000000000,                       +
-             |         "variance": 25000000000000.00000000000000,              +
-             |         "sum_sq_diff": 50000000000000.00000000000000,           +
-             |         "coefficient_of_variation_pct": 100.00000000000000000000+
-             |     },                                                          +
-             |     "employees": {                                              +
-             |         "max": 10,                                              +
-             |         "min": 0,                                               +
-             |         "sum": 15,                                              +
-             |         "mean": 5.0000000000000000,                             +
-             |         "type": "number",                                       +
-             |         "count": 3,                                             +
-             |         "stddev": 5.000000000000000000,                         +
-             |         "variance": 25.000000000000000000,                      +
-             |         "sum_sq_diff": 50.000000000000000000,                   +
-             |         "coefficient_of_variation_pct": 100.00000000000000000000+
-             |     }                                                           +
-             | }
--[ RECORD 3 ]+-----------------------------------------------------------------
-unit_type    | establishment
-jsonb_pretty | {                                                               +
-             |     "turnover": 5000000,                                        +
-             |     "employees": 5                                              +
-             | }
-jsonb_pretty | {                                                               +
-             |     "turnover": {                                               +
-             |         "max": 5000000,                                         +
-             |         "min": 5000000,                                         +
-             |         "sum": 5000000,                                         +
-             |         "mean": 5000000,                                        +
-             |         "type": "number",                                       +
-             |         "count": 1,                                             +
-             |         "stddev": 0,                                            +
-             |         "variance": 0,                                          +
-             |         "sum_sq_diff": 0,                                       +
-             |         "coefficient_of_variation_pct": 0                       +
-             |     },                                                          +
-             |     "employees": {                                              +
-             |         "max": 5,                                               +
-             |         "min": 5,                                               +
-             |         "sum": 5,                                               +
-             |         "mean": 5,                                              +
-             |         "type": "number",                                       +
-             |         "count": 1,                                             +
-             |         "stddev": 0,                                            +
-             |         "variance": 0,                                          +
-             |         "sum_sq_diff": 0,                                       +
-             |         "coefficient_of_variation_pct": 0                       +
-             |     }                                                           +
-             | }
--[ RECORD 4 ]+-----------------------------------------------------------------
 unit_type    | establishment
 jsonb_pretty | {                                                               +
              |     "turnover": 10000000,                                       +
@@ -1409,6 +1342,99 @@ jsonb_pretty | {                                                               +
              |         "coefficient_of_variation_pct": 0                       +
              |     }                                                           +
              | }
+-[ RECORD 2 ]+-----------------------------------------------------------------
+unit_type    | establishment
+jsonb_pretty | {                                                               +
+             |     "turnover": 5000000,                                        +
+             |     "employees": 5                                              +
+             | }
+jsonb_pretty | {                                                               +
+             |     "turnover": {                                               +
+             |         "max": 5000000,                                         +
+             |         "min": 5000000,                                         +
+             |         "sum": 5000000,                                         +
+             |         "mean": 5000000,                                        +
+             |         "type": "number",                                       +
+             |         "count": 1,                                             +
+             |         "stddev": 0,                                            +
+             |         "variance": 0,                                          +
+             |         "sum_sq_diff": 0,                                       +
+             |         "coefficient_of_variation_pct": 0                       +
+             |     },                                                          +
+             |     "employees": {                                              +
+             |         "max": 5,                                               +
+             |         "min": 5,                                               +
+             |         "sum": 5,                                               +
+             |         "mean": 5,                                              +
+             |         "type": "number",                                       +
+             |         "count": 1,                                             +
+             |         "stddev": 0,                                            +
+             |         "variance": 0,                                          +
+             |         "sum_sq_diff": 0,                                       +
+             |         "coefficient_of_variation_pct": 0                       +
+             |     }                                                           +
+             | }
+-[ RECORD 3 ]+-----------------------------------------------------------------
+unit_type    | legal_unit
+jsonb_pretty | {                                                               +
+             |     "turnover": 0,                                              +
+             |     "employees": 0                                              +
+             | }
+jsonb_pretty | {                                                               +
+             |     "turnover": {                                               +
+             |         "max": 10000000,                                        +
+             |         "min": 0,                                               +
+             |         "sum": 15000000,                                        +
+             |         "mean": 5000000.000000000000,                           +
+             |         "type": "number",                                       +
+             |         "count": 3,                                             +
+             |         "stddev": 5000000.00000000000000,                       +
+             |         "variance": 25000000000000.00000000000000,              +
+             |         "sum_sq_diff": 50000000000000.00000000000000,           +
+             |         "coefficient_of_variation_pct": 100.00000000000000000000+
+             |     },                                                          +
+             |     "employees": {                                              +
+             |         "max": 10,                                              +
+             |         "min": 0,                                               +
+             |         "sum": 15,                                              +
+             |         "mean": 5.0000000000000000,                             +
+             |         "type": "number",                                       +
+             |         "count": 3,                                             +
+             |         "stddev": 5.000000000000000000,                         +
+             |         "variance": 25.000000000000000000,                      +
+             |         "sum_sq_diff": 50.000000000000000000,                   +
+             |         "coefficient_of_variation_pct": 100.00000000000000000000+
+             |     }                                                           +
+             | }
+-[ RECORD 4 ]+-----------------------------------------------------------------
+unit_type    | enterprise
+jsonb_pretty | 
+jsonb_pretty | {                                                               +
+             |     "turnover": {                                               +
+             |         "max": 10000000,                                        +
+             |         "min": 0,                                               +
+             |         "sum": 15000000,                                        +
+             |         "mean": 5000000.00,                                     +
+             |         "type": "number",                                       +
+             |         "count": 3,                                             +
+             |         "stddev": 5000000.00,                                   +
+             |         "variance": 25000000000000.00,                          +
+             |         "sum_sq_diff": 50000000000000.00,                       +
+             |         "coefficient_of_variation_pct": 100.00                  +
+             |     },                                                          +
+             |     "employees": {                                              +
+             |         "max": 10,                                              +
+             |         "min": 0,                                               +
+             |         "sum": 15,                                              +
+             |         "mean": 5.00,                                           +
+             |         "type": "number",                                       +
+             |         "count": 3,                                             +
+             |         "stddev": 5.00,                                         +
+             |         "variance": 25.00,                                      +
+             |         "sum_sq_diff": 50.00,                                   +
+             |         "coefficient_of_variation_pct": 100.00                  +
+             |     }                                                           +
+             | }
 
 \echo "Test statistical_unit_stats - for THE MARINE SERVICES"
 "Test statistical_unit_stats - for THE MARINE SERVICES"
@@ -1425,35 +1451,6 @@ FROM public.statistical_unit_stats(
         '2024-01-01'::DATE
     );
 -[ RECORD 1 ]+---------------------------------------------
-unit_type    | enterprise
-jsonb_pretty | 
-jsonb_pretty | {                                           +
-             |     "turnover": {                           +
-             |         "max": 4400000,                     +
-             |         "min": 4400000,                     +
-             |         "sum": 4400000,                     +
-             |         "mean": 4400000.00,                 +
-             |         "type": "number",                   +
-             |         "count": 1,                         +
-             |         "stddev": 0.00,                     +
-             |         "variance": 0.00,                   +
-             |         "sum_sq_diff": 0.00,                +
-             |         "coefficient_of_variation_pct": 0.00+
-             |     },                                      +
-             |     "employees": {                          +
-             |         "max": 75,                          +
-             |         "min": 75,                          +
-             |         "sum": 75,                          +
-             |         "mean": 75.00,                      +
-             |         "type": "number",                   +
-             |         "count": 1,                         +
-             |         "stddev": 0.00,                     +
-             |         "variance": 0.00,                   +
-             |         "sum_sq_diff": 0.00,                +
-             |         "coefficient_of_variation_pct": 0.00+
-             |     }                                       +
-             | }
--[ RECORD 2 ]+---------------------------------------------
 unit_type    | establishment
 jsonb_pretty | {                                           +
              |     "turnover": 4400000,                    +
@@ -1483,6 +1480,35 @@ jsonb_pretty | {                                           +
              |         "variance": 0,                      +
              |         "sum_sq_diff": 0,                   +
              |         "coefficient_of_variation_pct": 0   +
+             |     }                                       +
+             | }
+-[ RECORD 2 ]+---------------------------------------------
+unit_type    | enterprise
+jsonb_pretty | 
+jsonb_pretty | {                                           +
+             |     "turnover": {                           +
+             |         "max": 4400000,                     +
+             |         "min": 4400000,                     +
+             |         "sum": 4400000,                     +
+             |         "mean": 4400000.00,                 +
+             |         "type": "number",                   +
+             |         "count": 1,                         +
+             |         "stddev": 0.00,                     +
+             |         "variance": 0.00,                   +
+             |         "sum_sq_diff": 0.00,                +
+             |         "coefficient_of_variation_pct": 0.00+
+             |     },                                      +
+             |     "employees": {                          +
+             |         "max": 75,                          +
+             |         "min": 75,                          +
+             |         "sum": 75,                          +
+             |         "mean": 75.00,                      +
+             |         "type": "number",                   +
+             |         "count": 1,                         +
+             |         "stddev": 0.00,                     +
+             |         "variance": 0.00,                   +
+             |         "sum_sq_diff": 0.00,                +
+             |         "coefficient_of_variation_pct": 0.00+
              |     }                                       +
              | }
 

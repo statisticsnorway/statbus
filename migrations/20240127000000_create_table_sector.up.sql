@@ -10,6 +10,7 @@ CREATE TABLE public.sector (
     description text,
     active boolean NOT NULL,
     custom bool NOT NULL,
+    created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     updated_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     UNIQUE(path, active, custom)
 );

@@ -15,6 +15,10 @@
  value_string       | character varying |           |          | 
  value_bool         | boolean           |           |          | 
 Indexes:
+    "ix_stat_for_unit_data_source_id" btree (data_source_id)
+    "ix_stat_for_unit_establishment_id" btree (establishment_id)
+    "ix_stat_for_unit_legal_unit_id" btree (legal_unit_id)
+    "ix_stat_for_unit_stat_definition_id" btree (stat_definition_id)
     "stat_for_unit_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
     "stat_for_unit_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
     "stat_for_unit_stat_definition_id_establishment_id_daterang_excl" EXCLUDE USING gist (stat_definition_id WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
@@ -42,6 +46,8 @@ Triggers:
     check_stat_for_unit_values_trigger BEFORE INSERT OR UPDATE ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION admin.check_stat_for_unit_values()
     stat_for_unit_establishment_id_valid_fk_insert AFTER INSERT ON stat_for_unit FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('stat_for_unit_establishment_id_valid')
     stat_for_unit_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON stat_for_unit FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('stat_for_unit_establishment_id_valid')
+    stat_for_unit_legal_unit_id_valid_fk_insert AFTER INSERT ON stat_for_unit FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('stat_for_unit_legal_unit_id_valid')
+    stat_for_unit_legal_unit_id_valid_fk_update AFTER UPDATE OF legal_unit_id, valid_after, valid_to ON stat_for_unit FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('stat_for_unit_legal_unit_id_valid')
     trigger_prevent_stat_for_unit_id_update BEFORE UPDATE OF id ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

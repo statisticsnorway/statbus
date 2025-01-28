@@ -25,4 +25,9 @@ CREATE TABLE public.stat_for_unit (
     )
 );
 
+CREATE INDEX ix_stat_for_unit_stat_definition_id ON public.stat_for_unit USING btree (stat_definition_id);
+CREATE INDEX ix_stat_for_unit_data_source_id ON public.stat_for_unit USING btree (data_source_id);
+CREATE INDEX ix_stat_for_unit_legal_unit_id ON public.stat_for_unit USING btree (legal_unit_id);
+CREATE INDEX ix_stat_for_unit_establishment_id ON public.stat_for_unit USING btree (establishment_id);
+
 END;

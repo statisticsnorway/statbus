@@ -10,6 +10,7 @@ CREATE VIEW public.timeline_legal_unit
     , birth_date
     , death_date
     , search
+    --
     , primary_activity_category_id
     , primary_activity_category_path
     , primary_activity_category_code
@@ -17,15 +18,19 @@ CREATE VIEW public.timeline_legal_unit
     , secondary_activity_category_path
     , secondary_activity_category_code
     , activity_category_paths
+    --
     , sector_id
     , sector_path
     , sector_code
     , sector_name
+    --
     , data_source_ids
     , data_source_codes
+    --
     , legal_form_id
     , legal_form_code
     , legal_form_name
+    --
     , physical_address_part1
     , physical_address_part2
     , physical_address_part3
@@ -36,6 +41,10 @@ CREATE VIEW public.timeline_legal_unit
     , physical_region_code
     , physical_country_id
     , physical_country_iso_2
+    , physical_latitude
+    , physical_longitude
+    , physical_altitude
+    --
     , postal_address_part1
     , postal_address_part2
     , postal_address_part3
@@ -46,11 +55,26 @@ CREATE VIEW public.timeline_legal_unit
     , postal_region_code
     , postal_country_id
     , postal_country_iso_2
+    , postal_latitude
+    , postal_longitude
+    , postal_altitude
+    --
+    , web_address
+    , email_address
+    , phone_number
+    , landline
+    , mobile_number
+    , fax_number
+    --
+    , status_id
+    , status_code
+    --
     , invalid_codes
     , has_legal_unit
     , establishment_ids
     , legal_unit_id
     , enterprise_id
+    --
     , stats
     , stats_summary
     )
@@ -99,6 +123,9 @@ CREATE VIEW public.timeline_legal_unit
            , phr.code                AS physical_region_code
            , phl.country_id AS physical_country_id
            , phc.iso_2     AS physical_country_iso_2
+           , phl.latitude  AS physical_latitude
+           , phl.longitude AS physical_longitude
+           , phl.altitude  AS physical_altitude
            --
            , pol.address_part1 AS postal_address_part1
            , pol.address_part2 AS postal_address_part2
@@ -110,6 +137,19 @@ CREATE VIEW public.timeline_legal_unit
            , por.code                AS postal_region_code
            , pol.country_id AS postal_country_id
            , poc.iso_2     AS postal_country_iso_2
+           , pol.latitude  AS postal_latitude
+           , pol.longitude AS postal_longitude
+           , pol.altitude  AS postal_altitude
+           --
+           , c.web_address AS web_address
+           , c.email_address AS email_address
+           , c.phone_number AS phone_number
+           , c.landline AS landline
+           , c.mobile_number AS mobile_number
+           , c.fax_number AS fax_number
+           --
+           , lu.status_id AS status_id
+           , st.code AS status_code
            --
            , lu.invalid_codes AS invalid_codes
            --
@@ -166,6 +206,12 @@ CREATE VIEW public.timeline_legal_unit
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
+      LEFT OUTER JOIN public.contact AS c
+              ON c.legal_unit_id = lu.id
+             AND daterange(t.valid_after, t.valid_to, '(]')
+              && daterange(c.valid_after, c.valid_to, '(]')
+      LEFT JOIN public.status AS st
+              ON lu.status_id = st.id
       LEFT JOIN LATERAL (
               SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
               FROM public.stat_for_unit AS sfu
@@ -238,6 +284,7 @@ CREATE VIEW public.timeline_legal_unit
            , basis.legal_form_id
            , basis.legal_form_code
            , basis.legal_form_name
+           --
            , basis.physical_address_part1
            , basis.physical_address_part2
            , basis.physical_address_part3
@@ -248,6 +295,10 @@ CREATE VIEW public.timeline_legal_unit
            , basis.physical_region_code
            , basis.physical_country_id
            , basis.physical_country_iso_2
+           , basis.physical_latitude
+           , basis.physical_longitude
+           , basis.physical_altitude
+           --
            , basis.postal_address_part1
            , basis.postal_address_part2
            , basis.postal_address_part3
@@ -258,6 +309,20 @@ CREATE VIEW public.timeline_legal_unit
            , basis.postal_region_code
            , basis.postal_country_id
            , basis.postal_country_iso_2
+           , basis.postal_latitude
+           , basis.postal_longitude
+           , basis.postal_altitude
+           --
+           , basis.web_address
+           , basis.email_address
+           , basis.phone_number
+           , basis.landline
+           , basis.mobile_number
+           , basis.fax_number
+           --
+           , basis.status_id
+           , basis.status_code
+           --
            , basis.invalid_codes
            , basis.has_legal_unit
            , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids

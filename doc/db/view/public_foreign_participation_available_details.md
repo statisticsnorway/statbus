@@ -7,6 +7,7 @@
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT foreign_participation_ordered.id,
@@ -14,6 +15,7 @@ View definition:
     foreign_participation_ordered.name,
     foreign_participation_ordered.active,
     foreign_participation_ordered.custom,
+    foreign_participation_ordered.created_at,
     foreign_participation_ordered.updated_at
    FROM foreign_participation_ordered
   WHERE foreign_participation_ordered.active;

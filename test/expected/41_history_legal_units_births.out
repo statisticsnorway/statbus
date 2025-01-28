@@ -104,7 +104,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 "Check legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_after | valid_from | valid_to | birth_date | death_date 
 -----------+-------------------+-------------+------------+----------+------------+------------
  823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | infinity | 2010-01-01 | 
@@ -220,7 +221,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 "Check legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_after | valid_from | valid_to | birth_date | death_date 
 -----------+-------------------+-------------+------------+----------+------------+------------
  823573673 | Kranløft Vestland | 2010-01-31  | 2010-02-01 | infinity | 2010-02-01 | 
@@ -335,7 +337,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 "Check legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_after | valid_from | valid_to | birth_date | death_date 
 -----------+-------------------+-------------+------------+----------+------------+------------
  823573673 | Kranløft Vestland | 2010-01-14  | 2010-01-15 | infinity | 2010-01-15 | 

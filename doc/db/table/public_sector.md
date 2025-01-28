@@ -11,6 +11,7 @@
  description | text                     |           |          | 
  active      | boolean                  |           | not null | 
  custom      | boolean                  |           | not null | 
+ created_at  | timestamp with time zone |           | not null | statement_timestamp()
  updated_at  | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "sector_pkey" PRIMARY KEY, btree (id)
@@ -20,8 +21,8 @@ Indexes:
     "sector_path_active_custom_key" UNIQUE CONSTRAINT, btree (path, active, custom)
     "sector_path_key" UNIQUE CONSTRAINT, btree (path)
 Referenced by:
-    TABLE "establishment" CONSTRAINT "establishment_sector_id_fkey" FOREIGN KEY (sector_id) REFERENCES sector(id)
-    TABLE "legal_unit" CONSTRAINT "legal_unit_sector_id_fkey" FOREIGN KEY (sector_id) REFERENCES sector(id)
+    TABLE "establishment" CONSTRAINT "establishment_sector_id_fkey" FOREIGN KEY (sector_id) REFERENCES sector(id) ON DELETE RESTRICT
+    TABLE "legal_unit" CONSTRAINT "legal_unit_sector_id_fkey" FOREIGN KEY (sector_id) REFERENCES sector(id) ON DELETE RESTRICT
 Policies:
     POLICY "sector_authenticated_read" FOR SELECT
       TO authenticated

@@ -5,6 +5,7 @@ CREATE FUNCTION public.statistical_unit_facet_drilldown(
     region_path public.ltree DEFAULT NULL,
     activity_category_path public.ltree DEFAULT NULL,
     sector_path public.ltree DEFAULT NULL,
+    status_id INTEGER DEFAULT NULL,
     legal_form_id INTEGER DEFAULT NULL,
     country_id INTEGER DEFAULT NULL,
     valid_on date DEFAULT current_date
@@ -17,6 +18,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , region_path AS param_region_path
              , activity_category_path AS param_activity_category_path
              , sector_path AS param_sector_path
+             , status_id AS param_status_id
              , legal_form_id AS param_legal_form_id
              , country_id AS param_country_id
              , valid_on AS param_valid_on
@@ -29,6 +31,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
              , suf.sector_path
              , suf.legal_form_id
              , suf.physical_country_id
+             , suf.status_id
              , count
              , stats_summary
         FROM public.statistical_unit_facet AS suf
@@ -47,6 +50,10 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             AND (
                 param_sector_path IS NULL
                 OR suf.sector_path IS NOT NULL AND suf.sector_path OPERATOR(public.<@) param_sector_path
+            )
+            AND (
+                param_status_id IS NULL
+                OR suf.status_id IS NOT NULL AND suf.status_id = param_status_id
             )
             AND (
                 param_legal_form_id IS NULL
@@ -189,6 +196,39 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
                , "as".code
                , "as".name
     ),
+    breadcrumb_status AS (
+        SELECT s.id
+             , s.code
+             , s.name
+        FROM public.status AS s
+        WHERE
+            (   status_id IS NOT NULL
+            AND s.id = status_id
+            )
+        ORDER BY s.id
+    ),
+    available_status AS (
+        SELECT s.id
+             , s.code
+             , s.name
+        FROM public.status AS s
+        -- Every status is available, unless one is selected.
+        WHERE status_id IS NULL
+        ORDER BY s.id
+    ),
+    aggregated_status_counts AS (
+        SELECT s.id
+             , s.code
+             , s.name
+             , COALESCE(SUM(suf.count), 0) AS count
+             , public.jsonb_stats_summary_merge_agg(suf.stats_summary) AS stats_summary
+             , false AS has_children
+        FROM available_status AS s
+        LEFT JOIN available_facet AS suf ON suf.status_id = s.id
+        GROUP BY s.id
+               , s.code
+               , s.name
+    ),
     breadcrumb_legal_form AS (
         SELECT lf.id
              , lf.code
@@ -261,6 +301,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_region AS source),
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source),
             'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_sector AS source),
+            'status', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_status AS source),
             'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_legal_form AS source),
             'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_physical_country AS source)
           ),
@@ -268,6 +309,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             'region', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_region_counts AS source WHERE count > 0),
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_activity_counts AS source WHERE count > 0),
             'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_sector_counts AS source WHERE count > 0),
+            'status', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_status_counts AS source WHERE count > 0),
             'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_legal_form_counts AS source WHERE count > 0),
             'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_physical_country_counts AS source WHERE count > 0)
           ),
@@ -276,6 +318,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             'region_path',param_region_path,
             'activity_category_path',param_activity_category_path,
             'sector_path',param_sector_path,
+            'status_id',param_status_id,
             'legal_form_id',param_legal_form_id,
             'country_id',param_country_id,
             'valid_on',param_valid_on

@@ -5,7 +5,7 @@ CREATE OR REPLACE FUNCTION admin.import_establishment_era_upsert()
 AS $function$
 DECLARE
     new_jsonb JSONB := to_jsonb(NEW);
-    edited_by_user RECORD;
+    edit_by_user RECORD;
     tag RECORD;
     physical_region RECORD;
     physical_country RECORD;
@@ -65,7 +65,7 @@ BEGIN
     SELECT NULL::int AS id INTO inserted_activity;
     SELECT NULL::int AS id INTO inserted_stat_for_unit;
 
-    SELECT * INTO edited_by_user
+    SELECT * INTO edit_by_user
     FROM public.statbus_user
     WHERE uuid = auth.uid()
     LIMIT 1;
@@ -136,7 +136,7 @@ BEGIN
         FROM admin.process_enterprise_connection(
             prior_establishment_id, 'establishment',
             new_typed.valid_from, new_typed.valid_to,
-            edited_by_user.id) AS r;
+            edit_by_user.id) AS r;
     END IF;
 
     -- If no legal_unit is specified, but there was an existing entry connected to
@@ -189,6 +189,7 @@ BEGIN
         , primary_for_enterprise
         , data_source_id
         , edit_by_user_id
+        , edit_at
         )
     VALUES
         ( new_typed.valid_from
@@ -206,7 +207,8 @@ BEGIN
         , is_primary_for_legal_unit
         , is_primary_for_enterprise
         , data_source.id
-        , edited_by_user.id
+        , edit_by_user.id
+        , statement_timestamp()
         )
      RETURNING *
      INTO inserted_establishment;
@@ -234,7 +236,7 @@ BEGIN
       external_idents_to_add,
       p_legal_unit_id => null::INTEGER,
       p_establishment_id => inserted_establishment.id,
-      p_updated_by_user_id => edited_by_user.id
+      p_edit_by_user_id => edit_by_user.id
       );
 
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
@@ -251,7 +253,8 @@ BEGIN
             , region_id
             , country_id
             , data_source_id
-            , updated_by_user_id
+            , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( new_typed.valid_from
@@ -266,7 +269,8 @@ BEGIN
             , physical_region.id
             , physical_country.id
             , data_source.id
-            , edited_by_user.id
+            , edit_by_user.id
+            , statement_timestamp()
             )
         RETURNING *
         INTO inserted_location;
@@ -303,7 +307,8 @@ BEGIN
             , region_id
             , country_id
             , data_source_id
-            , updated_by_user_id
+            , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( new_typed.valid_from
@@ -318,7 +323,8 @@ BEGIN
             , postal_region.id
             , postal_country.id
             , data_source.id
-            , edited_by_user.id
+            , edit_by_user.id
+            , statement_timestamp()
             )
         RETURNING * INTO inserted_location;
     END IF;
@@ -348,8 +354,8 @@ BEGIN
             , type
             , category_id
             , data_source_id
-            , updated_by_user_id
-            , updated_at
+            , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( new_typed.valid_from
@@ -358,7 +364,7 @@ BEGIN
             , 'primary'
             , primary_activity_category.id
             , data_source.id
-            , edited_by_user.id
+            , edit_by_user.id
             , statement_timestamp()
             )
         RETURNING *
@@ -390,8 +396,8 @@ BEGIN
             , type
             , category_id
             , data_source_id
-            , updated_by_user_id
-            , updated_at
+            , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( new_typed.valid_from
@@ -400,7 +406,7 @@ BEGIN
             , 'secondary'
             , secondary_activity_category.id
             , data_source.id
-            , edited_by_user.id
+            , edit_by_user.id
             , statement_timestamp()
             )
         RETURNING *
@@ -438,15 +444,18 @@ BEGIN
         INSERT INTO public.tag_for_unit
             ( tag_id
             , establishment_id
-            , updated_by_user_id
+            , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( tag.id
             , inserted_establishment.id
-            , edited_by_user.id
+            , edit_by_user.id
+            , statement_timestamp()
             )
         ON CONFLICT (tag_id, establishment_id)
-        DO UPDATE SET updated_by_user_id = EXCLUDED.updated_by_user_id
+        DO UPDATE SET edit_by_user_id = EXCLUDED.edit_by_user_id
+                    , edit_at         = EXCLUDED.edit_at
         ;
     END IF;
 

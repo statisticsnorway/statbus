@@ -63,6 +63,7 @@ WITH year_with_unit_basis AS (
           AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date)
           -- Entries not yet born are not relevant.
           AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)
+          AND su_range.include_unit_in_reports
       ) AS range_units
       WHERE last_in_range
     ) AS su_curr ON true
@@ -70,6 +71,7 @@ WITH year_with_unit_basis AS (
       -- There may be a previous entry to compare with.
       ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to
       AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
+      AND su_prev.include_unit_in_reports
     WHERE range.resolution = 'year'
 ), year_with_unit_derived AS (
     SELECT basis.*
@@ -147,6 +149,7 @@ WITH year_with_unit_basis AS (
           AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date)
           -- Entries not yet born are not relevant.
           AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)
+          AND su_range.include_unit_in_reports
       ) AS range_units
       WHERE last_in_range
     ) AS su_curr ON true
@@ -154,6 +157,7 @@ WITH year_with_unit_basis AS (
       -- There may be a previous entry to compare with.
       ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to
       AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
+      AND su_prev.include_unit_in_reports
     WHERE range.resolution = 'year-month'
 ), year_and_month_with_unit_derived AS (
     SELECT basis.*

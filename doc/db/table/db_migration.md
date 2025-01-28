@@ -3,7 +3,7 @@
    Column    |           Type           | Collation | Nullable |                 Default                  
 -------------+--------------------------+-----------+----------+------------------------------------------
  id          | integer                  |           | not null | nextval('db.migration_id_seq'::regclass)
- version     | text                     |           | not null | 
+ version     | bigint                   |           | not null | 
  filename    | text                     |           | not null | 
  description | text                     |           | not null | 
  applied_at  | timestamp with time zone |           | not null | now()

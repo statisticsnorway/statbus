@@ -1,31 +1,33 @@
 ```sql
                                                       Table "public.location"
-       Column       |          Type          | Collation | Nullable |                            Default                            
---------------------+------------------------+-----------+----------+---------------------------------------------------------------
- id                 | integer                |           | not null | nextval('location_id_seq'::regclass)
- valid_after        | date                   |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
- valid_from         | date                   |           | not null | CURRENT_DATE
- valid_to           | date                   |           | not null | 'infinity'::date
- type               | location_type          |           | not null | 
- address_part1      | character varying(200) |           |          | 
- address_part2      | character varying(200) |           |          | 
- address_part3      | character varying(200) |           |          | 
- postcode           | character varying(200) |           |          | 
- postplace          | character varying(200) |           |          | 
- region_id          | integer                |           |          | 
- country_id         | integer                |           | not null | 
- latitude           | numeric(9,6)           |           |          | 
- longitude          | numeric(9,6)           |           |          | 
- altitude           | numeric(6,1)           |           |          | 
- establishment_id   | integer                |           |          | 
- legal_unit_id      | integer                |           |          | 
- data_source_id     | integer                |           |          | 
- updated_by_user_id | integer                |           | not null | 
+      Column      |           Type           | Collation | Nullable |                            Default                            
+------------------+--------------------------+-----------+----------+---------------------------------------------------------------
+ id               | integer                  |           | not null | nextval('location_id_seq'::regclass)
+ valid_after      | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
+ valid_from       | date                     |           | not null | CURRENT_DATE
+ valid_to         | date                     |           | not null | 'infinity'::date
+ type             | location_type            |           | not null | 
+ address_part1    | character varying(200)   |           |          | 
+ address_part2    | character varying(200)   |           |          | 
+ address_part3    | character varying(200)   |           |          | 
+ postcode         | character varying(200)   |           |          | 
+ postplace        | character varying(200)   |           |          | 
+ region_id        | integer                  |           |          | 
+ country_id       | integer                  |           | not null | 
+ latitude         | numeric(9,6)             |           |          | 
+ longitude        | numeric(9,6)             |           |          | 
+ altitude         | numeric(6,1)             |           |          | 
+ establishment_id | integer                  |           |          | 
+ legal_unit_id    | integer                  |           |          | 
+ data_source_id   | integer                  |           |          | 
+ edit_comment     | character varying(512)   |           |          | 
+ edit_by_user_id  | integer                  |           | not null | 
+ edit_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "ix_address_region_id" btree (region_id)
+    "ix_location_edit_by_user_id" btree (edit_by_user_id)
     "ix_location_establishment_id_id" btree (establishment_id)
     "ix_location_legal_unit_id_id" btree (legal_unit_id)
-    "ix_location_updated_by_user_id" btree (updated_by_user_id)
     "location_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
     "location_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
     "location_type_establishment_id_daterange_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
@@ -44,8 +46,8 @@ END)
 Foreign-key constraints:
     "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     "location_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL
+    "location_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
     "location_region_id_fkey" FOREIGN KEY (region_id) REFERENCES region(id) ON DELETE RESTRICT
-    "location_updated_by_user_id_fkey" FOREIGN KEY (updated_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
 Policies:
     POLICY "location_authenticated_read" FOR SELECT
       TO authenticated

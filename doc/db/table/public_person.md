@@ -11,9 +11,11 @@
  family_name    | character varying(150)   |           |          | 
  birth_date     | date                     |           |          | 
  sex            | person_sex               |           |          | 
- phone_number_1 | text                     |           |          | 
- phone_number_2 | text                     |           |          | 
- address        | text                     |           |          | 
+ phone_number   | text                     |           |          | 
+ mobile_number  | text                     |           |          | 
+ address_part1  | character varying(200)   |           |          | 
+ address_part2  | character varying(200)   |           |          | 
+ address_part3  | character varying(200)   |           |          | 
 Indexes:
     "person_pkey" PRIMARY KEY, btree (id)
     "ix_person_country_id" btree (country_id)
@@ -22,7 +24,7 @@ Indexes:
 Foreign-key constraints:
     "person_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id)
 Referenced by:
-    TABLE "person_for_unit" CONSTRAINT "person_for_unit_person_id_fkey" FOREIGN KEY (person_id) REFERENCES person(id) ON DELETE CASCADE
+    TABLE "person_for_unit" CONSTRAINT "person_for_unit_person_id_fkey" FOREIGN KEY (person_id) REFERENCES person(id) ON DELETE RESTRICT
 Policies:
     POLICY "person_authenticated_read" FOR SELECT
       TO authenticated

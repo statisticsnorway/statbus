@@ -7,6 +7,7 @@
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT enterprise_group_role.id,
@@ -14,6 +15,7 @@ View definition:
     enterprise_group_role.name,
     enterprise_group_role.active,
     enterprise_group_role.custom,
+    enterprise_group_role.created_at,
     enterprise_group_role.updated_at
    FROM enterprise_group_role
   ORDER BY enterprise_group_role.code;

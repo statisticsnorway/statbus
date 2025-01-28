@@ -7,6 +7,7 @@
  name       | text                     |           |          |         | extended | 
  active     | boolean                  |           |          |         | plain    | 
  custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
  SELECT person_role.id,
@@ -14,6 +15,7 @@ View definition:
     person_role.name,
     person_role.active,
     person_role.custom,
+    person_role.created_at,
     person_role.updated_at
    FROM person_role
   ORDER BY person_role.code;

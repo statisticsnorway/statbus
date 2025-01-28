@@ -7,6 +7,7 @@ CREATE FUNCTION public.statistical_history_drilldown(
     region_path public.ltree DEFAULT NULL,
     activity_category_path public.ltree DEFAULT NULL,
     sector_path public.ltree DEFAULT NULL,
+    status_id INTEGER DEFAULT NULL,
     legal_form_id INTEGER DEFAULT NULL,
     country_id INTEGER DEFAULT NULL,
     year_min INTEGER DEFAULT NULL,
@@ -24,6 +25,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             activity_category_path AS param_activity_category_path,
             sector_path AS param_sector_path,
             legal_form_id AS param_legal_form_id,
+            status_id AS param_status_id,
             country_id AS param_country_id
     ), settings_activity_category_standard AS (
         SELECT activity_category_standard_id AS id FROM public.settings
@@ -50,6 +52,10 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
           AND (
               param_legal_form_id IS NULL
               OR sh.legal_form_id IS NOT NULL AND sh.legal_form_id = param_legal_form_id
+              )
+          AND (
+              param_status_id IS NULL
+              OR sh.status_id IS NOT NULL AND sh.status_id = param_status_id
               )
           AND (
               param_country_id IS NULL
@@ -240,6 +246,38 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
                , lf.name
         ORDER BY lf.code
     ),
+    breadcrumb_status AS (
+        SELECT s.id
+             , s.code
+             , s.name
+        FROM public.status AS s
+        WHERE
+            (   status_id IS NOT NULL
+            AND s.id = status_id
+            )
+        ORDER BY s.code
+    ),
+    available_status AS (
+        SELECT s.id
+             , s.code
+             , s.name
+        FROM public.status AS s
+        -- Every status is available, unless one is selected.
+        WHERE status_id IS NULL
+        ORDER BY s.code
+    ), aggregated_status_counts AS (
+        SELECT s.id
+             , s.code
+             , s.name
+             , COALESCE(SUM(sh.count), 0) AS count
+             , false AS has_children
+        FROM available_status AS s
+        LEFT JOIN available_history AS sh ON sh.status_id = s.id
+        GROUP BY s.id
+               , s.code
+               , s.name
+        ORDER BY s.code
+    ),
     breadcrumb_physical_country AS (
         SELECT pc.id
              , pc.iso_2
@@ -281,6 +319,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_activity_category AS source),
             'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_sector AS source),
             'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_legal_form AS source),
+            'status', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_status AS source),
             'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM breadcrumb_physical_country AS source)
           ),
           'available',jsonb_build_object(
@@ -288,6 +327,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             'activity_category', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_activity_counts AS source WHERE count > 0),
             'sector', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_sector_counts AS source WHERE count > 0),
             'legal_form', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_legal_form_counts AS source WHERE count > 0),
+            'status', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_status_counts AS source WHERE count > 0),
             'country', (SELECT jsonb_agg(to_jsonb(source.*)) FROM aggregated_physical_country_counts AS source WHERE count > 0)
           ),
           'filter',jsonb_build_object(
@@ -298,6 +338,7 @@ RETURNS jsonb LANGUAGE sql SECURITY DEFINER AS $$
             'activity_category_path',param_activity_category_path,
             'sector_path',param_sector_path,
             'legal_form_id',param_legal_form_id,
+            'status_id',param_status_id,
             'country_id',param_country_id
           )
         )

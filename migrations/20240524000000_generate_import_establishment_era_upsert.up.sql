@@ -4,7 +4,7 @@ CREATE OR REPLACE FUNCTION admin.import_establishment_era_upsert()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     new_jsonb JSONB := to_jsonb(NEW);
-    edited_by_user RECORD;
+    edit_by_user RECORD;
     tag RECORD;
     physical_region RECORD;
     physical_country RECORD;
@@ -17,6 +17,7 @@ DECLARE
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
     sector RECORD;
+    status RECORD;
     data_source RECORD;
     meta_data RECORD;
     new_typed RECORD;
@@ -55,6 +56,7 @@ BEGIN
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
     SELECT NULL::int AS id INTO sector;
+    SELECT NULL::int AS id INTO status;
     SELECT NULL::int AS id INTO data_source;
     SELECT NULL::int AS employees
          , NULL::int AS turnover
@@ -64,7 +66,7 @@ BEGIN
     SELECT NULL::int AS id INTO inserted_activity;
     SELECT NULL::int AS id INTO inserted_stat_for_unit;
 
-    SELECT * INTO edited_by_user
+    SELECT * INTO edit_by_user
     FROM public.statbus_user
     WHERE uuid = auth.uid()
     LIMIT 1;
@@ -117,6 +119,10 @@ BEGIN
     INTO   sector.id , invalid_codes
     FROM admin.import_lookup_sector(new_jsonb, invalid_codes);
 
+    SELECT status_id , updated_invalid_codes
+    INTO   status.id , invalid_codes
+    FROM admin.import_lookup_status(new_jsonb, invalid_codes);
+
     SELECT data_source_id , updated_invalid_codes
     INTO   data_source.id , invalid_codes
     FROM admin.import_lookup_data_source(new_jsonb, invalid_codes);
@@ -135,7 +141,7 @@ BEGIN
         FROM admin.process_enterprise_connection(
             prior_establishment_id, 'establishment',
             new_typed.valid_from, new_typed.valid_to,
-            edited_by_user.id) AS r;
+            edit_by_user.id) AS r;
     END IF;
 
     -- If no legal_unit is specified, but there was an existing entry connected to
@@ -181,6 +187,7 @@ BEGIN
         , active
         , edit_comment
         , sector_id
+        , status_id
         , invalid_codes
         , enterprise_id
         , legal_unit_id
@@ -188,6 +195,7 @@ BEGIN
         , primary_for_enterprise
         , data_source_id
         , edit_by_user_id
+        , edit_at
         )
     VALUES
         ( new_typed.valid_from
@@ -199,13 +207,15 @@ BEGIN
         , meta_data.active
         , meta_data.edit_comment
         , sector.id
+        , status.id
         , meta_data.invalid_codes
         , enterprise.id
         , legal_unit.id
         , is_primary_for_legal_unit
         , is_primary_for_enterprise
         , data_source.id
-        , edited_by_user.id
+        , edit_by_user.id
+        , statement_timestamp()
         )
      RETURNING *
      INTO inserted_establishment;
@@ -233,8 +243,18 @@ BEGIN
       external_idents_to_add,
       p_legal_unit_id => null::INTEGER,
       p_establishment_id => inserted_establishment.id,
-      p_updated_by_user_id => edited_by_user.id
+      p_edit_by_user_id => edit_by_user.id
       );
+
+    PERFORM admin.process_contact_columns(
+        new_jsonb,
+        inserted_establishment.id,
+        NULL,
+        new_typed.valid_from,
+        new_typed.valid_to,
+        data_source.id,
+        edit_by_user.id
+    );
 
     IF physical_region.id IS NOT NULL OR physical_country.id IS NOT NULL THEN
         INSERT INTO public.location_era
@@ -247,10 +267,14 @@ BEGIN
             , address_part3
             , postcode
             , postplace
+            , latitude
+            , longitude
+            , altitude
             , region_id
             , country_id
             , data_source_id
-            , updated_by_user_id
+            , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( new_typed.valid_from
@@ -262,10 +286,14 @@ BEGIN
             , NULLIF(NEW.physical_address_part3,'')
             , NULLIF(NEW.physical_postcode,'')
             , NULLIF(NEW.physical_postplace,'')
+            , NULLIF(NEW.physical_latitude,'')::numeric(9, 6)
+            , NULLIF(NEW.physical_longitude,'')::numeric(9, 6)
+            , NULLIF(NEW.physical_altitude,'')::numeric(6, 1)
             , physical_region.id
             , physical_country.id
             , data_source.id
-            , edited_by_user.id
+            , edit_by_user.id
+            , statement_timestamp()
             )
         RETURNING *
         INTO inserted_location;
@@ -299,10 +327,14 @@ BEGIN
             , address_part3
             , postcode
             , postplace
+            , latitude
+            , longitude
+            , altitude
             , region_id
             , country_id
             , data_source_id
-            , updated_by_user_id
+            , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( new_typed.valid_from
@@ -314,10 +346,14 @@ BEGIN
             , NULLIF(NEW.postal_address_part3,'')
             , NULLIF(NEW.postal_postcode,'')
             , NULLIF(NEW.postal_postplace,'')
+            , NULLIF(NEW.postal_latitude,'')::numeric(9, 6)
+            , NULLIF(NEW.postal_longitude,'')::numeric(9, 6)
+            , NULLIF(NEW.postal_altitude,'')::numeric(6, 1)
             , postal_region.id
             , postal_country.id
             , data_source.id
-            , edited_by_user.id
+            , edit_by_user.id
+            , statement_timestamp()
             )
         RETURNING * INTO inserted_location;
     END IF;
@@ -347,8 +383,8 @@ BEGIN
             , type
             , category_id
             , data_source_id
-            , updated_by_user_id
-            , updated_at
+            , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( new_typed.valid_from
@@ -357,7 +393,7 @@ BEGIN
             , 'primary'
             , primary_activity_category.id
             , data_source.id
-            , edited_by_user.id
+            , edit_by_user.id
             , statement_timestamp()
             )
         RETURNING *
@@ -389,8 +425,8 @@ BEGIN
             , type
             , category_id
             , data_source_id
-            , updated_by_user_id
-            , updated_at
+            , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( new_typed.valid_from
@@ -399,7 +435,7 @@ BEGIN
             , 'secondary'
             , secondary_activity_category.id
             , data_source.id
-            , edited_by_user.id
+            , edit_by_user.id
             , statement_timestamp()
             )
         RETURNING *
@@ -437,15 +473,18 @@ BEGIN
         INSERT INTO public.tag_for_unit
             ( tag_id
             , establishment_id
-            , updated_by_user_id
+            , edit_by_user_id
+            , edit_at
             )
         VALUES
             ( tag.id
             , inserted_establishment.id
-            , edited_by_user.id
+            , edit_by_user.id
+            , statement_timestamp()
             )
         ON CONFLICT (tag_id, establishment_id)
-        DO UPDATE SET updated_by_user_id = EXCLUDED.updated_by_user_id
+        DO UPDATE SET edit_by_user_id = EXCLUDED.edit_by_user_id
+                    , edit_at         = EXCLUDED.edit_at
         ;
     END IF;
 

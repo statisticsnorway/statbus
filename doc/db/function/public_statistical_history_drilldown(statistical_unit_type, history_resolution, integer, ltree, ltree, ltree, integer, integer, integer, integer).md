@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE FUNCTION public.statistical_history_drilldown(unit_type statistical_unit_type DEFAULT 'enterprise'::statistical_unit_type, resolution history_resolution DEFAULT 'year'::history_resolution, year integer DEFAULT NULL::integer, region_path ltree DEFAULT NULL::ltree, activity_category_path ltree DEFAULT NULL::ltree, sector_path ltree DEFAULT NULL::ltree, legal_form_id integer DEFAULT NULL::integer, country_id integer DEFAULT NULL::integer)
+CREATE OR REPLACE FUNCTION public.statistical_history_drilldown(unit_type statistical_unit_type DEFAULT 'enterprise'::statistical_unit_type, resolution history_resolution DEFAULT 'year'::history_resolution, year integer DEFAULT NULL::integer, region_path ltree DEFAULT NULL::ltree, activity_category_path ltree DEFAULT NULL::ltree, sector_path ltree DEFAULT NULL::ltree, legal_form_id integer DEFAULT NULL::integer, country_id integer DEFAULT NULL::integer, year_min integer DEFAULT NULL::integer, year_max integer DEFAULT NULL::integer)
  RETURNS jsonb
  LANGUAGE sql
  SECURITY DEFINER
@@ -45,6 +45,14 @@ AS $function$
           AND (
               param_country_id IS NULL
               OR sh.physical_country_id IS NOT NULL AND sh.physical_country_id = param_country_id
+              )
+          AND (
+              statistical_history_drilldown.year_min IS NULL
+              OR sh.year IS NOT NULL AND sh.year >= statistical_history_drilldown.year_min
+              )
+          AND (
+              statistical_history_drilldown.year_max IS NULL
+              OR sh.year IS NOT NULL AND sh.year <= statistical_history_drilldown.year_max
               )
     ), available_history_stats AS (
         SELECT year, month

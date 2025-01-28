@@ -7,11 +7,13 @@
  name       | text                     |           | not null | 
  active     | boolean                  |           | not null | 
  custom     | boolean                  |           | not null | 
+ created_at | timestamp with time zone |           | not null | statement_timestamp()
  updated_at | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "foreign_participation_pkey" PRIMARY KEY, btree (id)
     "ix_foreign_participation_active_code" UNIQUE, btree (active, code)
     "ix_foreign_participation_code" UNIQUE, btree (code) WHERE active
+    "ix_status_code" UNIQUE, btree (code) WHERE active
 Referenced by:
     TABLE "enterprise_group" CONSTRAINT "enterprise_group_foreign_participation_id_fkey" FOREIGN KEY (foreign_participation_id) REFERENCES foreign_participation(id)
     TABLE "legal_unit" CONSTRAINT "legal_unit_foreign_participation_id_fkey" FOREIGN KEY (foreign_participation_id) REFERENCES foreign_participation(id)
