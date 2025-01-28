@@ -24,9 +24,9 @@ BEGIN
 
     -- Check if RLS is already enabled
     IF NOT EXISTS (
-        SELECT 1 FROM pg_tables 
-        WHERE schemaname = schema_name_str 
-        AND tablename = table_name_str 
+        SELECT 1 FROM pg_tables
+        WHERE schemaname = schema_name_str
+        AND tablename = table_name_str
         AND rowsecurity = true
     ) THEN
         RAISE NOTICE '%s.%s: Enabling Row Level Security', schema_name_str, table_name_str;
@@ -35,9 +35,9 @@ BEGIN
 
     -- Check if authenticated read policy exists before creating
     IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE schemaname = schema_name_str 
-        AND tablename = table_name_str 
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = schema_name_str
+        AND tablename = table_name_str
         AND policyname = table_name_str || '_authenticated_read'
     ) THEN
         RAISE NOTICE '%s.%s: Creating authenticated users read policy', schema_name_str, table_name_str;
@@ -49,9 +49,9 @@ BEGIN
     -- _custom view is used for managing custom rows by the super_user.
     IF has_custom_and_active THEN
         IF NOT EXISTS (
-            SELECT 1 FROM pg_policies 
-            WHERE schemaname = schema_name_str 
-            AND tablename = table_name_str 
+            SELECT 1 FROM pg_policies
+            WHERE schemaname = schema_name_str
+            AND tablename = table_name_str
             AND policyname = table_name_str || '_regular_user_read'
         ) THEN
             RAISE NOTICE '%s.%s: Creating regular_user read policy', schema_name_str, table_name_str;
@@ -59,9 +59,9 @@ BEGIN
         END IF;
     ELSE
         IF NOT EXISTS (
-            SELECT 1 FROM pg_policies 
-            WHERE schemaname = schema_name_str 
-            AND tablename = table_name_str 
+            SELECT 1 FROM pg_policies
+            WHERE schemaname = schema_name_str
+            AND tablename = table_name_str
             AND policyname = table_name_str || '_regular_user_manage'
         ) THEN
             RAISE NOTICE '%s.%s: Creating regular_user manage policy', schema_name_str, table_name_str;
@@ -70,9 +70,9 @@ BEGIN
     END IF;
 
     IF NOT EXISTS (
-        SELECT 1 FROM pg_policies 
-        WHERE schemaname = schema_name_str 
-        AND tablename = table_name_str 
+        SELECT 1 FROM pg_policies
+        WHERE schemaname = schema_name_str
+        AND tablename = table_name_str
         AND policyname = table_name_str || '_super_user_manage'
     ) THEN
         RAISE NOTICE '%s.%s: Creating super_user manage policy', schema_name_str, table_name_str;
@@ -80,5 +80,28 @@ BEGIN
     END IF;
 END;
 $$ LANGUAGE plpgsql;
+
+
+CREATE OR REPLACE FUNCTION admin.enable_rls_on_public_tables()
+RETURNS void AS $$
+DECLARE
+    table_regclass regclass;
+BEGIN
+    FOR table_regclass IN
+        SELECT c.oid::regclass
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public' AND c.relkind = 'r'
+    LOOP
+        PERFORM admin.apply_rls_and_policies(table_regclass);
+    END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+
+SET LOCAL client_min_messages TO NOTICE;
+SELECT admin.enable_rls_on_public_tables();
+SET LOCAL client_min_messages TO INFO;
+
 
 END;
