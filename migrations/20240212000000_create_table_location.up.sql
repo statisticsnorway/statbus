@@ -34,7 +34,10 @@ CREATE TABLE public.location (
                     (latitude IS NOT NULL AND longitude IS NOT NULL)
                 ELSE
                     TRUE
-            END)
+            END),
+    CONSTRAINT "latitude_must_be_from_minus_90_to_90_degrees" CHECK(latitude >= -90 AND latitude <= 90),
+    CONSTRAINT "longitude_must_be_from_minus_180_to_180_degrees" CHECK(longitude >= -180 AND longitude <= 180),
+    CONSTRAINT "altitude_must_be_positive" CHECK(altitude >= 0)
 );
 CREATE INDEX ix_address_region_id ON public.location USING btree (region_id);
 CREATE INDEX ix_location_establishment_id_id ON public.location USING btree (establishment_id);

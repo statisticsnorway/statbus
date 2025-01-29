@@ -43,3 +43,7 @@ BEGIN
   ...
 END;
 $$;
+
+### SQL Testing
+Is done with pg_regress with test/ as base.
+Run with `./devops/manage-statbus.sh test [all|xx_the_test_name]`.

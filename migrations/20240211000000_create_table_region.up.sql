@@ -22,7 +22,10 @@ CREATE TABLE public.region (
                     (center_latitude IS NOT NULL AND center_longitude IS NOT NULL)
                 ELSE
                     TRUE
-            END)
+            END),
+    CONSTRAINT "center_latitude_must_be_from_minus_90_to_90_degrees" CHECK(center_latitude >= -90 AND center_latitude <= 90),
+    CONSTRAINT "center_longitude_must_be_from_minus_180_to_180_degrees" CHECK(center_longitude >= -180 AND center_longitude <= 180),
+    CONSTRAINT "center_altitude_must_be_positive" CHECK(center_altitude >= 0)
 );
 
 CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
