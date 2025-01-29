@@ -2925,6 +2925,12 @@ SAVEPOINT before_reset;
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'data'::public.reset_scope) - 'statistical_unit_refresh_now') AS reset_data;
 reset_data
 {
+    "person": {
+        "deleted_count": 0
+    },
+    "contact": {
+        "deleted_count": 0
+    },
     "activity": {
         "deleted_count": 1420
     },
@@ -2937,6 +2943,9 @@ reset_data
     "legal_unit": {
         "deleted_count": 100
     },
+    "tag_for_unit": {
+        "deleted_count": 0
+    },
     "establishment": {
         "deleted_count": 1305
     },
@@ -2945,18 +2954,27 @@ reset_data
     },
     "external_ident": {
         "deleted_count": 1405
+    },
+    "person_for_unit": {
+        "deleted_count": 0
     }
 }
 (1 row)
 SELECT jsonb_pretty(public.reset(confirmed := true, scope := 'getting-started'::public.reset_scope) - 'statistical_unit_refresh_now') AS reset_getting_started;
 reset_getting_started
 {
+    "person": {
+        "deleted_count": 0
+    },
     "region": {
         "deleted_count": 417
     },
     "sector": {
         "changed_count": 36,
         "deleted_count": 33
+    },
+    "contact": {
+        "deleted_count": 0
     },
     "activity": {
         "deleted_count": 0
@@ -2977,6 +2995,9 @@ reset_getting_started
     "legal_unit": {
         "deleted_count": 0
     },
+    "tag_for_unit": {
+        "deleted_count": 0
+    },
     "establishment": {
         "deleted_count": 0
     },
@@ -2984,6 +3005,9 @@ reset_getting_started
         "deleted_count": 0
     },
     "external_ident": {
+        "deleted_count": 0
+    },
+    "person_for_unit": {
         "deleted_count": 0
     },
     "activity_category": {
@@ -2999,11 +3023,17 @@ reset_all
     "tag": {
         "deleted_count": 0
     },
+    "person": {
+        "deleted_count": 0
+    },
     "region": {
         "deleted_count": 0
     },
     "sector": {
         "changed_count": 0,
+        "deleted_count": 0
+    },
+    "contact": {
         "deleted_count": 0
     },
     "activity": {
@@ -3025,6 +3055,9 @@ reset_all
     "legal_unit": {
         "deleted_count": 0
     },
+    "tag_for_unit": {
+        "deleted_count": 0
+    },
     "establishment": {
         "deleted_count": 0
     },
@@ -3032,6 +3065,9 @@ reset_all
         "deleted_count": 0
     },
     "external_ident": {
+        "deleted_count": 0
+    },
+    "person_for_unit": {
         "deleted_count": 0
     },
     "stat_definition": {

@@ -39,6 +39,58 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
+    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+        -- Apply pattern for 'contact'
+        WITH deleted_contact AS (
+            DELETE FROM public.contact WHERE id > 0 RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'contact', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_contact)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+        -- Apply pattern for 'person_for_unit'
+        WITH deleted_person_for_unit AS (
+            DELETE FROM public.person_for_unit WHERE id > 0 RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'person_for_unit', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_person_for_unit)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+        -- Add delete for public.person
+        WITH deleted_person AS (
+            DELETE FROM public.person WHERE id > 0 RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'person', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_person)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+        -- Apply pattern for 'tag_for_unit'
+        WITH deleted_tag_for_unit AS (
+            DELETE FROM public.tag_for_unit WHERE id > 0 RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'tag_for_unit', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_tag_for_unit)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
     CASE WHEN scope IN ('all') THEN
         -- Add delete for public.tag where type = 'custom'
         WITH deleted_tag AS (
