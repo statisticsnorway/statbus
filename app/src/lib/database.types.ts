@@ -38,12 +38,13 @@ export type Database = {
         Row: {
           category_id: number
           data_source_id: number | null
+          edit_at: string
+          edit_by_user_id: number
+          edit_comment: string | null
           establishment_id: number | null
           id: number
           legal_unit_id: number | null
           type: Database["public"]["Enums"]["activity_type"]
-          updated_at: string
-          updated_by_user_id: number
           valid_after: string
           valid_from: string
           valid_to: string
@@ -51,12 +52,13 @@ export type Database = {
         Insert: {
           category_id: number
           data_source_id?: number | null
+          edit_at?: string
+          edit_by_user_id: number
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number
           legal_unit_id?: number | null
           type: Database["public"]["Enums"]["activity_type"]
-          updated_at?: string
-          updated_by_user_id: number
           valid_after?: string
           valid_from?: string
           valid_to?: string
@@ -64,12 +66,13 @@ export type Database = {
         Update: {
           category_id?: number
           data_source_id?: number | null
+          edit_at?: string
+          edit_by_user_id?: number
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number
           legal_unit_id?: number | null
           type?: Database["public"]["Enums"]["activity_type"]
-          updated_at?: string
-          updated_by_user_id?: number
           valid_after?: string
           valid_from?: string
           valid_to?: string
@@ -125,8 +128,8 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "activity_updated_by_user_id_fkey"
-            columns: ["updated_by_user_id"]
+            foreignKeyName: "activity_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
             referencedColumns: ["id"]
@@ -137,6 +140,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          created_at: string
           custom: boolean
           description: string | null
           id: number
@@ -151,6 +155,7 @@ export type Database = {
         Insert: {
           active: boolean
           code: string
+          created_at?: string
           custom: boolean
           description?: string | null
           id?: never
@@ -165,6 +170,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string
+          created_at?: string
           custom?: boolean
           description?: string | null
           id?: never
@@ -281,9 +287,103 @@ export type Database = {
         }
         Relationships: []
       }
+      contact: {
+        Row: {
+          data_source_id: number | null
+          edit_at: string
+          edit_by_user_id: number
+          edit_comment: string | null
+          email_address: string | null
+          establishment_id: number | null
+          fax_number: string | null
+          id: number
+          landline: string | null
+          legal_unit_id: number | null
+          mobile_number: string | null
+          phone_number: string | null
+          valid_after: string
+          valid_from: string
+          valid_to: string
+          web_address: string | null
+        }
+        Insert: {
+          data_source_id?: number | null
+          edit_at?: string
+          edit_by_user_id: number
+          edit_comment?: string | null
+          email_address?: string | null
+          establishment_id?: number | null
+          fax_number?: string | null
+          id?: number
+          landline?: string | null
+          legal_unit_id?: number | null
+          mobile_number?: string | null
+          phone_number?: string | null
+          valid_after?: string
+          valid_from?: string
+          valid_to?: string
+          web_address?: string | null
+        }
+        Update: {
+          data_source_id?: number | null
+          edit_at?: string
+          edit_by_user_id?: number
+          edit_comment?: string | null
+          email_address?: string | null
+          establishment_id?: number | null
+          fax_number?: string | null
+          id?: number
+          landline?: string | null
+          legal_unit_id?: number | null
+          mobile_number?: string | null
+          phone_number?: string | null
+          valid_after?: string
+          valid_from?: string
+          valid_to?: string
+          web_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_ordered"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_used"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       country: {
         Row: {
           active: boolean
+          created_at: string
           custom: boolean
           id: number
           iso_2: string
@@ -294,6 +394,7 @@ export type Database = {
         }
         Insert: {
           active: boolean
+          created_at?: string
           custom: boolean
           id?: never
           iso_2: string
@@ -304,6 +405,7 @@ export type Database = {
         }
         Update: {
           active?: boolean
+          created_at?: string
           custom?: boolean
           id?: never
           iso_2?: string
@@ -318,6 +420,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          created_at: string
           custom: boolean
           id: number
           name: string
@@ -326,6 +429,7 @@ export type Database = {
         Insert: {
           active: boolean
           code: string
+          created_at?: string
           custom: boolean
           id?: never
           name: string
@@ -334,6 +438,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string
+          created_at?: string
           custom?: boolean
           id?: never
           name?: string
@@ -344,102 +449,98 @@ export type Database = {
       enterprise: {
         Row: {
           active: boolean
-          edit_by_user_id: string
+          edit_at: string
+          edit_by_user_id: number
           edit_comment: string | null
           id: number
-          notes: string | null
           short_name: string | null
         }
         Insert: {
           active?: boolean
-          edit_by_user_id: string
+          edit_at?: string
+          edit_by_user_id: number
           edit_comment?: string | null
           id?: never
-          notes?: string | null
           short_name?: string | null
         }
         Update: {
           active?: boolean
-          edit_by_user_id?: string
+          edit_at?: string
+          edit_by_user_id?: number
           edit_comment?: string | null
           id?: never
-          notes?: string | null
           short_name?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "enterprise_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       enterprise_group: {
         Row: {
           active: boolean
           contact_person: string | null
-          created_at: string
           data_source_id: number | null
+          edit_at: string
           edit_by_user_id: number
           edit_comment: string | null
-          email_address: string | null
           enterprise_group_type_id: number | null
           foreign_participation_id: number | null
           id: number
           name: string | null
-          notes: string | null
           reorg_date: string | null
           reorg_references: string | null
           reorg_type_id: number | null
           short_name: string | null
-          telephone_no: string | null
           unit_size_id: number | null
           valid_after: string
           valid_from: string
           valid_to: string
-          web_address: string | null
         }
         Insert: {
           active?: boolean
           contact_person?: string | null
-          created_at?: string
           data_source_id?: number | null
+          edit_at?: string
           edit_by_user_id: number
           edit_comment?: string | null
-          email_address?: string | null
           enterprise_group_type_id?: number | null
           foreign_participation_id?: number | null
           id?: number
           name?: string | null
-          notes?: string | null
           reorg_date?: string | null
           reorg_references?: string | null
           reorg_type_id?: number | null
           short_name?: string | null
-          telephone_no?: string | null
           unit_size_id?: number | null
           valid_after?: string
           valid_from?: string
           valid_to?: string
-          web_address?: string | null
         }
         Update: {
           active?: boolean
           contact_person?: string | null
-          created_at?: string
           data_source_id?: number | null
+          edit_at?: string
           edit_by_user_id?: number
           edit_comment?: string | null
-          email_address?: string | null
           enterprise_group_type_id?: number | null
           foreign_participation_id?: number | null
           id?: number
           name?: string | null
-          notes?: string | null
           reorg_date?: string | null
           reorg_references?: string | null
           reorg_type_id?: number | null
           short_name?: string | null
-          telephone_no?: string | null
           unit_size_id?: number | null
           valid_after?: string
           valid_from?: string
           valid_to?: string
-          web_address?: string | null
         }
         Relationships: [
           {
@@ -468,6 +569,13 @@ export type Database = {
             columns: ["data_source_id"]
             isOneToOne: false
             referencedRelation: "data_source_used"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enterprise_group_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
             referencedColumns: ["id"]
           },
           {
@@ -560,6 +668,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          created_at: string
           custom: boolean
           id: number
           name: string
@@ -568,6 +677,7 @@ export type Database = {
         Insert: {
           active: boolean
           code: string
+          created_at?: string
           custom: boolean
           id?: never
           name: string
@@ -576,6 +686,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string
+          created_at?: string
           custom?: boolean
           id?: never
           name?: string
@@ -587,6 +698,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          created_at: string
           custom: boolean
           id: number
           name: string
@@ -595,6 +707,7 @@ export type Database = {
         Insert: {
           active: boolean
           code: string
+          created_at?: string
           custom: boolean
           id?: never
           name: string
@@ -603,6 +716,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string
+          created_at?: string
           custom?: boolean
           id?: never
           name?: string
@@ -616,90 +730,72 @@ export type Database = {
           birth_date: string | null
           data_source_id: number | null
           death_date: string | null
-          edit_by_user_id: string
+          edit_at: string
+          edit_by_user_id: number
           edit_comment: string | null
-          email_address: string | null
           enterprise_id: number | null
           free_econ_zone: boolean | null
           id: number
           invalid_codes: Json | null
           legal_unit_id: number | null
           name: string | null
-          notes: string | null
-          parent_org_link: number | null
           primary_for_enterprise: boolean | null
           primary_for_legal_unit: boolean | null
-          reorg_date: string | null
-          reorg_references: number | null
-          reorg_type_id: number | null
           sector_id: number | null
           short_name: string | null
-          telephone_no: string | null
+          status_id: number | null
           unit_size_id: number | null
           valid_after: string
           valid_from: string
           valid_to: string
-          web_address: string | null
         }
         Insert: {
           active?: boolean
           birth_date?: string | null
           data_source_id?: number | null
           death_date?: string | null
-          edit_by_user_id: string
+          edit_at?: string
+          edit_by_user_id: number
           edit_comment?: string | null
-          email_address?: string | null
           enterprise_id?: number | null
           free_econ_zone?: boolean | null
           id?: number
           invalid_codes?: Json | null
           legal_unit_id?: number | null
           name?: string | null
-          notes?: string | null
-          parent_org_link?: number | null
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
-          reorg_date?: string | null
-          reorg_references?: number | null
-          reorg_type_id?: number | null
           sector_id?: number | null
           short_name?: string | null
-          telephone_no?: string | null
+          status_id?: number | null
           unit_size_id?: number | null
           valid_after?: string
           valid_from?: string
           valid_to?: string
-          web_address?: string | null
         }
         Update: {
           active?: boolean
           birth_date?: string | null
           data_source_id?: number | null
           death_date?: string | null
-          edit_by_user_id?: string
+          edit_at?: string
+          edit_by_user_id?: number
           edit_comment?: string | null
-          email_address?: string | null
           enterprise_id?: number | null
           free_econ_zone?: boolean | null
           id?: number
           invalid_codes?: Json | null
           legal_unit_id?: number | null
           name?: string | null
-          notes?: string | null
-          parent_org_link?: number | null
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
-          reorg_date?: string | null
-          reorg_references?: number | null
-          reorg_type_id?: number | null
           sector_id?: number | null
           short_name?: string | null
-          telephone_no?: string | null
+          status_id?: number | null
           unit_size_id?: number | null
           valid_after?: string
           valid_from?: string
           valid_to?: string
-          web_address?: string | null
         }
         Relationships: [
           {
@@ -731,6 +827,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "establishment_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "establishment_enterprise_id_fkey"
             columns: ["enterprise_id"]
             isOneToOne: false
@@ -743,27 +846,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "timeline_enterprise"
             referencedColumns: ["enterprise_id"]
-          },
-          {
-            foreignKeyName: "establishment_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "establishment_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type_available"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "establishment_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type_ordered"
-            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_sector_id_fkey"
@@ -808,6 +890,13 @@ export type Database = {
             referencedColumns: ["sector_id"]
           },
           {
+            foreignKeyName: "establishment_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "status"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "establishment_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
@@ -832,6 +921,9 @@ export type Database = {
       }
       external_ident: {
         Row: {
+          edit_at: string
+          edit_by_user_id: number
+          edit_comment: string | null
           enterprise_group_id: number | null
           enterprise_id: number | null
           establishment_id: number | null
@@ -839,9 +931,11 @@ export type Database = {
           ident: string
           legal_unit_id: number | null
           type_id: number
-          updated_by_user_id: number
         }
         Insert: {
+          edit_at?: string
+          edit_by_user_id: number
+          edit_comment?: string | null
           enterprise_group_id?: number | null
           enterprise_id?: number | null
           establishment_id?: number | null
@@ -849,9 +943,11 @@ export type Database = {
           ident: string
           legal_unit_id?: number | null
           type_id: number
-          updated_by_user_id: number
         }
         Update: {
+          edit_at?: string
+          edit_by_user_id?: number
+          edit_comment?: string | null
           enterprise_group_id?: number | null
           enterprise_id?: number | null
           establishment_id?: number | null
@@ -859,9 +955,15 @@ export type Database = {
           ident?: string
           legal_unit_id?: number | null
           type_id?: number
-          updated_by_user_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "external_ident_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "external_ident_enterprise_id_fkey"
             columns: ["enterprise_id"]
@@ -895,13 +997,6 @@ export type Database = {
             columns: ["type_id"]
             isOneToOne: false
             referencedRelation: "external_ident_type_ordered"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "external_ident_updated_by_user_id_fkey"
-            columns: ["updated_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "statbus_user"
             referencedColumns: ["id"]
           },
         ]
@@ -948,6 +1043,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          created_at: string
           custom: boolean
           id: number
           name: string
@@ -956,6 +1052,7 @@ export type Database = {
         Insert: {
           active: boolean
           code: string
+          created_at?: string
           custom: boolean
           id?: never
           name: string
@@ -964,6 +1061,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string
+          created_at?: string
           custom?: boolean
           id?: never
           name?: string
@@ -975,6 +1073,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          created_at: string
           custom: boolean
           id: number
           name: string
@@ -983,6 +1082,7 @@ export type Database = {
         Insert: {
           active: boolean
           code: string
+          created_at?: string
           custom: boolean
           id?: never
           name: string
@@ -991,6 +1091,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string
+          created_at?: string
           custom?: boolean
           id?: never
           name?: string
@@ -1004,9 +1105,9 @@ export type Database = {
           birth_date: string | null
           data_source_id: number | null
           death_date: string | null
-          edit_by_user_id: string
+          edit_at: string
+          edit_by_user_id: number
           edit_comment: string | null
-          email_address: string | null
           enterprise_id: number
           foreign_participation_id: number | null
           free_econ_zone: boolean | null
@@ -1014,29 +1115,23 @@ export type Database = {
           invalid_codes: Json | null
           legal_form_id: number | null
           name: string | null
-          notes: string | null
-          parent_org_link: number | null
           primary_for_enterprise: boolean
-          reorg_date: string | null
-          reorg_references: number | null
-          reorg_type_id: number | null
           sector_id: number | null
           short_name: string | null
-          telephone_no: string | null
+          status_id: number | null
           unit_size_id: number | null
           valid_after: string
           valid_from: string
           valid_to: string
-          web_address: string | null
         }
         Insert: {
           active?: boolean
           birth_date?: string | null
           data_source_id?: number | null
           death_date?: string | null
-          edit_by_user_id: string
+          edit_at?: string
+          edit_by_user_id: number
           edit_comment?: string | null
-          email_address?: string | null
           enterprise_id: number
           foreign_participation_id?: number | null
           free_econ_zone?: boolean | null
@@ -1044,29 +1139,23 @@ export type Database = {
           invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string | null
-          notes?: string | null
-          parent_org_link?: number | null
           primary_for_enterprise: boolean
-          reorg_date?: string | null
-          reorg_references?: number | null
-          reorg_type_id?: number | null
           sector_id?: number | null
           short_name?: string | null
-          telephone_no?: string | null
+          status_id?: number | null
           unit_size_id?: number | null
           valid_after?: string
           valid_from?: string
           valid_to?: string
-          web_address?: string | null
         }
         Update: {
           active?: boolean
           birth_date?: string | null
           data_source_id?: number | null
           death_date?: string | null
-          edit_by_user_id?: string
+          edit_at?: string
+          edit_by_user_id?: number
           edit_comment?: string | null
-          email_address?: string | null
           enterprise_id?: number
           foreign_participation_id?: number | null
           free_econ_zone?: boolean | null
@@ -1074,20 +1163,14 @@ export type Database = {
           invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string | null
-          notes?: string | null
-          parent_org_link?: number | null
           primary_for_enterprise?: boolean
-          reorg_date?: string | null
-          reorg_references?: number | null
-          reorg_type_id?: number | null
           sector_id?: number | null
           short_name?: string | null
-          telephone_no?: string | null
+          status_id?: number | null
           unit_size_id?: number | null
           valid_after?: string
           valid_from?: string
           valid_to?: string
-          web_address?: string | null
         }
         Relationships: [
           {
@@ -1116,6 +1199,13 @@ export type Database = {
             columns: ["data_source_id"]
             isOneToOne: false
             referencedRelation: "data_source_used"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
             referencedColumns: ["id"]
           },
           {
@@ -1196,27 +1286,6 @@ export type Database = {
             referencedColumns: ["legal_form_id"]
           },
           {
-            foreignKeyName: "legal_unit_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "legal_unit_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type_available"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "legal_unit_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type_ordered"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "legal_unit_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
@@ -1259,6 +1328,13 @@ export type Database = {
             referencedColumns: ["sector_id"]
           },
           {
+            foreignKeyName: "legal_unit_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "status"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
@@ -1289,6 +1365,9 @@ export type Database = {
           altitude: number | null
           country_id: number
           data_source_id: number | null
+          edit_at: string
+          edit_by_user_id: number
+          edit_comment: string | null
           establishment_id: number | null
           id: number
           latitude: number | null
@@ -1298,7 +1377,6 @@ export type Database = {
           postplace: string | null
           region_id: number | null
           type: Database["public"]["Enums"]["location_type"]
-          updated_by_user_id: number
           valid_after: string
           valid_from: string
           valid_to: string
@@ -1310,6 +1388,9 @@ export type Database = {
           altitude?: number | null
           country_id: number
           data_source_id?: number | null
+          edit_at?: string
+          edit_by_user_id: number
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number
           latitude?: number | null
@@ -1319,7 +1400,6 @@ export type Database = {
           postplace?: string | null
           region_id?: number | null
           type: Database["public"]["Enums"]["location_type"]
-          updated_by_user_id: number
           valid_after?: string
           valid_from?: string
           valid_to?: string
@@ -1331,6 +1411,9 @@ export type Database = {
           altitude?: number | null
           country_id?: number
           data_source_id?: number | null
+          edit_at?: string
+          edit_by_user_id?: number
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number
           latitude?: number | null
@@ -1340,7 +1423,6 @@ export type Database = {
           postplace?: string | null
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"]
-          updated_by_user_id?: number
           valid_after?: string
           valid_from?: string
           valid_to?: string
@@ -1396,6 +1478,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "location_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "location_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
@@ -1409,18 +1498,13 @@ export type Database = {
             referencedRelation: "region_used"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "location_updated_by_user_id_fkey"
-            columns: ["updated_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "statbus_user"
-            referencedColumns: ["id"]
-          },
         ]
       }
       person: {
         Row: {
-          address: string | null
+          address_part1: string | null
+          address_part2: string | null
+          address_part3: string | null
           birth_date: string | null
           country_id: number | null
           created_at: string
@@ -1428,13 +1512,15 @@ export type Database = {
           given_name: string | null
           id: number
           middle_name: string | null
+          mobile_number: string | null
           personal_ident: string | null
-          phone_number_1: string | null
-          phone_number_2: string | null
+          phone_number: string | null
           sex: Database["public"]["Enums"]["person_sex"] | null
         }
         Insert: {
-          address?: string | null
+          address_part1?: string | null
+          address_part2?: string | null
+          address_part3?: string | null
           birth_date?: string | null
           country_id?: number | null
           created_at?: string
@@ -1442,13 +1528,15 @@ export type Database = {
           given_name?: string | null
           id?: never
           middle_name?: string | null
+          mobile_number?: string | null
           personal_ident?: string | null
-          phone_number_1?: string | null
-          phone_number_2?: string | null
+          phone_number?: string | null
           sex?: Database["public"]["Enums"]["person_sex"] | null
         }
         Update: {
-          address?: string | null
+          address_part1?: string | null
+          address_part2?: string | null
+          address_part3?: string | null
           birth_date?: string | null
           country_id?: number | null
           created_at?: string
@@ -1456,9 +1544,9 @@ export type Database = {
           given_name?: string | null
           id?: never
           middle_name?: string | null
+          mobile_number?: string | null
           personal_ident?: string | null
-          phone_number_1?: string | null
-          phone_number_2?: string | null
+          phone_number?: string | null
           sex?: Database["public"]["Enums"]["person_sex"] | null
         }
         Relationships: [
@@ -1487,27 +1575,67 @@ export type Database = {
       }
       person_for_unit: {
         Row: {
+          data_source_id: number | null
           establishment_id: number | null
           id: number
           legal_unit_id: number | null
           person_id: number
-          person_type_id: number | null
+          person_role_id: number | null
+          valid_after: string
+          valid_from: string
+          valid_to: string
         }
         Insert: {
+          data_source_id?: number | null
           establishment_id?: number | null
           id?: never
           legal_unit_id?: number | null
           person_id: number
-          person_type_id?: number | null
+          person_role_id?: number | null
+          valid_after?: string
+          valid_from?: string
+          valid_to?: string
         }
         Update: {
+          data_source_id?: number | null
           establishment_id?: number | null
           id?: never
           legal_unit_id?: number | null
           person_id?: number
-          person_type_id?: number | null
+          person_role_id?: number | null
+          valid_after?: string
+          valid_from?: string
+          valid_to?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "person_for_unit_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_for_unit_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_for_unit_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_ordered"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "person_for_unit_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_used"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "person_for_unit_person_id_fkey"
             columns: ["person_id"]
@@ -1516,22 +1644,22 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "person_for_unit_person_type_id_fkey"
-            columns: ["person_type_id"]
+            foreignKeyName: "person_for_unit_person_role_id_fkey"
+            columns: ["person_role_id"]
             isOneToOne: false
             referencedRelation: "person_role"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "person_for_unit_person_type_id_fkey"
-            columns: ["person_type_id"]
+            foreignKeyName: "person_for_unit_person_role_id_fkey"
+            columns: ["person_role_id"]
             isOneToOne: false
             referencedRelation: "person_role_available"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "person_for_unit_person_type_id_fkey"
-            columns: ["person_type_id"]
+            foreignKeyName: "person_for_unit_person_role_id_fkey"
+            columns: ["person_role_id"]
             isOneToOne: false
             referencedRelation: "person_role_ordered"
             referencedColumns: ["id"]
@@ -1542,6 +1670,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          created_at: string
           custom: boolean
           id: number
           name: string
@@ -1550,6 +1679,7 @@ export type Database = {
         Insert: {
           active: boolean
           code: string
+          created_at?: string
           custom: boolean
           id?: never
           name: string
@@ -1558,6 +1688,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string
+          created_at?: string
           custom?: boolean
           id?: never
           name?: string
@@ -1690,6 +1821,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          created_at: string
           custom: boolean
           description: string
           id: number
@@ -1699,6 +1831,7 @@ export type Database = {
         Insert: {
           active: boolean
           code: string
+          created_at?: string
           custom: boolean
           description: string
           id?: never
@@ -1708,6 +1841,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string
+          created_at?: string
           custom?: boolean
           description?: string
           id?: never
@@ -1720,6 +1854,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string | null
+          created_at: string
           custom: boolean
           description: string | null
           id: number
@@ -1732,6 +1867,7 @@ export type Database = {
         Insert: {
           active: boolean
           code?: string | null
+          created_at?: string
           custom: boolean
           description?: string | null
           id?: never
@@ -1744,6 +1880,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string | null
+          created_at?: string
           custom?: boolean
           description?: string | null
           id?: never
@@ -1956,6 +2093,45 @@ export type Database = {
           },
         ]
       }
+      status: {
+        Row: {
+          active: boolean
+          assigned_by_default: boolean
+          code: string
+          created_at: string
+          custom: boolean
+          id: number
+          include_unit_in_reports: boolean
+          name: string
+          priority: number
+          updated_at: string
+        }
+        Insert: {
+          active: boolean
+          assigned_by_default: boolean
+          code: string
+          created_at?: string
+          custom?: boolean
+          id?: never
+          include_unit_in_reports: boolean
+          name: string
+          priority: number
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          assigned_by_default?: boolean
+          code?: string
+          created_at?: string
+          custom?: boolean
+          id?: never
+          include_unit_in_reports?: boolean
+          name?: string
+          priority?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tag: {
         Row: {
           active: boolean
@@ -2026,33 +2202,49 @@ export type Database = {
       }
       tag_for_unit: {
         Row: {
+          created_at: string
+          edit_at: string
+          edit_by_user_id: number
+          edit_comment: string | null
           enterprise_group_id: number | null
           enterprise_id: number | null
           establishment_id: number | null
           id: number
           legal_unit_id: number | null
           tag_id: number
-          updated_by_user_id: number
         }
         Insert: {
+          created_at?: string
+          edit_at?: string
+          edit_by_user_id: number
+          edit_comment?: string | null
           enterprise_group_id?: number | null
           enterprise_id?: number | null
           establishment_id?: number | null
           id?: never
           legal_unit_id?: number | null
           tag_id: number
-          updated_by_user_id: number
         }
         Update: {
+          created_at?: string
+          edit_at?: string
+          edit_by_user_id?: number
+          edit_comment?: string | null
           enterprise_group_id?: number | null
           enterprise_id?: number | null
           establishment_id?: number | null
           id?: never
           legal_unit_id?: number | null
           tag_id?: number
-          updated_by_user_id?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "tag_for_unit_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tag_for_unit_enterprise_id_fkey"
             columns: ["enterprise_id"]
@@ -2074,12 +2266,66 @@ export type Database = {
             referencedRelation: "tag"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      unit_notes: {
+        Row: {
+          created_at: string
+          edit_at: string
+          edit_by_user_id: number
+          edit_comment: string | null
+          enterprise_group_id: number | null
+          enterprise_id: number | null
+          establishment_id: number | null
+          id: number
+          legal_unit_id: number | null
+          notes: string
+        }
+        Insert: {
+          created_at?: string
+          edit_at?: string
+          edit_by_user_id: number
+          edit_comment?: string | null
+          enterprise_group_id?: number | null
+          enterprise_id?: number | null
+          establishment_id?: number | null
+          id?: never
+          legal_unit_id?: number | null
+          notes: string
+        }
+        Update: {
+          created_at?: string
+          edit_at?: string
+          edit_by_user_id?: number
+          edit_comment?: string | null
+          enterprise_group_id?: number | null
+          enterprise_id?: number | null
+          establishment_id?: number | null
+          id?: never
+          legal_unit_id?: number | null
+          notes?: string
+        }
+        Relationships: [
           {
-            foreignKeyName: "tag_for_unit_updated_by_user_id_fkey"
-            columns: ["updated_by_user_id"]
+            foreignKeyName: "unit_notes_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_notes_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "enterprise"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_notes_enterprise_id_fkey"
+            columns: ["enterprise_id"]
+            isOneToOne: false
+            referencedRelation: "timeline_enterprise"
+            referencedColumns: ["enterprise_id"]
           },
         ]
       }
@@ -2087,6 +2333,7 @@ export type Database = {
         Row: {
           active: boolean
           code: string
+          created_at: string
           custom: boolean
           id: number
           name: string
@@ -2095,6 +2342,7 @@ export type Database = {
         Insert: {
           active: boolean
           code: string
+          created_at?: string
           custom: boolean
           id?: never
           name: string
@@ -2103,6 +2351,7 @@ export type Database = {
         Update: {
           active?: boolean
           code?: string
+          created_at?: string
           custom?: boolean
           id?: never
           name?: string
@@ -2183,12 +2432,13 @@ export type Database = {
         Row: {
           category_id: number | null
           data_source_id: number | null
+          edit_at: string | null
+          edit_by_user_id: number | null
+          edit_comment: string | null
           establishment_id: number | null
           id: number | null
           legal_unit_id: number | null
           type: Database["public"]["Enums"]["activity_type"] | null
-          updated_at: string | null
-          updated_by_user_id: number | null
           valid_after: string | null
           valid_from: string | null
           valid_to: string | null
@@ -2196,12 +2446,13 @@ export type Database = {
         Insert: {
           category_id?: number | null
           data_source_id?: number | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number | null
           legal_unit_id?: number | null
           type?: Database["public"]["Enums"]["activity_type"] | null
-          updated_at?: string | null
-          updated_by_user_id?: number | null
           valid_after?: string | null
           valid_from?: string | null
           valid_to?: string | null
@@ -2209,12 +2460,13 @@ export type Database = {
         Update: {
           category_id?: number | null
           data_source_id?: number | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number | null
           legal_unit_id?: number | null
           type?: Database["public"]["Enums"]["activity_type"] | null
-          updated_at?: string | null
-          updated_by_user_id?: number | null
           valid_after?: string | null
           valid_from?: string | null
           valid_to?: string | null
@@ -2270,8 +2522,101 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "activity_updated_by_user_id_fkey"
-            columns: ["updated_by_user_id"]
+            foreignKeyName: "activity_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      contact_era: {
+        Row: {
+          data_source_id: number | null
+          edit_at: string | null
+          edit_by_user_id: number | null
+          edit_comment: string | null
+          email_address: string | null
+          establishment_id: number | null
+          fax_number: string | null
+          id: number | null
+          landline: string | null
+          legal_unit_id: number | null
+          mobile_number: string | null
+          phone_number: string | null
+          valid_after: string | null
+          valid_from: string | null
+          valid_to: string | null
+          web_address: string | null
+        }
+        Insert: {
+          data_source_id?: number | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
+          email_address?: string | null
+          establishment_id?: number | null
+          fax_number?: string | null
+          id?: number | null
+          landline?: string | null
+          legal_unit_id?: number | null
+          mobile_number?: string | null
+          phone_number?: string | null
+          valid_after?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+          web_address?: string | null
+        }
+        Update: {
+          data_source_id?: number | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
+          email_address?: string | null
+          establishment_id?: number | null
+          fax_number?: string | null
+          id?: number | null
+          landline?: string | null
+          legal_unit_id?: number | null
+          mobile_number?: string | null
+          phone_number?: string | null
+          valid_after?: string | null
+          valid_from?: string | null
+          valid_to?: string | null
+          web_address?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_ordered"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_data_source_id_fkey"
+            columns: ["data_source_id"]
+            isOneToOne: false
+            referencedRelation: "data_source_used"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
             referencedColumns: ["id"]
@@ -2320,6 +2665,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -2328,6 +2674,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2336,6 +2683,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2362,6 +2710,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -2370,6 +2719,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2378,6 +2728,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2422,6 +2773,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -2430,6 +2782,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2438,6 +2791,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2464,6 +2818,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -2472,6 +2827,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2480,6 +2836,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2506,6 +2863,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -2514,6 +2872,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2522,6 +2881,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2548,6 +2908,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -2556,6 +2917,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2564,6 +2926,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2592,90 +2955,72 @@ export type Database = {
           birth_date: string | null
           data_source_id: number | null
           death_date: string | null
-          edit_by_user_id: string | null
+          edit_at: string | null
+          edit_by_user_id: number | null
           edit_comment: string | null
-          email_address: string | null
           enterprise_id: number | null
           free_econ_zone: boolean | null
           id: number | null
           invalid_codes: Json | null
           legal_unit_id: number | null
           name: string | null
-          notes: string | null
-          parent_org_link: number | null
           primary_for_enterprise: boolean | null
           primary_for_legal_unit: boolean | null
-          reorg_date: string | null
-          reorg_references: number | null
-          reorg_type_id: number | null
           sector_id: number | null
           short_name: string | null
-          telephone_no: string | null
+          status_id: number | null
           unit_size_id: number | null
           valid_after: string | null
           valid_from: string | null
           valid_to: string | null
-          web_address: string | null
         }
         Insert: {
           active?: boolean | null
           birth_date?: string | null
           data_source_id?: number | null
           death_date?: string | null
-          edit_by_user_id?: string | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
           edit_comment?: string | null
-          email_address?: string | null
           enterprise_id?: number | null
           free_econ_zone?: boolean | null
           id?: number | null
           invalid_codes?: Json | null
           legal_unit_id?: number | null
           name?: string | null
-          notes?: string | null
-          parent_org_link?: number | null
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
-          reorg_date?: string | null
-          reorg_references?: number | null
-          reorg_type_id?: number | null
           sector_id?: number | null
           short_name?: string | null
-          telephone_no?: string | null
+          status_id?: number | null
           unit_size_id?: number | null
           valid_after?: string | null
           valid_from?: string | null
           valid_to?: string | null
-          web_address?: string | null
         }
         Update: {
           active?: boolean | null
           birth_date?: string | null
           data_source_id?: number | null
           death_date?: string | null
-          edit_by_user_id?: string | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
           edit_comment?: string | null
-          email_address?: string | null
           enterprise_id?: number | null
           free_econ_zone?: boolean | null
           id?: number | null
           invalid_codes?: Json | null
           legal_unit_id?: number | null
           name?: string | null
-          notes?: string | null
-          parent_org_link?: number | null
           primary_for_enterprise?: boolean | null
           primary_for_legal_unit?: boolean | null
-          reorg_date?: string | null
-          reorg_references?: number | null
-          reorg_type_id?: number | null
           sector_id?: number | null
           short_name?: string | null
-          telephone_no?: string | null
+          status_id?: number | null
           unit_size_id?: number | null
           valid_after?: string | null
           valid_from?: string | null
           valid_to?: string | null
-          web_address?: string | null
         }
         Relationships: [
           {
@@ -2707,6 +3052,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "establishment_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "establishment_enterprise_id_fkey"
             columns: ["enterprise_id"]
             isOneToOne: false
@@ -2719,27 +3071,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "timeline_enterprise"
             referencedColumns: ["enterprise_id"]
-          },
-          {
-            foreignKeyName: "establishment_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "establishment_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type_available"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "establishment_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type_ordered"
-            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_sector_id_fkey"
@@ -2782,6 +3113,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "timeline_legal_unit"
             referencedColumns: ["sector_id"]
+          },
+          {
+            foreignKeyName: "establishment_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "status"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "establishment_unit_size_id_fkey"
@@ -2886,6 +3224,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -2894,6 +3233,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2902,6 +3242,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2928,6 +3269,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -2936,6 +3278,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2944,6 +3287,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -2971,13 +3315,21 @@ export type Database = {
           birth_date: string | null
           data_source_code: string | null
           death_date: string | null
+          email_address: string | null
           employees: string | null
+          fax_number: string | null
+          landline: string | null
           legal_form_code: string | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: string | null
           physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -2985,7 +3337,10 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: string | null
           postal_country_iso_2: string | null
+          postal_latitude: string | null
+          postal_longitude: string | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -2994,9 +3349,11 @@ export type Database = {
           secondary_activity_category_code: string | null
           sector_code: string | null
           stat_ident: string | null
+          status_code: string | null
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -3005,14 +3362,22 @@ export type Database = {
           birth_date: string | null
           data_source_code: string | null
           death_date: string | null
+          email_address: string | null
           employees: string | null
+          fax_number: string | null
+          landline: string | null
           legal_unit_stat_ident: string | null
           legal_unit_tax_ident: string | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: string | null
           physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -3020,7 +3385,10 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: string | null
           postal_country_iso_2: string | null
+          postal_latitude: string | null
+          postal_longitude: string | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -3028,9 +3396,11 @@ export type Database = {
           primary_activity_category_code: string | null
           secondary_activity_category_code: string | null
           stat_ident: string | null
+          status_code: string | null
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -3039,12 +3409,20 @@ export type Database = {
           birth_date: string | null
           data_source_code: string | null
           death_date: string | null
+          email_address: string | null
           employees: string | null
+          fax_number: string | null
+          landline: string | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: string | null
           physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -3052,7 +3430,10 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: string | null
           postal_country_iso_2: string | null
+          postal_latitude: string | null
+          postal_longitude: string | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -3061,9 +3442,11 @@ export type Database = {
           secondary_activity_category_code: string | null
           sector_code: string | null
           stat_ident: string | null
+          status_code: string | null
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -3072,14 +3455,22 @@ export type Database = {
           birth_date: string | null
           data_source_code: string | null
           death_date: string | null
+          email_address: string | null
           employees: string | null
+          fax_number: string | null
+          landline: string | null
           legal_unit_stat_ident: string | null
           legal_unit_tax_ident: string | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: string | null
           physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -3087,7 +3478,10 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: string | null
           postal_country_iso_2: string | null
+          postal_latitude: string | null
+          postal_longitude: string | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -3096,11 +3490,13 @@ export type Database = {
           secondary_activity_category_code: string | null
           sector_code: string | null
           stat_ident: string | null
+          status_code: string | null
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
           valid_from: string | null
           valid_to: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -3109,14 +3505,22 @@ export type Database = {
           birth_date: string | null
           data_source_code: string | null
           death_date: string | null
+          email_address: string | null
           employees: string | null
+          fax_number: string | null
+          landline: string | null
           legal_unit_stat_ident: string | null
           legal_unit_tax_ident: string | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: string | null
           physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -3124,7 +3528,10 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: string | null
           postal_country_iso_2: string | null
+          postal_latitude: string | null
+          postal_longitude: string | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -3132,11 +3539,13 @@ export type Database = {
           primary_activity_category_code: string | null
           secondary_activity_category_code: string | null
           stat_ident: string | null
+          status_code: string | null
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
           valid_from: string | null
           valid_to: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -3145,12 +3554,20 @@ export type Database = {
           birth_date: string | null
           data_source_code: string | null
           death_date: string | null
+          email_address: string | null
           employees: string | null
+          fax_number: string | null
+          landline: string | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: string | null
           physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -3158,7 +3575,10 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: string | null
           postal_country_iso_2: string | null
+          postal_latitude: string | null
+          postal_longitude: string | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -3167,11 +3587,13 @@ export type Database = {
           secondary_activity_category_code: string | null
           sector_code: string | null
           stat_ident: string | null
+          status_code: string | null
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
           valid_from: string | null
           valid_to: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -3180,13 +3602,21 @@ export type Database = {
           birth_date: string | null
           data_source_code: string | null
           death_date: string | null
+          email_address: string | null
           employees: string | null
+          fax_number: string | null
+          landline: string | null
           legal_form_code: string | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: string | null
           physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -3194,7 +3624,10 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: string | null
           postal_country_iso_2: string | null
+          postal_latitude: string | null
+          postal_longitude: string | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -3203,9 +3636,11 @@ export type Database = {
           secondary_activity_category_code: string | null
           sector_code: string | null
           stat_ident: string | null
+          status_code: string | null
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -3214,13 +3649,21 @@ export type Database = {
           birth_date: string | null
           data_source_code: string | null
           death_date: string | null
+          email_address: string | null
           employees: string | null
+          fax_number: string | null
+          landline: string | null
           legal_form_code: string | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: string | null
           physical_country_iso_2: string | null
+          physical_latitude: string | null
+          physical_longitude: string | null
           physical_postcode: string | null
           physical_postplace: string | null
           physical_region_code: string | null
@@ -3228,7 +3671,10 @@ export type Database = {
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: string | null
           postal_country_iso_2: string | null
+          postal_latitude: string | null
+          postal_longitude: string | null
           postal_postcode: string | null
           postal_postplace: string | null
           postal_region_code: string | null
@@ -3237,11 +3683,13 @@ export type Database = {
           secondary_activity_category_code: string | null
           sector_code: string | null
           stat_ident: string | null
+          status_code: string | null
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
           valid_from: string | null
           valid_to: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -3249,6 +3697,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -3257,6 +3706,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -3265,6 +3715,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -3306,6 +3757,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -3314,6 +3766,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -3322,6 +3775,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -3358,9 +3812,9 @@ export type Database = {
           birth_date: string | null
           data_source_id: number | null
           death_date: string | null
-          edit_by_user_id: string | null
+          edit_at: string | null
+          edit_by_user_id: number | null
           edit_comment: string | null
-          email_address: string | null
           enterprise_id: number | null
           foreign_participation_id: number | null
           free_econ_zone: boolean | null
@@ -3368,29 +3822,23 @@ export type Database = {
           invalid_codes: Json | null
           legal_form_id: number | null
           name: string | null
-          notes: string | null
-          parent_org_link: number | null
           primary_for_enterprise: boolean | null
-          reorg_date: string | null
-          reorg_references: number | null
-          reorg_type_id: number | null
           sector_id: number | null
           short_name: string | null
-          telephone_no: string | null
+          status_id: number | null
           unit_size_id: number | null
           valid_after: string | null
           valid_from: string | null
           valid_to: string | null
-          web_address: string | null
         }
         Insert: {
           active?: boolean | null
           birth_date?: string | null
           data_source_id?: number | null
           death_date?: string | null
-          edit_by_user_id?: string | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
           edit_comment?: string | null
-          email_address?: string | null
           enterprise_id?: number | null
           foreign_participation_id?: number | null
           free_econ_zone?: boolean | null
@@ -3398,29 +3846,23 @@ export type Database = {
           invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string | null
-          notes?: string | null
-          parent_org_link?: number | null
           primary_for_enterprise?: boolean | null
-          reorg_date?: string | null
-          reorg_references?: number | null
-          reorg_type_id?: number | null
           sector_id?: number | null
           short_name?: string | null
-          telephone_no?: string | null
+          status_id?: number | null
           unit_size_id?: number | null
           valid_after?: string | null
           valid_from?: string | null
           valid_to?: string | null
-          web_address?: string | null
         }
         Update: {
           active?: boolean | null
           birth_date?: string | null
           data_source_id?: number | null
           death_date?: string | null
-          edit_by_user_id?: string | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
           edit_comment?: string | null
-          email_address?: string | null
           enterprise_id?: number | null
           foreign_participation_id?: number | null
           free_econ_zone?: boolean | null
@@ -3428,20 +3870,14 @@ export type Database = {
           invalid_codes?: Json | null
           legal_form_id?: number | null
           name?: string | null
-          notes?: string | null
-          parent_org_link?: number | null
           primary_for_enterprise?: boolean | null
-          reorg_date?: string | null
-          reorg_references?: number | null
-          reorg_type_id?: number | null
           sector_id?: number | null
           short_name?: string | null
-          telephone_no?: string | null
+          status_id?: number | null
           unit_size_id?: number | null
           valid_after?: string | null
           valid_from?: string | null
           valid_to?: string | null
-          web_address?: string | null
         }
         Relationships: [
           {
@@ -3470,6 +3906,13 @@ export type Database = {
             columns: ["data_source_id"]
             isOneToOne: false
             referencedRelation: "data_source_used"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
             referencedColumns: ["id"]
           },
           {
@@ -3550,27 +3993,6 @@ export type Database = {
             referencedColumns: ["legal_form_id"]
           },
           {
-            foreignKeyName: "legal_unit_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "legal_unit_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type_available"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "legal_unit_reorg_type_id_fkey"
-            columns: ["reorg_type_id"]
-            isOneToOne: false
-            referencedRelation: "reorg_type_ordered"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "legal_unit_sector_id_fkey"
             columns: ["sector_id"]
             isOneToOne: false
@@ -3613,6 +4035,13 @@ export type Database = {
             referencedColumns: ["sector_id"]
           },
           {
+            foreignKeyName: "legal_unit_status_id_fkey"
+            columns: ["status_id"]
+            isOneToOne: false
+            referencedRelation: "status"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "legal_unit_unit_size_id_fkey"
             columns: ["unit_size_id"]
             isOneToOne: false
@@ -3643,6 +4072,9 @@ export type Database = {
           altitude: number | null
           country_id: number | null
           data_source_id: number | null
+          edit_at: string | null
+          edit_by_user_id: number | null
+          edit_comment: string | null
           establishment_id: number | null
           id: number | null
           latitude: number | null
@@ -3652,7 +4084,6 @@ export type Database = {
           postplace: string | null
           region_id: number | null
           type: Database["public"]["Enums"]["location_type"] | null
-          updated_by_user_id: number | null
           valid_after: string | null
           valid_from: string | null
           valid_to: string | null
@@ -3664,6 +4095,9 @@ export type Database = {
           altitude?: number | null
           country_id?: number | null
           data_source_id?: number | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number | null
           latitude?: number | null
@@ -3673,7 +4107,6 @@ export type Database = {
           postplace?: string | null
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"] | null
-          updated_by_user_id?: number | null
           valid_after?: string | null
           valid_from?: string | null
           valid_to?: string | null
@@ -3685,6 +4118,9 @@ export type Database = {
           altitude?: number | null
           country_id?: number | null
           data_source_id?: number | null
+          edit_at?: string | null
+          edit_by_user_id?: number | null
+          edit_comment?: string | null
           establishment_id?: number | null
           id?: number | null
           latitude?: number | null
@@ -3694,7 +4130,6 @@ export type Database = {
           postplace?: string | null
           region_id?: number | null
           type?: Database["public"]["Enums"]["location_type"] | null
-          updated_by_user_id?: number | null
           valid_after?: string | null
           valid_from?: string | null
           valid_to?: string | null
@@ -3750,6 +4185,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "location_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "location_region_id_fkey"
             columns: ["region_id"]
             isOneToOne: false
@@ -3763,19 +4205,13 @@ export type Database = {
             referencedRelation: "region_used"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "location_updated_by_user_id_fkey"
-            columns: ["updated_by_user_id"]
-            isOneToOne: false
-            referencedRelation: "statbus_user"
-            referencedColumns: ["id"]
-          },
         ]
       }
       person_role_available: {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -3784,6 +4220,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -3792,6 +4229,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -3818,6 +4256,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -3826,6 +4265,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -3834,6 +4274,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -3931,6 +4372,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           description: string | null
           id: number | null
@@ -3940,6 +4382,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           description?: string | null
           id?: number | null
@@ -3949,6 +4392,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           description?: string | null
           id?: number | null
@@ -3979,6 +4423,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           description: string | null
           id: number | null
@@ -3988,6 +4433,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           description?: string | null
           id?: number | null
@@ -3997,6 +4443,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           description?: string | null
           id?: number | null
@@ -4027,6 +4474,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           description: string | null
           id: number | null
@@ -4039,6 +4487,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           description?: string | null
           id?: number | null
@@ -4051,6 +4500,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           description?: string | null
           id?: number | null
@@ -4102,6 +4552,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           description: string | null
           id: number | null
@@ -4114,6 +4565,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           description?: string | null
           id?: number | null
@@ -4126,6 +4578,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           description?: string | null
           id?: number | null
@@ -4326,6 +4779,13 @@ export type Database = {
           },
         ]
       }
+      statbus_user_with_email_and_role: {
+        Row: {
+          email: string | null
+          role_type: Database["public"]["Enums"]["statbus_role_type"] | null
+        }
+        Relationships: []
+      }
       statistical_history: {
         Row: {
           births: number | null
@@ -4390,6 +4850,8 @@ export type Database = {
           sector_change_count: number | null
           sector_path: unknown | null
           stats_summary: Json | null
+          status_change_count: number | null
+          status_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           year: number | null
         }
@@ -4417,6 +4879,8 @@ export type Database = {
           sector_change_count: number | null
           sector_path: unknown | null
           stats_summary: Json | null
+          status_change_count: number | null
+          status_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           year: number | null
         }
@@ -4440,40 +4904,56 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          email_address: string | null
           enterprise_count: number | null
           enterprise_ids: number[] | null
           establishment_count: number | null
           establishment_ids: number[] | null
           external_idents: Json | null
+          fax_number: string | null
           has_legal_unit: boolean | null
+          include_unit_in_reports: boolean | null
           invalid_codes: Json | null
+          landline: string | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
           legal_unit_count: number | null
           legal_unit_ids: number[] | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
+          physical_latitude: number | null
+          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
+          physical_region_code: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
+          postal_latitude: number | null
+          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
+          postal_region_code: string | null
           postal_region_id: number | null
           postal_region_path: unknown | null
+          primary_activity_category_code: string | null
           primary_activity_category_id: number | null
           primary_activity_category_path: unknown | null
           search: unknown | null
+          secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
           secondary_activity_category_path: unknown | null
           sector_code: string | null
@@ -4482,12 +4962,15 @@ export type Database = {
           sector_path: unknown | null
           stats: Json | null
           stats_summary: Json | null
+          status_code: string | null
+          status_id: number | null
           tag_paths: unknown[] | null
           unit_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_from: string | null
           valid_to: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -4498,40 +4981,56 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          email_address: string | null
           enterprise_count: number | null
           enterprise_ids: number[] | null
           establishment_count: number | null
           establishment_ids: number[] | null
           external_idents: Json | null
+          fax_number: string | null
           has_legal_unit: boolean | null
+          include_unit_in_reports: boolean | null
           invalid_codes: Json | null
+          landline: string | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
           legal_unit_count: number | null
           legal_unit_ids: number[] | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
+          physical_latitude: number | null
+          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
+          physical_region_code: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
+          postal_latitude: number | null
+          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
+          postal_region_code: string | null
           postal_region_id: number | null
           postal_region_path: unknown | null
+          primary_activity_category_code: string | null
           primary_activity_category_id: number | null
           primary_activity_category_path: unknown | null
           search: unknown | null
+          secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
           secondary_activity_category_path: unknown | null
           sector_code: string | null
@@ -4540,12 +5039,15 @@ export type Database = {
           sector_path: unknown | null
           stats: Json | null
           stats_summary: Json | null
+          status_code: string | null
+          status_id: number | null
           tag_paths: unknown[] | null
           unit_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_from: string | null
           valid_to: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -4558,6 +5060,7 @@ export type Database = {
           primary_activity_category_path: unknown | null
           sector_path: unknown | null
           stats_summary: Json | null
+          status_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_from: string | null
           valid_to: string | null
@@ -4586,38 +5089,53 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          email_address: string | null
           enterprise_id: number | null
           establishment_ids: number[] | null
+          fax_number: string | null
           has_legal_unit: boolean | null
           invalid_codes: Json | null
+          landline: string | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
           legal_unit_ids: number[] | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
+          physical_latitude: number | null
+          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
+          physical_region_code: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
+          postal_latitude: number | null
+          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
+          postal_region_code: string | null
           postal_region_id: number | null
           postal_region_path: unknown | null
+          primary_activity_category_code: string | null
           primary_activity_category_id: number | null
           primary_activity_category_path: unknown | null
           primary_establishment_id: number | null
           primary_legal_unit_id: number | null
           search: unknown | null
+          secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
           secondary_activity_category_path: unknown | null
           sector_code: string | null
@@ -4625,11 +5143,14 @@ export type Database = {
           sector_name: string | null
           sector_path: unknown | null
           stats_summary: Json | null
+          status_code: string | null
+          status_id: number | null
           unit_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_from: string | null
           valid_to: string | null
+          web_address: string | null
         }
         Relationships: []
       }
@@ -4640,36 +5161,51 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          email_address: string | null
           enterprise_id: number | null
           establishment_id: number | null
+          fax_number: string | null
           has_legal_unit: boolean | null
           invalid_codes: Json | null
+          landline: string | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
           legal_unit_id: number | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
+          physical_latitude: number | null
+          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
+          physical_region_code: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
+          postal_latitude: number | null
+          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
+          postal_region_code: string | null
           postal_region_id: number | null
           postal_region_path: unknown | null
+          primary_activity_category_code: string | null
           primary_activity_category_id: number | null
           primary_activity_category_path: unknown | null
           search: unknown | null
+          secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
           secondary_activity_category_path: unknown | null
           sector_code: string | null
@@ -4677,22 +5213,18 @@ export type Database = {
           sector_name: string | null
           sector_path: unknown | null
           stats: Json | null
+          status_code: string | null
+          status_id: number | null
           unit_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_from: string | null
           valid_to: string | null
+          web_address: string | null
         }
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -4702,7 +5234,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -4715,13 +5247,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -4741,10 +5280,10 @@ export type Database = {
             referencedColumns: ["enterprise_id"]
           },
           {
-            foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
+            foreignKeyName: "establishment_status_id_fkey"
+            columns: ["status_id"]
             isOneToOne: false
-            referencedRelation: "country"
+            referencedRelation: "status"
             referencedColumns: ["id"]
           },
           {
@@ -4758,7 +5297,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -4771,13 +5310,20 @@ export type Database = {
           {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
+            isOneToOne: false
+            referencedRelation: "country_used"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
@@ -4819,36 +5365,51 @@ export type Database = {
           data_source_codes: string[] | null
           data_source_ids: number[] | null
           death_date: string | null
+          email_address: string | null
           enterprise_id: number | null
           establishment_ids: number[] | null
+          fax_number: string | null
           has_legal_unit: boolean | null
           invalid_codes: Json | null
+          landline: string | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
           legal_unit_id: number | null
+          mobile_number: string | null
           name: string | null
+          phone_number: string | null
           physical_address_part1: string | null
           physical_address_part2: string | null
           physical_address_part3: string | null
+          physical_altitude: number | null
           physical_country_id: number | null
           physical_country_iso_2: string | null
+          physical_latitude: number | null
+          physical_longitude: number | null
           physical_postcode: string | null
           physical_postplace: string | null
+          physical_region_code: string | null
           physical_region_id: number | null
           physical_region_path: unknown | null
           postal_address_part1: string | null
           postal_address_part2: string | null
           postal_address_part3: string | null
+          postal_altitude: number | null
           postal_country_id: number | null
           postal_country_iso_2: string | null
+          postal_latitude: number | null
+          postal_longitude: number | null
           postal_postcode: string | null
           postal_postplace: string | null
+          postal_region_code: string | null
           postal_region_id: number | null
           postal_region_path: unknown | null
+          primary_activity_category_code: string | null
           primary_activity_category_id: number | null
           primary_activity_category_path: unknown | null
           search: unknown | null
+          secondary_activity_category_code: string | null
           secondary_activity_category_id: number | null
           secondary_activity_category_path: unknown | null
           sector_code: string | null
@@ -4857,22 +5418,18 @@ export type Database = {
           sector_path: unknown | null
           stats: Json | null
           stats_summary: Json | null
+          status_code: string | null
+          status_id: number | null
           unit_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_from: string | null
           valid_to: string | null
+          web_address: string | null
         }
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -4882,7 +5439,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -4895,13 +5452,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -4921,10 +5485,10 @@ export type Database = {
             referencedColumns: ["enterprise_id"]
           },
           {
-            foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
+            foreignKeyName: "legal_unit_status_id_fkey"
+            columns: ["status_id"]
             isOneToOne: false
-            referencedRelation: "country"
+            referencedRelation: "status"
             referencedColumns: ["id"]
           },
           {
@@ -4938,7 +5502,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -4951,13 +5515,20 @@ export type Database = {
           {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
+            isOneToOne: false
+            referencedRelation: "country_used"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
@@ -5013,6 +5584,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -5021,6 +5593,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -5029,6 +5602,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -5055,6 +5629,7 @@ export type Database = {
         Row: {
           active: boolean | null
           code: string | null
+          created_at: string | null
           custom: boolean | null
           id: number | null
           name: string | null
@@ -5063,6 +5638,7 @@ export type Database = {
         Insert: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -5071,6 +5647,7 @@ export type Database = {
         Update: {
           active?: boolean | null
           code?: string | null
+          created_at?: string | null
           custom?: boolean | null
           id?: number | null
           name?: string | null
@@ -5139,6 +5716,13 @@ export type Database = {
           enterprise_id: number
           valid_from?: string
           valid_to?: string
+        }
+        Returns: Json
+      }
+      contact_hierarchy: {
+        Args: {
+          parent_establishment_id: number
+          parent_legal_unit_id: number
         }
         Returns: Json
       }
@@ -5707,6 +6291,15 @@ export type Database = {
         }
         Returns: number
       }
+      notes_for_unit: {
+        Args: {
+          parent_establishment_id: number
+          parent_legal_unit_id: number
+          parent_enterprise_id: number
+          parent_enterprise_group_id: number
+        }
+        Returns: Json
+      }
       region_hierarchy: {
         Args: {
           region_id: number
@@ -5764,6 +6357,24 @@ export type Database = {
         }
         Returns: Json
       }
+      statbus_user_create: {
+        Args: {
+          p_email: string
+          p_role_type: Database["public"]["Enums"]["statbus_role_type"]
+          p_password?: string
+        }
+        Returns: {
+          email: string
+          password: string
+        }[]
+      }
+      statbus_user_update_role: {
+        Args: {
+          p_email: string
+          p_role_type: Database["public"]["Enums"]["statbus_role_type"]
+        }
+        Returns: undefined
+      }
       statistical_history_drilldown: {
         Args: {
           unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
@@ -5772,8 +6383,11 @@ export type Database = {
           region_path?: unknown
           activity_category_path?: unknown
           sector_path?: unknown
+          status_id?: number
           legal_form_id?: number
           country_id?: number
+          year_min?: number
+          year_max?: number
         }
         Returns: Json
       }
@@ -5799,6 +6413,7 @@ export type Database = {
           region_path?: unknown
           activity_category_path?: unknown
           sector_path?: unknown
+          status_id?: number
           legal_form_id?: number
           country_id?: number
           valid_on?: string
@@ -5842,6 +6457,12 @@ export type Database = {
           unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           unit_id: number
           valid_on?: string
+        }
+        Returns: Json
+      }
+      status_hierarchy: {
+        Args: {
+          status_id: number
         }
         Returns: Json
       }
