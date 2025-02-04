@@ -14,6 +14,7 @@ import { FilterWrapper } from "./filter-wrapper";
 import { IURLSearchParamsDict } from "@/lib/url-search-params-dict";
 import DataSourceFilter from "../filters/data-source/data-source-filter";
 import { ColumnSelectorButton } from "./column-selector-button";
+import StatusFilter from "../filters/status/status-filter";
 
 export default function TableToolbar({
   initialUrlSearchParamsDict,
@@ -21,18 +22,18 @@ export default function TableToolbar({
   return (
     <div className="flex flex-wrap items-center gap-2 mb-4 p-1 lg:p-0 w-full">
       <FilterWrapper columnCode="name">
-        <FullTextSearchFilter/>
-        <ExternalIdentFilter/>
+        <FullTextSearchFilter />
+        <ExternalIdentFilter />
       </FilterWrapper>
-      <UnitTypeFilter/>
+      <UnitTypeFilter />
       <FilterWrapper columnCode="sector">
         <Suspense fallback={<FilterSkeleton title="Sector" />}>
-          <SectorFilter/>
+          <SectorFilter />
         </Suspense>
       </FilterWrapper>
       <FilterWrapper columnCode="region">
         <Suspense fallback={<FilterSkeleton title="Region" />}>
-          <RegionFilter/>
+          <RegionFilter />
         </Suspense>
       </FilterWrapper>
       <FilterWrapper columnCode="legal_form">
@@ -43,6 +44,11 @@ export default function TableToolbar({
       <FilterWrapper columnCode="activity">
         <Suspense fallback={<FilterSkeleton title="Activity Category" />}>
           <ActivityCategoryFilter />
+        </Suspense>
+      </FilterWrapper>
+      <FilterWrapper columnCode="status">
+        <Suspense fallback={<FilterSkeleton title="Status" />}>
+          <StatusFilter />
         </Suspense>
       </FilterWrapper>
       <FilterWrapper columnCode="data_sources">

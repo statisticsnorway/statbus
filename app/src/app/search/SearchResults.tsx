@@ -13,7 +13,19 @@ import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
 import { getStatisticalUnits } from "./search-requests";
-import { activityCategoryDeriveStateUpdateFromSearchParams, dataSourceDeriveStateUpdateFromSearchParams, externalIdentDeriveStateUpdateFromSearchParams, fullTextSearchDeriveStateUpdateFromSearchParams, invalidCodesDeriveStateUpdateFromSearchParams, legalFormDeriveStateUpdateFromSearchParams, regionDeriveStateUpdateFromSearchParams, sectorDeriveStateUpdateFromSearchParams, statisticalVariablesDeriveStateUpdateFromSearchParams, unitTypeDeriveStateUpdateFromSearchParams } from "./filters/url-search-params";
+import {
+  activityCategoryDeriveStateUpdateFromSearchParams,
+  dataSourceDeriveStateUpdateFromSearchParams,
+  externalIdentDeriveStateUpdateFromSearchParams,
+  fullTextSearchDeriveStateUpdateFromSearchParams,
+  invalidCodesDeriveStateUpdateFromSearchParams,
+  legalFormDeriveStateUpdateFromSearchParams,
+  regionDeriveStateUpdateFromSearchParams,
+  sectorDeriveStateUpdateFromSearchParams,
+  statisticalVariablesDeriveStateUpdateFromSearchParams,
+  statusDeriveStateUpdateFromSearchParams,
+  unitTypeDeriveStateUpdateFromSearchParams,
+} from "./filters/url-search-params";
 
 const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
   // Notice that the createSupabaseBrowserClientAsync must be inside the fetcher
@@ -29,38 +41,50 @@ const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
   }
 };
 
-  /**
-   * Extract values from URLSearchParams and initialize search state.
-   * This avoid a double fetch during loading, because the useEffect of all
-   * the filters are triggered after the useEffect of SearchResults, so their
-   * initial state changes must be incorporated here.
-   */
-  function initializeSearchStateFromUrlSearchParams(
-    modifySearchStateReducer : (state: SearchState, action: SearchAction) => SearchState,
-    emptySearchState : SearchState,
-    initialUrlSearchParams: URLSearchParams,
-    maybeDefaultExternalIdentType: Tables<"external_ident_type_ordered">,
-    statDefinitions: Tables<"stat_definition_ordered">[],
-    allDataSources: Tables<"data_source">[],
-  ) : SearchState {
-    let actions = [
-      fullTextSearchDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-      unitTypeDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-      invalidCodesDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-      legalFormDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-      regionDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-      sectorDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-      activityCategoryDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-      dataSourceDeriveStateUpdateFromSearchParams(initialUrlSearchParams, allDataSources),
-      externalIdentDeriveStateUpdateFromSearchParams(maybeDefaultExternalIdentType, initialUrlSearchParams),
-    ].concat(
-      statisticalVariablesDeriveStateUpdateFromSearchParams(statDefinitions, initialUrlSearchParams)
-    );
-    let result = actions.reduce(modifySearchStateReducer, emptySearchState);
-    result = { ...result, pagination: emptySearchState.pagination };
-    return result;
-  };
-
+/**
+ * Extract values from URLSearchParams and initialize search state.
+ * This avoid a double fetch during loading, because the useEffect of all
+ * the filters are triggered after the useEffect of SearchResults, so their
+ * initial state changes must be incorporated here.
+ */
+function initializeSearchStateFromUrlSearchParams(
+  modifySearchStateReducer: (
+    state: SearchState,
+    action: SearchAction
+  ) => SearchState,
+  emptySearchState: SearchState,
+  initialUrlSearchParams: URLSearchParams,
+  maybeDefaultExternalIdentType: Tables<"external_ident_type_ordered">,
+  statDefinitions: Tables<"stat_definition_ordered">[],
+  allDataSources: Tables<"data_source">[]
+): SearchState {
+  let actions = [
+    fullTextSearchDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+    unitTypeDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+    invalidCodesDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+    legalFormDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+    regionDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+    sectorDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+    activityCategoryDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+    statusDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+    dataSourceDeriveStateUpdateFromSearchParams(
+      initialUrlSearchParams,
+      allDataSources
+    ),
+    externalIdentDeriveStateUpdateFromSearchParams(
+      maybeDefaultExternalIdentType,
+      initialUrlSearchParams
+    ),
+  ].concat(
+    statisticalVariablesDeriveStateUpdateFromSearchParams(
+      statDefinitions,
+      initialUrlSearchParams
+    )
+  );
+  let result = actions.reduce(modifySearchStateReducer, emptySearchState);
+  result = { ...result, pagination: emptySearchState.pagination };
+  return result;
+}
 
 interface SearchResultsProps {
   readonly children: ReactNode;
