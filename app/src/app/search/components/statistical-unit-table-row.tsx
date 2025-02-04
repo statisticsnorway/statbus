@@ -25,7 +25,8 @@ export const StatisticalUnitTableRow = ({
   unit,
   regionLevel,
 }: SearchResultTableRowProps) => {
-  const { allRegions, allActivityCategories, allDataSources } = useSearchContext();
+  const { allRegions, allActivityCategories, allStatuses, allDataSources } =
+    useSearchContext();
   const { statDefinitions, externalIdentTypes } = useBaseData();
   const { selected } = useSelectionContext();
   const { columns, bodyRowSuffix, bodyCellSuffix } = useTableColumns();
@@ -50,9 +51,14 @@ export const StatisticalUnitTableRow = ({
     unit.primary_activity_category_path
   );
 
-   const secondaryActivityCategory = getActivityCategoryByPath(
-     unit.secondary_activity_category_path
-   );
+  const secondaryActivityCategory = getActivityCategoryByPath(
+    unit.secondary_activity_category_path
+  );
+
+  const getStatusById = (status_id: number | null) =>
+    allStatuses.find(({ id }) => id === status_id);
+
+  const status = getStatusById(unit.status_id);
 
   const getDataSourcesByIds = (data_source_ids: number[] | null) => {
     if (!data_source_ids) return [];
@@ -348,9 +354,9 @@ export const StatisticalUnitTableRow = ({
                   title={unit.birth_date ?? ""}
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
-                  <small className="text-gray-700 whitespace-nowrap">
+                  <span className="text-gray-700 whitespace-nowrap">
                     {unit.birth_date}
-                  </small>
+                  </span>
                 </div>
               </TableCell>
             );
@@ -364,9 +370,25 @@ export const StatisticalUnitTableRow = ({
                   title={unit.death_date ?? ""}
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
-                  <small className="text-gray-700 whitespace-nowrap">
+                  <span className="text-gray-700 whitespace-nowrap">
                     {unit.death_date}
-                  </small>
+                  </span>
+                </div>
+              </TableCell>
+            );
+          case "status":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div
+                  title={status?.name ?? ""}
+                  className="flex flex-col space-y-0.5 leading-tight"
+                >
+                  <span className="text-gray-700 whitespace-nowrap">
+                    {status?.name}
+                  </span>
                 </div>
               </TableCell>
             );

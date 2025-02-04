@@ -68,6 +68,7 @@ interface SearchResultsProps {
   readonly initialPagination: SearchPagination;
   readonly allRegions: Tables<"region_used">[];
   readonly allActivityCategories: Tables<"activity_category_used">[];
+  readonly allStatuses: Tables<"status">[];
   readonly allDataSources: Tables<"data_source">[];
   readonly initialUrlSearchParamsDict: URLSearchParamsDict;
 }
@@ -79,6 +80,7 @@ export function SearchResults({
   initialPagination,
   allRegions,
   allActivityCategories,
+  allStatuses,
   allDataSources,
   initialUrlSearchParamsDict,
 }: SearchResultsProps) {
@@ -147,19 +149,32 @@ export function SearchResults({
   );
 
   const ctx: SearchContextState = useMemo(
-    () => ({
+    () =>
+      ({
+        searchState,
+        modifySearchState,
+        searchResult,
+        derivedApiSearchParams,
+        allRegions: allRegions ?? [],
+        allActivityCategories: allActivityCategories ?? [],
+        allStatuses: allStatuses ?? [],
+        allDataSources: allDataSources ?? [],
+        selectedTimeContext,
+        isLoading,
+        error,
+      }) as SearchContextState,
+    [
       searchState,
-      modifySearchState,
       searchResult,
       derivedApiSearchParams,
-      allRegions: allRegions ?? [],
-      allActivityCategories: allActivityCategories ?? [],
-      allDataSources: allDataSources ?? [],
+      allRegions,
+      allActivityCategories,
+      allStatuses,
+      allDataSources,
       selectedTimeContext,
       isLoading,
-      error
-    } as SearchContextState),
-    [searchState, searchResult, derivedApiSearchParams, allRegions, allActivityCategories, allDataSources, selectedTimeContext, isLoading, error]
+      error,
+    ]
   );
 
   useDerivedUrlSearchParams(ctx);

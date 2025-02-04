@@ -169,6 +169,15 @@ export function StatisticalUnitTableHeader({
                   Death Date
                 </TableHead>
               );
+            case "status":
+              return (
+                <TableHead
+                  className="text-left hidden lg:table-cell"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                >
+                  Status
+                </TableHead>
+              );
             case "data_sources":
               return (
                 <TableHead

@@ -11,6 +11,7 @@ export interface SearchContextState {
   readonly derivedApiSearchParams: URLSearchParams;
   readonly allRegions: Tables<"region_used">[];
   readonly allActivityCategories: Tables<"activity_category_available">[];
+  readonly allStatuses: Tables<"status">[];
   readonly allDataSources: Tables<"data_source">[];
   readonly selectedTimeContext: TimeContextRow;
   /**
