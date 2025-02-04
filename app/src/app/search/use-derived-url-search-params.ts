@@ -26,6 +26,8 @@ export default function useDerivedUrlSearchParams({
     if (pagination.pageNumber) {
       params.set("page", `${pagination.pageNumber}`);
     }
-    router.replace(params.size > 0 ? `?${params}` : window.location.pathname);
+    router.replace(params.size > 0 ? `?${params}` : window.location.pathname, {
+      scroll: false,
+    });
   }, [appSearchParams, order, pagination, router]);
 }
