@@ -3,7 +3,7 @@ import { zfd } from "zod-form-data";
 
 export const contactInfoSchema = zfd.formData({
   email_address: z.string().email().optional().or(z.literal("")).nullable(),
-  telephone_no: z
+  phone_number: z
     .string()
     .min(8)
     .max(25)
