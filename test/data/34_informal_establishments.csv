@@ -1,3 +1,3 @@
-valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code
-2024-01-01,infinity,82507020167,3000,THE VICTORIA FRESH FARMS,225613,UG,3314,80,1200000,nlr
-2024-01-01,infinity,82602025168,3001,THE MARINE SERVICES,225602,UG,0123,75,4400000,nlr
+valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,phone_number
+2024-01-01,infinity,82507020167,3000,THE VICTORIA FRESH FARMS,225613,UG,3314,80,1200000,nlr,0.86243874,33.4232412,,www.vff.ug,contact@vff.ug,987654321
+2024-01-01,infinity,82602025168,3001,THE MARINE SERVICES,225602,UG,0123,75,4400000,nlr,0.33815313,32.389685,1232,www.ms.ug,contact@ms.ug,123456789

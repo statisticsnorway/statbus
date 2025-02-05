@@ -1,0 +1,3 @@
+valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,phone_number
+2024-01-01,infinity,2212760144,1000,NILE PEARL WATER,01.10.2016,225613,UG,4752,4,6100,2,9000000,nlr,3333333,32.2984354,1144,nilepearlwater.ug,contact@npw.ug,123456789
+2024-01-01,infinity,2812760140,1001,EQUATOR GLOBE SOLUTIONS,01.10.2016,225602,UG,5610,1,6100,2,2400000,nlr,1.234567,32.442243,1172,egs.ug,contact@egs.ug,987654321
