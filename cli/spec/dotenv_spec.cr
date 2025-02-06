@@ -1,7 +1,7 @@
 require "spec"
 require "../src/dotenv"
 
-private def with_tempfile(content : String)
+private def with_tempfile(content : String, &)
   tempfile = File.tempfile(".env-test")
   begin
     File.write(tempfile.path, content)
