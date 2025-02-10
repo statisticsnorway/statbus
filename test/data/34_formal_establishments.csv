@@ -1,4 +1,4 @@
-valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code
-2024-01-01,infinity,92212760144,2000,NILE PEARL WATER,225613,UG,4752,5,5000000,2212760144,nlr
-2024-01-01,infinity,82612760118,2008,NILE TEXTILES,225613,UG,1311,10,10000000,2212760144,nlr
-2024-01-01,infinity,92812760140,2001,EQUATOR GLOBE SOLUTIONS,225602,UG,5610,0,0,2812760140,nlr
+valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,landline
+2024-01-01,infinity,92212760144,2000,NILE PEARL WATER,225613,UG,4752,5,5000000,2212760144,nlr,0.3333333,32.2984354,1144,www.nilepearlwater.ug,contact@npw.ug,123456789
+2024-01-01,infinity,82612760118,2008,NILE TEXTILES,225613,UG,1311,10,10000000,2212760144,nlr,,,,,,
+2024-01-01,infinity,92812760140,2001,EQUATOR GLOBE SOLUTIONS,225602,UG,5610,0,0,2812760140,nlr,1.234567,32.442243,1172,www.egs.ug,contact@egs.ug,987654321

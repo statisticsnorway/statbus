@@ -1,42 +1,46 @@
 BEGIN;
 
-CREATE FUNCTION admin.type_numeric_field(new_jsonb jsonb, field_name text, p_precision int, p_scale int, OUT numeric_value numeric, INOUT updated_invalid_codes jsonb)
+CREATE FUNCTION admin.type_numeric_field(new_jsonb jsonb, field_name text, p_precision int, p_scale int, OUT numeric_value numeric, INOUT updated_fields_with_error jsonb)
 RETURNS record
 LANGUAGE plpgsql AS $type_numeric_field$
 DECLARE
     field_str TEXT;
-    invalid_code JSONB;
+    field_with_error JSONB;
 BEGIN
     field_str := new_jsonb ->> field_name;
 
+    -- Default unless specified.
+    numeric_value := NULL;
     IF field_str IS NOT NULL AND field_str <> '' THEN
         BEGIN
             EXECUTE format('SELECT %L::numeric(%s,%s)', field_str, p_precision, p_scale) INTO numeric_value;
         EXCEPTION WHEN OTHERS THEN
             RAISE NOTICE 'Invalid % for row % because of %', field_name, new_jsonb, SQLERRM;
-            invalid_code := jsonb_build_object(field_name, field_str);
-            updated_invalid_codes := updated_invalid_codes || invalid_code;
+            field_with_error := jsonb_build_object(field_name, field_str);
+            updated_fields_with_error := updated_fields_with_error || field_with_error;
         END;
     END IF;
 END;
 $type_numeric_field$;
 
-CREATE FUNCTION admin.type_ltree_field(new_jsonb jsonb, field_name text, OUT ltree_value public.ltree, INOUT updated_invalid_codes jsonb)
+CREATE FUNCTION admin.type_ltree_field(new_jsonb jsonb, field_name text, OUT ltree_value public.ltree, INOUT updated_fields_with_error jsonb)
 RETURNS record
 LANGUAGE plpgsql AS $type_ltree_field$
 DECLARE
     field_str TEXT;
-    invalid_code JSONB;
+    field_with_error JSONB;
 BEGIN
     field_str := new_jsonb ->> field_name;
 
+    -- Default unless specified.
+    ltree_value := NULL;
     IF field_str IS NOT NULL AND field_str <> '' THEN
         BEGIN
             ltree_value := field_str::ltree;
         EXCEPTION WHEN OTHERS THEN
             RAISE NOTICE 'Invalid % for row % because of %', field_name, new_jsonb, SQLERRM;
-            invalid_code := jsonb_build_object(field_name, field_str);
-            updated_invalid_codes := updated_invalid_codes || invalid_code;
+            field_with_error := jsonb_build_object(field_name, field_str);
+            updated_fields_with_error := updated_fields_with_error || field_with_error;
         END;
     END IF;
 END;
@@ -61,7 +65,7 @@ DECLARE
     maybe_parent_id int := NULL;
     row RECORD;
     new_typed RECORD;
-    invalid_codes JSONB := '{}'::jsonb;
+    fields_with_error JSONB := '{}'::jsonb;
 BEGIN
   SELECT NULL::public.ltree AS path
        , NULL::numeric(9, 6) AS center_latitude
@@ -69,21 +73,21 @@ BEGIN
        , NULL::numeric(6, 1) AS center_altitude
        INTO new_typed;
 
-    SELECT ltree_value    , updated_invalid_codes
-    INTO   new_typed.path, invalid_codes
-    FROM   admin.type_ltree_field(new_jsonb, 'path', invalid_codes);
+    SELECT ltree_value    , updated_fields_with_error
+    INTO   new_typed.path, fields_with_error
+    FROM   admin.type_ltree_field(new_jsonb, 'path', fields_with_error);
 
-    SELECT numeric_value            , updated_invalid_codes
-    INTO   new_typed.center_latitude, invalid_codes
-    FROM   admin.type_numeric_field(new_jsonb, 'center_latitude', 9, 6, invalid_codes);
+    SELECT numeric_value            , updated_fields_with_error
+    INTO   new_typed.center_latitude, fields_with_error
+    FROM   admin.type_numeric_field(new_jsonb, 'center_latitude', 9, 6, fields_with_error);
 
-    SELECT numeric_value             , updated_invalid_codes
-    INTO   new_typed.center_longitude, invalid_codes
-    FROM   admin.type_numeric_field(new_jsonb, 'center_longitude', 9, 6, invalid_codes);
+    SELECT numeric_value             , updated_fields_with_error
+    INTO   new_typed.center_longitude, fields_with_error
+    FROM   admin.type_numeric_field(new_jsonb, 'center_longitude', 9, 6, fields_with_error);
 
-    SELECT numeric_value            , updated_invalid_codes
-    INTO   new_typed.center_altitude, invalid_codes
-    FROM   admin.type_numeric_field(new_jsonb, 'center_altitude', 6, 1, invalid_codes);
+    SELECT numeric_value            , updated_fields_with_error
+    INTO   new_typed.center_altitude, fields_with_error
+    FROM   admin.type_numeric_field(new_jsonb, 'center_altitude', 6, 1, fields_with_error);
 
     -- Validate path format and find parent
     IF public.nlevel(new_typed.path) > 1 THEN
@@ -92,19 +96,19 @@ BEGIN
          WHERE path OPERATOR(public.=) public.subltree(new_typed.path, 0, public.nlevel(new_typed.path) - 1);
 
         IF NOT FOUND THEN
-            invalid_codes := invalid_codes || jsonb_build_object('path',
+            fields_with_error := fields_with_error || jsonb_build_object('path',
                 format('Could not find parent for path %s', new_typed.path));
-            RAISE EXCEPTION 'Invalid data: %', invalid_codes;
+            RAISE EXCEPTION 'Invalid data: %', fields_with_error;
         END IF;
         RAISE DEBUG 'maybe_parent_id %', maybe_parent_id;
     END IF;
 
     -- If we found any validation errors, raise them
-    IF invalid_codes <> '{}'::jsonb THEN
+    IF fields_with_error <> '{}'::jsonb THEN
         RAISE EXCEPTION 'Invalid data: %', jsonb_pretty(
             jsonb_build_object(
                 'row', new_jsonb,
-                'errors', invalid_codes
+                'errors', fields_with_error
             )
         );
     END IF;

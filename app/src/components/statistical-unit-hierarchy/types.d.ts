@@ -76,6 +76,25 @@ declare interface Location {
   updated_by_user_id: number;
 }
 
+declare interface Contact {
+  data_source_id: number | null;
+  edit_at: string;
+  edit_by_user_id: number;
+  edit_comment: string | null;
+  email_address: string | null;
+  establishment_id: number | null;
+  fax_number: string | null;
+  id: number;
+  landline: string | null;
+  legal_unit_id: number | null;
+  mobile_number: string | null;
+  phone_number: string | null;
+  valid_after: string;
+  valid_from: string;
+  valid_to: string;
+  web_address: string | null;
+}
+
 declare interface StatDefinition {
   id: number;
   code: string;
@@ -149,6 +168,7 @@ declare interface LegalUnit extends StatisticalUnit {
   primary_for_enterprise: boolean;
   foreign_participation_id: string | null;
   stat_for_unit?: StatForUnit[];
+  contact: Contact;
 }
 
 declare interface Establishment extends StatisticalUnit {
@@ -160,6 +180,7 @@ declare interface Establishment extends StatisticalUnit {
   primary_for_legal_unit: boolean;
   primary_for_enterprise: boolean;
   stat_for_unit?: StatForUnit[];
+  contact: Contact;
 }
 
 declare interface StatisticalUnitHierarchy {

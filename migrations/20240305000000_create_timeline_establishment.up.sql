@@ -64,6 +64,7 @@ CREATE VIEW public.timeline_establishment
     --
     , status_id
     , status_code
+    , include_unit_in_reports
     --
     , invalid_codes
     , has_legal_unit
@@ -143,6 +144,7 @@ CREATE VIEW public.timeline_establishment
            --
            , es.status_id AS status_id
            , st.code AS status_code
+           , st.include_unit_in_reports AS include_unit_in_reports
            --
            , es.invalid_codes AS invalid_codes
            --

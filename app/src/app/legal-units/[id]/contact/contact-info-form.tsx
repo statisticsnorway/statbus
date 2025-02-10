@@ -25,20 +25,23 @@ export default function ContactInfoForm({
       <FormField
         label="Email address"
         name="email_address"
-        value={values.email_address}
+        value={values?.email_address}
         response={state}
+        readonly
       />
       <FormField
-        label="Telephone number"
-        name="telephone_no"
-        value={values.telephone_no}
+        label="Phone number"
+        name="phone_number"
+        value={values?.phone_number}
         response={state}
+        readonly
       />
       <FormField
         label="Web Address"
         name="web_address"
-        value={values.web_address}
+        value={values?.web_address}
         response={state}
+        readonly
       />
       <SubmissionFeedbackDebugInfo state={state} />
       <Button type="submit">Update Contact Information</Button>

@@ -29,6 +29,5 @@ CREATE TABLE public.region (
 );
 
 CREATE INDEX ix_region_parent_id ON public.region USING btree (parent_id);
-CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
 
 END;
