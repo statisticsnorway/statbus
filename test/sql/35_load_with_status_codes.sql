@@ -60,7 +60,8 @@ SELECT view_name FROM statistical_unit_refresh_now();
 SELECT valid_from, valid_to, name, unit_type,  jsonb_pretty(stats_summary) AS stats_summary, status_code, include_unit_in_reports
 FROM public.statistical_unit
 WHERE include_unit_in_reports
-AND valid_to = 'infinity';
+AND valid_to = 'infinity'
+ORDER BY unit_type, valid_from;
 
 
 \echo "Testing statistical unit drilldown - should only include units that have include_unit_in_reports set to true"

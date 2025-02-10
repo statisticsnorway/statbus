@@ -68,6 +68,7 @@ CREATE VIEW public.timeline_legal_unit
     --
     , status_id
     , status_code
+    , include_unit_in_reports
     --
     , invalid_codes
     , has_legal_unit
@@ -150,6 +151,7 @@ CREATE VIEW public.timeline_legal_unit
            --
            , lu.status_id AS status_id
            , st.code AS status_code
+           , st.include_unit_in_reports AS include_unit_in_reports
            --
            , lu.invalid_codes AS invalid_codes
            --
@@ -243,6 +245,7 @@ CREATE VIEW public.timeline_legal_unit
            ON tes.legal_unit_id = basis.legal_unit_id
           AND daterange(basis.valid_after, basis.valid_to, '(]')
            && daterange(tes.valid_after, tes.valid_to, '(]')
+        WHERE tes.include_unit_in_reports = basis.include_unit_in_reports
         GROUP BY tes.legal_unit_id, basis.valid_after , basis.valid_to
         )
       SELECT basis.unit_type
@@ -322,6 +325,7 @@ CREATE VIEW public.timeline_legal_unit
            --
            , basis.status_id
            , basis.status_code
+           , basis.include_unit_in_reports
            --
            , basis.invalid_codes
            , basis.has_legal_unit

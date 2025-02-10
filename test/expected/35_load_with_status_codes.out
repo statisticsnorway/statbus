@@ -105,87 +105,88 @@ SELECT view_name FROM statistical_unit_refresh_now();
 SELECT valid_from, valid_to, name, unit_type,  jsonb_pretty(stats_summary) AS stats_summary, status_code, include_unit_in_reports
 FROM public.statistical_unit
 WHERE include_unit_in_reports
-AND valid_to = 'infinity';
- valid_from | valid_to |       name       |   unit_type   |                 stats_summary                 | status_code | include_unit_in_reports 
-------------+----------+------------------+---------------+-----------------------------------------------+-------------+-------------------------
- 2011-01-01 | infinity | Kranløft Østland | enterprise    | {                                            +| active      | t
-            |          |                  |               |     "turnover": {                            +|             | 
-            |          |                  |               |         "max": 25000000,                     +|             | 
-            |          |                  |               |         "min": 25000000,                     +|             | 
-            |          |                  |               |         "sum": 25000000,                     +|             | 
-            |          |                  |               |         "mean": 25000000.00,                 +|             | 
-            |          |                  |               |         "type": "number",                    +|             | 
-            |          |                  |               |         "count": 1,                          +|             | 
-            |          |                  |               |         "stddev": 0.00,                      +|             | 
-            |          |                  |               |         "variance": 0.00,                    +|             | 
-            |          |                  |               |         "sum_sq_diff": 0.00,                 +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0.00 +|             | 
-            |          |                  |               |     },                                       +|             | 
-            |          |                  |               |     "employees": {                           +|             | 
-            |          |                  |               |         "max": 10,                           +|             | 
-            |          |                  |               |         "min": 10,                           +|             | 
-            |          |                  |               |         "sum": 10,                           +|             | 
-            |          |                  |               |         "mean": 10.00,                       +|             | 
-            |          |                  |               |         "type": "number",                    +|             | 
-            |          |                  |               |         "count": 1,                          +|             | 
-            |          |                  |               |         "stddev": 0.00,                      +|             | 
-            |          |                  |               |         "variance": 0.00,                    +|             | 
-            |          |                  |               |         "sum_sq_diff": 0.00,                 +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0.00 +|             | 
-            |          |                  |               |     }                                        +|             | 
-            |          |                  |               | }                                             |             | 
- 2011-01-01 | infinity | Kranløft Østland | legal_unit    | {                                            +| active      | t
-            |          |                  |               |     "turnover": {                            +|             | 
-            |          |                  |               |         "max": 25000000,                     +|             | 
-            |          |                  |               |         "min": 25000000,                     +|             | 
-            |          |                  |               |         "sum": 25000000,                     +|             | 
-            |          |                  |               |         "mean": 25000000.00,                 +|             | 
-            |          |                  |               |         "type": "number",                    +|             | 
-            |          |                  |               |         "count": 1,                          +|             | 
-            |          |                  |               |         "stddev": 0.00,                      +|             | 
-            |          |                  |               |         "variance": 0.00,                    +|             | 
-            |          |                  |               |         "sum_sq_diff": 0.00,                 +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0.00 +|             | 
-            |          |                  |               |     },                                       +|             | 
-            |          |                  |               |     "employees": {                           +|             | 
-            |          |                  |               |         "max": 10,                           +|             | 
-            |          |                  |               |         "min": 10,                           +|             | 
-            |          |                  |               |         "sum": 10,                           +|             | 
-            |          |                  |               |         "mean": 10.00,                       +|             | 
-            |          |                  |               |         "type": "number",                    +|             | 
-            |          |                  |               |         "count": 1,                          +|             | 
-            |          |                  |               |         "stddev": 0.00,                      +|             | 
-            |          |                  |               |         "variance": 0.00,                    +|             | 
-            |          |                  |               |         "sum_sq_diff": 0.00,                 +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0.00 +|             | 
-            |          |                  |               |     }                                        +|             | 
-            |          |                  |               | }                                             |             | 
- 2010-01-01 | infinity | Kranløft Oslo    | establishment | {                                            +| active      | t
-            |          |                  |               |     "turnover": {                            +|             | 
-            |          |                  |               |         "max": 25000000,                     +|             | 
-            |          |                  |               |         "min": 25000000,                     +|             | 
-            |          |                  |               |         "sum": 25000000,                     +|             | 
-            |          |                  |               |         "mean": 25000000,                    +|             | 
-            |          |                  |               |         "type": "number",                    +|             | 
-            |          |                  |               |         "count": 1,                          +|             | 
-            |          |                  |               |         "stddev": 0,                         +|             | 
-            |          |                  |               |         "variance": 0,                       +|             | 
-            |          |                  |               |         "sum_sq_diff": 0,                    +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0    +|             | 
-            |          |                  |               |     },                                       +|             | 
-            |          |                  |               |     "employees": {                           +|             | 
-            |          |                  |               |         "max": 10,                           +|             | 
-            |          |                  |               |         "min": 10,                           +|             | 
-            |          |                  |               |         "sum": 10,                           +|             | 
-            |          |                  |               |         "mean": 10,                          +|             | 
-            |          |                  |               |         "type": "number",                    +|             | 
-            |          |                  |               |         "count": 1,                          +|             | 
-            |          |                  |               |         "stddev": 0,                         +|             | 
-            |          |                  |               |         "variance": 0,                       +|             | 
-            |          |                  |               |         "sum_sq_diff": 0,                    +|             | 
-            |          |                  |               |         "coefficient_of_variation_pct": 0    +|             | 
-            |          |                  |               |     }                                        +|             | 
-            |          |                  |               | }                                             |             | 
+AND valid_to = 'infinity'
+ORDER BY unit_type, valid_from;
+ valid_from | valid_to |       name       |   unit_type   |                stats_summary                 | status_code | include_unit_in_reports 
+------------+----------+------------------+---------------+----------------------------------------------+-------------+-------------------------
+ 2010-01-01 | infinity | Kranløft Oslo    | establishment | {                                           +| active      | t
+            |          |                  |               |     "turnover": {                           +|             | 
+            |          |                  |               |         "max": 25000000,                    +|             | 
+            |          |                  |               |         "min": 25000000,                    +|             | 
+            |          |                  |               |         "sum": 25000000,                    +|             | 
+            |          |                  |               |         "mean": 25000000,                   +|             | 
+            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "count": 1,                         +|             | 
+            |          |                  |               |         "stddev": 0,                        +|             | 
+            |          |                  |               |         "variance": 0,                      +|             | 
+            |          |                  |               |         "sum_sq_diff": 0,                   +|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": 0   +|             | 
+            |          |                  |               |     },                                      +|             | 
+            |          |                  |               |     "employees": {                          +|             | 
+            |          |                  |               |         "max": 10,                          +|             | 
+            |          |                  |               |         "min": 10,                          +|             | 
+            |          |                  |               |         "sum": 10,                          +|             | 
+            |          |                  |               |         "mean": 10,                         +|             | 
+            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "count": 1,                         +|             | 
+            |          |                  |               |         "stddev": 0,                        +|             | 
+            |          |                  |               |         "variance": 0,                      +|             | 
+            |          |                  |               |         "sum_sq_diff": 0,                   +|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": 0   +|             | 
+            |          |                  |               |     }                                       +|             | 
+            |          |                  |               | }                                            |             | 
+ 2011-01-01 | infinity | Kranløft Østland | legal_unit    | {                                           +| active      | t
+            |          |                  |               |     "turnover": {                           +|             | 
+            |          |                  |               |         "max": 25000000,                    +|             | 
+            |          |                  |               |         "min": 25000000,                    +|             | 
+            |          |                  |               |         "sum": 25000000,                    +|             | 
+            |          |                  |               |         "mean": 25000000.00,                +|             | 
+            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "count": 1,                         +|             | 
+            |          |                  |               |         "stddev": 0.00,                     +|             | 
+            |          |                  |               |         "variance": 0.00,                   +|             | 
+            |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": 0.00+|             | 
+            |          |                  |               |     },                                      +|             | 
+            |          |                  |               |     "employees": {                          +|             | 
+            |          |                  |               |         "max": 10,                          +|             | 
+            |          |                  |               |         "min": 10,                          +|             | 
+            |          |                  |               |         "sum": 10,                          +|             | 
+            |          |                  |               |         "mean": 10.00,                      +|             | 
+            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "count": 1,                         +|             | 
+            |          |                  |               |         "stddev": 0.00,                     +|             | 
+            |          |                  |               |         "variance": 0.00,                   +|             | 
+            |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": 0.00+|             | 
+            |          |                  |               |     }                                       +|             | 
+            |          |                  |               | }                                            |             | 
+ 2011-01-01 | infinity | Kranløft Østland | enterprise    | {                                           +| active      | t
+            |          |                  |               |     "turnover": {                           +|             | 
+            |          |                  |               |         "max": 25000000,                    +|             | 
+            |          |                  |               |         "min": 25000000,                    +|             | 
+            |          |                  |               |         "sum": 25000000,                    +|             | 
+            |          |                  |               |         "mean": 25000000.00,                +|             | 
+            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "count": 1,                         +|             | 
+            |          |                  |               |         "stddev": 0.00,                     +|             | 
+            |          |                  |               |         "variance": 0.00,                   +|             | 
+            |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": 0.00+|             | 
+            |          |                  |               |     },                                      +|             | 
+            |          |                  |               |     "employees": {                          +|             | 
+            |          |                  |               |         "max": 10,                          +|             | 
+            |          |                  |               |         "min": 10,                          +|             | 
+            |          |                  |               |         "sum": 10,                          +|             | 
+            |          |                  |               |         "mean": 10.00,                      +|             | 
+            |          |                  |               |         "type": "number",                   +|             | 
+            |          |                  |               |         "count": 1,                         +|             | 
+            |          |                  |               |         "stddev": 0.00,                     +|             | 
+            |          |                  |               |         "variance": 0.00,                   +|             | 
+            |          |                  |               |         "sum_sq_diff": 0.00,                +|             | 
+            |          |                  |               |         "coefficient_of_variation_pct": 0.00+|             | 
+            |          |                  |               |     }                                       +|             | 
+            |          |                  |               | }                                            |             | 
 (3 rows)
 
 \echo "Testing statistical unit drilldown - should only include units that have include_unit_in_reports set to true"
@@ -194,232 +195,266 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(public.statistic
      valid_on := '2025-01-01'
 )))
     AS statistical_unit_facet_drilldown;
-               statistical_unit_facet_drilldown                
----------------------------------------------------------------
- {                                                            +
-     "stats": {                                               +
-         "count": 1,                                          +
-         "stats_summary": {                                   +
-             "turnover": {                                    +
-                 "max": 25000000,                             +
-                 "min": 25000000,                             +
-                 "sum": 25000000,                             +
-                 "mean": 25000000.00,                         +
-                 "type": "number",                            +
-                 "count": 1,                                  +
-                 "stddev": 0.00,                              +
-                 "variance": 0.00,                            +
-                 "sum_sq_diff": 0.00,                         +
-                 "coefficient_of_variation_pct": 0.00         +
-             },                                               +
-             "employees": {                                   +
-                 "max": 10,                                   +
-                 "min": 10,                                   +
-                 "sum": 10,                                   +
-                 "mean": 10.00,                               +
-                 "type": "number",                            +
-                 "count": 1,                                  +
-                 "stddev": 0.00,                              +
-                 "variance": 0.00,                            +
-                 "sum_sq_diff": 0.00,                         +
-                 "coefficient_of_variation_pct": 0.00         +
-             }                                                +
-         }                                                    +
-     },                                                       +
-     "filter": {                                              +
-         "valid_on": "2025-01-01",                            +
-         "unit_type": "enterprise",                           +
-         "region_path": null,                                 +
-         "sector_path": null,                                 +
-         "activity_category_path": null                       +
-     },                                                       +
-     "available": {                                           +
-         "region": [                                          +
-             {                                                +
-                 "code": "11",                                +
-                 "name": "Rogaland",                          +
-                 "path": "11",                                +
-                 "count": 1,                                  +
-                 "label": "11",                               +
-                 "has_children": true,                        +
-                 "stats_summary": {                           +
-                     "turnover": {                            +
-                         "max": 25000000,                     +
-                         "min": 25000000,                     +
-                         "sum": 25000000,                     +
-                         "mean": 25000000.00,                 +
-                         "type": "number",                    +
-                         "count": 1,                          +
-                         "stddev": 0.00,                      +
-                         "variance": 0.00,                    +
-                         "sum_sq_diff": 0.00,                 +
-                         "coefficient_of_variation_pct": 0.00 +
-                     },                                       +
-                     "employees": {                           +
-                         "max": 10,                           +
-                         "min": 10,                           +
-                         "sum": 10,                           +
-                         "mean": 10.00,                       +
-                         "type": "number",                    +
-                         "count": 1,                          +
-                         "stddev": 0.00,                      +
-                         "variance": 0.00,                    +
-                         "sum_sq_diff": 0.00,                 +
-                         "coefficient_of_variation_pct": 0.00 +
-                     }                                        +
-                 }                                            +
-             }                                                +
-         ],                                                   +
-         "sector": [                                          +
-             {                                                +
-                 "code": null,                                +
-                 "name": "Innenlandske sektorer",             +
-                 "path": "innl",                              +
-                 "count": 1,                                  +
-                 "label": "innl",                             +
-                 "has_children": true,                        +
-                 "stats_summary": {                           +
-                     "turnover": {                            +
-                         "max": 25000000,                     +
-                         "min": 25000000,                     +
-                         "sum": 25000000,                     +
-                         "mean": 25000000.00,                 +
-                         "type": "number",                    +
-                         "count": 1,                          +
-                         "stddev": 0.00,                      +
-                         "variance": 0.00,                    +
-                         "sum_sq_diff": 0.00,                 +
-                         "coefficient_of_variation_pct": 0.00 +
-                     },                                       +
-                     "employees": {                           +
-                         "max": 10,                           +
-                         "min": 10,                           +
-                         "sum": 10,                           +
-                         "mean": 10.00,                       +
-                         "type": "number",                    +
-                         "count": 1,                          +
-                         "stddev": 0.00,                      +
-                         "variance": 0.00,                    +
-                         "sum_sq_diff": 0.00,                 +
-                         "coefficient_of_variation_pct": 0.00 +
-                     }                                        +
-                 }                                            +
-             }                                                +
-         ],                                                   +
-         "country": [                                         +
-             {                                                +
-                 "name": "Norway",                            +
-                 "count": 1,                                  +
-                 "iso_2": "NO",                               +
-                 "has_children": false,                       +
-                 "stats_summary": {                           +
-                     "turnover": {                            +
-                         "max": 25000000,                     +
-                         "min": 25000000,                     +
-                         "sum": 25000000,                     +
-                         "mean": 25000000.00,                 +
-                         "type": "number",                    +
-                         "count": 1,                          +
-                         "stddev": 0.00,                      +
-                         "variance": 0.00,                    +
-                         "sum_sq_diff": 0.00,                 +
-                         "coefficient_of_variation_pct": 0.00 +
-                     },                                       +
-                     "employees": {                           +
-                         "max": 10,                           +
-                         "min": 10,                           +
-                         "sum": 10,                           +
-                         "mean": 10.00,                       +
-                         "type": "number",                    +
-                         "count": 1,                          +
-                         "stddev": 0.00,                      +
-                         "variance": 0.00,                    +
-                         "sum_sq_diff": 0.00,                 +
-                         "coefficient_of_variation_pct": 0.00 +
-                     }                                        +
-                 }                                            +
-             }                                                +
-         ],                                                   +
-         "legal_form": [                                      +
-             {                                                +
-                 "code": "AS",                                +
-                 "name": "Aksjeselskap",                      +
-                 "count": 1,                                  +
-                 "has_children": false,                       +
-                 "stats_summary": {                           +
-                     "turnover": {                            +
-                         "max": 25000000,                     +
-                         "min": 25000000,                     +
-                         "sum": 25000000,                     +
-                         "mean": 25000000.00,                 +
-                         "type": "number",                    +
-                         "count": 1,                          +
-                         "stddev": 0.00,                      +
-                         "variance": 0.00,                    +
-                         "sum_sq_diff": 0.00,                 +
-                         "coefficient_of_variation_pct": 0.00 +
-                     },                                       +
-                     "employees": {                           +
-                         "max": 10,                           +
-                         "min": 10,                           +
-                         "sum": 10,                           +
-                         "mean": 10.00,                       +
-                         "type": "number",                    +
-                         "count": 1,                          +
-                         "stddev": 0.00,                      +
-                         "variance": 0.00,                    +
-                         "sum_sq_diff": 0.00,                 +
-                         "coefficient_of_variation_pct": 0.00 +
-                     }                                        +
-                 }                                            +
-             }                                                +
-         ],                                                   +
-         "activity_category": [                               +
-             {                                                +
-                 "code": "",                                  +
-                 "name": "Transport og lagring",              +
-                 "path": "H",                                 +
-                 "count": 1,                                  +
-                 "label": "H",                                +
-                 "has_children": true,                        +
-                 "stats_summary": {                           +
-                     "turnover": {                            +
-                         "max": 25000000,                     +
-                         "min": 25000000,                     +
-                         "sum": 25000000,                     +
-                         "mean": 25000000.00,                 +
-                         "type": "number",                    +
-                         "count": 1,                          +
-                         "stddev": 0.00,                      +
-                         "variance": 0.00,                    +
-                         "sum_sq_diff": 0.00,                 +
-                         "coefficient_of_variation_pct": 0.00 +
-                     },                                       +
-                     "employees": {                           +
-                         "max": 10,                           +
-                         "min": 10,                           +
-                         "sum": 10,                           +
-                         "mean": 10.00,                       +
-                         "type": "number",                    +
-                         "count": 1,                          +
-                         "stddev": 0.00,                      +
-                         "variance": 0.00,                    +
-                         "sum_sq_diff": 0.00,                 +
-                         "coefficient_of_variation_pct": 0.00 +
-                     }                                        +
-                 }                                            +
-             }                                                +
-         ]                                                    +
-     },                                                       +
-     "unit_type": "enterprise",                               +
-     "breadcrumb": {                                          +
-         "region": null,                                      +
-         "sector": null,                                      +
-         "status": null,                                      +
-         "country": null,                                     +
-         "legal_form": null,                                  +
-         "activity_category": null                            +
-     }                                                        +
+               statistical_unit_facet_drilldown               
+--------------------------------------------------------------
+ {                                                           +
+     "stats": {                                              +
+         "count": 1,                                         +
+         "stats_summary": {                                  +
+             "turnover": {                                   +
+                 "max": 25000000,                            +
+                 "min": 25000000,                            +
+                 "sum": 25000000,                            +
+                 "mean": 25000000.00,                        +
+                 "type": "number",                           +
+                 "count": 1,                                 +
+                 "stddev": 0.00,                             +
+                 "variance": 0.00,                           +
+                 "sum_sq_diff": 0.00,                        +
+                 "coefficient_of_variation_pct": 0.00        +
+             },                                              +
+             "employees": {                                  +
+                 "max": 10,                                  +
+                 "min": 10,                                  +
+                 "sum": 10,                                  +
+                 "mean": 10.00,                              +
+                 "type": "number",                           +
+                 "count": 1,                                 +
+                 "stddev": 0.00,                             +
+                 "variance": 0.00,                           +
+                 "sum_sq_diff": 0.00,                        +
+                 "coefficient_of_variation_pct": 0.00        +
+             }                                               +
+         }                                                   +
+     },                                                      +
+     "filter": {                                             +
+         "valid_on": "2025-01-01",                           +
+         "unit_type": "enterprise",                          +
+         "region_path": null,                                +
+         "sector_path": null,                                +
+         "activity_category_path": null                      +
+     },                                                      +
+     "available": {                                          +
+         "region": [                                         +
+             {                                               +
+                 "code": "11",                               +
+                 "name": "Rogaland",                         +
+                 "path": "11",                               +
+                 "count": 1,                                 +
+                 "label": "11",                              +
+                 "has_children": true,                       +
+                 "stats_summary": {                          +
+                     "turnover": {                           +
+                         "max": 25000000,                    +
+                         "min": 25000000,                    +
+                         "sum": 25000000,                    +
+                         "mean": 25000000.00,                +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     },                                      +
+                     "employees": {                          +
+                         "max": 10,                          +
+                         "min": 10,                          +
+                         "sum": 10,                          +
+                         "mean": 10.00,                      +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     }                                       +
+                 }                                           +
+             }                                               +
+         ],                                                  +
+         "sector": [                                         +
+             {                                               +
+                 "code": null,                               +
+                 "name": "Innenlandske sektorer",            +
+                 "path": "innl",                             +
+                 "count": 1,                                 +
+                 "label": "innl",                            +
+                 "has_children": true,                       +
+                 "stats_summary": {                          +
+                     "turnover": {                           +
+                         "max": 25000000,                    +
+                         "min": 25000000,                    +
+                         "sum": 25000000,                    +
+                         "mean": 25000000.00,                +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     },                                      +
+                     "employees": {                          +
+                         "max": 10,                          +
+                         "min": 10,                          +
+                         "sum": 10,                          +
+                         "mean": 10.00,                      +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     }                                       +
+                 }                                           +
+             }                                               +
+         ],                                                  +
+         "status": [                                         +
+             {                                               +
+                 "code": "active",                           +
+                 "name": "Active",                           +
+                 "count": 1,                                 +
+                 "has_children": false,                      +
+                 "stats_summary": {                          +
+                     "turnover": {                           +
+                         "max": 25000000,                    +
+                         "min": 25000000,                    +
+                         "sum": 25000000,                    +
+                         "mean": 25000000.00,                +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     },                                      +
+                     "employees": {                          +
+                         "max": 10,                          +
+                         "min": 10,                          +
+                         "sum": 10,                          +
+                         "mean": 10.00,                      +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     }                                       +
+                 }                                           +
+             }                                               +
+         ],                                                  +
+         "country": [                                        +
+             {                                               +
+                 "name": "Norway",                           +
+                 "count": 1,                                 +
+                 "iso_2": "NO",                              +
+                 "has_children": false,                      +
+                 "stats_summary": {                          +
+                     "turnover": {                           +
+                         "max": 25000000,                    +
+                         "min": 25000000,                    +
+                         "sum": 25000000,                    +
+                         "mean": 25000000.00,                +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     },                                      +
+                     "employees": {                          +
+                         "max": 10,                          +
+                         "min": 10,                          +
+                         "sum": 10,                          +
+                         "mean": 10.00,                      +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     }                                       +
+                 }                                           +
+             }                                               +
+         ],                                                  +
+         "legal_form": [                                     +
+             {                                               +
+                 "code": "AS",                               +
+                 "name": "Aksjeselskap",                     +
+                 "count": 1,                                 +
+                 "has_children": false,                      +
+                 "stats_summary": {                          +
+                     "turnover": {                           +
+                         "max": 25000000,                    +
+                         "min": 25000000,                    +
+                         "sum": 25000000,                    +
+                         "mean": 25000000.00,                +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     },                                      +
+                     "employees": {                          +
+                         "max": 10,                          +
+                         "min": 10,                          +
+                         "sum": 10,                          +
+                         "mean": 10.00,                      +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     }                                       +
+                 }                                           +
+             }                                               +
+         ],                                                  +
+         "activity_category": [                              +
+             {                                               +
+                 "code": "",                                 +
+                 "name": "Transport og lagring",             +
+                 "path": "H",                                +
+                 "count": 1,                                 +
+                 "label": "H",                               +
+                 "has_children": true,                       +
+                 "stats_summary": {                          +
+                     "turnover": {                           +
+                         "max": 25000000,                    +
+                         "min": 25000000,                    +
+                         "sum": 25000000,                    +
+                         "mean": 25000000.00,                +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     },                                      +
+                     "employees": {                          +
+                         "max": 10,                          +
+                         "min": 10,                          +
+                         "sum": 10,                          +
+                         "mean": 10.00,                      +
+                         "type": "number",                   +
+                         "count": 1,                         +
+                         "stddev": 0.00,                     +
+                         "variance": 0.00,                   +
+                         "sum_sq_diff": 0.00,                +
+                         "coefficient_of_variation_pct": 0.00+
+                     }                                       +
+                 }                                           +
+             }                                               +
+         ]                                                   +
+     },                                                      +
+     "unit_type": "enterprise",                              +
+     "breadcrumb": {                                         +
+         "region": null,                                     +
+         "sector": null,                                     +
+         "status": null,                                     +
+         "country": null,                                    +
+         "legal_form": null,                                 +
+         "activity_category": null                           +
+     }                                                       +
  }
 (1 row)
 

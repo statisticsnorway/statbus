@@ -68,6 +68,7 @@ CREATE VIEW public.timeline_enterprise
     --
     , status_id
     , status_code
+    , include_unit_in_reports
     --
     , invalid_codes
     , has_legal_unit
@@ -157,6 +158,7 @@ CREATE VIEW public.timeline_enterprise
            --
            , st.id AS status_id
            , st.code AS status_code
+           , st.include_unit_in_reports AS include_unit_in_reports
            --
            , plu.invalid_codes AS invalid_codes
            --
@@ -309,6 +311,7 @@ CREATE VIEW public.timeline_enterprise
            --
            , st.id AS status_id
            , st.code AS status_code
+           , st.include_unit_in_reports AS include_unit_in_reports
            --
            , pes.invalid_codes AS invalid_codes
            --
@@ -467,6 +470,7 @@ CREATE VIEW public.timeline_enterprise
            --
            , COALESCE(enplu.status_id, enpes.status_id) AS status_id
            , COALESCE(enplu.status_code, enpes.status_code) AS status_code
+           , COALESCE(enplu.include_unit_in_reports, enpes.include_unit_in_reports) AS include_unit_in_reports
            --
            , COALESCE(
               enplu.invalid_codes || enpes.invalid_codes,
@@ -542,6 +546,7 @@ CREATE VIEW public.timeline_enterprise
                    , public.jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
               FROM public.timeline_legal_unit
               WHERE enterprise_id = ten.enterprise_id
+              AND include_unit_in_reports
               AND daterange(ten.valid_after, ten.valid_to, '(]') && daterange(valid_after, valid_to, '(]')
               GROUP BY enterprise_id, ten.valid_after, ten.valid_to
           ) AS tlu ON true
@@ -555,6 +560,7 @@ CREATE VIEW public.timeline_enterprise
                    , public.jsonb_stats_to_summary_agg(stats) AS stats_summary
               FROM public.timeline_establishment
               WHERE enterprise_id = ten.enterprise_id
+              AND include_unit_in_reports
               AND daterange(ten.valid_after, ten.valid_to, '(]') && daterange(valid_after, valid_to, '(]')
               GROUP BY enterprise_id, ten.valid_after, ten.valid_to
           ) AS tes ON true
@@ -633,6 +639,7 @@ CREATE VIEW public.timeline_enterprise
                --
                , basis.status_id
                , basis.status_code
+               , basis.include_unit_in_reports
                --
                , basis.invalid_codes
                , basis.has_legal_unit
@@ -721,6 +728,7 @@ CREATE VIEW public.timeline_enterprise
              --
              , status_id
              , status_code
+             , include_unit_in_reports
              --
              , invalid_codes
              --
