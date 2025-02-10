@@ -15,6 +15,7 @@ require "./config"
 require "./migrate"
 require "./import"
 require "./manage"
+require "./worker"
 
 module Statbus
   class Cli
@@ -22,6 +23,7 @@ module Statbus
       Manage
       Import
       Migrate
+      Worker
     end
 
     @name = "statbus"
@@ -32,6 +34,7 @@ module Statbus
       @migrate = Migrate.new(@config)
       @import = Import.new(@config)
       @manage = Manage.new(@config)
+      @worker = Worker.new(@config)
       begin
         option_parser = build_option_parser
         option_parser.parse
@@ -78,6 +81,9 @@ module Statbus
           parser.on("generate-config", "Generate configuration files") do
             @manage.mode = Manage::Mode::GenerateConfig
           end
+        end
+        parser.on("worker", "Run Statbus Worker for background processing") do
+          @mode = Mode::Worker
         end
         parser.on("import", "Import into installed StatBus") do
           @mode = Mode::Import
@@ -201,6 +207,8 @@ module Statbus
       case @mode
       in Mode::Manage
         @manage.run(option_parser)
+      in Mode::Worker
+        @worker.run
       in Mode::Import
         @import.run(option_parser)
       in Mode::Migrate
