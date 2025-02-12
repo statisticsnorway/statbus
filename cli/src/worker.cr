@@ -108,7 +108,8 @@ module Statbus
     private def receive_command_then_batch_and_process_batch
       commands = [] of Command
       ready = true
-      done = Channel(Nil).new
+      waited_once_for_timeout_at_the_start_of_batch = false
+      processed_batch = Channel(Nil).new
       loop do
         # Collect commands with timeout
         select
@@ -132,19 +133,25 @@ module Statbus
           #  end
           # end
           commands << new_cmd
-        when done.receive
+        when processed_batch.receive
           ready = true
           # The batch processing finished, and a new batch may be processed.
-        when timeout(100.milliseconds)
+        when timeout(300.milliseconds)
           # If there is no activity then the timeout allows running commands collected so far.
+          if !commands.empty?
+            waited_once_for_timeout_at_the_start_of_batch = true
+          end
         end
-        if ready && !commands.empty?
+        if ready && waited_once_for_timeout_at_the_start_of_batch && !commands.empty?
           ready = false
+          waited_once_for_timeout_at_the_start_of_batch = false
           # Process batch in the background, so commands can still be collected.
           batch = commands.dup
+          @log.debug { "Processing batch #{batch.inspect}" }
           spawn do
             batch.each { |cmd| process_command(cmd) }
-            done.send(nil) # Signal batch completion
+            # Process any detected changes
+            processed_batch.send(nil) # Signal batch completion
           end
           commands.clear
         end
@@ -152,13 +159,13 @@ module Statbus
     end
 
     private def process_command(cmd)
-      @log.info { "Processing #{cmd.class.name}" }
+      @log.info { "Processing #{cmd.inspect}" }
       start_time = Time.monotonic
       begin
         DB.connect(@config.connection_string) do |db|
           case cmd
           in CommandPing
-            db.exec "SELECT pg_notify('pong', $1);", cmd.ident
+            db.exec "SELECT worker.pong($1);", cmd.ident
           in CommandRefreshMaterializedViews
             db.exec "SELECT public.statistical_unit_refresh_now();"
           in CommandUpdateStatisticalUnit
@@ -186,9 +193,114 @@ module Statbus
         );
       SQL
 
-      # Create or replace the trigger function
+      # Create unlogged pong table for ping responses
       db.exec <<-SQL
-        CREATE OR REPLACE FUNCTION worker.notify_worker_about_changes()
+        CREATE UNLOGGED TABLE IF NOT EXISTS worker.pong (
+          ident bigint PRIMARY KEY,
+          expires_at timestamp with time zone NOT NULL DEFAULT (now() + interval '10 minutes')
+        );
+      SQL
+
+      # Create trigger to clean expired pong entries
+      db.exec <<-SQL
+        DROP TRIGGER IF EXISTS delete_expired_pongs_trigger ON worker.pong;
+      SQL
+
+      db.exec <<-SQL
+        DROP FUNCTION IF EXISTS worker.delete_expired_pongs() CASCADE;
+      SQL
+
+      db.exec <<-SQL
+        CREATE FUNCTION worker.delete_expired_pongs()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        AS $function$
+        BEGIN
+          DELETE FROM worker.pong WHERE expires_at < now();
+          RETURN NULL;
+        END;
+        $function$;
+      SQL
+
+      db.exec <<-SQL
+        CREATE TRIGGER delete_expired_pongs_trigger
+        AFTER INSERT ON worker.pong
+        FOR EACH STATEMENT
+        EXECUTE FUNCTION worker.delete_expired_pongs();
+      SQL
+
+      # Create function to handle ping responses
+      db.exec <<-SQL
+        DROP FUNCTION IF EXISTS worker.pong(bigint);
+      SQL
+      db.exec <<-SQL
+        CREATE FUNCTION worker.pong(p_ident bigint)
+        RETURNS void
+        LANGUAGE plpgsql
+        AS $function$
+        BEGIN
+          -- Insert into pong table
+          INSERT INTO worker.pong (ident)
+          VALUES (p_ident);
+
+          -- Send notification
+          PERFORM pg_notify('pong', p_ident::text);
+        END;
+        $function$;
+      SQL
+
+      # Create ping function that notifies worker and waits for response
+      db.exec <<-SQL
+        DROP FUNCTION IF EXISTS worker.ping(bigint, interval);
+      SQL
+      db.exec <<-SQL
+        CREATE FUNCTION worker.ping(
+          p_ident bigint,
+          p_timeout interval DEFAULT interval '60 seconds'
+        ) RETURNS bigint
+        LANGUAGE plpgsql
+        AS $function$
+        DECLARE
+          v_start timestamp with time zone;
+          v_found_ident bigint;
+        BEGIN
+          -- Send ping notification
+          PERFORM pg_notify('worker', json_build_object(
+            'command', 'ping',
+            'ident', p_ident
+          )::text);
+
+          v_start := clock_timestamp();
+          v_found_ident := NULL;
+
+          -- Loop until response found or timeout
+          WHILE clock_timestamp() < v_start + p_timeout AND v_found_ident IS NULL LOOP
+            -- Check for response
+            DELETE FROM worker.pong
+            WHERE ident = p_ident
+            RETURNING ident INTO v_found_ident;
+
+            IF v_found_ident IS NULL THEN
+              -- Wait a bit before checking again
+              PERFORM pg_sleep(0.1);
+            END IF;
+          END LOOP;
+
+          RETURN COALESCE(v_found_ident, 0); -- Return 0 if no response found
+        END;
+        $function$;
+      SQL
+
+      # Create trigger functions for changes and deletes
+      db.exec <<-SQL
+        DROP FUNCTION IF EXISTS worker.notify_worker_about_changes() CASCADE;
+      SQL
+      db.exec <<-SQL
+        DROP FUNCTION IF EXISTS worker.notify_worker_about_deletes() CASCADE;
+      SQL
+
+      db.exec <<-SQL
+        CREATE FUNCTION worker.notify_worker_about_changes()
         RETURNS trigger
         LANGUAGE plpgsql
         AS $function$
@@ -206,31 +318,82 @@ module Statbus
         $function$;
       SQL
 
+      db.exec <<-SQL
+        CREATE FUNCTION worker.notify_worker_about_deletes()
+        RETURNS trigger
+        LANGUAGE plpgsql
+        AS $function$
+        BEGIN
+          PERFORM pg_notify(
+            'worker',
+            json_build_object(
+              'command', 'delete',
+              'table_name', TG_TABLE_NAME,
+              'id', OLD.id,
+              'establishment_id', CASE
+                WHEN TG_TABLE_NAME = 'establishment' THEN OLD.id
+                ELSE OLD.establishment_id
+              END,
+              'legal_unit_id', CASE
+                WHEN TG_TABLE_NAME = 'legal_unit' THEN OLD.id
+                ELSE OLD.legal_unit_id
+              END,
+              'enterprise_id', CASE
+                WHEN TG_TABLE_NAME = 'enterprise' THEN OLD.id
+                ELSE OLD.enterprise_id
+              END,
+              'valid_after', OLD.valid_after,
+              'valid_from', OLD.valid_from,
+              'valid_to', OLD.valid_to
+            )::text
+          );
+          RETURN OLD;
+        END;
+        $function$;
+      SQL
+
       # Create triggers for all tables that need change tracking
       db.exec <<-SQL
         DO $$
         DECLARE
           table_name text;
         BEGIN
-          FOR table_name IN 
+          FOR table_name IN
             SELECT unnest(ARRAY[
+              'enterprise',
               'legal_unit',
               'establishment',
               'activity',
-              'sector',
               'location',
               'contact',
               'stat_for_unit'
             ])
           LOOP
+            -- Create delete trigger
             IF NOT EXISTS (
-              SELECT 1 FROM pg_trigger 
+              SELECT 1 FROM pg_trigger
+              WHERE tgname = table_name || '_deletes_trigger'
+              AND tgrelid = ('public.' || table_name)::regclass
+            ) THEN
+              EXECUTE format(
+                'CREATE TRIGGER %I
+                BEFORE DELETE ON public.%I
+                FOR EACH ROW
+                EXECUTE FUNCTION worker.notify_worker_about_deletes()',
+                table_name || '_deletes_trigger',
+                table_name
+              );
+            END IF;
+
+            -- Create changes trigger for inserts and updates
+            IF NOT EXISTS (
+              SELECT 1 FROM pg_trigger
               WHERE tgname = table_name || '_changes_trigger'
               AND tgrelid = ('public.' || table_name)::regclass
             ) THEN
               EXECUTE format(
                 'CREATE TRIGGER %I
-                AFTER INSERT OR UPDATE OR DELETE ON public.%I
+                AFTER INSERT OR UPDATE ON public.%I
                 FOR EACH STATEMENT
                 EXECUTE FUNCTION worker.notify_worker_about_changes()',
                 table_name || '_changes_trigger',
@@ -249,37 +412,119 @@ module Statbus
 
       # Extract IDs based on table type
       unit_id_columns = case cmd.table_name
-                        when "legal_unit"
-                          "id AS legal_unit_id, NULL::INT AS establishment_id"
                         when "establishment"
-                          "NULL::INT AS legal_unit_id, id AS establishment_id"
+                          <<-SQL
+                          , id AS establishment_id
+                          , legal_unit_id
+                          , enterprise_id
+                          SQL
+                        when "legal_unit"
+                          <<-SQL
+                          , NULL::INT AS establishment_id
+                          , id AS legal_unit_id
+                          , enterprise_id
+                          SQL
+                        when "enterprise"
+                          <<-SQL
+                          , NULL::INT AS establishment_id
+                          , NULL::INT AS legal_unit_id
+                          , id AS enterprise_id
+                          SQL
+                        when "activity", "location", "contact", "stat_for_unit"
+                          # Each of the tables may have establiishment_id and legal_unit_id, but not enterprise_id
+                          <<-SQL
+                          , establishment_id
+                          , legal_unit_id
+                          , NULL::INT AS enterprise_id
+                          SQL
                         else
-                          "legal_unit_id, establishment_id"
+                          raise "Unknown table: #{cmd.table_name}"
                         end
-
       # Find changed rows since last processing
-      changed_rows = db.query_all <<-SQL, cmd.transaction_id, as: {id: Int32, legal_unit_id: Int32?, establishment_id: Int32?, valid_after: Time?, valid_from: Time?, valid_to: Time?}
+      valid_columns = case cmd.table_name
+                      when "enterprise"
+                        <<-SQL
+                          , NULL::DATE AS valid_after
+                          , NULL::DATE AS valid_from
+                          , NULL::DATE AS valid_to
+                          SQL
+                      when "establishment", "legal_unit", "activity", "location", "contact", "stat_for_unit"
+                        <<-SQL
+                          , NULLIF(valid_after, '-infinity'::DATE) AS valid_after
+                          , NULLIF(valid_from, '-infinity'::DATE) AS valid_from
+                          , NULLIF(valid_to, 'infinity'::DATE) AS valid_to
+                          SQL
+                      else
+                        raise "Unknown table: #{cmd.table_name}"
+                      end
+
+      changed_rows = db.query_all <<-SQL, cmd.transaction_id, as: ChangedRow.types
         SELECT id
-             , #{unit_id_columns}
-             , CASE WHEN valid_after = '-infinity' THEN NULL ELSE valid_after END AS valid_after
-             , CASE WHEN valid_from = '-infinity' THEN NULL ELSE valid_from END AS valid_from
-             , CASE WHEN valid_to = 'infinity' THEN NULL ELSE valid_to END AS valid_to
-        FROM #{cmd.table_name} 
+             #{unit_id_columns}
+             #{valid_columns}
+        FROM #{cmd.table_name}
         WHERE age($1::xid) >= age(xmin)
         ORDER BY id;
       SQL
 
-      # Process changed rows (implement specific processing here)
+      # Collect and track IDs with their validity periods
+      collection = UnitCollection.new
+
       changed_rows.each do |row|
-        @log.info { "Processing changed row in #{cmd.table_name} (id: #{row[:id]},legal_unit_id: #{row[:legal_unit_id]}, establishment_id: #{row[:establishment_id]}, valid_from: #{row[:valid_from]}, valid_to: #{row[:valid_to]})" }
-        # Add specific row processing logic here
+        @log.info { "Analyzing changed #{cmd.table_name} row #{row.inspect}" }
+
+        # Update collection with the changed row
+        collection = update_unit_collection(collection, row)
+      end
+
+      @log.debug { "Processing collection: #{collection.inspect}" }
+
+      # Process collected IDs if any exist
+      unless collection.establishment_ids.empty? && collection.legal_unit_ids.empty? && collection.enterprise_ids.empty?
+        # Remove existing entries for these IDs in the relevant time range.
+        db.transaction do |tx|
+          # Delete all affected entries in one operation
+          tx.connection.exec <<-SQL, collection.establishment_ids.to_a, collection.legal_unit_ids.to_a, collection.enterprise_ids.to_a, collection.valid_after || "-infinity", collection.valid_to || "infinity"
+            DELETE FROM public.statistical_unit
+            WHERE (
+              -- Direct matches on unit_id for any type
+              (unit_type = 'establishment' AND unit_id = ANY($1::int[])) OR
+              (unit_type = 'legal_unit' AND unit_id = ANY($2::int[])) OR
+              (unit_type = 'enterprise' AND unit_id = ANY($3::int[])) OR
+              -- Subset matches of array columns of dependencies
+              establishment_ids <@ $1::int[] OR
+              legal_unit_ids <@ $2::int[] OR
+              enterprise_ids <@ $3::int[]
+            )
+            AND daterange(valid_after, valid_to, '(]') &&
+                daterange($4::DATE, $5::DATE, '(]');
+          SQL
+
+          # Insert all new entries in one operation
+          tx.connection.exec <<-SQL, collection.establishment_ids.to_a, collection.legal_unit_ids.to_a, collection.enterprise_ids.to_a, collection.valid_after || "-infinity", collection.valid_to || "infinity"
+            INSERT INTO public.statistical_unit
+            SELECT * FROM public.statistical_unit_def
+            WHERE (
+              -- Direct matches on unit_id for any type
+              (unit_type = 'establishment' AND unit_id = ANY($1::int[])) OR
+              (unit_type = 'legal_unit' AND unit_id = ANY($2::int[])) OR
+              (unit_type = 'enterprise' AND unit_id = ANY($3::int[])) OR
+              -- Subset matches of array columns of dependencies
+              establishment_ids <@ $1::int[] OR
+              legal_unit_ids <@ $2::int[] OR
+              enterprise_ids <@ $3::int[]
+            )
+            AND daterange(valid_after, valid_to, '(]') &&
+                daterange($4::DATE, $5::DATE, '(]');
+          SQL
+        end
       end
 
       # Update last processed transaction
       db.exec <<-SQL, cmd.table_name, current_txid
         INSERT INTO worker.last_processed (table_name, transaction_id)
         VALUES ($1, $2)
-        ON CONFLICT (table_name) 
+        ON CONFLICT (table_name)
         DO UPDATE SET transaction_id = EXCLUDED.transaction_id;
       SQL
     end
@@ -287,6 +532,60 @@ module Statbus
     private def command_update_statistical_unit(db, cmd : CommandUpdateStatisticalUnit)
       db.exec "SELECT public.statistical_unit_refresh_now();"
     end
+
+    private def update_unit_collection(collection : UnitCollection, row : ChangedRow) : UnitCollection
+      new_valid_after = combine_times(row[:valid_after], collection.valid_after, :min)
+      new_valid_to = combine_times(row[:valid_to], collection.valid_to, :max)
+
+      # Create new sets with added IDs if present
+      establishment_ids = collection.establishment_ids
+      if establishment_id = row[:establishment_id]
+        establishment_ids = establishment_ids.dup << establishment_id
+      end
+
+      legal_unit_ids = collection.legal_unit_ids
+      if legal_unit_id = row[:legal_unit_id]
+        legal_unit_ids = legal_unit_ids.dup << legal_unit_id
+      end
+
+      enterprise_ids = collection.enterprise_ids
+      if enterprise_id = row[:enterprise_id]
+        enterprise_ids = enterprise_ids.dup << enterprise_id
+      end
+
+      collection.copy_with(
+        establishment_ids: establishment_ids,
+        legal_unit_ids: legal_unit_ids,
+        enterprise_ids: enterprise_ids,
+        valid_after: new_valid_after,
+        valid_to: new_valid_to
+      )
+    end
+
+    private def combine_times(row_time : Time?, current_time : Time?, choose : Symbol) : Time?
+      if row_time.nil? && current_time.nil?
+        nil
+      elsif row_time.nil?
+        current_time
+      elsif current_time.nil?
+        row_time
+      else
+        if choose == :max
+          row_time > current_time ? row_time : current_time
+        else
+          row_time < current_time ? row_time : current_time
+        end
+      end
+    end
+
+    alias ChangedRow = {id: Int32, establishment_id: Int32?, legal_unit_id: Int32?, enterprise_id: Int32?, valid_after: Time?, valid_from: Time?, valid_to: Time?}
+
+    record UnitCollection,
+      establishment_ids : Set(Int32) = Set(Int32).new,
+      legal_unit_ids : Set(Int32) = Set(Int32).new,
+      enterprise_ids : Set(Int32) = Set(Int32).new,
+      valid_after : Time? = nil, # nil = -infinity
+      valid_to : Time? = nil     # nil = infinity
 
     record CommandPing, ident : Int64
     record CommandRefreshMaterializedViews

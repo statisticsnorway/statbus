@@ -354,10 +354,10 @@ EOS
         else
           if test -t 0 && test -t 1 && test ! -p /dev/stdin && test ! -f /dev/stdin; then
             # Interactive mode - use default TTY allocation
-            docker compose exec -w /statbus -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
+            docker compose exec -w /statbus -e PGPASSWORD -u postgres db psql -U $PGUSER $PGDATABASE "$@"
           else
             # Non-interactive mode - explicitly disable TTY allocation
-            docker compose exec -T -w /statbus -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
+            docker compose exec -T -w /statbus -e PGPASSWORD -u postgres db psql -U $PGUSER $PGDATABASE "$@"
           fi
         fi
       ;;

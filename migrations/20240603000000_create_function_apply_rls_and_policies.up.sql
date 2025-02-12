@@ -121,6 +121,8 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_edit('public.person_for_unit'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.person'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.location'::regclass);
+    -- Is updated by the statbus worker, but is data the user could modify.
+    PERFORM admin.add_rls_regular_user_can_edit('public.statistical_unit'::regclass);
     --
 END;
 $apply_rls_to_all_tables$ LANGUAGE plpgsql;
