@@ -48,8 +48,8 @@ module Statbus
     private def build_option_parser
       OptionParser.new do |parser|
         parser.banner = "Usage: #{@name} [subcommand] [arguments]"
-        parser.on("-v", "--verbose", "Enable verbose output") { @verbose = true }
-        parser.on("-d", "--debug", "Enable debug output") { @debug = true }
+        parser.on("-v", "--verbose", "Enable verbose output") { @config.verbose = true }
+        parser.on("-d", "--debug", "Enable debug output") { @config.debug = true }
         parser.on("-h", "--help", "Show help, available for subcommands") do
           puts parser
           exit

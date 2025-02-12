@@ -1,7 +1,6 @@
 BEGIN;
 
-CREATE MATERIALIZED VIEW public.statistical_unit AS
-SELECT * FROM public.statistical_unit_def;
+CREATE UNLOGGED TABLE public.statistical_unit (LIKE public.statistical_unit_def INCLUDING ALL);
 
 CREATE UNIQUE INDEX "statistical_unit_key"
     ON public.statistical_unit
@@ -10,6 +9,17 @@ CREATE UNIQUE INDEX "statistical_unit_key"
     ,unit_type
     ,unit_id
     );
+
+-- Ensure that incorrect data can not be entered, as a safeguard agains errors in processing by worker.
+ALTER TABLE public.statistical_unit ADD
+    CONSTRAINT "statistical_unit_type_id_daterange_excl"
+    EXCLUDE USING gist (
+        unit_type WITH =,
+        unit_id WITH =,
+        daterange(valid_after, valid_to, '(]'::text) WITH &&
+    ) DEFERRABLE;
+  
+    
 CREATE INDEX idx_statistical_unit_unit_type ON public.statistical_unit (unit_type);
 CREATE INDEX idx_statistical_unit_establishment_id ON public.statistical_unit (unit_id);
 CREATE INDEX idx_statistical_unit_search ON public.statistical_unit USING GIN (search);
