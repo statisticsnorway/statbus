@@ -393,9 +393,9 @@ module Statbus
               establishment_id_value := OLD.establishment_id;
               legal_unit_id_value := OLD.legal_unit_id;
               enterprise_id_value := NULL;
-              valid_after_value := OLD.valid_after;
-              valid_from_value := OLD.valid_from;
-              valid_to_value := OLD.valid_to;
+              valid_after_value := NULLIF(OLD.valid_after, '-infinity'::DATE);
+              valid_from_value := NULLIF(OLD.valid_from, '-infinity'::DATE);
+              valid_to_value := NULLIF(OLD.valid_to, 'infinity'::DATE);
           END CASE;
 
           -- Build the payload
