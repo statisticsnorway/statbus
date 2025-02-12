@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP MATERIALIZED VIEW public.statistical_unit;
+DROP TABLE public.statistical_unit;
 
 END;
