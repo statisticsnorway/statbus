@@ -94,6 +94,17 @@ module Statbus
                   payload["table_name"].as_s,
                   payload["transaction_id"].as_i64
                 )
+              when "deleted_row"
+                CommandDeletedRow.new(
+                  table_name: payload["table_name"].as_s,
+                  id: payload["id"].as_i64,
+                  establishment_id: payload["establishment_id"]?.try(&.as_i64?),
+                  legal_unit_id: payload["legal_unit_id"]?.try(&.as_i64?),
+                  enterprise_id: payload["enterprise_id"]?.try(&.as_i64?),
+                  valid_after: payload["valid_after"]?.try(&.as_s?).try { |s| Time.parse(s, "%F", Time::Location::UTC) },
+                  valid_from: payload["valid_from"]?.try(&.as_s?).try { |s| Time.parse(s, "%F", Time::Location::UTC) },
+                  valid_to: payload["valid_to"]?.try(&.as_s?).try { |s| Time.parse(s, "%F", Time::Location::UTC) }
+                )
               else
                 @log.error { "Unknown command: #{payload}" }
                 nil
@@ -172,6 +183,8 @@ module Statbus
             command_update_statistical_unit(db, cmd)
           in CommandCheckTable
             command_check_table(db, cmd)
+          in CommandDeletedRow
+            command_deleted_row(db, cmd)
           end
         end
       rescue ex
@@ -323,30 +336,84 @@ module Statbus
         RETURNS trigger
         LANGUAGE plpgsql
         AS $function$
+        DECLARE
+          payload jsonb;
+          establishment_id_value int;
+          legal_unit_id_value int;
+          enterprise_id_value int;
+          valid_after_value date;
+          valid_from_value date;
+          valid_to_value date;
         BEGIN
-          PERFORM pg_notify(
-            'worker',
-            json_build_object(
-              'command', 'delete',
-              'table_name', TG_TABLE_NAME,
-              'id', OLD.id,
-              'establishment_id', CASE
-                WHEN TG_TABLE_NAME = 'establishment' THEN OLD.id
-                ELSE OLD.establishment_id
-              END,
-              'legal_unit_id', CASE
-                WHEN TG_TABLE_NAME = 'legal_unit' THEN OLD.id
-                ELSE OLD.legal_unit_id
-              END,
-              'enterprise_id', CASE
-                WHEN TG_TABLE_NAME = 'enterprise' THEN OLD.id
-                ELSE OLD.enterprise_id
-              END,
-              'valid_after', OLD.valid_after,
-              'valid_from', OLD.valid_from,
-              'valid_to', OLD.valid_to
-            )::text
+          -- Set values based on table name
+          CASE TG_TABLE_NAME
+            WHEN 'establishment' THEN
+              establishment_id_value := OLD.id;
+              legal_unit_id_value := OLD.legal_unit_id;
+              enterprise_id_value := OLD.enterprise_id;
+              valid_after_value := OLD.valid_after;
+              valid_from_value := OLD.valid_from;
+              valid_to_value := OLD.valid_to;
+            WHEN 'legal_unit' THEN
+              establishment_id_value := NULL;
+              legal_unit_id_value := OLD.id;
+              enterprise_id_value := OLD.enterprise_id;
+              valid_after_value := OLD.valid_after;
+              valid_from_value := OLD.valid_from;
+              valid_to_value := OLD.valid_to;
+            WHEN 'enterprise' THEN
+              establishment_id_value := NULL;
+              legal_unit_id_value := NULL;
+              enterprise_id_value := OLD.id;
+              valid_after_value := NULL;
+              valid_from_value := NULL;
+              valid_to_value := NULL;
+            WHEN 'activity' THEN
+              establishment_id_value := OLD.establishment_id;
+              legal_unit_id_value := OLD.legal_unit_id;
+              enterprise_id_value := NULL;
+              valid_after_value := OLD.valid_after;
+              valid_from_value := OLD.valid_from;
+              valid_to_value := OLD.valid_to;
+            WHEN 'location' THEN
+              establishment_id_value := OLD.establishment_id;
+              legal_unit_id_value := OLD.legal_unit_id;
+              enterprise_id_value := NULL;
+              valid_after_value := OLD.valid_after;
+              valid_from_value := OLD.valid_from;
+              valid_to_value := OLD.valid_to;
+            WHEN 'contact' THEN
+              establishment_id_value := OLD.establishment_id;
+              legal_unit_id_value := OLD.legal_unit_id;
+              enterprise_id_value := NULL;
+              valid_after_value := OLD.valid_after;
+              valid_from_value := OLD.valid_from;
+              valid_to_value := OLD.valid_to;
+            WHEN 'stat_for_unit' THEN
+              establishment_id_value := OLD.establishment_id;
+              legal_unit_id_value := OLD.legal_unit_id;
+              enterprise_id_value := NULL;
+              valid_after_value := OLD.valid_after;
+              valid_from_value := OLD.valid_from;
+              valid_to_value := OLD.valid_to;
+          END CASE;
+
+          -- Build the payload
+          payload := json_build_object(
+            'command', 'deleted_row',
+            'table_name', TG_TABLE_NAME,
+            'id', OLD.id,
+            'establishment_id', establishment_id_value,
+            'legal_unit_id', legal_unit_id_value,
+            'enterprise_id', enterprise_id_value,
+            'valid_after', valid_after_value,
+            'valid_from', valid_from_value,
+            'valid_to', valid_to_value
           );
+
+          -- Send notification
+          PERFORM pg_notify('worker', payload::text);
+          
           RETURN OLD;
         END;
         $function$;
@@ -484,39 +551,10 @@ module Statbus
         # Remove existing entries for these IDs in the relevant time range.
         db.transaction do |tx|
           # Delete all affected entries in one operation
-          tx.connection.exec <<-SQL, collection.establishment_ids.to_a, collection.legal_unit_ids.to_a, collection.enterprise_ids.to_a, collection.valid_after || "-infinity", collection.valid_to || "infinity"
-            DELETE FROM public.statistical_unit
-            WHERE (
-              -- Direct matches on unit_id for any type
-              (unit_type = 'establishment' AND unit_id = ANY($1::int[])) OR
-              (unit_type = 'legal_unit' AND unit_id = ANY($2::int[])) OR
-              (unit_type = 'enterprise' AND unit_id = ANY($3::int[])) OR
-              -- Subset matches of array columns of dependencies
-              establishment_ids <@ $1::int[] OR
-              legal_unit_ids <@ $2::int[] OR
-              enterprise_ids <@ $3::int[]
-            )
-            AND daterange(valid_after, valid_to, '(]') &&
-                daterange($4::DATE, $5::DATE, '(]');
-          SQL
+          delete_from_statistical_unit(tx, collection)
 
           # Insert all new entries in one operation
-          tx.connection.exec <<-SQL, collection.establishment_ids.to_a, collection.legal_unit_ids.to_a, collection.enterprise_ids.to_a, collection.valid_after || "-infinity", collection.valid_to || "infinity"
-            INSERT INTO public.statistical_unit
-            SELECT * FROM public.statistical_unit_def
-            WHERE (
-              -- Direct matches on unit_id for any type
-              (unit_type = 'establishment' AND unit_id = ANY($1::int[])) OR
-              (unit_type = 'legal_unit' AND unit_id = ANY($2::int[])) OR
-              (unit_type = 'enterprise' AND unit_id = ANY($3::int[])) OR
-              -- Subset matches of array columns of dependencies
-              establishment_ids <@ $1::int[] OR
-              legal_unit_ids <@ $2::int[] OR
-              enterprise_ids <@ $3::int[]
-            )
-            AND daterange(valid_after, valid_to, '(]') &&
-                daterange($4::DATE, $5::DATE, '(]');
-          SQL
+          insert_into_statistical_unit(tx, collection)
         end
       end
 
@@ -526,6 +564,62 @@ module Statbus
         VALUES ($1, $2)
         ON CONFLICT (table_name)
         DO UPDATE SET transaction_id = EXCLUDED.transaction_id;
+      SQL
+    end
+
+    private def command_deleted_row(db, cmd : CommandDeletedRow)
+      # Create a collection from the deleted row
+      collection = UnitCollection.new
+      collection = update_unit_collection(collection, {
+        id:               cmd.id.to_i32,
+        establishment_id: cmd.establishment_id.try(&.to_i32),
+        legal_unit_id:    cmd.legal_unit_id.try(&.to_i32),
+        enterprise_id:    cmd.enterprise_id.try(&.to_i32),
+        valid_after:      cmd.valid_after,
+        valid_from:       cmd.valid_from,
+        valid_to:         cmd.valid_to,
+      })
+
+      # Remove existing entries for these IDs in the relevant time range
+      db.transaction do |tx|
+        delete_from_statistical_unit(tx, collection)
+      end
+    end
+
+    private def delete_from_statistical_unit(tx : DB::Transaction, collection : UnitCollection)
+      tx.connection.exec <<-SQL, collection.establishment_ids.to_a, collection.legal_unit_ids.to_a, collection.enterprise_ids.to_a, collection.valid_after || "-infinity", collection.valid_to || "infinity"
+        DELETE FROM public.statistical_unit
+        WHERE (
+          -- Direct matches on unit_id for any type
+          (unit_type = 'establishment' AND unit_id = ANY($1::int[])) OR
+          (unit_type = 'legal_unit' AND unit_id = ANY($2::int[])) OR
+          (unit_type = 'enterprise' AND unit_id = ANY($3::int[])) OR
+          -- Subset matches of array columns of dependencies
+          establishment_ids <@ $1::int[] OR
+          legal_unit_ids <@ $2::int[] OR
+          enterprise_ids <@ $3::int[]
+        )
+        AND daterange(valid_after, valid_to, '(]') &&
+            daterange($4::DATE, $5::DATE, '(]');
+      SQL
+    end
+
+    private def insert_into_statistical_unit(tx : DB::Transaction, collection : UnitCollection)
+      tx.connection.exec <<-SQL, collection.establishment_ids.to_a, collection.legal_unit_ids.to_a, collection.enterprise_ids.to_a, collection.valid_after || "-infinity", collection.valid_to || "infinity"
+        INSERT INTO public.statistical_unit
+        SELECT * FROM public.statistical_unit_def
+        WHERE (
+          -- Direct matches on unit_id for any type
+          (unit_type = 'establishment' AND unit_id = ANY($1::int[])) OR
+          (unit_type = 'legal_unit' AND unit_id = ANY($2::int[])) OR
+          (unit_type = 'enterprise' AND unit_id = ANY($3::int[])) OR
+          -- Subset matches of array columns of dependencies
+          establishment_ids <@ $1::int[] OR
+          legal_unit_ids <@ $2::int[] OR
+          enterprise_ids <@ $3::int[]
+        )
+        AND daterange(valid_after, valid_to, '(]') &&
+            daterange($4::DATE, $5::DATE, '(]');
       SQL
     end
 
@@ -590,8 +684,20 @@ module Statbus
     record CommandPing, ident : Int64
     record CommandRefreshMaterializedViews
     record CommandUpdateStatisticalUnit, unit_type : String, unit_id : Int64
+    record CommandDeletedRow,
+      table_name : String,
+      id : Int64,
+      establishment_id : Int64?,
+      legal_unit_id : Int64?,
+      enterprise_id : Int64?,
+      valid_after : Time?,
+      valid_from : Time?,
+      valid_to : Time?
     record CommandCheckTable, table_name : String, transaction_id : Int64
     alias Command = CommandPing |
-                    CommandRefreshMaterializedViews | CommandUpdateStatisticalUnit | CommandCheckTable
+                    CommandRefreshMaterializedViews |
+                    CommandUpdateStatisticalUnit |
+                    CommandCheckTable |
+                    CommandDeletedRow
   end
 end
