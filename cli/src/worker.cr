@@ -210,7 +210,7 @@ module Statbus
       db.exec <<-SQL
         CREATE UNLOGGED TABLE IF NOT EXISTS worker.pong (
           ident bigint PRIMARY KEY,
-          expires_at timestamp with time zone NOT NULL DEFAULT (now() + interval '10 minutes')
+          expires_at timestamp with time zone NOT NULL DEFAULT (now() + interval '60 seconds')
         );
       SQL
 
@@ -299,7 +299,7 @@ module Statbus
             END IF;
           END LOOP;
 
-          RETURN COALESCE(v_found_ident, 0); -- Return 0 if no response found
+          RETURN v_found_ident;
         END;
         $function$;
       SQL
@@ -413,7 +413,7 @@ module Statbus
 
           -- Send notification
           PERFORM pg_notify('worker', payload::text);
-          
+
           RETURN OLD;
         END;
         $function$;
@@ -580,9 +580,11 @@ module Statbus
         valid_to:         cmd.valid_to,
       })
 
-      # Remove existing entries for these IDs in the relevant time range
       db.transaction do |tx|
+        # Remove existing entries for these IDs in the relevant time range
         delete_from_statistical_unit(tx, collection)
+        # And re add any dependent entries, where this has been cleared.
+        insert_into_statistical_unit(tx, collection)
       end
     end
 
@@ -594,10 +596,10 @@ module Statbus
           (unit_type = 'establishment' AND unit_id = ANY($1::int[])) OR
           (unit_type = 'legal_unit' AND unit_id = ANY($2::int[])) OR
           (unit_type = 'enterprise' AND unit_id = ANY($3::int[])) OR
-          -- Subset matches of array columns of dependencies
-          establishment_ids <@ $1::int[] OR
-          legal_unit_ids <@ $2::int[] OR
-          enterprise_ids <@ $3::int[]
+          -- Array overlap matches for dependencies
+          establishment_ids && $1::int[] OR
+          legal_unit_ids && $2::int[] OR
+          enterprise_ids && $3::int[]
         )
         AND daterange(valid_after, valid_to, '(]') &&
             daterange($4::DATE, $5::DATE, '(]');
@@ -613,10 +615,10 @@ module Statbus
           (unit_type = 'establishment' AND unit_id = ANY($1::int[])) OR
           (unit_type = 'legal_unit' AND unit_id = ANY($2::int[])) OR
           (unit_type = 'enterprise' AND unit_id = ANY($3::int[])) OR
-          -- Subset matches of array columns of dependencies
-          establishment_ids <@ $1::int[] OR
-          legal_unit_ids <@ $2::int[] OR
-          enterprise_ids <@ $3::int[]
+          -- Array overlap matches for dependencies
+          establishment_ids && $1::int[] OR
+          legal_unit_ids && $2::int[] OR
+          enterprise_ids && $3::int[]
         )
         AND daterange(valid_after, valid_to, '(]') &&
             daterange($4::DATE, $5::DATE, '(]');
