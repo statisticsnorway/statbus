@@ -33,7 +33,7 @@ module Statbus
       in Mode::New
         create_new_migration
       in Mode::Redo
-        migrate_all = false # Ensure we only do one migration
+        @migrate_all = false # Ensure we only do one migration
         migrate_down
         migrate_up
       in Migrate::Mode::Convert
