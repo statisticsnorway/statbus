@@ -310,7 +310,7 @@ case "$action" in
         fi
       ;;
     'create-users' )
-        ./cli/bin/statbus manage create-users
+        ./cli/bin/statbus manage create-users -v
       ;;
      'upgrade_supabase' )
         git reset supabase_docker
