@@ -53,7 +53,7 @@ GRANT EXECUTE ON FUNCTION auth.check_is_super_user TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.assert_is_super_user_or_system_account TO authenticated;
 
 -- Create test schema for test helpers
-CREATE SCHEMA IF NOT EXISTS test;
+CREATE SCHEMA test;
 
 -- Helper to automatically set request.jwt.claim.sub for testing
 CREATE PROCEDURE test.set_user_from_email(p_email text) AS $$
