@@ -57,7 +57,7 @@ WITH year_with_unit_basis AS (
          , su_curr.stats AS stats
          , su_curr.stats_summary AS stats_summary
          --
-    FROM public.statistical_history_periods AS range
+    FROM public.get_statistical_history_periods('year'::public.history_resolution) AS range
     JOIN LATERAL (
       -- Within a range find the last row of each timeline
       SELECT *
@@ -79,7 +79,6 @@ WITH year_with_unit_basis AS (
       ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to
       AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
       AND su_prev.include_unit_in_reports
-    WHERE range.resolution = 'year'
 ), year_with_unit_derived AS (
     SELECT basis.*
          --
@@ -157,7 +156,7 @@ WITH year_with_unit_basis AS (
          , su_curr.stats AS stats
          , su_curr.stats_summary AS stats_summary
          --
-    FROM public.statistical_history_periods AS range
+    FROM public.get_statistical_history_periods('year-month'::public.history_resolution) AS range
     JOIN LATERAL (
       -- Within a range find the last row of each timeline
       SELECT *
@@ -179,7 +178,6 @@ WITH year_with_unit_basis AS (
       ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to
       AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
       AND su_prev.include_unit_in_reports
-    WHERE range.resolution = 'year-month'
 ), year_and_month_with_unit_derived AS (
     SELECT basis.*
          --

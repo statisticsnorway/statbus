@@ -1,4 +1,34 @@
 BEGIN;
+\i test/setup.sql
+SELECT worker.mode('manual');
+  mode  
+--------
+ manual
+(1 row)
+
+SELECT * FROM public.statbus_user_create('test.super@statbus.org', 'super_user'::statbus_role_type, 'Super#123!');
+         email          |  password  
+------------------------+------------
+ test.super@statbus.org | Super#123!
+(1 row)
+
+SELECT * FROM public.statbus_user_create('test.regular@statbus.org', 'regular_user'::statbus_role_type, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.statbus_user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role_type, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
 \echo "Establish a baseline"
 "Establish a baseline"
 \sv public.import_legal_unit_era

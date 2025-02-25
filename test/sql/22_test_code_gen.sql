@@ -1,5 +1,7 @@
 BEGIN;
 
+\i test/setup.sql
+
 \echo "Establish a baseline"
 \sv public.import_legal_unit_era
 \sv public.import_establishment_era

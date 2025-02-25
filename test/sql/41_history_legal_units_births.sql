@@ -2,6 +2,8 @@ SET datestyle TO 'ISO, DMY';
 
 BEGIN;
 
+\i test/setup.sql
+
 \echo "Setting up Statbus to test enterprise grouping and primary"
 
 -- A Super User configures statbus.
@@ -54,10 +56,8 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
-\echo "Refreshing materialized views"
--- Exclude the refresh_time_ms as it will vary.
-SELECT view_name FROM statistical_unit_refresh_now();
-
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
 
 \echo "Check legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
@@ -102,9 +102,8 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
-\echo "Refreshing materialized views"
--- Exclude the refresh_time_ms as it will vary.
-SELECT view_name FROM statistical_unit_refresh_now();
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
 
 \echo "Check legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
@@ -149,9 +148,8 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
-\echo "Refreshing materialized views"
--- Exclude the refresh_time_ms as it will vary.
-SELECT view_name FROM statistical_unit_refresh_now();
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
 
 \echo "Check legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date

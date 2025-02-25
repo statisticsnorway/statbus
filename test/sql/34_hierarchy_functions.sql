@@ -1,4 +1,7 @@
 BEGIN;
+
+\i test/setup.sql
+
 \echo "Setting up Statbus using the web provided examples"
 
 -- A Super User configures statbus.
@@ -45,9 +48,8 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
-\echo "Refreshing materialized views"
--- Exclude the refresh_time_ms as it will vary.
-SELECT view_name FROM statistical_unit_refresh_now();
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
 
 SELECT unit_type, name, external_idents
 FROM statistical_unit ORDER BY unit_type,name;

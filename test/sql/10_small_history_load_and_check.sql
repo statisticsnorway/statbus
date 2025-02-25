@@ -1,5 +1,7 @@
 BEGIN;
 
+\i test/setup.sql
+
 -- Create temporary function to execute queries as system user
 CREATE OR REPLACE FUNCTION test.sudo_exec(
     sql text,
@@ -340,8 +342,8 @@ ORDER BY
 LIMIT 20;  -- Display top used indexes, adjust if necessary
 \o
 
-\echo Refreshing materialized views
-SELECT view_name FROM statistical_unit_refresh_now();
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
 
 \x
 SELECT valid_after

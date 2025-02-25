@@ -2,6 +2,8 @@ SET datestyle TO 'ISO, DMY';
 
 BEGIN;
 
+\i test/setup.sql
+
 \echo "Setting up Statbus to test enterprise grouping and primary"
 
 -- A Super User configures statbus.
@@ -51,10 +53,9 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
-
-\echo "Refreshing materialized views"
--- Exclude the refresh_time_ms as it will vary.
-SELECT view_name FROM statistical_unit_refresh_now();
+    
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
 
 \echo "Checking current statistical units that are included in reports"
 SELECT valid_from, valid_to, name, unit_type,  jsonb_pretty(stats_summary) AS stats_summary, status_code, include_unit_in_reports

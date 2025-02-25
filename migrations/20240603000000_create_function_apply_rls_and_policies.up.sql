@@ -106,6 +106,17 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.person_role'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.region_role'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.stat_definition'::regclass);
+    -- Is updated by the statbus worker, using authorized functions.
+    PERFORM admin.add_rls_regular_user_can_read('public.statistical_unit'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.activity_category_used'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.region_used'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.sector_used'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.data_source_used'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.legal_form_used'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.country_used'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.statistical_unit_facet'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.statistical_history_facet'::regclass);
     --
     -- ########### add_rls_regular_user_can_edit ###########
     PERFORM admin.add_rls_regular_user_can_edit('public.establishment'::regclass);
@@ -121,8 +132,6 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_edit('public.person_for_unit'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.person'::regclass);
     PERFORM admin.add_rls_regular_user_can_edit('public.location'::regclass);
-    -- Is updated by the statbus worker, but is data the user could modify.
-    PERFORM admin.add_rls_regular_user_can_edit('public.statistical_unit'::regclass);
     --
 END;
 $apply_rls_to_all_tables$ LANGUAGE plpgsql;

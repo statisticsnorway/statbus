@@ -66,35 +66,6 @@ export function CommandPalette() {
     document.dispatchEvent(event);
   };
 
-  const handleStatisticalUnitsRefresh = async () => {
-    setOpen(false);
-    try {
-      const client = await createSupabaseBrowserClientAsync();
-      const { data, error } = await client.rpc(
-        "statistical_unit_refresh_now"
-      );
-
-      if (data) {
-        console.table(data, [
-          "view_name",
-          "refresh_time_ms",
-        ]);
-      }
-
-      toast({
-        title: error ? "Statistical Units Refresh Failed" : "Statistical Units Refresh OK",
-        description: error?.message ?? "Statistical units have been refreshed.",
-      });
-
-    } catch (error) {
-      toast({
-        title: "Statistical Units Refresh Failed",
-        description: "An unexpected error occurred",
-      });
-    }
-  };
-
-
   const navigate = (path: string) => {
     setOpen(false);
     router.push(path);
@@ -219,10 +190,6 @@ export function CommandPalette() {
             >
               <Trash className="mr-2 h-4 w-4" />
               <span>Reset..</span>
-            </CommandItem>
-            <CommandItem onSelect={handleStatisticalUnitsRefresh}>
-              <ListRestart className="mr-2 h-4 w-4" />
-              <span>Refresh Statistical Units</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>

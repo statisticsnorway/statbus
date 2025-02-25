@@ -1,5 +1,7 @@
 BEGIN;
 
-DROP MATERIALIZED VIEW public.sector_used;
+DROP FUNCTION public.sector_used_derive();
+DROP VIEW public.sector_used_def;
+DROP TABLE public.sector_used;
 
 END;

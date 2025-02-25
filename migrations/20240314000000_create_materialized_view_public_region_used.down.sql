@@ -1,5 +1,7 @@
 BEGIN;
 
-DROP MATERIALIZED VIEW public.region_used;
+DROP FUNCTION public.region_used_derive();
+DROP VIEW public.region_used_def;
+DROP TABLE public.region_used;
 
 END;

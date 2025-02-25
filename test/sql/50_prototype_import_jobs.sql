@@ -1,5 +1,7 @@
 BEGIN;
 
+\i test/setup.sql
+
 \echo public.import_target
 CREATE TABLE public.import_target(
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -888,8 +890,8 @@ SELECT admin.import_job_process(job.id) FROM public.import_job AS job order by i
 -- Validate all inserted rows.
 SET CONSTRAINTS ALL IMMEDIATE;
 
-\echo Refreshing materialized views
-SELECT view_name FROM statistical_unit_refresh_now();
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
 
 \echo Getting statistical_units after upload
 \x

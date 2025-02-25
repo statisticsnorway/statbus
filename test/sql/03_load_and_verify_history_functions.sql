@@ -2,6 +2,8 @@ SET datestyle TO 'ISO, DMY';
 
 BEGIN;
 
+\i test/setup.sql
+
 \echo "Setting up Statbus to load establishments without legal units"
 
 -- A Super User configures statbus.
@@ -52,12 +54,75 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
-\echo "Refreshing materialized views"
--- Exclude the refresh_time_ms as it will vary.
-SELECT view_name FROM statistical_unit_refresh_now();
 
-\echo "Checking statistical_history_periods"
-SELECT * FROM public.statistical_history_periods
+\echo "Test get_statistical_history_periods with specific date range - yearly resolution"
+SELECT 
+    resolution,
+    year,
+    month,
+    prev_stop,
+    curr_start,
+    curr_stop
+FROM public.get_statistical_history_periods(
+    p_resolution := 'year',
+    p_valid_after := '2018-01-01',
+    p_valid_to := '2020-12-31'
+)
+ORDER BY year;
+
+\echo "Test get_statistical_history_periods with NULL parameters (should use bounded range)"
+SELECT 
+    resolution,
+    year,
+    month,
+    prev_stop,
+    curr_start,
+    curr_stop
+FROM public.get_statistical_history_periods(
+    p_resolution := 'year'
+)
+WHERE year BETWEEN EXTRACT(YEAR FROM current_date - interval '5 years')::int 
+              AND EXTRACT(YEAR FROM current_date)::int
+ORDER BY year;
+
+\echo "Test get_statistical_history_periods with empty table simulation"
+-- Test with specific date range, which will use default values since table is empty at this point
+SELECT 
+    resolution,
+    year,
+    month,
+    prev_stop,
+    curr_start,
+    curr_stop
+FROM public.get_statistical_history_periods(
+    p_resolution := 'year',
+    p_valid_after := '2020-01-01',
+    p_valid_to := '2022-12-31'
+)
+WHERE year BETWEEN 2020 AND 2022
+ORDER BY year;
+
+\echo "Test get_statistical_history_periods with specific date range - monthly resolution"
+SELECT 
+    resolution,
+    year,
+    month,
+    prev_stop,
+    curr_start,
+    curr_stop
+FROM public.get_statistical_history_periods(
+    p_resolution := 'year-month',
+    p_valid_after := '2019-06-01',
+    p_valid_to := '2019-12-31'
+)
+ORDER BY year, month;
+
+
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+
+\echo "Checking statistical_history_periods from statistical_unit data"
+SELECT * FROM public.get_statistical_history_periods()
 -- Only list previous years, so the test is stable over time.
 WHERE year <= 2023;
 
@@ -290,8 +355,8 @@ SELECT unit_type
 
 \echo "Test over the years"
 
-\echo "Verify the generation of ranges"
-SELECT * FROM public.statistical_history_periods
+\echo "Verify the generation of ranges for all periods"
+SELECT * FROM public.get_statistical_history_periods()
 -- Only list previous years, so the test is stable over time.
 WHERE year <= 2024;
 
