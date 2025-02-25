@@ -891,7 +891,7 @@ SELECT admin.import_job_process(job.id) FROM public.import_job AS job order by i
 SET CONSTRAINTS ALL IMMEDIATE;
 
 \echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
 
 \echo Getting statistical_units after upload
 \x

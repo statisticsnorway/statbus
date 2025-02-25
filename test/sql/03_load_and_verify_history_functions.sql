@@ -119,7 +119,7 @@ ORDER BY year, month;
 
 
 \echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
 
 \echo "Checking statistical_history_periods from statistical_unit data"
 SELECT * FROM public.get_statistical_history_periods()

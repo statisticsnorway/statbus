@@ -55,7 +55,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
     
 \echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
 
 \echo "Checking current statistical units that are included in reports"
 SELECT valid_from, valid_to, name, unit_type,  jsonb_pretty(stats_summary) AS stats_summary, status_code, include_unit_in_reports

@@ -416,7 +416,7 @@ LIMIT 20;  -- Display top used indexes, adjust if necessary
 \o
 \echo Run worker processing to generate computed data
 Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
  success | count 
 ---------+-------
  t       |    24

@@ -56,7 +56,7 @@ SELECT
 
 
 \echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
 
 
 \echo "Test statistical_unit_hierarchy - for Kranløft Vestland"
@@ -215,7 +215,7 @@ SELECT jsonb_pretty(
 
 
 \echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
 
 
 \x
