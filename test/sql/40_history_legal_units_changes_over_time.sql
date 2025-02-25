@@ -2,6 +2,8 @@ SET datestyle TO 'ISO, DMY';
 
 BEGIN;
 
+\i test/setup.sql
+
 \echo "Setting up Statbus to test enterprise grouping and primary"
 
 -- A Super User configures statbus.
@@ -53,9 +55,8 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
-\echo "Refreshing materialized views"
--- Exclude the refresh_time_ms as it will vary.
-SELECT view_name FROM statistical_unit_refresh_now();
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
 
 \echo "Check sector for legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
@@ -99,9 +100,8 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
-\echo "Refreshing materialized views"
--- Exclude the refresh_time_ms as it will vary.
-SELECT view_name FROM statistical_unit_refresh_now();
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
 
 \echo "Check sector for legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
@@ -147,10 +147,8 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
-\echo "Refreshing materialized views"
--- Exclude the refresh_time_ms as it will vary.
-SELECT view_name FROM statistical_unit_refresh_now();
-
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
 
 \echo "Check sector for legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
@@ -164,7 +162,8 @@ SELECT resolution, year,month, unit_type, count, births, deaths, sector_change_c
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2014
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
 
 
 \echo "Check statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1 and 2012-1"
@@ -172,7 +171,8 @@ SELECT resolution, year, month, unit_type, count, births, deaths, sector_change_
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
 
 \x
 

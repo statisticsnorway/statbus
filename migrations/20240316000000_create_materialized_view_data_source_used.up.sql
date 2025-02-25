@@ -1,6 +1,7 @@
 BEGIN;
 
-CREATE MATERIALIZED VIEW public.data_source_used AS
+-- Create view that defines the data sources in use
+CREATE VIEW public.data_source_used_def AS
 SELECT s.id
      , s.code
      , s.name
@@ -13,7 +14,27 @@ WHERE s.id IN (
   AND s.active
 ORDER BY s.code;
 
+-- Create unlogged table from the view definition
+CREATE UNLOGGED TABLE public.data_source_used AS
+SELECT * FROM public.data_source_used_def;
+
 CREATE UNIQUE INDEX "data_source_used_key"
     ON public.data_source_used (code);
+
+-- Create function to populate the unlogged table
+CREATE FUNCTION public.data_source_used_derive() 
+    RETURNS void 
+    LANGUAGE plpgsql 
+    SECURITY DEFINER AS $data_source_used_derive$
+BEGIN
+    RAISE DEBUG 'Running data_source_used_derive()';
+    TRUNCATE TABLE public.data_source_used;
+    INSERT INTO public.data_source_used 
+    SELECT * FROM public.data_source_used_def;
+END;
+$data_source_used_derive$;
+
+-- Initial population
+SELECT public.data_source_used_derive();
 
 END;

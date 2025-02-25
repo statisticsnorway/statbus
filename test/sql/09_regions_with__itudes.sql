@@ -1,5 +1,7 @@
 BEGIN;
 
+\i test/setup.sql
+
 \echo "Testing regions with coordinates"
 
 -- Test invalid latitude (>90)

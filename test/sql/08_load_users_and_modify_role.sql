@@ -1,5 +1,7 @@
 BEGIN;
 
+\i test/setup.sql
+
 -- Create test users with different roles
 SELECT public.statbus_user_create('test.super@example.com', 'super_user'::statbus_role_type, 'SuperPass123!');
 SELECT public.statbus_user_create('test.regular@example.com', 'regular_user'::statbus_role_type, 'RegularPass123!');

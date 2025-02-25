@@ -1,6 +1,6 @@
 BEGIN;
 
-DROP VIEW public.statistical_history_periods;
+DROP FUNCTION public.get_statistical_history_periods(public.history_resolution, date, date);
 
 DROP TYPE public.history_resolution;
 
