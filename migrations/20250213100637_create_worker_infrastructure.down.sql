@@ -1,6 +1,5 @@
 -- Down Migration 20250213100637: create worker
 BEGIN;
-
 -- Drop triggers using teardown procedure
 CALL worker.teardown();
 
@@ -8,22 +7,26 @@ CALL worker.teardown();
 DROP FUNCTION worker.notify_worker_about_changes() CASCADE;
 DROP FUNCTION worker.notify_worker_about_deletes() CASCADE;
 
+-- Drop task enqueue functions
+DROP FUNCTION worker.enqueue_check_table(TEXT, BIGINT);
+DROP FUNCTION worker.enqueue_deleted_row(TEXT, INT, INT, INT, DATE, DATE);
+DROP FUNCTION worker.enqueue_refresh_derived_data(DATE, DATE);
+DROP FUNCTION worker.enqueue_task_cleanup(INT, INT);
+
 -- Drop command functions
-DROP FUNCTION worker.command_refresh_derived_data(jsonb);
-DROP FUNCTION worker.command_check_table(jsonb);
-DROP FUNCTION worker.command_deleted_row(jsonb);
+DROP FUNCTION worker.command_refresh_derived_data(DATE, DATE);
+DROP FUNCTION worker.command_check_table(TEXT, BIGINT);
+DROP FUNCTION worker.command_deleted_row(TEXT, INT, INT, INT, DATE, DATE);
+DROP FUNCTION worker.command_task_cleanup(INT, INT);
 
 -- Drop utility functions
 DROP FUNCTION worker.statistical_unit_refresh_for_ids(int[], int[], int[], date, date);
-DROP FUNCTION worker.notify(jsonb);
-DROP FUNCTION worker.process_batch(integer);
-DROP FUNCTION worker.process_single(jsonb);
-DROP FUNCTION worker.deduplicate_batch();
+DROP FUNCTION worker.process_tasks(INT, INT);
 
--- Drop notifications table
-REVOKE SELECT, INSERT, UPDATE, DELETE ON worker.notifications FROM authenticated;
-REVOKE USAGE, SELECT ON SEQUENCE worker.notifications_id_seq FROM authenticated;
-DROP TABLE worker.notifications;
+-- Drop tasks table
+REVOKE SELECT, INSERT, UPDATE, DELETE ON worker.tasks FROM authenticated;
+REVOKE USAGE, SELECT ON SEQUENCE worker.tasks_id_seq FROM authenticated;
+DROP TABLE worker.tasks;
 
 -- Drop last_processed table
 REVOKE SELECT, INSERT, UPDATE ON worker.last_processed FROM authenticated;
