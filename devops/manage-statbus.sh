@@ -342,9 +342,6 @@ case "$action" in
 export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD
 EOS
       ;;
-     'refresh' )
-        echo 'select statistical_unit_refresh_now();' | ./devops/manage-statbus.sh psql
-      ;;
      'psql' )
         eval $(./devops/manage-statbus.sh postgres-variables)
         # The local psql is always tried first, as it has access to files

@@ -41,15 +41,11 @@ for YEAR in $YEARS; do
     TAG="census.$YEAR"
     echo "Loading data for year: $YEAR with $TAG"
     echo "Loading legal_units"
-    time ./bin/statbus import legal_unit --user "$USER_EMAIL" --tag "$TAG" -f "../samples/norway/small-history/${YEAR}-enheter.csv" --config ../samples/norway/legal_unit/enheter-selection-cli-mapping.json --strategy insert --skip-refresh-of-materialized-views --immediate-constraint-checking$CLI_EXTRA_ARGS
+    time ./bin/statbus import legal_unit --user "$USER_EMAIL" --tag "$TAG" -f "../samples/norway/small-history/${YEAR}-enheter.csv" --config ../samples/norway/legal_unit/enheter-selection-cli-mapping.json --strategy insert --immediate-constraint-checking$CLI_EXTRA_ARGS
     echo "Loading establishments"
-    time ./bin/statbus import establishment --user "$USER_EMAIL" --tag "$TAG" -f "../samples/norway/small-history/${YEAR}-underenheter.csv" --config ../samples/norway/establishment/underenheter-selection-cli-mapping.json --strategy insert --skip-refresh-of-materialized-views --immediate-constraint-checking$CLI_EXTRA_ARGS
+    time ./bin/statbus import establishment --user "$USER_EMAIL" --tag "$TAG" -f "../samples/norway/small-history/${YEAR}-underenheter.csv" --config ../samples/norway/establishment/underenheter-selection-cli-mapping.json --strategy insert --immediate-constraint-checking$CLI_EXTRA_ARGS
 done
 
 popd
-
-./devops/manage-statbus.sh psql <<EOS
-SELECT statistical_unit_refresh_now();
-EOS
 
 popd
