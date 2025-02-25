@@ -187,17 +187,18 @@ module Statbus
                                     success,       -- Whether the task succeeded (TRUE) or failed (FALSE)
                                     error_message  -- Error message if task failed, NULL otherwise
                                   FROM worker.process_tasks(50, 5000)",
-            as: {Int64, String, Float64, Bool, String?}
+            as: {Int64, String, PG::Numeric, Bool, String?}
 
           if results.empty?
             @log.debug { "No tasks to process" }
           else
             @log.info { "Processed #{results.size} tasks" }
             results.each do |id, command, duration, success, error|
+              duration_float = duration.to_f
               if success
-                @log.debug { "Task #{id} (#{command}) completed in #{duration.round(2)}ms" }
+                @log.debug { "Task #{id} (#{command}) completed in #{duration_float.round(2)}ms" }
               else
-                @log.error { "Task #{id} (#{command}) failed after #{duration.round(2)}ms: #{error}" }
+                @log.error { "Task #{id} (#{command}) failed after #{duration_float.round(2)}ms: #{error}" }
               end
             end
 
