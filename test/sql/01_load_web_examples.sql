@@ -83,7 +83,7 @@ SET client_min_messages TO warning;
 
 
 \echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
 
 
 \echo "Checking statistics"

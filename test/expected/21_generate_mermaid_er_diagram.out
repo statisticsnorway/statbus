@@ -916,14 +916,28 @@ erDiagram
 		"text" table_name
 		"bigint" transaction_id
 	}
-	worker_notifications["worker.notifications"] {
-		"bigint" id
-		"jsonb" payload
-	}
 	worker_settings["worker.settings"] {
 		"text" key
 		"text" value
 		"timestamp with time zone" updated_at
+	}
+	worker_tasks["worker.tasks"] {
+		"bigint" id
+		"text" command
+		"timestamp with time zone" created_at
+		"text" status
+		"timestamp with time zone" processed_at
+		"text" error_message
+		"timestamp with time zone" scheduled_at
+		"text" table_name
+		"bigint" transaction_id
+		"integer" establishment_id
+		"integer" legal_unit_id
+		"integer" enterprise_id
+		"date" valid_after
+		"date" valid_to
+		"integer" completed_retention_days
+		"integer" failed_retention_days
 	}
 	%% Relationships (derived from foreign keys)
 	auth_identities }|--|| auth.users : identities_user_id_fkey
