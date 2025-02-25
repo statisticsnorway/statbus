@@ -347,13 +347,6 @@ module Statbus
                   puts "Processed #{batch_size} rows in #{batch_duration.total_seconds.round(2)} seconds (#{batch_rows_per_second.round(2)} rows/second)"
                   batch_start_time = Time.monotonic
 
-                  if @refresh_materialized_views
-                    start_refresh_time = Time.monotonic
-                    puts "Refreshing statistical_unit and other materialized views"
-                    db.exec "SELECT statistical_unit_refresh_now();"
-                    refresh_duration = Time.monotonic - start_refresh_time
-                    puts "Refreshing completed (#{refresh_duration.total_seconds.round(2)} seconds)"
-                  end
                   db.exec "BEGIN;"
                   db.exec "CALL test.set_user_from_email($1)", @user_email
                   if @delayed_constraint_checking
@@ -375,10 +368,6 @@ module Statbus
             puts "Total rows processed: #{row_count}"
             puts "Total time: #{total_duration.total_seconds.round(2)} seconds (#{total_rows_per_second.round(2)} rows/second)"
 
-            if @refresh_materialized_views
-              puts "Refreshing statistical_unit and other materialized views"
-              db.exec "SELECT statistical_unit_refresh_now();"
-            end
             db.close
           end
         end
