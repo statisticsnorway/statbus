@@ -144,9 +144,6 @@ module Statbus
           parser.on("--immediate-constraint-checking", "Check constraints for each record immediately") do
             @delayed_constraint_checking = false
           end
-          parser.on("--skip-refresh-of-materialized-views", "Avoid refreshing materialized views during and after load") do
-            @refresh_materialized_views = false
-          end
           parser.on("-u EMAIL", "--user=EMAIL", "Email of the user performing the import") do |user_email|
             @import.user_email = user_email
           end
