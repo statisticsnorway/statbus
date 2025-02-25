@@ -58,7 +58,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
 
 \echo "Check statistical units"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
@@ -104,7 +104,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
 
 \echo "Check statistical units"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
@@ -149,7 +149,7 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
 
 \echo "Check statistical units"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, birth_date, death_date
