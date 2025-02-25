@@ -1,4 +1,7 @@
 BEGIN;
+
+\i test/setup.sql
+
 \echo "Setting up Statbus using the web provided examples"
 
 -- A Super User configures statbus.

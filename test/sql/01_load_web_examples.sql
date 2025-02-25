@@ -1,5 +1,7 @@
 BEGIN;
 
+\i test/setup.sql
+
 \echo "Setting up Statbus using the web provided examples"
 
 -- A Super User configures statbus.
@@ -79,9 +81,10 @@ SELECT COUNT(DISTINCT id) FROM public.establishment;
 \echo "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
 SET client_min_messages TO warning;
 
-\echo "Refreshing materialized views"
--- Exclude the refresh_time_ms as it will vary.
-SELECT view_name FROM statistical_unit_refresh_now();
+
+\echo Run worker processing to generate computed data
+SELECT success, count(*) FROM worker.process_batch() GROUP BY success;
+
 
 \echo "Checking statistics"
 \x
