@@ -1,6 +1,7 @@
 BEGIN;
 
-CREATE MATERIALIZED VIEW public.activity_category_used AS
+-- Create view that defines the activity categories in use
+CREATE VIEW public.activity_category_used_def AS
 SELECT acs.code AS standard_code
      , ac.id
      , ac.path
@@ -31,7 +32,27 @@ WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
       )
 ORDER BY path;
 
+-- Create unlogged table from the view definition
+CREATE UNLOGGED TABLE public.activity_category_used AS
+SELECT * FROM public.activity_category_used_def;
+
 CREATE UNIQUE INDEX "activity_category_used_key"
     ON public.activity_category_used (path);
+
+-- Create function to populate the unlogged table
+CREATE FUNCTION public.activity_category_used_derive() 
+    RETURNS void 
+    LANGUAGE plpgsql 
+    SECURITY DEFINER AS $activity_category_used_derive$
+BEGIN
+    RAISE DEBUG 'Running activity_category_used_derive()';
+    TRUNCATE TABLE public.activity_category_used;
+    INSERT INTO public.activity_category_used 
+    SELECT * FROM public.activity_category_used_def;
+END;
+$activity_category_used_derive$;
+
+-- Initial population
+SELECT public.activity_category_used_derive();
 
 END;
