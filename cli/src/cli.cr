@@ -40,7 +40,7 @@ module Statbus
         option_parser.parse
         
         # Log the final debug settings after command line parsing
-        if @config.verbose
+        if @config.debug
           puts "Final debug settings after command line parsing:"
           puts "  verbose=#{@config.verbose}"
           puts "  debug=#{@config.debug}"
