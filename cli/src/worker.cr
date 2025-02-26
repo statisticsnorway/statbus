@@ -98,6 +98,9 @@ module Statbus
         exit
       end
 
+      # Wait for worker schema to be ready before starting processing
+      wait_for_worker_schema
+
       # Start processing fiber
       spawn process_commands_loop
 
@@ -219,25 +222,51 @@ module Statbus
       end
     end
 
-    # Check if worker schema and tables exist
-    private def worker_tables_exist? : Bool
-      DB.connect(@config.connection_string) do |db|
-        result = db.query_one? "SELECT EXISTS (
-                                 SELECT FROM pg_tables
-                                 WHERE schemaname = 'worker' AND tablename = 'tasks'
-                               )", as: Bool
-        return result || false
+    # Wait for worker schema and tables to be ready
+    private def wait_for_worker_schema
+      @log.info { "Checking for worker schema and tables..." }
+      
+      loop do
+        schema_exists = false
+        tables_exist = false
+        
+        begin
+          DB.connect(@config.connection_string) do |db|
+            # Check if worker schema exists
+            schema_exists = db.query_one? "SELECT EXISTS (
+                                           SELECT FROM pg_namespace
+                                           WHERE nspname = 'worker'
+                                         )", as: Bool
+            
+            if schema_exists
+              # Check if worker tables exist
+              tables_exist = db.query_one? "SELECT EXISTS (
+                                           SELECT FROM pg_tables
+                                           WHERE schemaname = 'worker' AND tablename = 'tasks'
+                                         )", as: Bool
+            end
+          end
+          
+          if schema_exists && tables_exist
+            @log.info { "Worker schema and tables are ready" }
+            return
+          else
+            if !schema_exists
+              @log.info { "Worker schema doesn't exist yet. Waiting for migrations to run..." }
+            elsif !tables_exist
+              @log.info { "Worker schema exists but tables don't exist yet. Waiting for migrations to run..." }
+            end
+            sleep(5.seconds)
+          end
+        rescue ex
+          @log.error { "Error checking for worker schema: #{ex.message}" }
+          sleep(5.seconds)
+        end
       end
-    rescue ex
-      @log.error { "Error checking for worker tables: #{ex.message}" }
-      return false
     end
 
     # Find the next scheduled task
     private def find_next_scheduled_task : Time?
-      # First check if worker tables exist
-      return nil unless worker_tables_exist?
-
       DB.connect(@config.connection_string) do |db|
         result = db.query_one? "SELECT
                                  MIN(scheduled_at) AS next_scheduled_at
@@ -295,13 +324,6 @@ module Statbus
     private def process_tasks
       start_time = Time.monotonic
       begin
-        # First check if worker tables exist
-        unless worker_tables_exist?
-          @log.info { "Worker tables don't exist yet. Waiting for migrations to run..." }
-          sleep(10.seconds) # Wait longer before checking again
-          return
-        end
-
         DB.connect(@config.connection_string) do |db|
           # Query worker.process_tasks() with named columns for better documentation
           results = db.query_all "SELECT
