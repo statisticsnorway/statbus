@@ -73,6 +73,8 @@ module Statbus
     def run
       Signal::INT.trap do
         @log.info { "Received CTRL-C, shutting down..." }
+        @command_queue.close
+        @timer_queue.close
         exit
       end
 
@@ -85,10 +87,60 @@ module Statbus
       # Queue initial processing on startup
       @command_queue.send(:process)
 
-      # Listen for notifications in a background thread
-      connection = PG.connect_listen(@config.connection_string, channels: ["worker_tasks"], blocking: true) do |notification|
-        # When notification received, queue a processing command
-        @command_queue.send(:process)
+      # Main connection loop with retry logic
+      max_retries = 10
+      retry_count = 0
+      retry_delay = 1.seconds
+
+      loop do
+        begin
+          @log.info { "Connecting to database at #{@config.postgres_host}:#{@config.postgres_port}..." }
+          
+          # First verify we can connect to the database
+          DB.connect(@config.connection_string) do |db|
+            version = db.query_one("SELECT version()", as: String)
+            @log.info { "Database connection verified: #{version}" }
+          end
+          
+          # Listen for notifications in a background thread
+          connection = PG.connect_listen(@config.connection_string, channels: ["worker_tasks"], blocking: true) do |notification|
+            # When notification received, queue a processing command
+            @command_queue.send(:process)
+          end
+          
+          # Log successful connection
+          @log.info { "Connected to database at #{@config.postgres_host}:#{@config.postgres_port}" }
+          
+          # Process any pending tasks immediately after connecting
+          @command_queue.send(:process)
+          
+          # The connection is already in listening mode and will block in the background
+          # Just wait indefinitely until an exception occurs or the program is terminated
+          sleep
+          
+          # If we get here, the connection was closed normally
+          @log.info { "Database connection closed, reconnecting..." }
+          retry_count = 0
+        rescue ex : DB::ConnectionRefused | Socket::ConnectError
+          retry_count += 1
+          if retry_count <= max_retries
+            @log.error { "Database connection failed (attempt #{retry_count}/#{max_retries}): #{ex.message}" }
+            @log.error { "Connection string: postgres://#{@config.postgres_user}:***@#{@config.postgres_host}:#{@config.postgres_port}/#{@config.postgres_db}" }
+            @log.info { "Retrying in #{retry_delay} seconds..." }
+            sleep(retry_delay)
+            # Exponential backoff with a cap
+            retry_delay = {retry_delay * 2, 60.seconds}.min
+          else
+            @log.fatal { "Failed to connect to database after #{max_retries} attempts, exiting" }
+            @command_queue.close
+            @timer_queue.close
+            exit(1)
+          end
+        rescue ex
+          @log.error { "Unexpected error: #{ex.message}" }
+          @log.error { ex.backtrace.join("\n") }
+          sleep(5.seconds)
+        end
       end
     end
 
@@ -125,6 +177,9 @@ module Statbus
             # No scheduled tasks, wait for a while
             sleep(60.seconds) # Check every minute
           end
+        rescue Channel::ClosedError
+          @log.info { "Timer channel closed, shutting down timer loop" }
+          break
         rescue ex
           @log.error { "Error in scheduled task checker: #{ex.message}" }
           sleep(10.seconds) # Wait a bit before retrying
@@ -145,23 +200,36 @@ module Statbus
 
         return result
       end
+    rescue DB::ConnectionRefused | Socket::ConnectError
+      @log.error { "Database connection failed while checking scheduled tasks" }
+      sleep(5.seconds) # Wait before retrying
+      return nil
     rescue ex
       @log.error { "Error finding next scheduled task: #{ex.message}" }
+      @log.error { ex.backtrace.join("\n") }
       return nil
     end
 
     # Main processing loop that runs in a separate fiber
     private def process_commands_loop
       loop do
-        command = @command_queue.receive
+        begin
+          command = @command_queue.receive
 
-        case command
-        when :process
-          process_tasks
+          case command
+          when :process
+            process_tasks
+          end
+
+          # Check for new scheduled tasks after processing
+          check_for_new_scheduled_tasks
+        rescue Channel::ClosedError
+          @log.info { "Command channel closed, shutting down process loop" }
+          break
+        rescue ex
+          @log.error { "Error in process command loop: #{ex.message}" }
+          sleep(1.seconds) # Prevent tight loop on error
         end
-
-        # Check for new scheduled tasks after processing
-        check_for_new_scheduled_tasks
       end
     end
 
@@ -206,8 +274,13 @@ module Statbus
             db.exec "SELECT worker.enqueue_task_cleanup()"
           end
         end
+      rescue DB::ConnectionRefused | Socket::ConnectError
+        @log.error { "Database connection failed while processing tasks" }
+        # Don't log the full stack trace for connection issues
+        sleep(5.seconds) # Wait before retrying
       rescue ex
         @log.error { "Error processing tasks: #{ex.message}" }
+        @log.error { ex.backtrace.join("\n") }
       ensure
         duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
         @log.debug { "Task processing completed in #{duration_ms}ms" }
