@@ -7,6 +7,7 @@ services:
     profiles:
       - "all"
       - "required"
+      - "required_not_app"
       - "worker"
     environment:
       # Docker environment detection
