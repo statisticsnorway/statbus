@@ -149,11 +149,11 @@ WHERE command = 'task_cleanup' AND status = 'pending';
 
 -- Create statistical unit refresh function
 CREATE FUNCTION worker.statistical_unit_refresh_for_ids(
-  establishment_ids int[] DEFAULT NULL,
-  legal_unit_ids int[] DEFAULT NULL,
-  enterprise_ids int[] DEFAULT NULL,
-  valid_after date DEFAULT NULL,
-  valid_to date DEFAULT NULL
+  p_establishment_ids int[] DEFAULT NULL,
+  p_legal_unit_ids int[] DEFAULT NULL,
+  p_enterprise_ids int[] DEFAULT NULL,
+  p_valid_after date DEFAULT NULL,
+  p_valid_to date DEFAULT NULL
 )
 RETURNS void
 LANGUAGE plpgsql
@@ -164,32 +164,32 @@ BEGIN
   -- Delete affected entries
   DELETE FROM public.statistical_unit AS su
   WHERE (
-    (su.unit_type = 'establishment' AND su.unit_id = ANY(statistical_unit_refresh_for_ids.establishment_ids)) OR
-    (su.unit_type = 'legal_unit' AND su.unit_id = ANY(statistical_unit_refresh_for_ids.legal_unit_ids)) OR
-    (su.unit_type = 'enterprise' AND su.unit_id = ANY(statistical_unit_refresh_for_ids.enterprise_ids)) OR
-    su.establishment_ids && statistical_unit_refresh_for_ids.establishment_ids OR
-    su.legal_unit_ids && statistical_unit_refresh_for_ids.legal_unit_ids OR
-    su.enterprise_ids && statistical_unit_refresh_for_ids.enterprise_ids
+    (su.unit_type = 'establishment' AND su.unit_id = ANY(p_establishment_ids)) OR
+    (su.unit_type = 'legal_unit' AND su.unit_id = ANY(p_legal_unit_ids)) OR
+    (su.unit_type = 'enterprise' AND su.unit_id = ANY(p_enterprise_ids)) OR
+    su.establishment_ids && p_establishment_ids OR
+    su.legal_unit_ids && p_legal_unit_ids OR
+    su.enterprise_ids && p_enterprise_ids
   )
   AND daterange(su.valid_after, su.valid_to, '(]') &&
-      daterange(COALESCE(statistical_unit_refresh_for_ids.valid_after, '-infinity'::date),
-               COALESCE(statistical_unit_refresh_for_ids.valid_to, 'infinity'::date), '(]');
+      daterange(COALESCE(p_valid_after, '-infinity'::date),
+               COALESCE(p_valid_to, 'infinity'::date), '(]');
 
   -- Insert new entries with ON CONFLICT DO UPDATE to handle race conditions
   -- This ensures all fields are updated when there's a conflict
   INSERT INTO public.statistical_unit
   SELECT * FROM public.statistical_unit_def AS sud
   WHERE (
-    (sud.unit_type = 'establishment' AND sud.unit_id = ANY(statistical_unit_refresh_for_ids.establishment_ids)) OR
-    (sud.unit_type = 'legal_unit' AND sud.unit_id = ANY(statistical_unit_refresh_for_ids.legal_unit_ids)) OR
-    (sud.unit_type = 'enterprise' AND sud.unit_id = ANY(statistical_unit_refresh_for_ids.enterprise_ids)) OR
-    sud.establishment_ids && statistical_unit_refresh_for_ids.establishment_ids OR
-    sud.legal_unit_ids && statistical_unit_refresh_for_ids.legal_unit_ids OR
-    sud.enterprise_ids && statistical_unit_refresh_for_ids.enterprise_ids
+    (sud.unit_type = 'establishment' AND sud.unit_id = ANY(p_establishment_ids)) OR
+    (sud.unit_type = 'legal_unit' AND sud.unit_id = ANY(p_legal_unit_ids)) OR
+    (sud.unit_type = 'enterprise' AND sud.unit_id = ANY(p_enterprise_ids)) OR
+    sud.establishment_ids && p_establishment_ids OR
+    sud.legal_unit_ids && p_legal_unit_ids OR
+    sud.enterprise_ids && p_enterprise_ids
   )
   AND daterange(sud.valid_after, sud.valid_to, '(]') &&
-      daterange(COALESCE(statistical_unit_refresh_for_ids.valid_after, '-infinity'::date),
-               COALESCE(statistical_unit_refresh_for_ids.valid_to, 'infinity'::date), '(]')
+      daterange(COALESCE(p_valid_after, '-infinity'::date),
+               COALESCE(p_valid_to, 'infinity'::date), '(]')
   ON CONFLICT (valid_from, valid_to, unit_type, unit_id) DO UPDATE SET
     external_idents = EXCLUDED.external_idents,
     name = EXCLUDED.name,
@@ -261,8 +261,8 @@ BEGIN
 
   -- Enqueue refresh derived data task
   PERFORM worker.enqueue_refresh_derived_data(
-    statistical_unit_refresh_for_ids.valid_after,
-    statistical_unit_refresh_for_ids.valid_to
+    p_valid_after := p_valid_after,
+    p_valid_to := p_valid_to
   );
 END;
 $statistical_unit_refresh_for_ids$;
@@ -382,11 +382,11 @@ BEGIN
      array_length(v_enterprise_ids, 1) > 0
   THEN
     PERFORM worker.statistical_unit_refresh_for_ids(
-      establishment_ids := v_establishment_ids,
-      legal_unit_ids := v_legal_unit_ids,
-      enterprise_ids := v_enterprise_ids,
-      valid_after := v_valid_after,
-      valid_to := v_valid_to
+      p_establishment_ids := v_establishment_ids,
+      p_legal_unit_ids := v_legal_unit_ids,
+      p_enterprise_ids := v_enterprise_ids,
+      p_valid_after := v_valid_after,
+      p_valid_to := v_valid_to
     );
   END IF;
 
@@ -415,11 +415,11 @@ AS $function$
 BEGIN
   -- Handle deleted row by refreshing affected units
   PERFORM worker.statistical_unit_refresh_for_ids(
-    establishment_ids := ARRAY[v_establishment_id],
-    legal_unit_ids := ARRAY[v_legal_unit_id],
-    enterprise_ids := ARRAY[v_enterprise_id],
-    valid_after := v_valid_after,
-    valid_to := v_valid_to
+    p_establishment_ids := ARRAY[v_establishment_id],
+    p_legal_unit_ids := ARRAY[v_legal_unit_id],
+    p_enterprise_ids := ARRAY[v_enterprise_id],
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
   );
 END;
 $function$;
