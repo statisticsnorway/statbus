@@ -161,6 +161,21 @@ AS $statistical_unit_refresh_for_ids$
 DECLARE
   v_affected_count int;
 BEGIN
+  -- Create a temporary table to store the new data to ensure consistency
+  CREATE TEMPORARY TABLE temp_new_units ON COMMIT DROP AS
+  SELECT * FROM public.statistical_unit_def AS sud
+  WHERE (
+    (sud.unit_type = 'establishment' AND sud.unit_id = ANY(p_establishment_ids)) OR
+    (sud.unit_type = 'legal_unit' AND sud.unit_id = ANY(p_legal_unit_ids)) OR
+    (sud.unit_type = 'enterprise' AND sud.unit_id = ANY(p_enterprise_ids)) OR
+    sud.establishment_ids && p_establishment_ids OR
+    sud.legal_unit_ids && p_legal_unit_ids OR
+    sud.enterprise_ids && p_enterprise_ids
+  )
+  AND daterange(sud.valid_after, sud.valid_to, '(]') &&
+      daterange(COALESCE(p_valid_after, '-infinity'::date),
+               COALESCE(p_valid_to, 'infinity'::date), '(]');
+
   -- Delete affected entries
   DELETE FROM public.statistical_unit AS su
   WHERE (
@@ -175,21 +190,10 @@ BEGIN
       daterange(COALESCE(p_valid_after, '-infinity'::date),
                COALESCE(p_valid_to, 'infinity'::date), '(]');
 
-  -- Insert new entries with ON CONFLICT DO UPDATE to handle race conditions
+  -- Insert new entries from the temporary table with ON CONFLICT DO UPDATE
   -- This ensures all fields are updated when there's a conflict
   INSERT INTO public.statistical_unit
-  SELECT * FROM public.statistical_unit_def AS sud
-  WHERE (
-    (sud.unit_type = 'establishment' AND sud.unit_id = ANY(p_establishment_ids)) OR
-    (sud.unit_type = 'legal_unit' AND sud.unit_id = ANY(p_legal_unit_ids)) OR
-    (sud.unit_type = 'enterprise' AND sud.unit_id = ANY(p_enterprise_ids)) OR
-    sud.establishment_ids && p_establishment_ids OR
-    sud.legal_unit_ids && p_legal_unit_ids OR
-    sud.enterprise_ids && p_enterprise_ids
-  )
-  AND daterange(sud.valid_after, sud.valid_to, '(]') &&
-      daterange(COALESCE(p_valid_after, '-infinity'::date),
-               COALESCE(p_valid_to, 'infinity'::date), '(]')
+  SELECT * FROM temp_new_units
   ON CONFLICT (valid_from, valid_to, unit_type, unit_id) DO UPDATE SET
     external_idents = EXCLUDED.external_idents,
     name = EXCLUDED.name,
@@ -259,6 +263,9 @@ BEGIN
     enterprise_count = EXCLUDED.enterprise_count,
     tag_paths = EXCLUDED.tag_paths;
 
+  -- Drop the temporary table
+  DROP TABLE temp_new_units;
+    
   -- Enqueue refresh derived data task
   PERFORM worker.enqueue_refresh_derived_data(
     p_valid_after := p_valid_after,
