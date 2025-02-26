@@ -5,21 +5,30 @@ require "./config"
 
 # Worker Architecture
 #
-# The Worker system can operate in two modes:
+# The Worker system operates in a single mode:
 #
-# 1. Background Mode (Default):
-#    - Tasks are managed in the worker.tasks table
-#    - This Crystal worker process listens for notifications
-#    - Suitable for production deployment
-#    - Asynchronous processing outside transaction boundaries
-#    - Set with: SELECT worker.mode('background');
+# Background Mode:
+#   - Tasks are managed in the worker.tasks table
+#   - This Crystal worker process listens for notifications
+#   - Suitable for production deployment
+#   - Asynchronous processing outside transaction boundaries
 #
-# 2. Manual Mode:
-#    - Tasks are stored in the worker.tasks table
-#    - No Crystal worker process needed
-#    - Suitable for testing since tasks can be processed manually
-#    - Changes can be rolled back with test transaction ABORT
-#    - Set with: SELECT worker.mode('manual');
+# For testing:
+#   - Tests use transaction ABORT to roll back changes
+#   - No special mode needed for testing
+#   - Tasks are created but rolled back with the test transaction
+#   - Tests must manually call worker.process_tasks() to simulate worker processing:
+#     ```sql
+#     BEGIN;
+#     -- Create test data and trigger worker tasks
+#     INSERT INTO some_table VALUES (...);
+#     -- Manually process tasks that would normally be handled by the worker
+#     SELECT * FROM worker.process_tasks();
+#     -- Verify results
+#     SELECT * FROM affected_table WHERE ...;
+#     -- Roll back all changes including tasks
+#     ROLLBACK;
+#     ```
 #
 # The Worker handles processing of database tasks by tracking changes
 # in the underlying tables (establishment, legal_unit, enterprise, etc).

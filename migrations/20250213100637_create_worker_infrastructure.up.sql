@@ -7,13 +7,7 @@ CREATE SCHEMA IF NOT EXISTS "worker";
 GRANT USAGE ON SCHEMA worker TO authenticated;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA worker TO authenticated;
 
--- Create settings table for persistent worker mode
-CREATE TABLE worker.settings (
-  key text PRIMARY KEY,
-  value text NOT NULL,
-  updated_at timestamptz NOT NULL DEFAULT now()
-);
-GRANT SELECT ON worker.settings TO authenticated;
+-- No settings table needed as tests use ABORT
 
 CREATE TABLE IF NOT EXISTS worker.last_processed (
   table_name text PRIMARY KEY,
@@ -432,78 +426,30 @@ END;
 $function$;
 
 
--- Create enum type for worker modes
-CREATE TYPE worker.mode_type AS ENUM ('background', 'manual');
-
--- Create function to set/get worker mode
+-- Worker system operates in a single mode:
+-- 
+-- Background Mode:
+--   - Commands sent via PostgreSQL NOTIFY/LISTEN
+--   - Requires Crystal worker process listening for notifications
+--   - Asynchronous processing outside transaction boundaries
+--   - Suitable for production deployment
 --
--- The worker system can run in two modes:
+-- For testing:
+--   - Tests use transaction ABORT to roll back changes
+--   - No special mode needed for testing
+--   - Tasks are created but rolled back with the test transaction
+--   - Tests must manually call worker.process_tasks() to simulate worker processing
+--   - Example test pattern:
+--     BEGIN;
+--     -- Create test data and trigger worker tasks
+--     INSERT INTO some_table VALUES (...);
+--     -- Manually process tasks that would normally be handled by the worker
+--     SELECT * FROM worker.process_tasks();
+--     -- Verify results
+--     SELECT * FROM affected_table WHERE ...;
+--     -- Roll back all changes including tasks
+--     ROLLBACK;
 --
--- 1. Background Mode (Default):
---    - Commands sent via PostgreSQL NOTIFY/LISTEN
---    - Requires Crystal worker process listening for notifications
---    - Asynchronous processing outside transaction boundaries
---    - Suitable for production deployment
---
--- 2. Manual Mode:
---    - Commands stored in tasks table
---    - Process manually by calling worker.process_tasks()
---    - No Crystal worker process needed
---    - Suitable for testing and controlled processing
---    - Can process in batches at suitable times
---
-
-CREATE FUNCTION worker.mode(p_mode worker.mode_type DEFAULT NULL, persist boolean DEFAULT false)
-RETURNS worker.mode_type
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = worker, pg_temp
-AS $function$
-DECLARE
-  v_mode text;
-BEGIN
-  -- Always set session mode if p_mode is provided
-  IF p_mode IS NOT NULL THEN
-    PERFORM set_config('worker.mode', p_mode::text, false);
-
-    IF persist THEN
-      -- Also store in settings table if persist=true
-      INSERT INTO worker.settings (key, value)
-      VALUES ('mode', p_mode::text)
-      ON CONFLICT (key) DO UPDATE
-      SET value = EXCLUDED.value,
-          updated_at = now();
-    END IF;
-  ELSIF persist AND p_mode IS NULL THEN
-    -- Clear settings when called with NULL and persist=true
-    DELETE FROM worker.settings WHERE key = 'mode';
-    PERFORM set_config('worker.mode', NULL, false);
-  END IF;
-
-  -- Try to get mode from session first
-  v_mode := current_setting('worker.mode', true);
-
-  -- If not in session, try our settings table
-  IF v_mode IS NULL THEN
-    SELECT value INTO v_mode
-    FROM worker.settings
-    WHERE key = 'mode';
-  END IF;
-
-  -- If still not set, use default background mode
-  IF v_mode IS NULL OR v_mode = '' THEN
-    v_mode := 'background';
-    PERFORM set_config('worker.mode', v_mode, false);
-  END IF;
-
-  -- Ensure we have a valid enum value
-  IF v_mode NOT IN ('background', 'manual') THEN
-    v_mode := 'background';
-  END IF;
-
-  RETURN v_mode::worker.mode_type;
-END;
-$function$;
 
 
 -- Functions to enqueue tasks with deduplication
