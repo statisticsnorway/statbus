@@ -27,3 +27,6 @@ services:
       NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE: ${NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE}
       VERSION: ${VERSION}
     restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
