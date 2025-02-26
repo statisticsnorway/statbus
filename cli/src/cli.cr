@@ -38,6 +38,14 @@ module Statbus
       begin
         option_parser = build_option_parser
         option_parser.parse
+        
+        # Log the final debug settings after command line parsing
+        if @config.verbose
+          puts "Final debug settings after command line parsing:"
+          puts "  verbose=#{@config.verbose}"
+          puts "  debug=#{@config.debug}"
+        end
+        
         run(option_parser)
       rescue ex : ArgumentError
         puts ex
@@ -50,6 +58,7 @@ module Statbus
         parser.banner = "Usage: #{@name} [subcommand] [arguments]"
         parser.on("-v", "--verbose", "Enable verbose output") { @config.verbose = true }
         parser.on("-d", "--debug", "Enable debug output") { @config.debug = true }
+        parser.on("-q", "--quiet", "Disable verbose output (overrides VERBOSE env var)") { @config.verbose = false }
         parser.on("-h", "--help", "Show help, available for subcommands") do
           puts parser
           exit
@@ -205,6 +214,8 @@ module Statbus
       in Mode::Manage
         @manage.run(option_parser)
       in Mode::Worker
+        # When running as a worker, use the config's verbose and debug settings
+        puts "Starting worker with verbose=#{@config.verbose}, debug=#{@config.debug}" if @config.verbose
         @worker.run
       in Mode::Import
         @import.run(option_parser)
