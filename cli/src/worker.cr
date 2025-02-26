@@ -120,6 +120,18 @@ module Statbus
           DB.connect(@config.connection_string) do |db|
             version = db.query_one("SELECT version()", as: String)
             @log.debug { "Database connection verified: #{version}" }
+            
+            # Check if worker schema exists
+            schema_exists = db.query_one? "SELECT EXISTS (
+                                            SELECT FROM pg_namespace
+                                            WHERE nspname = 'worker'
+                                          )", as: Bool
+            
+            if schema_exists
+              @log.debug { "Worker schema exists" }
+            else
+              @log.info { "Worker schema doesn't exist yet. Waiting for migrations to run..." }
+            end
           end
           
           # Listen for notifications in a background thread
@@ -207,8 +219,25 @@ module Statbus
       end
     end
 
+    # Check if worker schema and tables exist
+    private def worker_tables_exist? : Bool
+      DB.connect(@config.connection_string) do |db|
+        result = db.query_one? "SELECT EXISTS (
+                                 SELECT FROM pg_tables
+                                 WHERE schemaname = 'worker' AND tablename = 'tasks'
+                               )", as: Bool
+        return result || false
+      end
+    rescue ex
+      @log.error { "Error checking for worker tables: #{ex.message}" }
+      return false
+    end
+
     # Find the next scheduled task
     private def find_next_scheduled_task : Time?
+      # First check if worker tables exist
+      return nil unless worker_tables_exist?
+
       DB.connect(@config.connection_string) do |db|
         result = db.query_one? "SELECT
                                  MIN(scheduled_at) AS next_scheduled_at
@@ -266,6 +295,13 @@ module Statbus
     private def process_tasks
       start_time = Time.monotonic
       begin
+        # First check if worker tables exist
+        unless worker_tables_exist?
+          @log.info { "Worker tables don't exist yet. Waiting for migrations to run..." }
+          sleep(10.seconds) # Wait longer before checking again
+          return
+        end
+
         DB.connect(@config.connection_string) do |db|
           # Query worker.process_tasks() with named columns for better documentation
           results = db.query_all "SELECT
@@ -274,7 +310,7 @@ module Statbus
                                     duration_ms,   -- How long the task took to process in milliseconds
                                     success,       -- Whether the task succeeded (TRUE) or failed (FALSE)
                                     error_message  -- Error message if task failed, NULL otherwise
-                                  FROM worker.process_tasks(50, 5000)",
+                                  FROM worker.process_tasks()",
             as: {Int64, String, PG::Numeric, Bool, String?}
 
           if results.empty?
