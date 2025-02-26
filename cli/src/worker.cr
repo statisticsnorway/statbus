@@ -94,12 +94,12 @@ module Statbus
 
       loop do
         begin
-          @log.info { "Connecting to database at #{@config.postgres_host}:#{@config.postgres_port}..." }
+          @log.debug { "Connecting to database at #{@config.postgres_host}:#{@config.postgres_port}..." }
           
           # First verify we can connect to the database
           DB.connect(@config.connection_string) do |db|
             version = db.query_one("SELECT version()", as: String)
-            @log.info { "Database connection verified: #{version}" }
+            @log.debug { "Database connection verified: #{version}" }
           end
           
           # Listen for notifications in a background thread
@@ -109,7 +109,7 @@ module Statbus
           end
           
           # Log successful connection
-          @log.info { "Connected to database at #{@config.postgres_host}:#{@config.postgres_port}" }
+          @log.debug { "Connected to database at #{@config.postgres_host}:#{@config.postgres_port}" }
           
           # Process any pending tasks immediately after connecting
           @command_queue.send(:process)
@@ -260,7 +260,7 @@ module Statbus
           if results.empty?
             @log.debug { "No tasks to process" }
           else
-            @log.info { "Processed #{results.size} tasks" }
+            @log.debug { "Processed #{results.size} tasks" }
             results.each do |id, command, duration, success, error|
               duration_float = duration.to_f
               if success
@@ -268,6 +268,11 @@ module Statbus
               else
                 @log.error { "Task #{id} (#{command}) failed after #{duration_float.round(2)}ms: #{error}" }
               end
+            end
+          
+            # Only log at INFO level if there were errors
+            if results.any? { |_, _, _, success, _| !success }
+              @log.info { "Processed #{results.size} tasks with errors" }
             end
 
             # Schedule a task cleanup if we processed tasks
