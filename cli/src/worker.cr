@@ -66,8 +66,28 @@ module Statbus
 
     def initialize(config)
       @config = config
+      
+      # Configure logging based on environment variables
+      # This will respect LOG_LEVEL env var by default
+      Log.setup_from_env(
+        default_level: ENV["VERBOSE"]? == "1" ? Log::Severity::Trace : 
+                       ENV["DEBUG"]? == "1" ? Log::Severity::Debug : 
+                       Log::Severity::Info
+      )
+      
       @log = ::Log.for("worker")
-      Log.setup_from_env
+      
+      # Log startup information
+      if ENV["VERBOSE"]? == "1"
+        @log.info { "Verbose logging enabled" }
+      elsif ENV["DEBUG"]? == "1"
+        @log.info { "Debug logging enabled" }
+      end
+      
+      # Log environment settings at debug level
+      @log.debug { "Environment settings detected:" }
+      @log.debug { "  VERBOSE=#{ENV["VERBOSE"]? || "0"}" }
+      @log.debug { "  DEBUG=#{ENV["DEBUG"]? || "0"}" }
     end
 
     def run
