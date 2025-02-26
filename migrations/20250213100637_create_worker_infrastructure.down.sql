@@ -36,11 +36,7 @@ DROP TABLE worker.last_processed;
 DROP PROCEDURE worker.setup();
 DROP PROCEDURE worker.teardown();
 
--- Drop mode function and related objects
-DROP FUNCTION worker.mode(worker.mode_type, boolean);
-REVOKE SELECT ON worker.settings FROM authenticated;
-DROP TABLE worker.settings;
-DROP TYPE worker.mode_type;
+-- No mode function or settings table to drop
 
 -- Revoke permissions
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA worker FROM authenticated;
