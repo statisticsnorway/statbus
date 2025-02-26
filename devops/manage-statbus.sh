@@ -42,6 +42,9 @@ case "$action" in
         VERSION=$(git describe --always)
         ./devops/dotenv --file .env set VERSION=$VERSION
         set_profile_arg "$@"
+        
+        # Always build the worker
+        eval docker compose build worker
 
         # Conditionally add the --build argument if the profile is 'all' or 'required'
         # since docker compose does not use the --profile to determine
