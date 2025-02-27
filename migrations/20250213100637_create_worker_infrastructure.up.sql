@@ -7,8 +7,6 @@ CREATE SCHEMA IF NOT EXISTS "worker";
 GRANT USAGE ON SCHEMA worker TO authenticated;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA worker TO authenticated;
 
--- No settings table needed as tests use ABORT
-
 CREATE TABLE IF NOT EXISTS worker.last_processed (
   table_name text PRIMARY KEY,
   transaction_id bigint NOT NULL

@@ -23,823 +23,290 @@ SET client_min_messages TO debug1;
 \else
 SET client_min_messages TO NOTICE;
 \endif
-\echo public.import_target
-public.import_target
-CREATE TABLE public.import_target(
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    schema_name text NOT NULL,
-    table_name text,
-    name text UNIQUE NOT NULL,
-    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    UNIQUE (schema_name, table_name)
-);
-INSERT INTO public.import_target (schema_name,table_name, name)
-VALUES
-    ('public','import_legal_unit_era', 'Legal Unit')
-    ,('public','import_establishment_era_for_legal_unit', 'Formal Establishment for Legal Unit')
-    ,('public','import_establishment_era_without_legal_unit', 'Informal Establishment without Legal Unit')
-   ;
-\echo public.import_target_column
-public.import_target_column
-CREATE TABLE public.import_target_column(
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    target_id int REFERENCES public.import_target(id),
-    column_name text NOT NULL,
-    column_type text NOT NULL,
-    uniquely_identifying boolean NOT NULL,
-    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
-);
-WITH cols AS (
-     SELECT it.id AS target_id
-          , column_name
-          , data_type AS column_type
-          , is_nullable
-          , EXISTS (SELECT * FROM public.external_ident_type WHERE code = column_name) AS uniquely_identifying
-          , ROW_NUMBER() OVER (PARTITION BY it.id ORDER BY ordinal_position) AS priority
-      FROM information_schema.columns AS c
-      JOIN public.import_target AS it
-        ON c.table_schema = it.schema_name
-        AND c.table_name = it.table_name
-      ORDER BY target_id, ordinal_position
-) INSERT INTO public.import_target_column(target_id, column_name, column_type, uniquely_identifying)
-  SELECT target_id, column_name, column_type, uniquely_identifying
-  FROM cols
-  ;
-SELECT it.schema_name || '.' || it.table_name AS target_table_name
-     , itc.column_name
-     , itc.column_type
-     , itc.uniquely_identifying
-FROM public.import_target_column itc
-JOIN public.import_target it ON it.id = itc.target_id
-ORDER BY it.id, it.table_name, itc.column_name;
-                 target_table_name                  |           column_name            | column_type | uniquely_identifying 
-----------------------------------------------------+----------------------------------+-------------+----------------------
- public.import_legal_unit_era                       | birth_date                       | text        | f
- public.import_legal_unit_era                       | data_source_code                 | text        | f
- public.import_legal_unit_era                       | death_date                       | text        | f
- public.import_legal_unit_era                       | email_address                    | text        | f
- public.import_legal_unit_era                       | employees                        | text        | f
- public.import_legal_unit_era                       | fax_number                       | text        | f
- public.import_legal_unit_era                       | landline                         | text        | f
- public.import_legal_unit_era                       | legal_form_code                  | text        | f
- public.import_legal_unit_era                       | mobile_number                    | text        | f
- public.import_legal_unit_era                       | name                             | text        | f
- public.import_legal_unit_era                       | phone_number                     | text        | f
- public.import_legal_unit_era                       | physical_address_part1           | text        | f
- public.import_legal_unit_era                       | physical_address_part2           | text        | f
- public.import_legal_unit_era                       | physical_address_part3           | text        | f
- public.import_legal_unit_era                       | physical_altitude                | text        | f
- public.import_legal_unit_era                       | physical_country_iso_2           | text        | f
- public.import_legal_unit_era                       | physical_latitude                | text        | f
- public.import_legal_unit_era                       | physical_longitude               | text        | f
- public.import_legal_unit_era                       | physical_postcode                | text        | f
- public.import_legal_unit_era                       | physical_postplace               | text        | f
- public.import_legal_unit_era                       | physical_region_code             | text        | f
- public.import_legal_unit_era                       | physical_region_path             | text        | f
- public.import_legal_unit_era                       | postal_address_part1             | text        | f
- public.import_legal_unit_era                       | postal_address_part2             | text        | f
- public.import_legal_unit_era                       | postal_address_part3             | text        | f
- public.import_legal_unit_era                       | postal_altitude                  | text        | f
- public.import_legal_unit_era                       | postal_country_iso_2             | text        | f
- public.import_legal_unit_era                       | postal_latitude                  | text        | f
- public.import_legal_unit_era                       | postal_longitude                 | text        | f
- public.import_legal_unit_era                       | postal_postcode                  | text        | f
- public.import_legal_unit_era                       | postal_postplace                 | text        | f
- public.import_legal_unit_era                       | postal_region_code               | text        | f
- public.import_legal_unit_era                       | postal_region_path               | text        | f
- public.import_legal_unit_era                       | primary_activity_category_code   | text        | f
- public.import_legal_unit_era                       | secondary_activity_category_code | text        | f
- public.import_legal_unit_era                       | sector_code                      | text        | f
- public.import_legal_unit_era                       | stat_ident                       | text        | t
- public.import_legal_unit_era                       | status_code                      | text        | f
- public.import_legal_unit_era                       | tag_path                         | text        | f
- public.import_legal_unit_era                       | tax_ident                        | text        | t
- public.import_legal_unit_era                       | turnover                         | text        | f
- public.import_legal_unit_era                       | valid_from                       | text        | f
- public.import_legal_unit_era                       | valid_to                         | text        | f
- public.import_legal_unit_era                       | web_address                      | text        | f
- public.import_establishment_era_for_legal_unit     | birth_date                       | text        | f
- public.import_establishment_era_for_legal_unit     | data_source_code                 | text        | f
- public.import_establishment_era_for_legal_unit     | death_date                       | text        | f
- public.import_establishment_era_for_legal_unit     | email_address                    | text        | f
- public.import_establishment_era_for_legal_unit     | employees                        | text        | f
- public.import_establishment_era_for_legal_unit     | fax_number                       | text        | f
- public.import_establishment_era_for_legal_unit     | landline                         | text        | f
- public.import_establishment_era_for_legal_unit     | legal_unit_stat_ident            | text        | f
- public.import_establishment_era_for_legal_unit     | legal_unit_tax_ident             | text        | f
- public.import_establishment_era_for_legal_unit     | mobile_number                    | text        | f
- public.import_establishment_era_for_legal_unit     | name                             | text        | f
- public.import_establishment_era_for_legal_unit     | phone_number                     | text        | f
- public.import_establishment_era_for_legal_unit     | physical_address_part1           | text        | f
- public.import_establishment_era_for_legal_unit     | physical_address_part2           | text        | f
- public.import_establishment_era_for_legal_unit     | physical_address_part3           | text        | f
- public.import_establishment_era_for_legal_unit     | physical_altitude                | text        | f
- public.import_establishment_era_for_legal_unit     | physical_country_iso_2           | text        | f
- public.import_establishment_era_for_legal_unit     | physical_latitude                | text        | f
- public.import_establishment_era_for_legal_unit     | physical_longitude               | text        | f
- public.import_establishment_era_for_legal_unit     | physical_postcode                | text        | f
- public.import_establishment_era_for_legal_unit     | physical_postplace               | text        | f
- public.import_establishment_era_for_legal_unit     | physical_region_code             | text        | f
- public.import_establishment_era_for_legal_unit     | physical_region_path             | text        | f
- public.import_establishment_era_for_legal_unit     | postal_address_part1             | text        | f
- public.import_establishment_era_for_legal_unit     | postal_address_part2             | text        | f
- public.import_establishment_era_for_legal_unit     | postal_address_part3             | text        | f
- public.import_establishment_era_for_legal_unit     | postal_altitude                  | text        | f
- public.import_establishment_era_for_legal_unit     | postal_country_iso_2             | text        | f
- public.import_establishment_era_for_legal_unit     | postal_latitude                  | text        | f
- public.import_establishment_era_for_legal_unit     | postal_longitude                 | text        | f
- public.import_establishment_era_for_legal_unit     | postal_postcode                  | text        | f
- public.import_establishment_era_for_legal_unit     | postal_postplace                 | text        | f
- public.import_establishment_era_for_legal_unit     | postal_region_code               | text        | f
- public.import_establishment_era_for_legal_unit     | postal_region_path               | text        | f
- public.import_establishment_era_for_legal_unit     | primary_activity_category_code   | text        | f
- public.import_establishment_era_for_legal_unit     | secondary_activity_category_code | text        | f
- public.import_establishment_era_for_legal_unit     | stat_ident                       | text        | t
- public.import_establishment_era_for_legal_unit     | status_code                      | text        | f
- public.import_establishment_era_for_legal_unit     | tag_path                         | text        | f
- public.import_establishment_era_for_legal_unit     | tax_ident                        | text        | t
- public.import_establishment_era_for_legal_unit     | turnover                         | text        | f
- public.import_establishment_era_for_legal_unit     | valid_from                       | text        | f
- public.import_establishment_era_for_legal_unit     | valid_to                         | text        | f
- public.import_establishment_era_for_legal_unit     | web_address                      | text        | f
- public.import_establishment_era_without_legal_unit | birth_date                       | text        | f
- public.import_establishment_era_without_legal_unit | data_source_code                 | text        | f
- public.import_establishment_era_without_legal_unit | death_date                       | text        | f
- public.import_establishment_era_without_legal_unit | email_address                    | text        | f
- public.import_establishment_era_without_legal_unit | employees                        | text        | f
- public.import_establishment_era_without_legal_unit | fax_number                       | text        | f
- public.import_establishment_era_without_legal_unit | landline                         | text        | f
- public.import_establishment_era_without_legal_unit | mobile_number                    | text        | f
- public.import_establishment_era_without_legal_unit | name                             | text        | f
- public.import_establishment_era_without_legal_unit | phone_number                     | text        | f
- public.import_establishment_era_without_legal_unit | physical_address_part1           | text        | f
- public.import_establishment_era_without_legal_unit | physical_address_part2           | text        | f
- public.import_establishment_era_without_legal_unit | physical_address_part3           | text        | f
- public.import_establishment_era_without_legal_unit | physical_altitude                | text        | f
- public.import_establishment_era_without_legal_unit | physical_country_iso_2           | text        | f
- public.import_establishment_era_without_legal_unit | physical_latitude                | text        | f
- public.import_establishment_era_without_legal_unit | physical_longitude               | text        | f
- public.import_establishment_era_without_legal_unit | physical_postcode                | text        | f
- public.import_establishment_era_without_legal_unit | physical_postplace               | text        | f
- public.import_establishment_era_without_legal_unit | physical_region_code             | text        | f
- public.import_establishment_era_without_legal_unit | physical_region_path             | text        | f
- public.import_establishment_era_without_legal_unit | postal_address_part1             | text        | f
- public.import_establishment_era_without_legal_unit | postal_address_part2             | text        | f
- public.import_establishment_era_without_legal_unit | postal_address_part3             | text        | f
- public.import_establishment_era_without_legal_unit | postal_altitude                  | text        | f
- public.import_establishment_era_without_legal_unit | postal_country_iso_2             | text        | f
- public.import_establishment_era_without_legal_unit | postal_latitude                  | text        | f
- public.import_establishment_era_without_legal_unit | postal_longitude                 | text        | f
- public.import_establishment_era_without_legal_unit | postal_postcode                  | text        | f
- public.import_establishment_era_without_legal_unit | postal_postplace                 | text        | f
- public.import_establishment_era_without_legal_unit | postal_region_code               | text        | f
- public.import_establishment_era_without_legal_unit | postal_region_path               | text        | f
- public.import_establishment_era_without_legal_unit | primary_activity_category_code   | text        | f
- public.import_establishment_era_without_legal_unit | secondary_activity_category_code | text        | f
- public.import_establishment_era_without_legal_unit | sector_code                      | text        | f
- public.import_establishment_era_without_legal_unit | stat_ident                       | text        | t
- public.import_establishment_era_without_legal_unit | status_code                      | text        | f
- public.import_establishment_era_without_legal_unit | tag_path                         | text        | f
- public.import_establishment_era_without_legal_unit | tax_ident                        | text        | t
- public.import_establishment_era_without_legal_unit | turnover                         | text        | f
- public.import_establishment_era_without_legal_unit | valid_from                       | text        | f
- public.import_establishment_era_without_legal_unit | valid_to                         | text        | f
- public.import_establishment_era_without_legal_unit | web_address                      | text        | f
-(131 rows)
+-- Display all import definitions with their mappings
+SELECT 
+    id.slug AS import_definition_slug,
+    id.name AS import_name,
+    it.schema_name AS target_schema_name,
+    it.table_name AS data_table_name,
+    id.note AS import_note,
+    isc.column_name AS source_column,
+    itc.column_name AS target_column,
+    im.source_expression,
+    im.source_value,
+    isc.priority AS source_column_priority
+FROM public.import_definition id
+JOIN public.import_target it ON id.target_id = it.id
+LEFT JOIN public.import_mapping im ON id.id = im.definition_id
+LEFT JOIN public.import_source_column isc ON im.source_column_id = isc.id
+LEFT JOIN public.import_target_column itc ON im.target_column_id = itc.id
+ORDER BY id.slug, isc.priority NULLS LAST;
+         import_definition_slug          |                    import_name                    | target_schema_name |               data_table_name               |                                        import_note                                        |          source_column           |          target_column           | source_expression | source_value | source_column_priority 
+-----------------------------------------+---------------------------------------------------+--------------------+---------------------------------------------+-------------------------------------------------------------------------------------------+----------------------------------+----------------------------------+-------------------+--------------+------------------------
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | tax_ident                        | tax_ident                        |                   |              |                      1
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | stat_ident                       | stat_ident                       |                   |              |                      2
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | legal_unit_tax_ident             | legal_unit_tax_ident             |                   |              |                      3
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | legal_unit_stat_ident            | legal_unit_stat_ident            |                   |              |                      4
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | name                             | name                             |                   |              |                      5
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | birth_date                       | birth_date                       |                   |              |                      6
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | death_date                       | death_date                       |                   |              |                      7
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_address_part1           | physical_address_part1           |                   |              |                      8
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_address_part2           | physical_address_part2           |                   |              |                      9
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_address_part3           | physical_address_part3           |                   |              |                     10
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_postcode                | physical_postcode                |                   |              |                     11
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_postplace               | physical_postplace               |                   |              |                     12
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_latitude                | physical_latitude                |                   |              |                     13
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_longitude               | physical_longitude               |                   |              |                     14
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_altitude                | physical_altitude                |                   |              |                     15
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_region_code             | physical_region_code             |                   |              |                     16
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_region_path             | physical_region_path             |                   |              |                     17
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | physical_country_iso_2           | physical_country_iso_2           |                   |              |                     18
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_address_part1             | postal_address_part1             |                   |              |                     19
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_address_part2             | postal_address_part2             |                   |              |                     20
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_address_part3             | postal_address_part3             |                   |              |                     21
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_postcode                  | postal_postcode                  |                   |              |                     22
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_postplace                 | postal_postplace                 |                   |              |                     23
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_latitude                  | postal_latitude                  |                   |              |                     24
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_longitude                 | postal_longitude                 |                   |              |                     25
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_altitude                  | postal_altitude                  |                   |              |                     26
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_region_code               | postal_region_code               |                   |              |                     27
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_region_path               | postal_region_path               |                   |              |                     28
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | postal_country_iso_2             | postal_country_iso_2             |                   |              |                     29
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | web_address                      | web_address                      |                   |              |                     30
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | email_address                    | email_address                    |                   |              |                     31
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | phone_number                     | phone_number                     |                   |              |                     32
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | landline                         | landline                         |                   |              |                     33
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | mobile_number                    | mobile_number                    |                   |              |                     34
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | fax_number                       | fax_number                       |                   |              |                     35
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     36
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     37
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | status_code                      | status_code                      |                   |              |                     38
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | data_source_code                 | data_source_code                 |                   |              |                     39
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | employees                        | employees                        |                   |              |                     40
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | turnover                         | turnover                         |                   |              |                     41
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | tag_path                         | tag_path                         |                   |              |                     42
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      |                                  | valid_from                       | default           |              |                       
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      |                                  | valid_to                         | default           |              |                       
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | valid_from                       | valid_from                       |                   |              |                      1
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | valid_to                         | valid_to                         |                   |              |                      2
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | tax_ident                        | tax_ident                        |                   |              |                      3
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | stat_ident                       | stat_ident                       |                   |              |                      4
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | legal_unit_tax_ident             | legal_unit_tax_ident             |                   |              |                      5
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | legal_unit_stat_ident            | legal_unit_stat_ident            |                   |              |                      6
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | name                             | name                             |                   |              |                      7
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | birth_date                       | birth_date                       |                   |              |                      8
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | death_date                       | death_date                       |                   |              |                      9
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_address_part1           | physical_address_part1           |                   |              |                     10
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_address_part2           | physical_address_part2           |                   |              |                     11
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_address_part3           | physical_address_part3           |                   |              |                     12
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_postcode                | physical_postcode                |                   |              |                     13
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_postplace               | physical_postplace               |                   |              |                     14
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_latitude                | physical_latitude                |                   |              |                     15
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_longitude               | physical_longitude               |                   |              |                     16
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_altitude                | physical_altitude                |                   |              |                     17
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_region_code             | physical_region_code             |                   |              |                     18
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_region_path             | physical_region_path             |                   |              |                     19
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | physical_country_iso_2           | physical_country_iso_2           |                   |              |                     20
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_address_part1             | postal_address_part1             |                   |              |                     21
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_address_part2             | postal_address_part2             |                   |              |                     22
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_address_part3             | postal_address_part3             |                   |              |                     23
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_postcode                  | postal_postcode                  |                   |              |                     24
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_postplace                 | postal_postplace                 |                   |              |                     25
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_latitude                  | postal_latitude                  |                   |              |                     26
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_longitude                 | postal_longitude                 |                   |              |                     27
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_altitude                  | postal_altitude                  |                   |              |                     28
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_region_code               | postal_region_code               |                   |              |                     29
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_region_path               | postal_region_path               |                   |              |                     30
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | postal_country_iso_2             | postal_country_iso_2             |                   |              |                     31
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | web_address                      | web_address                      |                   |              |                     32
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | email_address                    | email_address                    |                   |              |                     33
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | phone_number                     | phone_number                     |                   |              |                     34
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | landline                         | landline                         |                   |              |                     35
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | mobile_number                    | mobile_number                    |                   |              |                     36
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | fax_number                       | fax_number                       |                   |              |                     37
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     38
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     39
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | status_code                      | status_code                      |                   |              |                     40
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | data_source_code                 | data_source_code                 |                   |              |                     41
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | employees                        | employees                        |                   |              |                     42
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | turnover                         | turnover                         |                   |              |                     43
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | tag_path                         | tag_path                         |                   |              |                     44
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | tax_ident                        | tax_ident                        |                   |              |                      1
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | stat_ident                       | stat_ident                       |                   |              |                      2
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | name                             | name                             |                   |              |                      3
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | birth_date                       | birth_date                       |                   |              |                      4
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | death_date                       | death_date                       |                   |              |                      5
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_address_part1           | physical_address_part1           |                   |              |                      6
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_address_part2           | physical_address_part2           |                   |              |                      7
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_address_part3           | physical_address_part3           |                   |              |                      8
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_postcode                | physical_postcode                |                   |              |                      9
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_postplace               | physical_postplace               |                   |              |                     10
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_latitude                | physical_latitude                |                   |              |                     11
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_longitude               | physical_longitude               |                   |              |                     12
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_altitude                | physical_altitude                |                   |              |                     13
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_region_code             | physical_region_code             |                   |              |                     14
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_region_path             | physical_region_path             |                   |              |                     15
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | physical_country_iso_2           | physical_country_iso_2           |                   |              |                     16
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_address_part1             | postal_address_part1             |                   |              |                     17
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_address_part2             | postal_address_part2             |                   |              |                     18
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_address_part3             | postal_address_part3             |                   |              |                     19
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_postcode                  | postal_postcode                  |                   |              |                     20
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_postplace                 | postal_postplace                 |                   |              |                     21
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_latitude                  | postal_latitude                  |                   |              |                     22
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_longitude                 | postal_longitude                 |                   |              |                     23
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_altitude                  | postal_altitude                  |                   |              |                     24
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_region_code               | postal_region_code               |                   |              |                     25
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_region_path               | postal_region_path               |                   |              |                     26
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | postal_country_iso_2             | postal_country_iso_2             |                   |              |                     27
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | web_address                      | web_address                      |                   |              |                     28
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | email_address                    | email_address                    |                   |              |                     29
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | phone_number                     | phone_number                     |                   |              |                     30
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | landline                         | landline                         |                   |              |                     31
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | mobile_number                    | mobile_number                    |                   |              |                     32
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | fax_number                       | fax_number                       |                   |              |                     33
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     34
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     35
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | sector_code                      | sector_code                      |                   |              |                     36
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | status_code                      | status_code                      |                   |              |                     37
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | data_source_code                 | data_source_code                 |                   |              |                     38
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | employees                        | employees                        |                   |              |                     39
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | turnover                         | turnover                         |                   |              |                     40
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | tag_path                         | tag_path                         |                   |              |                     41
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 |                                  | valid_to                         | default           |              |                       
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 |                                  | valid_from                       | default           |              |                       
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | valid_from                       | valid_from                       |                   |              |                      1
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | valid_to                         | valid_to                         |                   |              |                      2
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | tax_ident                        | tax_ident                        |                   |              |                      3
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | stat_ident                       | stat_ident                       |                   |              |                      4
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | name                             | name                             |                   |              |                      5
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | birth_date                       | birth_date                       |                   |              |                      6
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | death_date                       | death_date                       |                   |              |                      7
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_address_part1           | physical_address_part1           |                   |              |                      8
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_address_part2           | physical_address_part2           |                   |              |                      9
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_address_part3           | physical_address_part3           |                   |              |                     10
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_postcode                | physical_postcode                |                   |              |                     11
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_postplace               | physical_postplace               |                   |              |                     12
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_latitude                | physical_latitude                |                   |              |                     13
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_longitude               | physical_longitude               |                   |              |                     14
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_altitude                | physical_altitude                |                   |              |                     15
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_region_code             | physical_region_code             |                   |              |                     16
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_region_path             | physical_region_path             |                   |              |                     17
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | physical_country_iso_2           | physical_country_iso_2           |                   |              |                     18
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_address_part1             | postal_address_part1             |                   |              |                     19
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_address_part2             | postal_address_part2             |                   |              |                     20
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_address_part3             | postal_address_part3             |                   |              |                     21
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_postcode                  | postal_postcode                  |                   |              |                     22
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_postplace                 | postal_postplace                 |                   |              |                     23
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_latitude                  | postal_latitude                  |                   |              |                     24
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_longitude                 | postal_longitude                 |                   |              |                     25
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_altitude                  | postal_altitude                  |                   |              |                     26
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_region_code               | postal_region_code               |                   |              |                     27
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_region_path               | postal_region_path               |                   |              |                     28
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | postal_country_iso_2             | postal_country_iso_2             |                   |              |                     29
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | web_address                      | web_address                      |                   |              |                     30
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | email_address                    | email_address                    |                   |              |                     31
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | phone_number                     | phone_number                     |                   |              |                     32
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | landline                         | landline                         |                   |              |                     33
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | mobile_number                    | mobile_number                    |                   |              |                     34
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | fax_number                       | fax_number                       |                   |              |                     35
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     36
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     37
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | sector_code                      | sector_code                      |                   |              |                     38
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | status_code                      | status_code                      |                   |              |                     39
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | data_source_code                 | data_source_code                 |                   |              |                     40
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | employees                        | employees                        |                   |              |                     41
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | turnover                         | turnover                         |                   |              |                     42
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | tag_path                         | tag_path                         |                   |              |                     43
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | tax_ident                        | tax_ident                        |                   |              |                      1
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | stat_ident                       | stat_ident                       |                   |              |                      2
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | name                             | name                             |                   |              |                      3
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | birth_date                       | birth_date                       |                   |              |                      4
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | death_date                       | death_date                       |                   |              |                      5
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_address_part1           | physical_address_part1           |                   |              |                      6
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_address_part2           | physical_address_part2           |                   |              |                      7
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_address_part3           | physical_address_part3           |                   |              |                      8
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_postcode                | physical_postcode                |                   |              |                      9
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_postplace               | physical_postplace               |                   |              |                     10
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_latitude                | physical_latitude                |                   |              |                     11
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_longitude               | physical_longitude               |                   |              |                     12
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_altitude                | physical_altitude                |                   |              |                     13
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_region_code             | physical_region_code             |                   |              |                     14
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_region_path             | physical_region_path             |                   |              |                     15
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | physical_country_iso_2           | physical_country_iso_2           |                   |              |                     16
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_address_part1             | postal_address_part1             |                   |              |                     17
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_address_part2             | postal_address_part2             |                   |              |                     18
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_address_part3             | postal_address_part3             |                   |              |                     19
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_postcode                  | postal_postcode                  |                   |              |                     20
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_postplace                 | postal_postplace                 |                   |              |                     21
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_latitude                  | postal_latitude                  |                   |              |                     22
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_longitude                 | postal_longitude                 |                   |              |                     23
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_altitude                  | postal_altitude                  |                   |              |                     24
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_region_code               | postal_region_code               |                   |              |                     25
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_region_path               | postal_region_path               |                   |              |                     26
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | postal_country_iso_2             | postal_country_iso_2             |                   |              |                     27
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | web_address                      | web_address                      |                   |              |                     28
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | email_address                    | email_address                    |                   |              |                     29
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | phone_number                     | phone_number                     |                   |              |                     30
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | landline                         | landline                         |                   |              |                     31
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | mobile_number                    | mobile_number                    |                   |              |                     32
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | fax_number                       | fax_number                       |                   |              |                     33
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     34
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     35
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | sector_code                      | sector_code                      |                   |              |                     36
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | status_code                      | status_code                      |                   |              |                     37
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | data_source_code                 | data_source_code                 |                   |              |                     38
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | legal_form_code                  | legal_form_code                  |                   |              |                     39
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | employees                        | employees                        |                   |              |                     40
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | turnover                         | turnover                         |                   |              |                     41
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | tag_path                         | tag_path                         |                   |              |                     42
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               |                                  | valid_to                         | default           |              |                       
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               |                                  | valid_from                       | default           |              |                       
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | valid_from                       | valid_from                       |                   |              |                      1
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | valid_to                         | valid_to                         |                   |              |                      2
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | tax_ident                        | tax_ident                        |                   |              |                      3
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | stat_ident                       | stat_ident                       |                   |              |                      4
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | name                             | name                             |                   |              |                      5
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | birth_date                       | birth_date                       |                   |              |                      6
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | death_date                       | death_date                       |                   |              |                      7
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_address_part1           | physical_address_part1           |                   |              |                      8
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_address_part2           | physical_address_part2           |                   |              |                      9
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_address_part3           | physical_address_part3           |                   |              |                     10
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_postcode                | physical_postcode                |                   |              |                     11
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_postplace               | physical_postplace               |                   |              |                     12
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_latitude                | physical_latitude                |                   |              |                     13
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_longitude               | physical_longitude               |                   |              |                     14
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_altitude                | physical_altitude                |                   |              |                     15
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_region_code             | physical_region_code             |                   |              |                     16
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_region_path             | physical_region_path             |                   |              |                     17
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | physical_country_iso_2           | physical_country_iso_2           |                   |              |                     18
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_address_part1             | postal_address_part1             |                   |              |                     19
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_address_part2             | postal_address_part2             |                   |              |                     20
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_address_part3             | postal_address_part3             |                   |              |                     21
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_postcode                  | postal_postcode                  |                   |              |                     22
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_postplace                 | postal_postplace                 |                   |              |                     23
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_latitude                  | postal_latitude                  |                   |              |                     24
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_longitude                 | postal_longitude                 |                   |              |                     25
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_altitude                  | postal_altitude                  |                   |              |                     26
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_region_code               | postal_region_code               |                   |              |                     27
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_region_path               | postal_region_path               |                   |              |                     28
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | postal_country_iso_2             | postal_country_iso_2             |                   |              |                     29
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | web_address                      | web_address                      |                   |              |                     30
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | email_address                    | email_address                    |                   |              |                     31
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | phone_number                     | phone_number                     |                   |              |                     32
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | landline                         | landline                         |                   |              |                     33
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | mobile_number                    | mobile_number                    |                   |              |                     34
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | fax_number                       | fax_number                       |                   |              |                     35
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     36
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     37
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | sector_code                      | sector_code                      |                   |              |                     38
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | status_code                      | status_code                      |                   |              |                     39
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | data_source_code                 | data_source_code                 |                   |              |                     40
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | legal_form_code                  | legal_form_code                  |                   |              |                     41
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | employees                        | employees                        |                   |              |                     42
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | turnover                         | turnover                         |                   |              |                     43
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | tag_path                         | tag_path                         |                   |              |                     44
+(262 rows)
 
-\echo public.import_definition
-public.import_definition
-CREATE TABLE public.import_definition(
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    slug text UNIQUE NOT NULL,
-    name text UNIQUE NOT NULL,
-    target_id int REFERENCES public.import_target(id),
-    note text,
-    data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
-    time_context_ident TEXT, -- For lookup in public.time_context(ident) to get computed valid_from/valid_to
-    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
-    draft boolean NOT NULL DEFAULT true,
-    valid boolean NOT NULL DEFAULT false,
-    validation_error text,
-    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    CONSTRAINT draft_valid_error_states CHECK (
-        CASE WHEN draft THEN NOT valid
-            WHEN NOT draft THEN valid AND validation_error IS NULL
-            ELSE false                             -- All other combinations forbidden
-        END
-    )
-);
-CREATE INDEX ix_import_user_id ON public.import_definition USING btree (user_id);
-CREATE INDEX ix_import_data_source_id ON public.import_definition USING btree (data_source_id);
-CREATE OR REPLACE FUNCTION admin.import_definition_validate_before()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE
-    target_has_temporal boolean;
-    missing_temporal text[];
-BEGIN
-    -- Skip validation if in draft mode
-    IF NEW.draft THEN
-        RETURN NEW;
-    END IF;
-
-    -- Check if target table has temporal columns
-    SELECT EXISTS (
-        SELECT 1 FROM public.import_target_column
-        WHERE target_id = NEW.target_id
-        AND column_name IN ('valid_from', 'valid_to')
-    ) INTO target_has_temporal;
-
-    IF NOT target_has_temporal THEN
-        -- No temporal columns needed, validation passes
-        NEW.valid := true;
-        NEW.validation_error := NULL;
-        RETURN NEW;
-    END IF;
-
-    -- Check which temporal columns are missing mappings
-    SELECT array_agg(column_name)
-    FROM public.import_target_column itc
-    WHERE itc.target_id = NEW.target_id
-    AND itc.column_name IN ('valid_from', 'valid_to')
-    AND NOT EXISTS (
-        SELECT 1 FROM public.import_mapping im
-        WHERE im.target_column_id = itc.id
-        AND im.definition_id = NEW.id
-        AND (
-            im.source_column_id IS NOT NULL OR
-            im.source_expression = 'default'::import_source_expression OR
-            im.source_value IS NOT NULL
-        )
-    ) INTO missing_temporal;
-
-    -- Set validation results on NEW record
-    NEW.valid := (missing_temporal IS NULL);
-    NEW.validation_error := CASE
-        WHEN missing_temporal IS NULL THEN NULL
-        ELSE format(
-            'Missing required mappings for temporal columns: %s. Either map source columns or use ''default'' expression',
-            array_to_string(missing_temporal, ', ')
-        )
-    END;
-    NEW.draft := CASE
-        WHEN missing_temporal IS NULL THEN false
-        ELSE true
-    END;
-
-    RETURN NEW;
-END;
-$$;
-CREATE OR REPLACE FUNCTION validate_time_context_ident()
-RETURNS TRIGGER AS $$
-BEGIN
-    IF NEW.time_context_ident IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM public.time_context WHERE ident = NEW.time_context_ident) THEN
-        RAISE EXCEPTION 'Invalid time_context_ident: %', NEW.time_context_ident;
-    END IF;
-    RETURN NEW;
-END;
-$$ LANGUAGE plpgsql;
-CREATE TRIGGER validate_time_context_ident_trigger
-    BEFORE INSERT OR UPDATE OF time_context_ident ON public.import_definition
-    FOR EACH ROW
-    EXECUTE FUNCTION validate_time_context_ident();
-CREATE TRIGGER validate_on_draft_change
-    BEFORE UPDATE OF draft ON public.import_definition
-    FOR EACH ROW
-    WHEN (OLD.draft = true AND NEW.draft = false)
-    EXECUTE FUNCTION admin.import_definition_validate_before();
-CREATE OR REPLACE FUNCTION admin.prevent_changes_to_non_draft_definition()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE
-    def public.import_definition;
-BEGIN
-    IF TG_TABLE_NAME = 'import_definition' THEN
-        -- For direct changes to import_definition
-        IF NOT NEW.draft AND OLD.draft = NEW.draft THEN
-            RAISE EXCEPTION 'Can only modify import definition % when in draft mode', OLD.id;
-        END IF;
-    ELSE
-        -- For changes to related tables (mapping, source_column)
-        SELECT * INTO def FROM public.import_definition WHERE id =
-            CASE TG_TABLE_NAME
-                WHEN 'import_mapping' THEN
-                    CASE TG_OP
-                        WHEN 'DELETE' THEN OLD.definition_id
-                        ELSE NEW.definition_id
-                    END
-                WHEN 'import_source_column' THEN NEW.definition_id
-            END;
-
-        IF NOT def.draft THEN
-            RAISE EXCEPTION 'Can only modify % for import definition % when in draft mode',
-                TG_TABLE_NAME, def.id;
-        END IF;
-    END IF;
-    RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
-END;
-$$;
-CREATE TRIGGER prevent_non_draft_changes
-    BEFORE UPDATE ON public.import_definition
-    FOR EACH ROW
-    EXECUTE FUNCTION admin.prevent_changes_to_non_draft_definition();
-\echo public.import_source_column
-public.import_source_column
-CREATE TABLE public.import_source_column(
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    definition_id int REFERENCES public.import_definition(id),
-    column_name text NOT NULL,
-    priority int NOT NULL,
-    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
-);
-COMMENT ON COLUMN public.import_source_column.priority IS 'The ordering of the columns in the CSV file.';
-CREATE TRIGGER prevent_non_draft_source_column_changes
-    BEFORE INSERT OR UPDATE OR DELETE ON public.import_source_column
-    FOR EACH ROW
-    EXECUTE FUNCTION admin.prevent_changes_to_non_draft_definition();
-\echo public.import_mapping
-public.import_mapping
-CREATE TYPE public.import_source_expression AS ENUM ('now', 'default');
-CREATE TABLE public.import_mapping(
-    definition_id int NOT NULL REFERENCES public.import_definition(id),
-    source_column_id int REFERENCES public.import_source_column(id),
-    CONSTRAINT unique_source_column_mapping UNIQUE (definition_id, source_column_id),
-    source_value TEXT,
-    source_expression public.import_source_expression,
-    target_column_id int REFERENCES public.import_target_column(id),
-    CONSTRAINT unique_target_column_mapping UNIQUE (definition_id, target_column_id),
-    CONSTRAINT "only_one_source_can_be_defined"
-    CHECK( source_column_id IS NOT NULL AND source_value IS     NULL AND source_expression IS     NULL
-        OR source_column_id IS     NULL AND source_value IS NOT NULL AND source_expression IS     NULL
-        OR source_column_id IS     NULL AND source_value IS     NULL AND source_expression IS NOT NULL
-        ),
-    CONSTRAINT "at_least_one_column_must_be_defined" CHECK(
-      source_column_id IS NOT NULL OR target_column_id IS NOT NULL
-    ),
-    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
-);
-CREATE TRIGGER prevent_non_draft_mapping_changes
-    BEFORE INSERT OR UPDATE OR DELETE ON public.import_mapping
-    FOR EACH ROW
-    EXECUTE FUNCTION admin.prevent_changes_to_non_draft_definition();
-\echo public.import_job_status
-public.import_job_status
-CREATE TYPE public.import_job_status AS ENUM ('waiting_for_upload', 'analysing_data', 'waiting_for_approval', 'importing_data', 'finished');
-\echo public.import_job
-public.import_job
-CREATE TABLE public.import_job (
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    slug varchar,
-    description text,
-    note text,
-    default_valid_from DATE,
-    default_valid_to DATE,
-    upload_table_name text NOT NULL,
-    data_table_name text NOT NULL,
-    analysis_start_at timestamp with time zone,
-    analysis_stop_at timestamp with time zone,
-    changes_approved_at timestamp with time zone,
-    import_start_at timestamp with time zone,
-    import_stop_at timestamp with time zone,
-    status public.import_job_status NOT NULL DEFAULT 'waiting_for_upload',
-    definition_id integer NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
-    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL
-);
-CREATE INDEX ix_import_job_definition_id ON public.import_job USING btree (definition_id);
-CREATE INDEX ix_import_job_user_id ON public.import_job USING btree (user_id);
--- Create function to set default slug
-CREATE OR REPLACE FUNCTION admin.import_job_derive()
-RETURNS TRIGGER LANGUAGE plpgsql AS $import_job_derive$
-DECLARE
-    definition public.import_definition;
-BEGIN
-    SELECT * INTO definition
-    FROM public.import_definition
-    WHERE id = NEW.definition_id;
-
-    IF NOT definition.valid THEN
-        RAISE EXCEPTION 'Cannot create import job for invalid import_definition % (%): %',
-            definition.id, definition.name, COALESCE(definition.validation_error,'Is still draft');
-    END IF;
-
-    IF NEW.slug IS NULL THEN
-        NEW.slug := format('import_job_%s', NEW.id);
-    END IF;
-
-    NEW.upload_table_name := format('%s_upload', NEW.slug);
-    NEW.data_table_name := format('%s_data', NEW.slug);
-
-    -- Set default validity dates from time context if available and not already set
-    IF NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL THEN
-        SELECT tc.valid_from, tc.valid_to
-        INTO NEW.default_valid_from, NEW.default_valid_to
-        FROM public.import_definition id
-        LEFT JOIN public.time_context tc ON tc.ident = id.time_context_ident
-        WHERE id.id = NEW.definition_id;
-    END IF;
-
-    RETURN NEW;
-END;
-$import_job_derive$;
--- Create trigger to set slug before insert
-CREATE TRIGGER import_job_derive_trigger
-    BEFORE INSERT ON public.import_job
-    FOR EACH ROW
-    EXECUTE FUNCTION admin.import_job_derive();
--- Create functions to manage import job tables and views
-CREATE OR REPLACE FUNCTION admin.import_job_generate()
-RETURNS TRIGGER LANGUAGE plpgsql AS $import_job_generate$
-BEGIN
-    PERFORM admin.import_job_generate(NEW);
-    RETURN NEW;
-END;
-$import_job_generate$;
--- Create trigger to create objects when job is inserted
-CREATE TRIGGER import_job_generate
-    AFTER INSERT OR UPDATE OF upload_table_name, data_table_name ON public.import_job
-    FOR EACH ROW
-    EXECUTE FUNCTION admin.import_job_generate();
--- Function to clean up job objects
-CREATE OR REPLACE FUNCTION admin.import_job_cleanup()
-RETURNS TRIGGER AS $import_job_cleanup$
-BEGIN
-    -- Drop the view first since it depends on the table
-    EXECUTE format('DROP VIEW IF EXISTS public.%I', OLD.import_view);
-    EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.import_table);
-
-    RETURN OLD;
-END;
-$import_job_cleanup$ LANGUAGE plpgsql;
--- Create trigger to clean up objects when job is deleted
-CREATE TRIGGER import_job_cleanup
-    BEFORE UPDATE OF upload_table_name, data_table_name OR DELETE ON public.import_job
-    FOR EACH ROW
-    EXECUTE FUNCTION admin.import_job_cleanup();
-SELECT admin.add_rls_regular_user_can_read('public.import_target'::regclass);
- add_rls_regular_user_can_read 
--------------------------------
- 
-(1 row)
-
-SELECT admin.add_rls_regular_user_can_read('public.import_target_column'::regclass);
- add_rls_regular_user_can_read 
--------------------------------
- 
-(1 row)
-
-SELECT admin.add_rls_regular_user_can_read('public.import_definition'::regclass);
- add_rls_regular_user_can_read 
--------------------------------
- 
-(1 row)
-
-SELECT admin.add_rls_regular_user_can_read('public.import_source_column'::regclass);
- add_rls_regular_user_can_read 
--------------------------------
- 
-(1 row)
-
-SELECT admin.add_rls_regular_user_can_read('public.import_mapping'::regclass);
- add_rls_regular_user_can_read 
--------------------------------
- 
-(1 row)
-
-SELECT admin.add_rls_regular_user_can_edit('public.import_job'::regclass);
- add_rls_regular_user_can_edit 
--------------------------------
- 
-(1 row)
-
-\echo public.import_information
-public.import_information
-CREATE VIEW public.import_information WITH (security_barrier = true) AS
-    SELECT ij.id AS job_id
-    , id.id AS definition_id
-    , ij.slug AS import_job_slug
-    , id.slug AS import_definition_slug
-    , id.name AS import_name
-    , id.note AS import_note
-    , it.schema_name AS target_schema_name
-    , ij.upload_table_name AS upload_table_name
-    , ij.data_table_name AS data_table_name
-    , isc.column_name AS source_column
-    , im.source_value AS source_value
-    , im.source_expression AS source_expression
-    , itc.column_name AS target_column
-    , itc.column_type AS target_type
-    , itc.uniquely_identifying AS uniquely_identifying
-    , isc.priority AS source_column_priority
-    FROM public.import_job ij
-    JOIN public.import_definition id ON ij.definition_id = id.id
-    JOIN public.import_target it ON id.target_id = it.id
-    JOIN public.import_mapping im ON id.id = im.definition_id
-    LEFT OUTER JOIN public.import_source_column isc ON im.source_column_id = isc.id
-    LEFT OUTER JOIN public.import_target_column itc ON im.target_column_id = itc.id
-    ORDER BY id.id ASC
-           , ij.id ASC
-           , isc.priority ASC NULLS LAST
-           , isc.id ASC
-           , itc.id ASC
-;
-\echo admin.import_job_generate
-admin.import_job_generate
-/*
-Each import operates on it's on table.
-The table is unlogged for good performance on insert.
-There is a view that maps from the columns names of the upload to the column names of the table.
-*/
-CREATE OR REPLACE FUNCTION admin.import_job_generate(job public.import_job)
-RETURNS void AS $import_job_generate$
-DECLARE
-    create_upload_table_stmt text;
-    create_data_table_stmt text;
-    create_data_indices_stmt text;
-    add_separator BOOLEAN := FALSE;
-    info RECORD;
-BEGIN
-  RAISE NOTICE 'Generating %', job.upload_table_name;
-  -- Build the sql to create a table for this import job with target columns
-  create_upload_table_stmt := format('CREATE UNLOGGED TABLE public.%I (', job.upload_table_name);
-
-  -- Add columns from target table definition
-  FOR info IN
-      SELECT *
-      FROM public.import_information AS ii
-      WHERE ii.job_id = job.id
-        AND source_column IS NOT NULL
-  LOOP
-    IF NOT add_separator THEN
-        add_separator := true;
-    ELSE
-      -- Adds a comma after every line but the first.
-        create_upload_table_stmt := create_upload_table_stmt || ',';
-    END IF;
-
-    create_upload_table_stmt := create_upload_table_stmt || format($format$
-  %I TEXT$format$, info.source_column);
-  END LOOP;
-  create_upload_table_stmt := create_upload_table_stmt ||$EOS$
-  );$EOS$;
-
-  RAISE DEBUG '%', create_upload_table_stmt;
-  EXECUTE create_upload_table_stmt;
-
-  RAISE NOTICE 'Generating %', job.data_table_name;
-  -- Build the sql to create a table for this import job with target columns
-  create_data_table_stmt := format('CREATE UNLOGGED TABLE public.%I (', job.data_table_name);
-
-  -- Add columns from target table definition
-  add_separator := false;
-  FOR info IN
-      SELECT *
-      FROM public.import_information AS ii
-      WHERE ii.job_id = job.id
-        AND target_column IS NOT NULL
-  LOOP
-    IF NOT add_separator THEN
-        add_separator := true;
-    ELSE
-      -- Adds a comma after every line but the first.
-        create_data_table_stmt := create_data_table_stmt || ',';
-    END IF;
-
-    create_data_table_stmt := create_data_table_stmt || format($format$
-  %I %I$format$, info.target_column, info.target_type);
-  END LOOP;
-  create_data_table_stmt := create_data_table_stmt ||$EOS$
-  );$EOS$;
-
-  RAISE DEBUG '%', create_data_table_stmt;
-  EXECUTE create_data_table_stmt;
-
-  -- Add unique constraint on uniquely identifying columns
-  create_data_indices_stmt := format('ALTER TABLE public.%I ADD CONSTRAINT %I_unique_key UNIQUE (',
-    job.data_table_name,
-    job.data_table_name
-  );
-
-  -- Add columns to unique constraint
-  add_separator := false;
-  FOR info IN
-      SELECT *
-      FROM public.import_information AS ii
-      WHERE ii.job_id = job.id
-        AND uniquely_identifying = TRUE
-        AND target_column IS NOT NULL
-  LOOP
-    IF NOT add_separator THEN
-        add_separator := true;
-    ELSE
-        create_data_indices_stmt := create_data_indices_stmt || ', ';
-    END IF;
-
-    create_data_indices_stmt := create_data_indices_stmt || format('%I', info.target_column);
-  END LOOP;
-
-  create_data_indices_stmt := create_data_indices_stmt || ');';
-
-  RAISE DEBUG '%', create_data_indices_stmt;
-  EXECUTE create_data_indices_stmt;
-
-  PERFORM admin.add_rls_regular_user_can_edit(info.upload_table_name::regclass);
-  PERFORM admin.add_rls_regular_user_can_edit(info.data_table_name::regclass);
-
-END;
-$import_job_generate$ LANGUAGE plpgsql;
-\echo admin.import_job_cleanup
-admin.import_job_cleanup
-CREATE OR REPLACE FUNCTION admin.import_job_cleanup(job public.import_job)
-RETURNS void AS $import_job_cleanup$
-BEGIN
-    EXECUTE format('DROP TABLE public.%I', job.upload_table_name);
-    EXECUTE format('DROP TABLE public.%I', job.data_table_name);
-END;
-$import_job_cleanup$ LANGUAGE plpgsql;
-CREATE OR REPLACE FUNCTION admin.import_job_process(job_id integer)
-RETURNS void LANGUAGE plpgsql AS $import_job_process$
-DECLARE
-    job public.import_job;
-    merge_stmt text;
-    add_separator BOOLEAN := FALSE;
-    info RECORD;
-BEGIN
-    -- Get the job details
-    SELECT * INTO job FROM public.import_job WHERE id = job_id;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Import job % not found', job_id;
-    END IF;
-
-    /*
-    -- Example of generated merge statement:
-    INSERT INTO public.import_job_123_data_table (
-      tax_ident, name, legal_form_code, primary_activity_category_code
-    ) SELECT
-      tax_ident, name, legal_form_code, primary_activity_category_code
-    FROM public.import_job_123_upload_table
-    ON CONFLICT (tax_ident) DO UPDATE SET
-      name = EXCLUDED.name,
-      legal_form_code = EXCLUDED.legal_form_code,
-      primary_activity_category_code = EXCLUDED.primary_activity_category_code;
-     */
-
-    -- Build dynamic INSERT statement with ON CONFLICT handling
-    merge_stmt := format('INSERT INTO public.%I (', job.data_table_name);
-
-    -- Add target columns
-    add_separator := FALSE;
-    FOR info IN
-        SELECT * FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND target_column IS NOT NULL
-    LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
-        ELSE
-            merge_stmt := merge_stmt || ', ';
-        END IF;
-
-        merge_stmt := merge_stmt || format('%I', info.target_column);
-    END LOOP;
-
-    merge_stmt := merge_stmt || format(') SELECT ');
-
-    -- Add source columns, values and expressions
-    add_separator := FALSE;
-    FOR info IN
-        SELECT *
-        FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND target_column IS NOT NULL
-          AND (source_column IS NOT NULL
-               OR source_value IS NOT NULL
-               OR source_expression IS NOT NULL)
-    LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
-        ELSE
-            merge_stmt := merge_stmt || ', ';
-        END IF;
-
-        CASE
-            WHEN info.source_value IS NOT NULL THEN
-                merge_stmt := merge_stmt || quote_literal(info.source_value);
-            WHEN info.source_expression IS NOT NULL THEN
-                merge_stmt := merge_stmt || CASE info.source_expression
-                    WHEN 'now' THEN 'statement_timestamp()'
-                    WHEN 'default' THEN
-                        CASE info.target_column
-                            WHEN 'valid_from' THEN quote_literal(job.default_valid_from)
-                            WHEN 'valid_to' THEN quote_literal(job.default_valid_to)
-                            ELSE 'NULL'
-                        END
-                    ELSE 'NULL'
-                    END;
-            WHEN info.source_column IS NOT NULL THEN
-                merge_stmt := merge_stmt || CASE info.target_column
-                    WHEN 'valid_from' THEN format('COALESCE(NULLIF(%I,%L), %L)', info.source_column, '', job.default_valid_from)
-                    WHEN 'valid_to' THEN format('COALESCE(NULLIF(%I,%L), %L)', info.source_column, '', job.default_valid_to)
-                    ELSE format('NULLIF(%I,%L)', info.source_column, '')
-                    END;
-            ELSE
-                RAISE EXCEPTION 'No valid source (column/value/expression) found for job %', job_id;
-        END CASE;
-    END LOOP;
-
-    merge_stmt := merge_stmt || format(' FROM public.%I ', job.upload_table_name);
-
-    -- Add ON CONFLICT clause using uniquely identifying columns
-    merge_stmt := merge_stmt || ' ON CONFLICT (';
-
-    add_separator := FALSE;
-    FOR info IN
-        SELECT *
-        FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND uniquely_identifying = TRUE
-          AND target_column IS NOT NULL
-    LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
-        ELSE
-            merge_stmt := merge_stmt || ', ';
-        END IF;
-
-        merge_stmt := merge_stmt || format('%I', info.target_column);
-    END LOOP;
-
-    merge_stmt := merge_stmt || ') DO UPDATE SET ';
-
-    -- Add update assignments
-    add_separator := FALSE;
-    FOR info IN
-        SELECT *
-        FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND source_column IS NOT NULL
-          AND target_column IS NOT NULL
-          AND NOT uniquely_identifying
-    LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
-        ELSE
-            merge_stmt := merge_stmt || ', ';
-        END IF;
-
-        merge_stmt := merge_stmt || format('%I = EXCLUDED.%I',
-                                         info.target_column,
-                                         info.target_column);
-    END LOOP;
-
-    -- Execute the insert
-    RAISE DEBUG 'Executing upsert: %', merge_stmt;
-    EXECUTE merge_stmt;
-
-    DECLARE
-      data_table_count INT;
-    BEGIN
-      EXECUTE format('SELECT count(*) FROM public.%I', job.data_table_name) INTO data_table_count;
-      RAISE DEBUG 'There are % rows in %', data_table_count, job.data_table_name;
-    END;
-
-    -- TODO: Validate the data_ table using the standardised column names, column by column in batches.
-
-    -- Insert validated data into target table
-    DECLARE
-      target RECORD;
-      target_columns TEXT;
-      insert_stmt TEXT;
-    BEGIN
-        SELECT it.* INTO target
-        FROM public.import_definition AS id
-        JOIN public.import_target AS it ON id.target_id = it.id
-        WHERE id.id = job.definition_id;
-
-        SELECT string_agg(quote_ident(target_column), ',') INTO target_columns
-           FROM public.import_information AS ii
-           WHERE ii.job_id = job.definition_id
-           AND target_column IS NOT NULL;
-
-        insert_stmt := format($format$
-          INSERT INTO %I.%I (%s)
-          SELECT %s FROM public.%I;
-        $format$
-        , target.schema_name
-        , target.table_name
-        , target_columns
-        , target_columns
-        , job.data_table_name
-        );
-
-        RAISE DEBUG 'Executing %', insert_stmt;
-        EXECUTE insert_stmt;
-    END;
-END;
-$import_job_process$;
 -- Pretend the user has clicked and created an import definition.
 WITH it AS (
     SELECT * FROM public.import_target
@@ -957,69 +424,71 @@ SELECT d.slug as definition_slug,
        sc.column_name as source_column,
        m.source_value,
        m.source_expression,
-       tc.column_name
+       sc.priority AS source_column_priority,
+       tc.column_name AS target_column
 FROM mapped m
 LEFT JOIN def d ON d.id = m.definition_id
 LEFT JOIN inserted_source_column sc ON sc.id = m.source_column_id
-LEFT JOIN public.import_target_column tc ON tc.id = m.target_column_id;
- definition_slug  |               source_column               | source_value | source_expression |           column_name            
-------------------+-------------------------------------------+--------------+-------------------+----------------------------------
- brreg_hovedenhet | organisasjonsnummer                       |              |                   | tax_ident
- brreg_hovedenhet | navn                                      |              |                   | name
- brreg_hovedenhet | organisasjonsform.kode                    |              |                   | legal_form_code
- brreg_hovedenhet | organisasjonsform.beskrivelse             |              |                   | 
- brreg_hovedenhet | naeringskode1.kode                        |              |                   | primary_activity_category_code
- brreg_hovedenhet | naeringskode1.beskrivelse                 |              |                   | 
- brreg_hovedenhet | naeringskode2.kode                        |              |                   | secondary_activity_category_code
- brreg_hovedenhet | naeringskode2.beskrivelse                 |              |                   | 
- brreg_hovedenhet | naeringskode3.kode                        |              |                   | 
- brreg_hovedenhet | naeringskode3.beskrivelse                 |              |                   | 
- brreg_hovedenhet | hjelpeenhetskode.kode                     |              |                   | 
- brreg_hovedenhet | hjelpeenhetskode.beskrivelse              |              |                   | 
- brreg_hovedenhet | harRegistrertAntallAnsatte                |              |                   | 
- brreg_hovedenhet | antallAnsatte                             |              |                   | 
- brreg_hovedenhet | hjemmeside                                |              |                   | 
- brreg_hovedenhet | postadresse.adresse                       |              |                   | postal_address_part1
- brreg_hovedenhet | postadresse.poststed                      |              |                   | postal_postplace
- brreg_hovedenhet | postadresse.postnummer                    |              |                   | postal_postcode
- brreg_hovedenhet | postadresse.kommune                       |              |                   | 
- brreg_hovedenhet | postadresse.kommunenummer                 |              |                   | postal_region_code
- brreg_hovedenhet | postadresse.land                          |              |                   | 
- brreg_hovedenhet | postadresse.landkode                      |              |                   | postal_country_iso_2
- brreg_hovedenhet | forretningsadresse.adresse                |              |                   | physical_address_part1
- brreg_hovedenhet | forretningsadresse.poststed               |              |                   | physical_postplace
- brreg_hovedenhet | forretningsadresse.postnummer             |              |                   | physical_postcode
- brreg_hovedenhet | forretningsadresse.kommune                |              |                   | 
- brreg_hovedenhet | forretningsadresse.kommunenummer          |              |                   | physical_region_code
- brreg_hovedenhet | forretningsadresse.land                   |              |                   | 
- brreg_hovedenhet | forretningsadresse.landkode               |              |                   | physical_country_iso_2
- brreg_hovedenhet | institusjonellSektorkode.kode             |              |                   | sector_code
- brreg_hovedenhet | institusjonellSektorkode.beskrivelse      |              |                   | 
- brreg_hovedenhet | sisteInnsendteAarsregnskap                |              |                   | 
- brreg_hovedenhet | registreringsdatoenhetsregisteret         |              |                   | 
- brreg_hovedenhet | stiftelsesdato                            |              |                   | birth_date
- brreg_hovedenhet | registrertIMvaRegisteret                  |              |                   | 
- brreg_hovedenhet | frivilligMvaRegistrertBeskrivelser        |              |                   | 
- brreg_hovedenhet | registrertIFrivillighetsregisteret        |              |                   | 
- brreg_hovedenhet | registrertIForetaksregisteret             |              |                   | 
- brreg_hovedenhet | registrertIStiftelsesregisteret           |              |                   | 
- brreg_hovedenhet | konkurs                                   |              |                   | 
- brreg_hovedenhet | konkursdato                               |              |                   | 
- brreg_hovedenhet | underAvvikling                            |              |                   | 
- brreg_hovedenhet | underAvviklingDato                        |              |                   | 
- brreg_hovedenhet | underTvangsavviklingEllerTvangsopplosning |              |                   | 
- brreg_hovedenhet | tvangsopplostPgaManglendeDagligLederDato  |              |                   | 
- brreg_hovedenhet | tvangsopplostPgaManglendeRevisorDato      |              |                   | 
- brreg_hovedenhet | tvangsopplostPgaManglendeRegnskapDato     |              |                   | 
- brreg_hovedenhet | tvangsopplostPgaMangelfulltStyreDato      |              |                   | 
- brreg_hovedenhet | tvangsavvikletPgaManglendeSlettingDato    |              |                   | 
- brreg_hovedenhet | overordnetEnhet                           |              |                   | 
- brreg_hovedenhet | maalform                                  |              |                   | 
- brreg_hovedenhet | vedtektsdato                              |              |                   | 
- brreg_hovedenhet | vedtektsfestetFormaal                     |              |                   | 
- brreg_hovedenhet | aktivitet                                 |              |                   | 
- brreg_hovedenhet |                                           |              | default           | valid_from
- brreg_hovedenhet |                                           |              | default           | valid_to
+LEFT JOIN public.import_target_column tc ON tc.id = m.target_column_id
+ORDER BY source_column_priority, target_column;
+ definition_slug  |               source_column               | source_value | source_expression | source_column_priority |          target_column           
+------------------+-------------------------------------------+--------------+-------------------+------------------------+----------------------------------
+ brreg_hovedenhet | organisasjonsnummer                       |              |                   |                      3 | tax_ident
+ brreg_hovedenhet | navn                                      |              |                   |                      4 | name
+ brreg_hovedenhet | organisasjonsform.kode                    |              |                   |                      5 | legal_form_code
+ brreg_hovedenhet | organisasjonsform.beskrivelse             |              |                   |                      6 | 
+ brreg_hovedenhet | naeringskode1.kode                        |              |                   |                      7 | primary_activity_category_code
+ brreg_hovedenhet | naeringskode1.beskrivelse                 |              |                   |                      8 | 
+ brreg_hovedenhet | naeringskode2.kode                        |              |                   |                      9 | secondary_activity_category_code
+ brreg_hovedenhet | naeringskode2.beskrivelse                 |              |                   |                     10 | 
+ brreg_hovedenhet | naeringskode3.kode                        |              |                   |                     11 | 
+ brreg_hovedenhet | naeringskode3.beskrivelse                 |              |                   |                     12 | 
+ brreg_hovedenhet | hjelpeenhetskode.kode                     |              |                   |                     13 | 
+ brreg_hovedenhet | hjelpeenhetskode.beskrivelse              |              |                   |                     14 | 
+ brreg_hovedenhet | harRegistrertAntallAnsatte                |              |                   |                     15 | 
+ brreg_hovedenhet | antallAnsatte                             |              |                   |                     16 | 
+ brreg_hovedenhet | hjemmeside                                |              |                   |                     17 | 
+ brreg_hovedenhet | postadresse.adresse                       |              |                   |                     18 | postal_address_part1
+ brreg_hovedenhet | postadresse.poststed                      |              |                   |                     19 | postal_postplace
+ brreg_hovedenhet | postadresse.postnummer                    |              |                   |                     20 | postal_postcode
+ brreg_hovedenhet | postadresse.kommune                       |              |                   |                     21 | 
+ brreg_hovedenhet | postadresse.kommunenummer                 |              |                   |                     22 | postal_region_code
+ brreg_hovedenhet | postadresse.land                          |              |                   |                     23 | 
+ brreg_hovedenhet | postadresse.landkode                      |              |                   |                     24 | postal_country_iso_2
+ brreg_hovedenhet | forretningsadresse.adresse                |              |                   |                     25 | physical_address_part1
+ brreg_hovedenhet | forretningsadresse.poststed               |              |                   |                     26 | physical_postplace
+ brreg_hovedenhet | forretningsadresse.postnummer             |              |                   |                     27 | physical_postcode
+ brreg_hovedenhet | forretningsadresse.kommune                |              |                   |                     28 | 
+ brreg_hovedenhet | forretningsadresse.kommunenummer          |              |                   |                     29 | physical_region_code
+ brreg_hovedenhet | forretningsadresse.land                   |              |                   |                     30 | 
+ brreg_hovedenhet | forretningsadresse.landkode               |              |                   |                     31 | physical_country_iso_2
+ brreg_hovedenhet | institusjonellSektorkode.kode             |              |                   |                     32 | sector_code
+ brreg_hovedenhet | institusjonellSektorkode.beskrivelse      |              |                   |                     33 | 
+ brreg_hovedenhet | sisteInnsendteAarsregnskap                |              |                   |                     34 | 
+ brreg_hovedenhet | registreringsdatoenhetsregisteret         |              |                   |                     35 | 
+ brreg_hovedenhet | stiftelsesdato                            |              |                   |                     36 | birth_date
+ brreg_hovedenhet | registrertIMvaRegisteret                  |              |                   |                     37 | 
+ brreg_hovedenhet | frivilligMvaRegistrertBeskrivelser        |              |                   |                     38 | 
+ brreg_hovedenhet | registrertIFrivillighetsregisteret        |              |                   |                     39 | 
+ brreg_hovedenhet | registrertIForetaksregisteret             |              |                   |                     40 | 
+ brreg_hovedenhet | registrertIStiftelsesregisteret           |              |                   |                     41 | 
+ brreg_hovedenhet | konkurs                                   |              |                   |                     42 | 
+ brreg_hovedenhet | konkursdato                               |              |                   |                     43 | 
+ brreg_hovedenhet | underAvvikling                            |              |                   |                     44 | 
+ brreg_hovedenhet | underAvviklingDato                        |              |                   |                     45 | 
+ brreg_hovedenhet | underTvangsavviklingEllerTvangsopplosning |              |                   |                     46 | 
+ brreg_hovedenhet | tvangsopplostPgaManglendeDagligLederDato  |              |                   |                     47 | 
+ brreg_hovedenhet | tvangsopplostPgaManglendeRevisorDato      |              |                   |                     48 | 
+ brreg_hovedenhet | tvangsopplostPgaManglendeRegnskapDato     |              |                   |                     49 | 
+ brreg_hovedenhet | tvangsopplostPgaMangelfulltStyreDato      |              |                   |                     50 | 
+ brreg_hovedenhet | tvangsavvikletPgaManglendeSlettingDato    |              |                   |                     51 | 
+ brreg_hovedenhet | overordnetEnhet                           |              |                   |                     52 | 
+ brreg_hovedenhet | maalform                                  |              |                   |                     53 | 
+ brreg_hovedenhet | vedtektsdato                              |              |                   |                     54 | 
+ brreg_hovedenhet | vedtektsfestetFormaal                     |              |                   |                     55 | 
+ brreg_hovedenhet | aktivitet                                 |              |                   |                     56 | 
+ brreg_hovedenhet |                                           |              | default           |                        | valid_from
+ brreg_hovedenhet |                                           |              | default           |                        | valid_to
 (56 rows)
 
 SELECT d.slug,
@@ -1033,7 +502,8 @@ SELECT d.slug,
        d.validation_error
 FROM public.import_definition d
 JOIN public.import_target t ON t.id = d.target_id
-LEFT JOIN public.data_source ds ON ds.id = d.data_source_id;
+LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
+WHERE d.slug = 'brreg_hovedenhet';
        slug       |            name            |     target_table      |                    note                     | data_source | time_context_ident | draft | valid | validation_error 
 ------------------+----------------------------+-----------------------+---------------------------------------------+-------------+--------------------+-------+-------+------------------
  brreg_hovedenhet | Import of BRREG Hovedenhet | import_legal_unit_era | Easy upload of the CSV file found at brreg. |             |                    | t     | f     | 
@@ -1041,7 +511,8 @@ LEFT JOIN public.data_source ds ON ds.id = d.data_source_id;
 
 UPDATE public.import_definition
 SET draft = false
-WHERE draft;
+WHERE draft
+  AND slug = 'brreg_hovedenhet';
 SELECT d.slug,
        d.name,
        t.table_name as target_table,
@@ -1053,7 +524,8 @@ SELECT d.slug,
        d.validation_error
 FROM public.import_definition d
 JOIN public.import_target t ON t.id = d.target_id
-LEFT JOIN public.data_source ds ON ds.id = d.data_source_id;
+LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
+WHERE d.slug = 'brreg_hovedenhet';
        slug       |            name            |     target_table      |                    note                     | data_source | time_context_ident | draft | valid | validation_error 
 ------------------+----------------------------+-----------------------+---------------------------------------------+-------------+--------------------+-------+-------+------------------
  brreg_hovedenhet | Import of BRREG Hovedenhet | import_legal_unit_era | Easy upload of the CSV file found at brreg. |             |                    | f     | t     | 
@@ -1062,45 +534,49 @@ LEFT JOIN public.data_source ds ON ds.id = d.data_source_id;
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_job_2015', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
-FROM def RETURNING *;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, status;
+NOTICE:  Creating snapshot table import_job_2015_import_information
 NOTICE:  Generating import_job_2015_upload
 NOTICE:  Generating import_job_2015_data
- id |      slug       |           description           |                         note                          | default_valid_from | default_valid_to |   upload_table_name    |   data_table_name    | analysis_start_at | analysis_stop_at | changes_approved_at | import_start_at | import_stop_at |       status       | definition_id | user_id 
-----+-----------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+------------------------+----------------------+-------------------+------------------+---------------------+-----------------+----------------+--------------------+---------------+---------
-  1 | import_job_2015 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 01-01-2015         | infinity         | import_job_2015_upload | import_job_2015_data |                   |                  |                     |                 |                | waiting_for_upload |             1 |        
+      slug       |           description           |                         note                          | default_valid_from | default_valid_to |   upload_table_name    |   data_table_name    | import_information_snapshot_table_name |       status       
+-----------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+------------------------+----------------------+----------------------------------------+--------------------
+ import_job_2015 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 01-01-2015         | infinity         | import_job_2015_upload | import_job_2015_data | import_job_2015_import_information     | waiting_for_upload
 (1 row)
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_job_2016', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
-FROM def RETURNING *;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, status;
+NOTICE:  Creating snapshot table import_job_2016_import_information
 NOTICE:  Generating import_job_2016_upload
 NOTICE:  Generating import_job_2016_data
- id |      slug       |           description           |                         note                          | default_valid_from | default_valid_to |   upload_table_name    |   data_table_name    | analysis_start_at | analysis_stop_at | changes_approved_at | import_start_at | import_stop_at |       status       | definition_id | user_id 
-----+-----------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+------------------------+----------------------+-------------------+------------------+---------------------+-----------------+----------------+--------------------+---------------+---------
-  2 | import_job_2016 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 01-01-2016         | infinity         | import_job_2016_upload | import_job_2016_data |                   |                  |                     |                 |                | waiting_for_upload |             1 |        
+      slug       |           description           |                         note                          | default_valid_from | default_valid_to |   upload_table_name    |   data_table_name    | import_information_snapshot_table_name |       status       
+-----------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+------------------------+----------------------+----------------------------------------+--------------------
+ import_job_2016 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 01-01-2016         | infinity         | import_job_2016_upload | import_job_2016_data | import_job_2016_import_information     | waiting_for_upload
 (1 row)
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_job_2017', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
-FROM def RETURNING *;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, status;
+NOTICE:  Creating snapshot table import_job_2017_import_information
 NOTICE:  Generating import_job_2017_upload
 NOTICE:  Generating import_job_2017_data
- id |      slug       |           description           |                         note                          | default_valid_from | default_valid_to |   upload_table_name    |   data_table_name    | analysis_start_at | analysis_stop_at | changes_approved_at | import_start_at | import_stop_at |       status       | definition_id | user_id 
-----+-----------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+------------------------+----------------------+-------------------+------------------+---------------------+-----------------+----------------+--------------------+---------------+---------
-  3 | import_job_2017 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 01-01-2017         | infinity         | import_job_2017_upload | import_job_2017_data |                   |                  |                     |                 |                | waiting_for_upload |             1 |        
+      slug       |           description           |                         note                          | default_valid_from | default_valid_to |   upload_table_name    |   data_table_name    | import_information_snapshot_table_name |       status       
+-----------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+------------------------+----------------------+----------------------------------------+--------------------
+ import_job_2017 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 01-01-2017         | infinity         | import_job_2017_upload | import_job_2017_data | import_job_2017_import_information     | waiting_for_upload
 (1 row)
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_job_2018', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
-FROM def RETURNING *;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, status;
+NOTICE:  Creating snapshot table import_job_2018_import_information
 NOTICE:  Generating import_job_2018_upload
 NOTICE:  Generating import_job_2018_data
- id |      slug       |           description           |                         note                          | default_valid_from | default_valid_to |   upload_table_name    |   data_table_name    | analysis_start_at | analysis_stop_at | changes_approved_at | import_start_at | import_stop_at |       status       | definition_id | user_id 
-----+-----------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+------------------------+----------------------+-------------------+------------------+---------------------+-----------------+----------------+--------------------+---------------+---------
-  4 | import_job_2018 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 01-01-2018         | infinity         | import_job_2018_upload | import_job_2018_data |                   |                  |                     |                 |                | waiting_for_upload |             1 |        
+      slug       |           description           |                         note                          | default_valid_from | default_valid_to |   upload_table_name    |   data_table_name    | import_information_snapshot_table_name |       status       
+-----------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+------------------------+----------------------+----------------------------------------+--------------------
+ import_job_2018 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 01-01-2018         | infinity         | import_job_2018_upload | import_job_2018_data | import_job_2018_import_information     | waiting_for_upload
 (1 row)
 
 \d public.import_job_2015_upload
@@ -1212,6 +688,7 @@ Policies:
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
+\d public.import_job_2015_import_information_snapshot
 \echo Review public.import_information
 Review public.import_information
 SELECT import_job_slug, import_definition_slug, import_name, import_note, target_schema_name, upload_table_name, data_table_name, source_column, source_value, source_expression, target_column, target_type, uniquely_identifying, source_column_priority FROM public.import_information;
@@ -1506,6 +983,37 @@ END $$;
 \copy public.import_job_2018_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
 -- Speed up changes by validating in the end.
 SET CONSTRAINTS ALL DEFERRED;
+-- Verify that snapshot tables were created
+SELECT slug, import_information_snapshot_table_name 
+FROM public.import_job
+ORDER BY id;
+      slug       | import_information_snapshot_table_name 
+-----------------+----------------------------------------
+ import_job_2015 | import_job_2015_import_information
+ import_job_2016 | import_job_2016_import_information
+ import_job_2017 | import_job_2017_import_information
+ import_job_2018 | import_job_2018_import_information
+(4 rows)
+
+-- Verify that the snapshot tables exist in the database
+SELECT ij.slug, ij.import_information_snapshot_table_name, 
+       CASE WHEN EXISTS (
+           SELECT 1 FROM pg_tables 
+           WHERE schemaname = 'public' AND tablename = ij.import_information_snapshot_table_name
+       ) THEN 'exists' ELSE 'missing' END AS table_status
+FROM public.import_job ij
+ORDER BY ij.id;
+      slug       | import_information_snapshot_table_name | table_status 
+-----------------+----------------------------------------+--------------
+ import_job_2015 | import_job_2015_import_information     | exists
+ import_job_2016 | import_job_2016_import_information     | exists
+ import_job_2017 | import_job_2017_import_information     | exists
+ import_job_2018 | import_job_2018_import_information     | exists
+(4 rows)
+
+-- Validate all inserted rows.
+SET CONSTRAINTS ALL IMMEDIATE;
+-- Process the import jobs
 SELECT admin.import_job_process(job.id) FROM public.import_job AS job order by id ASC;
  import_job_process 
 --------------------
@@ -1515,8 +1023,6 @@ SELECT admin.import_job_process(job.id) FROM public.import_job AS job order by i
  
 (4 rows)
 
--- Validate all inserted rows.
-SET CONSTRAINTS ALL IMMEDIATE;
 \echo Run worker processing to generate computed data
 Run worker processing to generate computed data
 SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
