@@ -1,5 +1,5 @@
 ```sql
-                        Materialized view "public.statistical_unit"
+                          Unlogged table "public.statistical_unit"
               Column              |          Type          | Collation | Nullable | Default 
 ----------------------------------+------------------------+-----------+----------+---------
  unit_type                        | statistical_unit_type  |           |          | 
@@ -102,6 +102,7 @@ Indexes:
     "idx_statistical_unit_tag_paths" btree (tag_paths)
     "idx_statistical_unit_unit_type" btree (unit_type)
     "statistical_unit_key" UNIQUE, btree (valid_from, valid_to, unit_type, unit_id)
+    "statistical_unit_type_id_daterange_excl" EXCLUDE USING gist (unit_type WITH =, unit_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "su_ei_stat_ident_idx" btree ((external_idents ->> 'stat_ident'::text))
     "su_ei_tax_ident_idx" btree ((external_idents ->> 'tax_ident'::text))
     "su_s_employees_idx" btree ((stats ->> 'employees'::text))
@@ -110,5 +111,16 @@ Indexes:
     "su_ss_employees_sum_idx" btree (((stats_summary -> 'employees'::text) ->> 'sum'::text))
     "su_ss_turnover_count_idx" btree (((stats_summary -> 'turnover'::text) ->> 'count'::text))
     "su_ss_turnover_sum_idx" btree (((stats_summary -> 'turnover'::text) ->> 'sum'::text))
+Policies:
+    POLICY "statistical_unit_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "statistical_unit_regular_user_read" FOR SELECT
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+    POLICY "statistical_unit_super_user_manage"
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
 ```

@@ -61,6 +61,7 @@
  fax_number                       | character varying(50)  |           |          |         | extended | 
  status_id                        | integer                |           |          |         | plain    | 
  status_code                      | character varying      |           |          |         | extended | 
+ include_unit_in_reports          | boolean                |           |          |         | plain    | 
  invalid_codes                    | jsonb                  |           |          |         | extended | 
  has_legal_unit                   | boolean                |           |          |         | plain    | 
  establishment_ids                | integer[]              |           |          |         | extended | 
@@ -129,6 +130,7 @@ View definition:
             c.fax_number,
             lu.status_id,
             st.code AS status_code,
+            st.include_unit_in_reports,
             lu.invalid_codes,
             true AS has_legal_unit,
             lu.id AS legal_unit_id,
@@ -167,6 +169,7 @@ View definition:
             jsonb_stats_to_summary_agg(tes.stats) AS stats_summary
            FROM timeline_establishment tes
              JOIN basis basis_1 ON tes.legal_unit_id = basis_1.legal_unit_id AND daterange(basis_1.valid_after, basis_1.valid_to, '(]'::text) && daterange(tes.valid_after, tes.valid_to, '(]'::text)
+          WHERE tes.include_unit_in_reports = basis_1.include_unit_in_reports
           GROUP BY tes.legal_unit_id, basis_1.valid_after, basis_1.valid_to
         )
  SELECT basis.unit_type,
@@ -234,6 +237,7 @@ View definition:
     basis.fax_number,
     basis.status_id,
     basis.status_code,
+    basis.include_unit_in_reports,
     basis.invalid_codes,
     basis.has_legal_unit,
     COALESCE(esa.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,

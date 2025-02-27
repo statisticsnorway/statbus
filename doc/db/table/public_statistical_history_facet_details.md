@@ -1,5 +1,5 @@
 ```sql
-                                                  Materialized view "public.statistical_history_facet"
+                                                    Unlogged table "public.statistical_history_facet"
                   Column                  |         Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
 ------------------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+-------------
  resolution                               | history_resolution    |           |          |         | plain    |             |              | 
@@ -45,33 +45,17 @@ Indexes:
     "idx_statistical_history_facet_year" btree (year)
     "statistical_history_facet_month_key" UNIQUE, btree (resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id) WHERE resolution = 'year-month'::history_resolution
     "statistical_history_facet_year_key" UNIQUE, btree (year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id) WHERE resolution = 'year'::history_resolution
-View definition:
- SELECT statistical_history_facet_def.resolution,
-    statistical_history_facet_def.year,
-    statistical_history_facet_def.month,
-    statistical_history_facet_def.unit_type,
-    statistical_history_facet_def.primary_activity_category_path,
-    statistical_history_facet_def.secondary_activity_category_path,
-    statistical_history_facet_def.sector_path,
-    statistical_history_facet_def.legal_form_id,
-    statistical_history_facet_def.physical_region_path,
-    statistical_history_facet_def.physical_country_id,
-    statistical_history_facet_def.status_id,
-    statistical_history_facet_def.count,
-    statistical_history_facet_def.births,
-    statistical_history_facet_def.deaths,
-    statistical_history_facet_def.name_change_count,
-    statistical_history_facet_def.primary_activity_category_change_count,
-    statistical_history_facet_def.secondary_activity_category_change_count,
-    statistical_history_facet_def.sector_change_count,
-    statistical_history_facet_def.legal_form_change_count,
-    statistical_history_facet_def.physical_region_change_count,
-    statistical_history_facet_def.physical_country_change_count,
-    statistical_history_facet_def.physical_address_change_count,
-    statistical_history_facet_def.status_change_count,
-    statistical_history_facet_def.stats_summary
-   FROM statistical_history_facet_def
-  ORDER BY statistical_history_facet_def.year, statistical_history_facet_def.month;
+Policies:
+    POLICY "statistical_history_facet_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "statistical_history_facet_regular_user_read" FOR SELECT
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+    POLICY "statistical_history_facet_super_user_manage"
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Access method: heap
 
 ```
