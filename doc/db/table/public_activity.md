@@ -54,6 +54,8 @@ Policies:
       USING ((auth.has_statbus_role(auth.uid(), 'restricted_user'::statbus_role_type) AND auth.has_activity_category_access(auth.uid(), category_id)))
       WITH CHECK ((auth.has_statbus_role(auth.uid(), 'restricted_user'::statbus_role_type) AND auth.has_activity_category_access(auth.uid(), category_id)))
 Triggers:
+    activity_changes_trigger AFTER INSERT OR UPDATE ON activity FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()
+    activity_deletes_trigger BEFORE DELETE ON activity FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
     activity_establishment_id_valid_fk_insert AFTER INSERT ON activity FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('activity_establishment_id_valid')
     activity_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON activity FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('activity_establishment_id_valid')
     activity_legal_unit_id_valid_fk_insert AFTER INSERT ON activity FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('activity_legal_unit_id_valid')

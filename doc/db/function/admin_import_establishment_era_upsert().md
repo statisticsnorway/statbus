@@ -22,6 +22,8 @@ DECLARE
     data_source RECORD;
     meta_data RECORD;
     new_typed RECORD;
+    typed_physical_itude_fields RECORD;
+    typed_postal_itude_fields RECORD;
     external_idents_to_add public.external_ident[] := ARRAY[]::public.external_ident[];
     prior_establishment_id INTEGER;
     legal_unit_ident_specified BOOL := false;
@@ -47,6 +49,15 @@ BEGIN
          , NULL::DATE AS valid_from
          , NULL::DATE AS valid_to
         INTO new_typed;
+    SELECT NULL::numeric(9,6) AS latitude,
+                NULL::numeric(9,6) AS longitude,
+                NULL::numeric(6,1) AS altitude
+        INTO typed_physical_itude_fields;
+
+        SELECT NULL::numeric(9,6) AS latitude,
+                NULL::numeric(9,6) AS longitude,
+                NULL::numeric(6,1) AS altitude
+        INTO typed_postal_itude_fields;
     SELECT NULL::int AS id INTO tag;
     SELECT NULL::int AS id INTO legal_unit;
     SELECT NULL::int AS id INTO enterprise;
@@ -91,6 +102,22 @@ BEGIN
     FROM admin.type_date_field(new_jsonb,'valid_to',invalid_codes);
 
     CALL admin.validate_stats_for_unit(new_jsonb);
+
+    SELECT latitude
+         , longitude
+         , altitude
+    INTO typed_physical_itude_fields.latitude
+       , typed_physical_itude_fields.longitude
+       , typed_physical_itude_fields.altitude
+    FROM admin.validate_itude_fields('physical'::public.location_type, new_jsonb) AS r;
+
+    SELECT latitude
+         , longitude
+         , altitude
+    INTO typed_postal_itude_fields.latitude
+       , typed_postal_itude_fields.longitude
+       , typed_postal_itude_fields.altitude
+    FROM admin.validate_itude_fields('postal'::public.location_type, new_jsonb) AS r;
 
     SELECT country_id          , updated_invalid_codes
     INTO   physical_country.id , invalid_codes
@@ -287,9 +314,9 @@ BEGIN
             , NULLIF(NEW.physical_address_part3,'')
             , NULLIF(NEW.physical_postcode,'')
             , NULLIF(NEW.physical_postplace,'')
-            , NULLIF(NEW.physical_latitude,'')::numeric(9, 6)
-            , NULLIF(NEW.physical_longitude,'')::numeric(9, 6)
-            , NULLIF(NEW.physical_altitude,'')::numeric(6, 1)
+            , typed_physical_itude_fields.latitude
+            , typed_physical_itude_fields.longitude
+            , typed_physical_itude_fields.altitude
             , physical_region.id
             , physical_country.id
             , data_source.id
@@ -347,9 +374,9 @@ BEGIN
             , NULLIF(NEW.postal_address_part3,'')
             , NULLIF(NEW.postal_postcode,'')
             , NULLIF(NEW.postal_postplace,'')
-            , NULLIF(NEW.postal_latitude,'')::numeric(9, 6)
-            , NULLIF(NEW.postal_longitude,'')::numeric(9, 6)
-            , NULLIF(NEW.postal_altitude,'')::numeric(6, 1)
+            , typed_postal_itude_fields.latitude
+            , typed_postal_itude_fields.longitude
+            , typed_postal_itude_fields.altitude
             , postal_region.id
             , postal_country.id
             , data_source.id

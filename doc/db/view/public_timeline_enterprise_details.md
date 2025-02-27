@@ -61,6 +61,7 @@
  fax_number                       | character varying(50)  |           |          |         | extended | 
  status_id                        | integer                |           |          |         | plain    | 
  status_code                      | character varying      |           |          |         | extended | 
+ include_unit_in_reports          | boolean                |           |          |         | plain    | 
  invalid_codes                    | jsonb                  |           |          |         | extended | 
  has_legal_unit                   | boolean                |           |          |         | plain    | 
  establishment_ids                | integer[]              |           |          |         | extended | 
@@ -143,6 +144,7 @@ View definition:
             c.fax_number,
             st.id AS status_id,
             st.code AS status_code,
+            st.include_unit_in_reports,
             plu.invalid_codes,
             true AS has_legal_unit,
             ten.id AS enterprise_id,
@@ -229,6 +231,7 @@ View definition:
             c.fax_number,
             st.id AS status_id,
             st.code AS status_code,
+            st.include_unit_in_reports,
             pes.invalid_codes,
             false AS has_legal_unit,
             ten.id AS enterprise_id,
@@ -318,6 +321,7 @@ View definition:
             COALESCE(enplu.fax_number, enpes.fax_number) AS fax_number,
             COALESCE(enplu.status_id, enpes.status_id) AS status_id,
             COALESCE(enplu.status_code, enpes.status_code) AS status_code,
+            COALESCE(enplu.include_unit_in_reports, enpes.include_unit_in_reports) AS include_unit_in_reports,
             COALESCE(enplu.invalid_codes || enpes.invalid_codes, enplu.invalid_codes, enpes.invalid_codes) AS invalid_codes,
             GREATEST(enplu.has_legal_unit, enpes.has_legal_unit) AS has_legal_unit,
             ten.enterprise_id,
@@ -345,7 +349,7 @@ View definition:
                     array_distinct_concat(timeline_legal_unit.establishment_ids) AS establishment_ids,
                     jsonb_stats_summary_merge_agg(timeline_legal_unit.stats_summary) AS stats_summary
                    FROM timeline_legal_unit
-                  WHERE timeline_legal_unit.enterprise_id = ten.enterprise_id AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(timeline_legal_unit.valid_after, timeline_legal_unit.valid_to, '(]'::text)
+                  WHERE timeline_legal_unit.enterprise_id = ten.enterprise_id AND timeline_legal_unit.include_unit_in_reports AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(timeline_legal_unit.valid_after, timeline_legal_unit.valid_to, '(]'::text)
                   GROUP BY timeline_legal_unit.enterprise_id, ten.valid_after, ten.valid_to) tlu ON true
              LEFT JOIN LATERAL ( SELECT timeline_establishment.enterprise_id,
                     ten.valid_after,
@@ -355,7 +359,7 @@ View definition:
                     array_agg(DISTINCT timeline_establishment.establishment_id) AS establishment_ids,
                     jsonb_stats_to_summary_agg(timeline_establishment.stats) AS stats_summary
                    FROM timeline_establishment
-                  WHERE timeline_establishment.enterprise_id = ten.enterprise_id AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(timeline_establishment.valid_after, timeline_establishment.valid_to, '(]'::text)
+                  WHERE timeline_establishment.enterprise_id = ten.enterprise_id AND timeline_establishment.include_unit_in_reports AND daterange(ten.valid_after, ten.valid_to, '(]'::text) && daterange(timeline_establishment.valid_after, timeline_establishment.valid_to, '(]'::text)
                   GROUP BY timeline_establishment.enterprise_id, ten.valid_after, ten.valid_to) tes ON true
           GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
         ), enterprise_with_primary_and_aggregation AS (
@@ -421,6 +425,7 @@ View definition:
             basis.fax_number,
             basis.status_id,
             basis.status_code,
+            basis.include_unit_in_reports,
             basis.invalid_codes,
             basis.has_legal_unit,
             COALESCE(aggregation.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
@@ -491,6 +496,7 @@ View definition:
             enterprise_with_primary_and_aggregation.fax_number,
             enterprise_with_primary_and_aggregation.status_id,
             enterprise_with_primary_and_aggregation.status_code,
+            enterprise_with_primary_and_aggregation.include_unit_in_reports,
             enterprise_with_primary_and_aggregation.invalid_codes,
             enterprise_with_primary_and_aggregation.has_legal_unit,
             enterprise_with_primary_and_aggregation.establishment_ids,
@@ -560,6 +566,7 @@ View definition:
     enterprise_with_primary_and_aggregation_and_derived.fax_number,
     enterprise_with_primary_and_aggregation_and_derived.status_id,
     enterprise_with_primary_and_aggregation_and_derived.status_code,
+    enterprise_with_primary_and_aggregation_and_derived.include_unit_in_reports,
     enterprise_with_primary_and_aggregation_and_derived.invalid_codes,
     enterprise_with_primary_and_aggregation_and_derived.has_legal_unit,
     enterprise_with_primary_and_aggregation_and_derived.establishment_ids,
