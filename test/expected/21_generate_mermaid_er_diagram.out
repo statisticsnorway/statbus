@@ -436,6 +436,76 @@ erDiagram
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
+	import_definition["import_definition"] {
+		"integer" id
+		"text" slug
+		"text" name
+		"integer" target_id
+		"text" note
+		"integer" data_source_id
+		"text" time_context_ident
+		"integer" user_id
+		"boolean" draft
+		"boolean" valid
+		"text" validation_error
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+	}
+	import_job["import_job"] {
+		"integer" id
+		"character varying" slug
+		"text" description
+		"text" note
+		"date" default_valid_from
+		"date" default_valid_to
+		"text" upload_table_name
+		"text" data_table_name
+		"text" target_table_name
+		"text" target_schema_name
+		"text" import_information_snapshot_table_name
+		"timestamp with time zone" analysis_start_at
+		"timestamp with time zone" analysis_stop_at
+		"timestamp with time zone" changes_approved_at
+		"timestamp with time zone" import_start_at
+		"timestamp with time zone" import_stop_at
+		"import_job_status" status
+		"integer" definition_id
+		"integer" user_id
+	}
+	import_mapping["import_mapping"] {
+		"integer" definition_id
+		"integer" source_column_id
+		"text" source_value
+		"import_source_expression" source_expression
+		"integer" target_column_id
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+	}
+	import_source_column["import_source_column"] {
+		"integer" id
+		"integer" definition_id
+		"text" column_name
+		"integer" priority
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+	}
+	import_target["import_target"] {
+		"integer" id
+		"text" schema_name
+		"text" table_name
+		"text" name
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+	}
+	import_target_column["import_target_column"] {
+		"integer" id
+		"integer" target_id
+		"text" column_name
+		"text" column_type
+		"boolean" uniquely_identifying
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+	}
 	legal_form["legal_form"] {
 		"integer" id
 		"text" code
@@ -916,11 +986,6 @@ erDiagram
 		"text" table_name
 		"bigint" transaction_id
 	}
-	worker_settings["worker.settings"] {
-		"text" key
-		"text" value
-		"timestamp with time zone" updated_at
-	}
 	worker_tasks["worker.tasks"] {
 		"bigint" id
 		"text" command
@@ -978,6 +1043,16 @@ erDiagram
 	external_ident }o--|| external_ident_type : external_ident_type_id_fkey
 	external_ident }o--|| statbus_user : external_ident_edit_by_user_id_fkey
 	external_ident_type }o--o| tag : external_ident_type_by_tag_id_fkey
+	import_definition }o--o| data_source : import_definition_data_source_id_fkey
+	import_definition }|--o| import_target : import_definition_target_id_fkey
+	import_definition }o--o| statbus_user : import_definition_user_id_fkey
+	import_job }o--|| import_definition : import_job_definition_id_fkey
+	import_job }o--o| statbus_user : import_job_user_id_fkey
+	import_mapping }|--|| import_definition : import_mapping_definition_id_fkey
+	import_mapping }o--o| import_source_column : import_mapping_source_column_id_fkey
+	import_mapping }o--o| import_target_column : import_mapping_target_column_id_fkey
+	import_source_column }|--o| import_definition : import_source_column_definition_id_fkey
+	import_target_column }o--o| import_target : import_target_column_target_id_fkey
 	legal_unit }o--o| data_source : legal_unit_data_source_id_fkey
 	legal_unit }o--|| enterprise : legal_unit_enterprise_id_fkey
 	legal_unit }o--o| foreign_participation : legal_unit_foreign_participation_id_fkey
