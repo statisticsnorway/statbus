@@ -1,11 +1,5 @@
 BEGIN;
 \i test/setup.sql
-SELECT worker.mode('manual');
-  mode  
---------
- manual
-(1 row)
-
 SELECT * FROM public.statbus_user_create('test.super@statbus.org', 'super_user'::statbus_role_type, 'Super#123!');
          email          |  password  
 ------------------------+------------
