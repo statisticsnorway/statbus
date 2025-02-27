@@ -1,5 +1,5 @@
 ```sql
-                    Materialized view "public.statistical_unit_facet"
+                     Unlogged table "public.statistical_unit_facet"
              Column             |         Type          | Collation | Nullable | Default 
 --------------------------------+-----------------------+-----------+----------+---------
  valid_from                     | date                  |           |          | 
@@ -25,5 +25,16 @@ Indexes:
     "statistical_unit_facet_unit_type" btree (unit_type)
     "statistical_unit_facet_valid_from" btree (valid_from)
     "statistical_unit_facet_valid_to" btree (valid_to)
+Policies:
+    POLICY "statistical_unit_facet_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "statistical_unit_facet_regular_user_read" FOR SELECT
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+    POLICY "statistical_unit_facet_super_user_manage"
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
 ```

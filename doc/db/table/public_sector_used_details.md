@@ -1,5 +1,5 @@
 ```sql
-                                      Materialized view "public.sector_used"
+                                        Unlogged table "public.sector_used"
  Column |       Type        | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
 --------+-------------------+-----------+----------+---------+----------+-------------+--------------+-------------
  id     | integer           |           |          |         | plain    |             |              | 
@@ -9,17 +9,17 @@
  name   | text              |           |          |         | extended |             |              | 
 Indexes:
     "sector_used_key" UNIQUE, btree (path)
-View definition:
- SELECT s.id,
-    s.path,
-    s.label,
-    s.code,
-    s.name
-   FROM sector s
-  WHERE s.path @> (( SELECT array_agg(DISTINCT statistical_unit.sector_path) AS array_agg
-           FROM statistical_unit
-          WHERE statistical_unit.sector_path IS NOT NULL)) AND s.active
-  ORDER BY s.path;
+Policies:
+    POLICY "sector_used_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "sector_used_regular_user_read" FOR SELECT
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+    POLICY "sector_used_super_user_manage"
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Access method: heap
 
 ```
