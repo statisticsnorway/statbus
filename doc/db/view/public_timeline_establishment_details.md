@@ -61,6 +61,7 @@
  fax_number                       | character varying(50)  |           |          |         | extended | 
  status_id                        | integer                |           |          |         | plain    | 
  status_code                      | character varying      |           |          |         | extended | 
+ include_unit_in_reports          | boolean                |           |          |         | plain    | 
  invalid_codes                    | jsonb                  |           |          |         | extended | 
  has_legal_unit                   | boolean                |           |          |         | plain    | 
  establishment_id                 | integer                |           |          |         | plain    | 
@@ -127,6 +128,7 @@ View definition:
     c.fax_number,
     es.status_id,
     st.code AS status_code,
+    st.include_unit_in_reports,
     es.invalid_codes,
     es.legal_unit_id IS NOT NULL AS has_legal_unit,
     es.id AS establishment_id,

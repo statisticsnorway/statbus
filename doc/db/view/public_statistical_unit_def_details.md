@@ -136,6 +136,7 @@ View definition:
             timeline_establishment.fax_number,
             timeline_establishment.status_id,
             timeline_establishment.status_code,
+            timeline_establishment.include_unit_in_reports,
             timeline_establishment.invalid_codes,
             timeline_establishment.has_legal_unit,
             NULL::integer[] AS establishment_ids,
@@ -205,6 +206,7 @@ View definition:
             timeline_legal_unit.fax_number,
             timeline_legal_unit.status_id,
             timeline_legal_unit.status_code,
+            timeline_legal_unit.include_unit_in_reports,
             timeline_legal_unit.invalid_codes,
             timeline_legal_unit.has_legal_unit,
             COALESCE(timeline_legal_unit.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
@@ -274,6 +276,7 @@ View definition:
             timeline_enterprise.fax_number,
             timeline_enterprise.status_id,
             timeline_enterprise.status_code,
+            timeline_enterprise.include_unit_in_reports,
             timeline_enterprise.invalid_codes,
             timeline_enterprise.has_legal_unit,
             COALESCE(timeline_enterprise.establishment_ids, ARRAY[]::integer[]) AS establishment_ids,
@@ -343,7 +346,7 @@ View definition:
     data.fax_number,
     data.status_id,
     data.status_code,
-    s.include_unit_in_reports,
+    data.include_unit_in_reports,
     data.invalid_codes,
     data.has_legal_unit,
     data.establishment_ids,
@@ -355,7 +358,6 @@ View definition:
     array_length(data.legal_unit_ids, 1) AS legal_unit_count,
     array_length(data.enterprise_ids, 1) AS enterprise_count,
     get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
-   FROM data
-     LEFT JOIN status s ON s.id = data.status_id;
+   FROM data;
 
 ```

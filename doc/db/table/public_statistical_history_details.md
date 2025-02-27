@@ -1,5 +1,5 @@
 ```sql
-                                                     Materialized view "public.statistical_history"
+                                                       Unlogged table "public.statistical_history"
                   Column                  |         Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
 ------------------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+-------------
  resolution                               | history_resolution    |           |          |         | plain    |             |              | 
@@ -28,25 +28,17 @@ Indexes:
     "idx_statistical_history_year" btree (year)
     "statistical_history_month_key" UNIQUE, btree (resolution, year, month, unit_type) WHERE resolution = 'year-month'::history_resolution
     "statistical_history_year_key" UNIQUE, btree (resolution, year, unit_type) WHERE resolution = 'year'::history_resolution
-View definition:
- SELECT statistical_history_def.resolution,
-    statistical_history_def.year,
-    statistical_history_def.month,
-    statistical_history_def.unit_type,
-    statistical_history_def.count,
-    statistical_history_def.births,
-    statistical_history_def.deaths,
-    statistical_history_def.name_change_count,
-    statistical_history_def.primary_activity_category_change_count,
-    statistical_history_def.secondary_activity_category_change_count,
-    statistical_history_def.sector_change_count,
-    statistical_history_def.legal_form_change_count,
-    statistical_history_def.physical_region_change_count,
-    statistical_history_def.physical_country_change_count,
-    statistical_history_def.physical_address_change_count,
-    statistical_history_def.stats_summary
-   FROM statistical_history_def
-  ORDER BY statistical_history_def.year, statistical_history_def.month;
+Policies:
+    POLICY "statistical_history_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "statistical_history_regular_user_read" FOR SELECT
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+    POLICY "statistical_history_super_user_manage"
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Access method: heap
 
 ```

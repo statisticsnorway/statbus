@@ -66,7 +66,7 @@ View definition:
             su_curr.stats AS curr_stats,
             su_curr.stats,
             su_curr.stats_summary
-           FROM statistical_history_periods range
+           FROM get_statistical_history_periods('year'::history_resolution) range(resolution, year, month, prev_stop, curr_start, curr_stop)
              JOIN LATERAL ( SELECT range_units.unit_type,
                     range_units.unit_id,
                     range_units.valid_after,
@@ -217,7 +217,6 @@ View definition:
                           WHERE daterange(su_range.valid_from, su_range.valid_to, '[]'::text) && daterange(range.curr_start, range.curr_stop, '[]'::text) AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date) AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop) AND su_range.include_unit_in_reports) range_units
                   WHERE range_units.last_in_range) su_curr ON true
              LEFT JOIN statistical_unit su_prev ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id AND su_prev.include_unit_in_reports
-          WHERE range.resolution = 'year'::history_resolution
         ), year_with_unit_derived AS (
          SELECT basis.resolution,
             basis.year,
@@ -306,7 +305,7 @@ View definition:
             su_curr.stats AS curr_stats,
             su_curr.stats,
             su_curr.stats_summary
-           FROM statistical_history_periods range
+           FROM get_statistical_history_periods('year-month'::history_resolution) range(resolution, year, month, prev_stop, curr_start, curr_stop)
              JOIN LATERAL ( SELECT range_units.unit_type,
                     range_units.unit_id,
                     range_units.valid_after,
@@ -457,7 +456,6 @@ View definition:
                           WHERE daterange(su_range.valid_from, su_range.valid_to, '[]'::text) && daterange(range.curr_start, range.curr_stop, '[]'::text) AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date) AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop) AND su_range.include_unit_in_reports) range_units
                   WHERE range_units.last_in_range) su_curr ON true
              LEFT JOIN statistical_unit su_prev ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id AND su_prev.include_unit_in_reports
-          WHERE range.resolution = 'year-month'::history_resolution
         ), year_and_month_with_unit_derived AS (
          SELECT basis.resolution,
             basis.year,

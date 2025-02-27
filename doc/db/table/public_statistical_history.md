@@ -1,5 +1,5 @@
 ```sql
-                          Materialized view "public.statistical_history"
+                            Unlogged table "public.statistical_history"
                   Column                  |         Type          | Collation | Nullable | Default 
 ------------------------------------------+-----------------------+-----------+----------+---------
  resolution                               | history_resolution    |           |          | 
@@ -28,5 +28,16 @@ Indexes:
     "idx_statistical_history_year" btree (year)
     "statistical_history_month_key" UNIQUE, btree (resolution, year, month, unit_type) WHERE resolution = 'year-month'::history_resolution
     "statistical_history_year_key" UNIQUE, btree (resolution, year, unit_type) WHERE resolution = 'year'::history_resolution
+Policies:
+    POLICY "statistical_history_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "statistical_history_regular_user_read" FOR SELECT
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+    POLICY "statistical_history_super_user_manage"
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
 ```

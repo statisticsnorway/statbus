@@ -1,5 +1,5 @@
 ```sql
-                       Materialized view "public.statistical_history_facet"
+                         Unlogged table "public.statistical_history_facet"
                   Column                  |         Type          | Collation | Nullable | Default 
 ------------------------------------------+-----------------------+-----------+----------+---------
  resolution                               | history_resolution    |           |          | 
@@ -45,5 +45,16 @@ Indexes:
     "idx_statistical_history_facet_year" btree (year)
     "statistical_history_facet_month_key" UNIQUE, btree (resolution, year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id) WHERE resolution = 'year-month'::history_resolution
     "statistical_history_facet_year_key" UNIQUE, btree (year, month, unit_type, primary_activity_category_path, secondary_activity_category_path, sector_path, legal_form_id, physical_region_path, physical_country_id) WHERE resolution = 'year'::history_resolution
+Policies:
+    POLICY "statistical_history_facet_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "statistical_history_facet_regular_user_read" FOR SELECT
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+    POLICY "statistical_history_facet_super_user_manage"
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
 ```

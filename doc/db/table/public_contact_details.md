@@ -45,6 +45,8 @@ Policies:
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Triggers:
+    contact_changes_trigger AFTER INSERT OR UPDATE ON contact FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()
+    contact_deletes_trigger BEFORE DELETE ON contact FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
     contact_establishment_id_valid_fk_insert AFTER INSERT ON contact FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('contact_establishment_id_valid')
     contact_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON contact FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('contact_establishment_id_valid')
     contact_legal_unit_id_valid_fk_insert AFTER INSERT ON contact FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('contact_legal_unit_id_valid')

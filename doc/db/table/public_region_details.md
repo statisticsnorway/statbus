@@ -23,6 +23,9 @@ CASE
     ELSE true
 END)
     "center coordinates all or nothing" CHECK (center_latitude IS NOT NULL AND center_longitude IS NOT NULL OR center_latitude IS NULL AND center_longitude IS NULL)
+    "center_altitude_must_be_positive" CHECK (center_altitude >= 0::numeric)
+    "center_latitude_must_be_from_minus_90_to_90_degrees" CHECK (center_latitude >= '-90'::integer::numeric AND center_latitude <= 90::numeric)
+    "center_longitude_must_be_from_minus_180_to_180_degrees" CHECK (center_longitude >= '-180'::integer::numeric AND center_longitude <= 180::numeric)
     "parent_id is required for child" CHECK (nlevel(path) = 1 OR parent_id IS NOT NULL)
 Foreign-key constraints:
     "region_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES region(id) ON DELETE RESTRICT

@@ -61,6 +61,7 @@
  fax_number                       | character varying(50)  |           |          | 
  status_id                        | integer                |           |          | 
  status_code                      | character varying      |           |          | 
+ include_unit_in_reports          | boolean                |           |          | 
  invalid_codes                    | jsonb                  |           |          | 
  has_legal_unit                   | boolean                |           |          | 
  establishment_ids                | integer[]              |           |          | 
