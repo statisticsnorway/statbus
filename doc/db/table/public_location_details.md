@@ -41,8 +41,11 @@ CASE
     WHEN altitude IS NOT NULL THEN latitude IS NOT NULL AND longitude IS NOT NULL
     ELSE true
 END)
+    "altitude_must_be_positive" CHECK (altitude >= 0::numeric)
     "coordinates require both latitude and longitude" CHECK (latitude IS NOT NULL AND longitude IS NOT NULL OR latitude IS NULL AND longitude IS NULL)
+    "latitude_must_be_from_minus_90_to_90_degrees" CHECK (latitude >= '-90'::integer::numeric AND latitude <= 90::numeric)
     "location_valid_check" CHECK (valid_after < valid_to)
+    "longitude_must_be_from_minus_180_to_180_degrees" CHECK (longitude >= '-180'::integer::numeric AND longitude <= 180::numeric)
 Foreign-key constraints:
     "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     "location_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL
@@ -61,6 +64,8 @@ Policies:
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Triggers:
+    location_changes_trigger AFTER INSERT OR UPDATE ON location FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()
+    location_deletes_trigger BEFORE DELETE ON location FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
     location_establishment_id_valid_fk_insert AFTER INSERT ON location FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('location_establishment_id_valid')
     location_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON location FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('location_establishment_id_valid')
     location_legal_unit_id_valid_fk_insert AFTER INSERT ON location FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('location_legal_unit_id_valid')

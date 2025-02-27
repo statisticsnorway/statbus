@@ -1,5 +1,5 @@
 ```sql
-                                                   Materialized view "public.statistical_unit"
+                                                     Unlogged table "public.statistical_unit"
               Column              |          Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
 ----------------------------------+------------------------+-----------+----------+---------+----------+-------------+--------------+-------------
  unit_type                        | statistical_unit_type  |           |          |         | plain    |             |              | 
@@ -102,6 +102,7 @@ Indexes:
     "idx_statistical_unit_tag_paths" btree (tag_paths)
     "idx_statistical_unit_unit_type" btree (unit_type)
     "statistical_unit_key" UNIQUE, btree (valid_from, valid_to, unit_type, unit_id)
+    "statistical_unit_type_id_daterange_excl" EXCLUDE USING gist (unit_type WITH =, unit_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "su_ei_stat_ident_idx" btree ((external_idents ->> 'stat_ident'::text))
     "su_ei_tax_ident_idx" btree ((external_idents ->> 'tax_ident'::text))
     "su_s_employees_idx" btree ((stats ->> 'employees'::text))
@@ -110,80 +111,17 @@ Indexes:
     "su_ss_employees_sum_idx" btree (((stats_summary -> 'employees'::text) ->> 'sum'::text))
     "su_ss_turnover_count_idx" btree (((stats_summary -> 'turnover'::text) ->> 'count'::text))
     "su_ss_turnover_sum_idx" btree (((stats_summary -> 'turnover'::text) ->> 'sum'::text))
-View definition:
- SELECT statistical_unit_def.unit_type,
-    statistical_unit_def.unit_id,
-    statistical_unit_def.valid_after,
-    statistical_unit_def.valid_from,
-    statistical_unit_def.valid_to,
-    statistical_unit_def.external_idents,
-    statistical_unit_def.name,
-    statistical_unit_def.birth_date,
-    statistical_unit_def.death_date,
-    statistical_unit_def.search,
-    statistical_unit_def.primary_activity_category_id,
-    statistical_unit_def.primary_activity_category_path,
-    statistical_unit_def.primary_activity_category_code,
-    statistical_unit_def.secondary_activity_category_id,
-    statistical_unit_def.secondary_activity_category_path,
-    statistical_unit_def.secondary_activity_category_code,
-    statistical_unit_def.activity_category_paths,
-    statistical_unit_def.sector_id,
-    statistical_unit_def.sector_path,
-    statistical_unit_def.sector_code,
-    statistical_unit_def.sector_name,
-    statistical_unit_def.data_source_ids,
-    statistical_unit_def.data_source_codes,
-    statistical_unit_def.legal_form_id,
-    statistical_unit_def.legal_form_code,
-    statistical_unit_def.legal_form_name,
-    statistical_unit_def.physical_address_part1,
-    statistical_unit_def.physical_address_part2,
-    statistical_unit_def.physical_address_part3,
-    statistical_unit_def.physical_postcode,
-    statistical_unit_def.physical_postplace,
-    statistical_unit_def.physical_region_id,
-    statistical_unit_def.physical_region_path,
-    statistical_unit_def.physical_region_code,
-    statistical_unit_def.physical_country_id,
-    statistical_unit_def.physical_country_iso_2,
-    statistical_unit_def.physical_latitude,
-    statistical_unit_def.physical_longitude,
-    statistical_unit_def.physical_altitude,
-    statistical_unit_def.postal_address_part1,
-    statistical_unit_def.postal_address_part2,
-    statistical_unit_def.postal_address_part3,
-    statistical_unit_def.postal_postcode,
-    statistical_unit_def.postal_postplace,
-    statistical_unit_def.postal_region_id,
-    statistical_unit_def.postal_region_path,
-    statistical_unit_def.postal_region_code,
-    statistical_unit_def.postal_country_id,
-    statistical_unit_def.postal_country_iso_2,
-    statistical_unit_def.postal_latitude,
-    statistical_unit_def.postal_longitude,
-    statistical_unit_def.postal_altitude,
-    statistical_unit_def.web_address,
-    statistical_unit_def.email_address,
-    statistical_unit_def.phone_number,
-    statistical_unit_def.landline,
-    statistical_unit_def.mobile_number,
-    statistical_unit_def.fax_number,
-    statistical_unit_def.status_id,
-    statistical_unit_def.status_code,
-    statistical_unit_def.include_unit_in_reports,
-    statistical_unit_def.invalid_codes,
-    statistical_unit_def.has_legal_unit,
-    statistical_unit_def.establishment_ids,
-    statistical_unit_def.legal_unit_ids,
-    statistical_unit_def.enterprise_ids,
-    statistical_unit_def.stats,
-    statistical_unit_def.stats_summary,
-    statistical_unit_def.establishment_count,
-    statistical_unit_def.legal_unit_count,
-    statistical_unit_def.enterprise_count,
-    statistical_unit_def.tag_paths
-   FROM statistical_unit_def;
+Policies:
+    POLICY "statistical_unit_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "statistical_unit_regular_user_read" FOR SELECT
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
+    POLICY "statistical_unit_super_user_manage"
+      TO authenticated
+      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Access method: heap
 
 ```

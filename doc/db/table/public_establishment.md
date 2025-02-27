@@ -72,6 +72,8 @@ Triggers:
     activity_establishment_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON establishment FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check('activity_establishment_id_valid')
     contact_establishment_id_valid_uk_delete AFTER DELETE ON establishment FROM contact DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check('contact_establishment_id_valid')
     contact_establishment_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON establishment FROM contact DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check('contact_establishment_id_valid')
+    establishment_changes_trigger AFTER INSERT OR UPDATE ON establishment FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()
+    establishment_deletes_trigger BEFORE DELETE ON establishment FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()
     establishment_legal_unit_id_valid_fk_insert AFTER INSERT ON establishment FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('establishment_legal_unit_id_valid')
     establishment_legal_unit_id_valid_fk_update AFTER UPDATE OF legal_unit_id, valid_after, valid_to ON establishment FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('establishment_legal_unit_id_valid')
     location_establishment_id_valid_uk_delete AFTER DELETE ON establishment FROM location DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check('location_establishment_id_valid')
