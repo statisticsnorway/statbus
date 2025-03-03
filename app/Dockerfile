@@ -1,13 +1,21 @@
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 COPY .nvmrc ./
-RUN if [ "$(head -n 1 .nvmrc | cut -d'.' -f1)" != "v20" ]; then \
-      echo "Node.js version in .nvmrc is not v20. Please update the FROM image or .nvmrc to match."; \
-      exit 1; \
-    fi
+RUN if [ "$(head -n 1 .nvmrc | cut -d'.' -f1)" != "v22" ]; then \
+  echo "Node.js version in .nvmrc is not v22. Please update the FROM image or .nvmrc to match."; \
+  exit 1; \
+  fi
 
 FROM base AS install
+# Enables corepack
 RUN corepack enable
-RUN corepack prepare pnpm@latest --activate
+RUN corepack prepare pnpm@latest-10
+# Check if pnpm major version in package.json matches the one we're using
+COPY package.json ./
+RUN PNPM_VERSION_IN_PACKAGE=$(grep -o '"packageManager": "pnpm@[0-9]*' package.json | grep -o '[0-9]*') && \
+    if [ "$PNPM_VERSION_IN_PACKAGE" != "10" ]; then \
+      echo "pnpm version in package.json is not 10.x. Please update the Dockerfile or package.json to match."; \
+      exit 1; \
+    fi
 WORKDIR /app
 COPY pnpm-lock.yaml ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch --frozen-lockfile
@@ -35,9 +43,9 @@ FROM install AS test
 COPY --from=install /app /app
 WORKDIR /app
 CMD pnpm run tsc && \
-    pnpm run lint --quiet && \
-    pnpm test -- --ci --silent && \
-    pnpm run build
+  pnpm run lint --quiet && \
+  pnpm test -- --ci --silent && \
+  pnpm run build
 
 FROM base AS runner
 RUN apk add --no-cache dumb-init
@@ -63,6 +71,6 @@ COPY --from=build --chown=nextjs:nodejs /app/.next/static ./public/_next/static
 
 USER nextjs
 EXPOSE 3000
-ENV PORT 3000
-ENV NODE_ENV production
+ENV PORT=3000
+ENV NODE_ENV=production
 CMD ["dumb-init","node", "server.js"]
