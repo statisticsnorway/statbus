@@ -17,6 +17,9 @@ DROP TRIGGER import_job_cleanup ON public.import_job;
 -- Drop worker command registry entry
 DELETE FROM worker.command_registry WHERE command = 'import_job_process';
 
+-- Drop queue registry entry
+DELETE FROM worker.queue_registry WHERE queue = 'import';
+
 -- Drop functions
 DROP FUNCTION admin.import_job_process(payload JSONB);
 DROP FUNCTION admin.import_job_process(integer);

@@ -986,21 +986,26 @@ erDiagram
 		"text" command
 		"text" handler_function
 		"text" description
+		"text" queue
 		"timestamp with time zone" created_at
 	}
 	worker_last_processed["worker.last_processed"] {
 		"text" table_name
 		"bigint" transaction_id
 	}
+	worker_queue_registry["worker.queue_registry"] {
+		"text" queue
+		"boolean" concurrent
+		"text" description
+	}
 	worker_tasks["worker.tasks"] {
 		"bigint" id
 		"text" command
 		"timestamp with time zone" created_at
-		"text" status
+		"worker.task_status" status
 		"timestamp with time zone" processed_at
 		"text" error_message
 		"timestamp with time zone" scheduled_at
-		"text" priority
 		"jsonb" payload
 	}
 	%% Relationships (derived from foreign keys)
@@ -1093,4 +1098,7 @@ erDiagram
 	storage_objects }o--o| auth.users : objects_owner_fkey
 	storage_objects }o--o| storage.buckets : objects_bucketId_fkey
 	vault_secrets }o--o| pgsodium.key : secrets_key_id_fkey
+	worker_command_registry }o--|| worker.queue_registry : command_registry_queue_fkey
+	worker_tasks }o--|| worker.command_registry : fk_tasks_command
+	worker_tasks }o--|| worker.command_registry : tasks_command_fkey
 ########################################
