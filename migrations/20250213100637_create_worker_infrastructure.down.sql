@@ -8,25 +8,29 @@ DROP FUNCTION worker.notify_worker_about_changes() CASCADE;
 DROP FUNCTION worker.notify_worker_about_deletes() CASCADE;
 
 -- Drop task enqueue functions
-DROP FUNCTION worker.enqueue_check_table(TEXT, BIGINT);
-DROP FUNCTION worker.enqueue_deleted_row(TEXT, INT, INT, INT, DATE, DATE);
-DROP FUNCTION worker.enqueue_refresh_derived_data(DATE, DATE);
-DROP FUNCTION worker.enqueue_task_cleanup(INT, INT);
+DROP FUNCTION worker.enqueue_check_table(TEXT, BIGINT, TEXT);
+DROP FUNCTION worker.enqueue_deleted_row(TEXT, INT, INT, INT, DATE, DATE, TEXT);
+DROP FUNCTION worker.enqueue_refresh_derived_data(DATE, DATE, TEXT);
+DROP FUNCTION worker.enqueue_task_cleanup(INT, INT, TEXT);
 
 -- Drop command functions
-DROP FUNCTION worker.command_refresh_derived_data(DATE, DATE);
-DROP FUNCTION worker.command_check_table(TEXT, BIGINT);
-DROP FUNCTION worker.command_deleted_row(TEXT, INT, INT, INT, DATE, DATE);
-DROP FUNCTION worker.command_task_cleanup(INT, INT);
+DROP FUNCTION worker.command_refresh_derived_data(JSONB);
+DROP FUNCTION worker.command_check_table(JSONB);
+DROP FUNCTION worker.command_deleted_row(JSONB);
+DROP FUNCTION worker.command_task_cleanup(JSONB);
+
+-- Drop command registry table
+DROP TABLE worker.command_registry;
 
 -- Drop utility functions
 DROP FUNCTION worker.statistical_unit_refresh_for_ids(int[], int[], int[], date, date);
-DROP FUNCTION worker.process_tasks(INT, INT);
+DROP FUNCTION worker.process_tasks(INT, INT, TEXT);
 
 -- Drop tasks table
 REVOKE SELECT, INSERT, UPDATE, DELETE ON worker.tasks FROM authenticated;
 REVOKE USAGE, SELECT ON SEQUENCE worker.tasks_id_seq FROM authenticated;
 DROP TABLE worker.tasks;
+DROP FUNCTION worker.command_is_registered(TEXT);
 
 -- Drop last_processed table
 REVOKE SELECT, INSERT, UPDATE ON worker.last_processed FROM authenticated;
@@ -36,13 +40,11 @@ DROP TABLE worker.last_processed;
 DROP PROCEDURE worker.setup();
 DROP PROCEDURE worker.teardown();
 
--- No mode function or settings table to drop
-
 -- Revoke permissions
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA worker FROM authenticated;
 REVOKE USAGE ON SCHEMA worker FROM authenticated;
 
 -- Finally drop the schema
-DROP SCHEMA IF EXISTS worker;
+DROP SCHEMA worker;
 
 END;

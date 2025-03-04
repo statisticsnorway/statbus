@@ -982,6 +982,12 @@ erDiagram
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
+	worker_command_registry["worker.command_registry"] {
+		"text" command
+		"text" handler_function
+		"text" description
+		"timestamp with time zone" created_at
+	}
 	worker_last_processed["worker.last_processed"] {
 		"text" table_name
 		"bigint" transaction_id
@@ -994,15 +1000,8 @@ erDiagram
 		"timestamp with time zone" processed_at
 		"text" error_message
 		"timestamp with time zone" scheduled_at
-		"text" table_name
-		"bigint" transaction_id
-		"integer" establishment_id
-		"integer" legal_unit_id
-		"integer" enterprise_id
-		"date" valid_after
-		"date" valid_to
-		"integer" completed_retention_days
-		"integer" failed_retention_days
+		"text" priority
+		"jsonb" payload
 	}
 	%% Relationships (derived from foreign keys)
 	auth_identities }|--|| auth.users : identities_user_id_fkey

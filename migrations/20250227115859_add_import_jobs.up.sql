@@ -76,8 +76,8 @@ CREATE INDEX ix_import_user_id ON public.import_definition USING btree (user_id)
 CREATE INDEX ix_import_data_source_id ON public.import_definition USING btree (data_source_id);
 
 
-CREATE OR REPLACE FUNCTION admin.import_definition_validate_before()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
+CREATE FUNCTION admin.import_definition_validate_before()
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_definition_validate_before$
 DECLARE
     target_has_temporal boolean;
     missing_temporal text[];
@@ -133,10 +133,60 @@ BEGIN
 
     RETURN NEW;
 END;
-$$;
+$import_definition_validate_before$;
 
-CREATE OR REPLACE FUNCTION admin.validate_time_context_ident()
-RETURNS TRIGGER AS $$
+-- Register import_job_process command in the worker system
+INSERT INTO worker.command_registry (
+  command,
+  handler_function,
+  description
+) VALUES (
+  'import_job_process',
+  'admin.import_job_process',
+  'Process an import job through all stages'
+);
+
+-- Create function to enqueue an import job for processing
+CREATE FUNCTION admin.enqueue_import_job_process(
+  p_job_id INTEGER,
+  p_priority TEXT DEFAULT 'low'
+) RETURNS BIGINT
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_task_id BIGINT;
+  v_payload JSONB;
+BEGIN
+  -- Validate job exists
+  IF NOT EXISTS (SELECT 1 FROM public.import_job WHERE id = p_job_id) THEN
+    RAISE EXCEPTION 'Import job % not found', p_job_id;
+  END IF;
+
+  -- Create payload
+  v_payload := jsonb_build_object('job_id', p_job_id);
+
+  -- Insert task with payload
+  INSERT INTO worker.tasks (
+    command,
+    priority,
+    payload
+  ) VALUES (
+    'import_job_process',
+    p_priority,
+    v_payload
+  )
+  RETURNING id INTO v_task_id;
+
+  -- Notify worker of new task
+  PERFORM pg_notify('worker_tasks', '');
+
+  RETURN v_task_id;
+END;
+$function$;
+
+
+CREATE FUNCTION admin.validate_time_context_ident()
+RETURNS TRIGGER LANGUAGE plpgsql AS $$
 BEGIN
     IF NEW.time_context_ident IS NOT NULL
     AND NOT EXISTS (SELECT 1 FROM public.time_context WHERE ident = NEW.time_context_ident) THEN
@@ -144,7 +194,7 @@ BEGIN
     END IF;
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 
 CREATE TRIGGER validate_time_context_ident_trigger
@@ -158,7 +208,7 @@ CREATE TRIGGER validate_on_draft_change
     WHEN (OLD.draft = true AND NEW.draft = false)
     EXECUTE FUNCTION admin.import_definition_validate_before();
 
-CREATE OR REPLACE FUNCTION admin.prevent_changes_to_non_draft_definition()
+CREATE FUNCTION admin.prevent_changes_to_non_draft_definition()
 RETURNS TRIGGER LANGUAGE plpgsql AS $$
 DECLARE
     def public.import_definition;
@@ -265,7 +315,7 @@ CREATE INDEX ix_import_job_definition_id ON public.import_job USING btree (defin
 CREATE INDEX ix_import_job_user_id ON public.import_job USING btree (user_id);
 
 -- Create function to set default slug
-CREATE OR REPLACE FUNCTION admin.import_job_derive()
+CREATE FUNCTION admin.import_job_derive()
 RETURNS TRIGGER LANGUAGE plpgsql AS $import_job_derive$
 DECLARE
     definition public.import_definition;
@@ -286,9 +336,9 @@ BEGIN
     NEW.upload_table_name := format('%s_upload', NEW.slug);
     NEW.data_table_name := format('%s_data', NEW.slug);
     NEW.import_information_snapshot_table_name := format('%s_import_information', NEW.slug);
-    
+
     -- Set target table name and schema from import definition
-    SELECT it.table_name, it.schema_name 
+    SELECT it.table_name, it.schema_name
     INTO NEW.target_table_name, NEW.target_schema_name
     FROM public.import_definition id
     JOIN public.import_target it ON it.id = id.target_id
@@ -314,7 +364,7 @@ CREATE TRIGGER import_job_derive_trigger
     EXECUTE FUNCTION admin.import_job_derive();
 
 -- Create functions to manage import job tables and views
-CREATE OR REPLACE FUNCTION admin.import_job_generate()
+CREATE FUNCTION admin.import_job_generate()
 RETURNS TRIGGER LANGUAGE plpgsql AS $import_job_generate$
 BEGIN
     PERFORM admin.import_job_generate(NEW);
@@ -329,12 +379,16 @@ CREATE TRIGGER import_job_generate
     EXECUTE FUNCTION admin.import_job_generate();
 
 -- Function to clean up job objects
-CREATE OR REPLACE FUNCTION admin.import_job_cleanup()
+CREATE FUNCTION admin.import_job_cleanup()
 RETURNS TRIGGER AS $import_job_cleanup$
-BEGIN
-    -- Drop the view first since it depends on the table
-    EXECUTE format('DROP VIEW IF EXISTS public.%I', OLD.import_view);
-    EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.import_table);
+BEGIN    
+    -- Drop the snapshot table
+    EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.import_information_snapshot_table_name);
+
+    -- Drop the upload and data tables
+    EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.upload_table_name);
+    EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.data_table_name);
+
 
     RETURN OLD;
 END;
@@ -390,7 +444,7 @@ Each import operates on it's on table.
 The table is unlogged for good performance on insert.
 There is a view that maps from the columns names of the upload to the column names of the table.
 */
-CREATE OR REPLACE FUNCTION admin.import_job_generate(job public.import_job)
+CREATE FUNCTION admin.import_job_generate(job public.import_job)
 RETURNS void AS $import_job_generate$
 DECLARE
     create_upload_table_stmt text;
@@ -403,23 +457,23 @@ BEGIN
   RAISE NOTICE 'Creating snapshot table %', job.import_information_snapshot_table_name;
   -- Create a snapshot of import_information for this job
   create_snapshot_table_stmt := format(
-    'CREATE UNLOGGED TABLE public.%I AS 
-     SELECT * FROM public.import_information 
-     WHERE job_id = %L', 
+    'CREATE UNLOGGED TABLE public.%I AS
+     SELECT * FROM public.import_information
+     WHERE job_id = %L',
     job.import_information_snapshot_table_name, job.id
   );
-  
+
   EXECUTE create_snapshot_table_stmt;
-  
+
   -- Add indexes to the snapshot table for better performance
   EXECUTE format(
     'CREATE INDEX ON public.%I (source_column_priority)',
     job.import_information_snapshot_table_name
   );
-  
+
   -- Apply RLS to the snapshot table
   PERFORM admin.add_rls_regular_user_can_read(job.import_information_snapshot_table_name::regclass);
-  
+
   RAISE NOTICE 'Generating %', job.upload_table_name;
   -- Build the sql to create a table for this import job with target columns
   create_upload_table_stmt := format('CREATE UNLOGGED TABLE public.%I (', job.upload_table_name);
@@ -510,20 +564,81 @@ BEGIN
 END;
 $import_job_generate$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION admin.import_job_cleanup(job public.import_job)
-RETURNS void AS $import_job_cleanup$
+
+-- Create function to update import job status
+CREATE FUNCTION admin.update_import_job_status(
+  p_job_id INTEGER,
+  p_status public.import_job_status,
+  p_error_message TEXT DEFAULT NULL
+) RETURNS void
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_timestamp TIMESTAMPTZ := now();
 BEGIN
-    -- Drop the snapshot table
-    EXECUTE format('DROP TABLE IF EXISTS public.%I', job.import_information_snapshot_table_name);
-    
-    -- Drop the upload and data tables
-    EXECUTE format('DROP TABLE IF EXISTS public.%I', job.upload_table_name);
-    EXECUTE format('DROP TABLE IF EXISTS public.%I', job.data_table_name);
+  UPDATE public.import_job SET
+    status = p_status,
+    note = CASE
+      WHEN p_error_message IS NOT NULL THEN
+        COALESCE(note, '') || E'\n' || 'Error at ' || v_timestamp || ': ' || p_error_message
+      ELSE note
+    END,
+    analysis_start_at = CASE WHEN p_status = 'analysing_data' AND analysis_start_at IS NULL THEN v_timestamp ELSE analysis_start_at END,
+    analysis_stop_at = CASE WHEN p_status = 'waiting_for_approval' AND analysis_stop_at IS NULL THEN v_timestamp ELSE analysis_stop_at END,
+    changes_approved_at = CASE WHEN p_status = 'importing_data' AND changes_approved_at IS NULL THEN v_timestamp ELSE changes_approved_at END,
+    import_start_at = CASE WHEN p_status = 'importing_data' AND import_start_at IS NULL THEN v_timestamp ELSE import_start_at END,
+    import_stop_at = CASE WHEN p_status = 'finished' AND import_stop_at IS NULL THEN v_timestamp ELSE import_stop_at END
+  WHERE id = p_job_id;
 END;
-$import_job_cleanup$ LANGUAGE plpgsql;
+$function$;
 
+-- Enhance import_job_process to update status and handle errors
+CREATE FUNCTION admin.import_job_process(payload JSONB)
+RETURNS void LANGUAGE plpgsql AS $import_job_process$
+DECLARE
+    job_id INTEGER;
+    job public.import_job;
+BEGIN
+    -- Extract job_id from payload
+    job_id := (payload->>'job_id')::INTEGER;
 
-CREATE OR REPLACE FUNCTION admin.import_job_process(job_id integer)
+    -- Get the job details
+    SELECT * INTO job FROM public.import_job WHERE id = job_id;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Import job % not found', job_id;
+    END IF;
+
+    -- Update status to analyzing
+    PERFORM admin.update_import_job_status(job_id, 'analysing_data');
+
+    -- Check if snapshot table exists
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_tables
+        WHERE schemaname = 'public' AND tablename = job.import_information_snapshot_table_name
+    ) THEN
+        PERFORM admin.update_import_job_status(
+            job_id,
+            'waiting_for_upload',
+            'Snapshot table not found. Please recreate the import job.'
+        );
+        RAISE EXCEPTION 'Snapshot table % not found for job %', job.import_information_snapshot_table_name, job_id;
+    END IF;
+
+    BEGIN
+        -- Call the original implementation
+        PERFORM admin.import_job_process(job_id);
+
+        -- Update status to finished
+        PERFORM admin.update_import_job_status(job_id, 'finished');
+    EXCEPTION WHEN OTHERS THEN
+        -- Update status with error
+        PERFORM admin.update_import_job_status(job_id, job.status, SQLERRM);
+        RAISE;
+    END;
+END;
+$import_job_process$;
+
+CREATE FUNCTION admin.import_job_process(job_id integer)
 RETURNS void LANGUAGE plpgsql AS $import_job_process$
 DECLARE
     job public.import_job;
@@ -536,10 +651,10 @@ BEGIN
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Import job % not found', job_id;
     END IF;
-    
+
     -- Check if snapshot table exists
     IF NOT EXISTS (
-        SELECT 1 FROM pg_tables 
+        SELECT 1 FROM pg_tables
         WHERE schemaname = 'public' AND tablename = job.import_information_snapshot_table_name
     ) THEN
         RAISE EXCEPTION 'Snapshot table % not found for job %', job.import_information_snapshot_table_name, job_id;
@@ -687,9 +802,9 @@ BEGIN
     BEGIN
         -- Get target columns from the snapshot table
         EXECUTE format(
-            'SELECT string_agg(quote_ident(target_column), '','') 
-             FROM public.%I 
-             WHERE target_column IS NOT NULL', 
+            'SELECT string_agg(quote_ident(target_column), '','')
+             FROM public.%I
+             WHERE target_column IS NOT NULL',
             job.import_information_snapshot_table_name
         ) INTO target_columns;
 
@@ -748,13 +863,13 @@ WITH legal_unit_target AS (
     FROM legal_unit_current_def
     JOIN legal_unit_current_source_columns sc ON sc.definition_id = legal_unit_current_def.id
     JOIN public.import_target_column tc ON tc.target_id = legal_unit_current_def.target_id AND tc.column_name = sc.column_name
-    
+
     UNION ALL
-    
+
     -- Add default mappings for valid_from and valid_to
     SELECT legal_unit_current_def.id, NULL, tc.id, NULL, 'default'::public.import_source_expression
     FROM legal_unit_current_def
-    JOIN public.import_target_column tc ON tc.target_id = legal_unit_current_def.target_id 
+    JOIN public.import_target_column tc ON tc.target_id = legal_unit_current_def.target_id
     WHERE tc.column_name IN ('valid_from', 'valid_to')
     RETURNING *
 ),
@@ -823,13 +938,13 @@ establishment_for_lu_target AS (
     FROM establishment_for_lu_current_def
     JOIN establishment_for_lu_current_source_columns sc ON sc.definition_id = establishment_for_lu_current_def.id
     JOIN public.import_target_column tc ON tc.target_id = establishment_for_lu_current_def.target_id AND tc.column_name = sc.column_name
-    
+
     UNION ALL
-    
+
     -- Add default mappings for valid_from and valid_to
     SELECT establishment_for_lu_current_def.id, NULL, tc.id, NULL, 'default'::public.import_source_expression
     FROM establishment_for_lu_current_def
-    JOIN public.import_target_column tc ON tc.target_id = establishment_for_lu_current_def.target_id 
+    JOIN public.import_target_column tc ON tc.target_id = establishment_for_lu_current_def.target_id
     WHERE tc.column_name IN ('valid_from', 'valid_to')
     RETURNING *
 ),
@@ -898,13 +1013,13 @@ establishment_without_lu_target AS (
     FROM establishment_without_lu_current_def
     JOIN establishment_without_lu_current_source_columns sc ON sc.definition_id = establishment_without_lu_current_def.id
     JOIN public.import_target_column tc ON tc.target_id = establishment_without_lu_current_def.target_id AND tc.column_name = sc.column_name
-    
+
     UNION ALL
-    
+
     -- Add default mappings for valid_from and valid_to
     SELECT establishment_without_lu_current_def.id, NULL, tc.id, NULL, 'default'::public.import_source_expression
     FROM establishment_without_lu_current_def
-    JOIN public.import_target_column tc ON tc.target_id = establishment_without_lu_current_def.target_id 
+    JOIN public.import_target_column tc ON tc.target_id = establishment_without_lu_current_def.target_id
     WHERE tc.column_name IN ('valid_from', 'valid_to')
     RETURNING *
 ),
