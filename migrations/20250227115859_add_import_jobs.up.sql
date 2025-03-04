@@ -136,11 +136,12 @@ END;
 $import_definition_validate_before$;
 
 -- Register import_job_process command in the worker system
-INSERT INTO worker.command_registry (
-  command,
-  handler_function,
-  description
-) VALUES (
+INSERT INTO worker.queue_registry (queue, concurrent, description)
+VALUES ('import', true, 'Concurrent queue for processing import jobs');
+
+INSERT INTO worker.command_registry (queue, command, handler_function, description)
+VALUES
+( 'import',
   'import_job_process',
   'admin.import_job_process',
   'Process an import job through all stages'
@@ -148,8 +149,7 @@ INSERT INTO worker.command_registry (
 
 -- Create function to enqueue an import job for processing
 CREATE FUNCTION admin.enqueue_import_job_process(
-  p_job_id INTEGER,
-  p_priority TEXT DEFAULT 'low'
+  p_job_id INTEGER
 ) RETURNS BIGINT
 LANGUAGE plpgsql
 AS $function$
@@ -168,17 +168,15 @@ BEGIN
   -- Insert task with payload
   INSERT INTO worker.tasks (
     command,
-    priority,
     payload
   ) VALUES (
     'import_job_process',
-    p_priority,
     v_payload
   )
   RETURNING id INTO v_task_id;
 
-  -- Notify worker of new task
-  PERFORM pg_notify('worker_tasks', '');
+  -- Notify worker of new task with queue information
+  PERFORM pg_notify('worker_tasks', 'import');
 
   RETURN v_task_id;
 END;
@@ -381,7 +379,7 @@ CREATE TRIGGER import_job_generate
 -- Function to clean up job objects
 CREATE FUNCTION admin.import_job_cleanup()
 RETURNS TRIGGER AS $import_job_cleanup$
-BEGIN    
+BEGIN
     -- Drop the snapshot table
     EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.import_information_snapshot_table_name);
 
