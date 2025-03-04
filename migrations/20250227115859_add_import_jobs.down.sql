@@ -2,34 +2,47 @@
 BEGIN;
 
 -- First delete all import jobs to trigger cleanup
-DELETE FROM public.import_job;
+TRUNCATE public.import_job, public.import_mapping, public.import_source_column, public.import_definition;
 
--- Drop all import definitions (will cascade to mappings and source columns)
-DELETE FROM public.import_definition;
+-- Drop triggers first
+DROP TRIGGER validate_time_context_ident_trigger ON public.import_definition;
+DROP TRIGGER validate_on_draft_change ON public.import_definition;
+DROP TRIGGER prevent_non_draft_changes ON public.import_definition;
+DROP TRIGGER prevent_non_draft_source_column_changes ON public.import_source_column;
+DROP TRIGGER prevent_non_draft_mapping_changes ON public.import_mapping;
+DROP TRIGGER import_job_derive_trigger ON public.import_job;
+DROP TRIGGER import_job_generate ON public.import_job;
+DROP TRIGGER import_job_cleanup ON public.import_job;
 
--- Drop functions and triggers
-DROP FUNCTION IF EXISTS admin.import_job_process(integer);
-DROP FUNCTION IF EXISTS admin.import_job_cleanup(public.import_job);
-DROP FUNCTION IF EXISTS admin.import_job_generate(public.import_job);
-DROP FUNCTION IF EXISTS admin.import_job_generate();
-DROP FUNCTION IF EXISTS admin.import_job_derive();
-DROP FUNCTION IF EXISTS admin.import_definition_validate_before();
-DROP FUNCTION IF EXISTS admin.prevent_changes_to_non_draft_definition();
-DROP FUNCTION IF EXISTS validate_time_context_ident();
+-- Drop worker command registry entry
+DELETE FROM worker.command_registry WHERE command = 'import_job_process';
+
+-- Drop functions
+DROP FUNCTION admin.import_job_process(payload JSONB);
+DROP FUNCTION admin.import_job_process(integer);
+DROP FUNCTION admin.import_job_cleanup();
+DROP FUNCTION admin.import_job_generate(public.import_job);
+DROP FUNCTION admin.import_job_generate();
+DROP FUNCTION admin.import_job_derive();
+DROP FUNCTION admin.import_definition_validate_before();
+DROP FUNCTION admin.prevent_changes_to_non_draft_definition();
+DROP FUNCTION admin.validate_time_context_ident();
+DROP FUNCTION admin.enqueue_import_job_process(integer, text);
+DROP FUNCTION admin.update_import_job_status(integer, public.import_job_status, text);
 
 -- Drop views
-DROP VIEW IF EXISTS public.import_information;
+DROP VIEW public.import_information;
 
 -- Drop tables in reverse order
-DROP TABLE IF EXISTS public.import_mapping;
-DROP TABLE IF EXISTS public.import_source_column;
-DROP TABLE IF EXISTS public.import_job;
-DROP TABLE IF EXISTS public.import_definition;
-DROP TABLE IF EXISTS public.import_target_column;
-DROP TABLE IF EXISTS public.import_target;
+DROP TABLE public.import_mapping;
+DROP TABLE public.import_source_column;
+DROP TABLE public.import_job;
+DROP TABLE public.import_definition;
+DROP TABLE public.import_target_column;
+DROP TABLE public.import_target;
 
 -- Drop types
-DROP TYPE IF EXISTS public.import_job_status;
-DROP TYPE IF EXISTS public.import_source_expression;
+DROP TYPE public.import_job_status;
+DROP TYPE public.import_source_expression;
 
 END;

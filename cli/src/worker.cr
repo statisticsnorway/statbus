@@ -70,7 +70,7 @@ module Statbus
   class Worker
     @log : ::Log
     @config : Config
-    @command_queue = Channel(Symbol).new(10) # Bounded queue to prevent memory issues
+    @command_queue = Channel({Symbol, String}).new(8192) # Bounded queue with priority
     @timer_queue = Channel(Time).new(10)     # Queue for scheduled tasks
 
     def initialize(config)
@@ -110,14 +110,18 @@ module Statbus
       # Wait for worker schema to be ready before starting processing
       wait_for_worker_schema
 
-      # Start processing fiber
-      spawn process_commands_loop
+      # Start processing fibers for each priority
+      spawn process_commands_loop("high")
+      spawn process_commands_loop("medium")
+      spawn process_commands_loop("low")
 
       # Start timer checking fiber
       spawn check_scheduled_tasks_loop
 
-      # Queue initial processing on startup
-      @command_queue.send(:process)
+      # Queue initial processing on startup for all priorities
+      @command_queue.send({:process, "high"})
+      @command_queue.send({:process, "medium"})
+      @command_queue.send({:process, "low"})
 
       # Main connection loop with retry logic
       max_retries = 10
@@ -149,14 +153,14 @@ module Statbus
           # Listen for notifications in a background thread
           connection = PG.connect_listen(@config.connection_string, channels: ["worker_tasks"], blocking: true) do |notification|
             # When notification received, queue a processing command
-            @command_queue.send(:process)
+            @command_queue.send({:process,"all"})
           end
           
           # Log successful connection
           @log.debug { "Connected to database at #{@config.postgres_host}:#{@config.postgres_port}" }
           
           # Process any pending tasks immediately after connecting
-          @command_queue.send(:process)
+          @command_queue.send({:process, "all"})
           
           # The connection is already in listening mode and will block in the background
           # Just wait indefinitely until an exception occurs or the program is terminated
@@ -210,11 +214,11 @@ module Statbus
               when timeout(time_until_next)
                 # Time to process the scheduled task
                 @log.debug { "Timer expired, processing scheduled tasks" }
-                @command_queue.send(:process)
+                @command_queue.send({:process, "all"})
               end
             else
               # Task is due now or overdue
-              @command_queue.send(:process)
+              @command_queue.send({:process,"all"})
               sleep(1.seconds) # Prevent tight loop
             end
           else
@@ -297,24 +301,26 @@ module Statbus
       return nil
     end
 
-    # Main processing loop that runs in a separate fiber
-    private def process_commands_loop
+    # Main processing loop that runs in a separate fiber for each priority
+    private def process_commands_loop(priority : String)
+      @log.info { "Starting processing fiber for #{priority} priority tasks" }
       loop do
         begin
-          command = @command_queue.receive
+          command, cmd_priority = @command_queue.receive
 
-          case command
-          when :process
-            process_tasks
+          # Only process if the command is for this priority or for all priorities
+          if command == :process && (cmd_priority == priority || cmd_priority == "all")
+            @log.debug { "Processing #{priority} priority tasks" }
+            process_tasks(priority)
           end
 
           # Check for new scheduled tasks after processing
           check_for_new_scheduled_tasks
         rescue Channel::ClosedError
-          @log.info { "Command channel closed, shutting down process loop" }
+          @log.info { "Command channel closed, shutting down #{priority} process loop" }
           break
         rescue ex
-          @log.error { "Error in process command loop: #{ex.message}" }
+          @log.error { "Error in #{priority} process command loop: #{ex.message}" }
           sleep(1.seconds) # Prevent tight loop on error
         end
       end
@@ -326,11 +332,14 @@ module Statbus
       if next_scheduled
         # Notify the timer checker about the new task
         @timer_queue.send(next_scheduled)
+        
+        # Notify all priority queues to check for new tasks
+        @command_queue.send({:process, "all"})
       end
     end
 
-    # Process pending tasks
-    private def process_tasks
+    # Process pending tasks for a specific priority
+    private def process_tasks(priority : String)
       start_time = Time.monotonic
       begin
         DB.connect(@config.connection_string) do |db|
@@ -338,11 +347,13 @@ module Statbus
           results = db.query_all "SELECT
                                     id,            -- The task ID
                                     command,       -- The command that was executed
+                                    priority,      -- The task priority
                                     duration_ms,   -- How long the task took to process in milliseconds
                                     success,       -- Whether the task succeeded (TRUE) or failed (FALSE)
                                     error_message  -- Error message if task failed, NULL otherwise
-                                  FROM worker.process_tasks()",
-            as: {Int64, String, PG::Numeric, Bool, String?}
+                                  FROM worker.process_tasks(priority := $1)",
+            priority,
+            as: {Int64, String, String, PG::Numeric, Bool, String?}
 
           if results.empty?
             @log.debug { "No tasks to process" }
