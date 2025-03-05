@@ -20,18 +20,26 @@ DELETE FROM worker.command_registry WHERE command = 'import_job_process';
 -- Drop queue registry entry
 DELETE FROM worker.queue_registry WHERE queue = 'import';
 
+-- Drop triggers on import_job_status
+DROP TRIGGER import_job_status_change_trigger ON public.import_job;
+
 -- Drop functions
+DROP FUNCTION admin.import_job_status_change();
 DROP FUNCTION admin.import_job_process(payload JSONB);
 DROP FUNCTION admin.import_job_process(integer);
+DROP FUNCTION admin.import_job_prepare(public.import_job);
+DROP FUNCTION admin.import_job_analyse(public.import_job);
+DROP FUNCTION admin.import_job_insert(public.import_job);
 DROP FUNCTION admin.import_job_cleanup();
 DROP FUNCTION admin.import_job_generate(public.import_job);
 DROP FUNCTION admin.import_job_generate();
 DROP FUNCTION admin.import_job_derive();
+DROP FUNCTION admin.import_job_next_state(public.import_job);
+DROP FUNCTION admin.import_job_set_status(public.import_job, public.import_job_status);
 DROP FUNCTION admin.import_definition_validate_before();
 DROP FUNCTION admin.prevent_changes_to_non_draft_definition();
 DROP FUNCTION admin.validate_time_context_ident();
-DROP FUNCTION admin.enqueue_import_job_process(integer, text);
-DROP FUNCTION admin.update_import_job_status(integer, public.import_job_status, text);
+DROP FUNCTION admin.enqueue_import_job_process(integer);
 
 -- Drop views
 DROP VIEW public.import_information;

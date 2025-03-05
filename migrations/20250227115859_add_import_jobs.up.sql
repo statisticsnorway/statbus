@@ -285,8 +285,17 @@ CREATE TRIGGER prevent_non_draft_mapping_changes
     FOR EACH ROW
     EXECUTE FUNCTION admin.prevent_changes_to_non_draft_definition();
 
-
-CREATE TYPE public.import_job_status AS ENUM ('waiting_for_upload', 'analysing_data', 'waiting_for_approval', 'importing_data', 'finished');
+CREATE TYPE public.import_job_status AS ENUM (
+    'waiting_for_upload',  -- Initial state: User must upload data into table, then change state to upload_completed
+    'upload_completed',    -- Triggers worker notification to begin processing
+    'preparing_data',      -- Moving from custom names in upload table to standard names in data table
+    'analysing_data',      -- Worker is analyzing the uploaded data
+    'waiting_for_review',  -- Analysis complete, waiting for user to approve or reject
+    'approved',            -- User approved changes, triggers worker to continue processing
+    'rejected',            -- User rejected changes, no further processing
+    'importing_data',      -- Worker is importing data into target table
+    'finished'             -- Import process completed successfully
+);
 
 CREATE TABLE public.import_job (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -302,10 +311,13 @@ CREATE TABLE public.import_job (
     import_information_snapshot_table_name text NOT NULL,
     analysis_start_at timestamp with time zone,
     analysis_stop_at timestamp with time zone,
+    preparing_data_at timestamp with time zone,
     changes_approved_at timestamp with time zone,
+    changes_rejected_at timestamp with time zone,
     import_start_at timestamp with time zone,
     import_stop_at timestamp with time zone,
     status public.import_job_status NOT NULL DEFAULT 'waiting_for_upload',
+    review boolean NOT NULL DEFAULT false,
     definition_id integer NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
     user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL
 );
@@ -399,6 +411,38 @@ CREATE TRIGGER import_job_cleanup
     EXECUTE FUNCTION admin.import_job_cleanup();
 
 
+-- Create trigger to automatically process import jobs when status changes to upload_completed
+CREATE FUNCTION admin.import_job_status_change()
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_job_status_change$
+DECLARE
+    v_timestamp TIMESTAMPTZ := now();
+BEGIN
+    -- Record timestamps for status changes if not already recorded
+    UPDATE public.import_job SET
+        analysis_start_at = CASE WHEN NEW.status = 'analysing_data' AND analysis_start_at IS NULL THEN v_timestamp ELSE analysis_start_at END,
+        preparing_data_at = CASE WHEN NEW.status = 'preparing_data' AND preparing_data_at IS NULL THEN v_timestamp ELSE preparing_data_at END,
+        analysis_stop_at = CASE WHEN NEW.status = 'waiting_for_review' AND analysis_stop_at IS NULL THEN v_timestamp ELSE analysis_stop_at END,
+        changes_approved_at = CASE WHEN NEW.status = 'approved' AND changes_approved_at IS NULL THEN v_timestamp ELSE changes_approved_at END,
+        changes_rejected_at = CASE WHEN NEW.status = 'rejected' AND changes_rejected_at IS NULL THEN v_timestamp ELSE changes_rejected_at END,
+        import_start_at = CASE WHEN NEW.status = 'importing_data' AND import_start_at IS NULL THEN v_timestamp ELSE import_start_at END,
+        import_stop_at = CASE WHEN NEW.status = 'finished' AND import_stop_at IS NULL THEN v_timestamp ELSE import_stop_at END
+    WHERE id = NEW.id;
+
+    -- Only enqueue for processing when transitioning from user action states
+    IF (OLD.status = 'waiting_for_upload' AND NEW.status = 'upload_completed') OR
+       (OLD.status = 'waiting_for_review' AND NEW.status = 'approved') THEN
+        PERFORM admin.enqueue_import_job_process(NEW.id);
+    END IF;
+
+    RETURN NEW;
+END;
+$import_job_status_change$;
+
+CREATE TRIGGER import_job_status_change_trigger
+    AFTER INSERT OR UPDATE OF status ON public.import_job
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_job_status_change();
+
 SELECT admin.add_rls_regular_user_can_read('public.import_target'::regclass);
 SELECT admin.add_rls_regular_user_can_read('public.import_target_column'::regclass);
 SELECT admin.add_rls_regular_user_can_read('public.import_definition'::regclass);
@@ -452,7 +496,7 @@ DECLARE
     add_separator BOOLEAN := FALSE;
     info RECORD;
 BEGIN
-  RAISE NOTICE 'Creating snapshot table %', job.import_information_snapshot_table_name;
+  RAISE DEBUG 'Creating snapshot table %', job.import_information_snapshot_table_name;
   -- Create a snapshot of import_information for this job
   create_snapshot_table_stmt := format(
     'CREATE UNLOGGED TABLE public.%I AS
@@ -472,7 +516,7 @@ BEGIN
   -- Apply RLS to the snapshot table
   PERFORM admin.add_rls_regular_user_can_read(job.import_information_snapshot_table_name::regclass);
 
-  RAISE NOTICE 'Generating %', job.upload_table_name;
+  RAISE DEBUG 'Generating %', job.upload_table_name;
   -- Build the sql to create a table for this import job with target columns
   create_upload_table_stmt := format('CREATE UNLOGGED TABLE public.%I (', job.upload_table_name);
 
@@ -499,7 +543,7 @@ BEGIN
   RAISE DEBUG '%', create_upload_table_stmt;
   EXECUTE create_upload_table_stmt;
 
-  RAISE NOTICE 'Generating %', job.data_table_name;
+  RAISE DEBUG 'Generating %', job.data_table_name;
   -- Build the sql to create a table for this import job with target columns
   create_data_table_stmt := format('CREATE UNLOGGED TABLE public.%I (', job.data_table_name);
 
@@ -563,86 +607,90 @@ END;
 $import_job_generate$ LANGUAGE plpgsql;
 
 
--- Create function to update import job status
-CREATE FUNCTION admin.update_import_job_status(
-  p_job_id INTEGER,
-  p_status public.import_job_status,
-  p_error_message TEXT DEFAULT NULL
-) RETURNS void
-LANGUAGE plpgsql
-AS $function$
-DECLARE
-  v_timestamp TIMESTAMPTZ := now();
-BEGIN
-  UPDATE public.import_job SET
-    status = p_status,
-    note = CASE
-      WHEN p_error_message IS NOT NULL THEN
-        COALESCE(note, '') || E'\n' || 'Error at ' || v_timestamp || ': ' || p_error_message
-      ELSE note
-    END,
-    analysis_start_at = CASE WHEN p_status = 'analysing_data' AND analysis_start_at IS NULL THEN v_timestamp ELSE analysis_start_at END,
-    analysis_stop_at = CASE WHEN p_status = 'waiting_for_approval' AND analysis_stop_at IS NULL THEN v_timestamp ELSE analysis_stop_at END,
-    changes_approved_at = CASE WHEN p_status = 'importing_data' AND changes_approved_at IS NULL THEN v_timestamp ELSE changes_approved_at END,
-    import_start_at = CASE WHEN p_status = 'importing_data' AND import_start_at IS NULL THEN v_timestamp ELSE import_start_at END,
-    import_stop_at = CASE WHEN p_status = 'finished' AND import_stop_at IS NULL THEN v_timestamp ELSE import_stop_at END
-  WHERE id = p_job_id;
-END;
-$function$;
 
--- Enhance import_job_process to update status and handle errors
+-- Simple dispatcher for import_job_process
 CREATE FUNCTION admin.import_job_process(payload JSONB)
 RETURNS void LANGUAGE plpgsql AS $import_job_process$
 DECLARE
     job_id INTEGER;
-    job public.import_job;
 BEGIN
-    -- Extract job_id from payload
+    -- Extract job_id from payload and call the implementation function
     job_id := (payload->>'job_id')::INTEGER;
 
-    -- Get the job details
-    SELECT * INTO job FROM public.import_job WHERE id = job_id;
-    IF NOT FOUND THEN
-        RAISE EXCEPTION 'Import job % not found', job_id;
-    END IF;
-
-    -- Update status to analyzing
-    PERFORM admin.update_import_job_status(job_id, 'analysing_data');
-
-    -- Check if snapshot table exists
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_tables
-        WHERE schemaname = 'public' AND tablename = job.import_information_snapshot_table_name
-    ) THEN
-        PERFORM admin.update_import_job_status(
-            job_id,
-            'waiting_for_upload',
-            'Snapshot table not found. Please recreate the import job.'
-        );
-        RAISE EXCEPTION 'Snapshot table % not found for job %', job.import_information_snapshot_table_name, job_id;
-    END IF;
-
-    BEGIN
-        -- Call the original implementation
-        PERFORM admin.import_job_process(job_id);
-
-        -- Update status to finished
-        PERFORM admin.update_import_job_status(job_id, 'finished');
-    EXCEPTION WHEN OTHERS THEN
-        -- Update status with error
-        PERFORM admin.update_import_job_status(job_id, job.status, SQLERRM);
-        RAISE;
-    END;
+    -- Call the implementation function
+    PERFORM admin.import_job_process(job_id);
 END;
 $import_job_process$;
+
+-- Function to update import job status and return the updated record
+CREATE FUNCTION admin.import_job_set_status(
+    job public.import_job,
+    new_status public.import_job_status
+) RETURNS public.import_job
+LANGUAGE plpgsql AS $import_job_set_status$
+DECLARE
+    updated_job public.import_job;
+BEGIN
+    -- Update the status in the database
+    UPDATE public.import_job
+    SET status = new_status
+    WHERE id = job.id
+    RETURNING * INTO updated_job;
+
+    -- Return the updated record
+    RETURN updated_job;
+END;
+$import_job_set_status$;
+
+-- Function to calculate the next state based on the current state
+CREATE FUNCTION admin.import_job_next_state(job public.import_job)
+RETURNS public.import_job_status
+LANGUAGE plpgsql AS $import_job_next_state$
+BEGIN
+    CASE job.status
+        WHEN 'waiting_for_upload' THEN
+            RETURN job.status; -- No automatic transition, requires user action
+
+        WHEN 'upload_completed' THEN
+            RETURN 'preparing_data';
+
+        WHEN 'preparing_data' THEN
+            RETURN 'analysing_data';
+
+        WHEN 'analysing_data' THEN
+            IF job.review THEN
+                RETURN 'waiting_for_review';
+            ELSE
+                RETURN 'importing_data';
+            END IF;
+
+        WHEN 'waiting_for_review' THEN
+          RETURN job.status; -- No automatic transition, requires user action
+
+        WHEN 'approved' THEN
+            RETURN 'importing_data';
+
+        WHEN 'rejected' THEN
+            RETURN 'finished';
+
+        WHEN 'importing_data' THEN
+            RETURN 'finished';
+
+        WHEN 'finished' THEN
+            RETURN job.status; -- Terminal state
+
+        ELSE
+            RAISE EXCEPTION 'Unknown import job status: %', job.status;
+    END CASE;
+END;
+$import_job_next_state$;
+
 
 CREATE FUNCTION admin.import_job_process(job_id integer)
 RETURNS void LANGUAGE plpgsql AS $import_job_process$
 DECLARE
     job public.import_job;
-    merge_stmt text;
-    add_separator BOOLEAN := FALSE;
-    info RECORD;
+    next_status public.import_job_status;
 BEGIN
     -- Get the job details
     SELECT * INTO job FROM public.import_job WHERE id = job_id;
@@ -650,13 +698,57 @@ BEGIN
         RAISE EXCEPTION 'Import job % not found', job_id;
     END IF;
 
-    -- Check if snapshot table exists
-    IF NOT EXISTS (
-        SELECT 1 FROM pg_tables
-        WHERE schemaname = 'public' AND tablename = job.import_information_snapshot_table_name
-    ) THEN
-        RAISE EXCEPTION 'Snapshot table % not found for job %', job.import_information_snapshot_table_name, job_id;
-    END IF;
+    -- Process the job based on its current status
+    LOOP
+        -- Get the next status
+        next_status := admin.import_job_next_state(job);
+
+        -- If status doesn't change, we're either at a terminal state or waiting for user action
+        IF next_status = job.status THEN
+            IF job.status = 'waiting_for_review' AND job.review THEN
+                RAISE DEBUG 'Import job % is now waiting for review', job_id;
+            ELSIF job.status = 'finished' THEN
+                RAISE DEBUG 'Import job % completed successfully', job_id;
+            END IF;
+            EXIT; -- Exit the loop
+        END IF;
+
+        -- Update the job status
+        job := admin.import_job_set_status(job, next_status);
+
+        -- Perform the appropriate action for the new status
+        CASE job.status
+            WHEN 'preparing_data' THEN
+                PERFORM admin.import_job_prepare(job);
+
+            WHEN 'analysing_data' THEN
+                PERFORM admin.import_job_analyse(job);
+
+            WHEN 'importing_data' THEN
+                PERFORM admin.import_job_insert(job);
+
+            ELSE
+                -- Other states don't require specific actions
+                NULL;
+        END CASE;
+    END LOOP;
+END;
+$import_job_process$;
+
+
+-- Function to prepare import job by moving data from upload table to data table
+CREATE FUNCTION admin.import_job_prepare(job public.import_job)
+RETURNS void LANGUAGE plpgsql AS $import_job_prepare$
+DECLARE
+    merge_stmt text;
+    add_separator BOOLEAN := FALSE;
+    info RECORD;
+    v_timestamp TIMESTAMPTZ;
+BEGIN
+    -- This function will move data from the upload table to the data table
+    -- with appropriate transformations based on the import definition
+    RAISE DEBUG 'Preparing import job % by moving data from % to %',
+                 job.id, job.upload_table_name, job.data_table_name;
 
     /*
     -- Example of generated merge statement:
@@ -669,7 +761,7 @@ BEGIN
       name = EXCLUDED.name,
       legal_form_code = EXCLUDED.legal_form_code,
       primary_activity_category_code = EXCLUDED.primary_activity_category_code;
-     */
+    */
 
     -- Build dynamic INSERT statement with ON CONFLICT handling
     merge_stmt := format('INSERT INTO public.%I (', job.data_table_name);
@@ -700,8 +792,8 @@ BEGIN
         WHERE ii.job_id = job.id
           AND target_column IS NOT NULL
           AND (source_column IS NOT NULL
-               OR source_value IS NOT NULL
-               OR source_expression IS NOT NULL)
+              OR source_value IS NOT NULL
+              OR source_expression IS NOT NULL)
     LOOP
         IF NOT add_separator THEN
             add_separator := true;
@@ -775,8 +867,8 @@ BEGIN
         END IF;
 
         merge_stmt := merge_stmt || format('%I = EXCLUDED.%I',
-                                         info.target_column,
-                                         info.target_column);
+                                        info.target_column,
+                                        info.target_column);
     END LOOP;
 
     -- Execute the insert
@@ -789,8 +881,30 @@ BEGIN
       EXECUTE format('SELECT count(*) FROM public.%I', job.data_table_name) INTO data_table_count;
       RAISE DEBUG 'There are % rows in %', data_table_count, job.data_table_name;
     END;
+END;
+$import_job_prepare$;
 
-    -- TODO: Validate the data_ table using the standardised column names, column by column in batches.
+-- Function to analyze import data before actual import
+CREATE FUNCTION admin.import_job_analyse(job public.import_job)
+RETURNS void LANGUAGE plpgsql AS $import_job_analyse$
+BEGIN
+    -- This function will analyze the data in the data table
+    -- to identify potential issues before importing
+    RAISE DEBUG 'Analyzing data for import job %', job.id;
+
+    -- Validate the data table using the standardised column names
+    -- Placeholder for implementation (NOOP for now)
+    NULL;
+END;
+$import_job_analyse$;
+
+-- Function to insert data from the data table to the target table
+CREATE FUNCTION admin.import_job_insert(job public.import_job)
+RETURNS void LANGUAGE plpgsql AS $import_job_insert$
+BEGIN
+    -- This function will copy data from the data table to the target table
+    RAISE DEBUG 'Inserting data from % to %.%',
+                 job.data_table_name, job.target_schema_name, job.target_table_name;
 
     -- Insert validated data into target table
     DECLARE
@@ -801,8 +915,8 @@ BEGIN
         -- Get target columns from the snapshot table
         EXECUTE format(
             'SELECT string_agg(quote_ident(target_column), '','')
-             FROM public.%I
-             WHERE target_column IS NOT NULL',
+            FROM public.%I
+            WHERE target_column IS NOT NULL',
             job.import_information_snapshot_table_name
         ) INTO target_columns;
 
@@ -820,8 +934,9 @@ BEGIN
         RAISE DEBUG 'Executing %', insert_stmt;
         EXECUTE insert_stmt;
     END;
+
 END;
-$import_job_process$;
+$import_job_insert$;
 
 
 
