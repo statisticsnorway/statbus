@@ -266,7 +266,7 @@ module Statbus
               when timeout(time_until_next)
                 # Time to process the scheduled task
                 @log.debug { "Timer expired, processing scheduled tasks for queue #{queue || "unknown"}" }
-                
+
                 # If we know which queue the task belongs to, notify only that processor
                 if queue && @queue_processors.has_key?(queue)
                   @log.debug { "Notifying specific queue processor: #{queue}" }
@@ -387,7 +387,7 @@ module Statbus
 
           if command == :process
             @log.debug { "Processing tasks for queue: #{queue}" }
-            process_queue_tasks(queue)
+            process_tasks(queue)
           end
 
           # Check for new scheduled tasks after processing
@@ -449,19 +449,19 @@ module Statbus
     end
 
     # Process pending tasks for a specific queue
-    private def process_queue_tasks(queue : String)
+    private def process_tasks(queue : String)
       start_time = Time.monotonic
       begin
         DB.connect(@config.connection_string) do |db|
-          # Query worker.process_queue_tasks() with named columns for better documentation
+          # Query worker.process_tasks() with named columns for better documentation
           results = db.query_all "SELECT
                                     id,            -- The task ID
                                     command,       -- The command that was executed
-                                    priority,      -- The task priority
+                                    queue,      -  -- The task queue
                                     duration_ms,   -- How long the task took to process in milliseconds
                                     success,       -- Whether the task succeeded (TRUE) or failed (FALSE)
                                     error_message  -- Error message if task failed, NULL otherwise
-                                  FROM worker.process_queue_tasks(p_queue := $1)",
+                                  FROM worker.process_tasks(p_queue := $1)",
             queue,
             as: {Int64, String, String, PG::Numeric, Bool, String?}
 
@@ -469,7 +469,7 @@ module Statbus
             @log.debug { "No tasks to process for queue: #{queue}" }
           else
             @log.debug { "Processed #{results.size} tasks for queue: #{queue}" }
-            results.each do |id, command, priority, duration, success, error|
+            results.each do |id, command, queue, duration, success, error|
               duration_float = duration.to_f
               if success
                 @log.debug { "Task #{id} (#{command}) completed in #{duration_float.round(2)}ms" }
@@ -497,58 +497,6 @@ module Statbus
       ensure
         duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
         @log.debug { "Task processing for queue #{queue} completed in #{duration_ms}ms" }
-      end
-    end
-
-    # Process pending tasks for a specific priority
-    private def process_tasks(priority : String)
-      start_time = Time.monotonic
-      begin
-        DB.connect(@config.connection_string) do |db|
-          # Query worker.process_tasks() with named columns for better documentation
-          results = db.query_all "SELECT
-                                    id,            -- The task ID
-                                    command,       -- The command that was executed
-                                    priority,      -- The task priority
-                                    duration_ms,   -- How long the task took to process in milliseconds
-                                    success,       -- Whether the task succeeded (TRUE) or failed (FALSE)
-                                    error_message  -- Error message if task failed, NULL otherwise
-                                  FROM worker.process_tasks(p_priority := $1)",
-            priority,
-            as: {Int64, String, String, PG::Numeric, Bool, String?}
-
-          if results.empty?
-            @log.debug { "No tasks to process" }
-          else
-            @log.debug { "Processed #{results.size} tasks" }
-            results.each do |id, command, duration, success, error|
-              duration_float = duration.to_f
-              if success
-                @log.debug { "Task #{id} (#{command}) completed in #{duration_float.round(2)}ms" }
-              else
-                @log.error { "Task #{id} (#{command}) failed after #{duration_float.round(2)}ms: #{error}" }
-              end
-            end
-
-            # Only log at INFO level if there were errors
-            if results.any? { |_, _, _, success, _| !success }
-              @log.info { "Processed #{results.size} tasks with errors" }
-            end
-
-            # Schedule a task cleanup if we processed tasks
-            db.exec "SELECT worker.enqueue_task_cleanup()"
-          end
-        end
-      rescue DB::ConnectionRefused | Socket::ConnectError
-        @log.error { "Database connection failed while processing tasks" }
-        # Don't log the full stack trace for connection issues
-        sleep(5.seconds) # Wait before retrying
-      rescue ex
-        @log.error { "Error processing tasks: #{ex.message}" }
-        @log.error { ex.backtrace.join("\n") }
-      ensure
-        duration_ms = (Time.monotonic - start_time).total_milliseconds.to_i
-        @log.debug { "Task processing completed in #{duration_ms}ms" }
       end
     end
   end
