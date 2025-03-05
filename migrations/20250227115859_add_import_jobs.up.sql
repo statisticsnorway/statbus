@@ -529,10 +529,11 @@ BEGIN
 
   -- Add columns from target table definition
   FOR info IN
-      SELECT *
-      FROM public.import_information AS ii
-      WHERE ii.job_id = job.id
-        AND source_column IS NOT NULL
+      EXECUTE format($$
+        SELECT *
+        FROM public.%I AS ii
+        WHERE source_column IS NOT NULL
+      $$, job.import_information_snapshot_table_name)
   LOOP
     IF NOT add_separator THEN
         add_separator := true;
@@ -557,10 +558,11 @@ BEGIN
   -- Add columns from target table definition
   add_separator := false;
   FOR info IN
-      SELECT *
-      FROM public.import_information AS ii
-      WHERE ii.job_id = job.id
-        AND target_column IS NOT NULL
+      EXECUTE format($$
+        SELECT *
+        FROM public.%I AS ii
+        WHERE target_column IS NOT NULL
+      $$, job.import_information_snapshot_table_name)
   LOOP
     IF NOT add_separator THEN
         add_separator := true;
@@ -587,11 +589,12 @@ BEGIN
   -- Add columns to unique constraint
   add_separator := false;
   FOR info IN
-      SELECT *
-      FROM public.import_information AS ii
-      WHERE ii.job_id = job.id
-        AND uniquely_identifying = TRUE
-        AND target_column IS NOT NULL
+      EXECUTE format($$
+        SELECT *
+        FROM public.%I AS ii
+        WHERE uniquely_identifying = TRUE
+          AND target_column IS NOT NULL
+      $$, job.import_information_snapshot_table_name)
   LOOP
     IF NOT add_separator THEN
         add_separator := true;
