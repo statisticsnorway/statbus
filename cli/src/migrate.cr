@@ -61,16 +61,27 @@ module Statbus
         DB.connect(config.connection_string) do |db|
           ensure_migration_table(db)
 
+          # Get all already applied migrations in one query
+          applied_versions = db.query_all(
+            "SELECT version FROM db.migration ORDER BY version",
+            as: Int64
+          ).to_set
+
+          # Filter out migrations that are already applied
+          migrations_to_apply = sorted_migrations.reject { |m| applied_versions.includes?(m.version) }
+          
+          # Apply version limit if specified
+          migrate_to = @migrate_to # Thread safe access to variable for null handling
+          if migrate_to
+            migrations_to_apply = migrations_to_apply.select { |m| m.version <= migrate_to }
+          end
+          
+          # Only take the first migration if not migrating all
+          migrations_to_apply = [migrations_to_apply.first].compact unless @migrate_all
+          
+          # Apply the migrations
           applied_count = 0
-          sorted_migrations.each do |migration|
-            # Stop if we've hit our target conditions
-            migrate_to = @migrate_to # Thread safe access to variable for null handling
-
-            if (!@migrate_all && applied_count > 0) ||
-               (migrate_to && migration.version > migrate_to)
-              break
-            end
-
+          migrations_to_apply.each do |migration|
             if apply_migration(db, migration)
               applied_count += 1
             end
