@@ -115,6 +115,7 @@ module Statbus
           end
 
           migrations_to_rollback = if @migrate_all || @migrate_to
+                                     # When using --to, this will include the specified version and all newer ones
                                      get_migrations_to_rollback(db, @migrate_to)
                                    else
                                      # Get just the last migration
@@ -135,7 +136,9 @@ module Statbus
             end
           end
 
-          cleanup_migration_schema(db) if @migrate_all || (!@migrate_all && applied_count == 0)
+          # Only clean up the migration schema if we're doing a full rollback
+          # and not targeting a specific version with --to
+          cleanup_migration_schema(db) if @migrate_all && @migrate_to.nil?
 
           # Only notify if any migrations were actually rolled back
           if applied_count > 0
@@ -244,6 +247,9 @@ module Statbus
       down_globs.first?.try { |path| Path[path] }
     end
 
+    # Gets migrations to roll back based on the specified criteria
+    # If migrate_to is provided, returns all migrations with version >= migrate_to (inclusive)
+    # Otherwise, returns all migrations
     private def get_migrations_to_rollback(db, migrate_to : Int64?) : Array(NamedTuple(version: String))
       query = <<-SQL
     SELECT version::TEXT
