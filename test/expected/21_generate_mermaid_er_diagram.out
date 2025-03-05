@@ -465,10 +465,13 @@ erDiagram
 		"text" import_information_snapshot_table_name
 		"timestamp with time zone" analysis_start_at
 		"timestamp with time zone" analysis_stop_at
+		"timestamp with time zone" preparing_data_at
 		"timestamp with time zone" changes_approved_at
+		"timestamp with time zone" changes_rejected_at
 		"timestamp with time zone" import_start_at
 		"timestamp with time zone" import_stop_at
 		"import_job_status" status
+		"boolean" review
 		"integer" definition_id
 		"integer" user_id
 	}
@@ -1099,6 +1102,6 @@ erDiagram
 	storage_objects }o--o| storage.buckets : objects_bucketId_fkey
 	vault_secrets }o--o| pgsodium.key : secrets_key_id_fkey
 	worker_command_registry }o--|| worker.queue_registry : command_registry_queue_fkey
-	worker_tasks }o--|| worker.command_registry : fk_tasks_command
 	worker_tasks }o--|| worker.command_registry : tasks_command_fkey
+	worker_tasks }o--|| worker.command_registry : fk_tasks_command
 ########################################
