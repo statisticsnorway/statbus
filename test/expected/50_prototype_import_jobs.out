@@ -1,4 +1,14 @@
 BEGIN;
+-- Create a function to disable RLS on import tables to support the \copy command.
+-- and that requires privileges, make it a security definer, such that it can be
+-- called by the user the tests run as.
+CREATE PROCEDURE public.disable_rls_on_table(schema_name text, table_name text) LANGUAGE plpgsql SECURITY DEFINER AS $disable_rls_on_table$
+BEGIN
+  EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY', table_name);
+END;
+$disable_rls_on_table$;
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON PROCEDURE public.disable_rls_on_table TO authenticated;
 \i test/setup.sql
 SELECT * FROM public.statbus_user_create('test.super@statbus.org', 'super_user'::statbus_role_type, 'Super#123!');
          email          |  password  
@@ -307,6 +317,7 @@ ORDER BY id.slug, isc.priority NULLS LAST;
  legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | tag_path                         | tag_path                         |                   |              |                     44
 (262 rows)
 
+CALL test.set_user_from_email('test.super@statbus.org');
 -- Pretend the user has clicked and created an import definition.
 WITH it AS (
     SELECT * FROM public.import_target
@@ -868,12 +879,10 @@ WHERE import_job_slug = 'import_job_2015';
 (56 rows)
 
 -- Disable RLS on import tables to support \copy
-ALTER TABLE public.import_job_2015_upload DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.import_job_2016_upload DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.import_job_2017_upload DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.import_job_2018_upload DISABLE ROW LEVEL SECURITY;
--- A Super User configures statbus.
-CALL test.set_user_from_email('test.super@statbus.org');
+CALL public.disable_rls_on_table('public','import_job_2015_upload');
+CALL public.disable_rls_on_table('public','import_job_2016_upload');
+CALL public.disable_rls_on_table('public','import_job_2017_upload');
+CALL public.disable_rls_on_table('public','import_job_2018_upload');
 \echo "Setting up Statbus for Norway"
 "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
@@ -892,6 +901,18 @@ DO UPDATE SET
 \copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/legal_form/legal_form_norway.sql
 \copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Verify user context is set correctly for import jobs
+\echo "Verifying user context for import jobs"
+"Verifying user context for import jobs"
+SELECT slug,
+       (SELECT email FROM public.statbus_user_with_email_and_role WHERE id = user_id) AS user_email
+FROM public.import_job
+WHERE slug = 'import_job_2015';
+      slug       |       user_email       
+-----------------+------------------------
+ import_job_2015 | test.super@statbus.org
+(1 row)
+
 \echo "Adding tags for insert into right part of history"
 "Adding tags for insert into right part of history"
 \i samples/norway/small-history/add-tags.sql

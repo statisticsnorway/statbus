@@ -363,6 +363,13 @@ BEGIN
         WHERE id.id = NEW.definition_id;
     END IF;
 
+    -- Set the user_id from the current authenticated user
+    IF NEW.user_id IS NULL AND auth.uid() IS NOT NULL THEN
+        SELECT id INTO NEW.user_id
+        FROM public.statbus_user
+        WHERE uuid = auth.uid();
+    END IF;
+
     RETURN NEW;
 END;
 $import_job_derive$;
@@ -390,7 +397,7 @@ CREATE TRIGGER import_job_generate
 
 -- Function to clean up job objects
 CREATE FUNCTION admin.import_job_cleanup()
-RETURNS TRIGGER AS $import_job_cleanup$
+RETURNS TRIGGER SECURITY DEFINER LANGUAGE plpgsql AS $import_job_cleanup$
 BEGIN
     -- Drop the snapshot table
     EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.import_information_snapshot_table_name);
@@ -402,7 +409,7 @@ BEGIN
 
     RETURN OLD;
 END;
-$import_job_cleanup$ LANGUAGE plpgsql;
+$import_job_cleanup$;
 
 -- Create trigger to clean up objects when job is deleted
 CREATE TRIGGER import_job_cleanup
@@ -487,7 +494,7 @@ The table is unlogged for good performance on insert.
 There is a view that maps from the columns names of the upload to the column names of the table.
 */
 CREATE FUNCTION admin.import_job_generate(job public.import_job)
-RETURNS void AS $import_job_generate$
+RETURNS void SECURITY DEFINER LANGUAGE plpgsql AS $import_job_generate$
 DECLARE
     create_upload_table_stmt text;
     create_data_table_stmt text;
@@ -604,7 +611,7 @@ BEGIN
   PERFORM admin.add_rls_regular_user_can_edit(job.data_table_name::regclass);
 
 END;
-$import_job_generate$ LANGUAGE plpgsql;
+$import_job_generate$;
 
 
 
@@ -621,6 +628,7 @@ BEGIN
     PERFORM admin.import_job_process(job_id);
 END;
 $import_job_process$;
+
 
 -- Function to update import job status and return the updated record
 CREATE FUNCTION admin.import_job_set_status(
@@ -686,6 +694,60 @@ END;
 $import_job_next_state$;
 
 
+-- Function to set user context for import job processing
+CREATE FUNCTION admin.set_import_job_user_context(job_id integer)
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $set_import_job_user_context$
+DECLARE
+    v_user_uuid uuid;
+    v_original_user_id text;
+BEGIN
+    -- Save the current user context if any
+    v_original_user_id := current_setting('request.jwt.claim.sub', true);
+
+    -- Get the user UUID from the job
+    SELECT su.uuid INTO v_user_uuid
+    FROM public.import_job ij
+    JOIN public.statbus_user su ON ij.user_id = su.id
+    WHERE ij.id = job_id;
+
+    IF v_user_uuid IS NOT NULL THEN
+        -- Set the user context
+        PERFORM set_config('request.jwt.claim.sub', v_user_uuid::text, true);
+        RAISE DEBUG 'Set user context to % for import job %', v_user_uuid, job_id;
+    ELSE
+        RAISE DEBUG 'No user found for import job %, using current context', job_id;
+    END IF;
+
+    -- Store the original user ID for reset
+    PERFORM set_config('admin.original_user_id', COALESCE(v_original_user_id, ''), true);
+END;
+$set_import_job_user_context$;
+
+-- Function to reset user context after import job processing
+CREATE FUNCTION admin.reset_import_job_user_context()
+RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $reset_import_job_user_context$
+DECLARE
+    v_original_user_id text;
+BEGIN
+    -- Get the original user context
+    v_original_user_id := current_setting('admin.original_user_id', true);
+
+    IF v_original_user_id != '' THEN
+        -- Reset to the original user context
+        PERFORM set_config('request.jwt.claim.sub', v_original_user_id, true);
+        RAISE DEBUG 'Reset user context to original user %', v_original_user_id;
+    ELSE
+        -- Clear the user context
+        PERFORM set_config('request.jwt.claim.sub', '', true);
+        RAISE DEBUG 'Cleared user context (no original user)';
+    END IF;
+END;
+$reset_import_job_user_context$;
+
+-- Grant execute permissions on the user context functions
+GRANT EXECUTE ON FUNCTION admin.set_import_job_user_context TO authenticated;
+GRANT EXECUTE ON FUNCTION admin.reset_import_job_user_context TO authenticated;
+
 CREATE FUNCTION admin.import_job_process(job_id integer)
 RETURNS void LANGUAGE plpgsql AS $import_job_process$
 DECLARE
@@ -698,40 +760,53 @@ BEGIN
         RAISE EXCEPTION 'Import job % not found', job_id;
     END IF;
 
-    -- Process the job based on its current status
-    LOOP
-        -- Get the next status
-        next_status := admin.import_job_next_state(job);
+    -- Set the user context to the job creator
+    PERFORM admin.set_import_job_user_context(job_id);
 
-        -- If status doesn't change, we're either at a terminal state or waiting for user action
-        IF next_status = job.status THEN
-            IF job.status = 'waiting_for_review' AND job.review THEN
-                RAISE DEBUG 'Import job % is now waiting for review', job_id;
-            ELSIF job.status = 'finished' THEN
-                RAISE DEBUG 'Import job % completed successfully', job_id;
+    BEGIN
+        -- Process the job based on its current status
+        LOOP
+            -- Get the next status
+            next_status := admin.import_job_next_state(job);
+
+            -- If status doesn't change, we're either at a terminal state or waiting for user action
+            IF next_status = job.status THEN
+                IF job.status = 'waiting_for_review' AND job.review THEN
+                    RAISE DEBUG 'Import job % is now waiting for review', job_id;
+                ELSIF job.status = 'finished' THEN
+                    RAISE DEBUG 'Import job % completed successfully', job_id;
+                END IF;
+                EXIT; -- Exit the loop
             END IF;
-            EXIT; -- Exit the loop
-        END IF;
 
-        -- Update the job status
-        job := admin.import_job_set_status(job, next_status);
+            -- Update the job status
+            job := admin.import_job_set_status(job, next_status);
 
-        -- Perform the appropriate action for the new status
-        CASE job.status
-            WHEN 'preparing_data' THEN
-                PERFORM admin.import_job_prepare(job);
+            -- Perform the appropriate action for the new status
+            CASE job.status
+                WHEN 'preparing_data' THEN
+                    PERFORM admin.import_job_prepare(job);
 
-            WHEN 'analysing_data' THEN
-                PERFORM admin.import_job_analyse(job);
+                WHEN 'analysing_data' THEN
+                    PERFORM admin.import_job_analyse(job);
 
-            WHEN 'importing_data' THEN
-                PERFORM admin.import_job_insert(job);
+                WHEN 'importing_data' THEN
+                    PERFORM admin.import_job_insert(job);
 
-            ELSE
-                -- Other states don't require specific actions
-                NULL;
-        END CASE;
-    END LOOP;
+                ELSE
+                    -- Other states don't require specific actions
+                    NULL;
+            END CASE;
+        END LOOP;
+    EXCEPTION
+        WHEN OTHERS THEN
+            -- Reset user context before re-raising the exception
+            PERFORM admin.reset_import_job_user_context();
+            RAISE;
+    END;
+
+    -- Reset the user context when done
+    PERFORM admin.reset_import_job_user_context();
 END;
 $import_job_process$;
 
