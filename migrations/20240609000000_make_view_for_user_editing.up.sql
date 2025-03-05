@@ -8,6 +8,8 @@ UNIQUE (email);
 
 CREATE VIEW public.statbus_user_with_email_and_role WITH (security_barrier = true) AS
 SELECT
+    su.id,
+    su.uuid,
     au.email,
     sr.type AS role_type
 FROM
@@ -56,18 +58,18 @@ CREATE SCHEMA IF NOT EXISTS test;
 -- Helper to automatically set request.jwt.claim.sub for testing
 CREATE PROCEDURE test.set_user_from_email(p_email text) AS $$
 DECLARE
-    v_user_id text;
+    v_user_uuid text;
 BEGIN
-    SELECT id::text INTO v_user_id
+    SELECT id::text INTO v_user_uuid
     FROM auth.users
     WHERE email = p_email;
 
-    IF v_user_id IS NULL THEN
+    IF v_user_uuid IS NULL THEN
         RAISE EXCEPTION 'User with email % not found', p_email;
     END IF;
 
     SET LOCAL ROLE authenticated;
-    EXECUTE 'SET LOCAL "request.jwt.claim.sub" TO ''' || v_user_id || '''';
+    EXECUTE 'SET LOCAL "request.jwt.claim.sub" TO ' || quote_literal(v_user_uuid);
 END;
 $$ LANGUAGE plpgsql;
 
