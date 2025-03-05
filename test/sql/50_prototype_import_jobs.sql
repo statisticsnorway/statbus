@@ -1,5 +1,18 @@
 BEGIN;
 
+-- Create a function to disable RLS on import tables to support the \copy command.
+-- and that requires privileges, make it a security definer, such that it can be
+-- called by the user the tests run as.
+CREATE PROCEDURE public.disable_rls_on_table(schema_name text, table_name text) LANGUAGE plpgsql SECURITY DEFINER AS $disable_rls_on_table$
+BEGIN
+  EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY', table_name);
+END;
+$disable_rls_on_table$;
+
+-- Grant execute permission to authenticated users
+GRANT EXECUTE ON PROCEDURE public.disable_rls_on_table TO authenticated;
+
+
 \i test/setup.sql
 
 -- Display all import definitions with their mappings
@@ -21,6 +34,7 @@ LEFT JOIN public.import_source_column isc ON im.source_column_id = isc.id
 LEFT JOIN public.import_target_column itc ON im.target_column_id = itc.id
 ORDER BY id.slug, isc.priority NULLS LAST;
 
+CALL test.set_user_from_email('test.super@statbus.org');
 
 -- Pretend the user has clicked and created an import definition.
 
@@ -229,16 +243,20 @@ FROM public.import_information
 WHERE import_job_slug = 'import_job_2015';
 
 -- Disable RLS on import tables to support \copy
-ALTER TABLE public.import_job_2015_upload DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.import_job_2016_upload DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.import_job_2017_upload DISABLE ROW LEVEL SECURITY;
-ALTER TABLE public.import_job_2018_upload DISABLE ROW LEVEL SECURITY;
-
--- A Super User configures statbus.
-CALL test.set_user_from_email('test.super@statbus.org');
+CALL public.disable_rls_on_table('public','import_job_2015_upload');
+CALL public.disable_rls_on_table('public','import_job_2016_upload');
+CALL public.disable_rls_on_table('public','import_job_2017_upload');
+CALL public.disable_rls_on_table('public','import_job_2018_upload');
 
 \echo "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
+
+-- Verify user context is set correctly for import jobs
+\echo "Verifying user context for import jobs"
+SELECT slug,
+       (SELECT email FROM public.statbus_user_with_email_and_role WHERE id = user_id) AS user_email
+FROM public.import_job
+WHERE slug = 'import_job_2015';
 
 \echo "Adding tags for insert into right part of history"
 \i samples/norway/small-history/add-tags.sql
