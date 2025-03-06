@@ -300,7 +300,7 @@ SELECT valid_after
      , jsonb_pretty(stats) AS stats
      , jsonb_pretty(stats_summary) AS stats_summary
  FROM public.statistical_unit
- ORDER BY unit_type, unit_id, valid_from, valid_to;
+ ORDER BY valid_from, valid_to, unit_type, external_idents ->> 'tax_ident', unit_id;
 \x
 
 
