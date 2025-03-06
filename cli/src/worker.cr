@@ -256,9 +256,11 @@ module Statbus
               # If a specific queue was mentioned in the notification
               if queue_name && @queue_processors.has_key?(queue_name)
                 @log.debug { "Received notification for specific queue: #{queue_name}" }
+                # Only notify the specific queue mentioned in the notification
                 @queue_processors[queue_name].send(:process)
               else
-                # Notify all queue processors if no specific queue or unknown queue
+                # Only if payload is empty or queue doesn't exist, notify all processors
+                @log.debug { "Received notification without specific queue, notifying all queues" }
                 @queue_processors.each do |queue, channel|
                   channel.send(:process)
                 end
@@ -342,7 +344,7 @@ module Statbus
             sleep(60.seconds)
             next
           end
-          
+
           # Skip if we've already processed this exact scheduled time
           if last_processed_time == next_scheduled
             sleep(60.seconds) # Wait before checking again
@@ -358,13 +360,13 @@ module Statbus
             @log.debug { "Task overdue for queue #{queue || "unknown"}, processing now" }
             notify_processors(queue)
             last_processed_time = next_scheduled # Remember we processed this time
-            sleep(1.seconds) # Prevent tight loop
+            sleep(1.seconds)                     # Prevent tight loop
             next
           end
 
           # Wait for the scheduled time or until interrupted
           @log.debug { "Next scheduled task at #{next_scheduled} for queue #{queue || "unknown"}, waiting #{time_until_next.total_seconds.round(2)} seconds" }
-          
+
           # Use a timeout to wait for either a new scheduled task or the current one to be due
           begin
             select
@@ -483,24 +485,24 @@ module Statbus
     # Queue-specific processing loop
     private def process_queue_loop(queue : String, channel : Channel(Symbol))
       @log.info { "Starting processing fiber for queue: #{queue}" }
-      
+
       # Process tasks immediately upon starting
       @log.debug { "Initial processing for queue: #{queue}" }
       process_tasks(queue)
-      
+
       # Check for new scheduled tasks after initial processing, but only once at startup
       check_for_new_scheduled_tasks
-      
+
       loop do
         break if @shutdown
-        
+
         begin
           command = channel.receive
 
           if command == :process
             @log.debug { "Processing tasks for queue: #{queue}" }
             process_tasks(queue)
-            
+
             # Only check for scheduled tasks when processing due to a notification
             # This prevents the feedback loop where every process triggers more processes
             if queue == "maintenance" # Only maintenance queue handles scheduled tasks
@@ -522,7 +524,7 @@ module Statbus
 
     # Track when we last checked for scheduled tasks to avoid redundant checks
     @last_scheduled_check = Time.utc
-    
+
     # Check if any new scheduled tasks have been added
     private def check_for_new_scheduled_tasks
       # Only check for new scheduled tasks at most once per minute
@@ -531,18 +533,18 @@ module Statbus
       if (now - @last_scheduled_check).total_seconds < 60
         return
       end
-      
+
       @last_scheduled_check = now
       next_scheduled, queue = find_next_scheduled_task
-      
+
       # Only notify if we have a scheduled task and it's different from the last one we saw
       if next_scheduled && next_scheduled != @last_scheduled_time
         @log.debug { "New scheduled time detected: #{next_scheduled} (previous: #{@last_scheduled_time || "none"})" }
         @last_scheduled_time = next_scheduled
-        
+
         # Notify the timer checker about the new task
         @timer_queue.send(next_scheduled)
-        
+
         # We don't need to notify processors here - the timer will do that when the time comes
         # This prevents the feedback loop of continuous processing
       end
@@ -558,6 +560,8 @@ module Statbus
         # Use a connection pool or reuse connection if possible
         DB.connect(@config.connection_string) do |db|
           # Query worker.process_tasks() with named columns for better documentation
+          # The p_queue parameter ensures we only process tasks for this specific queue
+          @log.debug { "Executing worker.process_tasks for queue: #{queue}" }
           results = db.query_all "SELECT
                                     id,            -- The task ID
                                     command,       -- The command that was executed
