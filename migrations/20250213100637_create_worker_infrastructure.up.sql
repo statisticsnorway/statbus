@@ -558,7 +558,7 @@ BEGIN
     error_message = NULL
   RETURNING id INTO v_task_id;
 
-  PERFORM pg_notify('worker_tasks', '');
+  PERFORM pg_notify('worker_tasks', 'analytics');
 
   RETURN v_task_id;
 END;
