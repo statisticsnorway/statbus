@@ -79,6 +79,9 @@ module Statbus
     @channel_buffer_size = 8192                         # There can be a lot of task notifications for large imports, so have a sizeable queue.
     @queue_discovery_channel = Channel(Nil).new(8)      # Channel to trigger queue discovery. We have only 3 queues as of 2025-Q1
     @shutdown = false                                   # Flag to indicate shutdown in progress
+    @shutdown_complete = Channel(Bool).new(1)           # Channel to signal when shutdown is complete
+    @shutdown_ack_channel = Channel(Nil).new(10)        # Channel for fibers to acknowledge shutdown
+    @active_fibers = [] of Fiber                        # Track active fibers for graceful shutdown
 
     def initialize(config)
       @config = config
@@ -132,25 +135,101 @@ module Statbus
       @shutdown = true
       @log.info { "Received #{signal_name}, initiating graceful shutdown..." }
 
-      # Close timer queue
-      @timer_queue.close rescue nil
+      # Start a fiber to handle the shutdown sequence
+      spawn do
+        # Give running fibers a chance to notice the shutdown flag
+        sleep 0.5.seconds
 
-      # Close queue discovery channel
-      @queue_discovery_channel.close rescue nil
+        # Send shutdown message to timer queue
+        @timer_queue.close rescue nil
 
-      # Close all queue processor channels
-      @queue_processors.each do |queue, channel|
-        channel.close rescue nil
+        # Send shutdown message to queue discovery channel
+        @queue_discovery_channel.close rescue nil
+
+        # Send shutdown message to all queue processors and count how many were sent
+        sent_count = 0
+        @queue_processors.each do |queue, channel|
+          begin
+            channel.send(:shutdown)
+            sent_count += 1
+            @log.debug { "Sent shutdown message to #{queue} processor" }
+          rescue ex
+            @log.debug { "Failed to send shutdown message to #{queue} processor: #{ex.message}" }
+          end
+        end
+
+        # Add 1 for the main fiber
+        sent_count += 1
+        @shutdown_ack_channel.send(nil) # Main fiber is considered already acknowledged
+
+        # Wait for acknowledgments or timeout
+        shutdown_timeout = 5.seconds
+        shutdown_start = Time.monotonic
+        received_count = 1 # Start with 1 for the main fiber
+        
+        loop do
+          # Check if we've exceeded the timeout
+          if (Time.monotonic - shutdown_start) > shutdown_timeout
+            @log.warn { "Shutdown timeout reached after #{shutdown_timeout.total_seconds} seconds, forcing exit" }
+            break
+          end
+          
+          # Check if we've received all acknowledgments
+          if received_count >= sent_count
+            @log.info { "All fibers have acknowledged shutdown" }
+            break
+          end
+          
+          # Try to receive an acknowledgment with a short timeout
+          begin
+            select
+            when @shutdown_ack_channel.receive
+              received_count += 1
+              @log.debug { "Received shutdown acknowledgment (#{received_count}/#{sent_count})" }
+            when timeout(0.1.seconds)
+              # Just continue the loop
+            end
+          rescue Channel::ClosedError
+            # Channel was closed, just continue
+            @log.debug { "Shutdown acknowledgment channel closed" }
+            break
+          end
+          
+          @log.debug { "Waiting for #{sent_count - received_count} fibers to acknowledge shutdown..." }
+        end
+
+        # Close all channels to ensure no fibers are blocked
+        @queue_processors.each do |_, channel|
+          channel.close rescue nil
+        end
+        @shutdown_ack_channel.close rescue nil
+
+        # Signal that shutdown is complete
+        @shutdown_complete.send(true) rescue nil
+        @log.info { "Shutdown complete, exiting..." }
+        exit(0) # Use explicit success exit code
       end
 
-      @log.info { "Shutdown complete, exiting..." }
-      exit
+      # Wait for shutdown to complete or timeout
+      begin
+        select
+        when @shutdown_complete.receive
+          # Normal exit will happen in the shutdown fiber
+        when timeout(10.seconds)
+          @log.error { "Shutdown timed out after 10 seconds, forcing exit" }
+          exit(1)
+        end
+      rescue
+        # If channel is closed or other error, just exit
+        exit(1)
+      end
     end
 
     # Start the queue discovery process and initialize the first set of queues
     private def start_queue_discovery
       # Start the queue discovery processor
-      spawn queue_discovery_loop
+      fiber = spawn queue_discovery_loop
+      @active_fibers << fiber
 
       # Trigger initial queue discovery
       @queue_discovery_channel.send(nil)
@@ -189,7 +268,8 @@ module Statbus
 
                 # Start the processor after data structures are updated
                 # The processor will automatically start processing tasks when created
-                spawn process_queue_loop(queue, new_channel)
+                fiber = spawn process_queue_loop(queue, new_channel)
+                @active_fibers << fiber
               end
             end
 
@@ -200,7 +280,13 @@ module Statbus
           # Reset error counter after successful execution
           consecutive_errors = 0
         rescue Channel::ClosedError
-          @log.info { "Queue discovery channel closed, shutting down discovery loop" }
+          if @shutdown
+            @log.info { "Queue discovery channel closed during shutdown, exiting discovery loop" }
+            # Acknowledge shutdown
+            @shutdown_ack_channel.send(nil) rescue nil
+          else
+            @log.warn { "Queue discovery channel closed unexpectedly, shutting down discovery loop" }
+          end
           break
         rescue ex
           consecutive_errors += 1
@@ -217,6 +303,11 @@ module Statbus
           end
         end
       end
+      
+      # Acknowledge shutdown before exiting
+      if @shutdown
+        @shutdown_ack_channel.send(nil) rescue nil
+      end
     end
 
     def run
@@ -227,7 +318,8 @@ module Statbus
       start_queue_discovery
 
       # Start timer checking fiber
-      spawn check_scheduled_tasks_loop
+      fiber = spawn check_scheduled_tasks_loop
+      @active_fibers << fiber
 
       # Each queue processor will automatically start processing when created
 
@@ -283,6 +375,12 @@ module Statbus
           # Just wait indefinitely until an exception occurs or the program is terminated
           until @shutdown
             sleep(1.seconds)
+          end
+          
+          # If we're shutting down, close the connection gracefully
+          if @shutdown
+            @log.info { "Shutting down database connection..." }
+            connection.close rescue nil
           end
 
           # If we get here, the connection was closed normally
@@ -340,14 +438,14 @@ module Statbus
           next_scheduled, queue = find_next_scheduled_task
 
           if next_scheduled.nil?
-            # No scheduled tasks, wait for a while
-            sleep(60.seconds)
+            # No scheduled tasks, wait for a while but check for shutdown frequently
+            wait_with_shutdown_check(60.seconds)
             next
           end
 
           # Skip if we've already processed this exact scheduled time
           if last_processed_time == next_scheduled
-            sleep(60.seconds) # Wait before checking again
+            wait_with_shutdown_check(60.seconds) # Wait before checking again
             next
           end
 
@@ -360,7 +458,7 @@ module Statbus
             @log.debug { "Task overdue for queue #{queue || "unknown"}, processing now" }
             notify_processors(queue)
             last_processed_time = next_scheduled # Remember we processed this time
-            sleep(1.seconds)                     # Prevent tight loop
+            wait_with_shutdown_check(1.seconds)  # Prevent tight loop
             next
           end
 
@@ -392,7 +490,13 @@ module Statbus
           # Reset error counter after successful execution
           consecutive_errors = 0
         rescue Channel::ClosedError
-          @log.info { "Timer channel closed, shutting down timer loop" }
+          if @shutdown
+            @log.info { "Timer channel closed during shutdown, exiting timer loop" }
+            # Acknowledge shutdown
+            @shutdown_ack_channel.send(nil) rescue nil
+          else
+            @log.warn { "Timer channel closed unexpectedly, shutting down timer loop" }
+          end
           break
         rescue ex
           consecutive_errors += 1
@@ -402,12 +506,26 @@ module Statbus
           # Implement circuit breaker pattern for persistent errors
           if consecutive_errors >= max_consecutive_errors
             @log.error { "Too many consecutive errors (#{consecutive_errors}), pausing timer loop for recovery" }
-            sleep(60.seconds)      # Longer pause to allow system to recover
-            consecutive_errors = 0 # Reset after recovery period
+            wait_with_shutdown_check(60.seconds) # Longer pause to allow system to recover
+            consecutive_errors = 0               # Reset after recovery period
           else
-            sleep(10.seconds) # Wait a bit before retrying
+            wait_with_shutdown_check(10.seconds) # Wait a bit before retrying
           end
         end
+      end
+      
+      # Acknowledge shutdown before exiting
+      if @shutdown
+        @shutdown_ack_channel.send(nil) rescue nil
+      end
+    end
+    
+    # Helper method to wait while checking for shutdown
+    private def wait_with_shutdown_check(duration : Time::Span)
+      start_time = Time.monotonic
+      while (Time.monotonic - start_time) < duration
+        return if @shutdown
+        sleep(0.1.seconds) # Check for shutdown frequently
       end
     end
 
@@ -499,7 +617,8 @@ module Statbus
         begin
           command = channel.receive
 
-          if command == :process
+          case command
+          when :process
             @log.debug { "Processing tasks for queue: #{queue}" }
             process_tasks(queue)
 
@@ -508,15 +627,28 @@ module Statbus
             if queue == "maintenance" # Only maintenance queue handles scheduled tasks
               check_for_new_scheduled_tasks
             end
+          when :shutdown
+            @log.info { "Received shutdown command for #{queue} process loop" }
+            break
           end
         rescue Channel::ClosedError
-          @log.info { "Queue channel closed, shutting down #{queue} process loop" }
+          if @shutdown
+            @log.info { "Queue channel closed during shutdown, exiting #{queue} process loop" }
+          else
+            @log.warn { "Queue channel closed unexpectedly, shutting down #{queue} process loop" }
+          end
           break
         rescue ex
           @log.error { "Error in #{queue} process loop: #{ex.message}" }
           @log.error { ex.backtrace.join("\n") }
-          sleep(1.seconds) # Prevent tight loop on error
+          wait_with_shutdown_check(1.seconds) # Prevent tight loop on error while checking for shutdown
         end
+      end
+      
+      # Acknowledge shutdown before exiting
+      if @shutdown
+        @log.debug { "#{queue} processor acknowledging shutdown" }
+        @shutdown_ack_channel.send(nil) rescue nil
       end
     end
 
