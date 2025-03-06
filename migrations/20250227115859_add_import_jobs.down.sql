@@ -13,11 +13,15 @@ DROP TRIGGER prevent_non_draft_mapping_changes ON public.import_mapping;
 DROP TRIGGER import_job_derive_trigger ON public.import_job;
 DROP TRIGGER import_job_generate ON public.import_job;
 DROP TRIGGER import_job_cleanup ON public.import_job;
-DROP TRIGGER import_job_status_change_trigger ON public.import_job;
+DROP TRIGGER import_job_state_change_before_trigger ON public.import_job;
+DROP TRIGGER import_job_state_change_after_trigger ON public.import_job;
+DROP TRIGGER import_job_progress_update_trigger ON public.import_job;
+DROP TRIGGER import_job_progress_notify_trigger ON public.import_job;
 
 -- Revoke execute permissions on user context functions
 REVOKE EXECUTE ON FUNCTION admin.set_import_job_user_context FROM authenticated;
 REVOKE EXECUTE ON FUNCTION admin.reset_import_job_user_context FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_import_job_progress FROM authenticated;
 
 -- Drop worker command registry entry
 DELETE FROM worker.command_registry WHERE command = 'import_job_process';
@@ -26,7 +30,11 @@ DELETE FROM worker.command_registry WHERE command = 'import_job_process';
 DELETE FROM worker.queue_registry WHERE queue = 'import';
 
 -- Drop functions
-DROP FUNCTION admin.import_job_status_change();
+DROP FUNCTION admin.import_job_state_change_before();
+DROP FUNCTION admin.import_job_state_change_after();
+DROP FUNCTION admin.import_job_progress_update();
+DROP FUNCTION admin.import_job_progress_notify();
+DROP FUNCTION public.get_import_job_progress(integer);
 DROP FUNCTION admin.import_job_process(payload JSONB);
 DROP FUNCTION admin.import_job_process(integer);
 DROP FUNCTION admin.import_job_prepare(public.import_job);
@@ -37,7 +45,7 @@ DROP FUNCTION admin.import_job_generate(public.import_job);
 DROP FUNCTION admin.import_job_generate();
 DROP FUNCTION admin.import_job_derive();
 DROP FUNCTION admin.import_job_next_state(public.import_job);
-DROP FUNCTION admin.import_job_set_status(public.import_job, public.import_job_status);
+DROP FUNCTION admin.import_job_set_state(public.import_job, public.import_job_state);
 DROP FUNCTION admin.set_import_job_user_context(integer);
 DROP FUNCTION admin.reset_import_job_user_context();
 DROP FUNCTION admin.import_definition_validate_before();
@@ -57,7 +65,8 @@ DROP TABLE public.import_target_column;
 DROP TABLE public.import_target;
 
 -- Drop types
-DROP TYPE public.import_job_status;
+DROP TYPE public.import_job_state;
 DROP TYPE public.import_source_expression;
+DROP TYPE public.import_data_state;
 
 END;
