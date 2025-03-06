@@ -898,7 +898,7 @@ BEGIN
                         CASE info.target_column
                             WHEN 'valid_from' THEN quote_literal(job.default_valid_from)
                             WHEN 'valid_to' THEN quote_literal(job.default_valid_to)
-                            WHEN 'data_source_code' THEN quote_literal(job.default_valid_data_source_code)
+                            WHEN 'data_source_code' THEN quote_literal(job.default_data_source_code)
                             ELSE 'NULL'
                         END
                     ELSE 'NULL'
