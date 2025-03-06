@@ -304,6 +304,7 @@ CREATE TABLE public.import_job (
     note text,
     default_valid_from DATE,
     default_valid_to DATE,
+    default_data_source_code text,
     upload_table_name text NOT NULL,
     data_table_name text NOT NULL,
     target_table_name text NOT NULL,
@@ -360,6 +361,14 @@ BEGIN
         INTO NEW.default_valid_from, NEW.default_valid_to
         FROM public.import_definition id
         LEFT JOIN public.time_context tc ON tc.ident = id.time_context_ident
+        WHERE id.id = NEW.definition_id;
+    END IF;
+
+    IF NEW.default_data_source_code IS NULL THEN
+        SELECT ds.code
+        INTO NEW.default_data_source_code
+        FROM public.import_definition id
+        JOIN public.data_source ds ON ds.id = id.default_data_source_id
         WHERE id.id = NEW.definition_id;
     END IF;
 
@@ -889,6 +898,7 @@ BEGIN
                         CASE info.target_column
                             WHEN 'valid_from' THEN quote_literal(job.default_valid_from)
                             WHEN 'valid_to' THEN quote_literal(job.default_valid_to)
+                            WHEN 'data_source_code' THEN quote_literal(job.default_valid_data_source_code)
                             ELSE 'NULL'
                         END
                     ELSE 'NULL'
