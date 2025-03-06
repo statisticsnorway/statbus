@@ -680,29 +680,31 @@ Policies:
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
 \d public.import_job_2015_data
-               Unlogged table "public.import_job_2015_data"
-              Column              | Type | Collation | Nullable | Default 
-----------------------------------+------+-----------+----------+---------
- tax_ident                        | text |           |          | 
- name                             | text |           |          | 
- legal_form_code                  | text |           |          | 
- primary_activity_category_code   | text |           |          | 
- secondary_activity_category_code | text |           |          | 
- postal_address_part1             | text |           |          | 
- postal_postplace                 | text |           |          | 
- postal_postcode                  | text |           |          | 
- postal_region_code               | text |           |          | 
- postal_country_iso_2             | text |           |          | 
- physical_address_part1           | text |           |          | 
- physical_postplace               | text |           |          | 
- physical_postcode                | text |           |          | 
- physical_region_code             | text |           |          | 
- physical_country_iso_2           | text |           |          | 
- sector_code                      | text |           |          | 
- birth_date                       | text |           |          | 
- valid_from                       | text |           |          | 
- valid_to                         | text |           |          | 
+                               Unlogged table "public.import_job_2015_data"
+              Column              |       Type       | Collation | Nullable |           Default           
+----------------------------------+------------------+-----------+----------+-----------------------------
+ tax_ident                        | text             |           |          | 
+ name                             | text             |           |          | 
+ legal_form_code                  | text             |           |          | 
+ primary_activity_category_code   | text             |           |          | 
+ secondary_activity_category_code | text             |           |          | 
+ postal_address_part1             | text             |           |          | 
+ postal_postplace                 | text             |           |          | 
+ postal_postcode                  | text             |           |          | 
+ postal_region_code               | text             |           |          | 
+ postal_country_iso_2             | text             |           |          | 
+ physical_address_part1           | text             |           |          | 
+ physical_postplace               | text             |           |          | 
+ physical_postcode                | text             |           |          | 
+ physical_region_code             | text             |           |          | 
+ physical_country_iso_2           | text             |           |          | 
+ sector_code                      | text             |           |          | 
+ birth_date                       | text             |           |          | 
+ valid_from                       | text             |           |          | 
+ valid_to                         | text             |           |          | 
+ import_state                     | import_row_state |           | not null | 'pending'::import_row_state
 Indexes:
+    "import_job_2015_data_import_state_idx" btree (import_state)
     "import_job_2015_data_unique_key" UNIQUE CONSTRAINT, btree (tax_ident)
 Policies:
     POLICY "import_job_2015_data_authenticated_read" FOR SELECT
@@ -953,8 +955,8 @@ UPDATE import_job SET status = 'upload_completed' WHERE slug = 'import_job_2016'
 UPDATE import_job SET status = 'upload_completed' WHERE slug = 'import_job_2017';
 \copy public.import_job_2018_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
 UPDATE import_job SET status = 'upload_completed' WHERE slug = 'import_job_2018';
-\echo Run worker processing to generate computed data
-Run worker processing to generate computed data
+\echo Run worker processing to run import jobs and generate computed data
+Run worker processing to run import jobs and generate computed data
 SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
  success | count 
 ---------+-------

@@ -275,7 +275,7 @@ UPDATE import_job SET status = 'upload_completed' WHERE slug = 'import_job_2017'
 \copy public.import_job_2018_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
 UPDATE import_job SET status = 'upload_completed' WHERE slug = 'import_job_2018';
 
-\echo Run worker processing to generate computed data
+\echo Run worker processing to run import jobs and generate computed data
 SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
 
 \echo Getting statistical_units after upload
