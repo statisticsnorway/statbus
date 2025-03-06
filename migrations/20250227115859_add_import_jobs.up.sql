@@ -368,7 +368,7 @@ BEGIN
         SELECT ds.code
         INTO NEW.default_data_source_code
         FROM public.import_definition id
-        JOIN public.data_source ds ON ds.id = id.default_data_source_id
+        JOIN public.data_source ds ON ds.id = id.data_source_id
         WHERE id.id = NEW.definition_id;
     END IF;
 
