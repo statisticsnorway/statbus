@@ -458,6 +458,7 @@ erDiagram
 		"text" note
 		"date" default_valid_from
 		"date" default_valid_to
+		"text" default_data_source_code
 		"text" upload_table_name
 		"text" data_table_name
 		"text" target_table_name
@@ -470,7 +471,12 @@ erDiagram
 		"timestamp with time zone" changes_rejected_at
 		"timestamp with time zone" import_start_at
 		"timestamp with time zone" import_stop_at
-		"import_job_status" status
+		"integer" total_rows
+		"integer" imported_rows
+		"numeric(5,2)" import_completed_pct
+		"timestamp with time zone" last_progress_update
+		"import_job_state" state
+		"text" error
 		"boolean" review
 		"integer" definition_id
 		"integer" user_id
