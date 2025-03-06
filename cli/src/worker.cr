@@ -586,9 +586,6 @@ module Statbus
             if results.any? { |_, _, _, _, success, _| !success }
               @log.info { "Processed #{results.size} tasks with errors for queue: #{queue}" }
             end
-
-            # Schedule a task cleanup if we processed tasks
-            db.exec "SELECT worker.enqueue_task_cleanup()"
           end
 
           # Reset error counter after successful execution
