@@ -24,6 +24,7 @@ REVOKE EXECUTE ON FUNCTION admin.reset_import_job_user_context FROM authenticate
 REVOKE EXECUTE ON FUNCTION public.get_import_job_progress FROM authenticated;
 
 -- Drop worker command registry entry
+DELETE FROM worker.tasks WHERE command = 'import_job_process';
 DELETE FROM worker.command_registry WHERE command = 'import_job_process';
 
 -- Drop queue registry entry
