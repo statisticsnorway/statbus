@@ -318,7 +318,8 @@ ORDER BY id.slug, isc.priority NULLS LAST;
 (262 rows)
 
 CALL test.set_user_from_email('test.super@statbus.org');
--- Pretend the user has clicked and created an import definition.
+\i samples/norway/brreg/create-import-definition-legal_unit.sql
+-- Pretend the user has clicked and created import definition for BRREG Hovedenhet (legal_unit)
 WITH it AS (
     SELECT * FROM public.import_target
     WHERE schema_name = 'public'
@@ -339,7 +340,7 @@ WITH it AS (
 ), raw_mapping(source_column_name, source_expression, target_column_name) AS (
 VALUES
       (NULL, 'default'::public.import_source_expression, 'valid_from')
-      , (NULL, 'default'::public.import_source_expression, 'valid_to')
+    , (NULL, 'default'::public.import_source_expression, 'valid_to')
     , ('organisasjonsnummer', NULL, 'tax_ident')
     , ('navn', NULL, 'name')
     , ('organisasjonsform.kode', NULL, 'legal_form_code')
