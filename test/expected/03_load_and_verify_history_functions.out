@@ -208,7 +208,7 @@ Run worker processing to generate computed data
 SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
  success | count 
 ---------+-------
- t       |    11
+ t       |    12
 (1 row)
 
 \echo "Checking statistical_history_periods from statistical_unit data"

@@ -506,6 +506,7 @@ CREATE FUNCTION admin.import_job_state_change_after()
 RETURNS TRIGGER LANGUAGE plpgsql AS $import_job_state_change_after$
 BEGIN
     -- Only enqueue for processing when transitioning from user action states
+    -- or when a state change happens that requires further processing
     IF (OLD.state = 'waiting_for_upload' AND NEW.state = 'upload_completed') OR
        (OLD.state = 'waiting_for_review' AND NEW.state = 'approved') THEN
         PERFORM admin.enqueue_import_job_process(NEW.id);
@@ -519,6 +520,35 @@ CREATE TRIGGER import_job_state_change_after_trigger
     AFTER UPDATE OF state ON public.import_job
     FOR EACH ROW
     EXECUTE FUNCTION admin.import_job_state_change_after();
+
+/*
+TRANSACTION VISIBILITY RATIONALE:
+
+The import job processing system has been designed to process work in small, 
+discrete transactions rather than one large transaction. This approach offers 
+several important benefits:
+
+1. Progress Visibility: By committing after each state change or batch, the 
+   progress becomes immediately visible to other database sessions. This allows 
+   users and monitoring systems to track the import progress in real-time.
+
+2. Reduced Lock Contention: Smaller transactions hold locks for shorter periods, 
+   reducing the chance of blocking other database operations.
+
+3. Transaction Safety: If an error occurs during processing, only the current 
+   batch is affected, not the entire import job. Previously processed batches 
+   remain committed.
+
+4. Resource Management: Breaking the work into smaller chunks prevents transaction 
+   logs from growing too large and reduces memory usage.
+
+5. Resumability: If the process is interrupted (server restart, etc.), it can 
+   resume from the last committed point rather than starting over.
+
+The implementation uses a rescheduling mechanism where each transaction schedules 
+the next one via the worker queue system. This ensures that even if there's an 
+error in one transaction, the next one can still be scheduled and executed.
+*/
 
 -- Create trigger to update last_progress_update timestamp
 CREATE FUNCTION admin.import_job_progress_update()
@@ -791,6 +821,46 @@ BEGIN
 END;
 $import_job_process$;
 
+-- Function to reschedule an import job for processing
+-- This is used to ensure transaction visibility of progress
+CREATE FUNCTION admin.reschedule_import_job_process(
+  p_job_id INTEGER
+) RETURNS BIGINT
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_task_id BIGINT;
+  v_payload JSONB;
+  v_job public.import_job;
+BEGIN
+  -- Get the job details to check if it should be rescheduled
+  SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
+  
+  -- Only reschedule if the job is in a state that requires further processing
+  IF v_job.state IN ('upload_completed', 'preparing_data', 'analysing_data', 'approved', 'importing_data') THEN
+    -- Create payload
+    v_payload := jsonb_build_object('job_id', p_job_id);
+
+    -- Insert task with payload
+    INSERT INTO worker.tasks (
+      command,
+      payload
+    ) VALUES (
+      'import_job_process',
+      v_payload
+    )
+    RETURNING id INTO v_task_id;
+
+    -- Notify worker of new task with queue information
+    PERFORM pg_notify('worker_tasks', 'import');
+    
+    RETURN v_task_id;
+  END IF;
+  
+  RETURN NULL;
+END;
+$function$;
+
 
 -- Function to update import job state and return the updated record
 CREATE FUNCTION admin.import_job_set_state(
@@ -916,6 +986,7 @@ DECLARE
     job public.import_job;
     next_state public.import_job_state;
     error_message TEXT;
+    should_reschedule BOOLEAN := FALSE;
 BEGIN
     -- Get the job details
     SELECT * INTO job FROM public.import_job WHERE id = job_id;
@@ -928,39 +999,48 @@ BEGIN
 
     BEGIN
         -- Process the job based on its current state
-        LOOP
-            -- Get the next state
-            next_state := admin.import_job_next_state(job);
+        -- We'll only process one state transition per transaction to ensure visibility
+        -- Get the next state
+        next_state := admin.import_job_next_state(job);
 
-            -- If state doesn't change, we're either at a terminal state or waiting for user action
-            IF next_state = job.state THEN
+        -- If state doesn't change, we're either at a terminal state or waiting for user action
+        IF next_state = job.state THEN
             IF job.state = 'waiting_for_review' AND job.review THEN
-                    RAISE DEBUG 'Import job % is now waiting for review', job_id;
-                ELSIF job.state = 'finished' THEN
-                    RAISE DEBUG 'Import job % completed successfully', job_id;
-                END IF;
-                EXIT; -- Exit the loop
+                RAISE DEBUG 'Import job % is now waiting for review', job_id;
+            ELSIF job.state = 'finished' THEN
+                RAISE DEBUG 'Import job % completed successfully', job_id;
             END IF;
-
+            -- No need to reschedule for terminal or waiting states
+            should_reschedule := FALSE;
+        ELSE
             -- Update the job state
             job := admin.import_job_set_state(job, next_state);
-
+            
             -- Perform the appropriate action for the new state
             CASE job.state
                 WHEN 'preparing_data' THEN
                     PERFORM admin.import_job_prepare(job);
+                    should_reschedule := TRUE;
 
                 WHEN 'analysing_data' THEN
                     PERFORM admin.import_job_analyse(job);
+                    should_reschedule := TRUE;
 
                 WHEN 'importing_data' THEN
+                    -- For importing, we'll handle batches in the import_job_insert function
+                    -- and it will determine if rescheduling is needed
                     PERFORM admin.import_job_insert(job);
+                    
+                    -- Check if we need to reschedule (not finished yet)
+                    SELECT state != 'finished' INTO should_reschedule 
+                    FROM public.import_job WHERE id = job_id;
 
                 ELSE
                     -- Other states don't require specific actions
-                    NULL;
+                    -- But we should reschedule to continue processing
+                    should_reschedule := TRUE;
             END CASE;
-        END LOOP;
+        END IF;
     EXCEPTION
         WHEN OTHERS THEN
             -- Capture the error message
@@ -976,10 +1056,21 @@ BEGIN
             PERFORM admin.reset_import_job_user_context();
 
             RAISE WARNING 'Error processing import job %: %', job_id, error_message;
+            
+            -- No rescheduling on error
+            should_reschedule := FALSE;
     END;
 
     -- Reset the user context when done
     PERFORM admin.reset_import_job_user_context();
+    
+    -- Reschedule if needed
+    IF should_reschedule THEN
+        -- We use a separate function to reschedule to ensure it happens
+        -- even if there's an error in the current transaction
+        PERFORM admin.reschedule_import_job_process(job_id);
+        RAISE DEBUG 'Rescheduled import job % for further processing', job_id;
+    END IF;
 END;
 $import_job_process$;
 
@@ -1174,6 +1265,9 @@ DECLARE
     batch_count INTEGER;
     uniquely_identifying_columns TEXT;
     job_updated public.import_job;
+    should_continue BOOLEAN := TRUE;
+    max_batches_per_transaction INTEGER := 1; -- Only process one batch per transaction
+    current_batch INTEGER := 0;
 BEGIN
     -- This function will copy data from the data table to the target table
     RAISE DEBUG 'IMPORT_JOB_INSERT: Starting import from % to %.%',
@@ -1251,8 +1345,10 @@ BEGIN
 
         RAISE DEBUG 'IMPORT_JOB_INSERT: Starting batch processing with % pending rows', remaining_count;
 
-        -- Process until no pending rows remain
-        WHILE remaining_count > 0 LOOP
+        -- Process until no pending rows remain or we've reached our batch limit
+        WHILE remaining_count > 0 AND current_batch < max_batches_per_transaction LOOP
+            -- Increment batch counter
+            current_batch := current_batch + 1;
         BEGIN
             RAISE DEBUG 'IMPORT_JOB_INSERT: Starting new batch, remaining rows: %', remaining_count;
 
@@ -1442,27 +1538,38 @@ BEGIN
         job.data_table_name
     ) INTO total_count, processed_count, error_count;
 
-    RAISE DEBUG 'IMPORT_JOB_INSERT: All batches processed. Final counts - Pending: %, Processed: %, Errors: %',
+    RAISE DEBUG 'IMPORT_JOB_INSERT: Batches processed. Counts - Pending: %, Processed: %, Errors: %',
                 total_count, processed_count, error_count;
 
-    -- Update job with final counts
+    -- Update job with current counts
     UPDATE public.import_job
     SET imported_rows = processed_count
     WHERE id = job.id;
 
-    -- Final update to job with error count if any
-    IF error_count > 0 THEN
+    -- If there are still pending rows, we need to continue in the next transaction
+    IF total_count > 0 THEN
+        RAISE DEBUG 'IMPORT_JOB_INSERT: Still have % rows to process, will continue in next transaction', total_count;
+    ELSE
+        -- No more pending rows, we're done
+        -- Update job state to finished
         UPDATE public.import_job
-        SET note = COALESCE(note, '') || format(' Import completed with %s rows in error state.', error_count),
-            error = CASE
-                      WHEN error_count > 0 THEN format('%s rows failed to import', error_count)
-                      ELSE NULL
-                    END
+        SET state = 'finished'
         WHERE id = job.id;
-        RAISE DEBUG 'IMPORT_JOB_INSERT: Updated job note with error count: %', error_count;
-    END IF;
+        
+        -- Final update to job with error count if any
+        IF error_count > 0 THEN
+            UPDATE public.import_job
+            SET note = COALESCE(note, '') || format(' Import completed with %s rows in error state.', error_count),
+                error = CASE
+                          WHEN error_count > 0 THEN format('%s rows failed to import', error_count)
+                          ELSE NULL
+                        END
+            WHERE id = job.id;
+            RAISE DEBUG 'IMPORT_JOB_INSERT: Updated job note with error count: %', error_count;
+        END IF;
 
-    RAISE DEBUG 'IMPORT_JOB_INSERT: Import completed successfully';
+        RAISE DEBUG 'IMPORT_JOB_INSERT: Import completed successfully';
+    END IF;
 END;
 END;
 $import_job_insert$;

@@ -111,7 +111,7 @@ Run worker processing to generate computed data
 SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
  success | count 
 ---------+-------
- t       |     7
+ t       |     8
 (1 row)
 
 \echo "Test statistical_unit_hierarchy - for Kranløft Vestland"

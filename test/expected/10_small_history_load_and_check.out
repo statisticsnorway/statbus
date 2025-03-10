@@ -413,7 +413,7 @@ Run worker processing to generate computed data
 SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
  success | count 
 ---------+-------
- t       |    24
+ t       |    25
 (1 row)
 
 \x
