@@ -52,6 +52,7 @@ DROP FUNCTION admin.import_definition_validate_before();
 DROP FUNCTION admin.prevent_changes_to_non_draft_definition();
 DROP FUNCTION admin.validate_time_context_ident();
 DROP FUNCTION admin.enqueue_import_job_process(integer);
+DROP FUNCTION admin.reschedule_import_job_process(integer);
 
 -- Drop views
 DROP VIEW public.import_information;
