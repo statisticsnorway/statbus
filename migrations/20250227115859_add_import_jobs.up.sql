@@ -309,7 +309,7 @@ CREATE TYPE public.import_data_state AS ENUM (
 
 CREATE TABLE public.import_job (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    slug varchar,
+    slug text UNIQUE NOT NULL,
     description text,
     note text,
     default_valid_from DATE,
