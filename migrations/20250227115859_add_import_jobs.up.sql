@@ -524,29 +524,29 @@ CREATE TRIGGER import_job_state_change_after_trigger
 /*
 TRANSACTION VISIBILITY RATIONALE:
 
-The import job processing system has been designed to process work in small, 
-discrete transactions rather than one large transaction. This approach offers 
+The import job processing system has been designed to process work in small,
+discrete transactions rather than one large transaction. This approach offers
 several important benefits:
 
-1. Progress Visibility: By committing after each state change or batch, the 
-   progress becomes immediately visible to other database sessions. This allows 
+1. Progress Visibility: By committing after each state change or batch, the
+   progress becomes immediately visible to other database sessions. This allows
    users and monitoring systems to track the import progress in real-time.
 
-2. Reduced Lock Contention: Smaller transactions hold locks for shorter periods, 
+2. Reduced Lock Contention: Smaller transactions hold locks for shorter periods,
    reducing the chance of blocking other database operations.
 
-3. Transaction Safety: If an error occurs during processing, only the current 
-   batch is affected, not the entire import job. Previously processed batches 
+3. Transaction Safety: If an error occurs during processing, only the current
+   batch is affected, not the entire import job. Previously processed batches
    remain committed.
 
-4. Resource Management: Breaking the work into smaller chunks prevents transaction 
+4. Resource Management: Breaking the work into smaller chunks prevents transaction
    logs from growing too large and reduces memory usage.
 
-5. Resumability: If the process is interrupted (server restart, etc.), it can 
+5. Resumability: If the process is interrupted (server restart, etc.), it can
    resume from the last committed point rather than starting over.
 
-The implementation uses a rescheduling mechanism where each transaction schedules 
-the next one via the worker queue system. This ensures that even if there's an 
+The implementation uses a rescheduling mechanism where each transaction schedules
+the next one via the worker queue system. This ensures that even if there's an
 error in one transaction, the next one can still be scheduled and executed.
 */
 
@@ -835,7 +835,7 @@ DECLARE
 BEGIN
   -- Get the job details to check if it should be rescheduled
   SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
-  
+
   -- Only reschedule if the job is in a state that requires further processing
   IF v_job.state IN ('upload_completed', 'preparing_data', 'analysing_data', 'approved', 'importing_data') THEN
     -- Create payload
@@ -853,10 +853,10 @@ BEGIN
 
     -- Notify worker of new task with queue information
     PERFORM pg_notify('worker_tasks', 'import');
-    
+
     RETURN v_task_id;
   END IF;
-  
+
   RETURN NULL;
 END;
 $function$;
@@ -1015,7 +1015,7 @@ BEGIN
         ELSE
             -- Update the job state
             job := admin.import_job_set_state(job, next_state);
-            
+
             -- Perform the appropriate action for the new state
             CASE job.state
                 WHEN 'preparing_data' THEN
@@ -1030,9 +1030,9 @@ BEGIN
                     -- For importing, we'll handle batches in the import_job_insert function
                     -- and it will determine if rescheduling is needed
                     PERFORM admin.import_job_insert(job);
-                    
+
                     -- Check if we need to reschedule (not finished yet)
-                    SELECT state != 'finished' INTO should_reschedule 
+                    SELECT state != 'finished' INTO should_reschedule
                     FROM public.import_job WHERE id = job_id;
 
                 ELSE
@@ -1056,14 +1056,14 @@ BEGIN
             PERFORM admin.reset_import_job_user_context();
 
             RAISE WARNING 'Error processing import job %: %', job_id, error_message;
-            
+
             -- No rescheduling on error
             should_reschedule := FALSE;
     END;
 
     -- Reset the user context when done
     PERFORM admin.reset_import_job_user_context();
-    
+
     -- Reschedule if needed
     IF should_reschedule THEN
         -- We use a separate function to reschedule to ensure it happens
@@ -1555,7 +1555,7 @@ BEGIN
         UPDATE public.import_job
         SET state = 'finished'
         WHERE id = job.id;
-        
+
         -- Final update to job with error count if any
         IF error_count > 0 THEN
             UPDATE public.import_job
