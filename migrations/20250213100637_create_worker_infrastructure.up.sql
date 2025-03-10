@@ -38,7 +38,7 @@ CREATE TABLE worker.command_registry (
 CREATE INDEX idx_command_registry_queue ON worker.command_registry(queue);
 
 
-CREATE TYPE worker.task_status AS ENUM (
+CREATE TYPE worker.task_state AS ENUM (
   'pending',
   'processing',
   'completed',
@@ -51,7 +51,7 @@ CREATE UNLOGGED TABLE worker.tasks (
   id BIGSERIAL PRIMARY KEY,
   command TEXT NOT NULL REFERENCES worker.command_registry(command),
   created_at TIMESTAMPTZ DEFAULT now(),
-  status worker.task_status DEFAULT 'pending',
+  state worker.task_state DEFAULT 'pending',
   processed_at TIMESTAMPTZ,
   error_message TEXT,
   scheduled_at TIMESTAMPTZ, -- When this task should be processed, if delayed.
@@ -65,7 +65,7 @@ CREATE UNLOGGED TABLE worker.tasks (
 -- For check_table: deduplicate by table_name
 CREATE UNIQUE INDEX idx_tasks_check_table_dedup
 ON worker.tasks ((payload->>'table_name'))
-WHERE command = 'check_table' AND status = 'pending'::worker.task_status;
+WHERE command = 'check_table' AND state = 'pending'::worker.task_state;
 
 -- For deleted_row: deduplicate by table_name and unit IDs
 CREATE UNIQUE INDEX idx_tasks_deleted_row_dedup
@@ -75,17 +75,17 @@ ON worker.tasks (
   COALESCE((payload->>'legal_unit_id')::int, 0),
   COALESCE((payload->>'enterprise_id')::int, 0)
 )
-WHERE command = 'deleted_row' AND status = 'pending'::worker.task_status;
+WHERE command = 'deleted_row' AND state = 'pending'::worker.task_state;
 
 -- For refresh_derived_data: only one pending task at a time
 CREATE UNIQUE INDEX idx_tasks_refresh_derived_data_dedup
 ON worker.tasks (command)
-WHERE command = 'refresh_derived_data' AND status = 'pending'::worker.task_status;
+WHERE command = 'refresh_derived_data' AND state = 'pending'::worker.task_state;
 
 -- For task_cleanup: only one pending task at a time
 CREATE UNIQUE INDEX idx_tasks_task_cleanup_dedup
 ON worker.tasks (command)
-WHERE command = 'task_cleanup' AND status = 'pending'::worker.task_status;
+WHERE command = 'task_cleanup' AND state = 'pending'::worker.task_state;
 
 -- Create statistical unit refresh function
 CREATE FUNCTION worker.statistical_unit_refresh_for_ids(
@@ -188,8 +188,8 @@ BEGIN
     landline = EXCLUDED.landline,
     mobile_number = EXCLUDED.mobile_number,
     fax_number = EXCLUDED.fax_number,
-    status_id = EXCLUDED.status_id,
-    status_code = EXCLUDED.status_code,
+    state_id = EXCLUDED.state_id,
+    state_code = EXCLUDED.state_code,
     include_unit_in_reports = EXCLUDED.include_unit_in_reports,
     invalid_codes = EXCLUDED.invalid_codes,
     has_legal_unit = EXCLUDED.has_legal_unit,
@@ -430,7 +430,7 @@ BEGIN
   INSERT INTO worker.tasks (
     command, payload
   ) VALUES ('check_table', v_payload)
-  ON CONFLICT ((payload->>'table_name')) WHERE command = 'check_table' AND status = 'pending'::worker.task_status
+  ON CONFLICT ((payload->>'table_name')) WHERE command = 'check_table' AND state = 'pending'::worker.task_state
   DO UPDATE SET
     payload = jsonb_set(
       worker.tasks.payload,
@@ -440,7 +440,7 @@ BEGIN
         (EXCLUDED.payload->>'transaction_id')::bigint
       ))
     ),
-    status = 'pending'::worker.task_status,
+    state = 'pending'::worker.task_state,
     processed_at = NULL,
     error_message = NULL
   RETURNING id INTO v_task_id;
@@ -486,7 +486,7 @@ BEGIN
     COALESCE((payload->>'legal_unit_id')::int, 0),
     COALESCE((payload->>'enterprise_id')::int, 0)
   )
-  WHERE command = 'deleted_row' AND status = 'pending'::worker.task_status
+  WHERE command = 'deleted_row' AND state = 'pending'::worker.task_state
   DO UPDATE SET
     payload = jsonb_set(
       jsonb_set(
@@ -503,7 +503,7 @@ BEGIN
         (EXCLUDED.payload->>'valid_to')::date
       ))
     ),
-    status = 'pending'::worker.task_status,
+    state = 'pending'::worker.task_state,
     processed_at = NULL,
     error_message = NULL
   RETURNING id INTO v_task_id;
@@ -536,7 +536,7 @@ BEGIN
   INSERT INTO worker.tasks (
     command, payload
   ) VALUES ('refresh_derived_data', v_payload)
-  ON CONFLICT (command) WHERE command = 'refresh_derived_data' AND status = 'pending'::worker.task_status
+  ON CONFLICT (command) WHERE command = 'refresh_derived_data' AND state = 'pending'::worker.task_state
   DO UPDATE SET
     payload = jsonb_set(
       jsonb_set(
@@ -553,7 +553,7 @@ BEGIN
         v_valid_to
       ))
     ),
-    status = 'pending'::worker.task_status,
+    state = 'pending'::worker.task_state,
     processed_at = NULL,
     error_message = NULL
   RETURNING id INTO v_task_id;
@@ -606,7 +606,7 @@ BEGIN
     SELECT t.*, cr.handler_function, cr.queue INTO task_record
     FROM worker.tasks t
     JOIN worker.command_registry cr ON t.command = cr.command
-    WHERE t.status = 'pending'::worker.task_status
+    WHERE t.state = 'pending'::worker.task_state
       AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
       AND (p_queue IS NULL OR cr.queue = p_queue)
     ORDER BY
@@ -640,7 +640,7 @@ BEGIN
 
       -- Mark as processing
       UPDATE worker.tasks AS t
-      SET status = 'processing'::worker.task_status
+      SET state = 'processing'::worker.task_state
       WHERE t.id = task_record.id;
 
       -- Process using dynamic dispatch with payload for all commands
@@ -654,7 +654,7 @@ BEGIN
 
       -- Mark as completed
       UPDATE worker.tasks AS t
-      SET status = 'completed'::worker.task_status,
+      SET state = 'completed'::worker.task_state,
           processed_at = clock_timestamp()
       WHERE t.id = task_record.id;
 
@@ -693,7 +693,7 @@ BEGIN
       );
       -- Mark as failed with detailed error information
       UPDATE worker.tasks AS t
-      SET status = 'failed'::worker.task_status,
+      SET state = 'failed'::worker.task_state,
           processed_at = clock_timestamp(),
           error_message = error_details
       WHERE t.id = task_record.id;
@@ -735,7 +735,7 @@ FOREIGN KEY (command) REFERENCES worker.command_registry(command);
 
 -- Create index for scheduled tasks
 CREATE INDEX idx_tasks_scheduled_at ON worker.tasks (scheduled_at)
-WHERE status = 'pending'::worker.task_status AND scheduled_at IS NOT NULL;
+WHERE state = 'pending'::worker.task_state AND scheduled_at IS NOT NULL;
 
 
 -- Create command handler for task_cleanup
@@ -753,12 +753,12 @@ DECLARE
 BEGIN
     -- Delete completed tasks older than retention period
     DELETE FROM worker.tasks
-    WHERE status = 'completed'::worker.task_status
+    WHERE state = 'completed'::worker.task_state
       AND processed_at < (now() - (v_completed_retention_days || ' days')::interval);
 
     -- Delete failed tasks older than retention period
     DELETE FROM worker.tasks
-    WHERE status = 'failed'::worker.task_status
+    WHERE state = 'failed'::worker.task_state
       AND processed_at < (now() - (v_failed_retention_days || ' days')::interval);
 
     -- Schedule to run again in 24 hours
@@ -796,9 +796,9 @@ BEGIN
     v_payload,
     now() + interval '24 hours'
   )
-  ON CONFLICT (command) WHERE command = 'task_cleanup' AND status = 'pending'::worker.task_status
+  ON CONFLICT (command) WHERE command = 'task_cleanup' AND state = 'pending'::worker.task_state
   DO UPDATE SET
-    status = 'pending'::worker.task_status,
+    state = 'pending'::worker.task_state,
     processed_at = NULL,
     error_message = NULL
   RETURNING id INTO v_task_id;

@@ -47,8 +47,8 @@ DROP PROCEDURE worker.teardown();
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA worker FROM authenticated;
 REVOKE USAGE ON SCHEMA worker FROM authenticated;
 
--- Drop the task_status type
-DROP TYPE worker.task_status;
+-- Drop the task_state type
+DROP TYPE worker.task_state;
 
 -- Finally drop the schema
 DROP SCHEMA worker;
