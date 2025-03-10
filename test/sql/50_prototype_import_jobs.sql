@@ -37,6 +37,7 @@ ORDER BY id.slug, isc.priority NULLS LAST;
 CALL test.set_user_from_email('test.super@statbus.org');
 
 \i samples/norway/brreg/create-import-definition-legal_unit.sql
+\i samples/norway/brreg/create-import-definition-establishment.sql
 
 SELECT d.slug,
        d.name,
@@ -52,6 +53,21 @@ JOIN public.import_target t ON t.id = d.target_id
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_hovedenhet';
 
+SELECT d.slug,
+       d.name,
+       t.table_name as target_table,
+       d.note,
+       ds.code as data_source,
+       d.time_context_ident,
+       d.draft,
+       d.valid,
+       d.validation_error
+FROM public.import_definition d
+JOIN public.import_target t ON t.id = d.target_id
+LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
+WHERE d.slug = 'brreg_underenhet';
+
+-- Per year jobs for hovedenhet
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_hovedenhet_2015', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
@@ -67,10 +83,30 @@ INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_val
 SELECT  def.id, 'import_hovedenhet_2017', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
 
-
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_hovedenhet_2018', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+
+-- Per year jobs for underenhet
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
+SELECT  def.id, 'import_underenhet_2015', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
+SELECT  def.id, 'import_underenhet_2016', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
+SELECT  def.id, 'import_underenhet_2017', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
+SELECT  def.id, 'import_underenhet_2018', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
 
 -- Verify that snapshot tables were created
@@ -91,6 +127,11 @@ ORDER BY ij.id;
 \d public.import_hovedenhet_2015_upload
 \d public.import_hovedenhet_2015_data
 \d public.import_hovedenhet_2015_import_information
+
+\d public.import_underenhet_2015_upload
+\d public.import_underenhet_2015_data
+\d public.import_underenhet_2015_import_information
+
 SELECT import_job_slug, import_definition_slug, import_name, import_note, target_schema_name, upload_table_name, data_table_name, source_column, source_value, source_expression, target_column, target_type, uniquely_identifying, source_column_priority
 FROM public.import_hovedenhet_2015_import_information;
 
@@ -104,6 +145,11 @@ CALL public.disable_rls_on_table('public','import_hovedenhet_2015_upload');
 CALL public.disable_rls_on_table('public','import_hovedenhet_2016_upload');
 CALL public.disable_rls_on_table('public','import_hovedenhet_2017_upload');
 CALL public.disable_rls_on_table('public','import_hovedenhet_2018_upload');
+--
+CALL public.disable_rls_on_table('public','import_underenhet_2015_upload');
+CALL public.disable_rls_on_table('public','import_underenhet_2016_upload');
+CALL public.disable_rls_on_table('public','import_underenhet_2017_upload');
+CALL public.disable_rls_on_table('public','import_underenhet_2018_upload');
 
 \echo "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
@@ -114,9 +160,6 @@ SELECT slug,
        (SELECT email FROM public.statbus_user_with_email_and_role WHERE id = user_id) AS user_email
 FROM public.import_job
 WHERE slug = 'import_hovedenhet_2015';
-
-\echo "Adding tags for insert into right part of history"
-\i samples/norway/small-history/add-tags.sql
 
 \echo "Loading historical units"
 
@@ -132,11 +175,26 @@ UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet
 \copy public.import_hovedenhet_2018_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
 UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet_2018';
 
+\copy public.import_underenhet_2015_upload FROM 'samples/norway/small-history/2015-underenheter.csv' WITH CSV HEADER;
+UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2015';
+
+\copy public.import_underenhet_2016_upload FROM 'samples/norway/small-history/2016-underenheter.csv' WITH CSV HEADER;
+UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2016';
+
+\copy public.import_underenhet_2017_upload FROM 'samples/norway/small-history/2017-underenheter.csv' WITH CSV HEADER;
+UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2017';
+
+\copy public.import_underenhet_2018_upload FROM 'samples/norway/small-history/2018-underenheter.csv' WITH CSV HEADER;
+UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2018';
+
 \echo Check import job state before import
 SELECT state, count(*) FROM import_job GROUP BY state;
 
 \echo Check data row state before import
 SELECT state, count(*) FROM public.import_hovedenhet_2015_data GROUP BY state;
+
+\echo Check data row state before import
+SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
 
 \echo Run worker processing to run import jobs and generate computed data
 SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
@@ -146,6 +204,19 @@ SELECT state, count(*) FROM import_job GROUP BY state;
 
 \echo Check data row state after import
 SELECT state, count(*) FROM public.import_hovedenhet_2015_data GROUP BY state;
+
+\echo Check data row state after import
+SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
+
+\echo Overview of statistical units
+SELECT valid_from
+     , valid_to
+     , name
+     , external_idents ->> 'tax_ident' AS tax_ident
+     , unit_type
+ FROM public.statistical_unit
+ ORDER BY valid_from, valid_to, name, external_idents ->> 'tax_ident', unit_type, unit_id;
+
 
 \echo Getting statistical_units after upload
 \x
