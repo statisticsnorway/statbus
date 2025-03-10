@@ -975,7 +975,7 @@ Run worker processing to run import jobs and generate computed data
 SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
  success | count 
 ---------+-------
- t       |    27
+ t       |    36
 (1 row)
 
 \echo Check import job state after import
