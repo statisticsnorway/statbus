@@ -239,3 +239,13 @@ declare interface StatisticalUnitDetails {
   legal_unit?: LegalUnit[];
   establishment?: Establishment[];
 }
+
+
+declare interface StatisticalUnitStats {
+  unit_type: StatisticalUnitType;
+  unit_id: number;
+  valid_from: string;
+  valid_to: string;
+  stats: { [key: string]: number | string };
+  stats_summary: StatsSummary;
+};

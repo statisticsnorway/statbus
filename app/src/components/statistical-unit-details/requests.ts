@@ -67,3 +67,19 @@ export async function getStatisticalUnitDetails(
   const errorWithName = error ? { ...error, name: "supabase-error" } : null;
   return { unit, error: errorWithName };
 }
+
+export async function getStatisticalUnitStats(
+  unitId: number,
+  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
+) {
+  const client = await createSupabaseSSRClient();
+  const { data: stats, error } = await client
+    .rpc("statistical_unit_stats", {
+      unit_id: unitId,
+      unit_type: unitType,
+    })
+    .returns<StatisticalUnitStats[]>();
+
+  const errorWithName = error ? { ...error, name: "supabase-error" } : null;
+  return { stats, error: errorWithName };
+}
