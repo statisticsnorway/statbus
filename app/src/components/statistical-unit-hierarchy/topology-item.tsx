@@ -31,8 +31,10 @@ export function TopologyItem({
   stats,
 }: TopologyItemProps) {
   const { statDefinitions } = useBaseData();
-  const activity = unit.activity?.[0]?.activity_category;
-  const location = unit.location?.[0];
+  const primaryActivity = unit.activity?.find(
+    (act) => act.type === "primary"
+  )?.activity_category;
+  const location = unit.location?.find((loc) => loc.type === "physical");
   return (
     <>
       <StatisticalUnitDetailsLinkWithSubPath
@@ -94,9 +96,11 @@ export function TopologyItem({
               })}
             </div>
             <TopologyItemInfo
-              title="Activity"
+              title="Primary Activity"
               value={
-                activity ? `${activity?.code} - ${activity?.name}` : undefined
+                primaryActivity
+                  ? `${primaryActivity?.code} - ${primaryActivity?.name}`
+                  : undefined
               }
             />
           </CardContent>
