@@ -1,8 +1,8 @@
 import { Metadata } from "next";
 import { notFound } from "next/navigation";
-import ContactInfoForm from "@/app/legal-units/[id]/contact/contact-info-form";
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
-import { getStatisticalUnitHierarchy } from "@/components/statistical-unit-details/requests";
+import { getStatisticalUnitDetails } from "@/components/statistical-unit-details/requests";
+import ContactInfoForm from "./contact-info-form";
 
 export const metadata: Metadata = {
   title: "Legal Unit | Contact",
@@ -13,14 +13,12 @@ export default async function LegalUnitContactPage({
 }: {
   readonly params: { id: string };
 }) {
-  const { hierarchy, error } = await getStatisticalUnitHierarchy(
+  const { unit, error } = await getStatisticalUnitDetails(
     parseInt(id, 10),
     "legal_unit"
   );
 
-  const legalUnit = hierarchy?.enterprise?.legal_unit.find(
-    (lu) => lu.id === parseInt(id, 10)
-  );
+  const legalUnit = unit?.legal_unit?.[0];
 
   if (error) {
     throw new Error(error.message, { cause: error });
@@ -33,9 +31,9 @@ export default async function LegalUnitContactPage({
   return (
     <DetailsPage
       title="Contact Info"
-      subtitle="Contact information such as email, phone, and addresses"
+      subtitle="Contact information such as email, phone and postal address"
     >
-      <ContactInfoForm values={legalUnit.contact} id={id} />
+      <ContactInfoForm legalUnit={legalUnit} id={id} />
     </DetailsPage>
   );
 }
