@@ -5,6 +5,7 @@ import { Switch } from "@/components/ui/switch";
 import { useEffect, useState } from "react";
 import { Label } from "@/components/ui/label";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import useHierarchyStats from "./use-hierarchy-stats";
 
 interface TopologyProps {
   readonly hierarchy: StatisticalUnitHierarchy;
@@ -26,6 +27,8 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
   useEffect(() => {
     setCompact(!details);
   }, [details]);
+
+  const { hierarchyStats } = useHierarchyStats(unitId, unitType, compact);
 
   const handleCompactChange = () => {
     const params = new URLSearchParams(searchParams?.toString() ?? "");
@@ -78,6 +81,11 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
           active={
             hierarchy.enterprise.id == unitId && unitType === "enterprise"
           }
+          stats={hierarchyStats?.find(
+            (stat) =>
+              stat.unit_id === hierarchy.enterprise.id &&
+              stat.unit_type === "enterprise"
+          )}
         >
           {primaryEstablishment &&
             hierarchy.enterprise.establishment?.map((establishment) => (
@@ -101,6 +109,11 @@ export function Topology({ hierarchy, unitId, unitType }: TopologyProps) {
                 unit={legalUnit}
                 active={legalUnit.id === unitId && unitType === "legal_unit"}
                 primary={legalUnit.primary_for_enterprise}
+                stats={hierarchyStats?.find(
+                  (stat) =>
+                    stat.unit_id === legalUnit.id &&
+                    stat.unit_type === "legal_unit"
+                )}
               >
                 {legalUnit.establishment?.map((establishment) => (
                   <TopologyItem
