@@ -11,7 +11,7 @@ export function FormField({
 }: {
   readonly label: string;
   readonly name: string;
-  readonly value?: string | null;
+  readonly value?: string | number | null;
   readonly readonly?: boolean;
   readonly response: UpdateResponse;
 }) {
@@ -29,6 +29,7 @@ export function FormField({
           name={name}
           defaultValue={value ?? ""}
           autoComplete="off"
+          className="disabled:opacity-80"
         />
       </Label>
       {error ? (
