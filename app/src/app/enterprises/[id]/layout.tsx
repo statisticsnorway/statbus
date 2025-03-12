@@ -11,11 +11,15 @@ export const metadata: Metadata = {
 export default function SettingsLayout({
   children,
   header,
-  topology,
   nav,
+  primaryUnitInfo,
 }: DetailsPageLayoutProps) {
   return (
-    <DetailsPageLayout header={header} nav={nav} topology={topology}>
+    <DetailsPageLayout
+      header={header}
+      nav={nav}
+      primaryUnitInfo={primaryUnitInfo}
+    >
       {children}
     </DetailsPageLayout>
   );
