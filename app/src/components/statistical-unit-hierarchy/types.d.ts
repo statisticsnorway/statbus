@@ -56,24 +56,29 @@ declare interface Country {
 }
 
 declare interface Location {
-  id: number;
-  region: Region;
-  country: Country;
-  latitude: null;
-  valid_to: string;
-  longitude: null;
-  region_id: number;
-  country_id: number;
-  valid_from: string;
-  postal_code: string;
-  postal_place: string;
   address_part1: string | null;
   address_part2: string | null;
   address_part3: string | null;
-  legal_unit_id: number | null;
-  location_type: string;
+  altitude: number | null;
+  country: Country;
+  country_id: number;
+  data_source_id: number | null;
+  edit_at: string;
+  edit_by_user_id: number;
+  edit_comment: string | null;
   establishment_id: number | null;
-  updated_by_user_id: number;
+  id: number;
+  latitude: number | null;
+  legal_unit_id: number | null;
+  longitude: number | null;
+  postcode: string | null;
+  postplace: string | null;
+  region_id: number | null;
+  region: Region;
+  type: string;
+  valid_after: string;
+  valid_from: string;
+  valid_to: string;
 }
 
 declare interface Contact {
@@ -185,4 +190,10 @@ declare interface Establishment extends StatisticalUnit {
 
 declare interface StatisticalUnitHierarchy {
   enterprise: Enterprise;
+}
+
+declare interface StatisticalUnitDetails {
+  enterprise?: Enterprise;
+  legal_unit?: LegalUnit[];
+  establishment?: Establishment[];
 }
