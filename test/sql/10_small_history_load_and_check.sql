@@ -181,8 +181,6 @@ CALL test.set_user_from_email('test.super@statbus.org');
 \echo "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
 
-\echo "Adding tags for insert into right part of history"
-\i samples/norway/small-history/add-tags.sql
 
 \echo "Loading historical units"
 
@@ -342,8 +340,10 @@ ORDER BY
 LIMIT 20;  -- Display top used indexes, adjust if necessary
 \o
 
-\echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
+\echo Run worker processing to run import jobs and generate computed data
+CALL worker.process_tasks();
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
 
 \x
 SELECT valid_after
