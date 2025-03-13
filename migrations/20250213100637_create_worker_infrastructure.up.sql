@@ -111,7 +111,7 @@ DECLARE
   v_affected_count int;
 BEGIN
   -- Create a temporary table to store the new data to ensure consistency
-  CREATE TEMPORARY TABLE temp_new_units ON COMMIT DROP AS
+  CREATE TEMPORARY TABLE temp_new_units AS
   SELECT * FROM public.statistical_unit_def AS sud
   WHERE (
     (sud.unit_type = 'establishment' AND sud.unit_id = ANY(p_establishment_ids)) OR
