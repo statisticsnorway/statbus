@@ -164,28 +164,13 @@ WHERE slug = 'import_hovedenhet_2015';
 \echo "Loading historical units"
 
 \copy public.import_hovedenhet_2015_upload FROM 'samples/norway/small-history/2015-enheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet_2015';
-
 \copy public.import_hovedenhet_2016_upload FROM 'samples/norway/small-history/2016-enheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet_2016';
-
 \copy public.import_hovedenhet_2017_upload FROM 'samples/norway/small-history/2017-enheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet_2017';
-
 \copy public.import_hovedenhet_2018_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet_2018';
-
 \copy public.import_underenhet_2015_upload FROM 'samples/norway/small-history/2015-underenheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2015';
-
 \copy public.import_underenhet_2016_upload FROM 'samples/norway/small-history/2016-underenheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2016';
-
 \copy public.import_underenhet_2017_upload FROM 'samples/norway/small-history/2017-underenheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2017';
-
 \copy public.import_underenhet_2018_upload FROM 'samples/norway/small-history/2018-underenheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2018';
 
 \echo Check import job state before import
 SELECT state, count(*) FROM import_job GROUP BY state;
