@@ -19,7 +19,7 @@ VALUES
 
 CREATE TABLE public.import_target_column(
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    target_id int REFERENCES public.import_target(id),
+    target_id int REFERENCES public.import_target(id) ON DELETE CASCADE,
     column_name text NOT NULL,
     column_type text NOT NULL,
     uniquely_identifying boolean NOT NULL,
@@ -55,7 +55,7 @@ CREATE TABLE public.import_definition(
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     slug text UNIQUE NOT NULL,
     name text UNIQUE NOT NULL,
-    target_id int REFERENCES public.import_target(id),
+    target_id int REFERENCES public.import_target(id) ON DELETE CASCADE,
     note text,
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
     time_context_ident TEXT, -- For lookup in public.time_context(ident) to get computed valid_from/valid_to
@@ -253,7 +253,7 @@ CREATE TRIGGER prevent_non_draft_changes
 
 CREATE TABLE public.import_source_column(
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    definition_id int REFERENCES public.import_definition(id),
+    definition_id int REFERENCES public.import_definition(id) ON DELETE CASCADE,
     column_name text NOT NULL,
     priority int NOT NULL,
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
@@ -270,12 +270,12 @@ CREATE TRIGGER prevent_non_draft_source_column_changes
 CREATE TYPE public.import_source_expression AS ENUM ('now', 'default');
 
 CREATE TABLE public.import_mapping(
-    definition_id int NOT NULL REFERENCES public.import_definition(id),
-    source_column_id int REFERENCES public.import_source_column(id),
+    definition_id int NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
+    source_column_id int REFERENCES public.import_source_column(id) ON DELETE CASCADE,
     CONSTRAINT unique_source_column_mapping UNIQUE (definition_id, source_column_id),
     source_value TEXT,
     source_expression public.import_source_expression,
-    target_column_id int REFERENCES public.import_target_column(id),
+    target_column_id int REFERENCES public.import_target_column(id) ON DELETE CASCADE,
     CONSTRAINT unique_target_column_mapping UNIQUE (definition_id, target_column_id),
     CONSTRAINT "only_one_source_can_be_defined"
     CHECK( source_column_id IS NOT NULL AND source_value IS     NULL AND source_expression IS     NULL
