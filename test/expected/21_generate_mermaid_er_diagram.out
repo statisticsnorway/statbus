@@ -463,6 +463,7 @@ erDiagram
 		"text" data_table_name
 		"text" target_table_name
 		"text" target_schema_name
+		"integer" priority
 		"text" import_information_snapshot_table_name
 		"timestamp with time zone" analysis_start_at
 		"timestamp with time zone" analysis_stop_at
@@ -993,7 +994,7 @@ erDiagram
 	}
 	worker_command_registry["worker.command_registry"] {
 		"text" command
-		"text" handler_function
+		"text" handler_procedure
 		"text" description
 		"text" queue
 		"timestamp with time zone" created_at
@@ -1010,7 +1011,7 @@ erDiagram
 	worker_tasks["worker.tasks"] {
 		"bigint" id
 		"text" command
-		"integer" priority
+		"bigint" priority
 		"timestamp with time zone" created_at
 		"worker.task_state" state
 		"timestamp with time zone" processed_at
