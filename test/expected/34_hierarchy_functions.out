@@ -18,6 +18,7 @@ SELECT * FROM public.statbus_user_create('test.restricted@statbus.org', 'restric
  test.restricted@statbus.org | Restricted#123!
 (1 row)
 
+SET datestyle TO 'ISO, DMY';
 \if :{?DEBUG}
 SET client_min_messages TO debug1;
 \else
@@ -81,7 +82,7 @@ CALL worker.process_tasks();
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
     queue    |   state   | count 
 -------------+-----------+-------
- analytics   | completed |     8
+ analytics   | completed |     9
  maintenance | pending   |     1
 (2 rows)
 
@@ -233,7 +234,7 @@ SELECT jsonb_pretty(
                      }                                                                                                            +
                  ],                                                                                                               +
                  "valid_to": "infinity",                                                                                          +
-                 "birth_date": "2016-01-10",                                                                                      +
+                 "birth_date": "2016-10-01",                                                                                      +
                  "death_date": null,                                                                                              +
                  "legal_form": {                                                                                                  +
                      "code": "4",                                                                                                 +
@@ -944,7 +945,7 @@ SELECT jsonb_pretty(
                      }                                                                                         +
                  ],                                                                                            +
                  "valid_to": "infinity",                                                                       +
-                 "birth_date": "2016-01-10",                                                                   +
+                 "birth_date": "2016-10-01",                                                                   +
                  "death_date": null,                                                                           +
                  "short_name": null,                                                                           +
                  "valid_from": "2024-01-01",                                                                   +
@@ -1279,7 +1280,7 @@ SELECT jsonb_pretty(
                  }                                                                                                    +
              ],                                                                                                       +
              "valid_to": "infinity",                                                                                  +
-             "birth_date": "2016-01-10",                                                                              +
+             "birth_date": "2016-10-01",                                                                              +
              "death_date": null,                                                                                      +
              "legal_form": {                                                                                          +
                  "code": "4",                                                                                         +

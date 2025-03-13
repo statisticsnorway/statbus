@@ -18,6 +18,7 @@ SELECT * FROM public.statbus_user_create('test.restricted@statbus.org', 'restric
  test.restricted@statbus.org | Restricted#123!
 (1 row)
 
+SET datestyle TO 'ISO, DMY';
 \if :{?DEBUG}
 SET client_min_messages TO debug1;
 \else
@@ -384,7 +385,7 @@ CALL worker.process_tasks();
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
     queue    |   state   | count 
 -------------+-----------+-------
- analytics   | completed |    24
+ analytics   | completed |    10
  maintenance | pending   |     1
 (2 rows)
 
@@ -411,8 +412,8 @@ SELECT valid_after
  FROM public.statistical_unit
  ORDER BY unit_type, unit_id, valid_from, valid_to;
 -[ RECORD 1 ]---------+------------------------------------------------------------------------
-valid_after           | 12-31-2014
-valid_from            | 01-01-2015
+valid_after           | 2014-12-31
+valid_from            | 2015-01-01
 valid_to              | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "876278812"}
@@ -477,9 +478,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 2 ]---------+------------------------------------------------------------------------
-valid_after           | 12-31-2014
-valid_from            | 01-01-2015
-valid_to              | 12-31-2017
+valid_after           | 2014-12-31
+valid_from            | 2015-01-01
+valid_to              | 2017-12-31
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
@@ -543,8 +544,8 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 3 ]---------+------------------------------------------------------------------------
-valid_after           | 12-31-2017
-valid_from            | 01-01-2018
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
 valid_to              | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "918420533"}
@@ -609,9 +610,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 4 ]---------+------------------------------------------------------------------------
-valid_after           | 12-31-2014
-valid_from            | 01-01-2015
-valid_to              | 12-31-2015
+valid_after           | 2014-12-31
+valid_from            | 2015-01-01
+valid_to              | 2015-12-31
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
@@ -675,8 +676,8 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 5 ]---------+------------------------------------------------------------------------
-valid_after           | 12-31-2015
-valid_from            | 01-01-2016
+valid_after           | 2015-12-31
+valid_from            | 2016-01-01
 valid_to              | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "929267486"}
@@ -741,9 +742,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 6 ]---------+------------------------------------------------------------------------
-valid_after           | 12-31-2014
-valid_from            | 01-01-2015
-valid_to              | 12-31-2015
+valid_after           | 2014-12-31
+valid_from            | 2015-01-01
+valid_to              | 2015-12-31
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -820,9 +821,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 7 ]---------+------------------------------------------------------------------------
-valid_after           | 12-31-2015
-valid_from            | 01-01-2016
-valid_to              | 12-31-2016
+valid_after           | 2015-12-31
+valid_from            | 2016-01-01
+valid_to              | 2016-12-31
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -899,9 +900,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 8 ]---------+------------------------------------------------------------------------
-valid_after           | 12-31-2016
-valid_from            | 01-01-2017
-valid_to              | 12-31-2017
+valid_after           | 2016-12-31
+valid_from            | 2017-01-01
+valid_to              | 2017-12-31
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -978,8 +979,8 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 9 ]---------+------------------------------------------------------------------------
-valid_after           | 12-31-2017
-valid_from            | 01-01-2018
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
 valid_to              | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "996294552"}
@@ -1057,9 +1058,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 10 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2015
-valid_from            | 01-01-2016
-valid_to              | 12-31-2016
+valid_after           | 2015-12-31
+valid_from            | 2016-01-01
+valid_to              | 2016-12-31
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
@@ -1123,9 +1124,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 11 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2016
-valid_from            | 01-01-2017
-valid_to              | 12-31-2017
+valid_after           | 2016-12-31
+valid_from            | 2017-01-01
+valid_to              | 2017-12-31
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
@@ -1189,8 +1190,8 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 12 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2017
-valid_from            | 01-01-2018
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
 valid_to              | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "928554198"}
@@ -1255,9 +1256,9 @@ stats                 | {                                                       
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 13 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2015
-valid_from            | 01-01-2016
-valid_to              | 12-31-2016
+valid_after           | 2015-12-31
+valid_from            | 2016-01-01
+valid_to              | 2016-12-31
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
@@ -1334,9 +1335,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 14 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2016
-valid_from            | 01-01-2017
-valid_to              | 12-31-2017
+valid_after           | 2016-12-31
+valid_from            | 2017-01-01
+valid_to              | 2017-12-31
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
@@ -1413,8 +1414,8 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 15 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2017
-valid_from            | 01-01-2018
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
 valid_to              | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "976126637"}
@@ -1492,8 +1493,8 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 16 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2014
-valid_from            | 01-01-2015
+valid_after           | 2014-12-31
+valid_from            | 2015-01-01
 valid_to              | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "876278812"}
@@ -1557,9 +1558,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 17 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2014
-valid_from            | 01-01-2015
-valid_to              | 12-31-2017
+valid_after           | 2014-12-31
+valid_from            | 2015-01-01
+valid_to              | 2017-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
@@ -1622,8 +1623,8 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 18 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2017
-valid_from            | 01-01-2018
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
 valid_to              | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "918420533"}
@@ -1687,9 +1688,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 19 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2014
-valid_from            | 01-01-2015
-valid_to              | 12-31-2015
+valid_after           | 2014-12-31
+valid_from            | 2015-01-01
+valid_to              | 2015-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "929267486"}
 statistical_unit_data | {                                                                      +
@@ -1752,8 +1753,8 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 20 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2015
-valid_from            | 01-01-2016
+valid_after           | 2015-12-31
+valid_from            | 2016-01-01
 valid_to              | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "929267486"}
@@ -1817,9 +1818,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 21 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2014
-valid_from            | 01-01-2015
-valid_to              | 12-31-2015
+valid_after           | 2014-12-31
+valid_from            | 2015-01-01
+valid_to              | 2015-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -1894,9 +1895,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 22 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2015
-valid_from            | 01-01-2016
-valid_to              | 12-31-2016
+valid_after           | 2015-12-31
+valid_from            | 2016-01-01
+valid_to              | 2016-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -1971,9 +1972,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 23 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2016
-valid_from            | 01-01-2017
-valid_to              | 12-31-2017
+valid_after           | 2016-12-31
+valid_from            | 2017-01-01
+valid_to              | 2017-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -2048,8 +2049,8 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 24 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2017
-valid_from            | 01-01-2018
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
 valid_to              | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "996294552"}
@@ -2125,9 +2126,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 25 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2015
-valid_from            | 01-01-2016
-valid_to              | 12-31-2016
+valid_after           | 2015-12-31
+valid_from            | 2016-01-01
+valid_to              | 2016-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
@@ -2190,9 +2191,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 26 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2016
-valid_from            | 01-01-2017
-valid_to              | 12-31-2017
+valid_after           | 2016-12-31
+valid_from            | 2017-01-01
+valid_to              | 2017-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
@@ -2255,8 +2256,8 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 27 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2017
-valid_from            | 01-01-2018
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
 valid_to              | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "928554198"}
@@ -2320,9 +2321,9 @@ stats                 |
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 28 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2015
-valid_from            | 01-01-2016
-valid_to              | 12-31-2016
+valid_after           | 2015-12-31
+valid_from            | 2016-01-01
+valid_to              | 2016-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
@@ -2397,9 +2398,9 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 29 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2016
-valid_from            | 01-01-2017
-valid_to              | 12-31-2017
+valid_after           | 2016-12-31
+valid_from            | 2017-01-01
+valid_to              | 2017-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "976126637"}
 statistical_unit_data | {                                                                      +
@@ -2474,8 +2475,8 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 30 ]--------+------------------------------------------------------------------------
-valid_after           | 12-31-2017
-valid_from            | 01-01-2018
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
 valid_to              | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "976126637"}
