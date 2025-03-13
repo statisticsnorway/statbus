@@ -164,28 +164,13 @@ WHERE slug = 'import_hovedenhet_2015';
 \echo "Loading historical units"
 
 \copy public.import_hovedenhet_2015_upload FROM 'samples/norway/history/2015-enheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet_2015';
-
 \copy public.import_hovedenhet_2016_upload FROM 'samples/norway/history/2016-enheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet_2016';
-
 \copy public.import_hovedenhet_2017_upload FROM 'samples/norway/history/2017-enheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet_2017';
-
 \copy public.import_hovedenhet_2018_upload FROM 'samples/norway/history/2018-enheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet_2018';
-
 \copy public.import_underenhet_2015_upload FROM 'samples/norway/history/2015-underenheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2015';
-
 \copy public.import_underenhet_2016_upload FROM 'samples/norway/history/2016-underenheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2016';
-
 \copy public.import_underenhet_2017_upload FROM 'samples/norway/history/2017-underenheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2017';
-
 \copy public.import_underenhet_2018_upload FROM 'samples/norway/history/2018-underenheter.csv' WITH CSV HEADER;
-UPDATE import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_2018';
 
 \echo Check import job state before import
 SELECT state, count(*) FROM import_job GROUP BY state;
@@ -197,19 +182,44 @@ SELECT state, count(*) FROM public.import_hovedenhet_2015_data GROUP BY state;
 SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
 
 \echo Run worker processing to run import jobs and generate computed data
-CALL worker.process_tasks();
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+-- Notice that 'WARNING:  Could not find primary_activity_category_code' is expected due to data quality issues, but should not hinder the import process.
+-- Notice that only the import job tasks are executed, to avoid ongoing recalculation of computed data
+CALL worker.process_tasks(p_queue => 'import');
+
+\echo Check the states of the import job tasks.
+select queue,t.command,state,error_message from worker.tasks as t join worker.command_registry as c on t.command = c.command where t.command = 'import_job_process' order by priority;
+select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job order by id;
 
 \echo Check import job state after import
 SELECT state, count(*) FROM import_job GROUP BY state;
 
 \echo Check data row state after import
 SELECT state, count(*) FROM public.import_hovedenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2016_data GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2017_data GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2018_data GROUP BY state;
 
-\echo Check data row state after import
 SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2016_data GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2017_data GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2018_data GROUP BY state;
 
-\echo Overview of statistical units
+\echo Check the state of all tasks before running analytics.
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+-- Once the Imports are finished, then all the analytics can be processed, but only once.
+CALL worker.process_tasks(p_queue => 'analytics');
+
+\echo Check the state of all tasks after running analytics.
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+\echo Run any remaining tasks, there should be none.
+CALL worker.process_tasks();
+
+\echo Check the state of all tasks after running analytics.
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+\echo Overview of statistical units, but not details, there are too many units.
 SELECT valid_from
      , valid_to
      , name
@@ -217,32 +227,5 @@ SELECT valid_from
      , unit_type
  FROM public.statistical_unit
  ORDER BY valid_from, valid_to, name, external_idents ->> 'tax_ident', unit_type, unit_id;
-
-/*
-\echo Getting statistical_units after upload
-\x
-SELECT valid_after
-     , valid_from
-     , valid_to
-     , unit_type
-     , external_idents
-     , jsonb_pretty(
-          public.remove_ephemeral_data_from_hierarchy(
-          to_jsonb(statistical_unit.*)
-          -'valid_after'
-          -'valid_from'
-          -'valid_to'
-          -'unit_type'
-          -'external_idents'
-          -'stats'
-          -'stats_summary'
-          )
-     ) AS statistical_unit_data
-     , jsonb_pretty(stats) AS stats
-     , jsonb_pretty(stats_summary) AS stats_summary
- FROM public.statistical_unit
- ORDER BY valid_from, valid_to, unit_type, external_idents ->> 'tax_ident', unit_id;
-\x
-*/
 
 ROLLBACK;
