@@ -18,6 +18,7 @@ SELECT * FROM public.statbus_user_create('test.restricted@statbus.org', 'restric
  test.restricted@statbus.org | Restricted#123!
 (1 row)
 
+SET datestyle TO 'ISO, DMY';
 \if :{?DEBUG}
 SET client_min_messages TO debug1;
 \else
