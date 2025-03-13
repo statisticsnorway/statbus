@@ -14,15 +14,15 @@ DROP FUNCTION worker.enqueue_deleted_row(TEXT, INT, INT, INT, DATE, DATE);
 DROP FUNCTION worker.enqueue_refresh_derived_data(DATE, DATE);
 DROP FUNCTION worker.enqueue_task_cleanup(INT, INT);
 
--- Drop command functions
-DROP FUNCTION worker.command_refresh_derived_data(JSONB);
-DROP FUNCTION worker.command_check_table(JSONB);
-DROP FUNCTION worker.command_deleted_row(JSONB);
-DROP FUNCTION worker.command_task_cleanup(JSONB);
+-- Drop command procedures
+DROP PROCEDURE worker.command_refresh_derived_data(JSONB);
+DROP PROCEDURE worker.command_check_table(JSONB);
+DROP PROCEDURE worker.command_deleted_row(JSONB);
+DROP PROCEDURE worker.command_task_cleanup(JSONB);
 
 -- Drop utility functions
 DROP FUNCTION worker.statistical_unit_refresh_for_ids(int[], int[], int[], date, date);
-DROP FUNCTION worker.process_tasks(INT, INT, TEXT);
+DROP PROCEDURE worker.process_tasks(INT, INT, TEXT);
 
 -- Drop tasks table
 REVOKE SELECT, INSERT, UPDATE, DELETE ON worker.tasks FROM authenticated;

@@ -53,9 +53,11 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
-    
-\echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
+
+\echo Run worker processing to run import jobs and generate computed data
+CALL worker.process_tasks();
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
 
 \echo "Checking current statistical units that are included in reports"
 SELECT valid_from, valid_to, name, unit_type,  jsonb_pretty(stats_summary) AS stats_summary, status_code, include_unit_in_reports

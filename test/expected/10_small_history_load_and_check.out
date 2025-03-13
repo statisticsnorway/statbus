@@ -207,36 +207,6 @@ DO UPDATE SET
 \copy public.sector_custom_only FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \i samples/norway/legal_form/legal_form_norway.sql
 \copy public.legal_form_custom_only FROM 'samples/norway/legal_form/legal_form_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\echo "Adding tags for insert into right part of history"
-"Adding tags for insert into right part of history"
-\i samples/norway/small-history/add-tags.sql
-DO $$
-DECLARE
-    census_id integer;
-BEGIN
-
-    -- UPSERT root node "Census"
-    INSERT INTO public.tag (path, name, description, type, context_valid_on, context_valid_from, context_valid_to, is_scoped_tag)
-    VALUES ('census', 'Census', 'Census data collection', 'custom', NULL, NULL, NULL, false)
-    ON CONFLICT (path) DO UPDATE
-    SET name = EXCLUDED.name, description = EXCLUDED.description, type = EXCLUDED.type,
-        context_valid_on = EXCLUDED.context_valid_on, context_valid_from = EXCLUDED.context_valid_from,
-        context_valid_to = EXCLUDED.context_valid_to, is_scoped_tag = EXCLUDED.is_scoped_tag
-    RETURNING id INTO census_id;
-
-    -- UPSERT child nodes for each year under "Census"
-    INSERT INTO public.tag (path, name, description, parent_id, type, context_valid_on, context_valid_from, context_valid_to, is_scoped_tag)
-    VALUES
-    ('census.2015', '2015', 'Census data for 2015', census_id, 'custom', '2015-12-31', '2015-01-01', 'infinity', false),
-    ('census.2016', '2016', 'Census data for 2016', census_id, 'custom', '2016-12-31', '2016-01-01', 'infinity', false),
-    ('census.2017', '2017', 'Census data for 2017', census_id, 'custom', '2017-12-31', '2017-01-01', 'infinity', false),
-    ('census.2018', '2018', 'Census data for 2018', census_id, 'custom', '2018-12-31', '2018-01-01', 'infinity', false)
-    ON CONFLICT (path) DO UPDATE
-    SET name = EXCLUDED.name, description = EXCLUDED.description, parent_id = EXCLUDED.parent_id, type = EXCLUDED.type,
-        context_valid_on = EXCLUDED.context_valid_on, context_valid_from = EXCLUDED.context_valid_from,
-        context_valid_to = EXCLUDED.context_valid_to, is_scoped_tag = EXCLUDED.is_scoped_tag;
-
-END $$;
 \echo "Loading historical units"
 "Loading historical units"
 -- 2015 data
@@ -408,13 +378,15 @@ ORDER BY
     idx_scan DESC
 LIMIT 20;  -- Display top used indexes, adjust if necessary
 \o
-\echo Run worker processing to generate computed data
-Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
- success | count 
----------+-------
- t       |    25
-(1 row)
+\echo Run worker processing to run import jobs and generate computed data
+Run worker processing to run import jobs and generate computed data
+CALL worker.process_tasks();
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |    24
+ maintenance | pending   |     1
+(2 rows)
 
 \x
 SELECT valid_after

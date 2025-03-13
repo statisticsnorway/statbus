@@ -106,14 +106,15 @@ SELECT
                    3 |                2 |                2
 (1 row)
 
-    
-\echo Run worker processing to generate computed data
-Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
- success | count 
----------+-------
- t       |    11
-(1 row)
+\echo Run worker processing to run import jobs and generate computed data
+Run worker processing to run import jobs and generate computed data
+CALL worker.process_tasks();
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |    10
+ maintenance | pending   |     1
+(2 rows)
 
 \echo "Checking current statistical units that are included in reports"
 "Checking current statistical units that are included in reports"

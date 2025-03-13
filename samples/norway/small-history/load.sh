@@ -86,12 +86,10 @@ for YEAR in $YEARS; do
     # Load hovedenhet (legal units) data
     echo "Loading hovedenhet data for $YEAR"
     $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YEAR}_upload FROM '$WORKSPACE/samples/norway/small-history/${YEAR}-enheter.csv' WITH CSV HEADER;"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "UPDATE public.import_job SET state = 'upload_completed' WHERE slug = 'import_hovedenhet_${YEAR}';"
 
     # Load underenhet (establishments) data
     echo "Loading underenhet data for $YEAR"
     $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_upload FROM '$WORKSPACE/samples/norway/small-history/${YEAR}-underenheter.csv' WITH CSV HEADER;"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "UPDATE public.import_job SET state = 'upload_completed' WHERE slug = 'import_underenhet_${YEAR}';"
 done
 
 #echo "Running worker processing to process import jobs"

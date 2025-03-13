@@ -29,7 +29,7 @@ VALUES ('analytics', false, 'Serial qeueue for analysing and deriving data')
 -- Create command registry table for dynamic command handling
 CREATE TABLE worker.command_registry (
   command TEXT PRIMARY KEY,
-  handler_function TEXT NOT NULL,
+  handler_procedure TEXT NOT NULL,
   description TEXT,
   queue TEXT NOT NULL REFERENCES worker.queue_registry(queue),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -45,20 +45,29 @@ CREATE TYPE worker.task_state AS ENUM (
   'failed'
 );
 
+CREATE SEQUENCE IF NOT EXISTS public.worker_task_priority_seq AS BIGINT;
 
 -- Create unlogged tasks table for batch processing
 CREATE UNLOGGED TABLE worker.tasks (
   id BIGSERIAL PRIMARY KEY,
   command TEXT NOT NULL REFERENCES worker.command_registry(command),
+  priority BIGINT DEFAULT nextval('public.worker_task_priority_seq'),
   created_at TIMESTAMPTZ DEFAULT now(),
   state worker.task_state DEFAULT 'pending',
   processed_at TIMESTAMPTZ,
+  duration_ms NUMERIC,
   error_message TEXT,
   scheduled_at TIMESTAMPTZ, -- When this task should be processed, if delayed.
   payload JSONB,
   CONSTRAINT "consistent_command_in_payload" CHECK (command = payload->>'command'),
   CONSTRAINT check_payload_type
-  CHECK (payload IS NULL OR jsonb_typeof(payload) = 'object' OR jsonb_typeof(payload) = 'null')
+  CHECK (payload IS NULL OR jsonb_typeof(payload) = 'object' OR jsonb_typeof(payload) = 'null'),
+  CONSTRAINT error_message_required_when_failed CHECK (
+    CASE state
+    WHEN 'failed'::worker.task_state THEN error_message IS NOT NULL
+    ELSE error_message IS NULL
+    END
+  )
 );
 
 -- Create partial unique indexes for each command type using payload fields
@@ -67,15 +76,15 @@ CREATE UNIQUE INDEX idx_tasks_check_table_dedup
 ON worker.tasks ((payload->>'table_name'))
 WHERE command = 'check_table' AND state = 'pending'::worker.task_state;
 
--- For deleted_row: deduplicate by table_name and unit IDs
+-- For deleted_row: deduplicate by table_name only
 CREATE UNIQUE INDEX idx_tasks_deleted_row_dedup
-ON worker.tasks (
-  (payload->>'table_name'),
-  COALESCE((payload->>'establishment_id')::int, 0),
-  COALESCE((payload->>'legal_unit_id')::int, 0),
-  COALESCE((payload->>'enterprise_id')::int, 0)
-)
+ON worker.tasks ((payload->>'table_name'))
 WHERE command = 'deleted_row' AND state = 'pending'::worker.task_state;
+
+-- For statistical_unit_refresh: only one pending task at a time
+CREATE UNIQUE INDEX idx_tasks_statistical_unit_refresh_dedup
+ON worker.tasks (command)
+WHERE command = 'statistical_unit_refresh' AND state = 'pending'::worker.task_state;
 
 -- For refresh_derived_data: only one pending task at a time
 CREATE UNIQUE INDEX idx_tasks_refresh_derived_data_dedup
@@ -88,7 +97,7 @@ ON worker.tasks (command)
 WHERE command = 'task_cleanup' AND state = 'pending'::worker.task_state;
 
 -- Create statistical unit refresh function
-CREATE FUNCTION worker.statistical_unit_refresh_for_ids(
+CREATE FUNCTION worker.statistical_unit_refresh(
   p_establishment_ids int[] DEFAULT NULL,
   p_legal_unit_ids int[] DEFAULT NULL,
   p_enterprise_ids int[] DEFAULT NULL,
@@ -97,7 +106,7 @@ CREATE FUNCTION worker.statistical_unit_refresh_for_ids(
 )
 RETURNS void
 LANGUAGE plpgsql
-AS $statistical_unit_refresh_for_ids$
+AS $statistical_unit_refresh$
 DECLARE
   v_affected_count int;
 BEGIN
@@ -212,19 +221,68 @@ BEGIN
     p_valid_to := p_valid_to
   );
 END;
-$statistical_unit_refresh_for_ids$;
+$statistical_unit_refresh$;
+
+-- Create command handler for statistical_unit_refresh
+-- Refreshes statistical units based on provided IDs and date range
+CREATE PROCEDURE worker.command_statistical_unit_refresh(
+    payload JSONB
+)
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $procedure$
+DECLARE
+    v_establishment_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'establishment_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'establishment_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_legal_unit_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'legal_unit_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'legal_unit_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_enterprise_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'enterprise_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'enterprise_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_valid_after date = (payload->>'valid_after')::date;
+    v_valid_to date = (payload->>'valid_to')::date;
+BEGIN
+  -- Call the statistical unit refresh function with the extracted parameters
+  PERFORM worker.statistical_unit_refresh(
+    p_establishment_ids := v_establishment_ids,
+    p_legal_unit_ids := v_legal_unit_ids,
+    p_enterprise_ids := v_enterprise_ids,
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+END;
+$procedure$;
 
 -- Create command handlers
 -- Command handler for refresh_derived_data
 -- Refreshes all derived data tables within the specified date range
 -- This includes activity categories, regions, sectors, and statistical unit facets
-CREATE FUNCTION worker.command_refresh_derived_data(
+CREATE PROCEDURE worker.command_refresh_derived_data(
     payload JSONB
 )
-RETURNS void
 SECURITY DEFINER
 LANGUAGE plpgsql
-AS $function$
+AS $procedure$
 DECLARE
     v_valid_after date = COALESCE((payload->>'valid_after')::date, '-infinity'::DATE);
     v_valid_to date = COALESCE((payload->>'valid_to')::date, 'infinity'::DATE);
@@ -251,18 +309,17 @@ BEGIN
       valid_to := v_valid_to
     );
 END;
-$function$;
+$procedure$;
 
 -- Command handler for check_table
 -- Processes changes in a table since a specific transaction ID
 -- and refreshes affected statistical units
-CREATE FUNCTION worker.command_check_table(
+CREATE PROCEDURE worker.command_check_table(
     payload JSONB
 )
-RETURNS void
 SECURITY DEFINER
 LANGUAGE plpgsql
-AS $function$
+AS $procedure$
 DECLARE
     v_table_name text = payload->>'table_name';
     v_transaction_id bigint = (payload->>'transaction_id')::bigint;
@@ -334,7 +391,7 @@ BEGIN
      array_length(v_legal_unit_ids, 1) > 0 OR
      array_length(v_enterprise_ids, 1) > 0
   THEN
-    PERFORM worker.statistical_unit_refresh_for_ids(
+    PERFORM worker.enqueue_statistical_unit_refresh(
       p_establishment_ids := v_establishment_ids,
       p_legal_unit_ids := v_legal_unit_ids,
       p_enterprise_ids := v_enterprise_ids,
@@ -349,36 +406,60 @@ BEGIN
   ON CONFLICT (table_name)
   DO UPDATE SET transaction_id = EXCLUDED.transaction_id;
 END;
-$function$;
+$procedure$;
 
 -- Command handler for deleted_row
 -- Handles the deletion of rows from statistical unit tables
 -- by refreshing affected units and their relationships
-CREATE FUNCTION worker.command_deleted_row(
+CREATE PROCEDURE worker.command_deleted_row(
     payload JSONB
 )
-RETURNS void
 SECURITY DEFINER
 LANGUAGE plpgsql
-AS $function$
+AS $procedure$
 DECLARE
     v_table_name text = payload->>'table_name';
-    v_establishment_id int = (payload->>'establishment_id')::int;
-    v_legal_unit_id int = (payload->>'legal_unit_id')::int;
-    v_enterprise_id int = (payload->>'enterprise_id')::int;
+    v_establishment_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'establishment_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'establishment_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_legal_unit_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'legal_unit_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'legal_unit_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_enterprise_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'enterprise_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'enterprise_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
     v_valid_after date = (payload->>'valid_after')::date;
     v_valid_to date = (payload->>'valid_to')::date;
 BEGIN
+
   -- Handle deleted row by refreshing affected units
-  PERFORM worker.statistical_unit_refresh_for_ids(
-    p_establishment_ids := ARRAY[v_establishment_id],
-    p_legal_unit_ids := ARRAY[v_legal_unit_id],
-    p_enterprise_ids := ARRAY[v_enterprise_id],
+  PERFORM worker.enqueue_statistical_unit_refresh(
+    p_establishment_ids := v_establishment_ids,
+    p_legal_unit_ids := v_legal_unit_ids,
+    p_enterprise_ids := v_enterprise_ids,
     p_valid_after := v_valid_after,
     p_valid_to := v_valid_to
   );
 END;
-$function$;
+$procedure$;
 
 
 -- Worker system operates in a single mode:
@@ -441,6 +522,7 @@ BEGIN
       ))
     ),
     state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,  -- Use the new priority to push queue position
     processed_at = NULL,
     error_message = NULL
   RETURNING id INTO v_task_id;
@@ -466,44 +548,203 @@ AS $function$
 DECLARE
   v_task_id BIGINT;
   v_payload JSONB;
+  v_existing_payload JSONB;
+  v_establishment_ids INT[] := ARRAY[]::INT[];
+  v_legal_unit_ids INT[] := ARRAY[]::INT[];
+  v_enterprise_ids INT[] := ARRAY[]::INT[];
 BEGIN
-  -- Create payload
+  -- Add the single IDs to arrays if they're not NULL
+  IF p_establishment_id IS NOT NULL THEN
+    v_establishment_ids := ARRAY[p_establishment_id];
+  END IF;
+
+  IF p_legal_unit_id IS NOT NULL THEN
+    v_legal_unit_ids := ARRAY[p_legal_unit_id];
+  END IF;
+
+  IF p_enterprise_id IS NOT NULL THEN
+    v_enterprise_ids := ARRAY[p_enterprise_id];
+  END IF;
+
+  -- Create payload with arrays
+  -- Create initial payload with arrays
   v_payload := jsonb_build_object(
+    'command', 'deleted_row',
     'table_name', p_table_name,
-    'establishment_id', p_establishment_id,
-    'legal_unit_id', p_legal_unit_id,
-    'enterprise_id', p_enterprise_id,
+    'establishment_ids', to_jsonb(v_establishment_ids),
+    'legal_unit_ids', to_jsonb(v_legal_unit_ids),
+    'enterprise_ids', to_jsonb(v_enterprise_ids),
     'valid_after', p_valid_after,
     'valid_to', p_valid_to
   );
 
-  INSERT INTO worker.tasks (
+  -- Insert or update the task with array merging in the conflict clause
+  INSERT INTO worker.tasks AS t (
     command, payload
   ) VALUES ('deleted_row', v_payload)
-  ON CONFLICT (
-    (payload->>'table_name'),
-    COALESCE((payload->>'establishment_id')::int, 0),
-    COALESCE((payload->>'legal_unit_id')::int, 0),
-    COALESCE((payload->>'enterprise_id')::int, 0)
-  )
+  ON CONFLICT ((payload->>'table_name'))
   WHERE command = 'deleted_row' AND state = 'pending'::worker.task_state
   DO UPDATE SET
-    payload = jsonb_set(
-      jsonb_set(
-        worker.tasks.payload,
-        '{valid_after}',
-        to_jsonb(LEAST(
-          (worker.tasks.payload->>'valid_after')::date,
-          (EXCLUDED.payload->>'valid_after')::date
-        ))
+    payload = jsonb_build_object(
+      'command', 'deleted_row',
+      'table_name', p_table_name,
+      -- Merge and deduplicate establishment IDs
+      'establishment_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'establishment_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'establishment_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
       ),
-      '{valid_to}',
-      to_jsonb(GREATEST(
-        (worker.tasks.payload->>'valid_to')::date,
+      -- Merge and deduplicate legal unit IDs
+      'legal_unit_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'legal_unit_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'legal_unit_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate enterprise IDs
+      'enterprise_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'enterprise_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'enterprise_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Expand date ranges
+      'valid_after', LEAST(
+        (t.payload->>'valid_after')::date,
+        (EXCLUDED.payload->>'valid_after')::date
+      ),
+      'valid_to', GREATEST(
+        (t.payload->>'valid_to')::date,
         (EXCLUDED.payload->>'valid_to')::date
-      ))
+      )
     ),
     state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,  -- Use the new priority to push queue position
+    processed_at = NULL,
+    error_message = NULL
+  RETURNING id INTO v_task_id;
+
+  PERFORM pg_notify('worker_tasks', 'analytics');
+
+  RETURN v_task_id;
+END;
+$function$;
+
+-- For statistical_unit_refresh command
+CREATE FUNCTION worker.enqueue_statistical_unit_refresh(
+  p_establishment_ids int[] DEFAULT NULL,
+  p_legal_unit_ids int[] DEFAULT NULL,
+  p_enterprise_ids int[] DEFAULT NULL,
+  p_valid_after date DEFAULT NULL,
+  p_valid_to date DEFAULT NULL
+) RETURNS BIGINT
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_task_id BIGINT;
+  v_payload JSONB;
+  v_establishment_ids INT[] := COALESCE(p_establishment_ids, ARRAY[]::INT[]);
+  v_legal_unit_ids INT[] := COALESCE(p_legal_unit_ids, ARRAY[]::INT[]);
+  v_enterprise_ids INT[] := COALESCE(p_enterprise_ids, ARRAY[]::INT[]);
+  v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
+  v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
+BEGIN
+  -- Create payload with arrays
+  v_payload := jsonb_build_object(
+    'command', 'statistical_unit_refresh',
+    'establishment_ids', to_jsonb(v_establishment_ids),
+    'legal_unit_ids', to_jsonb(v_legal_unit_ids),
+    'enterprise_ids', to_jsonb(v_enterprise_ids),
+    'valid_after', v_valid_after,
+    'valid_to', v_valid_to
+  );
+
+  -- Create a unique index on a combination of all ID arrays and date range
+  -- This ensures we only have one pending task for the same set of IDs and date range
+  INSERT INTO worker.tasks AS t (
+    command, payload
+  ) VALUES ('statistical_unit_refresh', v_payload)
+  ON CONFLICT (command)
+  WHERE command = 'statistical_unit_refresh' AND state = 'pending'::worker.task_state
+  DO UPDATE SET
+    payload = jsonb_build_object(
+      'command', 'statistical_unit_refresh',
+      -- Merge and deduplicate establishment IDs
+      'establishment_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'establishment_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'establishment_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate legal unit IDs
+      'legal_unit_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'legal_unit_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'legal_unit_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate enterprise IDs
+      'enterprise_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'enterprise_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'enterprise_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Expand date ranges
+      'valid_after', LEAST(
+        (t.payload->>'valid_after')::date,
+        (EXCLUDED.payload->>'valid_after')::date
+      ),
+      'valid_to', GREATEST(
+        (t.payload->>'valid_to')::date,
+        (EXCLUDED.payload->>'valid_to')::date
+      )
+    ),
+    state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,  -- Use the new priority to push queue position
     processed_at = NULL,
     error_message = NULL
   RETURNING id INTO v_task_id;
@@ -554,6 +795,7 @@ BEGIN
       ))
     ),
     state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,  -- Use the new priority to push queue position
     processed_at = NULL,
     error_message = NULL
   RETURNING id INTO v_task_id;
@@ -565,45 +807,38 @@ END;
 $function$;
 
 
--- Create unified task processing function
+-- Create unified task processing procedure
 -- Processes pending tasks in batches with time limits
 -- Parameters:
 --   batch_size: Maximum number of tasks to process in one call
 --   max_runtime_ms: Maximum runtime in milliseconds before stopping
 --   queue: Process only tasks in this queue (NULL for all queues)
--- Returns:
---   id: The task ID that was processed
---   command: The command that was executed
---   duration_ms: How long the task took to process in milliseconds
---   success: Whether the task succeeded (TRUE) or failed (FALSE)
---   error_message: Error message if task failed, NULL otherwise
-CREATE FUNCTION worker.process_tasks(
+CREATE PROCEDURE worker.process_tasks(
   p_batch_size INT DEFAULT NULL,
   p_max_runtime_ms INT DEFAULT NULL,
   p_queue TEXT DEFAULT NULL
-) RETURNS TABLE (
-  id BIGINT,
-  command TEXT,
-  queue TEXT,
-  duration_ms NUMERIC,
-  success BOOLEAN,
-  error_message TEXT
 )
 LANGUAGE plpgsql
-AS $function$
+AS $procedure$
 DECLARE
   task_record RECORD;
   start_time TIMESTAMPTZ;
   batch_start_time TIMESTAMPTZ;
   elapsed_ms NUMERIC;
   processed_count INT := 0;
+  v_inside_transaction BOOLEAN;
+  v_result_row RECORD;
 BEGIN
+  -- Check if we're inside a transaction
+  SELECT txid_current_if_assigned() IS NOT NULL INTO v_inside_transaction;
+  RAISE DEBUG 'Running worker.process_tasks inside transaction: %', v_inside_transaction;
+
   batch_start_time := clock_timestamp();
 
   -- Process tasks in a loop until we hit time limit or run out of tasks
   LOOP
     -- Claim a task with FOR UPDATE SKIP LOCKED to prevent concurrent processing
-    SELECT t.*, cr.handler_function, cr.queue INTO task_record
+    SELECT t.*, cr.handler_procedure, cr.queue INTO task_record
     FROM worker.tasks t
     JOIN worker.command_registry cr ON t.command = cr.command
     WHERE t.state = 'pending'::worker.task_state
@@ -612,6 +847,7 @@ BEGIN
     ORDER BY
       CASE WHEN t.scheduled_at IS NULL THEN 0 ELSE 1 END, -- Non-scheduled tasks next
       t.scheduled_at, -- Then by scheduled time (earliest first)
+      t.priority ASC NULLS LAST, -- Then by priority (smaller numbers first so primary key id or epoch time can be used naturally)
       t.id            -- Then by creation sequence
     LIMIT 1
     FOR UPDATE OF t SKIP LOCKED;
@@ -629,88 +865,98 @@ BEGIN
     END IF;
 
     -- Process the task
+    start_time := clock_timestamp();
+
+    -- Mark as processing
+    UPDATE worker.tasks AS t
+    SET state = 'processing'::worker.task_state
+    WHERE t.id = task_record.id;
+
+    -- Commit to see state change of task. The COMMIT automatically ends the transaction,
+    -- and starts a new one, there is no PL/PGSQL BEGIN to start a new transaction.
+    IF NOT v_inside_transaction THEN
+      COMMIT;
+    END IF;
+
     DECLARE
-      error_details TEXT;
-      v_pg_exception_detail TEXT;
-      v_pg_exception_hint TEXT;
-      v_pg_exception_context TEXT;
-    BEGIN
+      v_state worker.task_state;
+      v_processed_at TIMESTAMPTZ;
+      v_duration_ms NUMERIC;
+      v_error_message TEXT DEFAULT NULL;
+    BEGIN -- Block for variables, there is not CATCH that creates sub-transactions
+      DECLARE -- Block for catching exceptions, introduces sub-transactions.
+        error_details TEXT;
+        v_pg_exception_detail TEXT;
+        v_pg_exception_hint TEXT;
+        v_pg_exception_context TEXT;
+      BEGIN
+        -- Process using dynamic dispatch with payload for all commands
+        IF task_record.handler_procedure IS NOT NULL THEN
+          -- Execute the handler procedure with the payload
+          EXECUTE format('CALL %s($1)', task_record.handler_procedure)
+          USING task_record.payload;
+        ELSE
+          RAISE EXCEPTION 'No handler procedure found for command: %', task_record.command;
+        END IF;
 
-      start_time := clock_timestamp();
+        -- Mark as completed
+        elapsed_ms := EXTRACT(EPOCH FROM (clock_timestamp() - start_time)) * 1000;
+        v_state := 'completed'::worker.task_state;
+        v_processed_at := clock_timestamp();
+        v_duration_ms := elapsed_ms;
 
-      -- Mark as processing
+        -- Log success
+        RAISE DEBUG 'Task % (%) completed in % ms',
+          task_record.id, task_record.command, elapsed_ms;
+
+      EXCEPTION WHEN OTHERS THEN
+        elapsed_ms := EXTRACT(EPOCH FROM (clock_timestamp() - start_time)) * 1000;
+        v_state := 'failed'::worker.task_state;
+        v_processed_at := clock_timestamp();
+        v_duration_ms := elapsed_ms;
+
+        GET STACKED DIAGNOSTICS
+          error_details = MESSAGE_TEXT,
+          v_pg_exception_detail = PG_EXCEPTION_DETAIL,
+          v_pg_exception_hint = PG_EXCEPTION_HINT,
+          v_pg_exception_context = PG_EXCEPTION_CONTEXT;
+
+        error_details := format(
+          'Error: %s%sContext: %s%sDetail: %s%sHint: %s',
+          error_details,
+          E'\n',
+          v_pg_exception_context,
+          E'\n',
+          COALESCE(v_pg_exception_detail, ''),
+          E'\n',
+          COALESCE(v_pg_exception_hint, '')
+        );
+
+        v_error_message := error_details;
+
+        -- Log failure
+        RAISE WARNING 'Task % (%) failed in % ms: %',
+          task_record.id, task_record.command, elapsed_ms, error_details;
+      END;
+
+      -- Update the task with the results
       UPDATE worker.tasks AS t
-      SET state = 'processing'::worker.task_state
+      SET state = v_state,
+          processed_at = v_processed_at,
+          duration_ms = v_duration_ms,
+          error_message = v_error_message
       WHERE t.id = task_record.id;
 
-      -- Process using dynamic dispatch with payload for all commands
-      IF task_record.handler_function IS NOT NULL THEN
-        -- Execute the handler function with the payload
-        EXECUTE format('SELECT %s($1)', task_record.handler_function)
-        USING task_record.payload;
-      ELSE
-        RAISE EXCEPTION 'No handler function found for command: %', task_record.command;
+      -- Commit to see state change of task. The COMMIT automatically ends the transaction,
+      -- and starts a new one, there is no PL/PGSQL BEGIN to start a new transaction.
+      IF NOT v_inside_transaction THEN
+        COMMIT;
       END IF;
 
-      -- Mark as completed
-      UPDATE worker.tasks AS t
-      SET state = 'completed'::worker.task_state,
-          processed_at = clock_timestamp()
-      WHERE t.id = task_record.id;
-
-      elapsed_ms := EXTRACT(EPOCH FROM (clock_timestamp() - start_time)) * 1000;
-
-      -- Increment processed count
-      processed_count := processed_count + 1;
-
-      -- Return success result
-      RETURN QUERY SELECT
-        task_record.id,           -- id
-        task_record.command,      -- command
-        task_record.queue,        -- queue
-        elapsed_ms,               -- duration_ms
-        TRUE,                     -- success
-        NULL::TEXT;               -- error_message
-
-    EXCEPTION WHEN OTHERS THEN
-      elapsed_ms := EXTRACT(EPOCH FROM (clock_timestamp() - start_time)) * 1000;
-
-      GET STACKED DIAGNOSTICS
-        error_details = MESSAGE_TEXT,
-        v_pg_exception_detail = PG_EXCEPTION_DETAIL,
-        v_pg_exception_hint = PG_EXCEPTION_HINT,
-        v_pg_exception_context = PG_EXCEPTION_CONTEXT;
-
-      error_details := format(
-        'Error: %s%sContext: %s%sDetail: %s%sHint: %s',
-        error_details,
-        E'\n',
-        v_pg_exception_context,
-        E'\n',
-        COALESCE(v_pg_exception_detail, ''),
-        E'\n',
-        COALESCE(v_pg_exception_hint, '')
-      );
-      -- Mark as failed with detailed error information
-      UPDATE worker.tasks AS t
-      SET state = 'failed'::worker.task_state,
-          processed_at = clock_timestamp(),
-          error_message = error_details
-      WHERE t.id = task_record.id;
-
-      -- Increment processed count even for failures
-      processed_count := processed_count + 1;
-
-      -- Return failure result with detailed error information
-      RETURN QUERY SELECT
-        task_record.id,           -- id
-        task_record.command,      -- command
-        task_record.queue,        -- queue (from command_registry join)
-        elapsed_ms,               -- duration_ms
-        FALSE,                    -- success
-        error_details;            -- error_message
     END;
 
+    -- Increment processed count
+    processed_count := processed_count + 1;
     -- Check if we've hit the batch size limit (if p_batch_size is set)
     IF p_batch_size IS NOT NULL AND processed_count >= p_batch_size THEN
       RAISE DEBUG 'Exiting worker loop: Batch size limit of % reached', p_batch_size;
@@ -718,14 +964,16 @@ BEGIN
     END IF;
   END LOOP;
 END;
-$function$;
+$procedure$;
+
 
 -- Register built-in commands
-INSERT INTO worker.command_registry (queue, command, handler_function, description)
+INSERT INTO worker.command_registry (queue, command, handler_procedure, description)
 VALUES
   ('analytics', 'check_table', 'worker.command_check_table', 'Process changes in a table since a specific transaction ID'),
   ('analytics', 'deleted_row', 'worker.command_deleted_row', 'Handle deletion of rows from statistical unit tables'),
-  ('analytics', 'refresh_derived_data', 'worker.command_refresh_derived_data', 'Refresh all derived data tables'),
+  ('analytics', 'statistical_unit_refresh', 'worker.command_statistical_unit_refresh', 'Refresh statistical units'),
+  ('analytics', 'refresh_derived_data', 'worker.command_refresh_derived_data', 'Refresh derived data tables'),
   ('maintenance', 'task_cleanup', 'worker.command_task_cleanup', 'Clean up old completed and failed tasks');
 
 
@@ -740,13 +988,12 @@ WHERE state = 'pending'::worker.task_state AND scheduled_at IS NOT NULL;
 
 -- Create command handler for task_cleanup
 -- Removes completed and failed tasks older than the specified retention period
-CREATE FUNCTION worker.command_task_cleanup(
+CREATE PROCEDURE worker.command_task_cleanup(
     payload JSONB
 )
-RETURNS void
 SECURITY DEFINER
 LANGUAGE plpgsql
-AS $function$
+AS $procedure$
 DECLARE
     v_completed_retention_days INT = COALESCE((payload->>'completed_retention_days')::int, 7);
     v_failed_retention_days INT = COALESCE((payload->>'failed_retention_days')::int, 30);
@@ -767,7 +1014,7 @@ BEGIN
       v_failed_retention_days
     );
 END;
-$function$;
+$procedure$;
 
 -- For task_cleanup command
 CREATE FUNCTION worker.enqueue_task_cleanup(
@@ -799,6 +1046,7 @@ BEGIN
   ON CONFLICT (command) WHERE command = 'task_cleanup' AND state = 'pending'::worker.task_state
   DO UPDATE SET
     state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,  -- Use the new priority to push queue position
     processed_at = NULL,
     error_message = NULL
   RETURNING id INTO v_task_id;

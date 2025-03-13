@@ -66,6 +66,10 @@ BEGIN
     SELECT NULL::int AS id INTO data_source;
     SELECT NULL::int AS id INTO legal_form;
     SELECT NULL::int AS id INTO tag;
+    SELECT NULL::int AS id INTO inserted_legal_unit;
+    SELECT NULL::int AS id INTO inserted_location;
+    SELECT NULL::int AS id INTO inserted_activity;
+
 
     SELECT * INTO edit_by_user
     FROM public.statbus_user

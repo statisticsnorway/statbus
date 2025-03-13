@@ -453,7 +453,7 @@ erDiagram
 	}
 	import_job["import_job"] {
 		"integer" id
-		"character varying" slug
+		"text" slug
 		"text" description
 		"text" note
 		"date" default_valid_from
@@ -1010,9 +1010,11 @@ erDiagram
 	worker_tasks["worker.tasks"] {
 		"bigint" id
 		"text" command
+		"integer" priority
 		"timestamp with time zone" created_at
-		"worker.task_status" status
+		"worker.task_state" state
 		"timestamp with time zone" processed_at
+		"numeric" duration_ms
 		"text" error_message
 		"timestamp with time zone" scheduled_at
 		"jsonb" payload

@@ -82,8 +82,10 @@ SELECT COUNT(DISTINCT id) FROM public.establishment;
 SET client_min_messages TO warning;
 
 
-\echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
+\echo Run worker processing to run import jobs and generate computed data
+CALL worker.process_tasks();
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
 
 
 \echo "Checking statistics"

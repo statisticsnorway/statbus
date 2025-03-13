@@ -18,6 +18,9 @@ DROP TRIGGER import_job_state_change_after_trigger ON public.import_job;
 DROP TRIGGER import_job_progress_update_trigger ON public.import_job;
 DROP TRIGGER import_job_progress_notify_trigger ON public.import_job;
 
+-- Drop the sequence for import job priorities
+DROP SEQUENCE IF EXISTS public.import_job_priority_seq;
+
 -- Revoke execute permissions on user context functions
 REVOKE EXECUTE ON FUNCTION admin.set_import_job_user_context FROM authenticated;
 REVOKE EXECUTE ON FUNCTION admin.reset_import_job_user_context FROM authenticated;
@@ -30,14 +33,18 @@ DELETE FROM worker.command_registry WHERE command = 'import_job_process';
 -- Drop queue registry entry
 DELETE FROM worker.queue_registry WHERE queue = 'import';
 
+DELETE FROM public.import_job;
+
 -- Drop functions
+DROP FUNCTION admin.check_import_job_state_for_insert();
+DROP FUNCTION admin.update_import_job_state_after_insert();
 DROP FUNCTION admin.import_job_state_change_before();
 DROP FUNCTION admin.import_job_state_change_after();
 DROP FUNCTION admin.import_job_progress_update();
 DROP FUNCTION admin.import_job_progress_notify();
 DROP FUNCTION public.get_import_job_progress(integer);
-DROP FUNCTION admin.import_job_process(payload JSONB);
-DROP FUNCTION admin.import_job_process(integer);
+DROP PROCEDURE admin.import_job_process(payload JSONB);
+DROP PROCEDURE admin.import_job_process(integer);
 DROP FUNCTION admin.import_job_prepare(public.import_job);
 DROP FUNCTION admin.import_job_analyse(public.import_job);
 DROP FUNCTION admin.import_job_insert(public.import_job);

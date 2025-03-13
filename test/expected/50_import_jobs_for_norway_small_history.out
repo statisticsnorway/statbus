@@ -914,6 +914,9 @@ Policies:
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+Triggers:
+    import_hovedenhet_2015_upload_check_state_before_insert BEFORE INSERT ON import_hovedenhet_2015_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.check_import_job_state_for_insert('import_hovedenhet_2015')
+    import_hovedenhet_2015_upload_update_state_after_insert AFTER INSERT ON import_hovedenhet_2015_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_hovedenhet_2015')
 
 \d public.import_hovedenhet_2015_data
                             Unlogged table "public.import_hovedenhet_2015_data"
@@ -961,7 +964,7 @@ Policies:
 ------------------------+--------------------------+-----------+----------+---------
  job_id                 | integer                  |           |          | 
  definition_id          | integer                  |           |          | 
- import_job_slug        | character varying        |           |          | 
+ import_job_slug        | text                     |           |          | 
  import_definition_slug | text                     |           |          | 
  import_name            | text                     |           |          | 
  import_note            | text                     |           |          | 
@@ -1041,6 +1044,9 @@ Policies:
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+Triggers:
+    import_underenhet_2015_upload_check_state_before_insert BEFORE INSERT ON import_underenhet_2015_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.check_import_job_state_for_insert('import_underenhet_2015')
+    import_underenhet_2015_upload_update_state_after_insert AFTER INSERT ON import_underenhet_2015_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_underenhet_2015')
 
 \d public.import_underenhet_2015_data
                             Unlogged table "public.import_underenhet_2015_data"
@@ -1088,7 +1094,7 @@ Policies:
 ------------------------+--------------------------+-----------+----------+---------
  job_id                 | integer                  |           |          | 
  definition_id          | integer                  |           |          | 
- import_job_slug        | character varying        |           |          | 
+ import_job_slug        | text                     |           |          | 
  import_definition_slug | text                     |           |          | 
  import_name            | text                     |           |          | 
  import_note            | text                     |           |          | 
@@ -1325,11 +1331,14 @@ SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
 
 \echo Run worker processing to run import jobs and generate computed data
 Run worker processing to run import jobs and generate computed data
-SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
- success | count 
----------+-------
- t       |    64
-(1 row)
+CALL worker.process_tasks();
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |    11
+ import      | completed |    24
+ maintenance | pending   |     1
+(3 rows)
 
 \echo Check import job state after import
 Check import job state after import
