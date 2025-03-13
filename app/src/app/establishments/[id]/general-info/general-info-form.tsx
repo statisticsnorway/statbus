@@ -1,27 +1,15 @@
 "use client";
-import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
-import { useFormState } from "react-dom";
-import React from "react";
-import { z } from "zod";
-import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { FormField } from "@/components/form/form-field";
 import { useBaseData } from "@/app/BaseDataClient";
 
 export default function GeneralInfoForm({
-  id,
-  legalUnit,
+  establishment,
 }: {
-  readonly id: string;
-  readonly legalUnit: LegalUnit;
+  readonly establishment: Establishment;
 }) {
-  const [state, formAction] = useFormState(
-    updateLegalUnit.bind(null, id, "general-info"),
-    null
-  );
-
   const { externalIdentTypes } = useBaseData();
 
-  const physicalLocation = legalUnit.location.find(
+  const physicalLocation = establishment.location.find(
     (loc) => loc.type === "physical"
   );
 
@@ -31,13 +19,13 @@ export default function GeneralInfoForm({
         <FormField
           label="Name"
           name="name"
-          value={legalUnit.name}
+          value={establishment.name}
           response={null}
           readonly
         />
         <div className="grid lg:grid-cols-2 gap-4">
           {externalIdentTypes.map((type) => {
-            const value = legalUnit.external_idents[type.code];
+            const value = establishment.external_idents[type.code];
             return (
               <FormField
                 key={type.code}

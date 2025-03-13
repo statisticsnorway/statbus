@@ -18,6 +18,7 @@ interface TopologyItemProps {
   readonly id: number;
   readonly primary?: boolean;
   readonly unit: LegalUnit | Establishment;
+  readonly stats?: StatisticalUnitStats;
 }
 
 export function TopologyItem({
@@ -27,10 +28,13 @@ export function TopologyItem({
   active,
   primary,
   children,
+  stats,
 }: TopologyItemProps) {
   const { statDefinitions } = useBaseData();
-  const activity = unit.activity?.[0]?.activity_category;
-  const location = unit.location?.[0];
+  const primaryActivity = unit.activity?.find(
+    (act) => act.type === "primary"
+  )?.activity_category;
+  const location = unit.location?.find((loc) => loc.type === "physical");
   return (
     <>
       <StatisticalUnitDetailsLinkWithSubPath
@@ -68,6 +72,8 @@ export function TopologyItem({
                 value={location?.country?.name}
               />
               {statDefinitions.map((statDefinition) => {
+                const statsSum =
+                  stats?.stats_summary?.[statDefinition.code]?.sum;
                 const stat = unit.stat_for_unit?.find(
                   (s) => s.stat_definition_id === statDefinition.id
                 );
@@ -83,15 +89,18 @@ export function TopologyItem({
                     key={statDefinition.id}
                     className="flex-1"
                     title={statDefinition.name!}
-                    value={formattedValue}
+                    value={type !== "enterprise" && formattedValue}
+                    sum={thousandSeparator(statsSum)}
                   />
                 );
               })}
             </div>
             <TopologyItemInfo
-              title="Activity"
+              title="Primary Activity"
               value={
-                activity ? `${activity?.code} - ${activity?.name}` : undefined
+                primaryActivity
+                  ? `${primaryActivity?.code} - ${primaryActivity?.name}`
+                  : undefined
               }
             />
           </CardContent>
@@ -107,6 +116,7 @@ interface TopologyItemInfoProps {
   value?: string | number | boolean | null;
   fallbackValue?: string;
   className?: string;
+  sum?: string | number | boolean | null;
 }
 
 const TopologyItemInfo = ({
@@ -114,9 +124,16 @@ const TopologyItemInfo = ({
   value,
   fallbackValue = "-",
   className,
+  sum,
 }: TopologyItemInfoProps) => (
   <div className={cn("flex flex-col space-y-0 text-left", className)}>
     <span className="text-xs font-medium uppercase text-gray-500">{title}</span>
     <span className="text-sm">{value ?? fallbackValue}</span>
+    {sum && (
+      <div className="inline-flex items-center font-semibold">
+        <span className="text-xs mr-1">&#8721;</span>
+        <span className="text-sm">{sum}</span>
+      </div>
+    )}
   </div>
 );

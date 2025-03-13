@@ -22,16 +22,43 @@ declare interface ActivityCategory {
 }
 
 declare interface Activity {
-  id: number;
-  valid_to: string;
-  updated_at: string;
-  valid_from: string;
-  activity_type: string;
-  legal_unit_id: number | null;
-  establishment_id: number | null;
   activity_category: ActivityCategory;
-  updated_by_user_id: number;
-  activity_category_id: number;
+  category_id: number;
+  data_source_id: number | null;
+  edit_at: string;
+  edit_by_user_id: number;
+  edit_comment: string | null;
+  establishment_id: number | null;
+  id: number;
+  legal_unit_id: number | null;
+  type: string;
+  valid_after: string;
+  valid_from: string;
+  valid_to: string;
+}
+
+declare interface LegalForm {
+  active: boolean;
+  code: string;
+  created_at: string;
+  custom: boolean;
+  id: number;
+  name: string;
+  updated_at: string;
+}
+
+declare interface Sector {
+  active: boolean;
+  code: string | null;
+  created_at: string;
+  custom: boolean;
+  description: string | null;
+  id: number;
+  label: string;
+  name: string;
+  parent_id: number | null;
+  path: unknown;
+  updated_at: string;
 }
 
 declare interface Region {
@@ -56,24 +83,29 @@ declare interface Country {
 }
 
 declare interface Location {
-  id: number;
-  region: Region;
-  country: Country;
-  latitude: null;
-  valid_to: string;
-  longitude: null;
-  region_id: number;
-  country_id: number;
-  valid_from: string;
-  postal_code: string;
-  postal_place: string;
   address_part1: string | null;
   address_part2: string | null;
   address_part3: string | null;
-  legal_unit_id: number | null;
-  location_type: string;
+  altitude: number | null;
+  country: Country;
+  country_id: number;
+  data_source_id: number | null;
+  edit_at: string;
+  edit_by_user_id: number;
+  edit_comment: string | null;
   establishment_id: number | null;
-  updated_by_user_id: number;
+  id: number;
+  latitude: number | null;
+  legal_unit_id: number | null;
+  longitude: number | null;
+  postcode: string | null;
+  postplace: string | null;
+  region_id: number | null;
+  region: Region;
+  type: string;
+  valid_after: string;
+  valid_from: string;
+  valid_to: string;
 }
 
 declare interface Contact {
@@ -119,6 +151,19 @@ declare interface StatForUnit {
   stat_definition_id: number;
 }
 
+declare interface Status {
+  active: boolean;
+  assigned_by_default: boolean;
+  code: string;
+  created_at: string;
+  custom: boolean;
+  id: number;
+  include_unit_in_reports: boolean;
+  name: string;
+  priority: number;
+  updated_at: string;
+}
+
 declare interface StatisticalUnit {
   id: number;
   notes: string | null;
@@ -131,11 +176,9 @@ declare interface StatisticalUnit {
   stat_ident: string | null;
   valid_from: string;
   data_source: string | null;
-  web_address: string | null;
   edit_comment: string;
-  telephone_no: string | null;
+  edit_at: string;
   unit_size_id: string | null;
-  email_address: string | null;
   invalid_codes: string | null;
   reorg_type_id: string | null;
   tax_ident: string;
@@ -169,6 +212,9 @@ declare interface LegalUnit extends StatisticalUnit {
   foreign_participation_id: string | null;
   stat_for_unit?: StatForUnit[];
   contact: Contact;
+  legal_form: LegalForm;
+  sector: Sector;
+  status: Status;
 }
 
 declare interface Establishment extends StatisticalUnit {
@@ -181,8 +227,25 @@ declare interface Establishment extends StatisticalUnit {
   primary_for_enterprise: boolean;
   stat_for_unit?: StatForUnit[];
   contact: Contact;
+  status: Status;
 }
 
 declare interface StatisticalUnitHierarchy {
   enterprise: Enterprise;
 }
+
+declare interface StatisticalUnitDetails {
+  enterprise?: Enterprise;
+  legal_unit?: LegalUnit[];
+  establishment?: Establishment[];
+}
+
+
+declare interface StatisticalUnitStats {
+  unit_type: StatisticalUnitType;
+  unit_id: number;
+  valid_from: string;
+  valid_to: string;
+  stats: { [key: string]: number | string };
+  stats_summary: StatsSummary;
+};

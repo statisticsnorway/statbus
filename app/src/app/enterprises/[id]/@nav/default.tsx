@@ -7,8 +7,20 @@ export default function NavSlot({
 }) {
   return (
     <SidebarNav>
-      <SidebarLink href={`/enterprises/${id}`}>General info</SidebarLink>
+      <SidebarLink href={`/enterprises/${id}`}>Identification</SidebarLink>
       <SidebarLink href={`/enterprises/${id}/contact`}>Contact</SidebarLink>
+      <SidebarLink href={`/enterprises/${id}/demographic`}>
+        Demographic
+      </SidebarLink>
+      <SidebarLink href={`/enterprises/${id}/classifications`}>
+        Classifications
+      </SidebarLink>
+      <SidebarLink href={`/enterprises/${id}/statistical-variables`}>
+        Statistical variables
+      </SidebarLink>
+      <SidebarLink href={`/enterprises/${id}/links`}>
+        Links and external references
+      </SidebarLink>
       <SidebarLink href={`/enterprises/${id}/inspect`}>Inspect</SidebarLink>
     </SidebarNav>
   );

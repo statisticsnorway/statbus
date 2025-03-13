@@ -1,15 +1,14 @@
+import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
 import { getStatisticalUnitHierarchy } from "@/components/statistical-unit-details/requests";
-import React from "react";
-import { Metadata } from "next";
-import GeneralInfoForm from "./general-info/general-info-form";
+import { FormField } from "@/components/form/form-field";
 
 export const metadata: Metadata = {
-  title: "Enterprise | General Info",
+  title: "Enterprise | Demographic",
 };
 
-export default async function EnterpriseDetailsPage({
+export default async function EnterpriseDemographicPage({
   params: { id },
 }: {
   readonly params: { id: string };
@@ -38,13 +37,34 @@ export default async function EnterpriseDetailsPage({
   if (!primaryUnit) {
     notFound();
   }
-
   return (
     <DetailsPage
-      title="Identification"
-      subtitle="Identification information such as name, id(s) and physical address"
+      title="Demographic characteristics"
+      subtitle="Demographic characteristics such as unit activity start and end dates, current status"
     >
-      <GeneralInfoForm unit={primaryUnit} />
+      <form className="space-y-4">
+        <FormField
+          label="Status"
+          name="status"
+          value={primaryUnit?.status?.name}
+          response={null}
+          readonly
+        />
+        <FormField
+          label="Birth date"
+          name="birth_date"
+          value={primaryUnit?.birth_date}
+          response={null}
+          readonly
+        />
+        <FormField
+          label="Death date"
+          name="death_date"
+          value={primaryUnit?.death_date}
+          response={null}
+          readonly
+        />
+      </form>
     </DetailsPage>
   );
 }

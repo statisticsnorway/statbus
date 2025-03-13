@@ -2,13 +2,13 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
 import { getStatisticalUnitDetails } from "@/components/statistical-unit-details/requests";
-import ContactInfoForm from "./contact-info-form";
+import DemographicInfoForm from "./demographic-info-form";
 
 export const metadata: Metadata = {
-  title: "Legal Unit | Contact",
+  title: "Legal Unit | Demographic",
 };
 
-export default async function LegalUnitContactPage({
+export default async function LegalUnitDemographicPage({
   params: { id },
 }: {
   readonly params: { id: string };
@@ -30,10 +30,10 @@ export default async function LegalUnitContactPage({
 
   return (
     <DetailsPage
-      title="Contact Info"
-      subtitle="Contact information such as email, phone and postal address"
+      title="Demographic characteristics"
+      subtitle="Demographic characteristics such as unit activity start and end dates, current status"
     >
-      <ContactInfoForm legalUnit={legalUnit} id={id} />
+      <DemographicInfoForm legalUnit={legalUnit} />
     </DetailsPage>
   );
 }

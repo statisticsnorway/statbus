@@ -2,13 +2,13 @@ import { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DetailsPage } from "@/components/statistical-unit-details/details-page";
 import { getStatisticalUnitDetails } from "@/components/statistical-unit-details/requests";
-import ContactInfoForm from "./contact-info-form";
+import ClassificationsInfoForm from "./classifications-info-form";
 
 export const metadata: Metadata = {
-  title: "Legal Unit | Contact",
+  title: "Legal Unit | Classifications",
 };
 
-export default async function LegalUnitContactPage({
+export default async function LegalUnitClassificationsPage({
   params: { id },
 }: {
   readonly params: { id: string };
@@ -19,7 +19,6 @@ export default async function LegalUnitContactPage({
   );
 
   const legalUnit = unit?.legal_unit?.[0];
-
   if (error) {
     throw new Error(error.message, { cause: error });
   }
@@ -30,10 +29,10 @@ export default async function LegalUnitContactPage({
 
   return (
     <DetailsPage
-      title="Contact Info"
-      subtitle="Contact information such as email, phone and postal address"
+      title="Classifications"
+      subtitle="Classifications such as activity categories, legal form and sector"
     >
-      <ContactInfoForm legalUnit={legalUnit} id={id} />
+      <ClassificationsInfoForm legalUnit={legalUnit} />
     </DetailsPage>
   );
 }

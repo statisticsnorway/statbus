@@ -12,10 +12,14 @@ export default function Layout({
   children,
   header,
   nav,
-  topology,
+  primaryUnitInfo,
 }: DetailsPageLayoutProps) {
   return (
-    <DetailsPageLayout header={header} nav={nav} topology={topology}>
+    <DetailsPageLayout
+      header={header}
+      nav={nav}
+      primaryUnitInfo={primaryUnitInfo}
+    >
       {children}
     </DetailsPageLayout>
   );

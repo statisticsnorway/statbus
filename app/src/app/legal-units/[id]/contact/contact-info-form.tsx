@@ -4,47 +4,151 @@ import { useFormState } from "react-dom";
 import React from "react";
 import { z } from "zod";
 import { contactInfoSchema } from "@/app/legal-units/[id]/contact/validation";
-import { SubmissionFeedbackDebugInfo } from "@/app/legal-units/components/submission-feedback-debug-info";
 import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
 import { FormField } from "@/components/form/form-field";
 
 export default function ContactInfoForm({
   id,
-  values,
+  legalUnit,
 }: {
   readonly id: string;
-  readonly values: z.infer<typeof contactInfoSchema>;
+  readonly legalUnit: LegalUnit;
 }) {
   const [state, formAction] = useFormState(
     updateLegalUnit.bind(null, id, "contact-info"),
     null
   );
-
-  return (
-    <form className="space-y-8" action={formAction}>
-      <FormField
-        label="Email address"
-        name="email_address"
-        value={values?.email_address}
-        response={state}
-        readonly
-      />
-      <FormField
-        label="Phone number"
-        name="phone_number"
-        value={values?.phone_number}
-        response={state}
-        readonly
-      />
-      <FormField
-        label="Web Address"
-        name="web_address"
-        value={values?.web_address}
-        response={state}
-        readonly
-      />
-      <SubmissionFeedbackDebugInfo state={state} />
-      <Button type="submit">Update Contact Information</Button>
-    </form>
+  const postalLocation = legalUnit?.location?.find(
+    (loc) => loc.type === "postal"
   );
+return (
+  <div className="space-y-8">
+    <form className="space-y-4">
+      <span className="font-medium">Communication</span>
+      <div className="grid lg:grid-cols-2 gap-4">
+        <FormField
+          readonly
+          label="Email address"
+          name="email_address"
+          value={legalUnit?.contact?.email_address}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Web Address"
+          name="web_address"
+          value={legalUnit?.contact?.web_address}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Phone number"
+          name="phone_number"
+          value={legalUnit?.contact?.phone_number}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Landline"
+          name="landline"
+          value={legalUnit?.contact?.landline}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Mobile Number"
+          name="mobile_number"
+          value={legalUnit?.contact?.mobile_number}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Fax Number"
+          name="fax_number"
+          value={legalUnit?.contact?.fax_number}
+          response={null}
+        />
+      </div>
+    </form>
+    <form className="space-y-4">
+      <span className="font-medium">Postal Location</span>
+      <div className="grid grid-cols-2 gap-4">
+        <FormField
+          readonly
+          label="Region"
+          name="region_id"
+          value={
+            postalLocation?.region
+              ? `${postalLocation.region.code} ${postalLocation.region.name}`
+              : null
+          }
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Country"
+          name="country_id"
+          value={postalLocation?.country?.name}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Address part1"
+          name="address_part1"
+          value={postalLocation?.address_part1}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Address part2"
+          name="address_part2"
+          value={postalLocation?.address_part2}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Address part3"
+          name="address_part3"
+          value={postalLocation?.address_part3}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Post code"
+          name="postcode"
+          value={postalLocation?.postcode}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Post place"
+          name="postplace"
+          value={postalLocation?.postplace}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Latitude"
+          name="latitude"
+          value={postalLocation?.latitude}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Longitude"
+          name="longitude"
+          value={postalLocation?.longitude}
+          response={null}
+        />
+        <FormField
+          readonly
+          label="Altitude"
+          name="altitude"
+          value={postalLocation?.altitude}
+          response={null}
+        />
+      </div>
+    </form>
+  </div>
+);
 }

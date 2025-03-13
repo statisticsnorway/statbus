@@ -1,7 +1,7 @@
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
 
 export async function getEnterpriseById(id: string) {
-  const client = await createSupabaseSSRClient()
+  const client = await createSupabaseSSRClient();
   const { data: enterprises, error } = await client
     .from("enterprise")
     .select("*")
@@ -50,4 +50,36 @@ export async function getStatisticalUnitHierarchy(
 
   const errorWithName = error ? { ...error, name: "supabase-error" } : null;
   return { hierarchy, error: errorWithName };
+}
+
+export async function getStatisticalUnitDetails(
+  unitId: number,
+  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
+) {
+  const client = await createSupabaseSSRClient();
+  const { data: unit, error } = await client
+    .rpc("statistical_unit_details", {
+      unit_id: unitId,
+      unit_type: unitType,
+    })
+    .returns<StatisticalUnitDetails>();
+
+  const errorWithName = error ? { ...error, name: "supabase-error" } : null;
+  return { unit, error: errorWithName };
+}
+
+export async function getStatisticalUnitStats(
+  unitId: number,
+  unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
+) {
+  const client = await createSupabaseSSRClient();
+  const { data: stats, error } = await client
+    .rpc("statistical_unit_stats", {
+      unit_id: unitId,
+      unit_type: unitType,
+    })
+    .returns<StatisticalUnitStats[]>();
+
+  const errorWithName = error ? { ...error, name: "supabase-error" } : null;
+  return { stats, error: errorWithName };
 }

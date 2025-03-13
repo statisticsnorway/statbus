@@ -23,7 +23,7 @@ export function SidebarLink({
       className={cn(
         buttonVariants({ variant: "ghost" }),
         pathname === href
-          ? "bg-gray-50 hover:bg-gray-100"
+          ? "bg-gray-100 hover:bg-gray-200"
           : "hover:bg-transparent hover:underline",
         "justify-start"
       )}
