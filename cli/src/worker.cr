@@ -19,15 +19,13 @@ require "./config"
 #   - Tasks are created but rolled back with the test transaction
 #   - Tests must manually call worker.process_tasks() to simulate worker processing:
 #     ```sql
-#     BEGIN;
 #     -- Create test data and trigger worker tasks
 #     INSERT INTO some_table VALUES (...);
 #     -- Manually process tasks that would normally be handled by the worker
-#     SELECT * FROM worker.process_tasks();
+#     -- Do NOT use a transaction as worker.process_tasks() handles its own transactions
+#     CALL worker.process_tasks();
 #     -- Verify results
 #     SELECT * FROM affected_table WHERE ...;
-#     -- Roll back all changes including tasks
-#     ROLLBACK;
 #     ```
 #
 # The Worker handles processing of database tasks by tracking changes
@@ -60,7 +58,7 @@ require "./config"
 #    - Runs in dedicated fiber
 #    - Processes tasks in batches
 #    - Handles errors per task without affecting others
-#    - Records task status and error messages
+#    - Records task state and error messages
 #
 # Error Handling:
 # - Task processing errors are recorded in the tasks table
@@ -166,20 +164,20 @@ module Statbus
         shutdown_timeout = 5.seconds
         shutdown_start = Time.monotonic
         received_count = 1 # Start with 1 for the main fiber
-        
+
         loop do
           # Check if we've exceeded the timeout
           if (Time.monotonic - shutdown_start) > shutdown_timeout
             @log.warn { "Shutdown timeout reached after #{shutdown_timeout.total_seconds} seconds, forcing exit" }
             break
           end
-          
+
           # Check if we've received all acknowledgments
           if received_count >= sent_count
             @log.info { "All fibers have acknowledged shutdown" }
             break
           end
-          
+
           # Try to receive an acknowledgment with a short timeout
           begin
             select
@@ -194,7 +192,7 @@ module Statbus
             @log.debug { "Shutdown acknowledgment channel closed" }
             break
           end
-          
+
           @log.debug { "Waiting for #{sent_count - received_count} fibers to acknowledge shutdown..." }
         end
 
@@ -303,7 +301,7 @@ module Statbus
           end
         end
       end
-      
+
       # Acknowledge shutdown before exiting
       if @shutdown
         @shutdown_ack_channel.send(nil) rescue nil
@@ -376,7 +374,7 @@ module Statbus
           until @shutdown
             sleep(1.seconds)
           end
-          
+
           # If we're shutting down, close the connection gracefully
           if @shutdown
             @log.info { "Shutting down database connection..." }
@@ -513,13 +511,13 @@ module Statbus
           end
         end
       end
-      
+
       # Acknowledge shutdown before exiting
       if @shutdown
         @shutdown_ack_channel.send(nil) rescue nil
       end
     end
-    
+
     # Helper method to wait while checking for shutdown
     private def wait_with_shutdown_check(duration : Time::Span)
       start_time = Time.monotonic
@@ -580,7 +578,7 @@ module Statbus
                                  cr.queue
                                FROM worker.tasks t
                                JOIN worker.command_registry cr ON t.command = cr.command
-                               WHERE t.status = 'pending'
+                               WHERE t.state = 'pending'
                                  AND t.scheduled_at IS NOT NULL
                                  AND t.scheduled_at > now()
                                GROUP BY cr.queue
@@ -644,7 +642,7 @@ module Statbus
           wait_with_shutdown_check(1.seconds) # Prevent tight loop on error while checking for shutdown
         end
       end
-      
+
       # Acknowledge shutdown before exiting
       if @shutdown
         @log.debug { "#{queue} processor acknowledging shutdown" }
@@ -691,17 +689,28 @@ module Statbus
       begin
         # Use a connection pool or reuse connection if possible
         DB.connect(@config.connection_string) do |db|
-          # Query worker.process_tasks() with named columns for better documentation
+          # Call worker.process_tasks() procedure
           # The p_queue parameter ensures we only process tasks for this specific queue
+          # Note: worker.process_tasks() handles its own transactions internally
           @log.debug { "Executing worker.process_tasks for queue: #{queue}" }
+
+          # First execute the CALL statement
+          db.exec "CALL worker.process_tasks(p_queue => $1)", queue
+
+          # Then execute the SELECT statement to get results
           results = db.query_all "SELECT
-                                    id,            -- The task ID
-                                    command,       -- The command that was executed
-                                    queue,         -- The task queue
-                                    duration_ms,   -- How long the task took to process in milliseconds
-                                    success,       -- Whether the task succeeded (TRUE) or failed (FALSE)
-                                    error_message  -- Error message if task failed, NULL otherwise
-                                  FROM worker.process_tasks(p_queue := $1)",
+                                    t.id AS task_id, -- The task ID
+                                    t.command,       -- The command that was executed
+                                    cr.queue,        -- The task queue
+                                    duration_ms,     -- Duration in ms from the database
+                                    state = 'completed'::worker.task_state AS success, -- Whether task succeeded
+                                    error_message    -- Error message if task failed, NULL otherwise
+                                  FROM worker.tasks t
+                                  JOIN worker.command_registry cr ON t.command = cr.command
+                                  WHERE processed_at IS NOT NULL
+                                  AND age(processed_at) < interval '10 seconds'
+                                  AND (cr.queue = $1 OR $1 IS NULL)
+                                  ORDER BY processed_at DESC",
             queue,
             as: {Int64, String, String, PG::Numeric, Bool, String?}
 

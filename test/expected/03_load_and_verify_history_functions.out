@@ -108,7 +108,7 @@ SELECT
 
 \echo "Test get_statistical_history_periods with specific date range - yearly resolution"
 "Test get_statistical_history_periods with specific date range - yearly resolution"
-SELECT 
+SELECT
     resolution,
     year,
     month,
@@ -130,7 +130,7 @@ ORDER BY year;
 
 \echo "Test get_statistical_history_periods with NULL parameters (should use bounded range)"
 "Test get_statistical_history_periods with NULL parameters (should use bounded range)"
-SELECT 
+SELECT
     resolution,
     year,
     month,
@@ -140,7 +140,7 @@ SELECT
 FROM public.get_statistical_history_periods(
     p_resolution := 'year'
 )
-WHERE year BETWEEN EXTRACT(YEAR FROM current_date - interval '5 years')::int 
+WHERE year BETWEEN EXTRACT(YEAR FROM current_date - interval '5 years')::int
               AND EXTRACT(YEAR FROM current_date)::int
 ORDER BY year;
  resolution | year | month | prev_stop  | curr_start | curr_stop  
@@ -156,7 +156,7 @@ ORDER BY year;
 \echo "Test get_statistical_history_periods with empty table simulation"
 "Test get_statistical_history_periods with empty table simulation"
 -- Test with specific date range, which will use default values since table is empty at this point
-SELECT 
+SELECT
     resolution,
     year,
     month,
@@ -179,7 +179,7 @@ ORDER BY year;
 
 \echo "Test get_statistical_history_periods with specific date range - monthly resolution"
 "Test get_statistical_history_periods with specific date range - monthly resolution"
-SELECT 
+SELECT
     resolution,
     year,
     month,
@@ -203,13 +203,15 @@ ORDER BY year, month;
  year-month | 2019 |    12 | 2019-11-30 | 2019-12-01 | 2019-12-31
 (7 rows)
 
-\echo Run worker processing to generate computed data
-Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
- success | count 
----------+-------
- t       |    12
-(1 row)
+\echo Run worker processing to run import jobs and generate computed data
+Run worker processing to run import jobs and generate computed data
+CALL worker.process_tasks();
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |    11
+ maintenance | pending   |     1
+(2 rows)
 
 \echo "Checking statistical_history_periods from statistical_unit data"
 "Checking statistical_history_periods from statistical_unit data"

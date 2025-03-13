@@ -56,7 +56,7 @@ SELECT
 
 
 \echo "Test get_statistical_history_periods with specific date range - yearly resolution"
-SELECT 
+SELECT
     resolution,
     year,
     month,
@@ -71,7 +71,7 @@ FROM public.get_statistical_history_periods(
 ORDER BY year;
 
 \echo "Test get_statistical_history_periods with NULL parameters (should use bounded range)"
-SELECT 
+SELECT
     resolution,
     year,
     month,
@@ -81,13 +81,13 @@ SELECT
 FROM public.get_statistical_history_periods(
     p_resolution := 'year'
 )
-WHERE year BETWEEN EXTRACT(YEAR FROM current_date - interval '5 years')::int 
+WHERE year BETWEEN EXTRACT(YEAR FROM current_date - interval '5 years')::int
               AND EXTRACT(YEAR FROM current_date)::int
 ORDER BY year;
 
 \echo "Test get_statistical_history_periods with empty table simulation"
 -- Test with specific date range, which will use default values since table is empty at this point
-SELECT 
+SELECT
     resolution,
     year,
     month,
@@ -103,7 +103,7 @@ WHERE year BETWEEN 2020 AND 2022
 ORDER BY year;
 
 \echo "Test get_statistical_history_periods with specific date range - monthly resolution"
-SELECT 
+SELECT
     resolution,
     year,
     month,
@@ -118,8 +118,10 @@ FROM public.get_statistical_history_periods(
 ORDER BY year, month;
 
 
-\echo Run worker processing to generate computed data
-SELECT success, count(*) FROM worker.process_tasks() GROUP BY success;
+\echo Run worker processing to run import jobs and generate computed data
+CALL worker.process_tasks();
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
 
 \echo "Checking statistical_history_periods from statistical_unit data"
 SELECT * FROM public.get_statistical_history_periods()
