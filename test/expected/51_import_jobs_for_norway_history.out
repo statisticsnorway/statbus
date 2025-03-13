@@ -1700,22 +1700,24 @@ SELECT state, count(*) FROM public.import_underenhet_2018_data GROUP BY state;
 \echo Check the state of all tasks before running analytics.
 Check the state of all tasks before running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | pending   |     9
- import    | completed |    31
-(2 rows)
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | pending   |     9
+ import      | completed |    31
+ maintenance | pending   |     1
+(3 rows)
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | completed |    11
- import    | completed |    31
-(2 rows)
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |    11
+ import      | completed |    31
+ maintenance | pending   |     1
+(3 rows)
 
 \echo Run any remaining tasks, there should be none.
 Run any remaining tasks, there should be none.
@@ -1723,11 +1725,12 @@ CALL worker.process_tasks();
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-   queue   |   state   | count 
------------+-----------+-------
- analytics | completed |    11
- import    | completed |    31
-(2 rows)
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |    11
+ import      | completed |    31
+ maintenance | pending   |     1
+(3 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.
 Overview of statistical units, but not details, there are too many units.
