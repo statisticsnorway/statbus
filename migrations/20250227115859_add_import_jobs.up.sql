@@ -944,6 +944,7 @@ BEGIN
       v_job.priority
     )
     RETURNING id INTO v_task_id;
+    RAISE DEBUG 'Rescheduled Task ID: %', v_task_id;
 
     -- Notify worker of new task with queue information
     PERFORM pg_notify('worker_tasks', 'import');
@@ -1095,44 +1096,43 @@ BEGIN
     -- Get the next state
     next_state := admin.import_job_next_state(job);
 
-    -- If state doesn't change, we're either at a terminal state or waiting for user action
-    IF next_state = job.state THEN
-        IF job.state = 'waiting_for_review' AND job.review THEN
-            RAISE DEBUG 'Import job % is now waiting for review', job_id;
-        ELSIF job.state = 'finished' THEN
-            RAISE DEBUG 'Import job % completed successfully', job_id;
-        END IF;
-        -- No need to reschedule for terminal or waiting states
-        should_reschedule := FALSE;
-    ELSE
+    IF next_state <> job.state THEN
         -- Update the job state
         job := admin.import_job_set_state(job, next_state);
-
-        -- Perform the appropriate action for the new state
-        CASE job.state
-            WHEN 'preparing_data' THEN
-                PERFORM admin.import_job_prepare(job);
-                should_reschedule := TRUE;
-
-            WHEN 'analysing_data' THEN
-                PERFORM admin.import_job_analyse(job);
-                should_reschedule := TRUE;
-
-            WHEN 'importing_data' THEN
-                -- For importing, we'll handle batches in the import_job_insert function
-                -- and it will determine if rescheduling is needed
-                PERFORM admin.import_job_insert(job);
-
-                -- Check if we need to reschedule (not finished yet)
-                SELECT state = 'importing_data' INTO should_reschedule
-                FROM public.import_job WHERE id = job_id;
-
-            ELSE
-                -- Other states don't require specific actions
-                -- But we should reschedule to continue processing
-                should_reschedule := TRUE;
-        END CASE;
     END IF;
+
+     -- Perform the appropriate action for the new state
+    CASE job.state
+    WHEN 'waiting_for_review' THEN
+        RAISE DEBUG 'Import job % is now waiting for review', job_id;
+        should_reschedule := FALSE;
+
+    WHEN 'finished' THEN
+        RAISE DEBUG 'Import job % completed successfully', job_id;
+        should_reschedule := FALSE;
+
+    WHEN 'preparing_data' THEN
+        PERFORM admin.import_job_prepare(job);
+        should_reschedule := TRUE;
+
+    WHEN 'analysing_data' THEN
+        PERFORM admin.import_job_analyse(job);
+        should_reschedule := TRUE;
+
+    WHEN 'importing_data' THEN
+        -- For importing, we'll handle batches in the import_job_insert function
+        -- and it will determine if rescheduling is needed
+        PERFORM admin.import_job_insert(job);
+
+        -- Check if we need to reschedule (not finished yet)
+        SELECT state = 'importing_data' INTO should_reschedule
+        FROM public.import_job WHERE id = job_id;
+
+    ELSE
+        -- Other states don't require specific actions
+        -- But we should reschedule to continue processing
+        should_reschedule := TRUE;
+    END CASE;
 
     -- Reset the user context when done
     PERFORM admin.reset_import_job_user_context();
@@ -1556,19 +1556,19 @@ BEGIN
                     BEGIN
                         EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE state = ''imported''',
                                       job.data_table_name) INTO actual_imported_count;
-                        
+
                         -- Update the job with the error, mark as finished, and set correct imported_rows count
                         UPDATE public.import_job
                         SET state = 'finished',
                             error = v_error,
                             imported_rows = actual_imported_count
                         WHERE id = job.id;
-                        
+
                         RAISE DEBUG 'IMPORT_JOB_INSERT: Import job marked as finished due to error with % imported rows', actual_imported_count;
                     END;
 
-                    -- Exit the loop to stop further processing
-                    EXIT;
+                    -- Prevent further processing, since the job is already marked as finished.
+                    RETURN;
                 END;
 
                 -- If rows were inserted successfully, use that count
