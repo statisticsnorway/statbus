@@ -1,5 +1,15 @@
 BEGIN;
 \i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+\echo Add users for testing purposes
+Add users for testing purposes
 SELECT * FROM public.statbus_user_create('test.super@statbus.org', 'super_user'::statbus_role_type, 'Super#123!');
          email          |  password  
 ------------------------+------------
@@ -18,12 +28,6 @@ SELECT * FROM public.statbus_user_create('test.restricted@statbus.org', 'restric
  test.restricted@statbus.org | Restricted#123!
 (1 row)
 
-SET datestyle TO 'ISO, DMY';
-\if :{?DEBUG}
-SET client_min_messages TO debug1;
-\else
-SET client_min_messages TO NOTICE;
-\endif
 -- Create test users with different roles
 SELECT public.statbus_user_create('test.super@example.com', 'super_user'::statbus_role_type, 'SuperPass123!');
           statbus_user_create           
