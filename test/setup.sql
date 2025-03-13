@@ -3,6 +3,8 @@ SELECT * FROM public.statbus_user_create('test.super@statbus.org', 'super_user':
 SELECT * FROM public.statbus_user_create('test.regular@statbus.org', 'regular_user'::statbus_role_type, 'Regular#123!');
 SELECT * FROM public.statbus_user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role_type, 'Restricted#123!');
 
+SET datestyle TO 'ISO, DMY';
+
 \if :{?DEBUG}
 SET client_min_messages TO debug1;
 \else
