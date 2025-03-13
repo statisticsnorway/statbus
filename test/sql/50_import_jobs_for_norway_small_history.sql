@@ -177,9 +177,14 @@ SELECT state, count(*) FROM import_job GROUP BY state;
 
 \echo Check data row state before import
 SELECT state, count(*) FROM public.import_hovedenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2016_data GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2017_data GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2018_data GROUP BY state;
 
-\echo Check data row state before import
 SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2016_data GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2017_data GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2018_data GROUP BY state;
 
 \echo Run worker processing to run import jobs and generate computed data
 CALL worker.process_tasks();
@@ -190,9 +195,14 @@ SELECT state, count(*) FROM import_job GROUP BY state;
 
 \echo Check data row state after import
 SELECT state, count(*) FROM public.import_hovedenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2016_data GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2017_data GROUP BY state;
+SELECT state, count(*) FROM public.import_hovedenhet_2018_data GROUP BY state;
 
-\echo Check data row state after import
 SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2016_data GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2017_data GROUP BY state;
+SELECT state, count(*) FROM public.import_underenhet_2018_data GROUP BY state;
 
 \echo Overview of statistical units
 SELECT valid_from
