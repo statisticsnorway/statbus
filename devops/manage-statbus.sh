@@ -42,7 +42,7 @@ case "$action" in
         VERSION=$(git describe --always)
         ./devops/dotenv --file .env set VERSION=$VERSION
         set_profile_arg "$@"
-        
+
         # Always build the worker
         eval docker compose build worker
 
@@ -163,10 +163,38 @@ case "$action" in
             echo "failed"
             basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql
             exit 0
-        elif test "$TEST_BASENAMES" = "all"; then
-            TEST_BASENAMES=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
-        elif test "$TEST_BASENAMES" = "failed"; then
-            TEST_BASENAMES=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}')
+        fi
+        
+        # Parse arguments into include and exclude lists
+        EXCLUDE_TESTS=""
+        INCLUDE_TESTS=""
+        for test in $TEST_BASENAMES; do
+            if [[ $test == -* ]]; then
+                EXCLUDE_TESTS="$EXCLUDE_TESTS ${test#-}"
+            else
+                INCLUDE_TESTS="$INCLUDE_TESTS $test"
+            fi
+        done
+        
+        # Determine the base test set
+        if [[ "$INCLUDE_TESTS" == *"all"* ]]; then
+            BASE_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
+        elif [[ "$INCLUDE_TESTS" == *"failed"* ]]; then
+            BASE_TESTS=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}')
+        else
+            # Just use explicitly included tests
+            TEST_BASENAMES="$INCLUDE_TESTS"
+            BASE_TESTS=""
+        fi
+        
+        # Apply exclusions if we have a base test set
+        if [ -n "$BASE_TESTS" ]; then
+            TEST_BASENAMES=""
+            for test in $BASE_TESTS; do
+                if ! echo "$EXCLUDE_TESTS" | grep -qw "$test"; then
+                    TEST_BASENAMES="$TEST_BASENAMES $test"
+                fi
+            done
         fi
 
         for test_basename in $TEST_BASENAMES; do
