@@ -32,8 +32,8 @@ echo "Setting up Statbus for Norway"
 $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/getting-started.sql
 
 echo "Adding import definitions for BRREG units"
-$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-legal_unit.sql
-$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-establishment.sql
+$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
+$WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
 YEARS=$(ls $WORKSPACE/samples/norway/history/*-enheter.csv | sed -E 's/.*\/([0-9]{4})-enheter\.csv/\1/' | sort -u)
 
@@ -43,7 +43,7 @@ for YEAR in $YEARS; do
 
     # Create import jobs for hovedenhet (legal units)
     $WORKSPACE/devops/manage-statbus.sh psql -c "
-    WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
+    WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
     INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
     SELECT def.id,
            'import_hovedenhet_${YEAR}',
@@ -57,7 +57,7 @@ for YEAR in $YEARS; do
 
     # Create import jobs for underenhet (establishments)
     $WORKSPACE/devops/manage-statbus.sh psql -c "
-    WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+    WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
     INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
     SELECT def.id,
            'import_underenhet_${YEAR}',

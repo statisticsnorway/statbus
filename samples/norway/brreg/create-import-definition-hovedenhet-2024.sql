@@ -1,9 +1,9 @@
--- Pretend the user has clicked and created import definition for BRREG Underenhet (establishment for establishment)
+-- Pretend the user has clicked and created import definition for BRREG Hovedenhet (legal_unit)
 
 WITH it AS (
     SELECT * FROM public.import_target
     WHERE schema_name = 'public'
-      AND table_name = 'import_establishment_era_for_legal_unit'
+      AND table_name = 'import_legal_unit_era'
 ), def AS (
     INSERT INTO public.import_definition
         ( target_id
@@ -12,8 +12,8 @@ WITH it AS (
         , note
         )
     SELECT it.id
-        , 'brreg_underenhet'
-        , 'Import of BRREG Underenhet'
+        , 'brreg_hovedenhet_2024'
+        , 'Import of BRREG Hovedenhet using 2024 columns'
         , 'Easy upload of the CSV file found at brreg.'
     FROM it
     RETURNING *
@@ -23,7 +23,7 @@ VALUES
     , (NULL, 'default'::public.import_source_expression, 'valid_to')
     , ('organisasjonsnummer', NULL, 'tax_ident')
     , ('navn', NULL, 'name')
-    , ('organisasjonsform.kode', NULL, NULL)
+    , ('organisasjonsform.kode', NULL, 'legal_form_code')
     , ('organisasjonsform.beskrivelse', NULL, NULL)
     , ('naeringskode1.kode', NULL, 'primary_activity_category_code')
     , ('naeringskode1.beskrivelse', NULL, NULL)
@@ -43,20 +43,38 @@ VALUES
     , ('postadresse.kommunenummer', NULL, 'postal_region_code')
     , ('postadresse.land', NULL, NULL)
     , ('postadresse.landkode', NULL, 'postal_country_iso_2')
-    , ('beliggenhetsadresse.adresse', NULL, 'physical_address_part1')
-    , ('beliggenhetsadresse.poststed', NULL, 'physical_postplace')
-    , ('beliggenhetsadresse.postnummer', NULL, 'physical_postcode')
-    , ('beliggenhetsadresse.kommune', NULL, NULL)
-    , ('beliggenhetsadresse.kommunenummer', NULL, 'physical_region_code')
-    , ('beliggenhetsadresse.land', NULL, NULL)
-    , ('beliggenhetsadresse.landkode', NULL, 'physical_country_iso_2')
-    , ('registreringsdatoIEnhetsregisteret', NULL, NULL)
+    , ('forretningsadresse.adresse', NULL, 'physical_address_part1')
+    , ('forretningsadresse.poststed', NULL, 'physical_postplace')
+    , ('forretningsadresse.postnummer', NULL, 'physical_postcode')
+    , ('forretningsadresse.kommune', NULL, NULL)
+    , ('forretningsadresse.kommunenummer', NULL, 'physical_region_code')
+    , ('forretningsadresse.land', NULL, NULL)
+    , ('forretningsadresse.landkode', NULL, 'physical_country_iso_2')
+    , ('institusjonellSektorkode.kode', NULL, 'sector_code')
+    , ('institusjonellSektorkode.beskrivelse', NULL, NULL)
+    , ('sisteInnsendteAarsregnskap', NULL, NULL)
+    , ('registreringsdatoenhetsregisteret', NULL, NULL)
+    , ('stiftelsesdato', NULL, 'birth_date')
+    , ('registrertIMvaRegisteret', NULL, NULL)
     , ('frivilligMvaRegistrertBeskrivelser', NULL, NULL)
-    , ('registrertIMvaregisteret', NULL, NULL)
-    , ('oppstartsdato', NULL, 'birth_date')
-    , ('datoEierskifte', NULL, NULL)
-    , ('overordnetEnhet', NULL, 'legal_unit_tax_ident')
-    , ('nedleggelsesdato', NULL, 'death_date')
+    , ('registrertIFrivillighetsregisteret', NULL, NULL)
+    , ('registrertIForetaksregisteret', NULL, NULL)
+    , ('registrertIStiftelsesregisteret', NULL, NULL)
+    , ('konkurs', NULL, NULL)
+    , ('konkursdato', NULL, NULL)
+    , ('underAvvikling', NULL, NULL)
+    , ('underAvviklingDato', NULL, NULL)
+    , ('underTvangsavviklingEllerTvangsopplosning', NULL, NULL)
+    , ('tvangsopplostPgaManglendeDagligLederDato', NULL, NULL)
+    , ('tvangsopplostPgaManglendeRevisorDato', NULL, NULL)
+    , ('tvangsopplostPgaManglendeRegnskapDato', NULL, NULL)
+    , ('tvangsopplostPgaMangelfulltStyreDato', NULL, NULL)
+    , ('tvangsavvikletPgaManglendeSlettingDato', NULL, NULL)
+    , ('overordnetEnhet', NULL, NULL)
+    , ('maalform', NULL, NULL)
+    , ('vedtektsdato', NULL, NULL)
+    , ('vedtektsfestetFormaal', NULL, NULL)
+    , ('aktivitet', NULL, NULL)
 ), name_mapping AS (
     SELECT
         ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) as priority,
@@ -70,19 +88,19 @@ VALUES
     FROM def, name_mapping
     WHERE source_column_name IS NOT NULL
     ORDER BY priority
-    RETURNING *
+   RETURNING *
 ), mapping AS (
     SELECT def.id
-          , isc.id
-          , nm.source_expression
-          , itc.id
+         , isc.id
+         , nm.source_expression
+         , itc.id
     FROM def
-        , name_mapping AS nm
-        LEFT JOIN inserted_source_column AS isc
-          ON isc.column_name = nm.source_column_name
-        LEFT JOIN public.import_target_column AS itc
-        ON itc.column_name = nm.target_column_name
-        WHERE itc.target_id IS NULL OR itc.target_id = def.target_id
+       , name_mapping AS nm
+       LEFT JOIN inserted_source_column AS isc
+         ON isc.column_name = nm.source_column_name
+       LEFT JOIN public.import_target_column AS itc
+       ON itc.column_name = nm.target_column_name
+       WHERE itc.target_id IS NULL OR itc.target_id = def.target_id
 ), mapped AS (
   INSERT INTO public.import_mapping
       ( definition_id
@@ -95,11 +113,11 @@ VALUES
 )
 --SELECT * FROM mapped;
 SELECT d.slug as definition_slug,
-        sc.column_name as source_column,
-        m.source_value,
-        m.source_expression,
-        sc.priority AS source_column_priority,
-        tc.column_name AS target_column
+       sc.column_name as source_column,
+       m.source_value,
+       m.source_expression,
+       sc.priority AS source_column_priority,
+       tc.column_name AS target_column
 FROM mapped m
 LEFT JOIN def d ON d.id = m.definition_id
 LEFT JOIN inserted_source_column sc ON sc.id = m.source_column_id
@@ -107,20 +125,20 @@ LEFT JOIN public.import_target_column tc ON tc.id = m.target_column_id
 ORDER BY source_column_priority, target_column;
 
 SELECT d.slug,
-        d.name,
-        t.table_name as target_table,
-        d.note,
-        ds.code as data_source,
-        d.time_context_ident,
-        d.draft,
-        d.valid,
-        d.validation_error
+       d.name,
+       t.table_name as target_table,
+       d.note,
+       ds.code as data_source,
+       d.time_context_ident,
+       d.draft,
+       d.valid,
+       d.validation_error
 FROM public.import_definition d
 JOIN public.import_target t ON t.id = d.target_id
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
-WHERE d.slug = 'brreg_underenhet';
+WHERE d.slug = 'brreg_hovedenhet_2024';
 
 UPDATE public.import_definition
 SET draft = false
 WHERE draft
-  AND slug = 'brreg_underenhet';
+  AND slug = 'brreg_hovedenhet_2024';
