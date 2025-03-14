@@ -12,8 +12,8 @@ WITH it AS (
         , note
         )
     SELECT it.id
-        , 'brreg_hovedenhet'
-        , 'Import of BRREG Hovedenhet'
+        , 'brreg_hovedenhet_2025'
+        , 'Import of BRREG Hovedenhet using 2025 columns'
         , 'Easy upload of the CSV file found at brreg.'
     FROM it
     RETURNING *
@@ -35,7 +35,12 @@ VALUES
     , ('hjelpeenhetskode.beskrivelse', NULL, NULL)
     , ('harRegistrertAntallAnsatte', NULL, NULL)
     , ('antallAnsatte', NULL, NULL)
+    , ('registreringsdatoAntallAnsatteEnhetsregisteret', NULL, NULL)
+    , ('registreringsdatoantallansatteNAVAaregisteret', NULL, NULL)
     , ('hjemmeside', NULL, NULL)
+    , ('epostadresse', NULL, NULL)
+    , ('telefon', NULL, NULL)
+    , ('mobil', NULL, NULL)
     , ('postadresse.adresse', NULL, 'postal_address_part1')
     , ('postadresse.poststed', NULL, 'postal_postplace')
     , ('postadresse.postnummer', NULL, 'postal_postcode')
@@ -56,10 +61,17 @@ VALUES
     , ('registreringsdatoenhetsregisteret', NULL, NULL)
     , ('stiftelsesdato', NULL, 'birth_date')
     , ('registrertIMvaRegisteret', NULL, NULL)
+    , ('registreringsdatoMerverdiavgiftsregisteret', NULL, NULL)
+    , ('registreringsdatoMerverdiavgiftsregisteretEnhetsregisteret', NULL, NULL)
     , ('frivilligMvaRegistrertBeskrivelser', NULL, NULL)
+    , ('registreringsdatoFrivilligMerverdiavgiftsregisteret', NULL, NULL)
     , ('registrertIFrivillighetsregisteret', NULL, NULL)
+    , ('registreringsdatoFrivillighetsregisteret', NULL, NULL)
     , ('registrertIForetaksregisteret', NULL, NULL)
+    , ('registreringsdatoForetaksregisteret', NULL, NULL)
     , ('registrertIStiftelsesregisteret', NULL, NULL)
+    , ('registrertIPartiregisteret', NULL, NULL)
+    , ('registreringsdatoPartiregisteret', NULL, NULL)
     , ('konkurs', NULL, NULL)
     , ('konkursdato', NULL, NULL)
     , ('underAvvikling', NULL, NULL)
@@ -75,6 +87,8 @@ VALUES
     , ('vedtektsdato', NULL, NULL)
     , ('vedtektsfestetFormaal', NULL, NULL)
     , ('aktivitet', NULL, NULL)
+    , ('registreringsnummerIHjemlandet', NULL, NULL)
+    , ('paategninger', NULL, NULL)
 ), name_mapping AS (
     SELECT
         ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) as priority,
@@ -136,9 +150,9 @@ SELECT d.slug,
 FROM public.import_definition d
 JOIN public.import_target t ON t.id = d.target_id
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
-WHERE d.slug = 'brreg_hovedenhet';
+WHERE d.slug = 'brreg_hovedenhet_2025';
 
 UPDATE public.import_definition
 SET draft = false
 WHERE draft
-  AND slug = 'brreg_hovedenhet';
+  AND slug = 'brreg_hovedenhet_2025';
