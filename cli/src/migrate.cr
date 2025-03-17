@@ -69,16 +69,16 @@ module Statbus
 
           # Filter out migrations that are already applied
           migrations_to_apply = sorted_migrations.reject { |m| applied_versions.includes?(m.version) }
-          
+
           # Apply version limit if specified
           migrate_to = @migrate_to # Thread safe access to variable for null handling
           if migrate_to
             migrations_to_apply = migrations_to_apply.select { |m| m.version <= migrate_to }
           end
-          
+
           # Only take the first migration if not migrating all
           migrations_to_apply = [migrations_to_apply.first].compact unless @migrate_all
-          
+
           # Apply the migrations
           applied_count = 0
           migrations_to_apply.each do |migration|

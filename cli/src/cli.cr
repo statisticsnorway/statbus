@@ -38,14 +38,14 @@ module Statbus
       begin
         option_parser = build_option_parser
         option_parser.parse
-        
+
         # Log the final debug settings after command line parsing
         if @config.debug
           puts "Final debug settings after command line parsing:"
           puts "  verbose=#{@config.verbose}"
           puts "  debug=#{@config.debug}"
         end
-        
+
         run(option_parser)
       rescue ex : ArgumentError
         puts ex
