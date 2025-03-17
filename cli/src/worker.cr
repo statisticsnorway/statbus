@@ -312,99 +312,71 @@ module Statbus
       # Wait for worker schema to be ready before starting processing
       wait_for_worker_schema
 
-      # Start queue discovery process (replaces initialize_queue_processors and start_queue_processors)
-      start_queue_discovery
+      # Main connection - must happen before queue discovery
+      @log.debug { "Connecting to database at #{@config.postgres_host}:#{@config.postgres_port}..." }
 
-      # Start timer checking fiber
-      fiber = spawn check_scheduled_tasks_loop
-      @active_fibers << fiber
+      # First verify we can connect to the database and take a global worker advisory lock
+      DB.connect(@config.connection_string) do |db|
+        version = db.query_one("SELECT version()", as: String)
+        @log.debug { "Database connection verified: #{version}" }
+        @log.debug { "Connected to database at #{@config.postgres_host}:#{@config.postgres_port}" }
 
-      # Each queue processor will automatically start processing when created
+        # Generate a global worker lock ID
+        lock_id = db.query_one "SELECT hashtext('worker.tasks')::int % 2147483647", as: Int32
+        acquired = db.query_one "SELECT pg_try_advisory_lock($1)", lock_id, as: Bool
 
-      # Main connection loop with retry logic
-      max_retries = 10
-      retry_count = 0
-      retry_delay = 1.seconds
-
-      loop do
-        begin
-          @log.debug { "Connecting to database at #{@config.postgres_host}:#{@config.postgres_port}..." }
-
-          # First verify we can connect to the database
-          DB.connect(@config.connection_string) do |db|
-            version = db.query_one("SELECT version()", as: String)
-            @log.debug { "Database connection verified: #{version}" }
-            # We already checked for worker schema in wait_for_worker_schema, no need to check again
-          end
-
-          # Listen for notifications in a background thread
-          connection = PG.connect_listen(@config.connection_string, channels: ["worker_tasks", "worker_queue_change"], blocking: true) do |notification|
-            if notification.channel == "worker_tasks"
-              # Get the queue from the notification payload
-              queue_name = notification.payload.presence
-
-              # If a specific queue was mentioned in the notification
-              if queue_name && @queue_processors.has_key?(queue_name)
-                @log.debug { "Received notification for specific queue: #{queue_name}" }
-                # Only notify the specific queue mentioned in the notification
-                @queue_processors[queue_name].send(:process)
-              else
-                # Only if payload is empty or queue doesn't exist, notify all processors
-                @log.debug { "Received notification without specific queue, notifying all queues" }
-                @queue_processors.each do |queue, channel|
-                  channel.send(:process)
-                end
-              end
-            elsif notification.channel == "worker_queue_change"
-              # When queue change notification received, trigger queue discovery
-              @log.info { "Queue change detected, triggering queue discovery..." }
-              @queue_discovery_channel.send(nil)
-            end
-          end
-
-          # Log successful connection
-          @log.debug { "Connected to database at #{@config.postgres_host}:#{@config.postgres_port}" }
-
-          # Reset retry parameters after successful connection
-          retry_count = 0
-          retry_delay = 1.seconds
-
-          # The connection is already in listening mode and will block in the background
-          # Just wait indefinitely until an exception occurs or the program is terminated
-          until @shutdown
-            sleep(1.seconds)
-          end
-
-          # If we're shutting down, close the connection gracefully
-          if @shutdown
-            @log.info { "Shutting down database connection..." }
-            connection.close rescue nil
-          end
-
-          # If we get here, the connection was closed normally
-          @log.info { "Database connection closed, reconnecting..." }
-        rescue ex : DB::ConnectionRefused | Socket::ConnectError
-          retry_count += 1
-          if retry_count <= max_retries
-            @log.error { "Database connection failed (attempt #{retry_count}/#{max_retries}): #{ex.message}" }
-            @log.error { "Connection string: postgres://#{@config.postgres_user}:***@#{@config.postgres_host}:#{@config.postgres_port}/#{@config.postgres_db}" }
-            @log.info { "Retrying in #{retry_delay} seconds..." }
-            sleep(retry_delay)
-            # Exponential backoff with a cap
-            retry_delay = {retry_delay * 2, 60.seconds}.min
-          else
-            @log.fatal { "Failed to connect to database after #{max_retries} attempts, exiting" }
-            @timer_queue.close
-            @queue_processors.each do |_, channel|
-              channel.close
-            end
-            exit(1)
-          end
-        rescue ex
-          @log.error { "Unexpected error: #{ex.message}" }
-          @log.error { ex.backtrace.join("\n") }
-          sleep(5.seconds)
+        unless acquired
+          @log.error { "Cannot start worker: Another worker is already running" }
+          exit(1) # Exit with error code instead of retrying
         end
+
+        @log.info { "Acquired global worker lock (#{lock_id})" }
+
+        # Now that we have the lock, start the queue discovery and timer checking
+        # Start queue discovery process
+        start_queue_discovery
+
+        # Start timer checking fiber
+        fiber = spawn check_scheduled_tasks_loop
+        @active_fibers << fiber
+
+        # Each queue processor will automatically start processing when created
+
+        # Create a PG connection for listening
+        PG.connect_listen(@config.connection_string, channels: ["worker_tasks", "worker_queue_change"], blocking: false) do |notification|
+          if notification.channel == "worker_tasks"
+            # Get the queue from the notification payload
+            queue_name = notification.payload.presence
+
+            # If a specific queue was mentioned in the notification
+            if queue_name && @queue_processors.has_key?(queue_name)
+              @log.debug { "Received notification for specific queue: #{queue_name}" }
+              # Only notify the specific queue mentioned in the notification
+              @queue_processors[queue_name].send(:process)
+            else
+              # Only if payload is empty or queue doesn't exist, notify all processors
+              @log.debug { "Received notification without specific queue, notifying all queues" }
+              @queue_processors.each do |queue, channel|
+                channel.send(:process)
+              end
+            end
+          elsif notification.channel == "worker_queue_change"
+            # When queue change notification received, trigger queue discovery
+            @log.info { "Queue change detected, triggering queue discovery..." }
+            @queue_discovery_channel.send(nil)
+          end
+        end
+
+        # Keep the connection open until shutdown
+        until @shutdown
+          sleep(60.seconds)
+          # Run a query to keep the connection alive
+          db.exec("SELECT 'keepalive';")
+        end
+
+        # Release the lock before closing
+        @log.info { "Releasing global worker lock (#{lock_id})" }
+        db.exec "SELECT pg_advisory_unlock($1)", lock_id
       end
     end
 
@@ -649,8 +621,6 @@ module Statbus
         @shutdown_ack_channel.send(nil) rescue nil
       end
     end
-
-    # This method has been replaced by the queue_discovery_loop
 
     # Track when we last checked for scheduled tasks to avoid redundant checks
     @last_scheduled_check = Time.utc
