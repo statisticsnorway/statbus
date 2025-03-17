@@ -23,7 +23,7 @@ class Config
   def initialize
     # Initialize debug flags from environment variables
     initialize_from_env
-    
+
     # Log initial environment-based settings if they were set
     if ENV["VERBOSE"]? || ENV["DEBUG"]?
       puts "Environment settings detected:"
@@ -31,10 +31,10 @@ class Config
       puts "  DEBUG=#{ENV["DEBUG"]?}" if ENV["DEBUG"]?
     end
     @project_directory = initialize_project_directory
-    
+
     # Detect if running in Docker using environment variable
     running_in_docker = ENV["RUNNING_IN_DOCKER"]? == "true"
-    
+
     # Configure database connection based on environment
     if running_in_docker
       # In Docker, use the container names and internal Docker network port
@@ -45,14 +45,14 @@ class Config
       @postgres_host = "127.0.0.1"
       # Port will be set from .env file below if available
     end
-    
+
     # Common settings for all environments
     @postgres_user = ENV["POSTGRES_USER"]? || @postgres_user
-    
+
     if db = ENV["POSTGRES_DB"]?
       @postgres_db = db
     end
-    
+
     if password = ENV["POSTGRES_PASSWORD"]?
       @postgres_password = password
     end
@@ -69,7 +69,7 @@ class Config
     if File.exists?(env_path)
       puts "Found .env file" if @verbose
       env_config = Poncho.from_file(env_path.to_s)
-      
+
       # Use values from .env if they exist and weren't set from environment variables
       if !running_in_docker
         # In local development, use the public localhost port from .env
@@ -77,16 +77,16 @@ class Config
           @postgres_port = env_port
         end
       end
-      
+
       if env_db = env_config["POSTGRES_DB"]?
         @postgres_db = env_db
       end
-      
+
       if env_password = env_config["POSTGRES_PASSWORD"]?
         @postgres_password = env_password
       end
     end
-    
+
     if @verbose
       puts "Final configuration:"
       puts "  Host: #{@postgres_host}"
