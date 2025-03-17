@@ -695,7 +695,7 @@ module Statbus
           @log.debug { "Executing worker.process_tasks for queue: #{queue}" }
 
           # First execute the CALL statement
-          db.exec "CALL worker.process_tasks(p_queue => $1)", queue
+          db.exec "CALL worker.process_tasks(p_queue => $1, p_batch_size => $2)", queue, 10
 
           # Then execute the SELECT statement to get results
           results = db.query_all "SELECT
