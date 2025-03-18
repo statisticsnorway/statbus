@@ -46,11 +46,11 @@ for YEAR in $YEARS; do
     WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
     INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
     SELECT def.id,
-           'import_hovedenhet_${YEAR}',
+           'import_hovedenhet_${YEAR}_small_history',
            '${YEAR}-01-01'::DATE,
            'infinity'::DATE,
-           'Import Job for BRREG Hovedenhet ${YEAR}',
-           'This job handles the import of BRREG Hovedenhet data for ${YEAR}.',
+           'Import Job for BRREG Hovedenhet ${YEAR} Small History',
+           'This job handles the import of BRREG Hovedenhet small history data for ${YEAR}.',
            (select id from statbus_user_with_email_and_role where email = '${USER_EMAIL}')
     FROM def
     ON CONFLICT (slug) DO NOTHING;"
@@ -60,11 +60,11 @@ for YEAR in $YEARS; do
     WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
     INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
     SELECT def.id,
-           'import_underenhet_${YEAR}',
+           'import_underenhet_${YEAR}_small_history',
            '${YEAR}-01-01'::DATE,
            'infinity'::DATE,
-           'Import Job for BRREG Underenhet ${YEAR}',
-           'This job handles the import of BRREG Underenhet data for ${YEAR}.',
+           'Import Job for BRREG Underenhet ${YEAR} Small History',
+           'This job handles the import of BRREG Underenhet small history data for ${YEAR}.',
            (select id from statbus_user_with_email_and_role where email = '${USER_EMAIL}')
     FROM def
     ON CONFLICT (slug) DO NOTHING;"
@@ -73,10 +73,10 @@ done
 echo "Disabling RLS on import tables to support data loading"
 for YEAR in $YEARS; do
     # Disable RLS on hovedenhet (legal units) upload tables
-    $WORKSPACE/devops/manage-statbus.sh psql -c "ALTER TABLE public.import_hovedenhet_${YEAR}_upload DISABLE ROW LEVEL SECURITY;"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "ALTER TABLE public.import_hovedenhet_${YEAR}_small_history_upload DISABLE ROW LEVEL SECURITY;"
 
     # Disable RLS on underenhet (establishments) upload tables
-    $WORKSPACE/devops/manage-statbus.sh psql -c "ALTER TABLE public.import_underenhet_${YEAR}_upload DISABLE ROW LEVEL SECURITY;"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "ALTER TABLE public.import_underenhet_${YEAR}_small_history_upload DISABLE ROW LEVEL SECURITY;"
 done
 
 echo "Loading data into import tables"
@@ -85,17 +85,17 @@ for YEAR in $YEARS; do
 
     # Load hovedenhet (legal units) data
     echo "Loading hovedenhet data for $YEAR"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YEAR}_upload FROM '$WORKSPACE/samples/norway/small-history/${YEAR}-enheter.csv' WITH CSV HEADER;"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YEAR}_small_history_upload FROM '$WORKSPACE/samples/norway/small-history/${YEAR}-enheter.csv' WITH CSV HEADER;"
 
     # Load underenhet (establishments) data
     echo "Loading underenhet data for $YEAR"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_upload FROM '$WORKSPACE/samples/norway/small-history/${YEAR}-underenheter.csv' WITH CSV HEADER;"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_small_history_upload FROM '$WORKSPACE/samples/norway/small-history/${YEAR}-underenheter.csv' WITH CSV HEADER;"
 done
 
 #echo "Running worker processing to process import jobs"
 #$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT worker.process_tasks();"
 
 echo "Checking import job states"
-$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job ORDER BY slug;"
+$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug LIKE '%small_history' ORDER BY slug;"
 
 popd
