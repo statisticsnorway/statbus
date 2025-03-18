@@ -156,8 +156,11 @@ case "$action" in
             fi
         done
 
-        TEST_BASENAMES="$@"
-        if test -z "$TEST_BASENAMES"; then
+        # Store original arguments
+        ORIGINAL_ARGS=("$@")
+        
+        # Check if no arguments were provided
+        if [ ${#ORIGINAL_ARGS[@]} -eq 0 ]; then
             echo "Available tests:"
             echo "all"
             echo "failed"
@@ -165,34 +168,51 @@ case "$action" in
             exit 0
         fi
         
-        # Parse arguments into include and exclude lists
-        EXCLUDE_TESTS=""
-        INCLUDE_TESTS=""
-        for test in $TEST_BASENAMES; do
-            if [[ $test == -* ]]; then
-                EXCLUDE_TESTS="$EXCLUDE_TESTS ${test#-}"
-            else
-                INCLUDE_TESTS="$INCLUDE_TESTS $test"
-            fi
-        done
-        
-        # Determine the base test set
-        if [[ "$INCLUDE_TESTS" == *"all"* ]]; then
-            BASE_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
-        elif [[ "$INCLUDE_TESTS" == *"failed"* ]]; then
-            BASE_TESTS=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}')
-        else
-            # Just use explicitly included tests
-            TEST_BASENAMES="$INCLUDE_TESTS"
-            BASE_TESTS=""
-        fi
-        
-        # Apply exclusions if we have a base test set
-        if [ -n "$BASE_TESTS" ]; then
+        # Check for special keywords
+        if [ "${ORIGINAL_ARGS[0]}" = "all" ]; then
+            # Get all tests
+            ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
+            
+            # Process exclusions (tests starting with -)
             TEST_BASENAMES=""
-            for test in $BASE_TESTS; do
-                if ! echo "$EXCLUDE_TESTS" | grep -qw "$test"; then
+            for test in $ALL_TESTS; do
+                exclude=false
+                for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "all"
+                    if [ "$arg" = "-$test" ]; then
+                        exclude=true
+                        break
+                    fi
+                done
+                
+                if [ "$exclude" = "false" ]; then
                     TEST_BASENAMES="$TEST_BASENAMES $test"
+                fi
+            done
+        elif [ "${ORIGINAL_ARGS[0]}" = "failed" ]; then
+            # Get failed tests
+            FAILED_TESTS=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}')
+            
+            # Process exclusions
+            TEST_BASENAMES=""
+            for test in $FAILED_TESTS; do
+                exclude=false
+                for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "failed"
+                    if [ "$arg" = "-$test" ]; then
+                        exclude=true
+                        break
+                    fi
+                done
+                
+                if [ "$exclude" = "false" ]; then
+                    TEST_BASENAMES="$TEST_BASENAMES $test"
+                fi
+            done
+        else
+            # Just use the provided test names, filtering out exclusions
+            TEST_BASENAMES=""
+            for arg in "${ORIGINAL_ARGS[@]}"; do
+                if [[ "$arg" != -* ]]; then
+                    TEST_BASENAMES="$TEST_BASENAMES $arg"
                 fi
             done
         fi
