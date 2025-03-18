@@ -6,6 +6,12 @@ CREATE VIEW public.timesegments AS
           unit_type,
           unit_id,
           timepoint AS valid_after,
+          -- The LEAD window function looks ahead to the next row in the ordered partition
+          -- and returns the value of timepoint from that row.
+          -- PARTITION BY unit_type, unit_id: Groups rows by unit_type and unit_id
+          -- ORDER BY timepoint: Orders rows within each partition by timepoint
+          -- This creates time segments where valid_to is the start time of the next segment,
+          -- effectively making each segment valid from valid_after until valid_to
           LEAD(timepoint) OVER (PARTITION BY unit_type, unit_id ORDER BY timepoint) AS valid_to
       FROM public.timepoints
   )
