@@ -139,78 +139,20 @@ BEGIN
       daterange(COALESCE(p_valid_after, '-infinity'::date),
                COALESCE(p_valid_to, 'infinity'::date), '(]');
 
-  -- Insert new entries from the temporary table with ON CONFLICT DO UPDATE
-  -- This ensures all fields are updated when there's a conflict
+  -- Delete any data that would overlap with the new data in temp_new_units
+  DELETE FROM public.statistical_unit AS su
+  WHERE EXISTS (
+    SELECT 1 FROM temp_new_units AS tnu
+    WHERE su.unit_type = tnu.unit_type
+    AND su.unit_id = tnu.unit_id
+    AND daterange(su.valid_from, su.valid_to, '(]') &&
+        daterange(tnu.valid_from, tnu.valid_to, '(]')
+  );
+
+  -- Insert new entries from the temporary table
+  -- No conflict handling needed as we've deleted all potential conflicts
   INSERT INTO public.statistical_unit
-  SELECT * FROM temp_new_units
-  ON CONFLICT (valid_from, valid_to, unit_type, unit_id) DO UPDATE SET
-    external_idents = EXCLUDED.external_idents,
-    name = EXCLUDED.name,
-    birth_date = EXCLUDED.birth_date,
-    death_date = EXCLUDED.death_date,
-    search = EXCLUDED.search,
-    primary_activity_category_id = EXCLUDED.primary_activity_category_id,
-    primary_activity_category_path = EXCLUDED.primary_activity_category_path,
-    primary_activity_category_code = EXCLUDED.primary_activity_category_code,
-    secondary_activity_category_id = EXCLUDED.secondary_activity_category_id,
-    secondary_activity_category_path = EXCLUDED.secondary_activity_category_path,
-    secondary_activity_category_code = EXCLUDED.secondary_activity_category_code,
-    activity_category_paths = EXCLUDED.activity_category_paths,
-    sector_id = EXCLUDED.sector_id,
-    sector_path = EXCLUDED.sector_path,
-    sector_code = EXCLUDED.sector_code,
-    sector_name = EXCLUDED.sector_name,
-    data_source_ids = EXCLUDED.data_source_ids,
-    data_source_codes = EXCLUDED.data_source_codes,
-    legal_form_id = EXCLUDED.legal_form_id,
-    legal_form_code = EXCLUDED.legal_form_code,
-    legal_form_name = EXCLUDED.legal_form_name,
-    physical_address_part1 = EXCLUDED.physical_address_part1,
-    physical_address_part2 = EXCLUDED.physical_address_part2,
-    physical_address_part3 = EXCLUDED.physical_address_part3,
-    physical_postcode = EXCLUDED.physical_postcode,
-    physical_postplace = EXCLUDED.physical_postplace,
-    physical_region_id = EXCLUDED.physical_region_id,
-    physical_region_path = EXCLUDED.physical_region_path,
-    physical_region_code = EXCLUDED.physical_region_code,
-    physical_country_id = EXCLUDED.physical_country_id,
-    physical_country_iso_2 = EXCLUDED.physical_country_iso_2,
-    physical_latitude = EXCLUDED.physical_latitude,
-    physical_longitude = EXCLUDED.physical_longitude,
-    physical_altitude = EXCLUDED.physical_altitude,
-    postal_address_part1 = EXCLUDED.postal_address_part1,
-    postal_address_part2 = EXCLUDED.postal_address_part2,
-    postal_address_part3 = EXCLUDED.postal_address_part3,
-    postal_postcode = EXCLUDED.postal_postcode,
-    postal_postplace = EXCLUDED.postal_postplace,
-    postal_region_id = EXCLUDED.postal_region_id,
-    postal_region_path = EXCLUDED.postal_region_path,
-    postal_region_code = EXCLUDED.postal_region_code,
-    postal_country_id = EXCLUDED.postal_country_id,
-    postal_country_iso_2 = EXCLUDED.postal_country_iso_2,
-    postal_latitude = EXCLUDED.postal_latitude,
-    postal_longitude = EXCLUDED.postal_longitude,
-    postal_altitude = EXCLUDED.postal_altitude,
-    web_address = EXCLUDED.web_address,
-    email_address = EXCLUDED.email_address,
-    phone_number = EXCLUDED.phone_number,
-    landline = EXCLUDED.landline,
-    mobile_number = EXCLUDED.mobile_number,
-    fax_number = EXCLUDED.fax_number,
-    status_id = EXCLUDED.status_id,
-    status_code = EXCLUDED.status_code,
-    include_unit_in_reports = EXCLUDED.include_unit_in_reports,
-    invalid_codes = EXCLUDED.invalid_codes,
-    has_legal_unit = EXCLUDED.has_legal_unit,
-    establishment_ids = EXCLUDED.establishment_ids,
-    legal_unit_ids = EXCLUDED.legal_unit_ids,
-    enterprise_ids = EXCLUDED.enterprise_ids,
-    stats = EXCLUDED.stats,
-    stats_summary = EXCLUDED.stats_summary,
-    establishment_count = EXCLUDED.establishment_count,
-    legal_unit_count = EXCLUDED.legal_unit_count,
-    enterprise_count = EXCLUDED.enterprise_count,
-    tag_paths = EXCLUDED.tag_paths;
+  SELECT * FROM temp_new_units;
 
   -- Drop the temporary table
   DROP TABLE temp_new_units;
@@ -228,7 +170,7 @@ $statistical_unit_refresh$;
 CREATE PROCEDURE worker.command_statistical_unit_refresh(
     payload JSONB
 )
-SECURITY DEFINER
+SECURITY DEFINERq
 LANGUAGE plpgsql
 AS $procedure$
 DECLARE
