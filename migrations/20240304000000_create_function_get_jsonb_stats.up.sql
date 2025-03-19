@@ -5,7 +5,9 @@ CREATE OR REPLACE FUNCTION public.get_jsonb_stats(
     p_legal_unit_id INTEGER,
     p_valid_after DATE,
     p_valid_to DATE
-) RETURNS JSONB LANGUAGE sql AS $get_jsonb_stats$
+) RETURNS JSONB 
+LANGUAGE sql STABLE PARALLEL SAFE COST 100 
+AS $get_jsonb_stats$
     SELECT public.jsonb_concat_agg(
         CASE sd.type
             WHEN 'int' THEN jsonb_build_object(sd.code, sfu.value_int)

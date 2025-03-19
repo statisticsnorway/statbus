@@ -1,6 +1,12 @@
 BEGIN;
 
-CREATE FUNCTION public.jsonb_stats_summary_merge(a jsonb, b jsonb) RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT AS $$
+CREATE OR REPLACE FUNCTION public.jsonb_stats_summary_merge(a jsonb, b jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+IMMUTABLE STRICT
+PARALLEL SAFE
+COST 100
+AS $$
 DECLARE
     key_a text;
     key_b text;
@@ -142,7 +148,7 @@ END;
 $$;
 
 
-CREATE AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb) (
+CREATE OR REPLACE AGGREGATE public.jsonb_stats_summary_merge_agg(jsonb) (
     sfunc = public.jsonb_stats_summary_merge,
     stype = jsonb,
     initcond = '{}',
