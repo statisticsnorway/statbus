@@ -54,7 +54,13 @@ BEGIN;
  * ======================================================================================
  */
 
-CREATE FUNCTION public.jsonb_stats_to_summary(state jsonb, stats jsonb) RETURNS jsonb LANGUAGE plpgsql STABLE STRICT AS $$
+CREATE OR REPLACE FUNCTION public.jsonb_stats_to_summary(state jsonb, stats jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE STRICT
+PARALLEL SAFE
+COST 100
+AS $$
 DECLARE
     prev_stat_state jsonb;
     stat_key text;
@@ -247,7 +253,13 @@ END;
 $$;
 
 
-CREATE FUNCTION public.jsonb_stats_to_summary_round(state jsonb) RETURNS jsonb LANGUAGE plpgsql STABLE STRICT AS $$
+CREATE OR REPLACE FUNCTION public.jsonb_stats_to_summary_round(state jsonb)
+RETURNS jsonb
+LANGUAGE plpgsql
+STABLE STRICT
+PARALLEL SAFE
+COST 50
+AS $$
 DECLARE
     key text;
     val jsonb;
@@ -280,7 +292,7 @@ END;
 $$;
 
 
-CREATE AGGREGATE public.jsonb_stats_to_summary_agg(jsonb) (
+CREATE OR REPLACE AGGREGATE public.jsonb_stats_to_summary_agg(jsonb) (
     sfunc = public.jsonb_stats_to_summary,
     stype = jsonb,
     initcond = '{}',
