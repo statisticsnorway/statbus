@@ -111,7 +111,7 @@ DECLARE
   v_affected_count int;
 BEGIN
   -- Create a temporary table to store the new data to ensure consistency
-  CREATE TEMPORARY TABLE temp_new_units AS
+  CREATE TEMPORARY TABLE temp_statistical_unit AS
   SELECT * FROM public.statistical_unit_def AS sud
   WHERE (
     (sud.unit_type = 'establishment' AND sud.unit_id = ANY(p_establishment_ids)) OR
@@ -139,10 +139,10 @@ BEGIN
       daterange(COALESCE(p_valid_after, '-infinity'::date),
                COALESCE(p_valid_to, 'infinity'::date), '(]');
 
-  -- Delete any data that would overlap with the new data in temp_new_units
+  -- Delete any data that would overlap with the new data in the temporary table
   DELETE FROM public.statistical_unit AS su
   WHERE EXISTS (
-    SELECT 1 FROM temp_new_units AS tnu
+    SELECT 1 FROM temp_statistical_unit AS tnu
     WHERE su.unit_type = tnu.unit_type
     AND su.unit_id = tnu.unit_id
     AND daterange(su.valid_from, su.valid_to, '(]') &&
@@ -152,10 +152,10 @@ BEGIN
   -- Insert new entries from the temporary table
   -- No conflict handling needed as we've deleted all potential conflicts
   INSERT INTO public.statistical_unit
-  SELECT * FROM temp_new_units;
+  SELECT * FROM temp_statistical_unit;
 
   -- Drop the temporary table
-  DROP TABLE temp_new_units;
+  DROP TABLE temp_statistical_unit;
 
   -- Enqueue refresh derived data task
   PERFORM worker.enqueue_refresh_derived_data(
