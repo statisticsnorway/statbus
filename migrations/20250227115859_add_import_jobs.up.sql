@@ -339,7 +339,7 @@ CREATE TABLE public.import_job (
     import_stop_at timestamp with time zone,
     total_rows integer,
     imported_rows integer DEFAULT 0,
-    import_completed_pct numeric(5,2),
+    import_completed_pct numeric(5,2) DEFAULT 0,
     import_rows_per_sec numeric(10,2),
     last_progress_update timestamp with time zone,
     state public.import_job_state NOT NULL DEFAULT 'waiting_for_upload',
