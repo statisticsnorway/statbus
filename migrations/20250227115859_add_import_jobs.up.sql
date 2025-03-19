@@ -345,6 +345,15 @@ CREATE TABLE public.import_job (
             ELSE ROUND((imported_rows::numeric / total_rows::numeric) * 100, 2)
         END
     ) STORED,
+    import_rows_per_sec numeric(10,2) GENERATED ALWAYS AS (
+        CASE
+            WHEN imported_rows = 0 OR import_start_at IS NULL THEN 0
+            WHEN state = 'finished' AND import_stop_at IS NOT NULL THEN
+                ROUND((imported_rows::numeric / EXTRACT(EPOCH FROM (import_stop_at - import_start_at))), 2)
+            ELSE
+                ROUND((imported_rows::numeric / EXTRACT(EPOCH FROM (COALESCE(last_progress_update, now()) - import_start_at))), 2)
+        END
+    ) STORED,
     last_progress_update timestamp with time zone,
     state public.import_job_state NOT NULL DEFAULT 'waiting_for_upload',
     error TEXT,
@@ -650,6 +659,7 @@ BEGIN
             'total_rows', NEW.total_rows,
             'imported_rows', NEW.imported_rows,
             'import_completed_pct', NEW.import_completed_pct,
+            'import_rows_per_sec', NEW.import_rows_per_sec,
             'state', NEW.state
         )::text
     );
@@ -693,6 +703,7 @@ BEGIN
         'total_rows', job.total_rows,
         'imported_rows', job.imported_rows,
         'import_completed_pct', job.import_completed_pct,
+        'import_rows_per_sec', job.import_rows_per_sec,
         'last_progress_update', job.last_progress_update,
         'row_states', row_states
     );
