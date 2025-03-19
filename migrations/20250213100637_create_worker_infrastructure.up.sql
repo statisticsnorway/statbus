@@ -56,16 +56,16 @@ CREATE TABLE worker.tasks (
   state worker.task_state DEFAULT 'pending',
   processed_at TIMESTAMPTZ,
   duration_ms NUMERIC,
-  error_message TEXT,
+  error TEXT,
   scheduled_at TIMESTAMPTZ, -- When this task should be processed, if delayed.
   payload JSONB,
   CONSTRAINT "consistent_command_in_payload" CHECK (command = payload->>'command'),
   CONSTRAINT check_payload_type
   CHECK (payload IS NULL OR jsonb_typeof(payload) = 'object' OR jsonb_typeof(payload) = 'null'),
-  CONSTRAINT error_message_required_when_failed CHECK (
+  CONSTRAINT error_required_when_failed CHECK (
     CASE state
-    WHEN 'failed'::worker.task_state THEN error_message IS NOT NULL
-    ELSE error_message IS NULL
+    WHEN 'failed'::worker.task_state THEN error IS NOT NULL
+    ELSE error IS NULL
     END
   )
 );
@@ -466,7 +466,7 @@ BEGIN
     state = 'pending'::worker.task_state,
     priority = EXCLUDED.priority,  -- Use the new priority to push queue position
     processed_at = NULL,
-    error_message = NULL
+    error = NULL
   RETURNING id INTO v_task_id;
 
   -- Notify worker of new task with queue information
@@ -585,7 +585,7 @@ BEGIN
     state = 'pending'::worker.task_state,
     priority = EXCLUDED.priority,  -- Use the new priority to push queue position
     processed_at = NULL,
-    error_message = NULL
+    error = NULL
   RETURNING id INTO v_task_id;
 
   PERFORM pg_notify('worker_tasks', 'analytics');
@@ -688,7 +688,7 @@ BEGIN
     state = 'pending'::worker.task_state,
     priority = EXCLUDED.priority,  -- Use the new priority to push queue position
     processed_at = NULL,
-    error_message = NULL
+    error = NULL
   RETURNING id INTO v_task_id;
 
   PERFORM pg_notify('worker_tasks', 'analytics');
@@ -739,7 +739,7 @@ BEGIN
     state = 'pending'::worker.task_state,
     priority = EXCLUDED.priority,  -- Use the new priority to push queue position
     processed_at = NULL,
-    error_message = NULL
+    error = NULL
   RETURNING id INTO v_task_id;
 
   PERFORM pg_notify('worker_tasks', 'analytics');
@@ -824,10 +824,10 @@ BEGIN
       v_state worker.task_state;
       v_processed_at TIMESTAMPTZ;
       v_duration_ms NUMERIC;
-      v_error_message TEXT DEFAULT NULL;
+      v_error TEXT DEFAULT NULL;
     BEGIN -- Block for variables, there is not CATCH that creates sub-transactions
       DECLARE -- Block for catching exceptions, introduces sub-transactions.
-        error_details TEXT;
+        v_message_text TEXT;
         v_pg_exception_detail TEXT;
         v_pg_exception_hint TEXT;
         v_pg_exception_context TEXT;
@@ -858,14 +858,14 @@ BEGIN
         v_duration_ms := elapsed_ms;
 
         GET STACKED DIAGNOSTICS
-          error_details = MESSAGE_TEXT,
+          v_message_text = MESSAGE_TEXT,
           v_pg_exception_detail = PG_EXCEPTION_DETAIL,
           v_pg_exception_hint = PG_EXCEPTION_HINT,
           v_pg_exception_context = PG_EXCEPTION_CONTEXT;
 
-        error_details := format(
+        v_error := format(
           'Error: %s%sContext: %s%sDetail: %s%sHint: %s',
-          error_details,
+          v_message_text,
           E'\n',
           v_pg_exception_context,
           E'\n',
@@ -874,11 +874,9 @@ BEGIN
           COALESCE(v_pg_exception_hint, '')
         );
 
-        v_error_message := error_details;
-
         -- Log failure
         RAISE WARNING 'Task % (%) failed in % ms: %',
-          task_record.id, task_record.command, elapsed_ms, error_details;
+          task_record.id, task_record.command, elapsed_ms, v_error;
       END;
 
       -- Update the task with the results
@@ -886,7 +884,7 @@ BEGIN
       SET state = v_state,
           processed_at = v_processed_at,
           duration_ms = v_duration_ms,
-          error_message = v_error_message
+          error = v_error
       WHERE t.id = task_record.id;
 
       -- Commit to see state change of task. The COMMIT automatically ends the transaction,
@@ -941,7 +939,7 @@ DECLARE
   v_merged_count int := 0;
 BEGIN
   -- First, identify all tasks that are stuck in 'processing' state
-  FOR v_task IN 
+  FOR v_task IN
     SELECT id, command, payload
     FROM worker.tasks
     WHERE state = 'processing'::worker.task_state
@@ -951,9 +949,9 @@ BEGIN
       UPDATE worker.tasks
       SET state = 'pending'::worker.task_state,
           processed_at = NULL,
-          error_message = NULL
+          error = NULL
       WHERE id = v_task.id;
-      
+
       v_count := v_count + 1;
     EXCEPTION WHEN unique_violation THEN
       -- If we hit a unique constraint violation, it means there's already a pending task
@@ -962,13 +960,13 @@ BEGIN
       UPDATE worker.tasks
       SET state = 'failed'::worker.task_state,
           processed_at = now(),
-          error_message = 'Task automatically merged with existing pending task during worker restart'
+          error = 'Task automatically merged with existing pending task during worker restart'
       WHERE id = v_task.id;
-      
+
       v_merged_count := v_merged_count + 1;
     END;
   END LOOP;
-  
+
   -- Return the total number of tasks that were reset or merged
   RETURN v_count + v_merged_count;
 END;
@@ -1036,7 +1034,7 @@ BEGIN
     state = 'pending'::worker.task_state,
     priority = EXCLUDED.priority,  -- Use the new priority to push queue position
     processed_at = NULL,
-    error_message = NULL
+    error = NULL
   RETURNING id INTO v_task_id;
 
   -- Notify worker of new task with queue information
