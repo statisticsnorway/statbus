@@ -47,8 +47,8 @@ CREATE TYPE worker.task_state AS ENUM (
 
 CREATE SEQUENCE IF NOT EXISTS public.worker_task_priority_seq AS BIGINT;
 
--- Create unlogged tasks table for batch processing
-CREATE UNLOGGED TABLE worker.tasks (
+-- Create tasks table for batch processing
+CREATE TABLE worker.tasks (
   id BIGSERIAL PRIMARY KEY,
   command TEXT NOT NULL REFERENCES worker.command_registry(command),
   priority BIGINT DEFAULT nextval('public.worker_task_priority_seq'),
@@ -170,7 +170,7 @@ $statistical_unit_refresh$;
 CREATE PROCEDURE worker.command_statistical_unit_refresh(
     payload JSONB
 )
-SECURITY DEFINERq
+SECURITY DEFINER
 LANGUAGE plpgsql
 AS $procedure$
 DECLARE
@@ -927,6 +927,52 @@ FOREIGN KEY (command) REFERENCES worker.command_registry(command);
 CREATE INDEX idx_tasks_scheduled_at ON worker.tasks (scheduled_at)
 WHERE state = 'pending'::worker.task_state AND scheduled_at IS NOT NULL;
 
+
+-- Function to reset abandoned processing tasks
+-- This is used when the worker starts to reset any tasks that were left in 'processing' state
+-- from a previous worker instance that crashed or was terminated unexpectedly
+CREATE OR REPLACE FUNCTION worker.reset_abandoned_processing_tasks()
+RETURNS int
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_count int := 0;
+  v_task record;
+  v_merged_count int := 0;
+BEGIN
+  -- First, identify all tasks that are stuck in 'processing' state
+  FOR v_task IN 
+    SELECT id, command, payload
+    FROM worker.tasks
+    WHERE state = 'processing'::worker.task_state
+  LOOP
+    BEGIN
+      -- Try to update the task to pending state
+      UPDATE worker.tasks
+      SET state = 'pending'::worker.task_state,
+          processed_at = NULL,
+          error_message = NULL
+      WHERE id = v_task.id;
+      
+      v_count := v_count + 1;
+    EXCEPTION WHEN unique_violation THEN
+      -- If we hit a unique constraint violation, it means there's already a pending task
+      -- for this command with the same deduplication key. In this case, we'll mark the
+      -- processing task as failed and note that it was merged.
+      UPDATE worker.tasks
+      SET state = 'failed'::worker.task_state,
+          processed_at = now(),
+          error_message = 'Task automatically merged with existing pending task during worker restart'
+      WHERE id = v_task.id;
+      
+      v_merged_count := v_merged_count + 1;
+    END;
+  END LOOP;
+  
+  -- Return the total number of tasks that were reset or merged
+  RETURN v_count + v_merged_count;
+END;
+$function$;
 
 -- Create command handler for task_cleanup
 -- Removes completed and failed tasks older than the specified retention period
