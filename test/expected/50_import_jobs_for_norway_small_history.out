@@ -323,7 +323,7 @@ ORDER BY id.slug, isc.priority NULLS LAST;
 (262 rows)
 
 CALL test.set_user_from_email('test.super@statbus.org');
-\i samples/norway/brreg/create-import-definition-legal_unit.sql
+\i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 -- Pretend the user has clicked and created import definition for BRREG Hovedenhet (legal_unit)
 WITH it AS (
     SELECT * FROM public.import_target
@@ -337,8 +337,8 @@ WITH it AS (
         , note
         )
     SELECT it.id
-        , 'brreg_hovedenhet'
-        , 'Import of BRREG Hovedenhet'
+        , 'brreg_hovedenhet_2024'
+        , 'Import of BRREG Hovedenhet using 2024 columns'
         , 'Easy upload of the CSV file found at brreg.'
     FROM it
     RETURNING *
@@ -448,64 +448,64 @@ LEFT JOIN def d ON d.id = m.definition_id
 LEFT JOIN inserted_source_column sc ON sc.id = m.source_column_id
 LEFT JOIN public.import_target_column tc ON tc.id = m.target_column_id
 ORDER BY source_column_priority, target_column;
- definition_slug  |               source_column               | source_value | source_expression | source_column_priority |          target_column           
-------------------+-------------------------------------------+--------------+-------------------+------------------------+----------------------------------
- brreg_hovedenhet | organisasjonsnummer                       |              |                   |                      3 | tax_ident
- brreg_hovedenhet | navn                                      |              |                   |                      4 | name
- brreg_hovedenhet | organisasjonsform.kode                    |              |                   |                      5 | legal_form_code
- brreg_hovedenhet | organisasjonsform.beskrivelse             |              |                   |                      6 | 
- brreg_hovedenhet | naeringskode1.kode                        |              |                   |                      7 | primary_activity_category_code
- brreg_hovedenhet | naeringskode1.beskrivelse                 |              |                   |                      8 | 
- brreg_hovedenhet | naeringskode2.kode                        |              |                   |                      9 | secondary_activity_category_code
- brreg_hovedenhet | naeringskode2.beskrivelse                 |              |                   |                     10 | 
- brreg_hovedenhet | naeringskode3.kode                        |              |                   |                     11 | 
- brreg_hovedenhet | naeringskode3.beskrivelse                 |              |                   |                     12 | 
- brreg_hovedenhet | hjelpeenhetskode.kode                     |              |                   |                     13 | 
- brreg_hovedenhet | hjelpeenhetskode.beskrivelse              |              |                   |                     14 | 
- brreg_hovedenhet | harRegistrertAntallAnsatte                |              |                   |                     15 | 
- brreg_hovedenhet | antallAnsatte                             |              |                   |                     16 | 
- brreg_hovedenhet | hjemmeside                                |              |                   |                     17 | 
- brreg_hovedenhet | postadresse.adresse                       |              |                   |                     18 | postal_address_part1
- brreg_hovedenhet | postadresse.poststed                      |              |                   |                     19 | postal_postplace
- brreg_hovedenhet | postadresse.postnummer                    |              |                   |                     20 | postal_postcode
- brreg_hovedenhet | postadresse.kommune                       |              |                   |                     21 | 
- brreg_hovedenhet | postadresse.kommunenummer                 |              |                   |                     22 | postal_region_code
- brreg_hovedenhet | postadresse.land                          |              |                   |                     23 | 
- brreg_hovedenhet | postadresse.landkode                      |              |                   |                     24 | postal_country_iso_2
- brreg_hovedenhet | forretningsadresse.adresse                |              |                   |                     25 | physical_address_part1
- brreg_hovedenhet | forretningsadresse.poststed               |              |                   |                     26 | physical_postplace
- brreg_hovedenhet | forretningsadresse.postnummer             |              |                   |                     27 | physical_postcode
- brreg_hovedenhet | forretningsadresse.kommune                |              |                   |                     28 | 
- brreg_hovedenhet | forretningsadresse.kommunenummer          |              |                   |                     29 | physical_region_code
- brreg_hovedenhet | forretningsadresse.land                   |              |                   |                     30 | 
- brreg_hovedenhet | forretningsadresse.landkode               |              |                   |                     31 | physical_country_iso_2
- brreg_hovedenhet | institusjonellSektorkode.kode             |              |                   |                     32 | sector_code
- brreg_hovedenhet | institusjonellSektorkode.beskrivelse      |              |                   |                     33 | 
- brreg_hovedenhet | sisteInnsendteAarsregnskap                |              |                   |                     34 | 
- brreg_hovedenhet | registreringsdatoenhetsregisteret         |              |                   |                     35 | 
- brreg_hovedenhet | stiftelsesdato                            |              |                   |                     36 | birth_date
- brreg_hovedenhet | registrertIMvaRegisteret                  |              |                   |                     37 | 
- brreg_hovedenhet | frivilligMvaRegistrertBeskrivelser        |              |                   |                     38 | 
- brreg_hovedenhet | registrertIFrivillighetsregisteret        |              |                   |                     39 | 
- brreg_hovedenhet | registrertIForetaksregisteret             |              |                   |                     40 | 
- brreg_hovedenhet | registrertIStiftelsesregisteret           |              |                   |                     41 | 
- brreg_hovedenhet | konkurs                                   |              |                   |                     42 | 
- brreg_hovedenhet | konkursdato                               |              |                   |                     43 | 
- brreg_hovedenhet | underAvvikling                            |              |                   |                     44 | 
- brreg_hovedenhet | underAvviklingDato                        |              |                   |                     45 | 
- brreg_hovedenhet | underTvangsavviklingEllerTvangsopplosning |              |                   |                     46 | 
- brreg_hovedenhet | tvangsopplostPgaManglendeDagligLederDato  |              |                   |                     47 | 
- brreg_hovedenhet | tvangsopplostPgaManglendeRevisorDato      |              |                   |                     48 | 
- brreg_hovedenhet | tvangsopplostPgaManglendeRegnskapDato     |              |                   |                     49 | 
- brreg_hovedenhet | tvangsopplostPgaMangelfulltStyreDato      |              |                   |                     50 | 
- brreg_hovedenhet | tvangsavvikletPgaManglendeSlettingDato    |              |                   |                     51 | 
- brreg_hovedenhet | overordnetEnhet                           |              |                   |                     52 | 
- brreg_hovedenhet | maalform                                  |              |                   |                     53 | 
- brreg_hovedenhet | vedtektsdato                              |              |                   |                     54 | 
- brreg_hovedenhet | vedtektsfestetFormaal                     |              |                   |                     55 | 
- brreg_hovedenhet | aktivitet                                 |              |                   |                     56 | 
- brreg_hovedenhet |                                           |              | default           |                        | valid_from
- brreg_hovedenhet |                                           |              | default           |                        | valid_to
+    definition_slug    |               source_column               | source_value | source_expression | source_column_priority |          target_column           
+-----------------------+-------------------------------------------+--------------+-------------------+------------------------+----------------------------------
+ brreg_hovedenhet_2024 | organisasjonsnummer                       |              |                   |                      3 | tax_ident
+ brreg_hovedenhet_2024 | navn                                      |              |                   |                      4 | name
+ brreg_hovedenhet_2024 | organisasjonsform.kode                    |              |                   |                      5 | legal_form_code
+ brreg_hovedenhet_2024 | organisasjonsform.beskrivelse             |              |                   |                      6 | 
+ brreg_hovedenhet_2024 | naeringskode1.kode                        |              |                   |                      7 | primary_activity_category_code
+ brreg_hovedenhet_2024 | naeringskode1.beskrivelse                 |              |                   |                      8 | 
+ brreg_hovedenhet_2024 | naeringskode2.kode                        |              |                   |                      9 | secondary_activity_category_code
+ brreg_hovedenhet_2024 | naeringskode2.beskrivelse                 |              |                   |                     10 | 
+ brreg_hovedenhet_2024 | naeringskode3.kode                        |              |                   |                     11 | 
+ brreg_hovedenhet_2024 | naeringskode3.beskrivelse                 |              |                   |                     12 | 
+ brreg_hovedenhet_2024 | hjelpeenhetskode.kode                     |              |                   |                     13 | 
+ brreg_hovedenhet_2024 | hjelpeenhetskode.beskrivelse              |              |                   |                     14 | 
+ brreg_hovedenhet_2024 | harRegistrertAntallAnsatte                |              |                   |                     15 | 
+ brreg_hovedenhet_2024 | antallAnsatte                             |              |                   |                     16 | 
+ brreg_hovedenhet_2024 | hjemmeside                                |              |                   |                     17 | 
+ brreg_hovedenhet_2024 | postadresse.adresse                       |              |                   |                     18 | postal_address_part1
+ brreg_hovedenhet_2024 | postadresse.poststed                      |              |                   |                     19 | postal_postplace
+ brreg_hovedenhet_2024 | postadresse.postnummer                    |              |                   |                     20 | postal_postcode
+ brreg_hovedenhet_2024 | postadresse.kommune                       |              |                   |                     21 | 
+ brreg_hovedenhet_2024 | postadresse.kommunenummer                 |              |                   |                     22 | postal_region_code
+ brreg_hovedenhet_2024 | postadresse.land                          |              |                   |                     23 | 
+ brreg_hovedenhet_2024 | postadresse.landkode                      |              |                   |                     24 | postal_country_iso_2
+ brreg_hovedenhet_2024 | forretningsadresse.adresse                |              |                   |                     25 | physical_address_part1
+ brreg_hovedenhet_2024 | forretningsadresse.poststed               |              |                   |                     26 | physical_postplace
+ brreg_hovedenhet_2024 | forretningsadresse.postnummer             |              |                   |                     27 | physical_postcode
+ brreg_hovedenhet_2024 | forretningsadresse.kommune                |              |                   |                     28 | 
+ brreg_hovedenhet_2024 | forretningsadresse.kommunenummer          |              |                   |                     29 | physical_region_code
+ brreg_hovedenhet_2024 | forretningsadresse.land                   |              |                   |                     30 | 
+ brreg_hovedenhet_2024 | forretningsadresse.landkode               |              |                   |                     31 | physical_country_iso_2
+ brreg_hovedenhet_2024 | institusjonellSektorkode.kode             |              |                   |                     32 | sector_code
+ brreg_hovedenhet_2024 | institusjonellSektorkode.beskrivelse      |              |                   |                     33 | 
+ brreg_hovedenhet_2024 | sisteInnsendteAarsregnskap                |              |                   |                     34 | 
+ brreg_hovedenhet_2024 | registreringsdatoenhetsregisteret         |              |                   |                     35 | 
+ brreg_hovedenhet_2024 | stiftelsesdato                            |              |                   |                     36 | birth_date
+ brreg_hovedenhet_2024 | registrertIMvaRegisteret                  |              |                   |                     37 | 
+ brreg_hovedenhet_2024 | frivilligMvaRegistrertBeskrivelser        |              |                   |                     38 | 
+ brreg_hovedenhet_2024 | registrertIFrivillighetsregisteret        |              |                   |                     39 | 
+ brreg_hovedenhet_2024 | registrertIForetaksregisteret             |              |                   |                     40 | 
+ brreg_hovedenhet_2024 | registrertIStiftelsesregisteret           |              |                   |                     41 | 
+ brreg_hovedenhet_2024 | konkurs                                   |              |                   |                     42 | 
+ brreg_hovedenhet_2024 | konkursdato                               |              |                   |                     43 | 
+ brreg_hovedenhet_2024 | underAvvikling                            |              |                   |                     44 | 
+ brreg_hovedenhet_2024 | underAvviklingDato                        |              |                   |                     45 | 
+ brreg_hovedenhet_2024 | underTvangsavviklingEllerTvangsopplosning |              |                   |                     46 | 
+ brreg_hovedenhet_2024 | tvangsopplostPgaManglendeDagligLederDato  |              |                   |                     47 | 
+ brreg_hovedenhet_2024 | tvangsopplostPgaManglendeRevisorDato      |              |                   |                     48 | 
+ brreg_hovedenhet_2024 | tvangsopplostPgaManglendeRegnskapDato     |              |                   |                     49 | 
+ brreg_hovedenhet_2024 | tvangsopplostPgaMangelfulltStyreDato      |              |                   |                     50 | 
+ brreg_hovedenhet_2024 | tvangsavvikletPgaManglendeSlettingDato    |              |                   |                     51 | 
+ brreg_hovedenhet_2024 | overordnetEnhet                           |              |                   |                     52 | 
+ brreg_hovedenhet_2024 | maalform                                  |              |                   |                     53 | 
+ brreg_hovedenhet_2024 | vedtektsdato                              |              |                   |                     54 | 
+ brreg_hovedenhet_2024 | vedtektsfestetFormaal                     |              |                   |                     55 | 
+ brreg_hovedenhet_2024 | aktivitet                                 |              |                   |                     56 | 
+ brreg_hovedenhet_2024 |                                           |              | default           |                        | valid_from
+ brreg_hovedenhet_2024 |                                           |              | default           |                        | valid_to
 (56 rows)
 
 SELECT d.slug,
@@ -520,17 +520,17 @@ SELECT d.slug,
 FROM public.import_definition d
 JOIN public.import_target t ON t.id = d.target_id
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
-WHERE d.slug = 'brreg_hovedenhet';
-       slug       |            name            |     target_table      |                    note                     | data_source | time_context_ident | draft | valid | validation_error 
-------------------+----------------------------+-----------------------+---------------------------------------------+-------------+--------------------+-------+-------+------------------
- brreg_hovedenhet | Import of BRREG Hovedenhet | import_legal_unit_era | Easy upload of the CSV file found at brreg. |             |                    | t     | f     | 
+WHERE d.slug = 'brreg_hovedenhet_2024';
+         slug          |                     name                      |     target_table      |                    note                     | data_source | time_context_ident | draft | valid | validation_error 
+-----------------------+-----------------------------------------------+-----------------------+---------------------------------------------+-------------+--------------------+-------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | import_legal_unit_era | Easy upload of the CSV file found at brreg. |             |                    | t     | f     | 
 (1 row)
 
 UPDATE public.import_definition
 SET draft = false
 WHERE draft
-  AND slug = 'brreg_hovedenhet';
-\i samples/norway/brreg/create-import-definition-establishment.sql
+  AND slug = 'brreg_hovedenhet_2024';
+\i samples/norway/brreg/create-import-definition-underenhet-2024.sql
 -- Pretend the user has clicked and created import definition for BRREG Underenhet (establishment for establishment)
 WITH it AS (
     SELECT * FROM public.import_target
@@ -544,8 +544,8 @@ WITH it AS (
         , note
         )
     SELECT it.id
-        , 'brreg_underenhet'
-        , 'Import of BRREG Underenhet'
+        , 'brreg_underenhet_2024'
+        , 'Import of BRREG Underenhet using 2024 columns'
         , 'Easy upload of the CSV file found at brreg.'
     FROM it
     RETURNING *
@@ -637,46 +637,46 @@ LEFT JOIN def d ON d.id = m.definition_id
 LEFT JOIN inserted_source_column sc ON sc.id = m.source_column_id
 LEFT JOIN public.import_target_column tc ON tc.id = m.target_column_id
 ORDER BY source_column_priority, target_column;
- definition_slug  |           source_column            | source_value | source_expression | source_column_priority |          target_column           
-------------------+------------------------------------+--------------+-------------------+------------------------+----------------------------------
- brreg_underenhet | organisasjonsnummer                |              |                   |                      3 | tax_ident
- brreg_underenhet | navn                               |              |                   |                      4 | name
- brreg_underenhet | organisasjonsform.kode             |              |                   |                      5 | 
- brreg_underenhet | organisasjonsform.beskrivelse      |              |                   |                      6 | 
- brreg_underenhet | naeringskode1.kode                 |              |                   |                      7 | primary_activity_category_code
- brreg_underenhet | naeringskode1.beskrivelse          |              |                   |                      8 | 
- brreg_underenhet | naeringskode2.kode                 |              |                   |                      9 | secondary_activity_category_code
- brreg_underenhet | naeringskode2.beskrivelse          |              |                   |                     10 | 
- brreg_underenhet | naeringskode3.kode                 |              |                   |                     11 | 
- brreg_underenhet | naeringskode3.beskrivelse          |              |                   |                     12 | 
- brreg_underenhet | hjelpeenhetskode.kode              |              |                   |                     13 | 
- brreg_underenhet | hjelpeenhetskode.beskrivelse       |              |                   |                     14 | 
- brreg_underenhet | harRegistrertAntallAnsatte         |              |                   |                     15 | 
- brreg_underenhet | antallAnsatte                      |              |                   |                     16 | 
- brreg_underenhet | hjemmeside                         |              |                   |                     17 | 
- brreg_underenhet | postadresse.adresse                |              |                   |                     18 | postal_address_part1
- brreg_underenhet | postadresse.poststed               |              |                   |                     19 | postal_postplace
- brreg_underenhet | postadresse.postnummer             |              |                   |                     20 | postal_postcode
- brreg_underenhet | postadresse.kommune                |              |                   |                     21 | 
- brreg_underenhet | postadresse.kommunenummer          |              |                   |                     22 | postal_region_code
- brreg_underenhet | postadresse.land                   |              |                   |                     23 | 
- brreg_underenhet | postadresse.landkode               |              |                   |                     24 | postal_country_iso_2
- brreg_underenhet | beliggenhetsadresse.adresse        |              |                   |                     25 | physical_address_part1
- brreg_underenhet | beliggenhetsadresse.poststed       |              |                   |                     26 | physical_postplace
- brreg_underenhet | beliggenhetsadresse.postnummer     |              |                   |                     27 | physical_postcode
- brreg_underenhet | beliggenhetsadresse.kommune        |              |                   |                     28 | 
- brreg_underenhet | beliggenhetsadresse.kommunenummer  |              |                   |                     29 | physical_region_code
- brreg_underenhet | beliggenhetsadresse.land           |              |                   |                     30 | 
- brreg_underenhet | beliggenhetsadresse.landkode       |              |                   |                     31 | physical_country_iso_2
- brreg_underenhet | registreringsdatoIEnhetsregisteret |              |                   |                     32 | 
- brreg_underenhet | frivilligMvaRegistrertBeskrivelser |              |                   |                     33 | 
- brreg_underenhet | registrertIMvaregisteret           |              |                   |                     34 | 
- brreg_underenhet | oppstartsdato                      |              |                   |                     35 | birth_date
- brreg_underenhet | datoEierskifte                     |              |                   |                     36 | 
- brreg_underenhet | overordnetEnhet                    |              |                   |                     37 | legal_unit_tax_ident
- brreg_underenhet | nedleggelsesdato                   |              |                   |                     38 | death_date
- brreg_underenhet |                                    |              | default           |                        | valid_from
- brreg_underenhet |                                    |              | default           |                        | valid_to
+    definition_slug    |           source_column            | source_value | source_expression | source_column_priority |          target_column           
+-----------------------+------------------------------------+--------------+-------------------+------------------------+----------------------------------
+ brreg_underenhet_2024 | organisasjonsnummer                |              |                   |                      3 | tax_ident
+ brreg_underenhet_2024 | navn                               |              |                   |                      4 | name
+ brreg_underenhet_2024 | organisasjonsform.kode             |              |                   |                      5 | 
+ brreg_underenhet_2024 | organisasjonsform.beskrivelse      |              |                   |                      6 | 
+ brreg_underenhet_2024 | naeringskode1.kode                 |              |                   |                      7 | primary_activity_category_code
+ brreg_underenhet_2024 | naeringskode1.beskrivelse          |              |                   |                      8 | 
+ brreg_underenhet_2024 | naeringskode2.kode                 |              |                   |                      9 | secondary_activity_category_code
+ brreg_underenhet_2024 | naeringskode2.beskrivelse          |              |                   |                     10 | 
+ brreg_underenhet_2024 | naeringskode3.kode                 |              |                   |                     11 | 
+ brreg_underenhet_2024 | naeringskode3.beskrivelse          |              |                   |                     12 | 
+ brreg_underenhet_2024 | hjelpeenhetskode.kode              |              |                   |                     13 | 
+ brreg_underenhet_2024 | hjelpeenhetskode.beskrivelse       |              |                   |                     14 | 
+ brreg_underenhet_2024 | harRegistrertAntallAnsatte         |              |                   |                     15 | 
+ brreg_underenhet_2024 | antallAnsatte                      |              |                   |                     16 | 
+ brreg_underenhet_2024 | hjemmeside                         |              |                   |                     17 | 
+ brreg_underenhet_2024 | postadresse.adresse                |              |                   |                     18 | postal_address_part1
+ brreg_underenhet_2024 | postadresse.poststed               |              |                   |                     19 | postal_postplace
+ brreg_underenhet_2024 | postadresse.postnummer             |              |                   |                     20 | postal_postcode
+ brreg_underenhet_2024 | postadresse.kommune                |              |                   |                     21 | 
+ brreg_underenhet_2024 | postadresse.kommunenummer          |              |                   |                     22 | postal_region_code
+ brreg_underenhet_2024 | postadresse.land                   |              |                   |                     23 | 
+ brreg_underenhet_2024 | postadresse.landkode               |              |                   |                     24 | postal_country_iso_2
+ brreg_underenhet_2024 | beliggenhetsadresse.adresse        |              |                   |                     25 | physical_address_part1
+ brreg_underenhet_2024 | beliggenhetsadresse.poststed       |              |                   |                     26 | physical_postplace
+ brreg_underenhet_2024 | beliggenhetsadresse.postnummer     |              |                   |                     27 | physical_postcode
+ brreg_underenhet_2024 | beliggenhetsadresse.kommune        |              |                   |                     28 | 
+ brreg_underenhet_2024 | beliggenhetsadresse.kommunenummer  |              |                   |                     29 | physical_region_code
+ brreg_underenhet_2024 | beliggenhetsadresse.land           |              |                   |                     30 | 
+ brreg_underenhet_2024 | beliggenhetsadresse.landkode       |              |                   |                     31 | physical_country_iso_2
+ brreg_underenhet_2024 | registreringsdatoIEnhetsregisteret |              |                   |                     32 | 
+ brreg_underenhet_2024 | frivilligMvaRegistrertBeskrivelser |              |                   |                     33 | 
+ brreg_underenhet_2024 | registrertIMvaregisteret           |              |                   |                     34 | 
+ brreg_underenhet_2024 | oppstartsdato                      |              |                   |                     35 | birth_date
+ brreg_underenhet_2024 | datoEierskifte                     |              |                   |                     36 | 
+ brreg_underenhet_2024 | overordnetEnhet                    |              |                   |                     37 | legal_unit_tax_ident
+ brreg_underenhet_2024 | nedleggelsesdato                   |              |                   |                     38 | death_date
+ brreg_underenhet_2024 |                                    |              | default           |                        | valid_from
+ brreg_underenhet_2024 |                                    |              | default           |                        | valid_to
 (38 rows)
 
 SELECT d.slug,
@@ -691,16 +691,16 @@ SELECT d.slug,
 FROM public.import_definition d
 JOIN public.import_target t ON t.id = d.target_id
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
-WHERE d.slug = 'brreg_underenhet';
-       slug       |            name            |              target_table               |                    note                     | data_source | time_context_ident | draft | valid | validation_error 
-------------------+----------------------------+-----------------------------------------+---------------------------------------------+-------------+--------------------+-------+-------+------------------
- brreg_underenhet | Import of BRREG Underenhet | import_establishment_era_for_legal_unit | Easy upload of the CSV file found at brreg. |             |                    | t     | f     | 
+WHERE d.slug = 'brreg_underenhet_2024';
+         slug          |                     name                      |              target_table               |                    note                     | data_source | time_context_ident | draft | valid | validation_error 
+-----------------------+-----------------------------------------------+-----------------------------------------+---------------------------------------------+-------------+--------------------+-------+-------+------------------
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | import_establishment_era_for_legal_unit | Easy upload of the CSV file found at brreg. |             |                    | t     | f     | 
 (1 row)
 
 UPDATE public.import_definition
 SET draft = false
 WHERE draft
-  AND slug = 'brreg_underenhet';
+  AND slug = 'brreg_underenhet_2024';
 SELECT d.slug,
        d.name,
        t.table_name as target_table,
@@ -713,10 +713,10 @@ SELECT d.slug,
 FROM public.import_definition d
 JOIN public.import_target t ON t.id = d.target_id
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
-WHERE d.slug = 'brreg_hovedenhet';
-       slug       |            name            |     target_table      |                    note                     | data_source | time_context_ident | draft | valid | validation_error 
-------------------+----------------------------+-----------------------+---------------------------------------------+-------------+--------------------+-------+-------+------------------
- brreg_hovedenhet | Import of BRREG Hovedenhet | import_legal_unit_era | Easy upload of the CSV file found at brreg. |             |                    | f     | t     | 
+WHERE d.slug = 'brreg_hovedenhet_2024';
+         slug          |                     name                      |     target_table      |                    note                     | data_source | time_context_ident | draft | valid | validation_error 
+-----------------------+-----------------------------------------------+-----------------------+---------------------------------------------+-------------+--------------------+-------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | import_legal_unit_era | Easy upload of the CSV file found at brreg. |             |                    | f     | t     | 
 (1 row)
 
 SELECT d.slug,
@@ -731,100 +731,100 @@ SELECT d.slug,
 FROM public.import_definition d
 JOIN public.import_target t ON t.id = d.target_id
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
-WHERE d.slug = 'brreg_underenhet';
-       slug       |            name            |              target_table               |                    note                     | data_source | time_context_ident | draft | valid | validation_error 
-------------------+----------------------------+-----------------------------------------+---------------------------------------------+-------------+--------------------+-------+-------+------------------
- brreg_underenhet | Import of BRREG Underenhet | import_establishment_era_for_legal_unit | Easy upload of the CSV file found at brreg. |             |                    | f     | t     | 
+WHERE d.slug = 'brreg_underenhet_2024';
+         slug          |                     name                      |              target_table               |                    note                     | data_source | time_context_ident | draft | valid | validation_error 
+-----------------------+-----------------------------------------------+-----------------------------------------+---------------------------------------------+-------------+--------------------+-------+-------+------------------
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | import_establishment_era_for_legal_unit | Easy upload of the CSV file found at brreg. |             |                    | f     | t     | 
 (1 row)
 
 -- Per year jobs for hovedenhet
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_hovedenhet_2015', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
+SELECT  def.id, 'import_lu_2015_sht', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2015 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2015.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
-          slug          |           description           |                         note                          | default_valid_from | default_valid_to |       upload_table_name       |       data_table_name       |  import_information_snapshot_table_name   |       state        
-------------------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+-------------------------------+-----------------------------+-------------------------------------------+--------------------
- import_hovedenhet_2015 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 2015-01-01         | infinity         | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | import_hovedenhet_2015_import_information | waiting_for_upload
+        slug        |                       description                       |                                       note                                        | default_valid_from | default_valid_to |     upload_table_name     |     data_table_name     | import_information_snapshot_table_name |       state        
+--------------------+---------------------------------------------------------+-----------------------------------------------------------------------------------+--------------------+------------------+---------------------------+-------------------------+----------------------------------------+--------------------
+ import_lu_2015_sht | Import Job for BRREG Hovedenhet 2015 Small History Test | This job handles the import of BRREG Hovedenhet small history test data for 2015. | 2015-01-01         | infinity         | import_lu_2015_sht_upload | import_lu_2015_sht_data | import_lu_2015_sht_import_information  | waiting_for_upload
 (1 row)
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_hovedenhet_2016', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
+SELECT  def.id, 'import_lu_2016_sht', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2016 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2016.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
-          slug          |           description           |                         note                          | default_valid_from | default_valid_to |       upload_table_name       |       data_table_name       |  import_information_snapshot_table_name   |       state        
-------------------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+-------------------------------+-----------------------------+-------------------------------------------+--------------------
- import_hovedenhet_2016 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 2016-01-01         | infinity         | import_hovedenhet_2016_upload | import_hovedenhet_2016_data | import_hovedenhet_2016_import_information | waiting_for_upload
+        slug        |                       description                       |                                       note                                        | default_valid_from | default_valid_to |     upload_table_name     |     data_table_name     | import_information_snapshot_table_name |       state        
+--------------------+---------------------------------------------------------+-----------------------------------------------------------------------------------+--------------------+------------------+---------------------------+-------------------------+----------------------------------------+--------------------
+ import_lu_2016_sht | Import Job for BRREG Hovedenhet 2016 Small History Test | This job handles the import of BRREG Hovedenhet small history test data for 2016. | 2016-01-01         | infinity         | import_lu_2016_sht_upload | import_lu_2016_sht_data | import_lu_2016_sht_import_information  | waiting_for_upload
 (1 row)
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_hovedenhet_2017', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
+SELECT  def.id, 'import_lu_2017_sht', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2017 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2017.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
-          slug          |           description           |                         note                          | default_valid_from | default_valid_to |       upload_table_name       |       data_table_name       |  import_information_snapshot_table_name   |       state        
-------------------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+-------------------------------+-----------------------------+-------------------------------------------+--------------------
- import_hovedenhet_2017 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 2017-01-01         | infinity         | import_hovedenhet_2017_upload | import_hovedenhet_2017_data | import_hovedenhet_2017_import_information | waiting_for_upload
+        slug        |                       description                       |                                       note                                        | default_valid_from | default_valid_to |     upload_table_name     |     data_table_name     | import_information_snapshot_table_name |       state        
+--------------------+---------------------------------------------------------+-----------------------------------------------------------------------------------+--------------------+------------------+---------------------------+-------------------------+----------------------------------------+--------------------
+ import_lu_2017_sht | Import Job for BRREG Hovedenhet 2017 Small History Test | This job handles the import of BRREG Hovedenhet small history test data for 2017. | 2017-01-01         | infinity         | import_lu_2017_sht_upload | import_lu_2017_sht_data | import_lu_2017_sht_import_information  | waiting_for_upload
 (1 row)
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_hovedenhet_2018', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
+SELECT  def.id, 'import_lu_2018_sht', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2018 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2018.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
-          slug          |           description           |                         note                          | default_valid_from | default_valid_to |       upload_table_name       |       data_table_name       |  import_information_snapshot_table_name   |       state        
-------------------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+-------------------------------+-----------------------------+-------------------------------------------+--------------------
- import_hovedenhet_2018 | Import Job for BRREG Hovedenhet | This job handles the import of BRREG Hovedenhet data. | 2018-01-01         | infinity         | import_hovedenhet_2018_upload | import_hovedenhet_2018_data | import_hovedenhet_2018_import_information | waiting_for_upload
+        slug        |                       description                       |                                       note                                        | default_valid_from | default_valid_to |     upload_table_name     |     data_table_name     | import_information_snapshot_table_name |       state        
+--------------------+---------------------------------------------------------+-----------------------------------------------------------------------------------+--------------------+------------------+---------------------------+-------------------------+----------------------------------------+--------------------
+ import_lu_2018_sht | Import Job for BRREG Hovedenhet 2018 Small History Test | This job handles the import of BRREG Hovedenhet small history test data for 2018. | 2018-01-01         | infinity         | import_lu_2018_sht_upload | import_lu_2018_sht_data | import_lu_2018_sht_import_information  | waiting_for_upload
 (1 row)
 
 -- Per year jobs for underenhet
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_underenhet_2015', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+SELECT  def.id, 'import_es_2015_sht', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2015 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2015.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
-          slug          |           description           |                         note                          | default_valid_from | default_valid_to |       upload_table_name       |       data_table_name       |  import_information_snapshot_table_name   |       state        
-------------------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+-------------------------------+-----------------------------+-------------------------------------------+--------------------
- import_underenhet_2015 | Import Job for BRREG Underenhet | This job handles the import of BRREG Underenhet data. | 2015-01-01         | infinity         | import_underenhet_2015_upload | import_underenhet_2015_data | import_underenhet_2015_import_information | waiting_for_upload
+        slug        |                       description                       |                                       note                                        | default_valid_from | default_valid_to |     upload_table_name     |     data_table_name     | import_information_snapshot_table_name |       state        
+--------------------+---------------------------------------------------------+-----------------------------------------------------------------------------------+--------------------+------------------+---------------------------+-------------------------+----------------------------------------+--------------------
+ import_es_2015_sht | Import Job for BRREG Underenhet 2015 Small History Test | This job handles the import of BRREG Underenhet small history test data for 2015. | 2015-01-01         | infinity         | import_es_2015_sht_upload | import_es_2015_sht_data | import_es_2015_sht_import_information  | waiting_for_upload
 (1 row)
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_underenhet_2016', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+SELECT  def.id, 'import_es_2016_sht', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2016 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2016.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
-          slug          |           description           |                         note                          | default_valid_from | default_valid_to |       upload_table_name       |       data_table_name       |  import_information_snapshot_table_name   |       state        
-------------------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+-------------------------------+-----------------------------+-------------------------------------------+--------------------
- import_underenhet_2016 | Import Job for BRREG Underenhet | This job handles the import of BRREG Underenhet data. | 2016-01-01         | infinity         | import_underenhet_2016_upload | import_underenhet_2016_data | import_underenhet_2016_import_information | waiting_for_upload
+        slug        |                       description                       |                                       note                                        | default_valid_from | default_valid_to |     upload_table_name     |     data_table_name     | import_information_snapshot_table_name |       state        
+--------------------+---------------------------------------------------------+-----------------------------------------------------------------------------------+--------------------+------------------+---------------------------+-------------------------+----------------------------------------+--------------------
+ import_es_2016_sht | Import Job for BRREG Underenhet 2016 Small History Test | This job handles the import of BRREG Underenhet small history test data for 2016. | 2016-01-01         | infinity         | import_es_2016_sht_upload | import_es_2016_sht_data | import_es_2016_sht_import_information  | waiting_for_upload
 (1 row)
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_underenhet_2017', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+SELECT  def.id, 'import_es_2017_sht', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2017 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2017.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
-          slug          |           description           |                         note                          | default_valid_from | default_valid_to |       upload_table_name       |       data_table_name       |  import_information_snapshot_table_name   |       state        
-------------------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+-------------------------------+-----------------------------+-------------------------------------------+--------------------
- import_underenhet_2017 | Import Job for BRREG Underenhet | This job handles the import of BRREG Underenhet data. | 2017-01-01         | infinity         | import_underenhet_2017_upload | import_underenhet_2017_data | import_underenhet_2017_import_information | waiting_for_upload
+        slug        |                       description                       |                                       note                                        | default_valid_from | default_valid_to |     upload_table_name     |     data_table_name     | import_information_snapshot_table_name |       state        
+--------------------+---------------------------------------------------------+-----------------------------------------------------------------------------------+--------------------+------------------+---------------------------+-------------------------+----------------------------------------+--------------------
+ import_es_2017_sht | Import Job for BRREG Underenhet 2017 Small History Test | This job handles the import of BRREG Underenhet small history test data for 2017. | 2017-01-01         | infinity         | import_es_2017_sht_upload | import_es_2017_sht_data | import_es_2017_sht_import_information  | waiting_for_upload
 (1 row)
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_underenhet_2018', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+SELECT  def.id, 'import_es_2018_sht', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2018 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2018.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
-          slug          |           description           |                         note                          | default_valid_from | default_valid_to |       upload_table_name       |       data_table_name       |  import_information_snapshot_table_name   |       state        
-------------------------+---------------------------------+-------------------------------------------------------+--------------------+------------------+-------------------------------+-----------------------------+-------------------------------------------+--------------------
- import_underenhet_2018 | Import Job for BRREG Underenhet | This job handles the import of BRREG Underenhet data. | 2018-01-01         | infinity         | import_underenhet_2018_upload | import_underenhet_2018_data | import_underenhet_2018_import_information | waiting_for_upload
+        slug        |                       description                       |                                       note                                        | default_valid_from | default_valid_to |     upload_table_name     |     data_table_name     | import_information_snapshot_table_name |       state        
+--------------------+---------------------------------------------------------+-----------------------------------------------------------------------------------+--------------------+------------------+---------------------------+-------------------------+----------------------------------------+--------------------
+ import_es_2018_sht | Import Job for BRREG Underenhet 2018 Small History Test | This job handles the import of BRREG Underenhet small history test data for 2018. | 2018-01-01         | infinity         | import_es_2018_sht_upload | import_es_2018_sht_data | import_es_2018_sht_import_information  | waiting_for_upload
 (1 row)
 
 -- Verify that snapshot tables were created
 SELECT slug, import_information_snapshot_table_name
 FROM public.import_job
 ORDER BY id;
-          slug          |  import_information_snapshot_table_name   
-------------------------+-------------------------------------------
- import_hovedenhet_2015 | import_hovedenhet_2015_import_information
- import_hovedenhet_2016 | import_hovedenhet_2016_import_information
- import_hovedenhet_2017 | import_hovedenhet_2017_import_information
- import_hovedenhet_2018 | import_hovedenhet_2018_import_information
- import_underenhet_2015 | import_underenhet_2015_import_information
- import_underenhet_2016 | import_underenhet_2016_import_information
- import_underenhet_2017 | import_underenhet_2017_import_information
- import_underenhet_2018 | import_underenhet_2018_import_information
+        slug        | import_information_snapshot_table_name 
+--------------------+----------------------------------------
+ import_lu_2015_sht | import_lu_2015_sht_import_information
+ import_lu_2016_sht | import_lu_2016_sht_import_information
+ import_lu_2017_sht | import_lu_2017_sht_import_information
+ import_lu_2018_sht | import_lu_2018_sht_import_information
+ import_es_2015_sht | import_es_2015_sht_import_information
+ import_es_2016_sht | import_es_2016_sht_import_information
+ import_es_2017_sht | import_es_2017_sht_import_information
+ import_es_2018_sht | import_es_2018_sht_import_information
 (8 rows)
 
 -- Verify that the snapshot tables exist in the database
@@ -835,22 +835,22 @@ SELECT ij.slug, ij.import_information_snapshot_table_name,
        ) THEN 'exists' ELSE 'missing' END AS table_status
 FROM public.import_job ij
 ORDER BY ij.id;
-          slug          |  import_information_snapshot_table_name   | table_status 
-------------------------+-------------------------------------------+--------------
- import_hovedenhet_2015 | import_hovedenhet_2015_import_information | exists
- import_hovedenhet_2016 | import_hovedenhet_2016_import_information | exists
- import_hovedenhet_2017 | import_hovedenhet_2017_import_information | exists
- import_hovedenhet_2018 | import_hovedenhet_2018_import_information | exists
- import_underenhet_2015 | import_underenhet_2015_import_information | exists
- import_underenhet_2016 | import_underenhet_2016_import_information | exists
- import_underenhet_2017 | import_underenhet_2017_import_information | exists
- import_underenhet_2018 | import_underenhet_2018_import_information | exists
+        slug        | import_information_snapshot_table_name | table_status 
+--------------------+----------------------------------------+--------------
+ import_lu_2015_sht | import_lu_2015_sht_import_information  | exists
+ import_lu_2016_sht | import_lu_2016_sht_import_information  | exists
+ import_lu_2017_sht | import_lu_2017_sht_import_information  | exists
+ import_lu_2018_sht | import_lu_2018_sht_import_information  | exists
+ import_es_2015_sht | import_es_2015_sht_import_information  | exists
+ import_es_2016_sht | import_es_2016_sht_import_information  | exists
+ import_es_2017_sht | import_es_2017_sht_import_information  | exists
+ import_es_2018_sht | import_es_2018_sht_import_information  | exists
 (8 rows)
 
 \echo Verify the concrete tables of one import job
 Verify the concrete tables of one import job
-\d public.import_hovedenhet_2015_upload
-               Unlogged table "public.import_hovedenhet_2015_upload"
+\d public.import_lu_2015_sht_upload
+                 Unlogged table "public.import_lu_2015_sht_upload"
                   Column                   | Type | Collation | Nullable | Default 
 -------------------------------------------+------+-----------+----------+---------
  organisasjonsnummer                       | text |           |          | 
@@ -908,23 +908,23 @@ Verify the concrete tables of one import job
  vedtektsfestetFormaal                     | text |           |          | 
  aktivitet                                 | text |           |          | 
 Policies:
-    POLICY "import_hovedenhet_2015_upload_authenticated_read" FOR SELECT
+    POLICY "import_lu_2015_sht_upload_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "import_hovedenhet_2015_upload_regular_user_manage"
+    POLICY "import_lu_2015_sht_upload_regular_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_hovedenhet_2015_upload_super_user_manage"
+    POLICY "import_lu_2015_sht_upload_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Triggers:
-    import_hovedenhet_2015_upload_check_state_before_insert BEFORE INSERT ON import_hovedenhet_2015_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.check_import_job_state_for_insert('import_hovedenhet_2015')
-    import_hovedenhet_2015_upload_update_state_after_insert AFTER INSERT ON import_hovedenhet_2015_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_hovedenhet_2015')
+    import_lu_2015_sht_upload_check_state_before_insert BEFORE INSERT ON import_lu_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.check_import_job_state_for_insert('import_lu_2015_sht')
+    import_lu_2015_sht_upload_update_state_after_insert AFTER INSERT ON import_lu_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_lu_2015_sht')
 
-\d public.import_hovedenhet_2015_data
-                            Unlogged table "public.import_hovedenhet_2015_data"
+\d public.import_lu_2015_sht_data
+                              Unlogged table "public.import_lu_2015_sht_data"
               Column              |       Type        | Collation | Nullable |           Default            
 ----------------------------------+-------------------+-----------+----------+------------------------------
  tax_ident                        | text              |           |          | 
@@ -948,23 +948,23 @@ Triggers:
  valid_to                         | text              |           |          | 
  state                            | import_data_state |           | not null | 'pending'::import_data_state
 Indexes:
-    "import_hovedenhet_2015_data_state_idx" btree (state)
-    "import_hovedenhet_2015_data_unique_key" UNIQUE CONSTRAINT, btree (tax_ident)
+    "import_lu_2015_sht_data_state_idx" btree (state)
+    "import_lu_2015_sht_data_unique_key" UNIQUE CONSTRAINT, btree (tax_ident)
 Policies:
-    POLICY "import_hovedenhet_2015_data_authenticated_read" FOR SELECT
+    POLICY "import_lu_2015_sht_data_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "import_hovedenhet_2015_data_regular_user_manage"
+    POLICY "import_lu_2015_sht_data_regular_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_hovedenhet_2015_data_super_user_manage"
+    POLICY "import_lu_2015_sht_data_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
-\d public.import_hovedenhet_2015_import_information
-         Unlogged table "public.import_hovedenhet_2015_import_information"
+\d public.import_lu_2015_sht_import_information
+           Unlogged table "public.import_lu_2015_sht_import_information"
          Column         |           Type           | Collation | Nullable | Default 
 ------------------------+--------------------------+-----------+----------+---------
  job_id                 | integer                  |           |          | 
@@ -984,21 +984,21 @@ Policies:
  uniquely_identifying   | boolean                  |           |          | 
  source_column_priority | integer                  |           |          | 
 Indexes:
-    "import_hovedenhet_2015_import_inform_source_column_priority_idx" btree (source_column_priority)
+    "import_lu_2015_sht_import_informatio_source_column_priority_idx" btree (source_column_priority)
 Policies:
-    POLICY "import_hovedenhet_2015_import_information_authenticated_read" FOR SELECT
+    POLICY "import_lu_2015_sht_import_information_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "import_hovedenhet_2015_import_information_regular_user_read" FOR SELECT
+    POLICY "import_lu_2015_sht_import_information_regular_user_read" FOR SELECT
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_hovedenhet_2015_import_information_super_user_manage"
+    POLICY "import_lu_2015_sht_import_information_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
-\d public.import_underenhet_2015_upload
-           Unlogged table "public.import_underenhet_2015_upload"
+\d public.import_es_2015_sht_upload
+             Unlogged table "public.import_es_2015_sht_upload"
                Column               | Type | Collation | Nullable | Default 
 ------------------------------------+------+-----------+----------+---------
  organisasjonsnummer                | text |           |          | 
@@ -1038,23 +1038,23 @@ Policies:
  overordnetEnhet                    | text |           |          | 
  nedleggelsesdato                   | text |           |          | 
 Policies:
-    POLICY "import_underenhet_2015_upload_authenticated_read" FOR SELECT
+    POLICY "import_es_2015_sht_upload_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "import_underenhet_2015_upload_regular_user_manage"
+    POLICY "import_es_2015_sht_upload_regular_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_underenhet_2015_upload_super_user_manage"
+    POLICY "import_es_2015_sht_upload_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 Triggers:
-    import_underenhet_2015_upload_check_state_before_insert BEFORE INSERT ON import_underenhet_2015_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.check_import_job_state_for_insert('import_underenhet_2015')
-    import_underenhet_2015_upload_update_state_after_insert AFTER INSERT ON import_underenhet_2015_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_underenhet_2015')
+    import_es_2015_sht_upload_check_state_before_insert BEFORE INSERT ON import_es_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.check_import_job_state_for_insert('import_es_2015_sht')
+    import_es_2015_sht_upload_update_state_after_insert AFTER INSERT ON import_es_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_es_2015_sht')
 
-\d public.import_underenhet_2015_data
-                            Unlogged table "public.import_underenhet_2015_data"
+\d public.import_es_2015_sht_data
+                              Unlogged table "public.import_es_2015_sht_data"
               Column              |       Type        | Collation | Nullable |           Default            
 ----------------------------------+-------------------+-----------+----------+------------------------------
  tax_ident                        | text              |           |          | 
@@ -1078,23 +1078,23 @@ Triggers:
  valid_to                         | text              |           |          | 
  state                            | import_data_state |           | not null | 'pending'::import_data_state
 Indexes:
-    "import_underenhet_2015_data_state_idx" btree (state)
-    "import_underenhet_2015_data_unique_key" UNIQUE CONSTRAINT, btree (tax_ident)
+    "import_es_2015_sht_data_state_idx" btree (state)
+    "import_es_2015_sht_data_unique_key" UNIQUE CONSTRAINT, btree (tax_ident)
 Policies:
-    POLICY "import_underenhet_2015_data_authenticated_read" FOR SELECT
+    POLICY "import_es_2015_sht_data_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "import_underenhet_2015_data_regular_user_manage"
+    POLICY "import_es_2015_sht_data_regular_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_underenhet_2015_data_super_user_manage"
+    POLICY "import_es_2015_sht_data_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
-\d public.import_underenhet_2015_import_information
-         Unlogged table "public.import_underenhet_2015_import_information"
+\d public.import_es_2015_sht_import_information
+           Unlogged table "public.import_es_2015_sht_import_information"
          Column         |           Type           | Collation | Nullable | Default 
 ------------------------+--------------------------+-----------+----------+---------
  job_id                 | integer                  |           |          | 
@@ -1114,156 +1114,156 @@ Policies:
  uniquely_identifying   | boolean                  |           |          | 
  source_column_priority | integer                  |           |          | 
 Indexes:
-    "import_underenhet_2015_import_inform_source_column_priority_idx" btree (source_column_priority)
+    "import_es_2015_sht_import_informatio_source_column_priority_idx" btree (source_column_priority)
 Policies:
-    POLICY "import_underenhet_2015_import_information_authenticated_read" FOR SELECT
+    POLICY "import_es_2015_sht_import_information_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "import_underenhet_2015_import_information_regular_user_read" FOR SELECT
+    POLICY "import_es_2015_sht_import_information_regular_user_read" FOR SELECT
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_underenhet_2015_import_information_super_user_manage"
+    POLICY "import_es_2015_sht_import_information_super_user_manage"
       TO authenticated
       USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
 SELECT import_job_slug, import_definition_slug, import_name, import_note, target_schema_name, upload_table_name, data_table_name, source_column, source_value, source_expression, target_column, target_type, uniquely_identifying, source_column_priority
-FROM public.import_hovedenhet_2015_import_information;
-    import_job_slug     | import_definition_slug |        import_name         |                 import_note                 | target_schema_name |       upload_table_name       |       data_table_name       |               source_column               | source_value | source_expression |          target_column           | target_type | uniquely_identifying | source_column_priority 
-------------------------+------------------------+----------------------------+---------------------------------------------+--------------------+-------------------------------+-----------------------------+-------------------------------------------+--------------+-------------------+----------------------------------+-------------+----------------------+------------------------
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | organisasjonsnummer                       |              |                   | tax_ident                        | text        | t                    |                      3
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | navn                                      |              |                   | name                             | text        | f                    |                      4
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | organisasjonsform.kode                    |              |                   | legal_form_code                  | text        | f                    |                      5
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | organisasjonsform.beskrivelse             |              |                   |                                  |             |                      |                      6
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode1.kode                        |              |                   | primary_activity_category_code   | text        | f                    |                      7
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode1.beskrivelse                 |              |                   |                                  |             |                      |                      8
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode2.kode                        |              |                   | secondary_activity_category_code | text        | f                    |                      9
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode2.beskrivelse                 |              |                   |                                  |             |                      |                     10
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode3.kode                        |              |                   |                                  |             |                      |                     11
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode3.beskrivelse                 |              |                   |                                  |             |                      |                     12
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | hjelpeenhetskode.kode                     |              |                   |                                  |             |                      |                     13
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | hjelpeenhetskode.beskrivelse              |              |                   |                                  |             |                      |                     14
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | harRegistrertAntallAnsatte                |              |                   |                                  |             |                      |                     15
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | antallAnsatte                             |              |                   |                                  |             |                      |                     16
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | hjemmeside                                |              |                   |                                  |             |                      |                     17
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.adresse                       |              |                   | postal_address_part1             | text        | f                    |                     18
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.poststed                      |              |                   | postal_postplace                 | text        | f                    |                     19
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.postnummer                    |              |                   | postal_postcode                  | text        | f                    |                     20
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.kommune                       |              |                   |                                  |             |                      |                     21
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.kommunenummer                 |              |                   | postal_region_code               | text        | f                    |                     22
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.land                          |              |                   |                                  |             |                      |                     23
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.landkode                      |              |                   | postal_country_iso_2             | text        | f                    |                     24
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.adresse                |              |                   | physical_address_part1           | text        | f                    |                     25
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.poststed               |              |                   | physical_postplace               | text        | f                    |                     26
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.postnummer             |              |                   | physical_postcode                | text        | f                    |                     27
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.kommune                |              |                   |                                  |             |                      |                     28
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.kommunenummer          |              |                   | physical_region_code             | text        | f                    |                     29
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.land                   |              |                   |                                  |             |                      |                     30
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.landkode               |              |                   | physical_country_iso_2           | text        | f                    |                     31
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | institusjonellSektorkode.kode             |              |                   | sector_code                      | text        | f                    |                     32
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | institusjonellSektorkode.beskrivelse      |              |                   |                                  |             |                      |                     33
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | sisteInnsendteAarsregnskap                |              |                   |                                  |             |                      |                     34
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | registreringsdatoenhetsregisteret         |              |                   |                                  |             |                      |                     35
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | stiftelsesdato                            |              |                   | birth_date                       | text        | f                    |                     36
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | registrertIMvaRegisteret                  |              |                   |                                  |             |                      |                     37
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | frivilligMvaRegistrertBeskrivelser        |              |                   |                                  |             |                      |                     38
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | registrertIFrivillighetsregisteret        |              |                   |                                  |             |                      |                     39
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | registrertIForetaksregisteret             |              |                   |                                  |             |                      |                     40
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | registrertIStiftelsesregisteret           |              |                   |                                  |             |                      |                     41
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | konkurs                                   |              |                   |                                  |             |                      |                     42
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | konkursdato                               |              |                   |                                  |             |                      |                     43
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | underAvvikling                            |              |                   |                                  |             |                      |                     44
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | underAvviklingDato                        |              |                   |                                  |             |                      |                     45
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | underTvangsavviklingEllerTvangsopplosning |              |                   |                                  |             |                      |                     46
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | tvangsopplostPgaManglendeDagligLederDato  |              |                   |                                  |             |                      |                     47
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | tvangsopplostPgaManglendeRevisorDato      |              |                   |                                  |             |                      |                     48
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | tvangsopplostPgaManglendeRegnskapDato     |              |                   |                                  |             |                      |                     49
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | tvangsopplostPgaMangelfulltStyreDato      |              |                   |                                  |             |                      |                     50
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | tvangsavvikletPgaManglendeSlettingDato    |              |                   |                                  |             |                      |                     51
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | overordnetEnhet                           |              |                   |                                  |             |                      |                     52
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | maalform                                  |              |                   |                                  |             |                      |                     53
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | vedtektsdato                              |              |                   |                                  |             |                      |                     54
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | vedtektsfestetFormaal                     |              |                   |                                  |             |                      |                     55
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | aktivitet                                 |              |                   |                                  |             |                      |                     56
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data |                                           |              | default           | valid_from                       | text        | f                    |                       
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data |                                           |              | default           | valid_to                         | text        | f                    |                       
+FROM public.import_lu_2015_sht_import_information;
+  import_job_slug   | import_definition_slug |                  import_name                  |                 import_note                 | target_schema_name |     upload_table_name     |     data_table_name     |               source_column               | source_value | source_expression |          target_column           | target_type | uniquely_identifying | source_column_priority 
+--------------------+------------------------+-----------------------------------------------+---------------------------------------------+--------------------+---------------------------+-------------------------+-------------------------------------------+--------------+-------------------+----------------------------------+-------------+----------------------+------------------------
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | organisasjonsnummer                       |              |                   | tax_ident                        | text        | t                    |                      3
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | navn                                      |              |                   | name                             | text        | f                    |                      4
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | organisasjonsform.kode                    |              |                   | legal_form_code                  | text        | f                    |                      5
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | organisasjonsform.beskrivelse             |              |                   |                                  |             |                      |                      6
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode1.kode                        |              |                   | primary_activity_category_code   | text        | f                    |                      7
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode1.beskrivelse                 |              |                   |                                  |             |                      |                      8
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode2.kode                        |              |                   | secondary_activity_category_code | text        | f                    |                      9
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode2.beskrivelse                 |              |                   |                                  |             |                      |                     10
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode3.kode                        |              |                   |                                  |             |                      |                     11
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode3.beskrivelse                 |              |                   |                                  |             |                      |                     12
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjelpeenhetskode.kode                     |              |                   |                                  |             |                      |                     13
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjelpeenhetskode.beskrivelse              |              |                   |                                  |             |                      |                     14
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | harRegistrertAntallAnsatte                |              |                   |                                  |             |                      |                     15
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | antallAnsatte                             |              |                   |                                  |             |                      |                     16
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjemmeside                                |              |                   |                                  |             |                      |                     17
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.adresse                       |              |                   | postal_address_part1             | text        | f                    |                     18
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.poststed                      |              |                   | postal_postplace                 | text        | f                    |                     19
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.postnummer                    |              |                   | postal_postcode                  | text        | f                    |                     20
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.kommune                       |              |                   |                                  |             |                      |                     21
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.kommunenummer                 |              |                   | postal_region_code               | text        | f                    |                     22
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.land                          |              |                   |                                  |             |                      |                     23
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.landkode                      |              |                   | postal_country_iso_2             | text        | f                    |                     24
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.adresse                |              |                   | physical_address_part1           | text        | f                    |                     25
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.poststed               |              |                   | physical_postplace               | text        | f                    |                     26
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.postnummer             |              |                   | physical_postcode                | text        | f                    |                     27
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.kommune                |              |                   |                                  |             |                      |                     28
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.kommunenummer          |              |                   | physical_region_code             | text        | f                    |                     29
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.land                   |              |                   |                                  |             |                      |                     30
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.landkode               |              |                   | physical_country_iso_2           | text        | f                    |                     31
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | institusjonellSektorkode.kode             |              |                   | sector_code                      | text        | f                    |                     32
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | institusjonellSektorkode.beskrivelse      |              |                   |                                  |             |                      |                     33
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | sisteInnsendteAarsregnskap                |              |                   |                                  |             |                      |                     34
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | registreringsdatoenhetsregisteret         |              |                   |                                  |             |                      |                     35
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | stiftelsesdato                            |              |                   | birth_date                       | text        | f                    |                     36
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | registrertIMvaRegisteret                  |              |                   |                                  |             |                      |                     37
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | frivilligMvaRegistrertBeskrivelser        |              |                   |                                  |             |                      |                     38
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | registrertIFrivillighetsregisteret        |              |                   |                                  |             |                      |                     39
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | registrertIForetaksregisteret             |              |                   |                                  |             |                      |                     40
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | registrertIStiftelsesregisteret           |              |                   |                                  |             |                      |                     41
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | konkurs                                   |              |                   |                                  |             |                      |                     42
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | konkursdato                               |              |                   |                                  |             |                      |                     43
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | underAvvikling                            |              |                   |                                  |             |                      |                     44
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | underAvviklingDato                        |              |                   |                                  |             |                      |                     45
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | underTvangsavviklingEllerTvangsopplosning |              |                   |                                  |             |                      |                     46
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | tvangsopplostPgaManglendeDagligLederDato  |              |                   |                                  |             |                      |                     47
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | tvangsopplostPgaManglendeRevisorDato      |              |                   |                                  |             |                      |                     48
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | tvangsopplostPgaManglendeRegnskapDato     |              |                   |                                  |             |                      |                     49
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | tvangsopplostPgaMangelfulltStyreDato      |              |                   |                                  |             |                      |                     50
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | tvangsavvikletPgaManglendeSlettingDato    |              |                   |                                  |             |                      |                     51
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | overordnetEnhet                           |              |                   |                                  |             |                      |                     52
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | maalform                                  |              |                   |                                  |             |                      |                     53
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | vedtektsdato                              |              |                   |                                  |             |                      |                     54
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | vedtektsfestetFormaal                     |              |                   |                                  |             |                      |                     55
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | aktivitet                                 |              |                   |                                  |             |                      |                     56
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data |                                           |              | default           | valid_from                       | text        | f                    |                       
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data |                                           |              | default           | valid_to                         | text        | f                    |                       
 (56 rows)
 
-\echo Review public.import_information for ensure it matches import_hovedenhet_2015_import_information_snapshot
-Review public.import_information for ensure it matches import_hovedenhet_2015_import_information_snapshot
+\echo Review public.import_information for ensure it matches import_lu_2015_sht_import_information_snapshot
+Review public.import_information for ensure it matches import_lu_2015_sht_import_information_snapshot
 SELECT import_job_slug, import_definition_slug, import_name, import_note, target_schema_name, upload_table_name, data_table_name, source_column, source_value, source_expression, target_column, target_type, uniquely_identifying, source_column_priority
 FROM public.import_information
-WHERE import_job_slug = 'import_hovedenhet_2015';
-    import_job_slug     | import_definition_slug |        import_name         |                 import_note                 | target_schema_name |       upload_table_name       |       data_table_name       |               source_column               | source_value | source_expression |          target_column           | target_type | uniquely_identifying | source_column_priority 
-------------------------+------------------------+----------------------------+---------------------------------------------+--------------------+-------------------------------+-----------------------------+-------------------------------------------+--------------+-------------------+----------------------------------+-------------+----------------------+------------------------
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | organisasjonsnummer                       |              |                   | tax_ident                        | text        | t                    |                      3
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | navn                                      |              |                   | name                             | text        | f                    |                      4
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | organisasjonsform.kode                    |              |                   | legal_form_code                  | text        | f                    |                      5
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | organisasjonsform.beskrivelse             |              |                   |                                  |             |                      |                      6
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode1.kode                        |              |                   | primary_activity_category_code   | text        | f                    |                      7
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode1.beskrivelse                 |              |                   |                                  |             |                      |                      8
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode2.kode                        |              |                   | secondary_activity_category_code | text        | f                    |                      9
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode2.beskrivelse                 |              |                   |                                  |             |                      |                     10
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode3.kode                        |              |                   |                                  |             |                      |                     11
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | naeringskode3.beskrivelse                 |              |                   |                                  |             |                      |                     12
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | hjelpeenhetskode.kode                     |              |                   |                                  |             |                      |                     13
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | hjelpeenhetskode.beskrivelse              |              |                   |                                  |             |                      |                     14
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | harRegistrertAntallAnsatte                |              |                   |                                  |             |                      |                     15
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | antallAnsatte                             |              |                   |                                  |             |                      |                     16
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | hjemmeside                                |              |                   |                                  |             |                      |                     17
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.adresse                       |              |                   | postal_address_part1             | text        | f                    |                     18
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.poststed                      |              |                   | postal_postplace                 | text        | f                    |                     19
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.postnummer                    |              |                   | postal_postcode                  | text        | f                    |                     20
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.kommune                       |              |                   |                                  |             |                      |                     21
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.kommunenummer                 |              |                   | postal_region_code               | text        | f                    |                     22
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.land                          |              |                   |                                  |             |                      |                     23
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | postadresse.landkode                      |              |                   | postal_country_iso_2             | text        | f                    |                     24
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.adresse                |              |                   | physical_address_part1           | text        | f                    |                     25
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.poststed               |              |                   | physical_postplace               | text        | f                    |                     26
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.postnummer             |              |                   | physical_postcode                | text        | f                    |                     27
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.kommune                |              |                   |                                  |             |                      |                     28
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.kommunenummer          |              |                   | physical_region_code             | text        | f                    |                     29
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.land                   |              |                   |                                  |             |                      |                     30
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | forretningsadresse.landkode               |              |                   | physical_country_iso_2           | text        | f                    |                     31
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | institusjonellSektorkode.kode             |              |                   | sector_code                      | text        | f                    |                     32
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | institusjonellSektorkode.beskrivelse      |              |                   |                                  |             |                      |                     33
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | sisteInnsendteAarsregnskap                |              |                   |                                  |             |                      |                     34
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | registreringsdatoenhetsregisteret         |              |                   |                                  |             |                      |                     35
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | stiftelsesdato                            |              |                   | birth_date                       | text        | f                    |                     36
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | registrertIMvaRegisteret                  |              |                   |                                  |             |                      |                     37
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | frivilligMvaRegistrertBeskrivelser        |              |                   |                                  |             |                      |                     38
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | registrertIFrivillighetsregisteret        |              |                   |                                  |             |                      |                     39
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | registrertIForetaksregisteret             |              |                   |                                  |             |                      |                     40
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | registrertIStiftelsesregisteret           |              |                   |                                  |             |                      |                     41
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | konkurs                                   |              |                   |                                  |             |                      |                     42
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | konkursdato                               |              |                   |                                  |             |                      |                     43
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | underAvvikling                            |              |                   |                                  |             |                      |                     44
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | underAvviklingDato                        |              |                   |                                  |             |                      |                     45
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | underTvangsavviklingEllerTvangsopplosning |              |                   |                                  |             |                      |                     46
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | tvangsopplostPgaManglendeDagligLederDato  |              |                   |                                  |             |                      |                     47
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | tvangsopplostPgaManglendeRevisorDato      |              |                   |                                  |             |                      |                     48
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | tvangsopplostPgaManglendeRegnskapDato     |              |                   |                                  |             |                      |                     49
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | tvangsopplostPgaMangelfulltStyreDato      |              |                   |                                  |             |                      |                     50
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | tvangsavvikletPgaManglendeSlettingDato    |              |                   |                                  |             |                      |                     51
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | overordnetEnhet                           |              |                   |                                  |             |                      |                     52
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | maalform                                  |              |                   |                                  |             |                      |                     53
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | vedtektsdato                              |              |                   |                                  |             |                      |                     54
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | vedtektsfestetFormaal                     |              |                   |                                  |             |                      |                     55
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data | aktivitet                                 |              |                   |                                  |             |                      |                     56
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data |                                           |              | default           | valid_from                       | text        | f                    |                       
- import_hovedenhet_2015 | brreg_hovedenhet       | Import of BRREG Hovedenhet | Easy upload of the CSV file found at brreg. | public             | import_hovedenhet_2015_upload | import_hovedenhet_2015_data |                                           |              | default           | valid_to                         | text        | f                    |                       
+WHERE import_job_slug = 'import_lu_2015_sht';
+  import_job_slug   | import_definition_slug |                  import_name                  |                 import_note                 | target_schema_name |     upload_table_name     |     data_table_name     |               source_column               | source_value | source_expression |          target_column           | target_type | uniquely_identifying | source_column_priority 
+--------------------+------------------------+-----------------------------------------------+---------------------------------------------+--------------------+---------------------------+-------------------------+-------------------------------------------+--------------+-------------------+----------------------------------+-------------+----------------------+------------------------
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | organisasjonsnummer                       |              |                   | tax_ident                        | text        | t                    |                      3
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | navn                                      |              |                   | name                             | text        | f                    |                      4
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | organisasjonsform.kode                    |              |                   | legal_form_code                  | text        | f                    |                      5
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | organisasjonsform.beskrivelse             |              |                   |                                  |             |                      |                      6
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode1.kode                        |              |                   | primary_activity_category_code   | text        | f                    |                      7
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode1.beskrivelse                 |              |                   |                                  |             |                      |                      8
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode2.kode                        |              |                   | secondary_activity_category_code | text        | f                    |                      9
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode2.beskrivelse                 |              |                   |                                  |             |                      |                     10
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode3.kode                        |              |                   |                                  |             |                      |                     11
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | naeringskode3.beskrivelse                 |              |                   |                                  |             |                      |                     12
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjelpeenhetskode.kode                     |              |                   |                                  |             |                      |                     13
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjelpeenhetskode.beskrivelse              |              |                   |                                  |             |                      |                     14
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | harRegistrertAntallAnsatte                |              |                   |                                  |             |                      |                     15
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | antallAnsatte                             |              |                   |                                  |             |                      |                     16
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjemmeside                                |              |                   |                                  |             |                      |                     17
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.adresse                       |              |                   | postal_address_part1             | text        | f                    |                     18
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.poststed                      |              |                   | postal_postplace                 | text        | f                    |                     19
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.postnummer                    |              |                   | postal_postcode                  | text        | f                    |                     20
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.kommune                       |              |                   |                                  |             |                      |                     21
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.kommunenummer                 |              |                   | postal_region_code               | text        | f                    |                     22
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.land                          |              |                   |                                  |             |                      |                     23
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.landkode                      |              |                   | postal_country_iso_2             | text        | f                    |                     24
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.adresse                |              |                   | physical_address_part1           | text        | f                    |                     25
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.poststed               |              |                   | physical_postplace               | text        | f                    |                     26
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.postnummer             |              |                   | physical_postcode                | text        | f                    |                     27
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.kommune                |              |                   |                                  |             |                      |                     28
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.kommunenummer          |              |                   | physical_region_code             | text        | f                    |                     29
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.land                   |              |                   |                                  |             |                      |                     30
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | forretningsadresse.landkode               |              |                   | physical_country_iso_2           | text        | f                    |                     31
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | institusjonellSektorkode.kode             |              |                   | sector_code                      | text        | f                    |                     32
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | institusjonellSektorkode.beskrivelse      |              |                   |                                  |             |                      |                     33
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | sisteInnsendteAarsregnskap                |              |                   |                                  |             |                      |                     34
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | registreringsdatoenhetsregisteret         |              |                   |                                  |             |                      |                     35
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | stiftelsesdato                            |              |                   | birth_date                       | text        | f                    |                     36
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | registrertIMvaRegisteret                  |              |                   |                                  |             |                      |                     37
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | frivilligMvaRegistrertBeskrivelser        |              |                   |                                  |             |                      |                     38
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | registrertIFrivillighetsregisteret        |              |                   |                                  |             |                      |                     39
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | registrertIForetaksregisteret             |              |                   |                                  |             |                      |                     40
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | registrertIStiftelsesregisteret           |              |                   |                                  |             |                      |                     41
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | konkurs                                   |              |                   |                                  |             |                      |                     42
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | konkursdato                               |              |                   |                                  |             |                      |                     43
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | underAvvikling                            |              |                   |                                  |             |                      |                     44
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | underAvviklingDato                        |              |                   |                                  |             |                      |                     45
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | underTvangsavviklingEllerTvangsopplosning |              |                   |                                  |             |                      |                     46
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | tvangsopplostPgaManglendeDagligLederDato  |              |                   |                                  |             |                      |                     47
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | tvangsopplostPgaManglendeRevisorDato      |              |                   |                                  |             |                      |                     48
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | tvangsopplostPgaManglendeRegnskapDato     |              |                   |                                  |             |                      |                     49
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | tvangsopplostPgaMangelfulltStyreDato      |              |                   |                                  |             |                      |                     50
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | tvangsavvikletPgaManglendeSlettingDato    |              |                   |                                  |             |                      |                     51
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | overordnetEnhet                           |              |                   |                                  |             |                      |                     52
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | maalform                                  |              |                   |                                  |             |                      |                     53
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | vedtektsdato                              |              |                   |                                  |             |                      |                     54
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | vedtektsfestetFormaal                     |              |                   |                                  |             |                      |                     55
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | aktivitet                                 |              |                   |                                  |             |                      |                     56
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data |                                           |              | default           | valid_from                       | text        | f                    |                       
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data |                                           |              | default           | valid_to                         | text        | f                    |                       
 (56 rows)
 
 -- Disable RLS on import tables to support \copy
-CALL public.disable_rls_on_table('public','import_hovedenhet_2015_upload');
-CALL public.disable_rls_on_table('public','import_hovedenhet_2016_upload');
-CALL public.disable_rls_on_table('public','import_hovedenhet_2017_upload');
-CALL public.disable_rls_on_table('public','import_hovedenhet_2018_upload');
+CALL public.disable_rls_on_table('public','import_lu_2015_sht_upload');
+CALL public.disable_rls_on_table('public','import_lu_2016_sht_upload');
+CALL public.disable_rls_on_table('public','import_lu_2017_sht_upload');
+CALL public.disable_rls_on_table('public','import_lu_2018_sht_upload');
 --
-CALL public.disable_rls_on_table('public','import_underenhet_2015_upload');
-CALL public.disable_rls_on_table('public','import_underenhet_2016_upload');
-CALL public.disable_rls_on_table('public','import_underenhet_2017_upload');
-CALL public.disable_rls_on_table('public','import_underenhet_2018_upload');
+CALL public.disable_rls_on_table('public','import_es_2015_sht_upload');
+CALL public.disable_rls_on_table('public','import_es_2016_sht_upload');
+CALL public.disable_rls_on_table('public','import_es_2017_sht_upload');
+CALL public.disable_rls_on_table('public','import_es_2018_sht_upload');
 \echo "Setting up Statbus for Norway"
 "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
@@ -1288,22 +1288,22 @@ DO UPDATE SET
 SELECT slug,
        (SELECT email FROM public.statbus_user_with_email_and_role WHERE id = user_id) AS user_email
 FROM public.import_job
-WHERE slug = 'import_hovedenhet_2015';
-          slug          |       user_email       
-------------------------+------------------------
- import_hovedenhet_2015 | test.super@statbus.org
+WHERE slug = 'import_lu_2015_sht';
+        slug        |       user_email       
+--------------------+------------------------
+ import_lu_2015_sht | test.super@statbus.org
 (1 row)
 
 \echo "Loading historical units"
 "Loading historical units"
-\copy public.import_hovedenhet_2015_upload FROM 'samples/norway/small-history/2015-enheter.csv' WITH CSV HEADER;
-\copy public.import_hovedenhet_2016_upload FROM 'samples/norway/small-history/2016-enheter.csv' WITH CSV HEADER;
-\copy public.import_hovedenhet_2017_upload FROM 'samples/norway/small-history/2017-enheter.csv' WITH CSV HEADER;
-\copy public.import_hovedenhet_2018_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
-\copy public.import_underenhet_2015_upload FROM 'samples/norway/small-history/2015-underenheter.csv' WITH CSV HEADER;
-\copy public.import_underenhet_2016_upload FROM 'samples/norway/small-history/2016-underenheter.csv' WITH CSV HEADER;
-\copy public.import_underenhet_2017_upload FROM 'samples/norway/small-history/2017-underenheter.csv' WITH CSV HEADER;
-\copy public.import_underenhet_2018_upload FROM 'samples/norway/small-history/2018-underenheter.csv' WITH CSV HEADER;
+\copy public.import_lu_2015_sht_upload FROM 'samples/norway/small-history/2015-enheter.csv' WITH CSV HEADER;
+\copy public.import_lu_2016_sht_upload FROM 'samples/norway/small-history/2016-enheter.csv' WITH CSV HEADER;
+\copy public.import_lu_2017_sht_upload FROM 'samples/norway/small-history/2017-enheter.csv' WITH CSV HEADER;
+\copy public.import_lu_2018_sht_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
+\copy public.import_es_2015_sht_upload FROM 'samples/norway/small-history/2015-underenheter.csv' WITH CSV HEADER;
+\copy public.import_es_2016_sht_upload FROM 'samples/norway/small-history/2016-underenheter.csv' WITH CSV HEADER;
+\copy public.import_es_2017_sht_upload FROM 'samples/norway/small-history/2017-underenheter.csv' WITH CSV HEADER;
+\copy public.import_es_2018_sht_upload FROM 'samples/norway/small-history/2018-underenheter.csv' WITH CSV HEADER;
 \echo Check import job state before import
 Check import job state before import
 SELECT state, count(*) FROM import_job GROUP BY state;
@@ -1314,42 +1314,42 @@ SELECT state, count(*) FROM import_job GROUP BY state;
 
 \echo Check data row state before import
 Check data row state before import
-SELECT state, count(*) FROM public.import_hovedenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2015_sht_data GROUP BY state;
  state | count 
 -------+-------
 (0 rows)
 
-SELECT state, count(*) FROM public.import_hovedenhet_2016_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2016_sht_data GROUP BY state;
  state | count 
 -------+-------
 (0 rows)
 
-SELECT state, count(*) FROM public.import_hovedenhet_2017_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2017_sht_data GROUP BY state;
  state | count 
 -------+-------
 (0 rows)
 
-SELECT state, count(*) FROM public.import_hovedenhet_2018_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2018_sht_data GROUP BY state;
  state | count 
 -------+-------
 (0 rows)
 
-SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2015_sht_data GROUP BY state;
  state | count 
 -------+-------
 (0 rows)
 
-SELECT state, count(*) FROM public.import_underenhet_2016_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2016_sht_data GROUP BY state;
  state | count 
 -------+-------
 (0 rows)
 
-SELECT state, count(*) FROM public.import_underenhet_2017_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2017_sht_data GROUP BY state;
  state | count 
 -------+-------
 (0 rows)
 
-SELECT state, count(*) FROM public.import_underenhet_2018_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2018_sht_data GROUP BY state;
  state | count 
 -------+-------
 (0 rows)
@@ -1375,49 +1375,49 @@ SELECT state, count(*) FROM import_job GROUP BY state;
 
 \echo Check data row state after import
 Check data row state after import
-SELECT state, count(*) FROM public.import_hovedenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2015_sht_data GROUP BY state;
   state   | count 
 ----------+-------
  imported |     4
 (1 row)
 
-SELECT state, count(*) FROM public.import_hovedenhet_2016_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2016_sht_data GROUP BY state;
   state   | count 
 ----------+-------
  imported |     6
 (1 row)
 
-SELECT state, count(*) FROM public.import_hovedenhet_2017_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2017_sht_data GROUP BY state;
   state   | count 
 ----------+-------
  imported |     5
 (1 row)
 
-SELECT state, count(*) FROM public.import_hovedenhet_2018_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2018_sht_data GROUP BY state;
   state   | count 
 ----------+-------
  imported |     6
 (1 row)
 
-SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2015_sht_data GROUP BY state;
   state   | count 
 ----------+-------
  imported |     4
 (1 row)
 
-SELECT state, count(*) FROM public.import_underenhet_2016_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2016_sht_data GROUP BY state;
   state   | count 
 ----------+-------
  imported |     6
 (1 row)
 
-SELECT state, count(*) FROM public.import_underenhet_2017_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2017_sht_data GROUP BY state;
   state   | count 
 ----------+-------
  imported |     4
 (1 row)
 
-SELECT state, count(*) FROM public.import_underenhet_2018_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2018_sht_data GROUP BY state;
   state   | count 
 ----------+-------
  imported |     5
