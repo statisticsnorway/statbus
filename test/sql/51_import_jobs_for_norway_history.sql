@@ -36,8 +36,8 @@ ORDER BY id.slug, isc.priority NULLS LAST;
 
 CALL test.set_user_from_email('test.super@statbus.org');
 
-\i samples/norway/brreg/create-import-definition-legal_unit.sql
-\i samples/norway/brreg/create-import-definition-establishment.sql
+\i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
+\i samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
 SELECT d.slug,
        d.name,
@@ -51,7 +51,7 @@ SELECT d.slug,
 FROM public.import_definition d
 JOIN public.import_target t ON t.id = d.target_id
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
-WHERE d.slug = 'brreg_hovedenhet';
+WHERE d.slug = 'brreg_hovedenhet_2024';
 
 SELECT d.slug,
        d.name,
@@ -65,48 +65,48 @@ SELECT d.slug,
 FROM public.import_definition d
 JOIN public.import_target t ON t.id = d.target_id
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
-WHERE d.slug = 'brreg_underenhet';
+WHERE d.slug = 'brreg_underenhet_2024';
 
 -- Per year jobs for hovedenhet
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_hovedenhet_2015', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
+SELECT  def.id, 'import_lu_2015_h', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2015 History', 'This job handles the import of BRREG Hovedenhet history data for 2015.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_hovedenhet_2016', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
+SELECT  def.id, 'import_lu_2016_h', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2016 History', 'This job handles the import of BRREG Hovedenhet history data for 2016.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_hovedenhet_2017', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
+SELECT  def.id, 'import_lu_2017_h', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2017 History', 'This job handles the import of BRREG Hovedenhet history data for 2017.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_hovedenhet_2018', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet', 'This job handles the import of BRREG Hovedenhet data.'
+SELECT  def.id, 'import_lu_2018_h', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2018 History', 'This job handles the import of BRREG Hovedenhet history data for 2018.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
 
 -- Per year jobs for underenhet
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_underenhet_2015', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+SELECT  def.id, 'import_es_2015_h', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2015 History', 'This job handles the import of BRREG Underenhet history data for 2015.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_underenhet_2016', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+SELECT  def.id, 'import_es_2016_h', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2016 History', 'This job handles the import of BRREG Underenhet history data for 2016.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_underenhet_2017', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+SELECT  def.id, 'import_es_2017_h', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2017 History', 'This job handles the import of BRREG Underenhet history data for 2017.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
 
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet')
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_underenhet_2018', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet', 'This job handles the import of BRREG Underenhet data.'
+SELECT  def.id, 'import_es_2018_h', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2018 History', 'This job handles the import of BRREG Underenhet history data for 2018.'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
 
 -- Verify that snapshot tables were created
@@ -124,32 +124,32 @@ FROM public.import_job ij
 ORDER BY ij.id;
 
 \echo Verify the concrete tables of one import job
-\d public.import_hovedenhet_2015_upload
-\d public.import_hovedenhet_2015_data
-\d public.import_hovedenhet_2015_import_information
+\d public.import_lu_2015_h_upload
+\d public.import_lu_2015_h_data
+\d public.import_lu_2015_h_import_information
 
-\d public.import_underenhet_2015_upload
-\d public.import_underenhet_2015_data
-\d public.import_underenhet_2015_import_information
+\d public.import_es_2015_h_upload
+\d public.import_es_2015_h_data
+\d public.import_es_2015_h_import_information
 
 SELECT import_job_slug, import_definition_slug, import_name, import_note, target_schema_name, upload_table_name, data_table_name, source_column, source_value, source_expression, target_column, target_type, uniquely_identifying, source_column_priority
-FROM public.import_hovedenhet_2015_import_information;
+FROM public.import_lu_2015_h_import_information;
 
-\echo Review public.import_information for ensure it matches import_hovedenhet_2015_import_information_snapshot
+\echo Review public.import_information for ensure it matches import_lu_2015_h_import_information_snapshot
 SELECT import_job_slug, import_definition_slug, import_name, import_note, target_schema_name, upload_table_name, data_table_name, source_column, source_value, source_expression, target_column, target_type, uniquely_identifying, source_column_priority
 FROM public.import_information
-WHERE import_job_slug = 'import_hovedenhet_2015';
+WHERE import_job_slug = 'import_lu_2015_h';
 
 -- Disable RLS on import tables to support \copy
-CALL public.disable_rls_on_table('public','import_hovedenhet_2015_upload');
-CALL public.disable_rls_on_table('public','import_hovedenhet_2016_upload');
-CALL public.disable_rls_on_table('public','import_hovedenhet_2017_upload');
-CALL public.disable_rls_on_table('public','import_hovedenhet_2018_upload');
+CALL public.disable_rls_on_table('public','import_lu_2015_h_upload');
+CALL public.disable_rls_on_table('public','import_lu_2016_h_upload');
+CALL public.disable_rls_on_table('public','import_lu_2017_h_upload');
+CALL public.disable_rls_on_table('public','import_lu_2018_h_upload');
 --
-CALL public.disable_rls_on_table('public','import_underenhet_2015_upload');
-CALL public.disable_rls_on_table('public','import_underenhet_2016_upload');
-CALL public.disable_rls_on_table('public','import_underenhet_2017_upload');
-CALL public.disable_rls_on_table('public','import_underenhet_2018_upload');
+CALL public.disable_rls_on_table('public','import_es_2015_h_upload');
+CALL public.disable_rls_on_table('public','import_es_2016_h_upload');
+CALL public.disable_rls_on_table('public','import_es_2017_h_upload');
+CALL public.disable_rls_on_table('public','import_es_2018_h_upload');
 
 \echo "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
@@ -159,27 +159,27 @@ CALL public.disable_rls_on_table('public','import_underenhet_2018_upload');
 SELECT slug,
        (SELECT email FROM public.statbus_user_with_email_and_role WHERE id = user_id) AS user_email
 FROM public.import_job
-WHERE slug = 'import_hovedenhet_2015';
+WHERE slug = 'import_lu_2015_h';
 
 \echo "Loading historical units"
 
-\copy public.import_hovedenhet_2015_upload FROM 'samples/norway/history/2015-enheter.csv' WITH CSV HEADER;
-\copy public.import_hovedenhet_2016_upload FROM 'samples/norway/history/2016-enheter.csv' WITH CSV HEADER;
-\copy public.import_hovedenhet_2017_upload FROM 'samples/norway/history/2017-enheter.csv' WITH CSV HEADER;
-\copy public.import_hovedenhet_2018_upload FROM 'samples/norway/history/2018-enheter.csv' WITH CSV HEADER;
-\copy public.import_underenhet_2015_upload FROM 'samples/norway/history/2015-underenheter.csv' WITH CSV HEADER;
-\copy public.import_underenhet_2016_upload FROM 'samples/norway/history/2016-underenheter.csv' WITH CSV HEADER;
-\copy public.import_underenhet_2017_upload FROM 'samples/norway/history/2017-underenheter.csv' WITH CSV HEADER;
-\copy public.import_underenhet_2018_upload FROM 'samples/norway/history/2018-underenheter.csv' WITH CSV HEADER;
+\copy public.import_lu_2015_h_upload FROM 'samples/norway/history/2015-enheter.csv' WITH CSV HEADER;
+\copy public.import_lu_2016_h_upload FROM 'samples/norway/history/2016-enheter.csv' WITH CSV HEADER;
+\copy public.import_lu_2017_h_upload FROM 'samples/norway/history/2017-enheter.csv' WITH CSV HEADER;
+\copy public.import_lu_2018_h_upload FROM 'samples/norway/history/2018-enheter.csv' WITH CSV HEADER;
+\copy public.import_es_2015_h_upload FROM 'samples/norway/history/2015-underenheter.csv' WITH CSV HEADER;
+\copy public.import_es_2016_h_upload FROM 'samples/norway/history/2016-underenheter.csv' WITH CSV HEADER;
+\copy public.import_es_2017_h_upload FROM 'samples/norway/history/2017-underenheter.csv' WITH CSV HEADER;
+\copy public.import_es_2018_h_upload FROM 'samples/norway/history/2018-underenheter.csv' WITH CSV HEADER;
 
 \echo Check import job state before import
 SELECT state, count(*) FROM import_job GROUP BY state;
 
 \echo Check data row state before import
-SELECT state, count(*) FROM public.import_hovedenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2015_h_data GROUP BY state;
 
 \echo Check data row state before import
-SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2015_h_data GROUP BY state;
 
 \echo Run worker processing to run import jobs and generate computed data
 -- Notice that 'WARNING:  Could not find primary_activity_category_code' is expected due to data quality issues, but should not hinder the import process.
@@ -194,15 +194,15 @@ select slug, state, error is not null as failed,total_rows,imported_rows, import
 SELECT state, count(*) FROM import_job GROUP BY state;
 
 \echo Check data row state after import
-SELECT state, count(*) FROM public.import_hovedenhet_2015_data GROUP BY state;
-SELECT state, count(*) FROM public.import_hovedenhet_2016_data GROUP BY state;
-SELECT state, count(*) FROM public.import_hovedenhet_2017_data GROUP BY state;
-SELECT state, count(*) FROM public.import_hovedenhet_2018_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2015_h_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2016_h_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2017_h_data GROUP BY state;
+SELECT state, count(*) FROM public.import_lu_2018_h_data GROUP BY state;
 
-SELECT state, count(*) FROM public.import_underenhet_2015_data GROUP BY state;
-SELECT state, count(*) FROM public.import_underenhet_2016_data GROUP BY state;
-SELECT state, count(*) FROM public.import_underenhet_2017_data GROUP BY state;
-SELECT state, count(*) FROM public.import_underenhet_2018_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2015_h_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2016_h_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2017_h_data GROUP BY state;
+SELECT state, count(*) FROM public.import_es_2018_h_data GROUP BY state;
 
 \echo Check the state of all tasks before running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
