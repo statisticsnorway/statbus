@@ -24,7 +24,9 @@ services:
     image: ghcr.io/veridit/supabase_postgres:c035263a
     #image: veridit/supabase_postgres:latest
     # Prevent the database from using too much memory.
-    shm_size: 2g
+    shm_size: 4g
+    mem_limit: 4G
+    mem_reservation: 2G
     ports:
       - 127.0.0.1:${DB_PUBLIC_LOCALHOST_PORT}:5432
     volumes:
@@ -51,12 +53,22 @@ services:
       - checkpoint_completion_target=0.9
       - -c # Allocate 1GB of shared memory buffers for PostgreSQL to cache more data in RAM, reducing the need for disk reads.
       - shared_buffers=1GB
-      - -c # Set the work memory to 512MB, allowing larger operations (e.g., sorts, joins) to use more memory and avoid temporary disk usage.
-      - work_mem=512MB
-      - -c # Allocate 512MB for maintenance operations such as VACUUM and CREATE INDEX, improving the performance of these operations.
-      - maintenance_work_mem=512MB
+      - -c # Set the work memory to 1GB, allowing larger operations (e.g., sorts, joins) to use more memory and avoid temporary disk usage.
+      - work_mem=1GB
+      - -c # Allocate 1GB for maintenance operations such as VACUUM and CREATE INDEX, improving the performance of these operations.
+      - maintenance_work_mem=1GB
       - -c # Set WAL buffers to 64MB, allowing more WAL data to be stored in memory before being written to disk, reducing write frequency.
       - wal_buffers=64MB
+      - -c # Allocate memory for temporary tables operations
+      - temp_buffers=256MB
+      - -c # Increase stack depth for complex recursive queries (7MB is below the 7680kB limit)
+      - max_stack_depth=7MB
+      - -c # Help query planner make better decisions
+      - effective_cache_size=3GB
+      - -c # Allow hash-based operations to use more memory
+      - hash_mem_multiplier=2.0
+      - -c # Log slow queries for debugging
+      - log_min_duration_statement=1000
   storage:
     # Override the address of the healthcheck from localhost that resolves to ::1 (IPv6)
     # instead of the correct 127.0.0.1 (IPv4) that storage listens to, as it binds
