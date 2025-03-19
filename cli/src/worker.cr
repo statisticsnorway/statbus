@@ -309,74 +309,148 @@ module Statbus
     end
 
     def run
-      # Wait for worker schema to be ready before starting processing
-      wait_for_worker_schema
+      # Main worker loop with reconnection capability
+      loop do
+        break if @shutdown
 
-      # Main connection - must happen before queue discovery
-      @log.debug { "Connecting to database at #{@config.postgres_host}:#{@config.postgres_port}..." }
+        # Connection retry variables
+        max_retries = 10
+        retry_count = 0
+        retry_delay = 5.seconds
+        lock_id = 0
 
-      # First verify we can connect to the database and take a global worker advisory lock
-      DB.connect(@config.connection_string) do |db|
-        version = db.query_one("SELECT version()", as: String)
-        @log.debug { "Database connection verified: #{version}" }
-        @log.debug { "Connected to database at #{@config.postgres_host}:#{@config.postgres_port}" }
+        begin
+          # Wait for worker schema to be ready before starting processing
+          wait_for_worker_schema
 
-        # Generate a global worker lock ID
-        lock_id = db.query_one "SELECT hashtext('worker.tasks')::int % 2147483647", as: Int32
-        acquired = db.query_one "SELECT pg_try_advisory_lock($1)", lock_id, as: Bool
+          @log.debug { "Connecting to database at #{@config.postgres_host}:#{@config.postgres_port}..." }
 
-        unless acquired
-          @log.error { "Cannot start worker: Another worker is already running" }
-          exit(1) # Exit with error code instead of retrying
-        end
+          # Connect to the database and acquire a global worker advisory lock
+          DB.connect(@config.connection_string) do |db|
+            version = db.query_one("SELECT version()", as: String)
+            @log.debug { "Database connection verified: #{version}" }
+            @log.debug { "Connected to database at #{@config.postgres_host}:#{@config.postgres_port}" }
 
-        @log.info { "Acquired global worker lock (#{lock_id})" }
+            # Generate a global worker lock ID
+            lock_id = db.query_one "SELECT hashtext('worker.tasks')::int % 2147483647", as: Int32
+            acquired = db.query_one "SELECT pg_try_advisory_lock($1)", lock_id, as: Bool
 
-        # Now that we have the lock, start the queue discovery and timer checking
-        # Start queue discovery process
-        start_queue_discovery
+            unless acquired
+              @log.error { "Cannot start worker: Another worker is already running" }
+              exit(1) # Exit with error code instead of retrying
+            end
 
-        # Start timer checking fiber
-        fiber = spawn check_scheduled_tasks_loop
-        @active_fibers << fiber
+            @log.info { "Acquired global worker lock (#{lock_id})" }
 
-        # Each queue processor will automatically start processing when created
+            # Reset any tasks that were left in 'processing' state by a previous worker instance
+            begin
+              reset_count = db.query_one "SELECT worker.reset_abandoned_processing_tasks()", as: Int32
+              if reset_count > 0
+                @log.info { "Reset #{reset_count} abandoned processing tasks to pending state" }
+              else
+                @log.debug { "No abandoned processing tasks found" }
+              end
+            rescue ex
+              @log.error { "Failed to reset abandoned processing tasks: #{ex.message}" }
+            end
 
-        # Create a PG connection for listening
-        PG.connect_listen(@config.connection_string, channels: ["worker_tasks", "worker_queue_change"], blocking: false) do |notification|
-          if notification.channel == "worker_tasks"
-            # Get the queue from the notification payload
-            queue_name = notification.payload.presence
+            # Now that we have the lock, start the queue discovery and timer checking
+            start_queue_discovery
 
-            # If a specific queue was mentioned in the notification
-            if queue_name && @queue_processors.has_key?(queue_name)
-              @log.debug { "Received notification for specific queue: #{queue_name}" }
-              # Only notify the specific queue mentioned in the notification
-              @queue_processors[queue_name].send(:process)
-            else
-              # Only if payload is empty or queue doesn't exist, notify all processors
-              @log.debug { "Received notification without specific queue, notifying all queues" }
-              @queue_processors.each do |queue, channel|
-                channel.send(:process)
+            # Start timer checking fiber
+            fiber = spawn check_scheduled_tasks_loop
+            @active_fibers << fiber
+
+            # Each queue processor will automatically start processing when created
+
+            # Create a PG connection for listening with error handling
+            begin
+              PG.connect_listen(@config.connection_string, channels: ["worker_tasks", "worker_queue_change"], blocking: false) do |notification|
+                if notification.channel == "worker_tasks"
+                  # Get the queue from the notification payload
+                  queue_name = notification.payload.presence
+
+                  # If a specific queue was mentioned in the notification
+                  if queue_name && @queue_processors.has_key?(queue_name)
+                    @log.debug { "Received notification for specific queue: #{queue_name}" }
+                    # Only notify the specific queue mentioned in the notification
+                    @queue_processors[queue_name].send(:process)
+                  else
+                    # Only if payload is empty or queue doesn't exist, notify all processors
+                    @log.debug { "Received notification without specific queue, notifying all queues" }
+                    @queue_processors.each do |queue, channel|
+                      channel.send(:process)
+                    end
+                  end
+                elsif notification.channel == "worker_queue_change"
+                  # When queue change notification received, trigger queue discovery
+                  @log.info { "Queue change detected, triggering queue discovery..." }
+                  @queue_discovery_channel.send(nil)
+                end
+              end
+            rescue ex : IO::EOFError | DB::ConnectionLost | DB::ConnectionRefused | Socket::ConnectError
+              @log.error { "Database connection lost during notification listening: #{ex.message}" }
+              @log.info { "Will attempt to reconnect..." }
+              # Don't exit here - let the outer exception handler deal with reconnection
+              raise ex
+            rescue ex
+              @log.error { "Unexpected error in notification listener: #{ex.class.name} - #{ex.message}" }
+              @log.error { ex.backtrace.join("\n") }
+              # Don't exit here - let the outer exception handler deal with reconnection
+              raise ex
+            end
+
+            # Keep the connection open until shutdown
+            until @shutdown
+              begin
+                sleep(30.seconds) # Check more frequently
+                # Run a query to keep the connection alive
+                db.exec("SELECT 'keepalive';")
+              rescue ex : IO::EOFError | DB::ConnectionLost | DB::ConnectionRefused | Socket::ConnectError
+                @log.error { "Database connection lost during keepalive: #{ex.message}" }
+                # Don't exit here - let the outer exception handler deal with reconnection
+                raise ex
+              rescue ex
+                @log.error { "Unexpected error during keepalive: #{ex.class.name} - #{ex.message}" }
+                # Don't exit here - let the outer exception handler deal with reconnection
+                raise ex
               end
             end
-          elsif notification.channel == "worker_queue_change"
-            # When queue change notification received, trigger queue discovery
-            @log.info { "Queue change detected, triggering queue discovery..." }
-            @queue_discovery_channel.send(nil)
+
+            # Release the lock before closing
+            @log.info { "Releasing global worker lock (#{lock_id})" }
+            begin
+              db.exec "SELECT pg_advisory_unlock($1)", lock_id
+            rescue ex
+              @log.warn { "Failed to release advisory lock: #{ex.message}" }
+              # Continue with shutdown even if we can't release the lock
+            end
+          end
+        rescue ex : DB::ConnectionRefused | Socket::ConnectError | IO::EOFError | DB::ConnectionLost
+          if @shutdown
+            @log.info { "Database connection lost during shutdown, continuing with shutdown process" }
+          else
+            retry_count += 1
+            if retry_count >= max_retries
+              @log.error { "Failed to connect to database after #{max_retries} attempts: #{ex.message}" }
+              @log.error { "Last error: #{ex.class.name} - #{ex.message}" }
+              exit(1)
+            else
+              @log.warn { "Database connection attempt #{retry_count}/#{max_retries} failed: #{ex.message}. Retrying in #{retry_delay.total_seconds} seconds..." }
+              sleep(retry_delay)
+              # Increase delay for next retry (exponential backoff with cap)
+              retry_delay = {retry_delay * 1.5, 60.seconds}.min
+            end
+          end
+        rescue ex
+          @log.error { "Unexpected error in main worker loop: #{ex.class.name} - #{ex.message}" }
+          @log.error { ex.backtrace.join("\n") }
+          if !@shutdown
+            @log.info { "Attempting to restart worker in 10 seconds..." }
+            sleep(10.seconds)
+            # The outer loop will retry
           end
         end
-
-        # Keep the connection open until shutdown
-        until @shutdown
-          sleep(60.seconds)
-          # Run a query to keep the connection alive
-          db.exec("SELECT 'keepalive';")
-        end
-
-        # Release the lock before closing
-        @log.info { "Releasing global worker lock (#{lock_id})" }
-        db.exec "SELECT pg_advisory_unlock($1)", lock_id
       end
     end
 
