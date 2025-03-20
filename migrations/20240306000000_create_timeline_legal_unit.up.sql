@@ -73,6 +73,10 @@ CREATE VIEW public.timeline_legal_unit
     , status_code
     , include_unit_in_reports
     --
+    , last_edit_comment
+    , last_edit_by_user_id
+    , last_edit_at
+    --
     , invalid_codes
     , has_legal_unit
     , establishment_ids
@@ -159,6 +163,10 @@ CREATE VIEW public.timeline_legal_unit
            , st.code AS status_code
            , st.include_unit_in_reports AS include_unit_in_reports
            --
+           , last_edit.edit_comment AS last_edit_comment
+           , last_edit.edit_by_user_id AS last_edit_by_user_id
+           , last_edit.edit_at AS last_edit_at
+           --
            , lu.invalid_codes AS invalid_codes
            --
            , TRUE AS has_legal_unit
@@ -240,6 +248,29 @@ CREATE VIEW public.timeline_legal_unit
             OR COALESCE(ds.id = pol.data_source_id      , FALSE)
             OR COALESCE(ds.id = ANY(sfu.data_source_ids), FALSE)
         ) AS ds ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT edit_comment, edit_by_user_id, edit_at
+        FROM (
+          SELECT lu.edit_comment, lu.edit_by_user_id, lu.edit_at
+          UNION ALL
+          SELECT pa.edit_comment, pa.edit_by_user_id, pa.edit_at
+          WHERE pa.edit_at IS NOT NULL
+          UNION ALL
+          SELECT sa.edit_comment, sa.edit_by_user_id, sa.edit_at
+          WHERE sa.edit_at IS NOT NULL
+          UNION ALL
+          SELECT phl.edit_comment, phl.edit_by_user_id, phl.edit_at
+          WHERE phl.edit_at IS NOT NULL
+          UNION ALL
+          SELECT pol.edit_comment, pol.edit_by_user_id, pol.edit_at
+          WHERE pol.edit_at IS NOT NULL
+          UNION ALL
+          SELECT c.edit_comment, c.edit_by_user_id, c.edit_at
+          WHERE c.edit_at IS NOT NULL
+        ) AS all_edits
+        ORDER BY edit_at DESC
+        LIMIT 1
+      ) AS last_edit ON TRUE
       ), establishment_aggregation AS (
         SELECT tes.legal_unit_id
              , basis.valid_after
@@ -337,6 +368,10 @@ CREATE VIEW public.timeline_legal_unit
            , basis.status_id
            , basis.status_code
            , basis.include_unit_in_reports
+           --
+           , basis.last_edit_comment
+           , basis.last_edit_by_user_id
+           , basis.last_edit_at
            --
            , basis.invalid_codes
            , basis.has_legal_unit

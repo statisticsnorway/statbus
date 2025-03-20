@@ -105,6 +105,10 @@ CREATE FUNCTION public.relevant_statistical_units(
          , status_code
          , include_unit_in_reports
          --
+         , last_edit_comment
+         , last_edit_by_user_id
+         , last_edit_at
+         --
          , invalid_codes
          , has_legal_unit
          , establishment_ids

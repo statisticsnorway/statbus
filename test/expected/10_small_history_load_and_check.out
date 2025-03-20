@@ -459,6 +459,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
@@ -526,6 +527,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "1406",                                       +
@@ -593,6 +595,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3114",                                       +
@@ -660,6 +663,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "2005",                                       +
@@ -727,6 +731,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
@@ -794,6 +799,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
@@ -874,6 +880,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
@@ -954,6 +961,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
@@ -1034,6 +1042,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
@@ -1114,6 +1123,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
@@ -1181,6 +1191,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
@@ -1248,6 +1259,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3014",                                       +
@@ -1315,6 +1327,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
@@ -1395,6 +1408,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
@@ -1475,6 +1489,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
@@ -1555,6 +1570,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "5350",                                       +
@@ -1621,6 +1637,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "1406",                                       +
@@ -1687,6 +1704,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3114",                                       +
@@ -1753,6 +1771,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "2005",                                       +
@@ -1819,6 +1838,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
@@ -1885,6 +1905,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
@@ -1963,6 +1984,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
@@ -2041,6 +2063,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
@@ -2119,6 +2142,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3516",                                       +
@@ -2197,6 +2221,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
@@ -2263,6 +2288,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4550",                                       +
@@ -2329,6 +2355,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "3014",                                       +
@@ -2395,6 +2422,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
@@ -2473,6 +2501,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +
@@ -2551,6 +2580,7 @@ statistical_unit_data | {                                                       
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
                       |     "physical_postcode": "4340",                                       +

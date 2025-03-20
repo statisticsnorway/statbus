@@ -70,6 +70,10 @@ CREATE VIEW public.statistical_unit_def
     , status_code
     , include_unit_in_reports
     --
+    , last_edit_comment
+    , last_edit_by_user_id
+    , last_edit_at
+    --
     , invalid_codes
     , has_legal_unit
     , establishment_ids
@@ -153,6 +157,10 @@ CREATE VIEW public.statistical_unit_def
            , status_code
            , include_unit_in_reports
            --
+           , last_edit_comment
+           , last_edit_by_user_id
+           , last_edit_at
+           --
            , invalid_codes
            , has_legal_unit
            , NULL::INT[] AS establishment_ids
@@ -230,6 +238,10 @@ CREATE VIEW public.statistical_unit_def
            , status_id
            , status_code
            , include_unit_in_reports
+           --
+           , last_edit_comment
+           , last_edit_by_user_id
+           , last_edit_at
            --
            , invalid_codes
            , has_legal_unit
@@ -313,6 +325,10 @@ CREATE VIEW public.statistical_unit_def
            , status_code
            , include_unit_in_reports
            --
+           , last_edit_comment
+           , last_edit_by_user_id
+           , last_edit_at
+           --
            , invalid_codes
            , has_legal_unit
            , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
@@ -392,6 +408,12 @@ CREATE VIEW public.statistical_unit_def
          , data.status_id
          , data.status_code
          , data.include_unit_in_reports
+         --
+         --
+         , data.last_edit_comment
+         , data.last_edit_by_user_id
+         , data.last_edit_at
+         --
          , data.invalid_codes
          , data.has_legal_unit
          , data.establishment_ids

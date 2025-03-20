@@ -8,7 +8,7 @@ DECLARE
     key TEXT;
     value JSONB;
     new_value JSONB;
-    ephemeral_keys TEXT[] := ARRAY['id', 'created_at', 'updated_at','edit_at'];
+    ephemeral_keys TEXT[] := ARRAY['id', 'created_at', 'updated_at','edit_at','last_edit_at'];
     ephemeral_patterns TEXT[] := ARRAY['%_id','%_ids'];
 BEGIN
     -- Handle both object and array types at the first level
