@@ -14,6 +14,7 @@ import {
   Trash,
   Upload,
   User,
+  Database,
 } from "lucide-react";
 
 import {
@@ -190,6 +191,16 @@ export function CommandPalette() {
             >
               <Trash className="mr-2 h-4 w-4" />
               <span>Reset..</span>
+            </CommandItem>
+            <CommandItem
+              onSelect={() => {
+                setOpen(false);
+                window.open('/pev2.html', '_blank');
+              }}
+              value="postgres explain visualizer pev2 query performance"
+            >
+              <Database className="mr-2 h-4 w-4" />
+              <span>Postgres Explain Visualizer</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>
