@@ -76,6 +76,7 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
   pushd cli
   source /etc/profile.d/homebrew.sh
   shards build
+  popd
 
   ./devops/manage-statbus.sh stop all
   ./devops/manage-statbus.sh delete-db
