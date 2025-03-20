@@ -475,6 +475,7 @@ erDiagram
 		"integer" total_rows
 		"integer" imported_rows
 		"numeric(5,2)" import_completed_pct
+		"numeric(10,2)" import_rows_per_sec
 		"timestamp with time zone" last_progress_update
 		"import_job_state" state
 		"text" error
@@ -1016,7 +1017,7 @@ erDiagram
 		"worker.task_state" state
 		"timestamp with time zone" processed_at
 		"numeric" duration_ms
-		"text" error_message
+		"text" error
 		"timestamp with time zone" scheduled_at
 		"jsonb" payload
 	}
