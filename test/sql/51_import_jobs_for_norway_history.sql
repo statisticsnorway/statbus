@@ -228,4 +228,18 @@ SELECT valid_from
  FROM public.statistical_unit
  ORDER BY valid_from, valid_to, name, external_idents ->> 'tax_ident', unit_type, unit_id;
 
+\o tmp/51_import_jobs_for_norway_history-timepoints.log
+EXPLAIN ANALYZE SELECT * FROM public.timepoints;
+\o tmp/51_import_jobs_for_norway_history-timesegments.log
+EXPLAIN ANALYZE SELECT * FROM public.timesegments;
+\o tmp/51_import_jobs_for_norway_history-timeline_establishment.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment;
+\o tmp/51_import_jobs_for_norway_history-timeline_legal_unit.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit;
+\o tmp/51_import_jobs_for_norway_history-timeline_enterprise.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise;
+\o tmp/51_import_jobs_for_norway_history-statistical_unit_def.log
+EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
+\o
+
 ROLLBACK;

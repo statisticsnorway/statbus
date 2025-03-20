@@ -4,53 +4,67 @@ BEGIN;
 CALL worker.teardown();
 
 -- Drop trigger functions
-DROP FUNCTION worker.notify_worker_about_changes() CASCADE;
-DROP FUNCTION worker.notify_worker_about_deletes() CASCADE;
-DROP FUNCTION worker.notify_worker_queue_change() CASCADE;
+DROP FUNCTION IF EXISTS worker.notify_worker_about_changes() CASCADE;
+DROP FUNCTION IF EXISTS worker.notify_worker_about_deletes() CASCADE;
+DROP FUNCTION IF EXISTS worker.notify_worker_queue_change() CASCADE;
 
 -- Drop task enqueue functions
-DROP FUNCTION worker.enqueue_check_table(TEXT, BIGINT);
-DROP FUNCTION worker.enqueue_deleted_row(TEXT, INT, INT, INT, DATE, DATE);
-DROP FUNCTION worker.enqueue_refresh_derived_data(DATE, DATE);
-DROP FUNCTION worker.enqueue_task_cleanup(INT, INT);
+DROP FUNCTION IF EXISTS worker.enqueue_check_table(TEXT, BIGINT);
+DROP FUNCTION IF EXISTS worker.enqueue_deleted_row(TEXT, INT, INT, INT, DATE, DATE);
+DROP FUNCTION IF EXISTS worker.enqueue_timesegments_refresh(INT[], INT[], INT[], DATE, DATE);
+DROP FUNCTION IF EXISTS worker.enqueue_timeline_establishment_refresh(INT[], INT[], INT[], DATE, DATE);
+DROP FUNCTION IF EXISTS worker.enqueue_timeline_legal_unit_refresh(INT[], INT[], INT[], DATE, DATE);
+DROP FUNCTION IF EXISTS worker.enqueue_timeline_enterprise_refresh(INT[], INT[], INT[], DATE, DATE);
+DROP FUNCTION IF EXISTS worker.enqueue_statistical_unit_refresh(INT[], INT[], INT[], DATE, DATE);
+DROP FUNCTION IF EXISTS worker.enqueue_refresh_derived_data(DATE, DATE);
+DROP FUNCTION IF EXISTS worker.enqueue_task_cleanup(INT, INT);
 
 -- Drop command procedures
-DROP PROCEDURE worker.command_refresh_derived_data(JSONB);
-DROP PROCEDURE worker.command_check_table(JSONB);
-DROP PROCEDURE worker.command_deleted_row(JSONB);
-DROP PROCEDURE worker.command_task_cleanup(JSONB);
+DROP PROCEDURE IF EXISTS worker.command_refresh_derived_data(JSONB);
+DROP PROCEDURE IF EXISTS worker.command_check_table(JSONB);
+DROP PROCEDURE IF EXISTS worker.command_deleted_row(JSONB);
+DROP PROCEDURE IF EXISTS worker.command_timesegments_refresh(JSONB);
+DROP PROCEDURE IF EXISTS worker.command_timeline_establishment_refresh(JSONB);
+DROP PROCEDURE IF EXISTS worker.command_timeline_legal_unit_refresh(JSONB);
+DROP PROCEDURE IF EXISTS worker.command_timeline_enterprise_refresh(JSONB);
+DROP PROCEDURE IF EXISTS worker.command_statistical_unit_refresh(JSONB);
+DROP PROCEDURE IF EXISTS worker.command_task_cleanup(JSONB);
 
 -- Drop utility functions
-DROP FUNCTION worker.statistical_unit_refresh_for_ids(int[], int[], int[], date, date);
-DROP PROCEDURE worker.process_tasks(INT, INT, TEXT);
+DROP FUNCTION IF EXISTS worker.statistical_unit_refresh(INT[], INT[], INT[], DATE, DATE);
+DROP FUNCTION IF EXISTS worker.reset_abandoned_processing_tasks();
+DROP PROCEDURE IF EXISTS worker.process_tasks(INT, INT, TEXT);
 
 -- Drop tasks table
 REVOKE SELECT, INSERT, UPDATE, DELETE ON worker.tasks FROM authenticated;
 REVOKE USAGE, SELECT ON SEQUENCE worker.tasks_id_seq FROM authenticated;
-DROP TABLE worker.tasks;
+DROP TABLE IF EXISTS worker.tasks;
 
 -- Drop command registry table
-DROP TABLE worker.command_registry;
+DROP TABLE IF EXISTS worker.command_registry;
 
 -- Drop queue registry table
-DROP TABLE worker.queue_registry;
+DROP TABLE IF EXISTS worker.queue_registry;
 
 -- Drop last_processed table
 REVOKE SELECT ON worker.last_processed FROM authenticated;
-DROP TABLE worker.last_processed;
+DROP TABLE IF EXISTS worker.last_processed;
 
 -- Drop procedures
-DROP PROCEDURE worker.setup();
-DROP PROCEDURE worker.teardown();
+DROP PROCEDURE IF EXISTS worker.setup();
+DROP PROCEDURE IF EXISTS worker.teardown();
+
+-- Drop sequence
+DROP SEQUENCE IF EXISTS public.worker_task_priority_seq;
 
 -- Revoke permissions
 REVOKE EXECUTE ON ALL FUNCTIONS IN SCHEMA worker FROM authenticated;
 REVOKE USAGE ON SCHEMA worker FROM authenticated;
 
 -- Drop the task_state type
-DROP TYPE worker.task_state;
+DROP TYPE IF EXISTS worker.task_state;
 
 -- Finally drop the schema
-DROP SCHEMA worker;
+DROP SCHEMA IF EXISTS worker;
 
 END;

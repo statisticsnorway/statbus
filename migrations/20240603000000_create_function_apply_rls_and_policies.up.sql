@@ -107,6 +107,10 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.region_role'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.stat_definition'::regclass);
     -- Is updated by the statbus worker, using authorized functions.
+    PERFORM admin.add_rls_regular_user_can_read('public.timesegments'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.timeline_establishment'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.timeline_legal_unit'::regclass);
+    PERFORM admin.add_rls_regular_user_can_read('public.timeline_enterprise'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.statistical_unit'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.activity_category_used'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.region_used'::regclass);

@@ -895,6 +895,225 @@ erDiagram
 		"integer" edit_by_user_id
 		"timestamp with time zone" edit_at
 	}
+	timeline_enterprise["timeline_enterprise"] {
+		"statistical_unit_type" unit_type
+		"integer" unit_id
+		"date" valid_after
+		"date" valid_from
+		"date" valid_to
+		"character varying(256)" name
+		"date" birth_date
+		"date" death_date
+		"tsvector" search
+		"integer" primary_activity_category_id
+		"ltree" primary_activity_category_path
+		"character varying" primary_activity_category_code
+		"integer" secondary_activity_category_id
+		"ltree" secondary_activity_category_path
+		"character varying" secondary_activity_category_code
+		"ltree[]" activity_category_paths
+		"integer" sector_id
+		"ltree" sector_path
+		"character varying" sector_code
+		"text" sector_name
+		"integer[]" data_source_ids
+		"text[]" data_source_codes
+		"integer" legal_form_id
+		"text" legal_form_code
+		"text" legal_form_name
+		"character varying(200)" physical_address_part1
+		"character varying(200)" physical_address_part2
+		"character varying(200)" physical_address_part3
+		"character varying(200)" physical_postcode
+		"character varying(200)" physical_postplace
+		"integer" physical_region_id
+		"ltree" physical_region_path
+		"character varying" physical_region_code
+		"integer" physical_country_id
+		"text" physical_country_iso_2
+		"numeric(9,6)" physical_latitude
+		"numeric(9,6)" physical_longitude
+		"numeric(6,1)" physical_altitude
+		"character varying(200)" postal_address_part1
+		"character varying(200)" postal_address_part2
+		"character varying(200)" postal_address_part3
+		"character varying(200)" postal_postcode
+		"character varying(200)" postal_postplace
+		"integer" postal_region_id
+		"ltree" postal_region_path
+		"character varying" postal_region_code
+		"integer" postal_country_id
+		"text" postal_country_iso_2
+		"numeric(9,6)" postal_latitude
+		"numeric(9,6)" postal_longitude
+		"numeric(6,1)" postal_altitude
+		"character varying(256)" web_address
+		"character varying(50)" email_address
+		"character varying(50)" phone_number
+		"character varying(50)" landline
+		"character varying(50)" mobile_number
+		"character varying(50)" fax_number
+		"integer" unit_size_id
+		"text" unit_size_code
+		"integer" status_id
+		"character varying" status_code
+		"boolean" include_unit_in_reports
+		"jsonb" invalid_codes
+		"boolean" has_legal_unit
+		"integer[]" establishment_ids
+		"integer[]" legal_unit_ids
+		"integer" enterprise_id
+		"integer" primary_establishment_id
+		"integer" primary_legal_unit_id
+		"jsonb" stats_summary
+	}
+	timeline_establishment["timeline_establishment"] {
+		"statistical_unit_type" unit_type
+		"integer" unit_id
+		"date" valid_after
+		"date" valid_from
+		"date" valid_to
+		"character varying(256)" name
+		"date" birth_date
+		"date" death_date
+		"tsvector" search
+		"integer" primary_activity_category_id
+		"ltree" primary_activity_category_path
+		"character varying" primary_activity_category_code
+		"integer" secondary_activity_category_id
+		"ltree" secondary_activity_category_path
+		"character varying" secondary_activity_category_code
+		"ltree[]" activity_category_paths
+		"integer" sector_id
+		"ltree" sector_path
+		"character varying" sector_code
+		"text" sector_name
+		"integer[]" data_source_ids
+		"text[]" data_source_codes
+		"integer" legal_form_id
+		"text" legal_form_code
+		"text" legal_form_name
+		"character varying(200)" physical_address_part1
+		"character varying(200)" physical_address_part2
+		"character varying(200)" physical_address_part3
+		"character varying(200)" physical_postcode
+		"character varying(200)" physical_postplace
+		"integer" physical_region_id
+		"ltree" physical_region_path
+		"character varying" physical_region_code
+		"integer" physical_country_id
+		"text" physical_country_iso_2
+		"numeric(9,6)" physical_latitude
+		"numeric(9,6)" physical_longitude
+		"numeric(6,1)" physical_altitude
+		"character varying(200)" postal_address_part1
+		"character varying(200)" postal_address_part2
+		"character varying(200)" postal_address_part3
+		"character varying(200)" postal_postcode
+		"character varying(200)" postal_postplace
+		"integer" postal_region_id
+		"ltree" postal_region_path
+		"character varying" postal_region_code
+		"integer" postal_country_id
+		"text" postal_country_iso_2
+		"numeric(9,6)" postal_latitude
+		"numeric(9,6)" postal_longitude
+		"numeric(6,1)" postal_altitude
+		"character varying(256)" web_address
+		"character varying(50)" email_address
+		"character varying(50)" phone_number
+		"character varying(50)" landline
+		"character varying(50)" mobile_number
+		"character varying(50)" fax_number
+		"integer" unit_size_id
+		"text" unit_size_code
+		"integer" status_id
+		"character varying" status_code
+		"boolean" include_unit_in_reports
+		"jsonb" invalid_codes
+		"boolean" has_legal_unit
+		"integer" establishment_id
+		"integer" legal_unit_id
+		"integer" enterprise_id
+		"jsonb" stats
+	}
+	timeline_legal_unit["timeline_legal_unit"] {
+		"statistical_unit_type" unit_type
+		"integer" unit_id
+		"date" valid_after
+		"date" valid_from
+		"date" valid_to
+		"character varying(256)" name
+		"date" birth_date
+		"date" death_date
+		"tsvector" search
+		"integer" primary_activity_category_id
+		"ltree" primary_activity_category_path
+		"character varying" primary_activity_category_code
+		"integer" secondary_activity_category_id
+		"ltree" secondary_activity_category_path
+		"character varying" secondary_activity_category_code
+		"ltree[]" activity_category_paths
+		"integer" sector_id
+		"ltree" sector_path
+		"character varying" sector_code
+		"text" sector_name
+		"integer[]" data_source_ids
+		"text[]" data_source_codes
+		"integer" legal_form_id
+		"text" legal_form_code
+		"text" legal_form_name
+		"character varying(200)" physical_address_part1
+		"character varying(200)" physical_address_part2
+		"character varying(200)" physical_address_part3
+		"character varying(200)" physical_postcode
+		"character varying(200)" physical_postplace
+		"integer" physical_region_id
+		"ltree" physical_region_path
+		"character varying" physical_region_code
+		"integer" physical_country_id
+		"text" physical_country_iso_2
+		"numeric(9,6)" physical_latitude
+		"numeric(9,6)" physical_longitude
+		"numeric(6,1)" physical_altitude
+		"character varying(200)" postal_address_part1
+		"character varying(200)" postal_address_part2
+		"character varying(200)" postal_address_part3
+		"character varying(200)" postal_postcode
+		"character varying(200)" postal_postplace
+		"integer" postal_region_id
+		"ltree" postal_region_path
+		"character varying" postal_region_code
+		"integer" postal_country_id
+		"text" postal_country_iso_2
+		"numeric(9,6)" postal_latitude
+		"numeric(9,6)" postal_longitude
+		"numeric(6,1)" postal_altitude
+		"character varying(256)" web_address
+		"character varying(50)" email_address
+		"character varying(50)" phone_number
+		"character varying(50)" landline
+		"character varying(50)" mobile_number
+		"character varying(50)" fax_number
+		"integer" unit_size_id
+		"text" unit_size_code
+		"integer" status_id
+		"character varying" status_code
+		"boolean" include_unit_in_reports
+		"jsonb" invalid_codes
+		"boolean" has_legal_unit
+		"integer[]" establishment_ids
+		"integer" legal_unit_id
+		"integer" enterprise_id
+		"jsonb" stats
+		"jsonb" stats_summary
+	}
+	timesegments["timesegments"] {
+		"statistical_unit_type" unit_type
+		"integer" unit_id
+		"date" valid_after
+		"date" valid_to
+	}
 	unit_notes["unit_notes"] {
 		"integer" id
 		"text" notes

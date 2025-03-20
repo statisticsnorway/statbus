@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE VIEW public.timeline_legal_unit
+CREATE OR REPLACE VIEW public.timeline_legal_unit_def
     ( unit_type
     , unit_id
     , valid_after
@@ -392,5 +392,65 @@ CREATE VIEW public.timeline_legal_unit
       --
       ORDER BY unit_type, unit_id, valid_after
 ;
+
+DROP TABLE IF EXISTS public.timeline_legal_unit;
+
+-- Create the physical unlogged table to store the view results
+CREATE TABLE IF NOT EXISTS public.timeline_legal_unit AS
+SELECT * FROM public.timeline_legal_unit_def
+WHERE FALSE;
+
+-- Add constraints to the physical table
+ALTER TABLE public.timeline_legal_unit
+    ADD PRIMARY KEY (unit_type, unit_id, valid_after),
+    ALTER COLUMN unit_type SET NOT NULL,
+    ALTER COLUMN unit_id SET NOT NULL,
+    ALTER COLUMN valid_after SET NOT NULL,
+    ALTER COLUMN valid_from SET NOT NULL;
+
+-- Create indices to optimize queries
+CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_daterange ON public.timeline_legal_unit
+    USING gist (daterange(valid_after, valid_to, '(]'));
+CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_valid_period ON public.timeline_legal_unit
+    (valid_after, valid_to);
+CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_search ON public.timeline_legal_unit
+    USING gin (search);
+CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_establishment_ids ON public.timeline_legal_unit
+    USING gin (establishment_ids);
+
+-- Create a function to refresh the timeline_legal_unit table
+CREATE OR REPLACE FUNCTION public.timeline_legal_unit_refresh(
+    p_valid_after date DEFAULT NULL,
+    p_valid_to date DEFAULT NULL
+) RETURNS void LANGUAGE plpgsql AS $timeline_legal_unit_refresh$
+BEGIN
+    -- If all parameters are NULL, this is a full refresh
+    IF p_valid_after IS NULL AND p_valid_to IS NULL THEN
+        -- Full refresh: truncate the main table
+        TRUNCATE TABLE public.timeline_legal_unit;
+
+        -- Insert directly from the definition view
+        INSERT INTO public.timeline_legal_unit
+        SELECT * FROM public.timeline_legal_unit_def
+        WHERE unit_type = 'legal_unit';
+    ELSE
+        -- Incremental refresh: delete affected records from the main table
+        DELETE FROM public.timeline_legal_unit
+        WHERE unit_type = 'legal_unit'
+        AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
+        AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+
+        -- Insert directly from the definition view with filtering
+        INSERT INTO public.timeline_legal_unit
+        SELECT * FROM public.timeline_legal_unit_def
+        WHERE unit_type = 'legal_unit'
+        AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
+        AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+    END IF;
+END;
+$timeline_legal_unit_refresh$;
+
+-- Initial population of the timeline_legal_unit table
+SELECT public.timeline_legal_unit_refresh();
 
 END;
