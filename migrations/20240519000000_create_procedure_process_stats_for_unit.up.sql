@@ -53,7 +53,6 @@ BEGIN
                 END;
                 INSERT INTO public.stat_for_unit_era
                     ( stat_definition_id
-                    , valid_after
                     , valid_from
                     , valid_to
                     , data_source_id
@@ -65,7 +64,6 @@ BEGIN
                     , value_bool
                     )
                  SELECT stat_row.stat_definition_id
-                      , stat_row.valid_after
                       , stat_row.valid_from
                       , stat_row.valid_to
                       , stat_row.data_source_id
