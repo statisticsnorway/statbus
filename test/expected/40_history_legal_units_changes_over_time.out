@@ -104,11 +104,12 @@ SELECT view_name FROM statistical_unit_refresh_now();
 "Check sector for legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
  tax_ident |       name        | valid_after | valid_from |  valid_to  | sector_code 
 -----------+-------------------+-------------+------------+------------+-------------
- 823573673 | Kranløft Vestland | 2011-01-14  | 2011-01-15 | infinity   | 8200
  823573673 | Kranløft Vestland | 2009-12-31  | 2010-01-01 | 2011-01-14 | 2100
+ 823573673 | Kranløft Vestland | 2011-01-14  | 2011-01-15 | infinity   | 8200
 (2 rows)
 
 \echo "Test statistical unit history by year - sector_change_count should be 1 for year 2011"
@@ -117,7 +118,8 @@ SELECT resolution, year, unit_type, count, births, deaths, sector_change_count
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
  resolution | year | unit_type  | count | births | deaths | sector_change_count 
 ------------+------+------------+-------+--------+--------+---------------------
  year       | 2010 | legal_unit |     1 |      1 |      0 |                   0
@@ -131,7 +133,8 @@ SELECT resolution, year, month, unit_type, count, births, deaths, sector_change_
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
  resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
 ------------+------+-------+------------+-------+--------+--------+---------------------
  year-month | 2010 |     1 | legal_unit |     1 |      1 |      0 |                   0
@@ -234,7 +237,8 @@ SELECT resolution, year,month, unit_type, count, births, deaths, sector_change_c
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2012
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
  resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
 ------------+------+-------+------------+-------+--------+--------+---------------------
  year       | 2010 |       | legal_unit |     1 |      1 |      0 |                   0
@@ -247,7 +251,8 @@ SELECT resolution, year, month, unit_type, count, births, deaths, sector_change_
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2012
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
  resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
 ------------+------+-------+------------+-------+--------+--------+---------------------
  year-month | 2010 |     1 | legal_unit |     1 |      1 |      0 |                   0
@@ -339,7 +344,8 @@ SELECT resolution, year,month, unit_type, count, births, deaths, sector_change_c
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2014
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
  resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
 ------------+------+-------+------------+-------+--------+--------+---------------------
  year       | 2010 |       | legal_unit |     1 |      1 |      0 |                   0
@@ -354,7 +360,8 @@ SELECT resolution, year, month, unit_type, count, births, deaths, sector_change_
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
  resolution | year | month | unit_type  | count | births | deaths | sector_change_count 
 ------------+------+-------+------------+-------+--------+--------+---------------------
  year-month | 2010 |     1 | legal_unit |     1 |      1 |      0 |                   0

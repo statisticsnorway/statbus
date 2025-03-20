@@ -60,14 +60,16 @@ SELECT view_name FROM statistical_unit_refresh_now();
 \echo "Check sector for legal units over time"
 SELECT external_idents ->> 'tax_ident' as tax_ident, name, valid_after, valid_from, valid_to, sector_code
 FROM public.statistical_unit
-WHERE unit_type = 'legal_unit';
+WHERE unit_type = 'legal_unit'
+ORDER BY external_idents ->> 'tax_ident', valid_from;
 
 \echo "Test statistical unit history by year - sector_change_count should be 1 for year 2011"
 SELECT resolution, year, unit_type, count, births, deaths, sector_change_count
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
 
 
 \echo "Test statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1"
@@ -75,7 +77,8 @@ SELECT resolution, year, month, unit_type, count, births, deaths, sector_change_
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
 
 \x
 
@@ -115,7 +118,8 @@ SELECT resolution, year,month, unit_type, count, births, deaths, sector_change_c
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2012
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
 
 
 
@@ -124,7 +128,8 @@ SELECT resolution, year, month, unit_type, count, births, deaths, sector_change_
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2012
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
 
 \x
 
@@ -164,7 +169,8 @@ SELECT resolution, year,month, unit_type, count, births, deaths, sector_change_c
 FROM public.statistical_history
 WHERE resolution = 'year'
 AND year < 2014
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
 
 
 \echo "Check statistical unit history by year-month - sector_change_count should be 1 for year-month 2011-1 and 2012-1"
@@ -172,7 +178,8 @@ SELECT resolution, year, month, unit_type, count, births, deaths, sector_change_
 FROM public.statistical_history
 WHERE resolution = 'year-month'
 AND year < 2013
-AND unit_type = 'legal_unit';
+AND unit_type = 'legal_unit'
+ORDER BY resolution, year, month, unit_type;
 
 \x
 
