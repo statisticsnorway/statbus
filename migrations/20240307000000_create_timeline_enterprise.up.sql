@@ -100,367 +100,151 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
            , ten.unit_id
            , ten.valid_after
            , ten.valid_to
-           , plu.name AS name
-           , plu.birth_date AS birth_date
-           , plu.death_date AS death_date
-           -- Se supported languages with `SELECT * FROM pg_ts_config`
-           , to_tsvector('simple', plu.name) AS search
-           --
-           , pa.category_id AS primary_activity_category_id
-           , pac.path                AS primary_activity_category_path
-           , pac.code                AS primary_activity_category_code
-           --
-           , sa.category_id AS secondary_activity_category_id
-           , sac.path                AS secondary_activity_category_path
-           , sac.code                AS secondary_activity_category_code
-           --
-           , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
-           --
-           , s.id   AS sector_id
-           , s.path AS sector_path
-           , s.code AS sector_code
-           , s.name AS sector_name
-           --
-           , COALESCE(ds.ids,ARRAY[]::INTEGER[]) AS data_source_ids
-           , COALESCE(ds.codes, ARRAY[]::TEXT[]) AS data_source_codes
-           --
-           , lf.id   AS legal_form_id
-           , lf.code AS legal_form_code
-           , lf.name AS legal_form_name
-           --
-           , phl.address_part1 AS physical_address_part1
-           , phl.address_part2 AS physical_address_part2
-           , phl.address_part3 AS physical_address_part3
-           , phl.postcode AS physical_postcode
-           , phl.postplace AS physical_postplace
-           , phl.region_id           AS physical_region_id
-           , phr.path                AS physical_region_path
-           , phr.code                AS physical_region_code
-           , phl.country_id AS physical_country_id
-           , phc.iso_2     AS physical_country_iso_2
-           , phl.latitude  AS physical_latitude
-           , phl.longitude AS physical_longitude
-           , phl.altitude  AS physical_altitude
-           --
-           , pol.address_part1 AS postal_address_part1
-           , pol.address_part2 AS postal_address_part2
-           , pol.address_part3 AS postal_address_part3
-           , pol.postcode AS postal_postcode
-           , pol.postplace AS postal_postplace
-           , pol.region_id           AS postal_region_id
-           , por.path                AS postal_region_path
-           , por.code                AS postal_region_code
-           , pol.country_id AS postal_country_id
-           , poc.iso_2     AS postal_country_iso_2
-           , pol.latitude  AS postal_latitude
-           , pol.longitude AS postal_longitude
-           , pol.altitude  AS postal_altitude
-           --
-           , c.web_address
-           , c.email_address
-           , c.phone_number
-           , c.landline
-           , c.mobile_number
-           , c.fax_number
-           --
-           , plu.unit_size_id AS unit_size_id
-           , us.code AS unit_size_code
-           --
-           , st.id AS status_id
-           , st.code AS status_code
-           , st.include_unit_in_reports AS include_unit_in_reports
-           --
-           , last_edit.edit_comment AS last_edit_comment
-           , last_edit.edit_by_user_id AS last_edit_by_user_id
-           , last_edit.edit_at AS last_edit_at
-           --
-           , plu.invalid_codes AS invalid_codes
-           --
-           , TRUE AS has_legal_unit
-           --
-           , ten.id AS enterprise_id
-           , plu.id AS primary_legal_unit_id
+           , tlu.name AS name
+           , tlu.birth_date AS birth_date
+           , tlu.death_date AS death_date
+           , tlu.search AS search
+           , tlu.primary_activity_category_id
+           , tlu.primary_activity_category_path
+           , tlu.primary_activity_category_code
+           , tlu.secondary_activity_category_id
+           , tlu.secondary_activity_category_path
+           , tlu.secondary_activity_category_code
+           , tlu.activity_category_paths
+           , tlu.sector_id
+           , tlu.sector_path
+           , tlu.sector_code
+           , tlu.sector_name
+           , tlu.data_source_ids
+           , tlu.data_source_codes
+           , tlu.legal_form_id
+           , tlu.legal_form_code
+           , tlu.legal_form_name
+           , tlu.physical_address_part1
+           , tlu.physical_address_part2
+           , tlu.physical_address_part3
+           , tlu.physical_postcode
+           , tlu.physical_postplace
+           , tlu.physical_region_id
+           , tlu.physical_region_path
+           , tlu.physical_region_code
+           , tlu.physical_country_id
+           , tlu.physical_country_iso_2
+           , tlu.physical_latitude
+           , tlu.physical_longitude
+           , tlu.physical_altitude
+           , tlu.postal_address_part1
+           , tlu.postal_address_part2
+           , tlu.postal_address_part3
+           , tlu.postal_postcode
+           , tlu.postal_postplace
+           , tlu.postal_region_id
+           , tlu.postal_region_path
+           , tlu.postal_region_code
+           , tlu.postal_country_id
+           , tlu.postal_country_iso_2
+           , tlu.postal_latitude
+           , tlu.postal_longitude
+           , tlu.postal_altitude
+           , tlu.web_address
+           , tlu.email_address
+           , tlu.phone_number
+           , tlu.landline
+           , tlu.mobile_number
+           , tlu.fax_number
+           , tlu.unit_size_id
+           , tlu.unit_size_code
+           , tlu.status_id
+           , tlu.status_code
+           , tlu.include_unit_in_reports
+           , tlu.last_edit_comment
+           , tlu.last_edit_by_user_id
+           , tlu.last_edit_at
+           , tlu.invalid_codes
+           , tlu.has_legal_unit
+           , ten.enterprise_id
+           , tlu.legal_unit_id AS primary_legal_unit_id
       FROM timesegments_enterprise AS ten
-      INNER JOIN public.legal_unit AS plu
-          ON plu.enterprise_id = ten.enterprise_id
-          AND plu.primary_for_enterprise
+      INNER JOIN public.timeline_legal_unit AS tlu
+          ON tlu.enterprise_id = ten.enterprise_id
+          AND tlu.primary_for_enterprise = true
           AND daterange(ten.valid_after, ten.valid_to, '(]')
-           && daterange(plu.valid_after, plu.valid_to, '(]')
-      --
-      LEFT OUTER JOIN public.activity AS pa
-              ON pa.legal_unit_id = plu.id
-             AND pa.type = 'primary'
-             AND daterange(ten.valid_after, ten.valid_to, '(]')
-              && daterange(pa.valid_after, pa.valid_to, '(]')
-      LEFT JOIN public.activity_category AS pac
-              ON pa.category_id = pac.id
-      --
-      LEFT OUTER JOIN public.activity AS sa
-              ON sa.legal_unit_id = plu.id
-             AND sa.type = 'secondary'
-             AND daterange(ten.valid_after, ten.valid_to, '(]')
-              && daterange(sa.valid_after, sa.valid_to, '(]')
-      LEFT JOIN public.activity_category AS sac
-              ON sa.category_id = sac.id
-      --
-      LEFT OUTER JOIN public.sector AS s
-              ON plu.sector_id = s.id
-      --
-      LEFT OUTER JOIN public.legal_form AS lf
-              ON plu.legal_form_id = lf.id
-      --
-      LEFT OUTER JOIN public.location AS phl
-              ON phl.legal_unit_id = plu.id
-             AND phl.type = 'physical'
-             AND daterange(ten.valid_after, ten.valid_to, '(]')
-              && daterange(phl.valid_after, phl.valid_to, '(]')
-      LEFT JOIN public.region AS phr
-              ON phl.region_id = phr.id
-      LEFT JOIN public.country AS phc
-              ON phl.country_id = phc.id
-      --
-      LEFT OUTER JOIN public.location AS pol
-              ON pol.legal_unit_id = plu.id
-             AND pol.type = 'postal'
-             AND daterange(ten.valid_after, ten.valid_to, '(]')
-              && daterange(pol.valid_after, pol.valid_to, '(]')
-      LEFT JOIN public.region AS por
-              ON pol.region_id = por.id
-      LEFT JOIN public.country AS poc
-              ON pol.country_id = poc.id
-      --
-      LEFT JOIN public.contact AS c
-              ON c.legal_unit_id = plu.id
-      --
-      LEFT JOIN public.unit_size AS us
-              ON us.id = plu.unit_size_id
-      LEFT JOIN public.status AS st
-              ON st.id = plu.status_id
-      --
-      LEFT JOIN LATERAL (
-              SELECT array_agg(sfu.data_source_id) AS data_source_ids
-              FROM public.stat_for_unit AS sfu
-              WHERE sfu.legal_unit_id = plu.id
-                AND daterange(ten.valid_after, ten.valid_to, '(]')
-                && daterange(sfu.valid_after, sfu.valid_to, '(]')
-        ) AS sfu ON TRUE
-      --
-      LEFT JOIN LATERAL (
-          SELECT array_agg(ds.id) AS ids
-               , array_agg(ds.code) AS codes
-          FROM public.data_source AS ds
-          WHERE COALESCE(ds.id = plu.data_source_id      , FALSE)
-             OR COALESCE(ds.id = pa.data_source_id       , FALSE)
-             OR COALESCE(ds.id = sa.data_source_id       , FALSE)
-             OR COALESCE(ds.id = phl.data_source_id      , FALSE)
-             OR COALESCE(ds.id = pol.data_source_id      , FALSE)
-             OR COALESCE(ds.id = ANY(sfu.data_source_ids), FALSE)
-        ) AS ds ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT edit_comment, edit_by_user_id, edit_at
-        FROM (
-          SELECT plu.edit_comment, plu.edit_by_user_id, plu.edit_at
-          UNION ALL
-          SELECT pa.edit_comment, pa.edit_by_user_id, pa.edit_at
-          WHERE pa.edit_at IS NOT NULL
-          UNION ALL
-          SELECT sa.edit_comment, sa.edit_by_user_id, sa.edit_at
-          WHERE sa.edit_at IS NOT NULL
-          UNION ALL
-          SELECT phl.edit_comment, phl.edit_by_user_id, phl.edit_at
-          WHERE phl.edit_at IS NOT NULL
-          UNION ALL
-          SELECT pol.edit_comment, pol.edit_by_user_id, pol.edit_at
-          WHERE pol.edit_at IS NOT NULL
-          UNION ALL
-          SELECT c.edit_comment, c.edit_by_user_id, c.edit_at
-          WHERE c.edit_at IS NOT NULL
-        ) AS all_edits
-        ORDER BY edit_at DESC
-        LIMIT 1
-      ) AS last_edit ON TRUE
+           && daterange(tlu.valid_after, tlu.valid_to, '(]')
       ), enterprise_with_primary_establishment AS (
       SELECT ten.unit_type
            , ten.unit_id
            , ten.valid_after
            , ten.valid_to
-           , pes.name AS name
-           , pes.birth_date AS birth_date
-           , pes.death_date AS death_date
-           -- Se supported languages with `SELECT * FROM pg_ts_config`
-           , to_tsvector('simple', pes.name) AS search
-           --
-           , pa.category_id AS primary_activity_category_id
-           , pac.path                AS primary_activity_category_path
-           , pac.code                AS primary_activity_category_code
-           --
-           , sa.category_id AS secondary_activity_category_id
-           , sac.path                AS secondary_activity_category_path
-           , sac.code                AS secondary_activity_category_code
-           --
-           , NULLIF(ARRAY_REMOVE(ARRAY[pac.path, sac.path], NULL), '{}') AS activity_category_paths
-           --
-           , s.id   AS sector_id
-           , s.path AS sector_path
-           , s.code AS sector_code
-           , s.name AS sector_name
-           --
-           , COALESCE(ds.ids,ARRAY[]::INTEGER[]) AS data_source_ids
-           , COALESCE(ds.codes, ARRAY[]::TEXT[]) AS data_source_codes
-           --
-           -- An establishment has no legal_form, that is for legal_unit only.
-           , NULL::INTEGER AS legal_form_id
-           , NULL::VARCHAR AS legal_form_code
-           , NULL::VARCHAR AS legal_form_name
-           --
-           , phl.address_part1 AS physical_address_part1
-           , phl.address_part2 AS physical_address_part2
-           , phl.address_part3 AS physical_address_part3
-           , phl.postcode AS physical_postcode
-           , phl.postplace AS physical_postplace
-           , phl.region_id           AS physical_region_id
-           , phr.path                AS physical_region_path
-           , phr.code                AS physical_region_code
-           , phl.country_id AS physical_country_id
-           , phc.iso_2     AS physical_country_iso_2
-           , phl.latitude  AS physical_latitude
-           , phl.longitude AS physical_longitude
-           , phl.altitude  AS physical_altitude
-           --
-           , pol.address_part1 AS postal_address_part1
-           , pol.address_part2 AS postal_address_part2
-           , pol.address_part3 AS postal_address_part3
-           , pol.postcode AS postal_postcode
-           , pol.postplace AS postal_postplace
-           , pol.region_id           AS postal_region_id
-           , por.path                AS postal_region_path
-           , por.code                AS postal_region_code
-           , pol.country_id AS postal_country_id
-           , poc.iso_2     AS postal_country_iso_2
-           , pol.latitude  AS postal_latitude
-           , pol.longitude AS postal_longitude
-           , pol.altitude  AS postal_altitude
-           --
-           , c.web_address
-           , c.email_address
-           , c.phone_number
-           , c.landline
-           , c.mobile_number
-           , c.fax_number
-           --
-           , pes.unit_size_id AS unit_size_id
-           , us.code AS unit_size_code
-           --
-           , st.id AS status_id
-           , st.code AS status_code
-           , st.include_unit_in_reports AS include_unit_in_reports
-           --
-           , last_edit.edit_comment AS last_edit_comment
-           , last_edit.edit_by_user_id AS last_edit_by_user_id
-           , last_edit.edit_at AS last_edit_at
-           --
-           , pes.invalid_codes AS invalid_codes
-           --
-           , FALSE AS has_legal_unit
-           --
-           , ten.id AS enterprise_id
-           , pes.id AS primary_establishment_id
+           , tes.name AS name
+           , tes.birth_date AS birth_date
+           , tes.death_date AS death_date
+           , tes.search AS search
+           , tes.primary_activity_category_id
+           , tes.primary_activity_category_path
+           , tes.primary_activity_category_code
+           , tes.secondary_activity_category_id
+           , tes.secondary_activity_category_path
+           , tes.secondary_activity_category_code
+           , tes.activity_category_paths
+           , tes.sector_id
+           , tes.sector_path
+           , tes.sector_code
+           , tes.sector_name
+           , tes.data_source_ids
+           , tes.data_source_codes
+           , tes.legal_form_id
+           , tes.legal_form_code
+           , tes.legal_form_name
+           , tes.physical_address_part1
+           , tes.physical_address_part2
+           , tes.physical_address_part3
+           , tes.physical_postcode
+           , tes.physical_postplace
+           , tes.physical_region_id
+           , tes.physical_region_path
+           , tes.physical_region_code
+           , tes.physical_country_id
+           , tes.physical_country_iso_2
+           , tes.physical_latitude
+           , tes.physical_longitude
+           , tes.physical_altitude
+           , tes.postal_address_part1
+           , tes.postal_address_part2
+           , tes.postal_address_part3
+           , tes.postal_postcode
+           , tes.postal_postplace
+           , tes.postal_region_id
+           , tes.postal_region_path
+           , tes.postal_region_code
+           , tes.postal_country_id
+           , tes.postal_country_iso_2
+           , tes.postal_latitude
+           , tes.postal_longitude
+           , tes.postal_altitude
+           , tes.web_address
+           , tes.email_address
+           , tes.phone_number
+           , tes.landline
+           , tes.mobile_number
+           , tes.fax_number
+           , tes.unit_size_id
+           , tes.unit_size_code
+           , tes.status_id
+           , tes.status_code
+           , tes.include_unit_in_reports
+           , tes.last_edit_comment
+           , tes.last_edit_by_user_id
+           , tes.last_edit_at
+           , tes.invalid_codes
+           , tes.has_legal_unit
+           , ten.enterprise_id
+           , tes.establishment_id AS primary_establishment_id
       FROM timesegments_enterprise AS ten
-      INNER JOIN public.establishment AS pes
-          ON pes.enterprise_id = ten.id
-          AND pes.primary_for_enterprise
+      INNER JOIN public.timeline_establishment AS tes
+          ON tes.enterprise_id = ten.enterprise_id
+          AND tes.primary_for_enterprise = true
           AND daterange(ten.valid_after, ten.valid_to, '(]')
-           && daterange(pes.valid_after, pes.valid_to, '(]')
-      --
-      LEFT OUTER JOIN public.activity AS pa
-              ON pa.establishment_id = pes.id
-             AND pa.type = 'primary'
-             AND daterange(ten.valid_after, ten.valid_to, '(]')
-              && daterange(pa.valid_after, pa.valid_to, '(]')
-      LEFT JOIN public.activity_category AS pac
-              ON pa.category_id = pac.id
-      --
-      LEFT OUTER JOIN public.activity AS sa
-              ON sa.establishment_id = pes.id
-             AND sa.type = 'secondary'
-             AND daterange(ten.valid_after, ten.valid_to, '(]')
-              && daterange(sa.valid_after, sa.valid_to, '(]')
-      LEFT JOIN public.activity_category AS sac
-              ON sa.category_id = sac.id
-      --
-      LEFT OUTER JOIN public.sector AS s
-              ON pes.sector_id = s.id
-      --
-      LEFT OUTER JOIN public.location AS phl
-              ON phl.establishment_id = pes.id
-             AND phl.type = 'physical'
-             AND daterange(ten.valid_after, ten.valid_to, '(]')
-              && daterange(phl.valid_after, phl.valid_to, '(]')
-      LEFT JOIN public.region AS phr
-              ON phl.region_id = phr.id
-      LEFT JOIN public.country AS phc
-              ON phl.country_id = phc.id
-      --
-      LEFT OUTER JOIN public.location AS pol
-              ON pol.establishment_id = pes.id
-             AND pol.type = 'postal'
-             AND daterange(ten.valid_after, ten.valid_to, '(]')
-              && daterange(pol.valid_after, pol.valid_to, '(]')
-      LEFT JOIN public.region AS por
-              ON pol.region_id = por.id
-      LEFT JOIN public.country AS poc
-              ON pol.country_id = poc.id
-      --
-      LEFT JOIN public.contact AS c
-              ON c.establishment_id = pes.id
-      --
-      LEFT JOIN public.unit_size AS us
-              ON us.id = pes.unit_size_id
-      LEFT JOIN public.status AS st
-              ON st.id = pes.status_id
-      --
-      LEFT JOIN LATERAL (
-            SELECT array_agg(sfu.data_source_id) AS data_source_ids
-            FROM public.stat_for_unit AS sfu
-            WHERE sfu.legal_unit_id = pes.id
-              AND daterange(ten.valid_after, ten.valid_to, '(]')
-              && daterange(sfu.valid_after, sfu.valid_to, '(]')
-        ) AS sfu ON TRUE
-      --
-      LEFT JOIN LATERAL (
-          SELECT array_agg(ds.id) AS ids
-               , array_agg(ds.code) AS codes
-          FROM public.data_source AS ds
-         WHERE COALESCE(ds.id = pes.data_source_id      , FALSE)
-            OR COALESCE(ds.id = pa.data_source_id       , FALSE)
-            OR COALESCE(ds.id = sa.data_source_id       , FALSE)
-            OR COALESCE(ds.id = phl.data_source_id      , FALSE)
-            OR COALESCE(ds.id = pol.data_source_id      , FALSE)
-            OR COALESCE(ds.id = ANY(sfu.data_source_ids), FALSE)
-        ) AS ds ON TRUE
-      LEFT JOIN LATERAL (
-        SELECT edit_comment, edit_by_user_id, edit_at
-        FROM (
-          SELECT pes.edit_comment, pes.edit_by_user_id, pes.edit_at
-          UNION ALL
-          SELECT pa.edit_comment, pa.edit_by_user_id, pa.edit_at
-          WHERE pa.edit_at IS NOT NULL
-          UNION ALL
-          SELECT sa.edit_comment, sa.edit_by_user_id, sa.edit_at
-          WHERE sa.edit_at IS NOT NULL
-          UNION ALL
-          SELECT phl.edit_comment, phl.edit_by_user_id, phl.edit_at
-          WHERE phl.edit_at IS NOT NULL
-          UNION ALL
-          SELECT pol.edit_comment, pol.edit_by_user_id, pol.edit_at
-          WHERE pol.edit_at IS NOT NULL
-          UNION ALL
-          SELECT c.edit_comment, c.edit_by_user_id, c.edit_at
-          WHERE c.edit_at IS NOT NULL
-        ) AS all_edits
-        ORDER BY edit_at DESC
-        LIMIT 1
-      ) AS last_edit ON TRUE
+           && daterange(tes.valid_after, tes.valid_to, '(]')
       ), enterprise_with_primary AS (
       SELECT ten.unit_type
            , ten.unit_id
@@ -872,8 +656,6 @@ CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_daterange ON public.timeline_
     USING gist (daterange(valid_after, valid_to, '(]'));
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_valid_period ON public.timeline_enterprise
     (valid_after, valid_to);
-CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_search ON public.timeline_enterprise
-    USING gin (search);
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_establishment_ids ON public.timeline_enterprise
     USING gin (establishment_ids);
 CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_legal_unit_ids ON public.timeline_enterprise
@@ -888,15 +670,17 @@ BEGIN
     -- Delete affected records from the main table
     DELETE FROM public.timeline_enterprise
     WHERE unit_type = 'enterprise'
-    AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
-    AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+    AND (p_valid_after IS NULL AND p_valid_to IS NULL OR
+         daterange(valid_after, valid_to, '(]') &&
+         daterange(COALESCE(p_valid_after, valid_after), COALESCE(p_valid_to, valid_to), '(]'));
 
     -- Insert directly from the definition view with filtering
     INSERT INTO public.timeline_enterprise
     SELECT * FROM public.timeline_enterprise_def
     WHERE unit_type = 'enterprise'
-    AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
-    AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+    AND (p_valid_after IS NULL AND p_valid_to IS NULL OR
+         daterange(valid_after, valid_to, '(]') &&
+         daterange(COALESCE(p_valid_after, valid_after), COALESCE(p_valid_to, valid_to), '(]'));
 END;
 $timeline_enterprise_refresh$;
 
