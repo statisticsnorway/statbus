@@ -78,6 +78,10 @@ CREATE VIEW public.timeline_establishment_def
     , establishment_id
     , legal_unit_id
     , enterprise_id
+    --
+    , primary_for_enterprise
+    , primary_for_legal_unit
+    --
     , stats
     )
     AS
@@ -167,6 +171,9 @@ CREATE VIEW public.timeline_establishment_def
            , es.id AS establishment_id
            , es.legal_unit_id AS legal_unit_id
            , es.enterprise_id AS enterprise_id
+           --
+           , es.primary_for_enterprise AS primary_for_enterprise
+           , es.primary_for_legal_unit AS primary_for_legal_unit
            --
            , COALESCE(public.get_jsonb_stats(es.id, NULL, t.valid_after, t.valid_to), '{}'::JSONB) AS stats
       --
@@ -282,8 +289,17 @@ CREATE INDEX IF NOT EXISTS idx_timeline_establishment_daterange ON public.timeli
     USING gist (daterange(valid_after, valid_to, '(]'));
 CREATE INDEX IF NOT EXISTS idx_timeline_establishment_valid_period ON public.timeline_establishment
     (valid_after, valid_to);
-CREATE INDEX IF NOT EXISTS idx_timeline_establishment_search ON public.timeline_establishment
-    USING gin (search);
+CREATE INDEX IF NOT EXISTS idx_timeline_establishment_primary_for_enterprise ON public.timeline_establishment
+    (primary_for_enterprise) WHERE primary_for_enterprise = true;
+CREATE INDEX IF NOT EXISTS idx_timeline_establishment_primary_for_legal_unit ON public.timeline_establishment
+    (primary_for_legal_unit) WHERE primary_for_legal_unit = true;
+CREATE INDEX IF NOT EXISTS idx_timeline_establishment_establishment_id ON public.timeline_establishment
+    (establishment_id) WHERE establishment_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_timeline_establishment_legal_unit_id ON public.timeline_establishment
+    (legal_unit_id) WHERE legal_unit_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_timeline_establishment_enterprise_id ON public.timeline_establishment
+    (enterprise_id) WHERE enterprise_id IS NOT NULL;
+
 
 -- Create a function to refresh the timeline_establishment table
 CREATE OR REPLACE FUNCTION public.timeline_establishment_refresh(
@@ -294,15 +310,17 @@ BEGIN
     -- Delete affected records from the main table
     DELETE FROM public.timeline_establishment
     WHERE unit_type = 'establishment'
-    AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
-    AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+    AND (p_valid_after IS NULL AND p_valid_to IS NULL OR
+         daterange(valid_after, valid_to, '(]') &&
+         daterange(COALESCE(p_valid_after, valid_after), COALESCE(p_valid_to, valid_to), '(]'));
 
     -- Insert directly from the definition view with filtering
     INSERT INTO public.timeline_establishment
     SELECT * FROM public.timeline_establishment_def
     WHERE unit_type = 'establishment'
-    AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
-    AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+    AND (p_valid_after IS NULL AND p_valid_to IS NULL OR
+         daterange(valid_after, valid_to, '(]') &&
+         daterange(COALESCE(p_valid_after, valid_after), COALESCE(p_valid_to, valid_to), '(]'));
 END;
 $timeline_establishment_refresh$;
 

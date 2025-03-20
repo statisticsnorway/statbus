@@ -83,6 +83,8 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
     , legal_unit_id
     , enterprise_id
     --
+    , primary_for_enterprise
+    --
     , stats
     , stats_summary
     )
@@ -173,6 +175,9 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            --
            , lu.id AS legal_unit_id
            , lu.enterprise_id AS enterprise_id
+           --
+           , lu.primary_for_enterprise AS primary_for_enterprise
+           --
            , COALESCE(public.get_jsonb_stats(NULL, lu.id, t.valid_after, t.valid_to), '{}'::JSONB) AS stats
       --
       FROM public.timesegments AS t
@@ -378,6 +383,8 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            , COALESCE(esa.establishment_ids, ARRAY[]::INT[]) AS establishment_ids
            , basis.legal_unit_id
            , basis.enterprise_id
+           --
+           , basis.primary_for_enterprise
            -- Expose the stats for just this entry.
            , basis.stats AS stats
            -- Continue one more aggregation iteration adding the stats for this unit
@@ -413,10 +420,15 @@ CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_daterange ON public.timeline_
     USING gist (daterange(valid_after, valid_to, '(]'));
 CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_valid_period ON public.timeline_legal_unit
     (valid_after, valid_to);
-CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_search ON public.timeline_legal_unit
-    USING gin (search);
 CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_establishment_ids ON public.timeline_legal_unit
     USING gin (establishment_ids);
+CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_primary_for_enterprise ON public.timeline_legal_unit
+    (primary_for_enterprise) WHERE primary_for_enterprise = true;
+CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_legal_unit_id ON public.timeline_legal_unit
+    (legal_unit_id) WHERE legal_unit_id IS NOT NULL;
+CREATE INDEX IF NOT EXISTS idx_timeline_legal_unit_enterprise_id ON public.timeline_legal_unit
+    (enterprise_id);
+
 
 -- Create a function to refresh the timeline_legal_unit table
 CREATE OR REPLACE FUNCTION public.timeline_legal_unit_refresh(
@@ -427,15 +439,17 @@ BEGIN
     -- Delete affected records from the main table
     DELETE FROM public.timeline_legal_unit
     WHERE unit_type = 'legal_unit'
-    AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
-    AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+    AND (p_valid_after IS NULL AND p_valid_to IS NULL OR
+         daterange(valid_after, valid_to, '(]') &&
+         daterange(COALESCE(p_valid_after, valid_after), COALESCE(p_valid_to, valid_to), '(]'));
 
     -- Insert directly from the definition view with filtering
     INSERT INTO public.timeline_legal_unit
     SELECT * FROM public.timeline_legal_unit_def
     WHERE unit_type = 'legal_unit'
-    AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
-    AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+    AND (p_valid_after IS NULL AND p_valid_to IS NULL OR
+         daterange(valid_after, valid_to, '(]') &&
+         daterange(COALESCE(p_valid_after, valid_after), COALESCE(p_valid_to, valid_to), '(]'));
 END;
 $timeline_legal_unit_refresh$;
 
