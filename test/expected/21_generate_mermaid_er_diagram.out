@@ -827,6 +827,9 @@ erDiagram
 		"integer" status_id
 		"character varying" status_code
 		"boolean" include_unit_in_reports
+		"character varying" last_edit_comment
+		"integer" last_edit_by_user_id
+		"timestamp with time zone" last_edit_at
 		"jsonb" invalid_codes
 		"boolean" has_legal_unit
 		"integer[]" establishment_ids
@@ -958,6 +961,9 @@ erDiagram
 		"integer" status_id
 		"character varying" status_code
 		"boolean" include_unit_in_reports
+		"character varying" last_edit_comment
+		"integer" last_edit_by_user_id
+		"timestamp with time zone" last_edit_at
 		"jsonb" invalid_codes
 		"boolean" has_legal_unit
 		"integer[]" establishment_ids
@@ -1030,11 +1036,16 @@ erDiagram
 		"integer" status_id
 		"character varying" status_code
 		"boolean" include_unit_in_reports
+		"character varying(512)" last_edit_comment
+		"integer" last_edit_by_user_id
+		"timestamp with time zone" last_edit_at
 		"jsonb" invalid_codes
 		"boolean" has_legal_unit
 		"integer" establishment_id
 		"integer" legal_unit_id
 		"integer" enterprise_id
+		"boolean" primary_for_enterprise
+		"boolean" primary_for_legal_unit
 		"jsonb" stats
 	}
 	timeline_legal_unit["timeline_legal_unit"] {
@@ -1100,11 +1111,15 @@ erDiagram
 		"integer" status_id
 		"character varying" status_code
 		"boolean" include_unit_in_reports
+		"character varying(512)" last_edit_comment
+		"integer" last_edit_by_user_id
+		"timestamp with time zone" last_edit_at
 		"jsonb" invalid_codes
 		"boolean" has_legal_unit
 		"integer[]" establishment_ids
 		"integer" legal_unit_id
 		"integer" enterprise_id
+		"boolean" primary_for_enterprise
 		"jsonb" stats
 		"jsonb" stats_summary
 	}
