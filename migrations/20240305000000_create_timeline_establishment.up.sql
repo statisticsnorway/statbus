@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE VIEW public.timeline_establishment
+CREATE VIEW public.timeline_establishment_def
     ( unit_type
     , unit_id
     , valid_after
@@ -261,5 +261,63 @@ CREATE VIEW public.timeline_establishment
       --
       ORDER BY t.unit_type, t.unit_id, t.valid_after
 ;
+
+DROP TABLE IF EXISTS public.timeline_establishment;
+
+-- Create the physical unlogged table to store the view results
+CREATE TABLE public.timeline_establishment AS
+SELECT * FROM public.timeline_establishment_def
+WHERE FALSE;
+
+-- Add constraints to the physical table
+ALTER TABLE public.timeline_establishment
+    ADD PRIMARY KEY (unit_type, unit_id, valid_after),
+    ALTER COLUMN unit_type SET NOT NULL,
+    ALTER COLUMN unit_id SET NOT NULL,
+    ALTER COLUMN valid_after SET NOT NULL,
+    ALTER COLUMN valid_from SET NOT NULL;
+
+-- Create indices to optimize queries
+CREATE INDEX IF NOT EXISTS idx_timeline_establishment_daterange ON public.timeline_establishment
+    USING gist (daterange(valid_after, valid_to, '(]'));
+CREATE INDEX IF NOT EXISTS idx_timeline_establishment_valid_period ON public.timeline_establishment
+    (valid_after, valid_to);
+CREATE INDEX IF NOT EXISTS idx_timeline_establishment_search ON public.timeline_establishment
+    USING gin (search);
+
+-- Create a function to refresh the timeline_establishment table
+CREATE OR REPLACE FUNCTION public.timeline_establishment_refresh(
+    p_valid_after date DEFAULT NULL,
+    p_valid_to date DEFAULT NULL
+) RETURNS void LANGUAGE plpgsql AS $timeline_establishment_refresh$
+BEGIN
+    -- If all parameters are NULL, this is a full refresh
+    IF p_valid_after IS NULL AND p_valid_to IS NULL THEN
+        -- Full refresh: truncate the main table
+        TRUNCATE TABLE public.timeline_establishment;
+
+        -- Insert directly from the definition view
+        INSERT INTO public.timeline_establishment
+        SELECT * FROM public.timeline_establishment_def
+        WHERE unit_type = 'establishment';
+    ELSE
+        -- Incremental refresh: delete affected records from the main table
+        DELETE FROM public.timeline_establishment
+        WHERE unit_type = 'establishment'
+        AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
+        AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+
+        -- Insert directly from the definition view with filtering
+        INSERT INTO public.timeline_establishment
+        SELECT * FROM public.timeline_establishment_def
+        WHERE unit_type = 'establishment'
+        AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
+        AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+    END IF;
+END;
+$timeline_establishment_refresh$;
+
+-- Initial population of the timeline_establishment table
+SELECT public.timeline_establishment_refresh();
 
 END;

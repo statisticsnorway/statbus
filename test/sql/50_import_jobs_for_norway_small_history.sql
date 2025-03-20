@@ -240,4 +240,18 @@ SELECT valid_after
 \x
 
 
+\o tmp/50_import_jobs_for_norway_small_history-timepoints.log
+EXPLAIN ANALYZE SELECT * FROM public.timepoints;
+\o tmp/50_import_jobs_for_norway_small_history-timesegments.log
+EXPLAIN ANALYZE SELECT * FROM public.timesegments;
+\o tmp/50_import_jobs_for_norway_small_history-timeline_establishment.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment;
+\o tmp/50_import_jobs_for_norway_small_history-timeline_legal_unit.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit;
+\o tmp/50_import_jobs_for_norway_small_history-timeline_enterprise.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise;
+\o tmp/50_import_jobs_for_norway_small_history-statistical_unit_def.log
+EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
+\o
+
 ROLLBACK;
