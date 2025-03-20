@@ -738,10 +738,14 @@ module Statbus
           # Note: worker.process_tasks() handles its own transactions internally
           @log.debug { "Executing worker.process_tasks for queue: #{queue}" }
 
-          # First execute the CALL statement
+          # Get the current timestamp before processing tasks
+          current_timestamp = db.query_one "SELECT clock_timestamp()", as: Time
+
+          # Execute the CALL statement
           db.exec "CALL worker.process_tasks(p_queue => $1, p_batch_size => $2)", queue, 10
 
           # Then execute the SELECT statement to get results
+          # Using the timestamp from before processing to find recently processed tasks
           results = db.query_all "SELECT
                                     t.id AS task_id, -- The task ID
                                     t.command,       -- The command that was executed
@@ -752,10 +756,10 @@ module Statbus
                                   FROM worker.tasks t
                                   JOIN worker.command_registry cr ON t.command = cr.command
                                   WHERE processed_at IS NOT NULL
-                                  AND age(processed_at) < interval '10 seconds'
+                                  AND processed_at >= $2
                                   AND (cr.queue = $1 OR $1 IS NULL)
                                   ORDER BY processed_at DESC",
-            queue,
+            queue, current_timestamp,
             as: {Int64, String, String, PG::Numeric, Bool, String?}
 
           if results.empty?
