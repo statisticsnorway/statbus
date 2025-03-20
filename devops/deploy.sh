@@ -55,9 +55,13 @@ echo "Stopping the application"
 ./devops/manage-statbus.sh stop app || { echo "Failed to stop the application"; exit 1; }
 
 dbseed_changes=$(git diff --name-only "$commit_before" "$commit_after" | grep "^dbseed/"; true)
-if test -n "$dbseed_changes" || test -n "${RECREATE:-}"; then
+# Check for modified migrations (M), ignoring added ones (A)
+migrations_changes=$(git diff --name-status "$commit_before" "$commit_after" | grep "^M.*migrations/" | cut -f2-; true)
+if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECREATE:-}"; then
   if test -n "$dbseed_changes"; then
     echo "Changes detected in dbseed/, recreating the backend with the latest database structures"
+  elif test -n "$migrations_changes"; then
+    echo "Changes detected in existing migrations/, recreating the backend with the latest database structures"
   else
     echo "env RECREATE is set, recreating the backend with the latest database structures"
   fi
