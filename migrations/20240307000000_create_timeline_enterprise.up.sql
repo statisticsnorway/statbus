@@ -885,29 +885,18 @@ CREATE OR REPLACE FUNCTION public.timeline_enterprise_refresh(
     p_valid_to date DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $timeline_enterprise_refresh$
 BEGIN
-    -- If all parameters are NULL, this is a full refresh
-    IF p_valid_after IS NULL AND p_valid_to IS NULL THEN
-        -- Full refresh: truncate the main table
-        TRUNCATE TABLE public.timeline_enterprise;
+    -- Delete affected records from the main table
+    DELETE FROM public.timeline_enterprise
+    WHERE unit_type = 'enterprise'
+    AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
+    AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
 
-        -- Insert directly from the definition view
-        INSERT INTO public.timeline_enterprise
-        SELECT * FROM public.timeline_enterprise_def
-        WHERE unit_type = 'enterprise';
-    ELSE
-        -- Incremental refresh: delete affected records from the main table
-        DELETE FROM public.timeline_enterprise
-        WHERE unit_type = 'enterprise'
-        AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
-        AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
-
-        -- Insert directly from the definition view with filtering
-        INSERT INTO public.timeline_enterprise
-        SELECT * FROM public.timeline_enterprise_def
-        WHERE unit_type = 'enterprise'
-        AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
-        AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
-    END IF;
+    -- Insert directly from the definition view with filtering
+    INSERT INTO public.timeline_enterprise
+    SELECT * FROM public.timeline_enterprise_def
+    WHERE unit_type = 'enterprise'
+    AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
+    AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
 END;
 $timeline_enterprise_refresh$;
 
