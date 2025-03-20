@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE VIEW public.timeline_enterprise
+CREATE OR REPLACE VIEW public.timeline_enterprise_def
     ( unit_type
     , unit_id
     , valid_after
@@ -850,5 +850,68 @@ CREATE VIEW public.timeline_enterprise
         SELECT * FROM enterprise_with_primary_and_aggregation_and_derived
          ORDER BY unit_type, unit_id, valid_after
 ;
+
+
+DROP TABLE IF EXISTS public.timeline_enterprise;
+
+-- Create the physical unlogged table to store the view results
+CREATE TABLE IF NOT EXISTS public.timeline_enterprise AS
+SELECT * FROM public.timeline_enterprise_def
+WHERE FALSE;
+
+-- Add constraints to the physical table
+ALTER TABLE public.timeline_enterprise
+    ADD PRIMARY KEY (unit_type, unit_id, valid_after),
+    ALTER COLUMN unit_type SET NOT NULL,
+    ALTER COLUMN unit_id SET NOT NULL,
+    ALTER COLUMN valid_after SET NOT NULL,
+    ALTER COLUMN valid_from SET NOT NULL;
+
+-- Create indices to optimize queries
+CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_daterange ON public.timeline_enterprise
+    USING gist (daterange(valid_after, valid_to, '(]'));
+CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_valid_period ON public.timeline_enterprise
+    (valid_after, valid_to);
+CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_search ON public.timeline_enterprise
+    USING gin (search);
+CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_establishment_ids ON public.timeline_enterprise
+    USING gin (establishment_ids);
+CREATE INDEX IF NOT EXISTS idx_timeline_enterprise_legal_unit_ids ON public.timeline_enterprise
+    USING gin (legal_unit_ids);
+
+-- Create a function to refresh the timeline_enterprise table
+CREATE OR REPLACE FUNCTION public.timeline_enterprise_refresh(
+    p_valid_after date DEFAULT NULL,
+    p_valid_to date DEFAULT NULL
+) RETURNS void LANGUAGE plpgsql AS $timeline_enterprise_refresh$
+BEGIN
+    -- If all parameters are NULL, this is a full refresh
+    IF p_valid_after IS NULL AND p_valid_to IS NULL THEN
+        -- Full refresh: truncate the main table
+        TRUNCATE TABLE public.timeline_enterprise;
+
+        -- Insert directly from the definition view
+        INSERT INTO public.timeline_enterprise
+        SELECT * FROM public.timeline_enterprise_def
+        WHERE unit_type = 'enterprise';
+    ELSE
+        -- Incremental refresh: delete affected records from the main table
+        DELETE FROM public.timeline_enterprise
+        WHERE unit_type = 'enterprise'
+        AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
+        AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+
+        -- Insert directly from the definition view with filtering
+        INSERT INTO public.timeline_enterprise
+        SELECT * FROM public.timeline_enterprise_def
+        WHERE unit_type = 'enterprise'
+        AND (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
+        AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+    END IF;
+END;
+$timeline_enterprise_refresh$;
+
+-- Initial population of the timeline_enterprise table
+SELECT public.timeline_enterprise_refresh();
 
 END;

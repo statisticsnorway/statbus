@@ -86,6 +86,26 @@ CREATE UNIQUE INDEX idx_tasks_statistical_unit_refresh_dedup
 ON worker.tasks (command)
 WHERE command = 'statistical_unit_refresh' AND state = 'pending'::worker.task_state;
 
+-- For timesegments_refresh: only one pending task at a time
+CREATE UNIQUE INDEX idx_tasks_timesegments_refresh_dedup
+ON worker.tasks (command)
+WHERE command = 'timesegments_refresh' AND state = 'pending'::worker.task_state;
+
+-- For timeline_establishment_refresh: only one pending task at a time
+CREATE UNIQUE INDEX idx_tasks_timeline_establishment_refresh_dedup
+ON worker.tasks (command)
+WHERE command = 'timeline_establishment_refresh' AND state = 'pending'::worker.task_state;
+
+-- For timeline_legal_unit_refresh: only one pending task at a time
+CREATE UNIQUE INDEX idx_tasks_timeline_legal_unit_refresh_dedup
+ON worker.tasks (command)
+WHERE command = 'timeline_legal_unit_refresh' AND state = 'pending'::worker.task_state;
+
+-- For timeline_enterprise_refresh: only one pending task at a time
+CREATE UNIQUE INDEX idx_tasks_timeline_enterprise_refresh_dedup
+ON worker.tasks (command)
+WHERE command = 'timeline_enterprise_refresh' AND state = 'pending'::worker.task_state;
+
 -- For refresh_derived_data: only one pending task at a time
 CREATE UNIQUE INDEX idx_tasks_refresh_derived_data_dedup
 ON worker.tasks (command)
@@ -333,7 +353,8 @@ BEGIN
      array_length(v_legal_unit_ids, 1) > 0 OR
      array_length(v_enterprise_ids, 1) > 0
   THEN
-    PERFORM worker.enqueue_statistical_unit_refresh(
+    -- Enqueue timesegments refresh which will then trigger statistical unit refresh
+    PERFORM worker.enqueue_timesegments_refresh(
       p_establishment_ids := v_establishment_ids,
       p_legal_unit_ids := v_legal_unit_ids,
       p_enterprise_ids := v_enterprise_ids,
@@ -393,7 +414,8 @@ DECLARE
 BEGIN
 
   -- Handle deleted row by refreshing affected units
-  PERFORM worker.enqueue_statistical_unit_refresh(
+  -- First refresh timesegments which will then trigger statistical unit refresh
+  PERFORM worker.enqueue_timesegments_refresh(
     p_establishment_ids := v_establishment_ids,
     p_legal_unit_ids := v_legal_unit_ids,
     p_enterprise_ids := v_enterprise_ids,
@@ -593,6 +615,639 @@ BEGIN
   RETURN v_task_id;
 END;
 $function$;
+
+
+-- For timesegments_refresh command
+CREATE FUNCTION worker.enqueue_timesegments_refresh(
+  p_establishment_ids int[] DEFAULT NULL,
+  p_legal_unit_ids int[] DEFAULT NULL,
+  p_enterprise_ids int[] DEFAULT NULL,
+  p_valid_after date DEFAULT NULL,
+  p_valid_to date DEFAULT NULL
+) RETURNS BIGINT
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_task_id BIGINT;
+  v_payload JSONB;
+  v_establishment_ids INT[] := COALESCE(p_establishment_ids, ARRAY[]::INT[]);
+  v_legal_unit_ids INT[] := COALESCE(p_legal_unit_ids, ARRAY[]::INT[]);
+  v_enterprise_ids INT[] := COALESCE(p_enterprise_ids, ARRAY[]::INT[]);
+  v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
+  v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
+BEGIN
+  -- Create payload with arrays
+  v_payload := jsonb_build_object(
+    'command', 'timesegments_refresh',
+    'establishment_ids', to_jsonb(v_establishment_ids),
+    'legal_unit_ids', to_jsonb(v_legal_unit_ids),
+    'enterprise_ids', to_jsonb(v_enterprise_ids),
+    'valid_after', v_valid_after,
+    'valid_to', v_valid_to
+  );
+
+  -- Create a unique index on a combination of all ID arrays and date range
+  -- This ensures we only have one pending task for the same set of IDs and date range
+  INSERT INTO worker.tasks AS t (
+    command, payload
+  ) VALUES ('timesegments_refresh', v_payload)
+  ON CONFLICT (command)
+  WHERE command = 'timesegments_refresh' AND state = 'pending'::worker.task_state
+  DO UPDATE SET
+    payload = jsonb_build_object(
+      'command', 'timesegments_refresh',
+      -- Merge and deduplicate establishment IDs
+      'establishment_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'establishment_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'establishment_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate legal unit IDs
+      'legal_unit_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'legal_unit_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'legal_unit_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate enterprise IDs
+      'enterprise_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'enterprise_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'enterprise_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Expand date ranges
+      'valid_after', LEAST(
+        (t.payload->>'valid_after')::date,
+        (EXCLUDED.payload->>'valid_after')::date
+      ),
+      'valid_to', GREATEST(
+        (t.payload->>'valid_to')::date,
+        (EXCLUDED.payload->>'valid_to')::date
+      )
+    ),
+    state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,  -- Use the new priority to push queue position
+    processed_at = NULL,
+    error = NULL
+  RETURNING id INTO v_task_id;
+
+  PERFORM pg_notify('worker_tasks', 'analytics');
+
+  RETURN v_task_id;
+END;
+$function$;
+
+-- Create command handler for timesegments_refresh
+CREATE PROCEDURE worker.command_timesegments_refresh(
+    payload JSONB
+)
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $procedure$
+DECLARE
+    v_establishment_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'establishment_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'establishment_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_legal_unit_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'legal_unit_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'legal_unit_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_enterprise_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'enterprise_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'enterprise_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_valid_after date = (payload->>'valid_after')::date;
+    v_valid_to date = (payload->>'valid_to')::date;
+BEGIN
+  -- First refresh the timesegments
+  PERFORM public.timesegments_refresh(
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+
+  -- Then enqueue timeline_establishment_refresh with the same parameters
+  PERFORM worker.enqueue_timeline_establishment_refresh(
+    p_establishment_ids := v_establishment_ids,
+    p_legal_unit_ids := v_legal_unit_ids,
+    p_enterprise_ids := v_enterprise_ids,
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+END;
+$procedure$;
+
+-- For timeline_establishment_refresh command
+CREATE FUNCTION worker.enqueue_timeline_establishment_refresh(
+  p_establishment_ids int[] DEFAULT NULL,
+  p_legal_unit_ids int[] DEFAULT NULL,
+  p_enterprise_ids int[] DEFAULT NULL,
+  p_valid_after date DEFAULT NULL,
+  p_valid_to date DEFAULT NULL
+) RETURNS BIGINT
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_task_id BIGINT;
+  v_payload JSONB;
+  v_establishment_ids INT[] := COALESCE(p_establishment_ids, ARRAY[]::INT[]);
+  v_legal_unit_ids INT[] := COALESCE(p_legal_unit_ids, ARRAY[]::INT[]);
+  v_enterprise_ids INT[] := COALESCE(p_enterprise_ids, ARRAY[]::INT[]);
+  v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
+  v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
+BEGIN
+  -- Create payload with arrays
+  v_payload := jsonb_build_object(
+    'command', 'timeline_establishment_refresh',
+    'establishment_ids', to_jsonb(v_establishment_ids),
+    'legal_unit_ids', to_jsonb(v_legal_unit_ids),
+    'enterprise_ids', to_jsonb(v_enterprise_ids),
+    'valid_after', v_valid_after,
+    'valid_to', v_valid_to
+  );
+
+  -- Create a unique index on a combination of all ID arrays and date range
+  -- This ensures we only have one pending task for the same set of IDs and date range
+  INSERT INTO worker.tasks AS t (
+    command, payload
+  ) VALUES ('timeline_establishment_refresh', v_payload)
+  ON CONFLICT (command)
+  WHERE command = 'timeline_establishment_refresh' AND state = 'pending'::worker.task_state
+  DO UPDATE SET
+    payload = jsonb_build_object(
+      'command', 'timeline_establishment_refresh',
+      -- Merge and deduplicate establishment IDs
+      'establishment_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'establishment_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'establishment_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate legal unit IDs
+      'legal_unit_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'legal_unit_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'legal_unit_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate enterprise IDs
+      'enterprise_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'enterprise_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'enterprise_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Expand date ranges
+      'valid_after', LEAST(
+        (t.payload->>'valid_after')::date,
+        (EXCLUDED.payload->>'valid_after')::date
+      ),
+      'valid_to', GREATEST(
+        (t.payload->>'valid_to')::date,
+        (EXCLUDED.payload->>'valid_to')::date
+      )
+    ),
+    state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,  -- Use the new priority to push queue position
+    processed_at = NULL,
+    error = NULL
+  RETURNING id INTO v_task_id;
+
+  PERFORM pg_notify('worker_tasks', 'analytics');
+
+  RETURN v_task_id;
+END;
+$function$;
+
+-- Create command handler for timeline_establishment_refresh
+CREATE PROCEDURE worker.command_timeline_establishment_refresh(
+    payload JSONB
+)
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $procedure$
+DECLARE
+    v_establishment_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'establishment_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'establishment_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_legal_unit_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'legal_unit_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'legal_unit_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_enterprise_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'enterprise_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'enterprise_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_valid_after date = (payload->>'valid_after')::date;
+    v_valid_to date = (payload->>'valid_to')::date;
+BEGIN
+  -- First refresh the timeline_establishment table
+  PERFORM public.timeline_establishment_refresh(
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+  
+  -- Then enqueue timeline_legal_unit_refresh with the same parameters
+  PERFORM worker.enqueue_timeline_legal_unit_refresh(
+    p_establishment_ids := v_establishment_ids,
+    p_legal_unit_ids := v_legal_unit_ids,
+    p_enterprise_ids := v_enterprise_ids,
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+END;
+$procedure$;
+
+-- For timeline_legal_unit_refresh command
+CREATE FUNCTION worker.enqueue_timeline_legal_unit_refresh(
+  p_establishment_ids int[] DEFAULT NULL,
+  p_legal_unit_ids int[] DEFAULT NULL,
+  p_enterprise_ids int[] DEFAULT NULL,
+  p_valid_after date DEFAULT NULL,
+  p_valid_to date DEFAULT NULL
+) RETURNS BIGINT
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_task_id BIGINT;
+  v_payload JSONB;
+  v_establishment_ids INT[] := COALESCE(p_establishment_ids, ARRAY[]::INT[]);
+  v_legal_unit_ids INT[] := COALESCE(p_legal_unit_ids, ARRAY[]::INT[]);
+  v_enterprise_ids INT[] := COALESCE(p_enterprise_ids, ARRAY[]::INT[]);
+  v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
+  v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
+BEGIN
+  -- Create payload with arrays
+  v_payload := jsonb_build_object(
+    'command', 'timeline_legal_unit_refresh',
+    'establishment_ids', to_jsonb(v_establishment_ids),
+    'legal_unit_ids', to_jsonb(v_legal_unit_ids),
+    'enterprise_ids', to_jsonb(v_enterprise_ids),
+    'valid_after', v_valid_after,
+    'valid_to', v_valid_to
+  );
+
+  -- Create a unique index on a combination of all ID arrays and date range
+  -- This ensures we only have one pending task for the same set of IDs and date range
+  INSERT INTO worker.tasks AS t (
+    command, payload
+  ) VALUES ('timeline_legal_unit_refresh', v_payload)
+  ON CONFLICT (command)
+  WHERE command = 'timeline_legal_unit_refresh' AND state = 'pending'::worker.task_state
+  DO UPDATE SET
+    payload = jsonb_build_object(
+      'command', 'timeline_legal_unit_refresh',
+      -- Merge and deduplicate establishment IDs
+      'establishment_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'establishment_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'establishment_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate legal unit IDs
+      'legal_unit_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'legal_unit_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'legal_unit_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate enterprise IDs
+      'enterprise_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'enterprise_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'enterprise_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Expand date ranges
+      'valid_after', LEAST(
+        (t.payload->>'valid_after')::date,
+        (EXCLUDED.payload->>'valid_after')::date
+      ),
+      'valid_to', GREATEST(
+        (t.payload->>'valid_to')::date,
+        (EXCLUDED.payload->>'valid_to')::date
+      )
+    ),
+    state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,  -- Use the new priority to push queue position
+    processed_at = NULL,
+    error = NULL
+  RETURNING id INTO v_task_id;
+
+  PERFORM pg_notify('worker_tasks', 'analytics');
+
+  RETURN v_task_id;
+END;
+$function$;
+
+-- Create command handler for timeline_legal_unit_refresh
+CREATE PROCEDURE worker.command_timeline_legal_unit_refresh(
+    payload JSONB
+)
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $procedure$
+DECLARE
+    v_establishment_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'establishment_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'establishment_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_legal_unit_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'legal_unit_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'legal_unit_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_enterprise_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'enterprise_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'enterprise_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_valid_after date = (payload->>'valid_after')::date;
+    v_valid_to date = (payload->>'valid_to')::date;
+BEGIN
+  -- First refresh the timeline_legal_unit table
+  PERFORM public.timeline_legal_unit_refresh(
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+  
+  -- Then enqueue timeline_enterprise_refresh with the same parameters
+  PERFORM worker.enqueue_timeline_enterprise_refresh(
+    p_establishment_ids := v_establishment_ids,
+    p_legal_unit_ids := v_legal_unit_ids,
+    p_enterprise_ids := v_enterprise_ids,
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+END;
+$procedure$;
+
+-- For timeline_enterprise_refresh command
+CREATE FUNCTION worker.enqueue_timeline_enterprise_refresh(
+  p_establishment_ids int[] DEFAULT NULL,
+  p_legal_unit_ids int[] DEFAULT NULL,
+  p_enterprise_ids int[] DEFAULT NULL,
+  p_valid_after date DEFAULT NULL,
+  p_valid_to date DEFAULT NULL
+) RETURNS BIGINT
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_task_id BIGINT;
+  v_payload JSONB;
+  v_establishment_ids INT[] := COALESCE(p_establishment_ids, ARRAY[]::INT[]);
+  v_legal_unit_ids INT[] := COALESCE(p_legal_unit_ids, ARRAY[]::INT[]);
+  v_enterprise_ids INT[] := COALESCE(p_enterprise_ids, ARRAY[]::INT[]);
+  v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
+  v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
+BEGIN
+  -- Create payload with arrays
+  v_payload := jsonb_build_object(
+    'command', 'timeline_enterprise_refresh',
+    'establishment_ids', to_jsonb(v_establishment_ids),
+    'legal_unit_ids', to_jsonb(v_legal_unit_ids),
+    'enterprise_ids', to_jsonb(v_enterprise_ids),
+    'valid_after', v_valid_after,
+    'valid_to', v_valid_to
+  );
+
+  -- Create a unique index on a combination of all ID arrays and date range
+  -- This ensures we only have one pending task for the same set of IDs and date range
+  INSERT INTO worker.tasks AS t (
+    command, payload
+  ) VALUES ('timeline_enterprise_refresh', v_payload)
+  ON CONFLICT (command)
+  WHERE command = 'timeline_enterprise_refresh' AND state = 'pending'::worker.task_state
+  DO UPDATE SET
+    payload = jsonb_build_object(
+      'command', 'timeline_enterprise_refresh',
+      -- Merge and deduplicate establishment IDs
+      'establishment_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'establishment_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'establishment_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate legal unit IDs
+      'legal_unit_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'legal_unit_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'legal_unit_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Merge and deduplicate enterprise IDs
+      'enterprise_ids', to_jsonb(
+        ARRAY(
+          SELECT DISTINCT unnest
+          FROM unnest(
+            array_cat(
+              ARRAY(SELECT jsonb_array_elements_text(t.payload->'enterprise_ids')::int),
+              ARRAY(SELECT jsonb_array_elements_text(EXCLUDED.payload->'enterprise_ids')::int)
+            )
+          )
+          WHERE unnest IS NOT NULL
+          ORDER BY 1
+        )
+      ),
+      -- Expand date ranges
+      'valid_after', LEAST(
+        (t.payload->>'valid_after')::date,
+        (EXCLUDED.payload->>'valid_after')::date
+      ),
+      'valid_to', GREATEST(
+        (t.payload->>'valid_to')::date,
+        (EXCLUDED.payload->>'valid_to')::date
+      )
+    ),
+    state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,  -- Use the new priority to push queue position
+    processed_at = NULL,
+    error = NULL
+  RETURNING id INTO v_task_id;
+
+  PERFORM pg_notify('worker_tasks', 'analytics');
+
+  RETURN v_task_id;
+END;
+$function$;
+
+-- Create command handler for timeline_enterprise_refresh
+CREATE PROCEDURE worker.command_timeline_enterprise_refresh(
+    payload JSONB
+)
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $procedure$
+DECLARE
+    v_establishment_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'establishment_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'establishment_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_legal_unit_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'legal_unit_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'legal_unit_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_enterprise_ids int[] = CASE
+        WHEN jsonb_typeof(payload->'enterprise_ids') = 'array' THEN
+            ARRAY(
+                SELECT elem::int
+                FROM jsonb_array_elements_text(payload->'enterprise_ids') AS x(elem)
+                WHERE elem IS NOT NULL AND elem ~ '^[0-9]+$'
+            )
+        ELSE ARRAY[]::int[]
+    END;
+    v_valid_after date = (payload->>'valid_after')::date;
+    v_valid_to date = (payload->>'valid_to')::date;
+BEGIN
+  -- First refresh the timeline_enterprise table
+  PERFORM public.timeline_enterprise_refresh(
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+  
+  -- Then enqueue statistical_unit_refresh with the same parameters
+  PERFORM worker.enqueue_statistical_unit_refresh(
+    p_establishment_ids := v_establishment_ids,
+    p_legal_unit_ids := v_legal_unit_ids,
+    p_enterprise_ids := v_enterprise_ids,
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+END;
+$procedure$;
 
 -- For statistical_unit_refresh command
 CREATE FUNCTION worker.enqueue_statistical_unit_refresh(
@@ -912,6 +1567,10 @@ INSERT INTO worker.command_registry (queue, command, handler_procedure, descript
 VALUES
   ('analytics', 'check_table', 'worker.command_check_table', 'Process changes in a table since a specific transaction ID'),
   ('analytics', 'deleted_row', 'worker.command_deleted_row', 'Handle deletion of rows from statistical unit tables'),
+  ('analytics', 'timesegments_refresh', 'worker.command_timesegments_refresh', 'Refresh timesegments and then statistical units'),
+  ('analytics', 'timeline_establishment_refresh', 'worker.command_timeline_establishment_refresh', 'Refresh timeline_establishment table'),
+  ('analytics', 'timeline_legal_unit_refresh', 'worker.command_timeline_legal_unit_refresh', 'Refresh timeline_legal_unit table'),
+  ('analytics', 'timeline_enterprise_refresh', 'worker.command_timeline_enterprise_refresh', 'Refresh timeline_enterprise table'),
   ('analytics', 'statistical_unit_refresh', 'worker.command_statistical_unit_refresh', 'Refresh statistical units'),
   ('analytics', 'refresh_derived_data', 'worker.command_refresh_derived_data', 'Refresh derived data tables'),
   ('maintenance', 'task_cleanup', 'worker.command_task_cleanup', 'Clean up old completed and failed tasks');
