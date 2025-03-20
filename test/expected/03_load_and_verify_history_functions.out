@@ -72,7 +72,7 @@ SELECT
 \copy public.import_legal_unit_era(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,data_source_code) FROM 'test/data/03_norwegian-legal-units-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo "User uploads the establishments over time"
 "User uploads the establishments over time"
-\copy public.import_establishment_era_for_legal_unit(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,data_source_code,employees,turnover) FROM 'test/data/03_norwegian-establishments-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\copy public.import_establishment_era_for_legal_unit(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,data_source_code,unit_size_code,employees,turnover) FROM 'test/data/03_norwegian-establishments-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
@@ -1328,6 +1328,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": "tny",                       +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
                       |     "postal_altitude": null,                       +
@@ -1422,6 +1423,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "ENK",                      +
                       |     "legal_form_name": "Enkeltpersonforetak",      +
                       |     "postal_altitude": null,                       +
@@ -1515,6 +1517,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "ENK",                      +
                       |     "legal_form_name": "Enkeltpersonforetak",      +
                       |     "postal_altitude": null,                       +
@@ -1607,6 +1610,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": "tny",                       +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
                       |     "postal_altitude": null,                       +
@@ -1701,6 +1705,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -1794,6 +1799,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -1886,6 +1892,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": "sml",                       +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
                       |     "postal_altitude": null,                       +
@@ -1980,6 +1987,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -2073,6 +2081,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -2165,6 +2174,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": "med",                       +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
                       |     "postal_altitude": null,                       +
@@ -2259,6 +2269,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -2352,6 +2363,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -2444,6 +2456,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": "med",                       +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
                       |     "postal_altitude": null,                       +
@@ -2538,6 +2551,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -2631,6 +2645,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -2723,6 +2738,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": "med",                       +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
                       |     "postal_altitude": null,                       +
@@ -2817,6 +2833,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -2910,6 +2927,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -3002,6 +3020,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": "med",                       +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
                       |     "postal_altitude": null,                       +
@@ -3096,6 +3115,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -3189,6 +3209,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -3281,6 +3302,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": "med",                       +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
                       |     "postal_altitude": null,                       +
@@ -3375,6 +3397,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -3468,6 +3491,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -3560,6 +3584,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": "med",                       +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
                       |     "postal_altitude": null,                       +
@@ -3654,6 +3679,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -3747,6 +3773,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -3839,6 +3866,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": "lrg",                       +
                       |     "legal_form_code": null,                       +
                       |     "legal_form_name": null,                       +
                       |     "postal_altitude": null,                       +
@@ -3933,6 +3961,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -4026,6 +4055,7 @@ statistical_unit_data | {                                                  +
                       |     "invalid_codes": null,                         +
                       |     "mobile_number": null,                         +
                       |     "has_legal_unit": true,                        +
+                      |     "unit_size_code": null,                        +
                       |     "legal_form_code": "AS",                       +
                       |     "legal_form_name": "Aksjeselskap",             +
                       |     "postal_altitude": null,                       +
@@ -13053,6 +13083,12 @@ statistical_unit_hierarchy
                             }
                         ],
                         "valid_to": "2012-12-31",
+                        "unit_size": {
+                            "code": "tny",
+                            "name": "Tiny",
+                            "active": true,
+                            "custom": false
+                        },
                         "birth_date": "2010-01-01",
                         "death_date": null,
                         "short_name": null,
@@ -13353,17 +13389,23 @@ statistical_unit_hierarchy
                             }
                         ],
                         "valid_to": "infinity",
+                        "unit_size": {
+                            "code": "lrg",
+                            "name": "Large",
+                            "active": true,
+                            "custom": false
+                        },
                         "birth_date": "2010-01-01",
                         "death_date": null,
                         "short_name": null,
-                        "valid_from": "2013-01-01",
+                        "valid_from": "2020-01-01",
                         "data_source": {
                             "code": "nlr",
                             "name": "National Legal Business Registry",
                             "active": true,
                             "custom": false
                         },
-                        "valid_after": "2012-12-31",
+                        "valid_after": "2019-12-31",
                         "edit_comment": "Batch import",
                         "invalid_codes": null,
                         "stat_for_unit": [
@@ -13652,17 +13694,23 @@ statistical_unit_hierarchy
                             }
                         ],
                         "valid_to": "infinity",
+                        "unit_size": {
+                            "code": "lrg",
+                            "name": "Large",
+                            "active": true,
+                            "custom": false
+                        },
                         "birth_date": "2010-01-01",
                         "death_date": null,
                         "short_name": null,
-                        "valid_from": "2013-01-01",
+                        "valid_from": "2020-01-01",
                         "data_source": {
                             "code": "nlr",
                             "name": "National Legal Business Registry",
                             "active": true,
                             "custom": false
                         },
-                        "valid_after": "2012-12-31",
+                        "valid_after": "2019-12-31",
                         "edit_comment": "Batch import",
                         "invalid_codes": null,
                         "stat_for_unit": [

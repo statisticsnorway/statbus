@@ -448,6 +448,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -514,6 +515,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -580,6 +582,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -646,6 +649,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -712,6 +716,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -778,6 +783,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -857,6 +863,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -936,6 +943,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1015,6 +1023,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1094,6 +1103,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1160,6 +1170,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1226,6 +1237,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1292,6 +1304,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1371,6 +1384,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1450,6 +1464,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1529,6 +1544,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1594,6 +1610,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1659,6 +1676,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1724,6 +1742,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1789,6 +1808,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1854,6 +1874,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1931,6 +1952,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2008,6 +2030,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2085,6 +2108,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2162,6 +2186,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2227,6 +2252,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2292,6 +2318,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2357,6 +2384,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2434,6 +2462,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2511,6 +2540,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +

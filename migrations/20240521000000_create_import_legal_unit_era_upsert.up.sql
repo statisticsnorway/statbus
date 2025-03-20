@@ -13,6 +13,7 @@ DECLARE
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
     sector RECORD;
+    unit_size RECORD;
     status RECORD;
     data_source RECORD;
     legal_form RECORD;
@@ -60,6 +61,7 @@ BEGIN
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
     SELECT NULL::int AS id INTO sector;
+    SELECT NULL::int AS id INTO unit_size;
     SELECT NULL::int AS id INTO status;
     SELECT NULL::int AS id INTO data_source;
     SELECT NULL::int AS id INTO legal_form;
@@ -99,6 +101,10 @@ BEGIN
     SELECT sector_id , updated_invalid_codes
     INTO   sector.id , invalid_codes
     FROM admin.import_lookup_sector(new_jsonb, invalid_codes);
+
+    SELECT unit_size_id , updated_invalid_codes
+    INTO   unit_size.id , invalid_codes
+    FROM admin.import_lookup_unit_size(new_jsonb, invalid_codes);
 
     SELECT status_id , updated_invalid_codes
     INTO   status.id , invalid_codes
@@ -176,6 +182,7 @@ BEGIN
         , active
         , edit_comment
         , sector_id
+        , unit_size_id
         , status_id
         , legal_form_id
         , invalid_codes
@@ -195,6 +202,7 @@ BEGIN
         , meta_data.active
         , meta_data.edit_comment
         , sector.id
+        , unit_size.id
         , status.id
         , legal_form.id
         , meta_data.invalid_codes

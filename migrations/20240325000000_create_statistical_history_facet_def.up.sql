@@ -42,6 +42,12 @@ WITH year_with_unit_basis AS (
          , su_curr.physical_address_part2           AS curr_physical_address_part2
          , su_curr.physical_address_part3           AS curr_physical_address_part3
          --
+         , su_prev.unit_size_id                     AS prev_unit_size_id
+         , su_prev.unit_size_code                   AS prev_unit_size_code
+         --
+         , su_curr.unit_size_id                     AS curr_unit_size_id
+         , su_curr.unit_size_code                   AS curr_unit_size_code
+         --
          , su_curr.status_id                        AS curr_status_id
          , su_curr.status_code                      AS curr_status_code
          --
@@ -89,6 +95,7 @@ WITH year_with_unit_basis AS (
               OR prev_physical_address_part2 IS DISTINCT FROM curr_physical_address_part2
               OR prev_physical_address_part3 IS DISTINCT FROM curr_physical_address_part3
          ) AS physical_address_changed
+         , track_changes AND NOT born AND not died AND prev_unit_size_code IS DISTINCT FROM curr_unit_size_code AS unit_size_code_changed
          , track_changes AND NOT born AND not died AND prev_status_code IS DISTINCT FROM curr_status_code AS status_code_changed
          --
          -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
@@ -121,6 +128,9 @@ WITH year_with_unit_basis AS (
          , su_prev.physical_address_part2           AS prev_physical_address_part2
          , su_prev.physical_address_part3           AS prev_physical_address_part3
          --
+         , su_prev.unit_size_id                     AS prev_unit_size_id
+         , su_prev.unit_size_code                   AS prev_unit_size_code
+         --
          , su_prev.status_id                        AS prev_status_id
          , su_prev.status_code                      AS prev_status_code
          --
@@ -134,6 +144,9 @@ WITH year_with_unit_basis AS (
          , su_curr.physical_address_part1           AS curr_physical_address_part1
          , su_curr.physical_address_part2           AS curr_physical_address_part2
          , su_curr.physical_address_part3           AS curr_physical_address_part3
+         --
+         , su_curr.unit_size_id                     AS curr_unit_size_id
+         , su_curr.unit_size_code                   AS curr_unit_size_code
          --
          , su_curr.status_id                        AS curr_status_id
          , su_curr.status_code                      AS curr_status_code
@@ -182,6 +195,7 @@ WITH year_with_unit_basis AS (
               OR prev_physical_address_part2 IS DISTINCT FROM curr_physical_address_part2
               OR prev_physical_address_part3 IS DISTINCT FROM curr_physical_address_part3
          ) AS physical_address_changed
+         , track_changes AND NOT born AND not died AND prev_unit_size_code IS DISTINCT FROM curr_unit_size_code AS unit_size_code_changed
          , track_changes AND NOT born AND not died AND prev_status_code IS DISTINCT FROM curr_status_code AS status_code_changed
          --
          -- TODO: Track the change in `stats` and put that into `stats_change` using `public.stats_change`.
@@ -201,6 +215,7 @@ WITH year_with_unit_basis AS (
          , source.curr_physical_region_path             AS physical_region_path
          , source.curr_physical_country_id              AS physical_country_id
          --
+         , source.curr_unit_size_id                     AS unit_size_id
          , source.curr_status_id                        AS status_id
          --
          , COUNT(source.*) FILTER (WHERE NOT source.died) AS count
@@ -217,7 +232,8 @@ WITH year_with_unit_basis AS (
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_address_changed)            AS physical_address_change_count
          --
-         , COUNT(source.*) FILTER (WHERE source.status_code_changed)            AS status_change_count
+         , COUNT(source.*) FILTER (WHERE source.unit_size_code_changed)              AS unit_size_change_count
+         , COUNT(source.*) FILTER (WHERE source.status_code_changed)                 AS status_change_count
          --
          , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
     FROM year_with_unit_derived AS source
@@ -228,6 +244,7 @@ WITH year_with_unit_basis AS (
            , legal_form_id
            , physical_region_path
            , physical_country_id
+           , unit_size_id
            , status_id
 ), year_and_month_with_unit_per_facet AS (
     SELECT source.resolution                       AS resolution
@@ -242,6 +259,7 @@ WITH year_with_unit_basis AS (
          , source.curr_physical_region_path             AS physical_region_path
          , source.curr_physical_country_id              AS physical_country_id
          --
+         , source.curr_unit_size_id                     AS unit_size_id
          , source.curr_status_id                        AS status_id
          --
          , COUNT(source.*) FILTER (WHERE NOT source.died) AS count
@@ -258,6 +276,7 @@ WITH year_with_unit_basis AS (
          , COUNT(source.*) FILTER (WHERE source.physical_country_changed)            AS physical_country_change_count
          , COUNT(source.*) FILTER (WHERE source.physical_address_changed)            AS physical_address_change_count
          --
+         , COUNT(source.*) FILTER (WHERE source.unit_size_code_changed)         AS unit_size_change_count
          , COUNT(source.*) FILTER (WHERE source.status_code_changed)            AS status_change_count
          --
          , public.jsonb_stats_summary_merge_agg(source.stats_summary) AS stats_summary
@@ -269,6 +288,7 @@ WITH year_with_unit_basis AS (
            , legal_form_id
            , physical_region_path
            , physical_country_id
+           , unit_size_id
            , status_id
 )
 SELECT * FROM year_with_unit_per_facet

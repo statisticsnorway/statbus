@@ -66,6 +66,9 @@ CREATE VIEW public.timeline_enterprise
     , mobile_number
     , fax_number
     --
+    , unit_size_id
+    , unit_size_code
+    --
     , status_id
     , status_code
     , include_unit_in_reports
@@ -156,6 +159,9 @@ CREATE VIEW public.timeline_enterprise
            , c.mobile_number
            , c.fax_number
            --
+           , plu.unit_size_id AS unit_size_id
+           , us.code AS unit_size_code
+           --
            , st.id AS status_id
            , st.code AS status_code
            , st.include_unit_in_reports AS include_unit_in_reports
@@ -218,6 +224,8 @@ CREATE VIEW public.timeline_enterprise
       LEFT JOIN public.contact AS c
               ON c.legal_unit_id = plu.id
       --
+      LEFT JOIN public.unit_size AS us
+              ON us.id = plu.unit_size_id
       LEFT JOIN public.status AS st
               ON st.id = plu.status_id
       --
@@ -309,6 +317,9 @@ CREATE VIEW public.timeline_enterprise
            , c.mobile_number
            , c.fax_number
            --
+           , pes.unit_size_id AS unit_size_id
+           , us.code AS unit_size_code
+           --
            , st.id AS status_id
            , st.code AS status_code
            , st.include_unit_in_reports AS include_unit_in_reports
@@ -368,6 +379,8 @@ CREATE VIEW public.timeline_enterprise
       LEFT JOIN public.contact AS c
               ON c.establishment_id = pes.id
       --
+      LEFT JOIN public.unit_size AS us
+              ON us.id = pes.unit_size_id
       LEFT JOIN public.status AS st
               ON st.id = pes.status_id
       --
@@ -467,6 +480,9 @@ CREATE VIEW public.timeline_enterprise
            , COALESCE(enplu.landline, enpes.landline) AS landline
            , COALESCE(enplu.mobile_number, enpes.mobile_number) AS mobile_number
            , COALESCE(enplu.fax_number, enpes.fax_number) AS fax_number
+           --
+           , COALESCE(enplu.unit_size_id, enpes.unit_size_id) AS unit_size_id
+           , COALESCE(enplu.unit_size_code, enpes.unit_size_code) AS unit_size_code
            --
            , COALESCE(enplu.status_id, enpes.status_id) AS status_id
            , COALESCE(enplu.status_code, enpes.status_code) AS status_code
@@ -637,6 +653,9 @@ CREATE VIEW public.timeline_enterprise
                , basis.mobile_number
                , basis.fax_number
                --
+               , basis.unit_size_id
+               , basis.unit_size_code
+               --
                , basis.status_id
                , basis.status_code
                , basis.include_unit_in_reports
@@ -725,6 +744,9 @@ CREATE VIEW public.timeline_enterprise
              , landline
              , mobile_number
              , fax_number
+             --
+             , unit_size_id
+             , unit_size_code
              --
              , status_id
              , status_code

@@ -62,6 +62,9 @@ CREATE VIEW public.timeline_establishment
     , mobile_number
     , fax_number
     --
+    , unit_size_id
+    , unit_size_code
+    --
     , status_id
     , status_code
     , include_unit_in_reports
@@ -142,6 +145,9 @@ CREATE VIEW public.timeline_establishment
            , c.mobile_number AS mobile_number
            , c.fax_number AS fax_number
            --
+           , es.unit_size_id AS unit_size_id
+           , us.code AS unit_size_code
+           --
            , es.status_id AS status_id
            , st.code AS status_code
            , st.include_unit_in_reports AS include_unit_in_reports
@@ -204,6 +210,8 @@ CREATE VIEW public.timeline_establishment
               ON c.establishment_id = es.id
              AND daterange(t.valid_after, t.valid_to, '(]')
               && daterange(c.valid_after, c.valid_to, '(]')
+      LEFT JOIN public.unit_size AS us
+              ON es.unit_size_id = us.id
       LEFT JOIN public.status AS st
               ON es.status_id = st.id
       LEFT JOIN LATERAL (

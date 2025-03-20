@@ -63,6 +63,9 @@ CREATE VIEW public.statistical_unit_def
     , mobile_number
     , fax_number
     --
+    , unit_size_id
+    , unit_size_code
+    --
     , status_id
     , status_code
     , include_unit_in_reports
@@ -143,6 +146,9 @@ CREATE VIEW public.statistical_unit_def
            , mobile_number
            , fax_number
            --
+           , unit_size_id
+           , unit_size_code
+           --
            , status_id
            , status_code
            , include_unit_in_reports
@@ -217,6 +223,9 @@ CREATE VIEW public.statistical_unit_def
            , landline
            , mobile_number
            , fax_number
+           --
+           , unit_size_id
+           , unit_size_code
            --
            , status_id
            , status_code
@@ -297,6 +306,9 @@ CREATE VIEW public.statistical_unit_def
            , mobile_number
            , fax_number
            --
+           , unit_size_id
+           , unit_size_code
+           --
            , status_id
            , status_code
            , include_unit_in_reports
@@ -373,6 +385,9 @@ CREATE VIEW public.statistical_unit_def
          , data.landline
          , data.mobile_number
          , data.fax_number
+         --
+         , data.unit_size_id
+         , data.unit_size_code
          --
          , data.status_id
          , data.status_code

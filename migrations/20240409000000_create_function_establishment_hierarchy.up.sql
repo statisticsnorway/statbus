@@ -12,6 +12,7 @@ CREATE OR REPLACE FUNCTION public.establishment_hierarchy(
         || (SELECT public.location_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.stat_for_unit_hierarchy(es.id,NULL,valid_on))
         || (SELECT public.sector_hierarchy(es.sector_id))
+        || (SELECT public.unit_size_hierarchy(es.unit_size_id))
         || (SELECT public.data_source_hierarchy(es.data_source_id))
         || (SELECT public.tag_for_unit_hierarchy(es.id,NULL,NULL,NULL))
         AS data
@@ -43,6 +44,7 @@ RETURNS JSONB LANGUAGE sql STABLE AS $$
         || (SELECT public.stat_for_unit_hierarchy(NULL,lu.id,valid_on))
         || (SELECT public.sector_hierarchy(lu.sector_id))
         || (SELECT public.legal_form_hierarchy(lu.legal_form_id))
+        || (SELECT public.unit_size_hierarchy(lu.unit_size_id))
         || (SELECT public.data_source_hierarchy(lu.data_source_id))
         || (SELECT public.tag_for_unit_hierarchy(NULL,lu.id,NULL,NULL))
         AS data

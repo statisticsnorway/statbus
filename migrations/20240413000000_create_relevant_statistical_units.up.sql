@@ -98,6 +98,9 @@ CREATE FUNCTION public.relevant_statistical_units(
          , mobile_number
          , fax_number
          --
+         , unit_size_id
+         , unit_size_code
+         --
          , status_id
          , status_code
          , include_unit_in_reports
