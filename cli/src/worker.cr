@@ -748,7 +748,7 @@ module Statbus
                                     cr.queue,        -- The task queue
                                     duration_ms,     -- Duration in ms from the database
                                     state = 'completed'::worker.task_state AS success, -- Whether task succeeded
-                                    error_message    -- Error message if task failed, NULL otherwise
+                                    error            -- Error message if task failed, NULL otherwise
                                   FROM worker.tasks t
                                   JOIN worker.command_registry cr ON t.command = cr.command
                                   WHERE processed_at IS NOT NULL
