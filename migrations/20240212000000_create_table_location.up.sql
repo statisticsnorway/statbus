@@ -41,9 +41,9 @@ CREATE TABLE public.location (
     CONSTRAINT "longitude_must_be_from_minus_180_to_180_degrees" CHECK(longitude >= -180 AND longitude <= 180),
     CONSTRAINT "altitude_must_be_positive" CHECK(altitude >= 0)
 );
-CREATE INDEX ix_address_region_id ON public.location USING btree (region_id);
-CREATE INDEX ix_location_establishment_id_id ON public.location USING btree (establishment_id);
-CREATE INDEX ix_location_legal_unit_id_id ON public.location USING btree (legal_unit_id);
+CREATE INDEX ix_location_region_id ON public.location USING btree (region_id);
+CREATE INDEX ix_location_establishment_id ON public.location USING btree (establishment_id);
+CREATE INDEX ix_location_legal_unit_id ON public.location USING btree (legal_unit_id);
 CREATE INDEX ix_location_edit_by_user_id ON public.location USING btree (edit_by_user_id);
 
 END;
