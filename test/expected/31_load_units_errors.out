@@ -383,6 +383,6 @@ SQL statement "SELECT latitude
          , longitude
          , altitude
                                                                                                                                                FROM admin.validate_itude_fields('physical'::public.location_type, new_jsonb) AS r"
-PL/pgSQL function admin.import_legal_unit_era_upsert() line 136 at SQL statement
+PL/pgSQL function admin.import_legal_unit_era_upsert() line 140 at SQL statement
 COPY import_legal_unit_era, line 2: "2024-01-01,infinity,2212760144,1000,NILE PEARL WATER,01.10.2016,225613,UG,4752,4,6100,2,9000000,nlr,..."
 ROLLBACK;

@@ -95,11 +95,12 @@ ORDER BY id.slug, isc.priority NULLS LAST;
  establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | fax_number                       | fax_number                       |                   |              |                     35
  establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     36
  establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     37
- establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | status_code                      | status_code                      |                   |              |                     38
- establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | data_source_code                 | data_source_code                 |                   |              |                     39
- establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | employees                        | employees                        |                   |              |                     40
- establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | turnover                         | turnover                         |                   |              |                     41
- establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | tag_path                         | tag_path                         |                   |              |                     42
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | unit_size_code                   | unit_size_code                   |                   |              |                     38
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | status_code                      | status_code                      |                   |              |                     39
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | data_source_code                 | data_source_code                 |                   |              |                     40
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | employees                        | employees                        |                   |              |                     41
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | turnover                         | turnover                         |                   |              |                     42
+ establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      | tag_path                         | tag_path                         |                   |              |                     43
  establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      |                                  | valid_from                       | default           |              |                       
  establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with validity period set to current year      |                                  | valid_to                         | default           |              |                       
  establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | valid_from                       | valid_from                       |                   |              |                      1
@@ -141,11 +142,12 @@ ORDER BY id.slug, isc.priority NULLS LAST;
  establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | fax_number                       | fax_number                       |                   |              |                     37
  establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     38
  establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     39
- establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | status_code                      | status_code                      |                   |              |                     40
- establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | data_source_code                 | data_source_code                 |                   |              |                     41
- establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | employees                        | employees                        |                   |              |                     42
- establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | turnover                         | turnover                         |                   |              |                     43
- establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | tag_path                         | tag_path                         |                   |              |                     44
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | unit_size_code                   | unit_size_code                   |                   |              |                     40
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | status_code                      | status_code                      |                   |              |                     41
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | data_source_code                 | data_source_code                 |                   |              |                     42
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | employees                        | employees                        |                   |              |                     43
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | turnover                         | turnover                         |                   |              |                     44
+ establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | public             | import_establishment_era_for_legal_unit     | Import establishments linked to legal units with explicit valid_from and valid_to columns | tag_path                         | tag_path                         |                   |              |                     45
  establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | tax_ident                        | tax_ident                        |                   |              |                      1
  establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | stat_ident                       | stat_ident                       |                   |              |                      2
  establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | name                             | name                             |                   |              |                      3
@@ -182,11 +184,12 @@ ORDER BY id.slug, isc.priority NULLS LAST;
  establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     34
  establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     35
  establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | sector_code                      | sector_code                      |                   |              |                     36
- establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | status_code                      | status_code                      |                   |              |                     37
- establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | data_source_code                 | data_source_code                 |                   |              |                     38
- establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | employees                        | employees                        |                   |              |                     39
- establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | turnover                         | turnover                         |                   |              |                     40
- establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | tag_path                         | tag_path                         |                   |              |                     41
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | unit_size_code                   | unit_size_code                   |                   |              |                     37
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | status_code                      | status_code                      |                   |              |                     38
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | data_source_code                 | data_source_code                 |                   |              |                     39
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | employees                        | employees                        |                   |              |                     40
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | turnover                         | turnover                         |                   |              |                     41
+ establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 | tag_path                         | tag_path                         |                   |              |                     42
  establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 |                                  | valid_to                         | default           |              |                       
  establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | public             | import_establishment_era_without_legal_unit | Import standalone establishments with validity period set to current year                 |                                  | valid_from                       | default           |              |                       
  establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | valid_from                       | valid_from                       |                   |              |                      1
@@ -227,11 +230,12 @@ ORDER BY id.slug, isc.priority NULLS LAST;
  establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     36
  establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     37
  establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | sector_code                      | sector_code                      |                   |              |                     38
- establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | status_code                      | status_code                      |                   |              |                     39
- establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | data_source_code                 | data_source_code                 |                   |              |                     40
- establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | employees                        | employees                        |                   |              |                     41
- establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | turnover                         | turnover                         |                   |              |                     42
- establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | tag_path                         | tag_path                         |                   |              |                     43
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | unit_size_code                   | unit_size_code                   |                   |              |                     39
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | status_code                      | status_code                      |                   |              |                     40
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | data_source_code                 | data_source_code                 |                   |              |                     41
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | employees                        | employees                        |                   |              |                     42
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | turnover                         | turnover                         |                   |              |                     43
+ establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | public             | import_establishment_era_without_legal_unit | Import standalone establishments with explicit valid_from and valid_to columns            | tag_path                         | tag_path                         |                   |              |                     44
  legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | tax_ident                        | tax_ident                        |                   |              |                      1
  legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | stat_ident                       | stat_ident                       |                   |              |                      2
  legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | name                             | name                             |                   |              |                      3
@@ -268,12 +272,13 @@ ORDER BY id.slug, isc.priority NULLS LAST;
  legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     34
  legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     35
  legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | sector_code                      | sector_code                      |                   |              |                     36
- legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | status_code                      | status_code                      |                   |              |                     37
- legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | data_source_code                 | data_source_code                 |                   |              |                     38
- legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | legal_form_code                  | legal_form_code                  |                   |              |                     39
- legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | employees                        | employees                        |                   |              |                     40
- legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | turnover                         | turnover                         |                   |              |                     41
- legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | tag_path                         | tag_path                         |                   |              |                     42
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | unit_size_code                   | unit_size_code                   |                   |              |                     37
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | status_code                      | status_code                      |                   |              |                     38
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | data_source_code                 | data_source_code                 |                   |              |                     39
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | legal_form_code                  | legal_form_code                  |                   |              |                     40
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | employees                        | employees                        |                   |              |                     41
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | turnover                         | turnover                         |                   |              |                     42
+ legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               | tag_path                         | tag_path                         |                   |              |                     43
  legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               |                                  | valid_to                         | default           |              |                       
  legal_unit_current_year                 | Legal Unit - Current Year                         | public             | import_legal_unit_era                       | Import legal units with validity period set to current year                               |                                  | valid_from                       | default           |              |                       
  legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | valid_from                       | valid_from                       |                   |              |                      1
@@ -314,13 +319,14 @@ ORDER BY id.slug, isc.priority NULLS LAST;
  legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | primary_activity_category_code   | primary_activity_category_code   |                   |              |                     36
  legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | secondary_activity_category_code | secondary_activity_category_code |                   |              |                     37
  legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | sector_code                      | sector_code                      |                   |              |                     38
- legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | status_code                      | status_code                      |                   |              |                     39
- legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | data_source_code                 | data_source_code                 |                   |              |                     40
- legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | legal_form_code                  | legal_form_code                  |                   |              |                     41
- legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | employees                        | employees                        |                   |              |                     42
- legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | turnover                         | turnover                         |                   |              |                     43
- legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | tag_path                         | tag_path                         |                   |              |                     44
-(262 rows)
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | unit_size_code                   | unit_size_code                   |                   |              |                     39
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | status_code                      | status_code                      |                   |              |                     40
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | data_source_code                 | data_source_code                 |                   |              |                     41
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | legal_form_code                  | legal_form_code                  |                   |              |                     42
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | employees                        | employees                        |                   |              |                     43
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | turnover                         | turnover                         |                   |              |                     44
+ legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | tag_path                         | tag_path                         |                   |              |                     45
+(268 rows)
 
 CALL test.set_user_from_email('test.super@statbus.org');
 \i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
@@ -1361,7 +1367,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
     queue    |   state   | count 
 -------------+-----------+-------
  analytics   | completed |    11
- import      | completed |    24
+ import      | completed |    32
  maintenance | pending   |     1
 (3 rows)
 
@@ -1531,6 +1537,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1598,6 +1605,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -1665,6 +1673,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -1731,6 +1740,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
                       |     "postal_altitude": null,                                           +
@@ -1797,6 +1807,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -1863,6 +1874,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -1928,6 +1940,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
                       |     "postal_altitude": null,                                           +
@@ -1993,6 +2006,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -2058,6 +2072,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2125,6 +2140,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -2191,6 +2207,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -2256,6 +2273,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2323,6 +2341,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2390,6 +2409,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -2457,6 +2477,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
                       |     "postal_altitude": null,                                           +
@@ -2523,6 +2544,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -2589,6 +2611,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
                       |     "postal_altitude": null,                                           +
@@ -2654,6 +2677,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -2719,6 +2743,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -2785,6 +2810,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -2851,6 +2877,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -2916,6 +2943,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -2981,6 +3009,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -3048,6 +3077,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -3115,6 +3145,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
                       |     "postal_altitude": null,                                           +
@@ -3181,6 +3212,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
                       |     "postal_altitude": null,                                           +
@@ -3246,6 +3278,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -3313,6 +3346,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -3380,6 +3414,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -3446,6 +3481,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
                       |     "postal_altitude": null,                                           +
@@ -3512,6 +3548,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -3577,6 +3614,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "ENK",                                          +
                       |     "legal_form_name": "Enkeltpersonforetak",                          +
                       |     "postal_altitude": null,                                           +
@@ -3642,6 +3680,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -3709,6 +3748,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -3775,6 +3815,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -3840,6 +3881,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -3907,6 +3949,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -3974,6 +4017,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": null,                                           +
                       |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
@@ -4041,6 +4085,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -4107,6 +4152,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -4173,6 +4219,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -4239,6 +4286,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -4305,6 +4353,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -4370,6 +4419,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -4435,6 +4485,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
@@ -4500,6 +4551,7 @@ statistical_unit_data | {                                                       
                       |     "invalid_codes": null,                                             +
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
                       |     "legal_form_code": "AS",                                           +
                       |     "legal_form_name": "Aksjeselskap",                                 +
                       |     "postal_altitude": null,                                           +
