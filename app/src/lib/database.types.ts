@@ -3353,6 +3353,7 @@ export type Database = {
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          unit_size_code: string | null
           web_address: string | null
         }
         Relationships: []
@@ -3400,6 +3401,7 @@ export type Database = {
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          unit_size_code: string | null
           web_address: string | null
         }
         Relationships: []
@@ -3446,6 +3448,7 @@ export type Database = {
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          unit_size_code: string | null
           web_address: string | null
         }
         Relationships: []
@@ -3494,6 +3497,7 @@ export type Database = {
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          unit_size_code: string | null
           valid_from: string | null
           valid_to: string | null
           web_address: string | null
@@ -3543,6 +3547,7 @@ export type Database = {
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          unit_size_code: string | null
           valid_from: string | null
           valid_to: string | null
           web_address: string | null
@@ -3591,6 +3596,7 @@ export type Database = {
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          unit_size_code: string | null
           valid_from: string | null
           valid_to: string | null
           web_address: string | null
@@ -3640,6 +3646,7 @@ export type Database = {
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          unit_size_code: string | null
           web_address: string | null
         }
         Relationships: []
@@ -3687,6 +3694,7 @@ export type Database = {
           tag_path: string | null
           tax_ident: string | null
           turnover: string | null
+          unit_size_code: string | null
           valid_from: string | null
           valid_to: string | null
           web_address: string | null
@@ -4299,25 +4307,25 @@ export type Database = {
       }
       region_upload: {
         Row: {
-          center_altitude: number | null
-          center_latitude: number | null
-          center_longitude: number | null
+          center_altitude: string | null
+          center_latitude: string | null
+          center_longitude: string | null
           name: string | null
-          path: unknown | null
+          path: string | null
         }
         Insert: {
-          center_altitude?: number | null
-          center_latitude?: number | null
-          center_longitude?: number | null
+          center_altitude?: never
+          center_latitude?: never
+          center_longitude?: never
           name?: string | null
-          path?: unknown | null
+          path?: never
         }
         Update: {
-          center_altitude?: number | null
-          center_latitude?: number | null
-          center_longitude?: number | null
+          center_altitude?: never
+          center_latitude?: never
+          center_longitude?: never
           name?: string | null
-          path?: unknown | null
+          path?: never
         }
         Relationships: []
       }
@@ -4852,6 +4860,8 @@ export type Database = {
           stats_summary: Json | null
           status_change_count: number | null
           status_id: number | null
+          unit_size_change_count: number | null
+          unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           year: number | null
         }
@@ -4881,6 +4891,8 @@ export type Database = {
           stats_summary: Json | null
           status_change_count: number | null
           status_id: number | null
+          unit_size_change_count: number | null
+          unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           year: number | null
         }
@@ -4966,6 +4978,8 @@ export type Database = {
           status_id: number | null
           tag_paths: unknown[] | null
           unit_id: number | null
+          unit_size_code: string | null
+          unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_from: string | null
@@ -5043,6 +5057,8 @@ export type Database = {
           status_id: number | null
           tag_paths: unknown[] | null
           unit_id: number | null
+          unit_size_code: string | null
+          unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_from: string | null
@@ -5094,6 +5110,7 @@ export type Database = {
           establishment_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
+          include_unit_in_reports: boolean | null
           invalid_codes: Json | null
           landline: string | null
           legal_form_code: string | null
@@ -5146,6 +5163,8 @@ export type Database = {
           status_code: string | null
           status_id: number | null
           unit_id: number | null
+          unit_size_code: string | null
+          unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_from: string | null
@@ -5166,6 +5185,7 @@ export type Database = {
           establishment_id: number | null
           fax_number: string | null
           has_legal_unit: boolean | null
+          include_unit_in_reports: boolean | null
           invalid_codes: Json | null
           landline: string | null
           legal_form_code: string | null
@@ -5216,6 +5236,8 @@ export type Database = {
           status_code: string | null
           status_id: number | null
           unit_id: number | null
+          unit_size_code: string | null
+          unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_from: string | null
@@ -5225,13 +5247,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -5241,7 +5256,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -5254,13 +5269,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -5287,10 +5309,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
+            foreignKeyName: "establishment_unit_size_id_fkey"
+            columns: ["unit_size_id"]
             isOneToOne: false
-            referencedRelation: "country"
+            referencedRelation: "unit_size"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "unit_size_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "unit_size_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -5304,7 +5340,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -5317,13 +5353,20 @@ export type Database = {
           {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
+            isOneToOne: false
+            referencedRelation: "country_used"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
+            columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
@@ -5370,6 +5413,7 @@ export type Database = {
           establishment_ids: number[] | null
           fax_number: string | null
           has_legal_unit: boolean | null
+          include_unit_in_reports: boolean | null
           invalid_codes: Json | null
           landline: string | null
           legal_form_code: string | null
@@ -5421,6 +5465,8 @@ export type Database = {
           status_code: string | null
           status_id: number | null
           unit_id: number | null
+          unit_size_code: string | null
+          unit_size_id: number | null
           unit_type: Database["public"]["Enums"]["statistical_unit_type"] | null
           valid_after: string | null
           valid_from: string | null
@@ -5489,6 +5535,27 @@ export type Database = {
             columns: ["status_id"]
             isOneToOne: false
             referencedRelation: "status"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "unit_size"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "unit_size_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_unit_size_id_fkey"
+            columns: ["unit_size_id"]
+            isOneToOne: false
+            referencedRelation: "unit_size_ordered"
             referencedColumns: ["id"]
           },
           {
@@ -6480,6 +6547,12 @@ export type Database = {
           "": string
         }
         Returns: unknown
+      }
+      unit_size_hierarchy: {
+        Args: {
+          unit_size_id: number
+        }
+        Returns: Json
       }
       websearch_to_wildcard_tsquery: {
         Args: {
