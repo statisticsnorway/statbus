@@ -198,6 +198,30 @@ export function statusDeriveStateUpdateFromValues(
   return result;
 }                      
 
+export const UNIT_SIZE = "unit_size_code";
+
+export function unitSizeDeriveStateUpdateFromSearchParams(
+  urlSearchParams: URLSearchParams
+): SearchAction {
+  const initialValue = urlSearchParams.get(UNIT_SIZE);
+  const initialValues = parseInitialValues(initialValue);
+  return unitSizeDeriveStateUpdateFromValues(initialValues);
+}
+
+export function unitSizeDeriveStateUpdateFromValues(
+  values: (string | null)[]
+): SearchAction {
+  let result = {
+    type: "set_query",
+    payload: {
+      app_param_name: UNIT_SIZE,
+      api_param_name: UNIT_SIZE,
+      api_param_value: values.length ? `in.(${values.join(",")})` : null,
+      app_param_values: values,
+    },
+  } as SearchAction;
+  return result;
+}
 
 export const DATA_SOURCE = "data_source";
 

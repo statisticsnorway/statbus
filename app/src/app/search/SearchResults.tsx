@@ -24,6 +24,7 @@ import {
   sectorDeriveStateUpdateFromSearchParams,
   statisticalVariablesDeriveStateUpdateFromSearchParams,
   statusDeriveStateUpdateFromSearchParams,
+  unitSizeDeriveStateUpdateFromSearchParams,
   unitTypeDeriveStateUpdateFromSearchParams,
 } from "./filters/url-search-params";
 
@@ -67,6 +68,7 @@ function initializeSearchStateFromUrlSearchParams(
     sectorDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
     activityCategoryDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
     statusDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+    unitSizeDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
     dataSourceDeriveStateUpdateFromSearchParams(
       initialUrlSearchParams,
       allDataSources
