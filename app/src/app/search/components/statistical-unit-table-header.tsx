@@ -25,15 +25,19 @@ export function StatisticalUnitTableHeader({
       <TableRow key={`h-row-${headerRowSuffix}`}>
         {visibleColumns.map(column => {
           switch (column.code) {
-            case 'name':
+            case "name":
               return (
-                <SortableTableHead name="name" label="Name" key={`h-cell-${headerCellSuffix(column)}`}>
+                <SortableTableHead
+                  name="name"
+                  label="Name"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                >
                   <small className="flex">
                     {externalIdentTypes.map(({ name }) => name).join(" | ")}
                   </small>
                 </SortableTableHead>
               );
-            case 'activity_section':
+            case "activity_section":
               return (
                 <TableHead
                   className="text-left hidden lg:table-cell"
@@ -42,7 +46,7 @@ export function StatisticalUnitTableHeader({
                   Activity Section
                 </TableHead>
               );
-            case 'top_region':
+            case "top_region":
               return (
                 <TableHead
                   className="text-left hidden lg:table-cell"
@@ -51,7 +55,7 @@ export function StatisticalUnitTableHeader({
                   Top Region
                 </TableHead>
               );
-            case 'region':
+            case "region":
               return (
                 <SortableTableHead
                   className="text-left hidden lg:table-cell [&>*]:align-middle"
@@ -82,21 +86,25 @@ export function StatisticalUnitTableHeader({
                   </small>
                 </SortableTableHead>
               );
-            case 'statistic':
-              if (column.type === 'Adaptable' && column.stat_code) {
+            case "statistic":
+              if (column.type === "Adaptable" && column.stat_code) {
                 // Retrieve the matching stat definition based on stat_code
-                const statDefinition = statDefinitions.find(statDefinition => statDefinition.code === column.stat_code);
+                const statDefinition = statDefinitions.find(
+                  (statDefinition) => statDefinition.code === column.stat_code
+                );
 
-                return (statDefinition &&
-                  <SortableTableHead
-                    key={`h-cell-${headerCellSuffix(column)}`}
-                    className="text-right hidden lg:table-cell [&>*]:capitalize"
-                    name={statDefinition.code!}
+                return (
+                  statDefinition && (
+                    <SortableTableHead
+                      key={`h-cell-${headerCellSuffix(column)}`}
+                      className="text-right hidden lg:table-cell [&>*]:capitalize"
+                      name={statDefinition.code!}
                       label={statDefinition.name!}
-                  />
+                    />
+                  )
                 );
               }
-            case 'unit_counts':
+            case "unit_counts":
               return (
                 <TableHead
                   className="text-left hidden lg:table-cell"
@@ -106,7 +114,7 @@ export function StatisticalUnitTableHeader({
                 </TableHead>
               );
 
-            case 'sector':
+            case "sector":
               return (
                 <SortableTableHead
                   className="text-left hidden lg:table-cell"
@@ -178,12 +186,22 @@ export function StatisticalUnitTableHeader({
                   Status
                 </TableHead>
               );
+            case "unit_size":
+              return (
+                <TableHead
+                  className="text-left hidden lg:table-cell"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                >
+                  Unit Size
+                </TableHead>
+              );
             case "data_sources":
               return (
                 <TableHead
                   className="text-left hidden lg:table-cell"
                   key={`h-cell-${headerCellSuffix(column)}`}
-                >Data Sources
+                >
+                  Data Sources
                 </TableHead>
               );
           }

@@ -32,11 +32,13 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
     { data: activityCategories },
     { data: regions },
     { data: statuses },
+    { data: unitSizes },
     { data: dataSources },
   ] = await Promise.all([
     client.from("activity_category_used").select(),
     client.from("region_used").select(),
     client.from("status").select().filter("active", "eq", true),
+    client.from("unit_size").select().filter("active", "eq", true),
     client.from("data_source").select().filter("active", "eq", true),
   ]);
 
@@ -61,33 +63,36 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
       allRegions={regions ?? []}
       allActivityCategories={activityCategories ?? []}
       allStatuses={statuses ?? []}
+      allUnitSizes={unitSizes ?? []}
       allDataSources={dataSources ?? []}
       initialUrlSearchParamsDict={initialUrlSearchParamsDict}
     >
       <main className="overflow-x-hidden">
         <div className="mx-auto flex flex-col w-full max-w-fit py-8 md:py-12 px-2 lg:px-8">
-        <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
-          Search for statistical units
-        </h1>
-        <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-full"></div>
-        <SelectionProvider>
-          <section className="space-y-3">
-            <TableToolbar initialUrlSearchParamsDict={initialUrlSearchParamsDict} />
-            <div className="rounded-md border min-w-[300px] overflow-auto">
-              <SearchResultTable />
-            </div>
-            <div className="flex items-center justify-center text-xs text-gray-500">
-              <SearchResultCount className="flex-1 hidden lg:inline-block" />
-              <SearchResultPagination />
-              <div className="hidden flex-1 space-x-3 justify-end flex-wrap lg:flex">
-                <ExportCSVLink />
+          <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
+            Search for statistical units
+          </h1>
+          <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-full"></div>
+          <SelectionProvider>
+            <section className="space-y-3">
+              <TableToolbar
+                initialUrlSearchParamsDict={initialUrlSearchParamsDict}
+              />
+              <div className="rounded-md border min-w-[300px] overflow-auto">
+                <SearchResultTable />
               </div>
-            </div>
-          </section>
-          <section className="mt-8">
-            <Selection />
-          </section>
-        </SelectionProvider>
+              <div className="flex items-center justify-center text-xs text-gray-500">
+                <SearchResultCount className="flex-1 hidden lg:inline-block" />
+                <SearchResultPagination />
+                <div className="hidden flex-1 space-x-3 justify-end flex-wrap lg:flex">
+                  <ExportCSVLink />
+                </div>
+              </div>
+            </section>
+            <section className="mt-8">
+              <Selection />
+            </section>
+          </SelectionProvider>
         </div>
       </main>
     </SearchResults>

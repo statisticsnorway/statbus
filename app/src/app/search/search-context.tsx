@@ -12,6 +12,7 @@ export interface SearchContextState {
   readonly allRegions: Tables<"region_used">[];
   readonly allActivityCategories: Tables<"activity_category_available">[];
   readonly allStatuses: Tables<"status">[];
+  readonly allUnitSizes: Tables<"unit_size">[];
   readonly allDataSources: Tables<"data_source">[];
   readonly selectedTimeContext: TimeContextRow;
   /**
@@ -19,7 +20,6 @@ export interface SearchContextState {
    */
   readonly isLoading: boolean;
   readonly error?: Error;
-
 }
 
 export const SearchContext = createContext<SearchContextState | null>(null);

@@ -165,6 +165,14 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
         },
         {
           type: "Adaptable",
+          code: "unit_size",
+          label: "Unit Size",
+          visible: false,
+          stat_code: null,
+          profiles: ["All"],
+        },
+        {
+          type: "Adaptable",
           code: "data_sources",
           label: "Data Source",
           visible: false,
