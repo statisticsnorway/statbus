@@ -648,6 +648,64 @@ module Statbus
     private def process_queue_loop(queue : String, channel : Channel(Symbol))
       @log.info { "Starting processing fiber for queue: #{queue}" }
 
+      # Create a channel for communication between receiver and processor fibers
+      process_signal = Channel(Bool).new(1)
+
+      # Flag to track if processing is needed
+      processing_needed = false
+      # Flag to track if currently processing
+      currently_processing = false
+      # Flag to track if shutdown was requested
+      shutdown_requested = false
+
+      # Start a fiber to handle receiving messages
+      receiver_fiber = spawn do
+        loop do
+          break if @shutdown || shutdown_requested
+
+          begin
+            command = channel.receive
+
+            case command
+            when :process
+              if currently_processing
+                # If already processing, just set the flag for another round
+                processing_needed = true
+              else
+                # Signal the processor fiber to start processing
+                process_signal.send(true) rescue nil
+              end
+            when :shutdown
+              @log.info { "Received shutdown command for #{queue} process loop" }
+              shutdown_requested = true
+              # Signal the processor fiber to exit
+              process_signal.send(true) rescue nil
+              break
+            end
+          rescue Channel::ClosedError
+            if @shutdown
+              @log.info { "Queue channel closed during shutdown, exiting #{queue} receiver loop" }
+            else
+              @log.warn { "Queue channel closed unexpectedly, shutting down #{queue} receiver loop" }
+            end
+            shutdown_requested = true
+            # Signal the processor fiber to exit
+            process_signal.send(true) rescue nil
+            break
+          rescue ex
+            @log.error { "Error in #{queue} receiver loop: #{ex.message}" }
+            @log.error { ex.backtrace.join("\n") }
+            wait_with_shutdown_check(1.seconds)
+          end
+        end
+
+        # Acknowledge shutdown before exiting
+        if @shutdown
+          @log.debug { "#{queue} receiver acknowledging shutdown" }
+          @shutdown_ack_channel.send(nil) rescue nil
+        end
+      end
+
       # Process tasks immediately upon starting
       @log.debug { "Initial processing for queue: #{queue}" }
       process_tasks(queue)
@@ -655,39 +713,52 @@ module Statbus
       # Check for new scheduled tasks after initial processing, but only once at startup
       check_for_new_scheduled_tasks
 
+      # Main processor loop
       loop do
-        break if @shutdown
+        break if @shutdown || shutdown_requested
 
         begin
-          command = channel.receive
+          # Set processing flag
+          currently_processing = true
+          processing_needed = false
 
-          case command
-          when :process
-            @log.debug { "Processing tasks for queue: #{queue}" }
-            process_tasks(queue)
+          # Process tasks
+          @log.debug { "Processing tasks for queue: #{queue}" }
+          process_tasks(queue)
 
-            # Only check for scheduled tasks when processing due to a notification
-            # This prevents the feedback loop where every process triggers more processes
-            if queue == "maintenance" # Only maintenance queue handles scheduled tasks
-              check_for_new_scheduled_tasks
-            end
-          when :shutdown
-            @log.info { "Received shutdown command for #{queue} process loop" }
-            break
+          # Only check for scheduled tasks when processing due to a notification
+          # This prevents the feedback loop where every process triggers more processes
+          if queue == "maintenance" # Only maintenance queue handles scheduled tasks
+            check_for_new_scheduled_tasks
           end
+
+          # Clear processing flag
+          currently_processing = false
+
+          # If more notifications arrived during processing, process again
+          if processing_needed
+            processing_needed = false
+            next
+          end
+
+          # Wait for next signal
+          process_signal.receive
         rescue Channel::ClosedError
-          if @shutdown
-            @log.info { "Queue channel closed during shutdown, exiting #{queue} process loop" }
+          if @shutdown || shutdown_requested
+            @log.info { "Process signal channel closed during shutdown, exiting #{queue} process loop" }
           else
-            @log.warn { "Queue channel closed unexpectedly, shutting down #{queue} process loop" }
+            @log.warn { "Process signal channel closed unexpectedly, shutting down #{queue} process loop" }
           end
           break
         rescue ex
-          @log.error { "Error in #{queue} process loop: #{ex.message}" }
+          @log.error { "Error in #{queue} processor loop: #{ex.message}" }
           @log.error { ex.backtrace.join("\n") }
           wait_with_shutdown_check(1.seconds) # Prevent tight loop on error while checking for shutdown
         end
       end
+
+      # Close the process signal channel
+      process_signal.close rescue nil
 
       # Acknowledge shutdown before exiting
       if @shutdown
