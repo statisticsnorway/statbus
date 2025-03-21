@@ -15,11 +15,11 @@ CREATE FUNCTION public.relevant_statistical_units(
     ), related_units AS (
         SELECT * FROM valid_units
         WHERE unit_type = 'legal_unit'
-          AND unit_id IN (SELECT unnest(legal_unit_ids) FROM root_unit)
+          AND unit_id IN (SELECT unnest(child_legal_unit_ids) FROM root_unit)
             UNION ALL
         SELECT * FROM valid_units
         WHERE unit_type = 'establishment'
-          AND unit_id IN (SELECT unnest(establishment_ids) FROM root_unit)
+          AND unit_id IN (SELECT unnest(child_establishment_ids) FROM root_unit)
     ), relevant_units AS (
         SELECT * FROM root_unit
             UNION ALL
@@ -111,14 +111,17 @@ CREATE FUNCTION public.relevant_statistical_units(
          --
          , invalid_codes
          , has_legal_unit
-         , establishment_ids
-         , legal_unit_ids
-         , enterprise_ids
+         , child_establishment_ids
+         , child_legal_unit_ids
+         , child_enterprise_ids
+         , related_establishment_ids
+         , related_legal_unit_ids
+         , related_enterprise_ids
          , stats
          , stats_summary
-         , establishment_count
-         , legal_unit_count
-         , enterprise_count
+         , child_establishment_count
+         , child_legal_unit_count
+         , child_enterprise_count
          , tag_paths
     FROM ordered_units;
 $$;

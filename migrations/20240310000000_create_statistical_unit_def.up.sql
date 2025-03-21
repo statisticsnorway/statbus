@@ -76,14 +76,17 @@ CREATE VIEW public.statistical_unit_def
     --
     , invalid_codes
     , has_legal_unit
-    , establishment_ids
-    , legal_unit_ids
-    , enterprise_ids
+    , child_establishment_ids
+    , child_legal_unit_ids
+    , child_enterprise_ids
+    , related_establishment_ids
+    , related_legal_unit_ids
+    , related_enterprise_ids
     , stats
     , stats_summary
-    , establishment_count
-    , legal_unit_count
-    , enterprise_count
+    , child_establishment_count
+    , child_legal_unit_count
+    , child_enterprise_count
     , tag_paths
     )
     AS
@@ -163,9 +166,12 @@ CREATE VIEW public.statistical_unit_def
            --
            , invalid_codes
            , has_legal_unit
-           , NULL::INT[] AS establishment_ids
-           , NULL::INT[] AS legal_unit_ids
-           , NULL::INT[] AS enterprise_ids
+           , NULL::INT[] AS child_establishment_ids
+           , NULL::INT[] AS child_legal_unit_ids
+           , NULL::INT[] AS child_enterprise_ids
+           , CASE WHEN establishment_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[establishment_id] END AS related_establishment_ids
+           , CASE WHEN legal_unit_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[legal_unit_id] END AS related_legal_unit_ids
+           , CASE WHEN enterprise_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[enterprise_id] END AS related_enterprise_ids
            , stats
            , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
       FROM public.timeline_establishment
@@ -245,9 +251,12 @@ CREATE VIEW public.statistical_unit_def
            --
            , invalid_codes
            , has_legal_unit
-           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
-           , NULL::INT[] AS legal_unit_ids
-           , NULL::INT[] AS enterprise_ids
+           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS child_establishment_ids
+           , NULL::INT[] AS child_legal_unit_ids
+           , NULL::INT[] AS child_enterprise_ids
+           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS related_establishment_ids
+           , CASE WHEN legal_unit_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[legal_unit_id] END AS related_legal_unit_ids
+           , CASE WHEN enterprise_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[enterprise_id] END AS related_enterprise_ids
            , stats
            , stats_summary
       FROM public.timeline_legal_unit
@@ -331,9 +340,12 @@ CREATE VIEW public.statistical_unit_def
            --
            , invalid_codes
            , has_legal_unit
-           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS establishment_ids
-           , COALESCE(legal_unit_ids,ARRAY[]::INT[]) AS legal_unit_ids
-           , NULL::INT[] AS enterprise_ids
+           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS child_establishment_ids
+           , COALESCE(legal_unit_ids,ARRAY[]::INT[]) AS child_legal_unit_ids
+           , NULL::INT[] AS child_enterprise_ids
+           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS related_establishment_ids
+           , COALESCE(legal_unit_ids,ARRAY[]::INT[]) AS related_legal_unit_ids
+           , CASE WHEN enterprise_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[enterprise_id] END AS related_enterprise_ids
            , NULL::JSONB AS stats
            , stats_summary
       FROM public.timeline_enterprise
@@ -416,14 +428,17 @@ CREATE VIEW public.statistical_unit_def
          --
          , data.invalid_codes
          , data.has_legal_unit
-         , data.establishment_ids
-         , data.legal_unit_ids
-         , data.enterprise_ids
+         , data.child_establishment_ids
+         , data.child_legal_unit_ids
+         , data.child_enterprise_ids
+         , data.related_establishment_ids
+         , data.related_legal_unit_ids
+         , data.related_enterprise_ids
          , data.stats
          , data.stats_summary
-         , array_length(data.establishment_ids,1) AS establishment_count
-         , array_length(data.legal_unit_ids,1) AS legal_unit_count
-         , array_length(data.enterprise_ids,1) AS enterprise_count
+         , array_length(data.child_establishment_ids,1) AS child_establishment_count
+         , array_length(data.child_legal_unit_ids,1) AS child_legal_unit_count
+         , array_length(data.child_enterprise_ids,1) AS child_enterprise_count
          , public.get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
     FROM data
 ;
