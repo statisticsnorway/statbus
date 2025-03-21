@@ -134,12 +134,15 @@ BEGIN
   CREATE TEMPORARY TABLE temp_statistical_unit AS
   SELECT * FROM public.statistical_unit_def AS sud
   WHERE (
-    (sud.unit_type = 'establishment' AND sud.unit_id = ANY(p_establishment_ids)) OR
-    (sud.unit_type = 'legal_unit' AND sud.unit_id = ANY(p_legal_unit_ids)) OR
-    (sud.unit_type = 'enterprise' AND sud.unit_id = ANY(p_enterprise_ids)) OR
-    sud.establishment_ids && p_establishment_ids OR
-    sud.legal_unit_ids && p_legal_unit_ids OR
-    sud.enterprise_ids && p_enterprise_ids
+    (p_establishment_ids IS NULL OR
+      sud.related_establishment_ids && p_establishment_ids
+      ) OR
+    (p_legal_unit_ids IS NULL OR
+      sud.related_legal_unit_ids && p_legal_unit_ids
+    ) OR
+    (p_enterprise_ids IS NULL OR
+      sud.related_enterprise_ids && p_enterprise_ids
+    )
   )
   AND daterange(sud.valid_after, sud.valid_to, '(]') &&
       daterange(COALESCE(p_valid_after, '-infinity'::date),
@@ -148,12 +151,15 @@ BEGIN
   -- Delete affected entries
   DELETE FROM public.statistical_unit AS su
   WHERE (
-    (su.unit_type = 'establishment' AND su.unit_id = ANY(p_establishment_ids)) OR
-    (su.unit_type = 'legal_unit' AND su.unit_id = ANY(p_legal_unit_ids)) OR
-    (su.unit_type = 'enterprise' AND su.unit_id = ANY(p_enterprise_ids)) OR
-    su.establishment_ids && p_establishment_ids OR
-    su.legal_unit_ids && p_legal_unit_ids OR
-    su.enterprise_ids && p_enterprise_ids
+    (p_establishment_ids IS NULL OR
+      su.related_establishment_ids && p_establishment_ids
+      ) OR
+    (p_legal_unit_ids IS NULL OR
+      su.related_legal_unit_ids && p_legal_unit_ids
+    ) OR
+    (p_enterprise_ids IS NULL OR
+      su.related_enterprise_ids && p_enterprise_ids
+    )
   )
   AND daterange(su.valid_after, su.valid_to, '(]') &&
       daterange(COALESCE(p_valid_after, '-infinity'::date),
