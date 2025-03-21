@@ -309,18 +309,14 @@ CREATE OR REPLACE FUNCTION public.timeline_establishment_refresh(
 BEGIN
     -- Delete affected records from the main table
     DELETE FROM public.timeline_establishment
-    WHERE unit_type = 'establishment'
-    AND (p_valid_after IS NULL AND p_valid_to IS NULL OR
-         daterange(valid_after, valid_to, '(]') &&
-         daterange(COALESCE(p_valid_after, valid_after), COALESCE(p_valid_to, valid_to), '(]'));
+    WHERE daterange(valid_after, valid_to, '(]') &&
+          daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
 
     -- Insert directly from the definition view with filtering
     INSERT INTO public.timeline_establishment
     SELECT * FROM public.timeline_establishment_def
-    WHERE unit_type = 'establishment'
-    AND (p_valid_after IS NULL AND p_valid_to IS NULL OR
-         daterange(valid_after, valid_to, '(]') &&
-         daterange(COALESCE(p_valid_after, valid_after), COALESCE(p_valid_to, valid_to), '(]'));
+    WHERE daterange(valid_after, valid_to, '(]') &&
+          daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
 END;
 $timeline_establishment_refresh$;
 

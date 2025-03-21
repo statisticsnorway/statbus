@@ -134,15 +134,9 @@ BEGIN
   CREATE TEMPORARY TABLE temp_statistical_unit AS
   SELECT * FROM public.statistical_unit_def AS sud
   WHERE (
-    (p_establishment_ids IS NULL OR
-      sud.related_establishment_ids && p_establishment_ids
-      ) OR
-    (p_legal_unit_ids IS NULL OR
-      sud.related_legal_unit_ids && p_legal_unit_ids
-    ) OR
-    (p_enterprise_ids IS NULL OR
-      sud.related_enterprise_ids && p_enterprise_ids
-    )
+    (p_establishment_ids IS NULL OR sud.related_establishment_ids && p_establishment_ids) OR
+    (p_legal_unit_ids    IS NULL OR sud.related_legal_unit_ids && p_legal_unit_ids) OR
+    (p_enterprise_ids    IS NULL OR sud.related_enterprise_ids && p_enterprise_ids)
   )
   AND daterange(sud.valid_after, sud.valid_to, '(]') &&
       daterange(COALESCE(p_valid_after, '-infinity'::date),
@@ -151,15 +145,9 @@ BEGIN
   -- Delete affected entries
   DELETE FROM public.statistical_unit AS su
   WHERE (
-    (p_establishment_ids IS NULL OR
-      su.related_establishment_ids && p_establishment_ids
-      ) OR
-    (p_legal_unit_ids IS NULL OR
-      su.related_legal_unit_ids && p_legal_unit_ids
-    ) OR
-    (p_enterprise_ids IS NULL OR
-      su.related_enterprise_ids && p_enterprise_ids
-    )
+    (p_establishment_ids IS NULL OR su.related_establishment_ids && p_establishment_ids ) OR
+    (p_legal_unit_ids    IS NULL OR su.related_legal_unit_ids && p_legal_unit_ids) OR
+    (p_enterprise_ids    IS NULL OR su.related_enterprise_ids && p_enterprise_ids)
   )
   AND daterange(su.valid_after, su.valid_to, '(]') &&
       daterange(COALESCE(p_valid_after, '-infinity'::date),
@@ -927,7 +915,7 @@ BEGIN
     p_valid_after := v_valid_after,
     p_valid_to := v_valid_to
   );
-  
+
   -- Then enqueue timeline_legal_unit_refresh with the same parameters
   PERFORM worker.enqueue_timeline_legal_unit_refresh(
     p_establishment_ids := v_establishment_ids,
@@ -1085,7 +1073,7 @@ BEGIN
     p_valid_after := v_valid_after,
     p_valid_to := v_valid_to
   );
-  
+
   -- Then enqueue timeline_enterprise_refresh with the same parameters
   PERFORM worker.enqueue_timeline_enterprise_refresh(
     p_establishment_ids := v_establishment_ids,
@@ -1243,7 +1231,7 @@ BEGIN
     p_valid_after := v_valid_after,
     p_valid_to := v_valid_to
   );
-  
+
   -- Then enqueue statistical_unit_refresh with the same parameters
   PERFORM worker.enqueue_statistical_unit_refresh(
     p_establishment_ids := v_establishment_ids,
