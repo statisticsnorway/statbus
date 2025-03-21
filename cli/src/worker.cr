@@ -758,7 +758,7 @@ module Statbus
                                   WHERE processed_at IS NOT NULL
                                   AND processed_at >= $2
                                   AND (cr.queue = $1 OR $1 IS NULL)
-                                  ORDER BY processed_at DESC",
+                                  ORDER BY processed_at ASC",
             queue, current_timestamp,
             as: {Int64, String, String, PG::Numeric, Bool, String?}
 
