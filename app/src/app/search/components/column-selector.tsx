@@ -25,28 +25,6 @@ export function ColumnSelector({
     <Command>
       <CommandInput placeholder="Columns" />
       <CommandList>
-        <CommandGroup heading="Toggle Columns">
-          {columns.map((column) => (
-            <CommandItem
-              key={`column-selector-${column.code}${column.type === "Adaptable" ? "-" + column.stat_code : ""}`}
-              value={column.label}
-              onSelect={() => onToggleColumn(column)}
-              disabled={column.type == "Always" ? true : false}
-              className="space-x-2"
-            >
-              <Check
-                size={14}
-                className={
-                  column.type === "Always" || column.visible
-                    ? "opacity-100"
-                    : "opacity-0"
-                }
-              />
-              <span>{column.label}</span>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-        <CommandSeparator />
         <CommandGroup heading="Profiles">
           <CommandItem
             onSelect={() => setProfile("Brief")}
@@ -93,6 +71,28 @@ export function ColumnSelector({
             />
             <span>All</span>
           </CommandItem>
+        </CommandGroup>
+        <CommandSeparator />
+        <CommandGroup heading="Toggle Columns">
+          {columns.map((column) => (
+            <CommandItem
+              key={`column-selector-${column.code}${column.type === "Adaptable" ? "-" + column.stat_code : ""}`}
+              value={column.label}
+              onSelect={() => onToggleColumn(column)}
+              disabled={column.type == "Always" ? true : false}
+              className="space-x-2"
+            >
+              <Check
+                size={14}
+                className={
+                  column.type === "Always" || column.visible
+                    ? "opacity-100"
+                    : "opacity-0"
+                }
+              />
+              <span>{column.label}</span>
+            </CommandItem>
+          ))}
         </CommandGroup>
       </CommandList>
     </Command>
