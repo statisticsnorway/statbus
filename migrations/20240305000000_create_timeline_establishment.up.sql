@@ -268,7 +268,7 @@ CREATE VIEW public.timeline_establishment_def
 
 DROP TABLE IF EXISTS public.timeline_establishment;
 
--- Create the physical unlogged table to store the view results
+-- Create the physical table to store the view results
 CREATE TABLE public.timeline_establishment AS
 SELECT * FROM public.timeline_establishment_def
 WHERE FALSE;

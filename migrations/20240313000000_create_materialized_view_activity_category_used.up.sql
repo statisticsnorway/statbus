@@ -32,8 +32,8 @@ WHERE acs.id = (SELECT activity_category_standard_id FROM public.settings)
       )
 ORDER BY path;
 
--- Create unlogged table from the view definition
-CREATE UNLOGGED TABLE public.activity_category_used AS
+-- Create table from the view definition
+CREATE TABLE public.activity_category_used AS
 SELECT * FROM public.activity_category_used_def;
 
 CREATE UNIQUE INDEX "activity_category_used_key"

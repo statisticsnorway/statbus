@@ -12,8 +12,8 @@ WHERE s.path OPERATOR(public.@>) (SELECT array_agg(DISTINCT sector_path) FROM pu
   AND s.active
 ORDER BY s.path;
 
--- Create unlogged table from the view definition
-CREATE UNLOGGED TABLE public.sector_used AS
+-- Create table from the view definition
+CREATE TABLE public.sector_used AS
 SELECT * FROM public.sector_used_def;
 
 CREATE UNIQUE INDEX "sector_used_key"

@@ -394,7 +394,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
 
 DROP TABLE IF EXISTS public.timeline_legal_unit;
 
--- Create the physical unlogged table to store the view results
+-- Create the physical table to store the view results
 CREATE TABLE IF NOT EXISTS public.timeline_legal_unit AS
 SELECT * FROM public.timeline_legal_unit_def
 WHERE FALSE;

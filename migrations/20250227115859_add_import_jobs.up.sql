@@ -761,7 +761,6 @@ CREATE VIEW public.import_information WITH (security_barrier = true) AS
 
 /*
 Each import operates on it's on table.
-The table is unlogged for good performance on insert.
 There is a view that maps from the columns names of the upload to the column names of the table.
 */
 CREATE FUNCTION admin.import_job_generate(job public.import_job)
@@ -777,7 +776,7 @@ BEGIN
   RAISE DEBUG 'Creating snapshot table %', job.import_information_snapshot_table_name;
   -- Create a snapshot of import_information for this job
   create_snapshot_table_stmt := format(
-    'CREATE UNLOGGED TABLE public.%I AS
+    'CREATE TABLE public.%I AS
      SELECT * FROM public.import_information
      WHERE job_id = %L',
     job.import_information_snapshot_table_name, job.id
@@ -796,7 +795,7 @@ BEGIN
 
   RAISE DEBUG 'Generating %', job.upload_table_name;
   -- Build the sql to create a table for this import job with target columns
-  create_upload_table_stmt := format('CREATE UNLOGGED TABLE public.%I (', job.upload_table_name);
+  create_upload_table_stmt := format('CREATE TABLE public.%I (', job.upload_table_name);
 
   -- Add columns from target table definition
   FOR info IN
@@ -846,7 +845,7 @@ BEGIN
 
   RAISE DEBUG 'Generating %', job.data_table_name;
   -- Build the sql to create a table for this import job with target columns
-  create_data_table_stmt := format('CREATE UNLOGGED TABLE public.%I (', job.data_table_name);
+  create_data_table_stmt := format('CREATE TABLE public.%I (', job.data_table_name);
 
   -- Add columns from target table definition
   add_separator := false;
@@ -1113,17 +1112,17 @@ BEGIN
 
     -- Process the job based on its current state
     -- We'll only process one state transition per transaction to ensure visibility
-    
+
     -- Perform the appropriate action for the current state
     CASE job.state
     WHEN 'waiting_for_upload' THEN
         RAISE DEBUG 'Import job % is waiting for upload', job_id;
         should_reschedule := FALSE;
-        
+
     WHEN 'upload_completed' THEN
         RAISE DEBUG 'Import job % is ready for preparing data', job_id;
         should_reschedule := TRUE;
-        
+
     WHEN 'preparing_data' THEN
         PERFORM admin.import_job_prepare(job);
         should_reschedule := TRUE;
@@ -1131,7 +1130,7 @@ BEGIN
     WHEN 'analysing_data' THEN
         PERFORM admin.import_job_analyse(job);
         should_reschedule := TRUE;
-        
+
     WHEN 'waiting_for_review' THEN
         RAISE DEBUG 'Import job % is waiting for review', job_id;
         should_reschedule := FALSE;
@@ -1139,7 +1138,7 @@ BEGIN
     WHEN 'approved' THEN
         RAISE DEBUG 'Import job % is approved for importing', job_id;
         should_reschedule := TRUE;
-        
+
     WHEN 'rejected' THEN
         RAISE DEBUG 'Import job % was rejected', job_id;
         should_reschedule := FALSE;
@@ -1155,22 +1154,22 @@ BEGIN
     WHEN 'finished' THEN
         RAISE DEBUG 'Import job % completed successfully', job_id;
         should_reschedule := FALSE;
-    
+
     ELSE
         RAISE WARNING 'Unknown import job state: %', job.state;
         should_reschedule := FALSE;
     END CASE;
-    
+
     -- After processing the current state, calculate and set the next state
     -- Only transition if the job is still in the same state (it might have changed during processing)
     SELECT * INTO job FROM public.import_job WHERE id = job_id;
     next_state := admin.import_job_next_state(job);
-    
+
     IF next_state <> job.state THEN
         -- Update the job state for the next run
         job := admin.import_job_set_state(job, next_state);
         RAISE DEBUG 'Updated import job % state from % to %', job_id, job.state, next_state;
-        
+
         -- Always reschedule after a state change
         should_reschedule := TRUE;
     END IF;

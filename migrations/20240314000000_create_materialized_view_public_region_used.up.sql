@@ -12,8 +12,8 @@ FROM public.region AS r
 WHERE r.path OPERATOR(public.@>) (SELECT array_agg(DISTINCT physical_region_path) FROM public.statistical_unit WHERE physical_region_path IS NOT NULL)
 ORDER BY public.nlevel(path), path;
 
--- Create unlogged table from the view definition
-CREATE UNLOGGED TABLE public.region_used AS
+-- Create table from the view definition
+CREATE TABLE public.region_used AS
 SELECT * FROM public.region_used_def;
 
 CREATE UNIQUE INDEX "region_used_key"

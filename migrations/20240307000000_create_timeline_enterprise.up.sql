@@ -660,7 +660,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
 
 DROP TABLE IF EXISTS public.timeline_enterprise;
 
--- Create the physical unlogged table to store the view results
+-- Create the physical table to store the view results
 CREATE TABLE IF NOT EXISTS public.timeline_enterprise AS
 SELECT * FROM public.timeline_enterprise_def
 WHERE FALSE;

@@ -3,7 +3,7 @@ DROP SCHEMA IF EXISTS brreg CASCADE;
 BEGIN;
 CREATE SCHEMA brreg;
 
-CREATE UNLOGGED TABLE IF NOT EXISTS brreg.enhet
+CREATE TABLE IF NOT EXISTS brreg.enhet
      ( "organisasjonsnummer" TEXT NOT NULL PRIMARY KEY
      , "navn" TEXT
      , "organisasjonsform.kode" TEXT
@@ -73,7 +73,7 @@ CREATE UNLOGGED TABLE IF NOT EXISTS brreg.enhet
      );
 
 
-CREATE UNLOGGED TABLE IF NOT EXISTS brreg.underenhet
+CREATE TABLE IF NOT EXISTS brreg.underenhet
      ( "organisasjonsnummer" TEXT PRIMARY KEY
      , "navn" TEXT
      , "organisasjonsform.kode" TEXT

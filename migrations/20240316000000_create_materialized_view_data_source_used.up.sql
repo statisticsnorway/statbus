@@ -14,8 +14,8 @@ WHERE s.id IN (
   AND s.active
 ORDER BY s.code;
 
--- Create unlogged table from the view definition
-CREATE UNLOGGED TABLE public.data_source_used AS
+-- Create table from the view definition
+CREATE TABLE public.data_source_used AS
 SELECT * FROM public.data_source_used_def;
 
 CREATE UNIQUE INDEX "data_source_used_key"

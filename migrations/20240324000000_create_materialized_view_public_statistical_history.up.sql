@@ -2,7 +2,7 @@ BEGIN;
 
 SET client_min_messages TO debug1;
 
-CREATE UNLOGGED TABLE public.statistical_history AS
+CREATE TABLE public.statistical_history AS
 SELECT * FROM public.statistical_history_def
 ORDER BY year, month;
 

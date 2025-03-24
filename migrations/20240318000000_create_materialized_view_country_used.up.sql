@@ -9,7 +9,7 @@ WHERE c.id IN (SELECT physical_country_id FROM public.statistical_unit WHERE phy
   AND c.active
 ORDER BY c.id;
 
-CREATE UNLOGGED TABLE public.country_used AS
+CREATE TABLE public.country_used AS
 SELECT * FROM public.country_used_def;
 
 CREATE UNIQUE INDEX "country_used_key" ON public.country_used (iso_2);

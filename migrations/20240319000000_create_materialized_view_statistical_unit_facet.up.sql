@@ -24,7 +24,7 @@ GROUP BY valid_from
        , physical_country_id
        , status_id;
 
-CREATE UNLOGGED TABLE public.statistical_unit_facet AS
+CREATE TABLE public.statistical_unit_facet AS
 SELECT * FROM public.statistical_unit_facet_def;
 
 CREATE FUNCTION public.statistical_unit_facet_derive(
