@@ -435,17 +435,41 @@ CREATE OR REPLACE FUNCTION public.timeline_legal_unit_refresh(
     p_valid_after date DEFAULT NULL,
     p_valid_to date DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $timeline_legal_unit_refresh$
+DECLARE
+    date_range daterange;
 BEGIN
-    -- Delete affected records from the main table
-    DELETE FROM public.timeline_legal_unit
-    WHERE daterange(valid_after, valid_to, '(]') &&
-          daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
+    -- Create the date range for filtering
+    date_range := daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
 
-    -- Insert directly from the definition view with filtering
-    INSERT INTO public.timeline_legal_unit
+    -- Create a temporary table with the new data
+    CREATE TEMPORARY TABLE temp_timeline_legal_unit ON COMMIT DROP AS
     SELECT * FROM public.timeline_legal_unit_def
-    WHERE daterange(valid_after, valid_to, '(]') &&
-          daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
+    WHERE daterange(valid_after, valid_to, '(]') && date_range;
+
+    -- Delete records that exist in the main table but not in the temp table
+    DELETE FROM public.timeline_legal_unit tlu
+    WHERE daterange(tlu.valid_after, tlu.valid_to, '(]') && date_range
+    AND NOT EXISTS (
+        SELECT 1 FROM temp_timeline_legal_unit ttlu
+        WHERE ttlu.unit_type = tlu.unit_type
+        AND ttlu.unit_id = tlu.unit_id
+        AND ttlu.valid_after = tlu.valid_after
+        AND ttlu.valid_to = tlu.valid_to
+    );
+
+    -- Insert records that exist in the temp table but not in the main table
+    INSERT INTO public.timeline_legal_unit
+    SELECT ttlu.* FROM temp_timeline_legal_unit ttlu
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.timeline_legal_unit tlu
+        WHERE tlu.unit_type = ttlu.unit_type
+        AND tlu.unit_id = ttlu.unit_id
+        AND tlu.valid_after = ttlu.valid_after
+        AND tlu.valid_to = ttlu.valid_to
+    );
+
+    -- Drop the temporary table
+    DROP TABLE temp_timeline_legal_unit;
 END;
 $timeline_legal_unit_refresh$;
 

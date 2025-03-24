@@ -306,17 +306,41 @@ CREATE OR REPLACE FUNCTION public.timeline_establishment_refresh(
     p_valid_after date DEFAULT NULL,
     p_valid_to date DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $timeline_establishment_refresh$
+DECLARE
+    date_range daterange;
 BEGIN
-    -- Delete affected records from the main table
-    DELETE FROM public.timeline_establishment
-    WHERE daterange(valid_after, valid_to, '(]') &&
-          daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
+    -- Create the date range for filtering
+    date_range := daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
 
-    -- Insert directly from the definition view with filtering
-    INSERT INTO public.timeline_establishment
+    -- Create a temporary table with the new data
+    CREATE TEMPORARY TABLE temp_timeline_establishment ON COMMIT DROP AS
     SELECT * FROM public.timeline_establishment_def
-    WHERE daterange(valid_after, valid_to, '(]') &&
-          daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
+    WHERE daterange(valid_after, valid_to, '(]') && date_range;
+
+    -- Delete records that exist in the main table but not in the temp table
+    DELETE FROM public.timeline_establishment te
+    WHERE daterange(te.valid_after, te.valid_to, '(]') && date_range
+    AND NOT EXISTS (
+        SELECT 1 FROM temp_timeline_establishment tte
+        WHERE tte.unit_type = te.unit_type
+        AND tte.unit_id = te.unit_id
+        AND tte.valid_after = te.valid_after
+        AND tte.valid_to = te.valid_to
+    );
+
+    -- Insert records that exist in the temp table but not in the main table
+    INSERT INTO public.timeline_establishment
+    SELECT tte.* FROM temp_timeline_establishment tte
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.timeline_establishment te
+        WHERE te.unit_type = tte.unit_type
+        AND te.unit_id = tte.unit_id
+        AND te.valid_after = tte.valid_after
+        AND te.valid_to = tte.valid_to
+    );
+
+    -- Drop the temporary table
+    DROP TABLE temp_timeline_establishment;
 END;
 $timeline_establishment_refresh$;
 
