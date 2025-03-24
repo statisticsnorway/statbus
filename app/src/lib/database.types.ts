@@ -134,6 +134,13 @@ export type Database = {
             referencedRelation: "statbus_user"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "activity_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
+            referencedColumns: ["id"]
+          },
         ]
       }
       activity_category: {
@@ -378,6 +385,13 @@ export type Database = {
             referencedRelation: "statbus_user"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "contact_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
+            referencedColumns: ["id"]
+          },
         ]
       }
       country: {
@@ -479,6 +493,13 @@ export type Database = {
             referencedRelation: "statbus_user"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "enterprise_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
+            referencedColumns: ["id"]
+          },
         ]
       }
       enterprise_group: {
@@ -576,6 +597,13 @@ export type Database = {
             columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "enterprise_group_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
             referencedColumns: ["id"]
           },
           {
@@ -834,6 +862,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "establishment_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "establishment_enterprise_id_fkey"
             columns: ["enterprise_id"]
             isOneToOne: false
@@ -962,6 +997,13 @@ export type Database = {
             columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "external_ident_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
             referencedColumns: ["id"]
           },
           {
@@ -1206,6 +1248,13 @@ export type Database = {
             columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "legal_unit_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
             referencedColumns: ["id"]
           },
           {
@@ -1482,6 +1531,13 @@ export type Database = {
             columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
             referencedColumns: ["id"]
           },
           {
@@ -2246,6 +2302,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tag_for_unit_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "tag_for_unit_enterprise_id_fkey"
             columns: ["enterprise_id"]
             isOneToOne: false
@@ -2311,6 +2374,13 @@ export type Database = {
             columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "unit_notes_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
             referencedColumns: ["id"]
           },
           {
@@ -2528,6 +2598,13 @@ export type Database = {
             referencedRelation: "statbus_user"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "activity_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
+            referencedColumns: ["id"]
+          },
         ]
       }
       contact_era: {
@@ -2619,6 +2696,13 @@ export type Database = {
             columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
             referencedColumns: ["id"]
           },
         ]
@@ -3056,6 +3140,13 @@ export type Database = {
             columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "establishment_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
             referencedColumns: ["id"]
           },
           {
@@ -3924,6 +4015,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "legal_unit_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "legal_unit_enterprise_id_fkey"
             columns: ["enterprise_id"]
             isOneToOne: false
@@ -4197,6 +4295,13 @@ export type Database = {
             columns: ["edit_by_user_id"]
             isOneToOne: false
             referencedRelation: "statbus_user"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_edit_by_user_id_fkey"
+            columns: ["edit_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "statbus_user_with_email_and_role"
             referencedColumns: ["id"]
           },
           {
@@ -4790,7 +4895,9 @@ export type Database = {
       statbus_user_with_email_and_role: {
         Row: {
           email: string | null
+          id: number | null
           role_type: Database["public"]["Enums"]["statbus_role_type"] | null
+          uuid: string | null
         }
         Relationships: []
       }
@@ -4927,6 +5034,9 @@ export type Database = {
           include_unit_in_reports: boolean | null
           invalid_codes: Json | null
           landline: string | null
+          last_edit_at: string | null
+          last_edit_by_user_id: number | null
+          last_edit_comment: string | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
@@ -5006,6 +5116,9 @@ export type Database = {
           include_unit_in_reports: boolean | null
           invalid_codes: Json | null
           landline: string | null
+          last_edit_at: string | null
+          last_edit_by_user_id: number | null
+          last_edit_comment: string | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
@@ -5113,6 +5226,9 @@ export type Database = {
           include_unit_in_reports: boolean | null
           invalid_codes: Json | null
           landline: string | null
+          last_edit_at: string | null
+          last_edit_by_user_id: number | null
+          last_edit_comment: string | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
@@ -5188,6 +5304,9 @@ export type Database = {
           include_unit_in_reports: boolean | null
           invalid_codes: Json | null
           landline: string | null
+          last_edit_at: string | null
+          last_edit_by_user_id: number | null
+          last_edit_comment: string | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
@@ -5247,13 +5366,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -5263,7 +5375,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -5276,13 +5388,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -5416,6 +5535,9 @@ export type Database = {
           include_unit_in_reports: boolean | null
           invalid_codes: Json | null
           landline: string | null
+          last_edit_at: string | null
+          last_edit_by_user_id: number | null
+          last_edit_comment: string | null
           legal_form_code: string | null
           legal_form_id: number | null
           legal_form_name: string | null
@@ -5476,13 +5598,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -5492,7 +5607,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -5505,13 +5620,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used"
             referencedColumns: ["id"]
@@ -5560,13 +5682,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country"
@@ -5576,7 +5691,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -5590,7 +5705,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
-            referencedRelation: "country_view"
+            referencedRelation: "country_used"
             referencedColumns: ["id"]
           },
           {
@@ -5601,10 +5716,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["postal_country_id"]
             isOneToOne: false
-            referencedRelation: "region"
+            referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
@@ -5617,13 +5732,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["physical_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used"
             referencedColumns: ["id"]
