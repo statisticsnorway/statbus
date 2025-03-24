@@ -256,23 +256,15 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
       LEFT JOIN LATERAL (
         SELECT edit_comment, edit_by_user_id, edit_at
         FROM (
-          SELECT lu.edit_comment, lu.edit_by_user_id, lu.edit_at
-          UNION ALL
-          SELECT pa.edit_comment, pa.edit_by_user_id, pa.edit_at
-          WHERE pa.edit_at IS NOT NULL
-          UNION ALL
-          SELECT sa.edit_comment, sa.edit_by_user_id, sa.edit_at
-          WHERE sa.edit_at IS NOT NULL
-          UNION ALL
-          SELECT phl.edit_comment, phl.edit_by_user_id, phl.edit_at
-          WHERE phl.edit_at IS NOT NULL
-          UNION ALL
-          SELECT pol.edit_comment, pol.edit_by_user_id, pol.edit_at
-          WHERE pol.edit_at IS NOT NULL
-          UNION ALL
-          SELECT c.edit_comment, c.edit_by_user_id, c.edit_at
-          WHERE c.edit_at IS NOT NULL
-        ) AS all_edits
+          VALUES
+            (lu.edit_comment, lu.edit_by_user_id, lu.edit_at),
+            (pa.edit_comment, pa.edit_by_user_id, pa.edit_at),
+            (sa.edit_comment, sa.edit_by_user_id, sa.edit_at),
+            (phl.edit_comment, phl.edit_by_user_id, phl.edit_at),
+            (pol.edit_comment, pol.edit_by_user_id, pol.edit_at),
+            (c.edit_comment, c.edit_by_user_id, c.edit_at)
+        ) AS all_edits(edit_comment, edit_by_user_id, edit_at)
+        WHERE edit_at IS NOT NULL
         ORDER BY edit_at DESC
         LIMIT 1
       ) AS last_edit ON TRUE

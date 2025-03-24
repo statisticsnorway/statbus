@@ -157,19 +157,30 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
            , tlu.status_id
            , tlu.status_code
            , tlu.include_unit_in_reports
-           , tlu.last_edit_comment
-           , tlu.last_edit_by_user_id
-           , tlu.last_edit_at
+           , last_edit.edit_comment AS last_edit_comment
+           , last_edit.edit_by_user_id AS last_edit_by_user_id
+           , last_edit.edit_at AS last_edit_at
            , tlu.invalid_codes
            , tlu.has_legal_unit
            , ten.enterprise_id
            , tlu.legal_unit_id AS primary_legal_unit_id
       FROM timesegments_enterprise AS ten
-      INNER JOIN public.timeline_legal_unit AS tlu
-          ON tlu.enterprise_id = ten.enterprise_id
-          AND tlu.primary_for_enterprise = true
-          AND daterange(ten.valid_after, ten.valid_to, '(]')
-           && daterange(tlu.valid_after, tlu.valid_to, '(]')
+        INNER JOIN public.timeline_legal_unit AS tlu
+            ON tlu.enterprise_id = ten.enterprise_id
+            AND tlu.primary_for_enterprise = true
+            AND daterange(ten.valid_after, ten.valid_to, '(]')
+            && daterange(tlu.valid_after, tlu.valid_to, '(]')
+        LEFT JOIN LATERAL (
+          SELECT edit_comment, edit_by_user_id, edit_at
+          FROM (
+            VALUES
+              (ten.edit_comment, ten.edit_by_user_id, ten.edit_at),
+              (tlu.last_edit_comment, tlu.last_edit_by_user_id, tlu.last_edit_at)
+          ) AS all_edits(edit_comment, edit_by_user_id, edit_at)
+          WHERE edit_at IS NOT NULL
+          ORDER BY edit_at DESC
+          LIMIT 1
+        ) AS last_edit ON TRUE
       ), enterprise_with_primary_establishment AS (
       SELECT ten.unit_type
            , ten.unit_id
@@ -232,19 +243,30 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
            , tes.status_id
            , tes.status_code
            , tes.include_unit_in_reports
-           , tes.last_edit_comment
-           , tes.last_edit_by_user_id
-           , tes.last_edit_at
+           , last_edit.edit_comment AS last_edit_comment
+           , last_edit.edit_by_user_id AS last_edit_by_user_id
+           , last_edit.edit_at AS last_edit_at
            , tes.invalid_codes
            , tes.has_legal_unit
            , ten.enterprise_id
            , tes.establishment_id AS primary_establishment_id
       FROM timesegments_enterprise AS ten
-      INNER JOIN public.timeline_establishment AS tes
-          ON tes.enterprise_id = ten.enterprise_id
-          AND tes.primary_for_enterprise = true
-          AND daterange(ten.valid_after, ten.valid_to, '(]')
-           && daterange(tes.valid_after, tes.valid_to, '(]')
+        INNER JOIN public.timeline_establishment AS tes
+            ON tes.enterprise_id = ten.enterprise_id
+            AND tes.primary_for_enterprise = true
+            AND daterange(ten.valid_after, ten.valid_to, '(]')
+            && daterange(tes.valid_after, tes.valid_to, '(]')
+        LEFT JOIN LATERAL (
+          SELECT edit_comment, edit_by_user_id, edit_at
+          FROM (
+            VALUES
+              (ten.edit_comment, ten.edit_by_user_id, ten.edit_at),
+              (tes.last_edit_comment, tes.last_edit_by_user_id, tes.last_edit_at)
+          ) AS all_edits(edit_comment, edit_by_user_id, edit_at)
+          WHERE edit_at IS NOT NULL
+          ORDER BY edit_at DESC
+          LIMIT 1
+        ) AS last_edit ON TRUE
       ), enterprise_with_primary AS (
       SELECT ten.unit_type
            , ten.unit_id
@@ -330,21 +352,9 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
            , COALESCE(enplu.status_code, enpes.status_code) AS status_code
            , COALESCE(enplu.include_unit_in_reports, enpes.include_unit_in_reports) AS include_unit_in_reports
            --
-           , CASE
-               WHEN enplu.last_edit_at IS NULL AND enpes.last_edit_at IS NULL THEN NULL
-               WHEN enplu.last_edit_at IS NULL THEN enpes.last_edit_comment
-               WHEN enpes.last_edit_at IS NULL THEN enplu.last_edit_comment
-               WHEN enplu.last_edit_at > enpes.last_edit_at THEN enplu.last_edit_comment
-               ELSE enpes.last_edit_comment
-             END AS last_edit_comment
-           , CASE
-               WHEN enplu.last_edit_at IS NULL AND enpes.last_edit_at IS NULL THEN NULL
-               WHEN enplu.last_edit_at IS NULL THEN enpes.last_edit_by_user_id
-               WHEN enpes.last_edit_at IS NULL THEN enplu.last_edit_by_user_id
-               WHEN enplu.last_edit_at > enpes.last_edit_at THEN enplu.last_edit_by_user_id
-               ELSE enpes.last_edit_by_user_id
-             END AS last_edit_by_user_id
-           , GREATEST(enplu.last_edit_at, enpes.last_edit_at) AS last_edit_at
+           , last_edit.edit_comment AS last_edit_comment
+           , last_edit.edit_by_user_id AS last_edit_by_user_id
+           , last_edit.edit_at AS last_edit_at
            --
            , COALESCE(
               enplu.invalid_codes || enpes.invalid_codes,
@@ -366,6 +376,18 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
              ON enpes.enterprise_id = ten.enterprise_id
              AND ten.valid_after = enpes.valid_after
              AND ten.valid_to = enpes.valid_to
+      LEFT JOIN LATERAL (
+        SELECT edit_comment, edit_by_user_id, edit_at
+        FROM (
+          VALUES
+            (ten.edit_comment, ten.edit_by_user_id, ten.edit_at),
+            (enplu.last_edit_comment, enplu.last_edit_by_user_id, enplu.last_edit_at),
+            (enpes.last_edit_comment, enpes.last_edit_by_user_id, enpes.last_edit_at)
+        ) AS all_edits(edit_comment, edit_by_user_id, edit_at)
+        WHERE edit_at IS NOT NULL
+        ORDER BY edit_at DESC
+        LIMIT 1
+      ) AS last_edit ON TRUE
       ), aggregation AS (
         SELECT ten.enterprise_id
              , ten.valid_after
