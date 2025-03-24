@@ -443,4 +443,64 @@ CREATE VIEW public.statistical_unit_def
     FROM data
 ;
 
+
+CREATE FUNCTION public.statistical_unit_refresh(
+  p_establishment_ids int[] DEFAULT NULL,
+  p_legal_unit_ids int[] DEFAULT NULL,
+  p_enterprise_ids int[] DEFAULT NULL,
+  p_valid_after date DEFAULT NULL,
+  p_valid_to date DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $statistical_unit_refresh$
+DECLARE
+  v_affected_count int;
+BEGIN
+  -- Create a temporary table to store the new data to avoid running the expensive view calculation multiple times.
+  CREATE TEMPORARY TABLE temp_statistical_unit AS
+  SELECT * FROM public.statistical_unit_def AS sud
+  WHERE (
+    (p_establishment_ids IS NULL OR sud.related_establishment_ids && p_establishment_ids) OR
+    (p_legal_unit_ids    IS NULL OR sud.related_legal_unit_ids && p_legal_unit_ids) OR
+    (p_enterprise_ids    IS NULL OR sud.related_enterprise_ids && p_enterprise_ids)
+  )
+  AND daterange(sud.valid_after, sud.valid_to, '(]') &&
+      daterange(COALESCE(p_valid_after, '-infinity'::date),
+              COALESCE(p_valid_to, 'infinity'::date), '(]');
+
+  -- Delete records that exist in the main table but not in the temp table
+  DELETE FROM public.statistical_unit su
+  WHERE (
+    (p_establishment_ids IS NULL OR su.related_establishment_ids && p_establishment_ids) OR
+    (p_legal_unit_ids    IS NULL OR su.related_legal_unit_ids && p_legal_unit_ids) OR
+    (p_enterprise_ids    IS NULL OR su.related_enterprise_ids && p_enterprise_ids)
+  )
+  AND daterange(su.valid_after, su.valid_to, '(]') &&
+      daterange(COALESCE(p_valid_after, '-infinity'::date),
+              COALESCE(p_valid_to, 'infinity'::date), '(]')
+  AND NOT EXISTS (
+    SELECT 1 FROM temp_statistical_unit tsu
+    WHERE tsu.unit_type = su.unit_type
+    AND tsu.unit_id = su.unit_id
+    AND tsu.valid_after = su.valid_after
+    AND tsu.valid_to = su.valid_to
+  );
+
+  -- Insert records that exist in the temp table but not in the main table
+  INSERT INTO public.statistical_unit
+  SELECT tsu.* FROM temp_statistical_unit tsu
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.statistical_unit su
+    WHERE su.unit_type = tsu.unit_type
+    AND su.unit_id = tsu.unit_id
+    AND su.valid_after = tsu.valid_after
+    AND su.valid_to = tsu.valid_to
+  );
+
+  -- Drop the temporary table
+  DROP TABLE temp_statistical_unit;
+END;
+$statistical_unit_refresh$;
+
 END;

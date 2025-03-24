@@ -40,10 +40,10 @@ ALTER TABLE public.timesegments
 -- Create indices to optimize queries
 CREATE INDEX IF NOT EXISTS idx_timesegments_daterange ON public.timesegments
     USING gist (daterange(valid_after, valid_to, '(]'));
-CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_valid_after ON public.timesegments
-    (unit_type, valid_after);
-CREATE INDEX IF NOT EXISTS idx_timesegments_valid_period ON public.timesegments
-    (valid_after, valid_to);
+CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_id_valid_after ON public.timesegments
+    (unit_type, unit_id, valid_after);
+CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_id_period ON public.timesegments
+    (unit_type, unit_id, valid_after, valid_to);
 CREATE INDEX IF NOT EXISTS idx_timesegments_unit_type_unit_id ON public.timesegments
     (unit_type, unit_id);
 
@@ -52,17 +52,41 @@ CREATE OR REPLACE FUNCTION public.timesegments_refresh(
     p_valid_after date DEFAULT NULL,
     p_valid_to date DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $timesegments_refresh$
+DECLARE
+    date_range daterange;
 BEGIN
-    -- Incremental refresh: delete affected records from the main table
-    DELETE FROM public.timesegments
-    WHERE (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
-    AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
-
-    -- Insert directly from the definition view with filtering
-    INSERT INTO public.timesegments
+    -- Create the date range for filtering
+    date_range := daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
+    
+    -- Create a temporary table with the new data
+    CREATE TEMPORARY TABLE temp_timesegments ON COMMIT DROP AS
     SELECT * FROM public.timesegments_def
-    WHERE (p_valid_after IS NULL OR valid_after >= p_valid_after OR valid_to >= p_valid_after)
-    AND (p_valid_to IS NULL OR valid_after <= p_valid_to OR valid_to <= p_valid_to);
+    WHERE daterange(valid_after, valid_to, '(]') && date_range;
+    
+    -- Delete records that exist in the main table but not in the temp table
+    DELETE FROM public.timesegments ts
+    WHERE daterange(ts.valid_after, ts.valid_to, '(]') && date_range
+    AND NOT EXISTS (
+        SELECT 1 FROM temp_timesegments tts
+        WHERE tts.unit_type = ts.unit_type
+        AND tts.unit_id = ts.unit_id
+        AND tts.valid_after = ts.valid_after
+        AND tts.valid_to = ts.valid_to
+    );
+    
+    -- Insert records that exist in the temp table but not in the main table
+    INSERT INTO public.timesegments
+    SELECT tts.* FROM temp_timesegments tts
+    WHERE NOT EXISTS (
+        SELECT 1 FROM public.timesegments ts
+        WHERE ts.unit_type = tts.unit_type
+        AND ts.unit_id = tts.unit_id
+        AND ts.valid_after = tts.valid_after
+        AND ts.valid_to = ts.valid_to
+    );
+    
+    -- Drop the temporary table
+    DROP TABLE temp_timesegments;
 END;
 $timesegments_refresh$;
 
