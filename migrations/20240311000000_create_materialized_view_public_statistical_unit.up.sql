@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE UNLOGGED TABLE public.statistical_unit (LIKE public.statistical_unit_def INCLUDING ALL);
+CREATE TABLE public.statistical_unit (LIKE public.statistical_unit_def INCLUDING ALL);
 
 CREATE UNIQUE INDEX "statistical_unit_key"
     ON public.statistical_unit
@@ -18,8 +18,8 @@ ALTER TABLE public.statistical_unit ADD
         unit_id WITH =,
         daterange(valid_after, valid_to, '(]'::text) WITH &&
     ) DEFERRABLE;
-  
-    
+
+
 CREATE INDEX idx_statistical_unit_unit_type ON public.statistical_unit (unit_type);
 CREATE INDEX idx_statistical_unit_establishment_id ON public.statistical_unit (unit_id);
 CREATE INDEX idx_statistical_unit_search ON public.statistical_unit USING GIN (search);

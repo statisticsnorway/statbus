@@ -49,7 +49,7 @@ SELECT "organisasjonsnummer" AS tax_ident
 FROM brreg.underenhet;
 
 
-CREATE UNLOGGED TABLE IF NOT EXISTS gh.legal_unit_info(
+CREATE TABLE IF NOT EXISTS gh.legal_unit_info(
      ident  TEXT  UNIQUE NOT NULL ,
      periodic_random FLOAT                 ,
      used   BOOL
@@ -58,7 +58,7 @@ CREATE INDEX IF NOT EXISTS idx_legal_unit_info_ident  ON gh.legal_unit_info(iden
 CREATE INDEX IF NOT EXISTS idx_legal_unit_info_periodic_random ON gh.legal_unit_info(periodic_random);
 CREATE INDEX IF NOT EXISTS idx_legal_unit_info_used   ON gh.legal_unit_info(used);
 
-CREATE UNLOGGED TABLE IF NOT EXISTS gh.establishment_info(
+CREATE TABLE IF NOT EXISTS gh.establishment_info(
      ident            TEXT  UNIQUE NOT NULL ,
      legal_unit_ident TEXT  NOT NULL        ,
      periodic_random           FLOAT                 ,
@@ -78,7 +78,7 @@ END
 $$;
 
 -- Make a plan
-CREATE UNLOGGED TABLE IF NOT EXISTS gh.sample(
+CREATE TABLE IF NOT EXISTS gh.sample(
      id               INTEGER PRIMARY KEY GENERATED ALWAYS AS IDENTITY ,
      legal_unit_ident TEXT    NOT NULL                                 ,
      year             INTEGER NOT NULL                                 ,

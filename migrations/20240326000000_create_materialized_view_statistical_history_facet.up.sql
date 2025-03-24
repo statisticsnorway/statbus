@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE UNLOGGED TABLE public.statistical_history_facet AS
+CREATE TABLE public.statistical_history_facet AS
 SELECT * FROM public.statistical_history_facet_def
 ORDER BY year, month;
 

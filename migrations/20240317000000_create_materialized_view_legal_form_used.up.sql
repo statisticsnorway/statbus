@@ -9,7 +9,7 @@ WHERE lf.id IN (SELECT legal_form_id FROM public.statistical_unit WHERE legal_fo
   AND lf.active
 ORDER BY lf.id;
 
-CREATE UNLOGGED TABLE public.legal_form_used AS
+CREATE TABLE public.legal_form_used AS
 SELECT * FROM public.legal_form_used_def;
 
 CREATE UNIQUE INDEX "legal_form_used_key" ON public.legal_form_used (code);
