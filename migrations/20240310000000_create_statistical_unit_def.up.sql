@@ -421,7 +421,6 @@ CREATE VIEW public.statistical_unit_def
          , data.status_code
          , data.include_unit_in_reports
          --
-         --
          , data.last_edit_comment
          , data.last_edit_by_user_id
          , data.last_edit_at
@@ -439,7 +438,21 @@ CREATE VIEW public.statistical_unit_def
          , array_length(data.child_establishment_ids,1) AS child_establishment_count
          , array_length(data.child_legal_unit_ids,1) AS child_legal_unit_count
          , array_length(data.child_enterprise_ids,1) AS child_enterprise_count
-         , public.get_tag_paths(data.unit_type, data.unit_id) AS tag_paths
+         , COALESCE(
+             (
+               SELECT array_agg(t.path ORDER BY t.path)
+               FROM public.tag_for_unit AS tfu
+               JOIN public.tag AS t ON t.id = tfu.tag_id
+               WHERE
+                 CASE data.unit_type
+                 WHEN 'enterprise' THEN tfu.enterprise_id = data.unit_id
+                 WHEN 'legal_unit' THEN tfu.legal_unit_id = data.unit_id
+                 WHEN 'establishment' THEN tfu.establishment_id = data.unit_id
+                 WHEN 'enterprise_group' THEN tfu.enterprise_group_id = data.unit_id
+                 END
+             ),
+             ARRAY[]::public.ltree[]
+           ) AS tag_paths
     FROM data
 ;
 
