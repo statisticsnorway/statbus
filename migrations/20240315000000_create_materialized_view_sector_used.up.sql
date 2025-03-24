@@ -19,15 +19,15 @@ SELECT * FROM public.sector_used_def;
 CREATE UNIQUE INDEX "sector_used_key"
     ON public.sector_used (path);
 
--- Create function to populate the unlogged table
-CREATE FUNCTION public.sector_used_derive() 
-    RETURNS void 
-    LANGUAGE plpgsql 
+-- Create function to populate the table
+CREATE FUNCTION public.sector_used_derive()
+    RETURNS void
+    LANGUAGE plpgsql
     SECURITY DEFINER AS $sector_used_derive$
 BEGIN
     RAISE DEBUG 'Running sector_used_derive()';
     TRUNCATE TABLE public.sector_used;
-    INSERT INTO public.sector_used 
+    INSERT INTO public.sector_used
     SELECT * FROM public.sector_used_def;
 END;
 $sector_used_derive$;
