@@ -21,15 +21,15 @@ SELECT * FROM public.data_source_used_def;
 CREATE UNIQUE INDEX "data_source_used_key"
     ON public.data_source_used (code);
 
--- Create function to populate the unlogged table
-CREATE FUNCTION public.data_source_used_derive() 
-    RETURNS void 
-    LANGUAGE plpgsql 
+-- Create function to populate the table
+CREATE FUNCTION public.data_source_used_derive()
+    RETURNS void
+    LANGUAGE plpgsql
     SECURITY DEFINER AS $data_source_used_derive$
 BEGIN
     RAISE DEBUG 'Running data_source_used_derive()';
     TRUNCATE TABLE public.data_source_used;
-    INSERT INTO public.data_source_used 
+    INSERT INTO public.data_source_used
     SELECT * FROM public.data_source_used_def;
 END;
 $data_source_used_derive$;

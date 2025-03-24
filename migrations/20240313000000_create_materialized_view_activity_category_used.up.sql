@@ -39,15 +39,15 @@ SELECT * FROM public.activity_category_used_def;
 CREATE UNIQUE INDEX "activity_category_used_key"
     ON public.activity_category_used (path);
 
--- Create function to populate the unlogged table
-CREATE FUNCTION public.activity_category_used_derive() 
-    RETURNS void 
-    LANGUAGE plpgsql 
+-- Create function to populate the table
+CREATE FUNCTION public.activity_category_used_derive()
+    RETURNS void
+    LANGUAGE plpgsql
     SECURITY DEFINER AS $activity_category_used_derive$
 BEGIN
     RAISE DEBUG 'Running activity_category_used_derive()';
     TRUNCATE TABLE public.activity_category_used;
-    INSERT INTO public.activity_category_used 
+    INSERT INTO public.activity_category_used
     SELECT * FROM public.activity_category_used_def;
 END;
 $activity_category_used_derive$;
