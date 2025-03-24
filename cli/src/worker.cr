@@ -430,6 +430,24 @@ module Statbus
           if @shutdown
             @log.info { "Database connection lost during shutdown, continuing with shutdown process" }
           else
+            # Stop all processing threads before retrying connection
+            @log.warn { "Database connection lost, stopping all processing threads" }
+
+            # Close all channels to stop processing threads
+            @queue_processors.each do |queue, channel|
+              begin
+                channel.send(:shutdown)
+                @log.debug { "Sent shutdown message to #{queue} processor" }
+              rescue ex_channel
+                @log.debug { "Failed to send shutdown message to #{queue} processor: #{ex_channel.message}" }
+              end
+            end
+
+            # Clear queue processors to prevent further processing
+            @queue_processors.clear
+            @available_queues.clear
+
+            # Retry connection with backoff
             retry_count += 1
             if retry_count >= max_retries
               @log.error { "Failed to connect to database after #{max_retries} attempts: #{ex.message}" }
