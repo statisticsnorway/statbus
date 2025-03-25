@@ -16,11 +16,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-    - name: executing remote ssh commands
-      uses: appleboy/ssh-action@v1.0.0
-      with:
-        host: niue.statbus.org
-        username: statbus_no
-        key: ${{ secrets.SSH_KEY }}
-        command_timeout: 60m
-        script: /usr/local/bin/deploy-statbus.sh
+      - name: executing remote ssh commands
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: niue.statbus.org
+          username: statbus_no
+          key: ${{ secrets.SSH_KEY }}
+          command_timeout: 60m
+          script: statbus/devops/deploy.sh
