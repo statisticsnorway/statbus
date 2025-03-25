@@ -203,8 +203,8 @@ DECLARE
   v_establishment_ids int[] := ARRAY[]::int[];
   v_legal_unit_ids int[] := ARRAY[]::int[];
   v_enterprise_ids int[] := ARRAY[]::int[];
-  v_valid_after date := '-infinity'::date;
-  v_valid_to date := 'infinity'::date;
+  v_valid_after date := NULL::date;
+  v_valid_to date := NULL::date;
 BEGIN
   -- Get current transaction ID
   SELECT txid_current() INTO v_current_txid;
@@ -226,7 +226,7 @@ BEGIN
   -- Set up validity columns
   CASE v_table_name
     WHEN 'enterprise' THEN
-      v_valid_columns := '''-infinity''::DATE AS valid_after, ''-infinity''::DATE AS valid_from, ''infinity''::DATE AS valid_to';
+      v_valid_columns := 'NULL::DATE AS valid_after, NULL::DATE AS valid_from, NULL::DATE AS valid_to';
     WHEN 'establishment', 'legal_unit', 'activity', 'location', 'contact', 'stat_for_unit' THEN
       v_valid_columns := 'valid_after, valid_from, valid_to';
     ELSE
@@ -541,7 +541,7 @@ DECLARE
   v_establishment_ids INT[] := COALESCE(p_establishment_ids, ARRAY[]::INT[]);
   v_legal_unit_ids INT[] := COALESCE(p_legal_unit_ids, ARRAY[]::INT[]);
   v_enterprise_ids INT[] := COALESCE(p_enterprise_ids, ARRAY[]::INT[]);
-  v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
+  v_valid_after DATE := p_valid_after, '-infinity'::DATE);
   v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
 BEGIN
   -- Create payload with arrays
