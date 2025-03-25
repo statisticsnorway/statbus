@@ -155,7 +155,7 @@ export const StatisticalUnitTableRow = ({
                   <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
                     {unit.unit_type && unit.unit_id && unit.name ? (
                       <StatisticalUnitDetailsLink
-                        className="overflow-hidden overflow-ellipsis whitespace-nowrap"
+                        className="overflow-hidden text-ellipsis whitespace-nowrap"
                         id={unit.unit_id}
                         type={unit.unit_type}
                       >
@@ -206,7 +206,7 @@ export const StatisticalUnitTableRow = ({
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
                   <span>{activitySection?.label}</span>
-                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                  <small className="text-gray-700 max-w-32 overflow-hidden text-ellipsis whitespace-nowrap">
                     {activitySection?.name}
                   </small>
                 </div>
@@ -224,7 +224,7 @@ export const StatisticalUnitTableRow = ({
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
                   <span>{activityCategory?.code}</span>
-                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
+                  <small className="text-gray-700 max-w-32 overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-36">
                     {activityCategory?.name}
                   </small>
                 </div>
@@ -242,7 +242,7 @@ export const StatisticalUnitTableRow = ({
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
                   <span>{secondaryActivityCategory?.code}</span>
-                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-36">
+                  <small className="text-gray-700 max-w-32 overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-36">
                     {secondaryActivityCategory?.name}
                   </small>
                 </div>
@@ -267,7 +267,7 @@ export const StatisticalUnitTableRow = ({
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
                   <span>{topRegion?.code}</span>
-                  <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                  <small className="text-gray-700 max-w-20 overflow-hidden text-ellipsis whitespace-nowrap">
                     {topRegion?.name}
                   </small>
                 </div>
@@ -285,7 +285,7 @@ export const StatisticalUnitTableRow = ({
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
                   <span>{region?.code}</span>
-                  <small className="text-gray-700 max-w-20 overflow-hidden overflow-ellipsis whitespace-nowrap">
+                  <small className="text-gray-700 max-w-20 overflow-hidden text-ellipsis whitespace-nowrap">
                     {region?.name}
                   </small>
                 </div>
@@ -345,7 +345,7 @@ export const StatisticalUnitTableRow = ({
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
                   <span>{unit.sector_code}</span>
-                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
+                  <small className="text-gray-700 max-w-32 overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-32">
                     {unit.sector_name}
                   </small>
                 </div>
@@ -362,7 +362,7 @@ export const StatisticalUnitTableRow = ({
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
                   <span>{unit.legal_form_code}</span>
-                  <small className="text-gray-700 max-w-32 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-32">
+                  <small className="text-gray-700 max-w-32 overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-32">
                     {unit.legal_form_name}
                   </small>
                 </div>

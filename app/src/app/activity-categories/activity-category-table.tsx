@@ -26,7 +26,7 @@ const ActivityCategoryTable = ({
             <TableCell className="py-3 lg:w-12">
               {custom ? <>☑</> : <>☐</>}
             </TableCell>
-            <TableCell className="py-3 overflow-hidden overflow-ellipsis whitespace-nowrap lg:max-w-72 max-w-52">
+            <TableCell className="py-3 overflow-hidden text-ellipsis whitespace-nowrap lg:max-w-72 max-w-52">
               {name}
             </TableCell>
           </TableRow>

@@ -9,7 +9,7 @@ export default function GettingStartedLayout({
 }) {
   return (
     <GettingStartedProvider>
-      <main className="w-full mx-auto max-w-screen-xl px-2 py-8 md:py-12 grid lg:grid-cols-12 gap-8">
+      <main className="w-full mx-auto max-w-(--breakpoint-xl) px-2 py-8 md:py-12 grid lg:grid-cols-12 gap-8">
         <aside className="p-6 pb-12 col-span-12 lg:col-span-4 bg-ssb-light">
           {progress}
         </aside>

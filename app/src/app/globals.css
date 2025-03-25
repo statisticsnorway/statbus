@@ -1,16 +1,113 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
 
-/* For Webkit-based browsers (Chrome, Safari and Opera) */
-.scrollbar-hide::-webkit-scrollbar {
-  display: none;
+@custom-variant dark (&:is(.dark *));
+
+@theme {
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  --color-enterprise-50: #fdf4ff;
+  --color-enterprise-100: #fae8ff;
+  --color-enterprise-200: #f5d0fe;
+  --color-enterprise-300: #f0abfc;
+  --color-enterprise-400: #e879f9;
+  --color-enterprise-500: #d946ef;
+  --color-enterprise-600: #c026d3;
+  --color-enterprise-700: #a21caf;
+  --color-enterprise-800: #86198f;
+  --color-enterprise-900: #701a75;
+  --color-enterprise-950: #4a044e;
+
+  --color-legal_unit-50: #eef2ff;
+  --color-legal_unit-100: #e0e7ff;
+  --color-legal_unit-200: #c7d2fe;
+  --color-legal_unit-300: #a5b4fc;
+  --color-legal_unit-400: #818cf8;
+  --color-legal_unit-500: #6366f1;
+  --color-legal_unit-600: #4f46e5;
+  --color-legal_unit-700: #4338ca;
+  --color-legal_unit-800: #3730a3;
+  --color-legal_unit-900: #312e81;
+  --color-legal_unit-950: #1e1b4b;
+
+  --color-establishment-50: #f7fee7;
+  --color-establishment-100: #ecfccb;
+  --color-establishment-200: #d9f99d;
+  --color-establishment-300: #bef264;
+  --color-establishment-400: #a3e635;
+  --color-establishment-500: #84cc16;
+  --color-establishment-600: #65a30d;
+  --color-establishment-700: #4d7c0f;
+  --color-establishment-800: #3f6212;
+  --color-establishment-900: #365314;
+  --color-establishment-950: #1a2e05;
+
+  --color-ssb-dark: #274247;
+  --color-ssb-light: #f0f8f9;
+  --color-ssb-neon: #b6e8b8;
+
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
 }
 
-/* For IE, Edge and Firefox */
-.scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+@utility container {
+  margin-inline: auto;
+  padding-inline: 2rem;
+  @media (width >= --theme(--breakpoint-sm)) {
+    max-width: none;
+  }
+  @media (width >= 1400px) {
+    max-width: 1400px;
+  }
+}
+
+/*
+  The default border color has changed to `currentColor` in Tailwind CSS v4,
+  so we've added these compatibility styles to make sure everything still
+  looks the same as it did with Tailwind CSS v3.
+
+  If we ever want to remove these styles, we need to add an explicit border
+  color utility to any element that depends on these defaults.
+*/
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-gray-200, currentColor);
+  }
+}
+
+@layer utilities {
+  /* For Webkit-based browsers (Chrome, Safari and Opera) */
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* For IE, Edge and Firefox */
+  .scrollbar-hide {
+    -ms-overflow-style: none; /* IE and Edge */
+    scrollbar-width: none; /* Firefox */
+  }
 }
 @layer base {
   :root {

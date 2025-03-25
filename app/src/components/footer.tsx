@@ -7,7 +7,7 @@ import { CommandPaletteTriggerButton } from "@/components/command-palette/comman
 export function FooterSkeleton() {
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
-      <div className="mx-auto max-w-screen-xl p-6 lg:py-12 lg:px-24">
+      <div className="mx-auto max-w-(--breakpoint-xl) p-6 lg:py-12 lg:px-24">
         <div className="flex items-center justify-between space-x-2"></div>
       </div>
     </footer>
@@ -20,7 +20,7 @@ export default async function Footer() {
 
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
-      <div className="mx-auto max-w-screen-xl p-6 lg:py-12 lg:px-24">
+      <div className="mx-auto max-w-(--breakpoint-xl) p-6 lg:py-12 lg:px-24">
         <div
           className={`flex items-center space-x-2 ${
             session != null ? "justify-between" : "justify-center"

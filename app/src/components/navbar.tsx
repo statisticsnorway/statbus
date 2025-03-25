@@ -12,7 +12,7 @@ import TimeContextSelector from "@/components/time-context-selector";
 export function NavbarSkeleton() {
   return (
     <header className="bg-ssb-dark text-white">
-      <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 p-2 lg:px-4">
+      <div className="mx-auto flex max-w-(--breakpoint-xl) items-center justify-between gap-4 p-2 lg:px-4">
         <Image src={logo} alt="Statbus Logo" className="h-10 w-10" />
       </div>
     </header>
@@ -28,7 +28,7 @@ export default function Navbar() {
 
   return (
     <header className="bg-ssb-dark text-white">
-      <div className="mx-auto flex max-w-screen-xl items-center justify-between gap-4 p-2 lg:px-4">
+      <div className="mx-auto flex max-w-(--breakpoint-xl) items-center justify-between gap-4 p-2 lg:px-4">
         <Link
           href="/"
           className="flex items-center space-x-3 rtl:space-x-reverse"
