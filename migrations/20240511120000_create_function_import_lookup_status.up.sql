@@ -20,8 +20,7 @@ BEGIN
           AND active;
 
         IF NOT FOUND THEN
-            RAISE WARNING 'Could not find status_code for row %', new_jsonb;
-            updated_invalid_codes := jsonb_set(updated_invalid_codes, '{status_code}', to_jsonb(status_code), true);
+            RAISE EXCEPTION 'Invalid status_code for row %', new_jsonb;
         END IF;
     ELSE
         -- If no status code specified, use the default assigned status
@@ -29,7 +28,7 @@ BEGIN
         FROM public.status
         WHERE assigned_by_default
           AND active;
-          
+
         IF NOT FOUND THEN
             RAISE WARNING 'No default status found (assigned_by_default=true and active=true)';
         END IF;
