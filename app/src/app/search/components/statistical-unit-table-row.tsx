@@ -32,7 +32,8 @@ export const StatisticalUnitTableRow = ({
     allUnitSizes,
     allDataSources,
   } = useSearchContext();
-  const { statDefinitions, externalIdentTypes } = useBaseData();
+
+  const { externalIdentTypes, statbusUsers } = useBaseData();
   const { selected } = useSelectionContext();
   const { columns, bodyRowSuffix, bodyCellSuffix } = useTableColumns();
 
@@ -88,6 +89,19 @@ export const StatisticalUnitTableRow = ({
   ]
     .filter(Boolean)
     .join(", ");
+
+  const lastEditAt = new Date(unit.last_edit_at!);
+  const formattedLastEditAt = `${lastEditAt.getFullYear()}-${String(lastEditAt.getMonth() + 1).padStart(2, "0")}-${String(
+    lastEditAt.getDate()
+  ).padStart(
+    2,
+    "0"
+  )} ${String(lastEditAt.getHours()).padStart(2, "0")}:${String(lastEditAt.getMinutes()).padStart(2, "0")}`;
+
+  const lastEditBy = statbusUsers
+    .find((user) => user.id === unit.last_edit_by_user_id)
+    ?.email?.split("@")[0]
+    .replace(/\./, " ");
 
   const prettifyUnitType = (type: UnitType | null): string => {
     switch (type) {
@@ -381,9 +395,7 @@ export const StatisticalUnitTableRow = ({
                   title={unit.birth_date ?? ""}
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
-                  <span className="text-gray-700 whitespace-nowrap">
-                    {unit.birth_date}
-                  </span>
+                  <span className="whitespace-nowrap">{unit.birth_date}</span>
                 </div>
               </TableCell>
             );
@@ -397,9 +409,7 @@ export const StatisticalUnitTableRow = ({
                   title={unit.death_date ?? ""}
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
-                  <span className="text-gray-700 whitespace-nowrap">
-                    {unit.death_date}
-                  </span>
+                  <span className="whitespace-nowrap">{unit.death_date}</span>
                 </div>
               </TableCell>
             );
@@ -413,9 +423,7 @@ export const StatisticalUnitTableRow = ({
                   title={status?.name ?? ""}
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
-                  <span className="text-gray-700 whitespace-nowrap">
-                    {status?.name}
-                  </span>
+                  <span className="whitespace-nowrap">{status?.name}</span>
                 </div>
               </TableCell>
             );
@@ -429,9 +437,7 @@ export const StatisticalUnitTableRow = ({
                   title={unitSize?.name ?? ""}
                   className="flex flex-col space-y-0.5 leading-tight"
                 >
-                  <span className="text-gray-700 whitespace-nowrap">
-                    {unitSize?.name}
-                  </span>
+                  <span className="whitespace-nowrap">{unitSize?.name}</span>
                 </div>
               </TableCell>
             );
@@ -454,6 +460,18 @@ export const StatisticalUnitTableRow = ({
                       </PopoverContent>
                     </Popover>
                   ))}
+                </div>
+              </TableCell>
+            );
+          case "last_edit":
+            return (
+              <TableCell
+                key={`cell-${bodyCellSuffix(unit, column)}`}
+                className={getCellClassName(column)}
+              >
+                <div className="flex flex-col space-y-0.5 leading-tight whitespace-nowrap">
+                  <small className="text-gray-700">{formattedLastEditAt}</small>
+                  <small className="text-gray-700">By {lastEditBy}</small>
                 </div>
               </TableCell>
             );

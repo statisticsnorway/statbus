@@ -179,6 +179,14 @@ export function TableColumnsProvider({ children }: { children: ReactNode }) {
           stat_code: null,
           profiles: ["All"],
         },
+        {
+          type: "Adaptable",
+          code: "last_edit",
+          label: "Last Edit",
+          visible: false,
+          stat_code: null,
+          profiles: ["All"],
+        },
       ];
     }
   }, [statDefinitions]);

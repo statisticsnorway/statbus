@@ -204,6 +204,15 @@ export function StatisticalUnitTableHeader({
                   Data Sources
                 </TableHead>
               );
+            case "last_edit":
+              return (
+                <TableHead
+                  className="text-left hidden lg:table-cell"
+                  key={`h-cell-${headerCellSuffix(column)}`}
+                >
+                  Last Edit
+                </TableHead>
+              );
           }
         })}
         <TableHead />
