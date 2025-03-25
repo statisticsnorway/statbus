@@ -206,12 +206,12 @@ export function StatisticalUnitTableHeader({
               );
             case "last_edit":
               return (
-                <TableHead
+                <SortableTableHead
                   className="text-left hidden lg:table-cell"
                   key={`h-cell-${headerCellSuffix(column)}`}
-                >
-                  Last Edit
-                </TableHead>
+                  name="last_edit_at"
+                  label="Last Edit"
+                />
               );
           }
         })}
