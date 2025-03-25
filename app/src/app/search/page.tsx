@@ -73,7 +73,7 @@ export default async function SearchPage(props: { searchParams: Promise<URLSearc
           <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
             Search for statistical units
           </h1>
-          <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-full"></div>
+          <div className="flex flex-wrap items-center p-1 lg:p-0 *:mb-2 *:mx-1 w-full"></div>
           <SelectionProvider>
             <section className="space-y-3">
               <TableToolbar

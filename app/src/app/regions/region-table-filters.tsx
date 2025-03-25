@@ -28,7 +28,7 @@ export default function RegionTableFilters({
     setPagination((prev) => ({ ...prev, pageNumber: 1 }));
   };
   return (
-    <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-screen lg:w-full">
+    <div className="flex flex-wrap items-center p-1 lg:p-0 *:mb-2 *:mx-1 w-screen lg:w-full">
       <TableTextSearchFilter
         onFilterChange={handleFilterChange}
         value={queries["code"]}
