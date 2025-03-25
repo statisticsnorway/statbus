@@ -1,7 +1,6 @@
 "use client";
 import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
-import { useFormState } from "react-dom";
-import React from "react";
+import React, { useActionState } from "react";
 import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { FormField } from "@/components/form/form-field";
@@ -14,7 +13,7 @@ export default function GeneralInfoForm({
   readonly id: string;
   readonly legalUnit: LegalUnit;
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     updateLegalUnit.bind(null, id, "general-info"),
     null
   );

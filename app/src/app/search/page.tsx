@@ -16,7 +16,8 @@ export const metadata: Metadata = {
   title: "Search statistical units",
 };
 
-export default async function SearchPage({ searchParams: initialUrlSearchParamsDict }: { searchParams: URLSearchParamsDict }) {
+export default async function SearchPage(props: { searchParams: Promise<URLSearchParamsDict> }) {
+  const initialUrlSearchParamsDict = await props.searchParams;
   const initialUrlSearchParams = toURLSearchParams(initialUrlSearchParamsDict);
 
   /* TODO - Remove this once the search results include the activity category and region names

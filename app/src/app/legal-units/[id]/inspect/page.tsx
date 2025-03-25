@@ -8,11 +8,17 @@ export const metadata: Metadata = {
   title: "Legal Unit | Inspect",
 };
 
-export default async function LegalUnitInspectionPage({
-  params: { id },
-}: {
-  readonly params: { id: string };
-}) {
+export default async function LegalUnitInspectionPage(
+  props: {
+    readonly params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    id
+  } = params;
+
   const { legalUnit, error } = await getLegalUnitById(id);
 
   if (error) {

@@ -1,11 +1,17 @@
 import { getStatisticalUnitHierarchy } from "@/components/statistical-unit-details/requests";
 import HeaderSlot from "@/components/statistical-unit-details/header-slot";
 
-export default async function Slot({
-  params: { id },
-}: {
-  readonly params: { id: string };
-}) {
+export default async function Slot(
+  props: {
+    readonly params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    id
+  } = params;
+
   const { hierarchy, error } = await getStatisticalUnitHierarchy(
     parseInt(id, 10),
     "enterprise"

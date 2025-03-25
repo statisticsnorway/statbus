@@ -8,11 +8,17 @@ export const metadata: Metadata = {
   title: "Legal Unit | Demographic",
 };
 
-export default async function LegalUnitDemographicPage({
-  params: { id },
-}: {
-  readonly params: { id: string };
-}) {
+export default async function LegalUnitDemographicPage(
+  props: {
+    readonly params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    id
+  } = params;
+
   const { unit, error } = await getStatisticalUnitDetails(
     parseInt(id, 10),
     "legal_unit"

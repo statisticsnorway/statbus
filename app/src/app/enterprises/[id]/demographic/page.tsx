@@ -8,11 +8,17 @@ export const metadata: Metadata = {
   title: "Enterprise | Demographic",
 };
 
-export default async function EnterpriseDemographicPage({
-  params: { id },
-}: {
-  readonly params: { id: string };
-}) {
+export default async function EnterpriseDemographicPage(
+  props: {
+    readonly params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    id
+  } = params;
+
   const { hierarchy, error } = await getStatisticalUnitHierarchy(
     parseInt(id, 10),
     "enterprise"
