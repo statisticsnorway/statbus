@@ -32,7 +32,7 @@ export async function updateLegalUnit(
     const response = await client
       .from("legal_unit")
       .update(validatedFields.data)
-      .eq("id", id);
+      .eq("id", parseInt(id, 10));
 
     if (response.status >= 400) {
       return { status: "error", message: response.statusText };
