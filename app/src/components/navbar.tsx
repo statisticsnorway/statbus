@@ -35,37 +35,39 @@ export default function Navbar() {
         >
           <Image src={logo} alt="Statbus Logo" className="h-9 w-9" />
         </Link>
-        {isAuthenticated && (
-          <div className="flex-1 space-x-3 flex items-center justify-end">
-            {hasStatisticalUnits && (
-              <>
-                <TimeContextSelector />
-                <Link
-                  href="/reports"
-                  className={cn(
-                    buttonVariants({ variant: "ghost", size: "sm" }),
-                    "space-x-2 hidden lg:flex"
-                  )}
-                >
-                  <BarChartHorizontal size={16} />
-                  <span>Reports</span>
-                </Link>
-                <Link
-                  href="/search"
-                  className={cn(
-                    buttonVariants({ variant: "ghost", size: "sm" }),
-                    "space-x-2 hidden lg:flex"
-                  )}
-                >
-                  <Search size={16} />
-                  <span>Statistical Units</span>
-                </Link>
-              </>
-            )}
-            <ProfileAvatar className="w-8 h-8 text-ssb-dark hidden lg:flex" />
-            <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
-          </div>
-        )}
+        <div className="flex-1 space-x-3 flex items-center justify-end">
+          {isAuthenticated && hasStatisticalUnits && (
+            <>
+              <TimeContextSelector />
+              <Link
+                href="/reports"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "sm" }),
+                  "space-x-2 hidden lg:flex"
+                )}
+              >
+                <BarChartHorizontal size={16} />
+                <span>Reports</span>
+              </Link>
+              <Link
+                href="/search"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "sm" }),
+                  "space-x-2 hidden lg:flex"
+                )}
+              >
+                <Search size={16} />
+                <span>Statistical Units</span>
+              </Link>
+            </>
+          )}
+          {isAuthenticated && (
+            <>
+              <ProfileAvatar className="w-8 h-8 text-ssb-dark hidden lg:flex" />
+              <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
+            </>
+          )}
+        </div>
       </div>
     </header>
   );
