@@ -84,7 +84,9 @@ export type TableColumnCode =
   | "physical_address"
   | "birth_date"
   | "death_date"
-  | "status";
+  | "status"
+  | "unit_size"
+  | "last_edit";
 
 // Extend the base interface based on visibility type
 export interface AdaptableTableColumn{

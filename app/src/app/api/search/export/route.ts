@@ -11,6 +11,12 @@ export async function GET(request: NextRequest) {
     searchParams.set("order", "name.asc");
   }
 
+  const unitTypeFilter = searchParams.get("unit_type") || "";
+
+  const unitType = unitTypeFilter.replace(/in\.\(|\)/g, "");
+  const hasSingleUnitType = unitType && !unitType.includes(",");
+  const isEstablishment = unitType === "establishment";
+
   const client = await createSupabaseSSRClient();
   const { externalIdentTypes, statDefinitions } = await getBaseData(client);
 
@@ -23,18 +29,45 @@ export async function GET(request: NextRequest) {
       externalIdentColumns,
       [
         "name",
-        "unit_type",
+        ...(hasSingleUnitType ? [] : ["unit_type"]),
+        "birth_date",
+        "death_date",
         "primary_activity_category_code",
         "secondary_activity_category_code",
+        ...(isEstablishment ? [] : ["sector_code", "legal_form_code"]),
+        "physical_address_part1",
+        "physical_address_part2",
+        "physical_address_part3",
+        "physical_postcode",
+        "physical_postplace",
         "physical_region_code",
+        "physical_country_iso_2",
+        "physical_latitude",
+        "physical_longitude",
+        "physical_altitude",
+        "postal_address_part1",
+        "postal_address_part2",
+        "postal_address_part3",
+        "postal_postcode",
+        "postal_postplace",
+        "postal_region_code",
+        "postal_country_iso_2",
+        "postal_latitude",
+        "postal_longitude",
+        "postal_altitude",
+        "web_address",
+        "email_address",
+        "phone_number",
+        "landline",
+        "mobile_number",
+        "fax_number",
+        "status_code",
+        "unit_size_code",
       ],
       statDefinitionColumns,
-      [
-        "physical_country_iso_2",
-        "sector_code",
-       "legal_form_code",
-      ]
-    ].flat().join(",")
+    ]
+      .flat()
+      .join(",")
   );
 
   searchParams.set("limit", "100000");
@@ -44,10 +77,15 @@ export async function GET(request: NextRequest) {
   try {
     const response = await getStatisticalUnits(client, searchParams);
     const { header, body } = toCSV(response.statisticalUnits);
+
+    const filename = hasSingleUnitType
+      ? `${unitType}s.csv`
+      : "statistical_units.csv";
+
     return new Response(header + body, {
       headers: {
         "Content-Type": "text/csv",
-        "Content-Disposition": 'attachment; filename="statistical_units.csv"',
+        "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
   } catch (error) {

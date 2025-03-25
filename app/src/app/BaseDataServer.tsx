@@ -8,6 +8,7 @@ import { ClientBaseDataProvider } from "./BaseDataClient";
 export interface BaseData {
   statDefinitions: Tables<"stat_definition_active">[];
   externalIdentTypes: Tables<"external_ident_type_active">[];
+  statbusUsers: Tables<"statbus_user_with_email_and_role">[];
   timeContexts: Tables<"time_context">[];
   defaultTimeContext: Tables<"time_context">;
   hasStatisticalUnits: boolean;
@@ -19,16 +20,18 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
     throw new Error('Supabase client is not properly initialized.');
   }
 
-  let maybeStatDefinitions, maybeExternalIdentTypes, maybeTimeContexts, maybeStatisticalUnit;
+  let maybeStatDefinitions, maybeExternalIdentTypes, maybeStatbusUsers, maybeTimeContexts, maybeStatisticalUnit;
   try {
     [
       { data: maybeStatDefinitions },
       { data: maybeExternalIdentTypes },
+      { data: maybeStatbusUsers },
       { data: maybeTimeContexts },
       { data: maybeStatisticalUnit },
     ] = await Promise.all([
       client.from("stat_definition_active").select(),
       client.from("external_ident_type_active").select(),
+      client.from("statbus_user_with_email_and_role").select(),
       client.from("time_context").select(),
       client.from("statistical_unit").select("*").limit(1),
     ]);
@@ -45,6 +48,7 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
   }
   const statDefinitions = maybeStatDefinitions as NonNullable<typeof maybeStatDefinitions>;
   const externalIdentTypes = maybeExternalIdentTypes as NonNullable<typeof maybeExternalIdentTypes>;
+const statbusUsers = maybeStatbusUsers as NonNullable<typeof maybeStatbusUsers>;
   const timeContexts = maybeTimeContexts as NonNullable<typeof maybeTimeContexts>;
   const defaultTimeContext = timeContexts[0];
   const hasStatisticalUnits = maybeStatisticalUnit !== null && maybeStatisticalUnit.length > 0;
@@ -52,6 +56,7 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
   return {
     statDefinitions,
     externalIdentTypes,
+    statbusUsers,
     timeContexts,
     defaultTimeContext,
     hasStatisticalUnits,

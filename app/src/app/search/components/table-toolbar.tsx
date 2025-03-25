@@ -15,6 +15,7 @@ import { IURLSearchParamsDict } from "@/lib/url-search-params-dict";
 import DataSourceFilter from "../filters/data-source/data-source-filter";
 import { ColumnSelectorButton } from "./column-selector-button";
 import StatusFilter from "../filters/status/status-filter";
+import UnitSizeFilter from "../filters/unit-size/unit-size-filter";
 
 export default function TableToolbar({
   initialUrlSearchParamsDict,
@@ -49,6 +50,11 @@ export default function TableToolbar({
       <FilterWrapper columnCode="status">
         <Suspense fallback={<FilterSkeleton title="Status" />}>
           <StatusFilter />
+        </Suspense>
+      </FilterWrapper>
+      <FilterWrapper columnCode="unit_size">
+        <Suspense fallback={<FilterSkeleton title="Unit Size" />}>
+          <UnitSizeFilter />
         </Suspense>
       </FilterWrapper>
       <FilterWrapper columnCode="data_sources">

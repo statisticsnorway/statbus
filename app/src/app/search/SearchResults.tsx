@@ -24,6 +24,7 @@ import {
   sectorDeriveStateUpdateFromSearchParams,
   statisticalVariablesDeriveStateUpdateFromSearchParams,
   statusDeriveStateUpdateFromSearchParams,
+  unitSizeDeriveStateUpdateFromSearchParams,
   unitTypeDeriveStateUpdateFromSearchParams,
 } from "./filters/url-search-params";
 
@@ -67,6 +68,7 @@ function initializeSearchStateFromUrlSearchParams(
     sectorDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
     activityCategoryDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
     statusDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
+    unitSizeDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
     dataSourceDeriveStateUpdateFromSearchParams(
       initialUrlSearchParams,
       allDataSources
@@ -93,6 +95,7 @@ interface SearchResultsProps {
   readonly allRegions: Tables<"region_used">[];
   readonly allActivityCategories: Tables<"activity_category_used">[];
   readonly allStatuses: Tables<"status">[];
+  readonly allUnitSizes: Tables<"unit_size">[];
   readonly allDataSources: Tables<"data_source">[];
   readonly initialUrlSearchParamsDict: URLSearchParamsDict;
 }
@@ -105,6 +108,7 @@ export function SearchResults({
   allRegions,
   allActivityCategories,
   allStatuses,
+  allUnitSizes,
   allDataSources,
   initialUrlSearchParamsDict,
 }: SearchResultsProps) {
@@ -182,6 +186,7 @@ export function SearchResults({
         allRegions: allRegions ?? [],
         allActivityCategories: allActivityCategories ?? [],
         allStatuses: allStatuses ?? [],
+        allUnitSizes: allUnitSizes ?? [],
         allDataSources: allDataSources ?? [],
         selectedTimeContext,
         isLoading,
@@ -194,6 +199,7 @@ export function SearchResults({
       allRegions,
       allActivityCategories,
       allStatuses,
+      allUnitSizes,
       allDataSources,
       selectedTimeContext,
       isLoading,
