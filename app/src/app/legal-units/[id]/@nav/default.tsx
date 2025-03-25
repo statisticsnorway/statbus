@@ -1,10 +1,16 @@
 import { SidebarLink, SidebarNav } from "@/components/sidebar-nav";
 
-export default function Nav({
-  params: { id },
-}: {
-  readonly params: { id: string };
-}) {
+export default async function Nav(
+  props: {
+    readonly params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    id
+  } = params;
+
   return (
     <SidebarNav>
       <SidebarLink href={`/legal-units/${id}`}>Identification</SidebarLink>

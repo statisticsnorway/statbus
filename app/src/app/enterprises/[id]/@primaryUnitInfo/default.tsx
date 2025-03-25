@@ -2,11 +2,17 @@ import { InfoBox } from "@/components/info-box";
 import { getStatisticalUnitHierarchy } from "@/components/statistical-unit-details/requests";
 import Link from "next/link";
 
-export default async function PrimaryUnitInfo({
-  params: { id },
-}: {
-  readonly params: { id: string };
-}) {
+export default async function PrimaryUnitInfo(
+  props: {
+    readonly params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    id
+  } = params;
+
   const { hierarchy, error } = await getStatisticalUnitHierarchy(
     parseInt(id, 10),
     "enterprise"

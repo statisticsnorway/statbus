@@ -61,7 +61,7 @@ export async function uploadFile(
 }
 
 export async function setCategoryStandard(formData: FormData) {
-  ("use server");
+  "use server";
   const client = await createSupabaseSSRClient();
   const logger = await createServerLogger();
 

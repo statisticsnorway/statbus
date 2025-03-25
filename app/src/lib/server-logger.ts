@@ -22,7 +22,7 @@ export async function createServerLogger() {
         version: process.env.VERSION,
         user: user?.email,
         reporter: "server",
-        referer: headers().get("referer"),
+        referer: (await headers()).get("referer"),
       },
     },
     createStream({ serverUrl: seqServerUrl, apiKey: seqApiKey })

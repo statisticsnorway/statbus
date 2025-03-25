@@ -8,11 +8,17 @@ export const metadata: Metadata = {
   title: "Establishment | Classifications",
 };
 
-export default async function EstablishmentClassificationsPage({
-  params: { id },
-}: {
-  readonly params: { id: string };
-}) {
+export default async function EstablishmentClassificationsPage(
+  props: {
+    readonly params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    id
+  } = params;
+
   const { unit, error } = await getStatisticalUnitDetails(
     parseInt(id, 10),
     "establishment"

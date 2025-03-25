@@ -1,7 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { useFormState } from "react-dom";
-import React from "react";
+import React, { useActionState } from "react";
 import { z } from "zod";
 import { contactInfoSchema } from "@/app/legal-units/[id]/contact/validation";
 import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
@@ -14,7 +13,7 @@ export default function ContactInfoForm({
   readonly id: string;
   readonly legalUnit: LegalUnit;
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     updateLegalUnit.bind(null, id, "contact-info"),
     null
   );

@@ -1,10 +1,16 @@
 import { SidebarLink, SidebarNav } from "@/components/sidebar-nav";
 
-export default function NavSlot({
-  params: { id },
-}: {
-  readonly params: { id: string };
-}) {
+export default async function NavSlot(
+  props: {
+    readonly params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    id
+  } = params;
+
   return (
     <SidebarNav>
       <SidebarLink href={`/enterprises/${id}`}>Identification</SidebarLink>
