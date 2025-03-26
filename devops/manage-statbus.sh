@@ -263,7 +263,7 @@ case "$action" in
       ;;
     'build-statbus-cli' )
         pushd cli
-          shards build statbus
+          shards build
         popd
       ;;
     'create-db-structure' )
