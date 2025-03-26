@@ -3,7 +3,7 @@ BEGIN;
 CREATE OR REPLACE FUNCTION public.jsonb_stats_summary_merge(a jsonb, b jsonb)
 RETURNS jsonb
 LANGUAGE plpgsql
-IMMUTABLE STRICT
+STABLE STRICT
 PARALLEL SAFE
 COST 100
 AS $$

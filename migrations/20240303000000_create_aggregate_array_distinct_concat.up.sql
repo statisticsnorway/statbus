@@ -2,7 +2,7 @@ BEGIN;
 
 -- Final function to remove duplicates from concatenated arrays
 CREATE OR REPLACE FUNCTION public.array_distinct_concat_final(anycompatiblearray)
-RETURNS anycompatiblearray LANGUAGE sql IMMUTABLE PARALLEL SAFE AS $$
+RETURNS anycompatiblearray LANGUAGE sql STABLE PARALLEL SAFE AS $$
 SELECT array_agg(DISTINCT elem)
   FROM unnest($1) as elem;
 $$;
