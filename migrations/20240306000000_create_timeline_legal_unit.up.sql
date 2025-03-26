@@ -274,8 +274,8 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
         SELECT tes.legal_unit_id
              , basis.valid_after
              , basis.valid_to
-             , ds.data_source_ids
-             , ds.data_source_codes
+             , public.array_distinct_concat(tes.data_source_ids) AS data_source_ids
+             , public.array_distinct_concat(tes.data_source_codes) AS data_source_codes
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL) AS related_establishment_ids
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND NOT tes.include_unit_in_reports) AS excluded_establishment_ids
              , array_agg(DISTINCT tes.establishment_id) FILTER (WHERE tes.establishment_id IS NOT NULL AND tes.include_unit_in_reports) AS included_establishment_ids
@@ -285,15 +285,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
            ON tes.legal_unit_id = basis.legal_unit_id
           AND daterange(basis.valid_after, basis.valid_to, '(]')
            && daterange(tes.valid_after, tes.valid_to, '(]')
-           LEFT JOIN LATERAL (
-             SELECT
-               array_agg(DISTINCT id) FILTER (WHERE id IS NOT NULL) AS data_source_ids,
-               array_agg(DISTINCT code) FILTER (WHERE code IS NOT NULL) AS data_source_codes
-             FROM (
-               SELECT unnest(tes.data_source_ids) AS id, unnest(tes.data_source_codes) AS code
-             ) AS src
-           ) AS ds ON TRUE
-         GROUP BY tes.legal_unit_id, basis.valid_after, basis.valid_to, ds.data_source_ids, ds.data_source_codes
+        GROUP BY tes.legal_unit_id, basis.valid_after , basis.valid_to
         )
       SELECT basis.unit_type
            , basis.unit_id
