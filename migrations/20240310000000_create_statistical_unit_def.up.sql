@@ -76,17 +76,20 @@ CREATE VIEW public.statistical_unit_def
     --
     , invalid_codes
     , has_legal_unit
-    , child_establishment_ids
-    , child_legal_unit_ids
-    , child_enterprise_ids
     , related_establishment_ids
+    , excluded_establishment_ids
+    , included_establishment_ids
     , related_legal_unit_ids
+    , excluded_legal_unit_ids
+    , included_legal_unit_ids
     , related_enterprise_ids
+    , excluded_enterprise_ids
+    , included_enterprise_ids
     , stats
     , stats_summary
-    , child_establishment_count
-    , child_legal_unit_count
-    , child_enterprise_count
+    , included_establishment_count
+    , included_legal_unit_count
+    , included_enterprise_count
     , tag_paths
     )
     AS
@@ -166,12 +169,15 @@ CREATE VIEW public.statistical_unit_def
            --
            , invalid_codes
            , has_legal_unit
-           , NULL::INT[] AS child_establishment_ids
-           , NULL::INT[] AS child_legal_unit_ids
-           , NULL::INT[] AS child_enterprise_ids
-           , CASE WHEN establishment_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[establishment_id] END AS related_establishment_ids
-           , CASE WHEN legal_unit_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[legal_unit_id] END AS related_legal_unit_ids
-           , CASE WHEN enterprise_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[enterprise_id] END AS related_enterprise_ids
+           , CASE WHEN establishment_id IS NOT NULL THEN ARRAY[establishment_id] ELSE ARRAY[]::INT[] END AS related_establishment_ids
+           , NULL::INT[] AS excluded_establishment_ids
+           , NULL::INT[] AS included_establishment_ids
+           , CASE WHEN legal_unit_id IS NOT NULL THEN ARRAY[legal_unit_id] ELSE ARRAY[]::INT[] END AS related_legal_unit_ids
+           , NULL::INT[] AS excluded_legal_unit_ids
+           , NULL::INT[] AS included_legal_unit_ids
+           , CASE WHEN enterprise_id IS NOT NULL THEN ARRAY[enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
+           , NULL::INT[] AS excluded_enterprise_ids
+           , NULL::INT[] AS included_enterprise_ids
            , stats
            , COALESCE(public.jsonb_stats_to_summary('{}'::JSONB,stats), '{}'::JSONB) AS stats_summary
       FROM public.timeline_establishment
@@ -251,12 +257,15 @@ CREATE VIEW public.statistical_unit_def
            --
            , invalid_codes
            , has_legal_unit
-           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS child_establishment_ids
-           , NULL::INT[] AS child_legal_unit_ids
-           , NULL::INT[] AS child_enterprise_ids
-           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS related_establishment_ids
-           , CASE WHEN legal_unit_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[legal_unit_id] END AS related_legal_unit_ids
-           , CASE WHEN enterprise_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[enterprise_id] END AS related_enterprise_ids
+           , COALESCE(related_establishment_ids,ARRAY[]::INT[]) AS related_establishment_ids
+           , COALESCE(excluded_establishment_ids,ARRAY[]::INT[]) AS excluded_establishment_ids
+           , COALESCE(included_establishment_ids,ARRAY[]::INT[]) AS included_establishment_ids
+           , CASE WHEN legal_unit_id IS NOT NULL THEN ARRAY[legal_unit_id] ELSE ARRAY[]::INT[] END AS related_legal_unit_ids
+           , NULL::INT[] AS excluded_legal_unit_ids
+           , NULL::INT[] AS included_legal_unit_ids
+           , CASE WHEN enterprise_id IS NOT NULL THEN ARRAY[enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
+           , NULL::INT[] AS excluded_enterprise_ids
+           , NULL::INT[] AS included_enterprise_ids
            , stats
            , stats_summary
       FROM public.timeline_legal_unit
@@ -340,12 +349,15 @@ CREATE VIEW public.statistical_unit_def
            --
            , invalid_codes
            , has_legal_unit
-           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS child_establishment_ids
-           , COALESCE(legal_unit_ids,ARRAY[]::INT[]) AS child_legal_unit_ids
-           , NULL::INT[] AS child_enterprise_ids
-           , COALESCE(establishment_ids,ARRAY[]::INT[]) AS related_establishment_ids
-           , COALESCE(legal_unit_ids,ARRAY[]::INT[]) AS related_legal_unit_ids
-           , CASE WHEN enterprise_id IS NULL THEN ARRAY[]::INT[] ELSE ARRAY[enterprise_id] END AS related_enterprise_ids
+           , COALESCE(related_establishment_ids,ARRAY[]::INT[]) AS related_establishment_ids
+           , COALESCE(excluded_establishment_ids,ARRAY[]::INT[]) AS excluded_establishment_ids
+           , COALESCE(included_establishment_ids,ARRAY[]::INT[]) AS included_establishment_ids
+           , COALESCE(related_legal_unit_ids,ARRAY[]::INT[]) AS related_legal_unit_ids
+           , COALESCE(excluded_legal_unit_ids,ARRAY[]::INT[]) AS excluded_legal_unit_ids
+           , COALESCE(included_legal_unit_ids,ARRAY[]::INT[]) AS included_legal_unit_ids
+           , CASE WHEN enterprise_id IS NOT NULL THEN ARRAY[enterprise_id] ELSE ARRAY[]::INT[] END AS related_enterprise_ids
+           , NULL::INT[] AS excluded_enterprise_ids
+           , NULL::INT[] AS included_enterprise_ids
            , NULL::JSONB AS stats
            , stats_summary
       FROM public.timeline_enterprise
@@ -427,17 +439,20 @@ CREATE VIEW public.statistical_unit_def
          --
          , data.invalid_codes
          , data.has_legal_unit
-         , data.child_establishment_ids
-         , data.child_legal_unit_ids
-         , data.child_enterprise_ids
          , data.related_establishment_ids
+         , data.excluded_establishment_ids
+         , data.included_establishment_ids
          , data.related_legal_unit_ids
+         , data.excluded_legal_unit_ids
+         , data.included_legal_unit_ids
          , data.related_enterprise_ids
+         , data.excluded_enterprise_ids
+         , data.included_enterprise_ids
          , data.stats
          , data.stats_summary
-         , array_length(data.child_establishment_ids,1) AS child_establishment_count
-         , array_length(data.child_legal_unit_ids,1) AS child_legal_unit_count
-         , array_length(data.child_enterprise_ids,1) AS child_enterprise_count
+         , array_length(data.included_establishment_ids,1) AS included_establishment_count
+         , array_length(data.included_legal_unit_ids,1) AS included_legal_unit_count
+         , array_length(data.included_enterprise_ids,1) AS included_enterprise_count
          , COALESCE(
              (
                SELECT array_agg(t.path ORDER BY t.path)
@@ -500,16 +515,90 @@ BEGIN
     AND tsu.valid_to = su.valid_to
   );
 
-  -- Insert records that exist in the temp table but not in the main table
+  -- Insert or update records from the temp table into the main table
   INSERT INTO public.statistical_unit
   SELECT tsu.* FROM temp_statistical_unit tsu
-  WHERE NOT EXISTS (
-    SELECT 1 FROM public.statistical_unit su
-    WHERE su.unit_type = tsu.unit_type
-    AND su.unit_id = tsu.unit_id
-    AND su.valid_after = tsu.valid_after
-    AND su.valid_to = tsu.valid_to
-  );
+  ON CONFLICT (unit_type, unit_id, valid_after) DO UPDATE SET
+    valid_to = EXCLUDED.valid_to,
+    valid_from = EXCLUDED.valid_from,
+    external_idents = EXCLUDED.external_idents,
+    name = EXCLUDED.name,
+    birth_date = EXCLUDED.birth_date,
+    death_date = EXCLUDED.death_date,
+    search = EXCLUDED.search,
+    primary_activity_category_id = EXCLUDED.primary_activity_category_id,
+    primary_activity_category_path = EXCLUDED.primary_activity_category_path,
+    primary_activity_category_code = EXCLUDED.primary_activity_category_code,
+    secondary_activity_category_id = EXCLUDED.secondary_activity_category_id,
+    secondary_activity_category_path = EXCLUDED.secondary_activity_category_path,
+    secondary_activity_category_code = EXCLUDED.secondary_activity_category_code,
+    activity_category_paths = EXCLUDED.activity_category_paths,
+    sector_id = EXCLUDED.sector_id,
+    sector_path = EXCLUDED.sector_path,
+    sector_code = EXCLUDED.sector_code,
+    sector_name = EXCLUDED.sector_name,
+    data_source_ids = EXCLUDED.data_source_ids,
+    data_source_codes = EXCLUDED.data_source_codes,
+    legal_form_id = EXCLUDED.legal_form_id,
+    legal_form_code = EXCLUDED.legal_form_code,
+    legal_form_name = EXCLUDED.legal_form_name,
+    physical_address_part1 = EXCLUDED.physical_address_part1,
+    physical_address_part2 = EXCLUDED.physical_address_part2,
+    physical_address_part3 = EXCLUDED.physical_address_part3,
+    physical_postcode = EXCLUDED.physical_postcode,
+    physical_postplace = EXCLUDED.physical_postplace,
+    physical_region_id = EXCLUDED.physical_region_id,
+    physical_region_path = EXCLUDED.physical_region_path,
+    physical_region_code = EXCLUDED.physical_region_code,
+    physical_country_id = EXCLUDED.physical_country_id,
+    physical_country_iso_2 = EXCLUDED.physical_country_iso_2,
+    physical_latitude = EXCLUDED.physical_latitude,
+    physical_longitude = EXCLUDED.physical_longitude,
+    physical_altitude = EXCLUDED.physical_altitude,
+    postal_address_part1 = EXCLUDED.postal_address_part1,
+    postal_address_part2 = EXCLUDED.postal_address_part2,
+    postal_address_part3 = EXCLUDED.postal_address_part3,
+    postal_postcode = EXCLUDED.postal_postcode,
+    postal_postplace = EXCLUDED.postal_postplace,
+    postal_region_id = EXCLUDED.postal_region_id,
+    postal_region_path = EXCLUDED.postal_region_path,
+    postal_region_code = EXCLUDED.postal_region_code,
+    postal_country_id = EXCLUDED.postal_country_id,
+    postal_country_iso_2 = EXCLUDED.postal_country_iso_2,
+    postal_latitude = EXCLUDED.postal_latitude,
+    postal_longitude = EXCLUDED.postal_longitude,
+    postal_altitude = EXCLUDED.postal_altitude,
+    web_address = EXCLUDED.web_address,
+    email_address = EXCLUDED.email_address,
+    phone_number = EXCLUDED.phone_number,
+    landline = EXCLUDED.landline,
+    mobile_number = EXCLUDED.mobile_number,
+    fax_number = EXCLUDED.fax_number,
+    unit_size_id = EXCLUDED.unit_size_id,
+    unit_size_code = EXCLUDED.unit_size_code,
+    status_id = EXCLUDED.status_id,
+    status_code = EXCLUDED.status_code,
+    include_unit_in_reports = EXCLUDED.include_unit_in_reports,
+    last_edit_comment = EXCLUDED.last_edit_comment,
+    last_edit_by_user_id = EXCLUDED.last_edit_by_user_id,
+    last_edit_at = EXCLUDED.last_edit_at,
+    invalid_codes = EXCLUDED.invalid_codes,
+    has_legal_unit = EXCLUDED.has_legal_unit,
+    related_establishment_ids = EXCLUDED.related_establishment_ids,
+    excluded_establishment_ids = EXCLUDED.excluded_establishment_ids,
+    included_establishment_ids = EXCLUDED.included_establishment_ids,
+    related_legal_unit_ids = EXCLUDED.related_legal_unit_ids,
+    excluded_legal_unit_ids = EXCLUDED.excluded_legal_unit_ids,
+    included_legal_unit_ids = EXCLUDED.included_legal_unit_ids,
+    related_enterprise_ids = EXCLUDED.related_enterprise_ids,
+    excluded_enterprise_ids = EXCLUDED.excluded_enterprise_ids,
+    included_enterprise_ids = EXCLUDED.included_enterprise_ids,
+    stats = EXCLUDED.stats,
+    stats_summary = EXCLUDED.stats_summary,
+    included_establishment_count = EXCLUDED.included_establishment_count,
+    included_legal_unit_count = EXCLUDED.included_legal_unit_count,
+    included_enterprise_count = EXCLUDED.included_enterprise_count,
+    tag_paths = EXCLUDED.tag_paths;
 
   -- Drop the temporary table
   DROP TABLE temp_statistical_unit;

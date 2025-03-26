@@ -325,16 +325,80 @@ BEGIN
         AND tte.valid_to = te.valid_to
     );
 
-    -- Insert records that exist in the temp table but not in the main table
+    -- Insert or update records from the temp table into the main table
     INSERT INTO public.timeline_establishment
     SELECT tte.* FROM temp_timeline_establishment tte
-    WHERE NOT EXISTS (
-        SELECT 1 FROM public.timeline_establishment te
-        WHERE te.unit_type = tte.unit_type
-        AND te.unit_id = tte.unit_id
-        AND te.valid_after = tte.valid_after
-        AND te.valid_to = tte.valid_to
-    );
+    ON CONFLICT (unit_type, unit_id, valid_after) DO UPDATE SET
+        valid_to = EXCLUDED.valid_to,
+        valid_from = EXCLUDED.valid_from,
+        name = EXCLUDED.name,
+        birth_date = EXCLUDED.birth_date,
+        death_date = EXCLUDED.death_date,
+        search = EXCLUDED.search,
+        primary_activity_category_id = EXCLUDED.primary_activity_category_id,
+        primary_activity_category_path = EXCLUDED.primary_activity_category_path,
+        primary_activity_category_code = EXCLUDED.primary_activity_category_code,
+        secondary_activity_category_id = EXCLUDED.secondary_activity_category_id,
+        secondary_activity_category_path = EXCLUDED.secondary_activity_category_path,
+        secondary_activity_category_code = EXCLUDED.secondary_activity_category_code,
+        activity_category_paths = EXCLUDED.activity_category_paths,
+        sector_id = EXCLUDED.sector_id,
+        sector_path = EXCLUDED.sector_path,
+        sector_code = EXCLUDED.sector_code,
+        sector_name = EXCLUDED.sector_name,
+        data_source_ids = EXCLUDED.data_source_ids,
+        data_source_codes = EXCLUDED.data_source_codes,
+        legal_form_id = EXCLUDED.legal_form_id,
+        legal_form_code = EXCLUDED.legal_form_code,
+        legal_form_name = EXCLUDED.legal_form_name,
+        physical_address_part1 = EXCLUDED.physical_address_part1,
+        physical_address_part2 = EXCLUDED.physical_address_part2,
+        physical_address_part3 = EXCLUDED.physical_address_part3,
+        physical_postcode = EXCLUDED.physical_postcode,
+        physical_postplace = EXCLUDED.physical_postplace,
+        physical_region_id = EXCLUDED.physical_region_id,
+        physical_region_path = EXCLUDED.physical_region_path,
+        physical_region_code = EXCLUDED.physical_region_code,
+        physical_country_id = EXCLUDED.physical_country_id,
+        physical_country_iso_2 = EXCLUDED.physical_country_iso_2,
+        physical_latitude = EXCLUDED.physical_latitude,
+        physical_longitude = EXCLUDED.physical_longitude,
+        physical_altitude = EXCLUDED.physical_altitude,
+        postal_address_part1 = EXCLUDED.postal_address_part1,
+        postal_address_part2 = EXCLUDED.postal_address_part2,
+        postal_address_part3 = EXCLUDED.postal_address_part3,
+        postal_postcode = EXCLUDED.postal_postcode,
+        postal_postplace = EXCLUDED.postal_postplace,
+        postal_region_id = EXCLUDED.postal_region_id,
+        postal_region_path = EXCLUDED.postal_region_path,
+        postal_region_code = EXCLUDED.postal_region_code,
+        postal_country_id = EXCLUDED.postal_country_id,
+        postal_country_iso_2 = EXCLUDED.postal_country_iso_2,
+        postal_latitude = EXCLUDED.postal_latitude,
+        postal_longitude = EXCLUDED.postal_longitude,
+        postal_altitude = EXCLUDED.postal_altitude,
+        web_address = EXCLUDED.web_address,
+        email_address = EXCLUDED.email_address,
+        phone_number = EXCLUDED.phone_number,
+        landline = EXCLUDED.landline,
+        mobile_number = EXCLUDED.mobile_number,
+        fax_number = EXCLUDED.fax_number,
+        unit_size_id = EXCLUDED.unit_size_id,
+        unit_size_code = EXCLUDED.unit_size_code,
+        status_id = EXCLUDED.status_id,
+        status_code = EXCLUDED.status_code,
+        include_unit_in_reports = EXCLUDED.include_unit_in_reports,
+        last_edit_comment = EXCLUDED.last_edit_comment,
+        last_edit_by_user_id = EXCLUDED.last_edit_by_user_id,
+        last_edit_at = EXCLUDED.last_edit_at,
+        invalid_codes = EXCLUDED.invalid_codes,
+        has_legal_unit = EXCLUDED.has_legal_unit,
+        establishment_id = EXCLUDED.establishment_id,
+        legal_unit_id = EXCLUDED.legal_unit_id,
+        enterprise_id = EXCLUDED.enterprise_id,
+        primary_for_enterprise = EXCLUDED.primary_for_enterprise,
+        primary_for_legal_unit = EXCLUDED.primary_for_legal_unit,
+        stats = EXCLUDED.stats;
 
     -- Drop the temporary table
     DROP TABLE temp_timeline_establishment;

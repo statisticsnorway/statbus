@@ -856,7 +856,7 @@ ORDER BY ij.id;
 \echo Verify the concrete tables of one import job
 Verify the concrete tables of one import job
 \d public.import_lu_2015_sht_upload
-                 Unlogged table "public.import_lu_2015_sht_upload"
+                     Table "public.import_lu_2015_sht_upload"
                   Column                   | Type | Collation | Nullable | Default 
 -------------------------------------------+------+-----------+----------+---------
  organisasjonsnummer                       | text |           |          | 
@@ -930,7 +930,7 @@ Triggers:
     import_lu_2015_sht_upload_update_state_after_insert AFTER INSERT ON import_lu_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_lu_2015_sht')
 
 \d public.import_lu_2015_sht_data
-                              Unlogged table "public.import_lu_2015_sht_data"
+                                   Table "public.import_lu_2015_sht_data"
               Column              |       Type        | Collation | Nullable |           Default            
 ----------------------------------+-------------------+-----------+----------+------------------------------
  tax_ident                        | text              |           |          | 
@@ -970,7 +970,7 @@ Policies:
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
 \d public.import_lu_2015_sht_import_information
-           Unlogged table "public.import_lu_2015_sht_import_information"
+                Table "public.import_lu_2015_sht_import_information"
          Column         |           Type           | Collation | Nullable | Default 
 ------------------------+--------------------------+-----------+----------+---------
  job_id                 | integer                  |           |          | 
@@ -1004,7 +1004,7 @@ Policies:
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
 \d public.import_es_2015_sht_upload
-             Unlogged table "public.import_es_2015_sht_upload"
+                  Table "public.import_es_2015_sht_upload"
                Column               | Type | Collation | Nullable | Default 
 ------------------------------------+------+-----------+----------+---------
  organisasjonsnummer                | text |           |          | 
@@ -1060,7 +1060,7 @@ Triggers:
     import_es_2015_sht_upload_update_state_after_insert AFTER INSERT ON import_es_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_es_2015_sht')
 
 \d public.import_es_2015_sht_data
-                              Unlogged table "public.import_es_2015_sht_data"
+                                   Table "public.import_es_2015_sht_data"
               Column              |       Type        | Collation | Nullable |           Default            
 ----------------------------------+-------------------+-----------+----------+------------------------------
  tax_ident                        | text              |           |          | 
@@ -1100,7 +1100,7 @@ Policies:
       WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
 
 \d public.import_es_2015_sht_import_information
-           Unlogged table "public.import_es_2015_sht_import_information"
+                Table "public.import_es_2015_sht_import_information"
          Column         |           Type           | Collation | Nullable | Default 
 ------------------------+--------------------------+-----------+----------+---------
  job_id                 | integer                  |           |          | 
@@ -1366,7 +1366,7 @@ CALL worker.process_tasks();
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
     queue    |   state   | count 
 -------------+-----------+-------
- analytics   | completed |    15
+ analytics   | completed |    10
  import      | completed |    32
  maintenance | pending   |     1
 (3 rows)
@@ -1543,8 +1543,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
@@ -1557,7 +1555,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "RÆLINGEN",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "3224",                                    +
                       |     "physical_region_path": "32.24",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -1572,6 +1569,9 @@ statistical_unit_data | {                                                       
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -1612,8 +1612,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": [                                             +
@@ -1626,7 +1624,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
@@ -1641,6 +1638,9 @@ statistical_unit_data | {                                                       
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "49.41",                         +
                       |     "primary_activity_category_path": "H.49.4.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -1681,8 +1681,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -1694,7 +1692,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3207",                                    +
                       |     "physical_region_path": "32.07",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -1709,6 +1706,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -1749,8 +1749,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -1762,7 +1760,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "RÆLINGEN",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3224",                                    +
                       |     "physical_region_path": "32.24",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -1777,6 +1774,9 @@ statistical_unit_data | {                                                       
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -1817,8 +1817,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
@@ -1830,7 +1828,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
@@ -1845,6 +1842,9 @@ statistical_unit_data | {                                                       
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "49.41",                         +
                       |     "primary_activity_category_path": "H.49.4.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -1885,8 +1885,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -1898,7 +1896,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3207",                                    +
                       |     "physical_region_path": "32.07",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -1913,6 +1910,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -1952,8 +1952,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -1965,7 +1963,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "RÆLINGEN",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3224",                                    +
                       |     "physical_region_path": "32.24",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -1980,6 +1977,9 @@ statistical_unit_data | {                                                       
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -2019,8 +2019,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
@@ -2032,7 +2030,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
@@ -2047,6 +2044,9 @@ statistical_unit_data | {                                                       
                       |         "H.49.4.1"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "49.41",                         +
                       |     "primary_activity_category_path": "H.49.4.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -2086,8 +2086,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": [                                             +
@@ -2100,7 +2098,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
@@ -2115,6 +2112,9 @@ statistical_unit_data | {                                                       
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -2155,8 +2155,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
@@ -2168,7 +2166,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
@@ -2183,6 +2180,9 @@ statistical_unit_data | {                                                       
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -2223,8 +2223,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
@@ -2236,7 +2234,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
@@ -2251,6 +2248,9 @@ statistical_unit_data | {                                                       
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -2290,8 +2290,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
@@ -2304,7 +2302,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "3207",                                    +
                       |     "physical_region_path": "32.07",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -2319,6 +2316,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -2359,8 +2359,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
@@ -2373,7 +2371,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -2388,6 +2385,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -2428,8 +2428,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
@@ -2442,7 +2440,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -2457,6 +2454,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "47.75",                         +
                       |     "primary_activity_category_path": "G.47.7.5",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -2497,8 +2497,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -2510,7 +2508,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -2525,6 +2522,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -2565,8 +2565,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -2578,7 +2576,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -2593,6 +2590,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.75",                         +
                       |     "primary_activity_category_path": "G.47.7.5",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -2633,8 +2633,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -2646,7 +2644,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -2661,6 +2658,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -2700,8 +2700,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -2713,7 +2711,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -2728,6 +2725,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.7.5"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.75",                         +
                       |     "primary_activity_category_path": "G.47.7.5",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -2767,8 +2767,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -2780,7 +2778,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3207",                                    +
                       |     "physical_region_path": "32.07",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -2795,6 +2792,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -2835,8 +2835,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
@@ -2848,7 +2846,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
@@ -2863,6 +2860,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -2903,8 +2903,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -2916,7 +2914,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "SKI",                                       +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3207",                                    +
                       |     "physical_region_path": "32.07",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -2931,6 +2928,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -2970,8 +2970,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
@@ -2983,7 +2981,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
@@ -2998,6 +2995,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -3037,8 +3037,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
@@ -3051,7 +3049,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -3066,6 +3063,9 @@ statistical_unit_data | {                                                       
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -3106,8 +3106,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": [                                             +
@@ -3120,7 +3118,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
@@ -3135,6 +3132,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -3175,8 +3175,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -3188,7 +3186,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -3203,6 +3200,9 @@ statistical_unit_data | {                                                       
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -3243,8 +3243,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -3256,7 +3254,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -3271,6 +3268,9 @@ statistical_unit_data | {                                                       
                       |         "R.90.0.1.1"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -3310,8 +3310,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
@@ -3324,7 +3322,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -3339,6 +3336,9 @@ statistical_unit_data | {                                                       
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -3379,8 +3379,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": [                                             +
@@ -3393,7 +3391,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
@@ -3408,6 +3405,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -3448,8 +3448,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
@@ -3461,7 +3459,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
@@ -3476,6 +3473,9 @@ statistical_unit_data | {                                                       
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -3516,8 +3516,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -3529,7 +3527,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -3544,6 +3541,9 @@ statistical_unit_data | {                                                       
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -3584,8 +3584,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
@@ -3597,7 +3595,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
@@ -3612,6 +3609,9 @@ statistical_unit_data | {                                                       
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -3651,8 +3651,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -3664,7 +3662,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "FARSUND",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4206",                                    +
                       |     "physical_region_path": "42.06",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -3679,6 +3676,9 @@ statistical_unit_data | {                                                       
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -3718,8 +3718,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
@@ -3732,7 +3730,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -3747,6 +3744,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -3787,8 +3787,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -3800,7 +3798,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -3815,6 +3812,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -3855,8 +3855,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -3868,7 +3866,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRYNE",                                     +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "1121",                                    +
                       |     "physical_region_path": "11.21",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -3883,6 +3880,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.7.1"                                                     +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "47.71",                         +
                       |     "primary_activity_category_path": "G.47.7.1",                      +
                       |     "secondary_activity_category_code": null,                          +
@@ -3922,8 +3922,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
@@ -3936,7 +3934,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "DRAMMEN",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "3301",                                    +
                       |     "physical_region_path": "33.01",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -3951,6 +3948,9 @@ statistical_unit_data | {                                                       
                       |         "G.47.9.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "47.912",                        +
                       |     "primary_activity_category_path": "G.47.9.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -3991,8 +3991,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": [                                             +
@@ -4005,7 +4003,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
@@ -4020,6 +4017,9 @@ statistical_unit_data | {                                                       
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -4060,8 +4060,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": [                                             +
@@ -4074,7 +4072,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "TØNSBERG",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": null,                                       +
                       |     "physical_region_code": "3905",                                    +
                       |     "physical_region_path": "39.05",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -4089,6 +4086,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -4129,8 +4129,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
@@ -4142,7 +4140,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
@@ -4157,6 +4154,9 @@ statistical_unit_data | {                                                       
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -4197,8 +4197,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -4210,7 +4208,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "TØNSBERG",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3905",                                    +
                       |     "physical_region_path": "39.05",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -4225,6 +4222,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -4265,8 +4265,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -4278,7 +4276,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "DRAMMEN",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3301",                                    +
                       |     "physical_region_path": "33.01",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -4293,6 +4290,9 @@ statistical_unit_data | {                                                       
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -4333,8 +4333,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": null,                                          +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
@@ -4346,7 +4344,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
@@ -4361,6 +4358,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -4401,8 +4401,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "5350",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "BRATTHOLMEN",                                 +
                       |     "data_source_codes": null,                                         +
@@ -4414,7 +4412,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "BRATTHOLMEN",                               +
                       |     "postal_region_code": "4626",                                      +
                       |     "postal_region_path": "46.26",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "4626",                                    +
                       |     "physical_region_path": "46.26",                                   +
                       |     "postal_address_part1": "Skrubbenesvegen 82",                      +
@@ -4429,6 +4426,9 @@ statistical_unit_data | {                                                       
                       |         "G.45.1.1.2"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -4468,8 +4468,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -4481,7 +4479,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "TØNSBERG",                                  +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3905",                                    +
                       |     "physical_region_path": "39.05",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -4496,6 +4493,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
@@ -4535,8 +4535,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
                       |     "data_source_codes": null,                                         +
@@ -4548,7 +4546,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "DRAMMEN",                                   +
                       |     "postal_region_code": null,                                        +
                       |     "postal_region_path": null,                                        +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3301",                                    +
                       |     "physical_region_path": "33.01",                                   +
                       |     "postal_address_part1": null,                                      +
@@ -4563,6 +4560,9 @@ statistical_unit_data | {                                                       
                       |         "L.68.2.0.9"                                                   +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "68.209",                        +
                       |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
@@ -4602,8 +4602,6 @@ statistical_unit_data | {                                                       
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": "3516",                                         +
-                      |     "enterprise_count": null,                                          +
-                      |     "legal_unit_count": 1,                                             +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": "HØNEFOSS",                                    +
                       |     "data_source_codes": null,                                         +
@@ -4615,7 +4613,6 @@ statistical_unit_data | {                                                       
                       |     "physical_postplace": "HØNEFOSS",                                  +
                       |     "postal_region_code": "3305",                                      +
                       |     "postal_region_path": "33.05",                                     +
-                      |     "establishment_count": 1,                                          +
                       |     "physical_region_code": "3305",                                    +
                       |     "physical_region_path": "33.05",                                   +
                       |     "postal_address_part1": "Pålerudbyen 84",                          +
@@ -4630,6 +4627,9 @@ statistical_unit_data | {                                                       
                       |         "F.41.2"                                                       +
                       |     ],                                                                 +
                       |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
