@@ -827,19 +827,25 @@ erDiagram
 		"integer" status_id
 		"character varying" status_code
 		"boolean" include_unit_in_reports
-		"character varying" last_edit_comment
+		"character varying(512)" last_edit_comment
 		"integer" last_edit_by_user_id
 		"timestamp with time zone" last_edit_at
 		"jsonb" invalid_codes
 		"boolean" has_legal_unit
-		"integer[]" establishment_ids
-		"integer[]" legal_unit_ids
-		"integer[]" enterprise_ids
+		"integer[]" related_establishment_ids
+		"integer[]" excluded_establishment_ids
+		"integer[]" included_establishment_ids
+		"integer[]" related_legal_unit_ids
+		"integer[]" excluded_legal_unit_ids
+		"integer[]" included_legal_unit_ids
+		"integer[]" related_enterprise_ids
+		"integer[]" excluded_enterprise_ids
+		"integer[]" included_enterprise_ids
 		"jsonb" stats
 		"jsonb" stats_summary
-		"integer" establishment_count
-		"integer" legal_unit_count
-		"integer" enterprise_count
+		"integer" included_establishment_count
+		"integer" included_legal_unit_count
+		"integer" included_enterprise_count
 		"ltree[]" tag_paths
 	}
 	statistical_unit_facet["statistical_unit_facet"] {
@@ -961,13 +967,17 @@ erDiagram
 		"integer" status_id
 		"character varying" status_code
 		"boolean" include_unit_in_reports
-		"character varying" last_edit_comment
+		"character varying(512)" last_edit_comment
 		"integer" last_edit_by_user_id
 		"timestamp with time zone" last_edit_at
 		"jsonb" invalid_codes
 		"boolean" has_legal_unit
-		"integer[]" establishment_ids
-		"integer[]" legal_unit_ids
+		"integer[]" related_establishment_ids
+		"integer[]" excluded_establishment_ids
+		"integer[]" included_establishment_ids
+		"integer[]" related_legal_unit_ids
+		"integer[]" excluded_legal_unit_ids
+		"integer[]" included_legal_unit_ids
 		"integer" enterprise_id
 		"integer" primary_establishment_id
 		"integer" primary_legal_unit_id
@@ -1116,7 +1126,9 @@ erDiagram
 		"timestamp with time zone" last_edit_at
 		"jsonb" invalid_codes
 		"boolean" has_legal_unit
-		"integer[]" establishment_ids
+		"integer[]" related_establishment_ids
+		"integer[]" excluded_establishment_ids
+		"integer[]" included_establishment_ids
 		"integer" legal_unit_id
 		"integer" enterprise_id
 		"boolean" primary_for_enterprise

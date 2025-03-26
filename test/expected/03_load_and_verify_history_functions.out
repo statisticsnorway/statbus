@@ -214,7 +214,7 @@ CALL worker.process_tasks();
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
     queue    |   state   | count 
 -------------+-----------+-------
- analytics   | completed |    16
+ analytics   | completed |    11
  maintenance | pending   |     1
 (2 rows)
 
@@ -1452,8 +1452,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -1467,7 +1465,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": null,                   +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -1482,6 +1479,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": null,          +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1548,8 +1548,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -1564,7 +1562,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -1579,6 +1576,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1643,8 +1643,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": 1,                         +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -1659,7 +1657,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -1674,6 +1671,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": 1,                +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1737,8 +1737,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -1752,7 +1750,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": null,                   +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -1767,6 +1764,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": null,          +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1833,8 +1833,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -1849,7 +1847,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -1864,6 +1861,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -1928,8 +1928,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": 1,                         +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -1944,7 +1942,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -1959,6 +1956,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": 1,                +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2022,8 +2022,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2037,7 +2035,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": null,                   +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -2052,6 +2049,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": null,          +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2118,8 +2118,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2134,7 +2132,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -2149,6 +2146,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2213,8 +2213,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": 1,                         +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2229,7 +2227,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -2244,6 +2241,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": 1,                +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2307,8 +2307,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2322,7 +2320,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": null,                   +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -2337,6 +2334,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": null,          +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2403,8 +2403,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2419,7 +2417,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -2434,6 +2431,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2498,8 +2498,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": 1,                         +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2514,7 +2512,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -2529,6 +2526,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": 1,                +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2592,8 +2592,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2607,7 +2605,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": null,                   +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -2622,6 +2619,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": null,          +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2688,8 +2688,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2704,7 +2702,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -2719,6 +2716,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2783,8 +2783,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": 1,                         +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2799,7 +2797,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -2814,6 +2811,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": 1,                +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2877,8 +2877,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2892,7 +2890,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": null,                   +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -2907,6 +2904,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": null,          +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -2973,8 +2973,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -2989,7 +2987,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3004,6 +3001,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3068,8 +3068,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": 1,                         +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -3084,7 +3082,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3099,6 +3096,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": 1,                +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3162,8 +3162,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -3177,7 +3175,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": null,                   +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3192,6 +3189,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": null,          +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3258,8 +3258,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -3274,7 +3272,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3289,6 +3286,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3353,8 +3353,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": 1,                         +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -3369,7 +3367,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3384,6 +3381,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": 1,                +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3447,8 +3447,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -3462,7 +3460,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": null,                   +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3477,6 +3474,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": null,          +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3543,8 +3543,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -3559,7 +3557,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3574,6 +3571,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3638,8 +3638,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": 1,                         +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -3654,7 +3652,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3669,6 +3666,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": 1,                +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3732,8 +3732,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -3747,7 +3745,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": null,                   +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3762,6 +3759,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": null,          +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3828,8 +3828,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -3844,7 +3842,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3859,6 +3856,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -3923,8 +3923,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": 1,                         +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -3939,7 +3937,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -3954,6 +3951,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": 1,                +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -4017,8 +4017,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -4032,7 +4030,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": null,                   +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -4047,6 +4044,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": null,          +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -4113,8 +4113,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": null,                      +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -4129,7 +4127,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -4144,6 +4141,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": null,             +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +
@@ -4208,8 +4208,6 @@ statistical_unit_data | {                                                  +
                       |     "postal_altitude": null,                       +
                       |     "postal_latitude": null,                       +
                       |     "postal_postcode": null,                       +
-                      |     "enterprise_count": null,                      +
-                      |     "legal_unit_count": 1,                         +
                       |     "postal_longitude": null,                      +
                       |     "postal_postplace": null,                      +
                       |     "data_source_codes": [                         +
@@ -4224,7 +4222,6 @@ statistical_unit_data | {                                                  +
                       |     "physical_postplace": "LYE",                   +
                       |     "postal_region_code": null,                    +
                       |     "postal_region_path": null,                    +
-                      |     "establishment_count": 1,                      +
                       |     "physical_region_code": "1121",                +
                       |     "physical_region_path": "11.21",               +
                       |     "postal_address_part1": null,                  +
@@ -4239,6 +4236,9 @@ statistical_unit_data | {                                                  +
                       |         "H.49.4.1.0"                               +
                       |     ],                                             +
                       |     "include_unit_in_reports": true,               +
+                      |     "included_enterprise_count": null,             +
+                      |     "included_legal_unit_count": 1,                +
+                      |     "included_establishment_count": 1,             +
                       |     "primary_activity_category_code": "49.410",    +
                       |     "primary_activity_category_path": "H.49.4.1.0",+
                       |     "secondary_activity_category_code": null,      +

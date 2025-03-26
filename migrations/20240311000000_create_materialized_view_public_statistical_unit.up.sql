@@ -2,9 +2,21 @@ BEGIN;
 
 CREATE TABLE public.statistical_unit (LIKE public.statistical_unit_def INCLUDING ALL);
 
-CREATE UNIQUE INDEX "statistical_unit_key"
+CREATE UNIQUE INDEX "statistical_unit_upsert_pkey"
+    ON public.statistical_unit
+    (unit_type, unit_id, valid_after);
+
+CREATE UNIQUE INDEX "statistical_unit_from_key"
     ON public.statistical_unit
     (valid_from
+    ,valid_to
+    ,unit_type
+    ,unit_id
+    );
+
+CREATE UNIQUE INDEX "statistical_unit_after_key"
+    ON public.statistical_unit
+    (valid_after
     ,valid_to
     ,unit_type
     ,unit_id

@@ -541,7 +541,7 @@ DECLARE
   v_establishment_ids INT[] := COALESCE(p_establishment_ids, ARRAY[]::INT[]);
   v_legal_unit_ids INT[] := COALESCE(p_legal_unit_ids, ARRAY[]::INT[]);
   v_enterprise_ids INT[] := COALESCE(p_enterprise_ids, ARRAY[]::INT[]);
-  v_valid_after DATE := p_valid_after, '-infinity'::DATE);
+  v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
   v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
 BEGIN
   -- Create payload with arrays
