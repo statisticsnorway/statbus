@@ -533,6 +533,9 @@ BEGIN
 
     -- Drop the temporary table
     DROP TABLE temp_timeline_legal_unit;
+
+    -- Ensure sql execution planning takes in to account table changes.
+    ANALYZE public.timeline_legal_unit;
 END;
 $timeline_legal_unit_refresh$;
 

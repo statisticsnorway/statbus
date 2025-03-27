@@ -472,7 +472,7 @@ CREATE VIEW public.statistical_unit_def
 ;
 
 
-CREATE FUNCTION public.statistical_unit_refresh(
+CREATE OR REPLACE FUNCTION public.statistical_unit_refresh(
   p_establishment_ids int[] DEFAULT NULL,
   p_legal_unit_ids int[] DEFAULT NULL,
   p_enterprise_ids int[] DEFAULT NULL,
@@ -602,6 +602,9 @@ BEGIN
 
   -- Drop the temporary table
   DROP TABLE temp_statistical_unit;
+
+  -- Ensure sql execution planning takes in to account table changes.
+  ANALYZE public.statistical_unit;
 END;
 $statistical_unit_refresh$;
 

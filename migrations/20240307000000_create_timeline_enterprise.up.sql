@@ -825,6 +825,9 @@ BEGIN
 
     -- Drop the temporary table
     DROP TABLE temp_timeline_enterprise;
+
+    -- Ensure sql execution planning takes in to account table changes.
+    ANALYZE public.timeline_enterprise;
 END;
 $timeline_enterprise_refresh$;
 
