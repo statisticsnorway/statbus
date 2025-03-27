@@ -402,6 +402,9 @@ BEGIN
 
     -- Drop the temporary table
     DROP TABLE temp_timeline_establishment;
+
+    -- Ensure sql execution planning takes in to account table changes.
+    ANALYZE public.timeline_establishment;
 END;
 $timeline_establishment_refresh$;
 
