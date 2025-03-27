@@ -168,7 +168,7 @@ BEGIN
           RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
           IF adjusted_valid_to <= existing.valid_from THEN
             RAISE DEBUG 'DELETE EXISTING with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
-            EXECUTE EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+            EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           ELSE
             RAISE DEBUG 'Adjusting existing row %.%(id=%)', schema_name, table_name, existing.id;
             EXECUTE format($$
