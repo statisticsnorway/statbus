@@ -389,7 +389,7 @@ CALL worker.process_tasks();
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
     queue    |   state   | count 
 -------------+-----------+-------
- analytics   | completed |     9
+ analytics   | completed |    10
  maintenance | pending   |     1
 (2 rows)
 
@@ -839,7 +839,7 @@ stats_summary         | {                                                       
 -[ RECORD 7 ]---------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
-valid_to              | 2016-12-31
+valid_to              | infinity
 unit_type             | legal_unit
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
@@ -918,168 +918,6 @@ stats_summary         | {                                                       
                       |     }                                                                  +
                       | }
 -[ RECORD 8 ]---------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
-valid_from            | 2017-01-01
-valid_to              | 2017-12-31
-unit_type             | legal_unit
-external_idents       | {"tax_ident": "996294552"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
-                      |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": null,                                                +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": null,                                               +
-                      |     "sector_name": null,                                               +
-                      |     "sector_path": null,                                               +
-                      |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": null,                                           +
-                      |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": "HØNEFOSS",                                    +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "Batch import",                               +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "3516",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "HØNEFOSS",                                  +
-                      |     "postal_region_code": "3305",                                      +
-                      |     "postal_region_path": "33.05",                                     +
-                      |     "physical_region_code": "3305",                                    +
-                      |     "physical_region_path": "33.05",                                   +
-                      |     "postal_address_part1": "Pålerudbyen 84",                          +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_address_part1": "Hensveien 180",                         +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "F.41.2"                                                       +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
-                      |     "primary_activity_category_code": "41.2",                          +
-                      |     "primary_activity_category_path": "F.41.2",                        +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | {                                                                      +
-                      |     "employees": 30                                                    +
-                      | }
-stats_summary         | {                                                                      +
-                      |     "employees": {                                                     +
-                      |         "max": 30,                                                     +
-                      |         "min": 30,                                                     +
-                      |         "sum": 30,                                                     +
-                      |         "mean": 30,                                                    +
-                      |         "type": "number",                                              +
-                      |         "count": 1,                                                    +
-                      |         "stddev": 0,                                                   +
-                      |         "variance": 0,                                                 +
-                      |         "sum_sq_diff": 0,                                              +
-                      |         "coefficient_of_variation_pct": 0                              +
-                      |     }                                                                  +
-                      | }
--[ RECORD 9 ]---------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
-valid_from            | 2018-01-01
-valid_to              | infinity
-unit_type             | legal_unit
-external_idents       | {"tax_ident": "996294552"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
-                      |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": null,                                                +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": null,                                               +
-                      |     "sector_name": null,                                               +
-                      |     "sector_path": null,                                               +
-                      |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": null,                                           +
-                      |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": "HØNEFOSS",                                    +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "Batch import",                               +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "3516",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "HØNEFOSS",                                  +
-                      |     "postal_region_code": "3305",                                      +
-                      |     "postal_region_path": "33.05",                                     +
-                      |     "physical_region_code": "3305",                                    +
-                      |     "physical_region_path": "33.05",                                   +
-                      |     "postal_address_part1": "Pålerudbyen 84",                          +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_address_part1": "Hensveien 180",                         +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "F.41.2"                                                       +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
-                      |     "primary_activity_category_code": "41.2",                          +
-                      |     "primary_activity_category_path": "F.41.2",                        +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | {                                                                      +
-                      |     "employees": 30                                                    +
-                      | }
-stats_summary         | {                                                                      +
-                      |     "employees": {                                                     +
-                      |         "max": 30,                                                     +
-                      |         "min": 30,                                                     +
-                      |         "sum": 30,                                                     +
-                      |         "mean": 30,                                                    +
-                      |         "type": "number",                                              +
-                      |         "count": 1,                                                    +
-                      |         "stddev": 0,                                                   +
-                      |         "variance": 0,                                                 +
-                      |         "sum_sq_diff": 0,                                              +
-                      |         "coefficient_of_variation_pct": 0                              +
-                      |     }                                                                  +
-                      | }
--[ RECORD 10 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2016-12-31
@@ -1147,7 +985,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 11 ]--------+------------------------------------------------------------------------
+-[ RECORD 9 ]---------+------------------------------------------------------------------------
 valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
@@ -1215,7 +1053,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 12 ]--------+------------------------------------------------------------------------
+-[ RECORD 10 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -1283,7 +1121,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 13 ]--------+------------------------------------------------------------------------
+-[ RECORD 11 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2016-12-31
@@ -1364,7 +1202,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": 0                              +
                       |     }                                                                  +
                       | }
--[ RECORD 14 ]--------+------------------------------------------------------------------------
+-[ RECORD 12 ]--------+------------------------------------------------------------------------
 valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
@@ -1445,7 +1283,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": 0                              +
                       |     }                                                                  +
                       | }
--[ RECORD 15 ]--------+------------------------------------------------------------------------
+-[ RECORD 13 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -1526,7 +1364,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": 0                              +
                       |     }                                                                  +
                       | }
--[ RECORD 16 ]--------+------------------------------------------------------------------------
+-[ RECORD 14 ]--------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | infinity
@@ -1593,7 +1431,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 17 ]--------+------------------------------------------------------------------------
+-[ RECORD 15 ]--------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2017-12-31
@@ -1660,7 +1498,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 18 ]--------+------------------------------------------------------------------------
+-[ RECORD 16 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -1727,7 +1565,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 19 ]--------+------------------------------------------------------------------------
+-[ RECORD 17 ]--------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
@@ -1794,7 +1632,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 20 ]--------+------------------------------------------------------------------------
+-[ RECORD 18 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | infinity
@@ -1861,7 +1699,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 21 ]--------+------------------------------------------------------------------------
+-[ RECORD 19 ]--------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
@@ -1940,167 +1778,9 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
--[ RECORD 22 ]--------+------------------------------------------------------------------------
+-[ RECORD 20 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
-valid_to              | 2016-12-31
-unit_type             | enterprise
-external_idents       | {"tax_ident": "996294552"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
-                      |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": null,                                                +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": null,                                               +
-                      |     "sector_name": null,                                               +
-                      |     "sector_path": null,                                               +
-                      |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": null,                                           +
-                      |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": "HØNEFOSS",                                    +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "Batch import",                               +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "3516",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "HØNEFOSS",                                  +
-                      |     "postal_region_code": "3305",                                      +
-                      |     "postal_region_path": "33.05",                                     +
-                      |     "physical_region_code": "3305",                                    +
-                      |     "physical_region_path": "33.05",                                   +
-                      |     "postal_address_part1": "Pålerudbyen 84",                          +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_address_part1": "Hensveien 180",                         +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "F.41.2"                                                       +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": 1,                                    +
-                      |     "included_establishment_count": null,                              +
-                      |     "primary_activity_category_code": "41.2",                          +
-                      |     "primary_activity_category_path": "F.41.2",                        +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | 
-stats_summary         | {                                                                      +
-                      |     "employees": {                                                     +
-                      |         "max": 30,                                                     +
-                      |         "min": 30,                                                     +
-                      |         "sum": 30,                                                     +
-                      |         "mean": 30.00,                                                 +
-                      |         "type": "number",                                              +
-                      |         "count": 1,                                                    +
-                      |         "stddev": 0.00,                                                +
-                      |         "variance": 0.00,                                              +
-                      |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": 0.00                           +
-                      |     }                                                                  +
-                      | }
--[ RECORD 23 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
-valid_from            | 2017-01-01
-valid_to              | 2017-12-31
-unit_type             | enterprise
-external_idents       | {"tax_ident": "996294552"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
-                      |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": null,                                                +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": null,                                               +
-                      |     "sector_name": null,                                               +
-                      |     "sector_path": null,                                               +
-                      |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": null,                                           +
-                      |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": "HØNEFOSS",                                    +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "Batch import",                               +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "3516",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "HØNEFOSS",                                  +
-                      |     "postal_region_code": "3305",                                      +
-                      |     "postal_region_path": "33.05",                                     +
-                      |     "physical_region_code": "3305",                                    +
-                      |     "physical_region_path": "33.05",                                   +
-                      |     "postal_address_part1": "Pålerudbyen 84",                          +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_address_part1": "Hensveien 180",                         +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "F.41.2"                                                       +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": 1,                                    +
-                      |     "included_establishment_count": null,                              +
-                      |     "primary_activity_category_code": "41.2",                          +
-                      |     "primary_activity_category_path": "F.41.2",                        +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | 
-stats_summary         | {                                                                      +
-                      |     "employees": {                                                     +
-                      |         "max": 30,                                                     +
-                      |         "min": 30,                                                     +
-                      |         "sum": 30,                                                     +
-                      |         "mean": 30.00,                                                 +
-                      |         "type": "number",                                              +
-                      |         "count": 1,                                                    +
-                      |         "stddev": 0.00,                                                +
-                      |         "variance": 0.00,                                              +
-                      |         "sum_sq_diff": 0.00,                                           +
-                      |         "coefficient_of_variation_pct": 0.00                           +
-                      |     }                                                                  +
-                      | }
--[ RECORD 24 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
-valid_from            | 2018-01-01
 valid_to              | infinity
 unit_type             | enterprise
 external_idents       | {"tax_ident": "996294552"}
@@ -2177,7 +1857,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
--[ RECORD 25 ]--------+------------------------------------------------------------------------
+-[ RECORD 21 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2016-12-31
@@ -2244,7 +1924,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 26 ]--------+------------------------------------------------------------------------
+-[ RECORD 22 ]--------+------------------------------------------------------------------------
 valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
@@ -2311,7 +1991,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 27 ]--------+------------------------------------------------------------------------
+-[ RECORD 23 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -2378,7 +2058,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 28 ]--------+------------------------------------------------------------------------
+-[ RECORD 24 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2016-12-31
@@ -2457,7 +2137,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
--[ RECORD 29 ]--------+------------------------------------------------------------------------
+-[ RECORD 25 ]--------+------------------------------------------------------------------------
 valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
@@ -2536,7 +2216,7 @@ stats_summary         | {                                                       
                       |         "coefficient_of_variation_pct": 0.00                           +
                       |     }                                                                  +
                       | }
--[ RECORD 30 ]--------+------------------------------------------------------------------------
+-[ RECORD 26 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity

@@ -93,7 +93,7 @@ CALL worker.process_tasks();
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
     queue    |   state   | count 
 -------------+-----------+-------
- analytics   | completed |     6
+ analytics   | completed |    10
  maintenance | pending   |     1
 (2 rows)
 
@@ -121,11 +121,10 @@ SELECT unit_type
      , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_after, valid_to;
- unit_type  | tax_ident  | valid_after | valid_from |  valid_to  |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+-------------+------------+------------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | 2025-03-03 | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
- legal_unit | 3212760144 | 2025-03-03  | 2025-03-04 | infinity   | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
-(2 rows)
+ unit_type  | tax_ident  | valid_after | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
+------------+------------+-------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
+ legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+(1 row)
 
 \echo "User uploads the legal units over time"
 "User uploads the legal units over time"
@@ -163,11 +162,10 @@ SELECT unit_type
      , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_after, valid_to;
- unit_type  | tax_ident  | valid_after | valid_from |  valid_to  |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+-------------+------------+------------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | 2025-03-03 | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
- legal_unit | 3212760144 | 2025-03-03  | 2025-03-04 | infinity   | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
-(2 rows)
+ unit_type  | tax_ident  | valid_after | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
+------------+------------+-------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
+ legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+(1 row)
 
 ROLLBACK TO before_loading_units;
 SELECT
@@ -209,7 +207,7 @@ CALL worker.process_tasks();
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
     queue    |   state   | count 
 -------------+-----------+-------
- analytics   | completed |     6
+ analytics   | completed |    10
  maintenance | pending   |     1
 (2 rows)
 
@@ -237,13 +235,50 @@ SELECT unit_type
      , invalid_codes
 FROM public.timeline_legal_unit
 ORDER BY unit_type, unit_id, valid_after, valid_to;
- unit_type  | tax_ident  | valid_after | valid_from |  valid_to  |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
-------------+------------+-------------+------------+------------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
- legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | 2025-03-02 | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
- legal_unit | 3212760144 | 2025-03-02  | 2025-03-03 | infinity   | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
-(2 rows)
+ unit_type  | tax_ident  | valid_after | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
+------------+------------+-------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
+ legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+(1 row)
 
 \echo "User uploads the legal units over time"
 "User uploads the legal units over time"
 \copy public.import_legal_unit_era(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/43_legal-units-day-4.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-ERROR:  column "execute" does not exist
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                1 |                1
+(1 row)
+
+\echo "Checking timeline_legal_unit data"
+"Checking timeline_legal_unit data"
+SELECT unit_type
+     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
+     , valid_after
+     , valid_from
+     , valid_to
+     , name
+     , birth_date
+     , death_date
+     , search
+     , primary_activity_category_path
+     , activity_category_paths
+     , sector_path
+     , sector_code
+     , sector_name
+     , data_source_codes
+     , legal_form_code
+     , legal_form_name
+     , physical_region_path
+     , physical_country_iso_2
+     , invalid_codes
+FROM public.timeline_legal_unit
+ORDER BY unit_type, unit_id, valid_after, valid_to;
+ unit_type  | tax_ident  | valid_after | valid_from | valid_to |       name       | birth_date | death_date |            search            | primary_activity_category_path | activity_category_paths |   sector_path   | sector_code |    sector_name     | data_source_codes | legal_form_code |       legal_form_name       | physical_region_path | physical_country_iso_2 | invalid_codes 
+------------+------------+-------------+------------+----------+------------------+------------+------------+------------------------------+--------------------------------+-------------------------+-----------------+-------------+--------------------+-------------------+-----------------+-----------------------------+----------------------+------------------------+---------------
+ legal_unit | 3212760144 | 2025-02-28  | 2025-03-01 | infinity | NILE PEARL WATER | 2016-10-01 |            | 'nile':1 'pearl':2 'water':3 | G.47.5.2                       | {G.47.5.2}              | DOMESTIC.C.6100 | 6100        | Central government | {nlr}             | 1               | Public limited company (SA) | 2.256.13             | UG                     | 
+(1 row)
+
+ROLLBACK;
