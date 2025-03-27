@@ -16,7 +16,7 @@ DECLARE
     jsonb_build_array(
             'id'
         );
-  temporal_columns text[] := ARRAY['valid_after','valid_from', 'valid_to'];
+  temporal_columns text[] := ARRAY['valid_from', 'valid_to'];
   ephemeral_columns text[] := ARRAY['edit_comment','edit_by_user_id','edit_at']::text[];
 BEGIN
   SELECT admin.upsert_generic_valid_time_table
