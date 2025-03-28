@@ -15,17 +15,30 @@ CREATE DATABASE "template_statbus"
 
 ALTER DATABASE "template_statbus" SET datestyle TO 'ISO, DMY';
 \c "template_statbus"
--- Add extension for simple text search.
-CREATE EXTENSION "pg_trgm";
--- CREATE EXTENSION "btree_gist";
+
+-- Add extensions
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
+CREATE EXTENSION IF NOT EXISTS "pg_cron";
+CREATE EXTENSION IF NOT EXISTS "pgtap";
+CREATE EXTENSION IF NOT EXISTS "plpgsql_check";
+CREATE EXTENSION IF NOT EXISTS "pg_safeupdate";
+CREATE EXTENSION IF NOT EXISTS "wal2json";
+CREATE EXTENSION IF NOT EXISTS "pg_hashids";
+CREATE EXTENSION IF NOT EXISTS "http";
+CREATE EXTENSION IF NOT EXISTS "sql_saga";
+
 UPDATE pg_database SET datistemplate='true' WHERE datname='template_statbus';
 EOF
 
-sql_password=$(cat /run/secrets/db-admin-password)
+# Use environment variables if provided, otherwise use defaults
+DB_NAME=${POSTGRES_DB:-statbus_development}
+DB_USER=${POSTGRES_USER:-statbus_development}
+DB_PASSWORD="${POSTGRES_PASSWORD:-postgres}"
 
-psql -c "CREATE USER statbus_development WITH PASSWORD '$sql_password' CREATEDB;"
-psql -c "CREATE DATABASE statbus_development WITH template template_statbus OWNER statbus_development;"
+# Create main database user and database
+psql -c "CREATE USER \"$DB_USER\" WITH PASSWORD '$DB_PASSWORD' CREATEDB;"
+psql -c "CREATE DATABASE \"$DB_NAME\" WITH template template_statbus OWNER \"$DB_USER\";"
 
-psql -c "CREATE USER statbus_test WITH PASSWORD '$sql_password' CREATEDB;"
+# Always create test database for development purposes
+psql -c "CREATE USER statbus_test WITH PASSWORD '$DB_PASSWORD' CREATEDB;"
 psql -c "CREATE DATABASE statbus_test WITH template template_statbus OWNER statbus_test;"
-
