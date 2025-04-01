@@ -8,6 +8,9 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
 import TimeContextSelector from "@/components/time-context-selector";
+import { useAuth } from "@/hooks/useAuth";
+import { useBaseData } from "@/app/BaseDataClient";
+import { useEffect, useState } from "react";
 
 export function NavbarSkeleton() {
   return (
@@ -19,12 +22,19 @@ export function NavbarSkeleton() {
   );
 }
 
-import { useAuth } from "@/hooks/useAuth";
-import { useBaseData } from "@/app/BaseDataClient";
-
 export default function Navbar() {
   const { isAuthenticated } = useAuth();
   const { hasStatisticalUnits } = useBaseData();
+
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  if (!isClient) {
+    return <NavbarSkeleton />;
+  }
 
   return (
     <header className="bg-ssb-dark text-white">
