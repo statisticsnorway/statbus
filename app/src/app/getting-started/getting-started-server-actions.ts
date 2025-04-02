@@ -1,5 +1,4 @@
 "use server";
-import { redirect, RedirectType } from "next/navigation";
 import { createSupabaseSSRClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 
@@ -98,12 +97,8 @@ export async function setCategoryStandard(formData: FormData) {
     }
 
     revalidatePath("/getting-started");
+    return { error: null, success: true };
   } catch (error) {
     return { error: "Error setting category standard" };
   }
-
-  redirect(
-    "/getting-started/upload-custom-activity-standard-codes",
-    RedirectType.push
-  );
 }
