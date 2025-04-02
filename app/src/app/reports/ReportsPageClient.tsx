@@ -3,8 +3,6 @@
 import { useDrillDownData } from "@/app/reports/use-drill-down-data";
 import { useEffect, useMemo, useState } from "react";
 import * as highcharts from "highcharts";
-import HC_drilldown from "highcharts/modules/drilldown";
-import HC_a11y from "highcharts/modules/accessibility";
 import { BreadCrumb } from "@/app/reports/bread-crumb";
 import { DrillDownChart } from "@/app/reports/drill-down-chart";
 import { SearchLink } from "@/app/reports/search-link";
@@ -25,8 +23,8 @@ export default function ReportsPageClient({
   const { statDefinitions } = useBaseData();
 
   useEffect(() => {
-    HC_a11y(highcharts);
-    HC_drilldown(highcharts);
+    import("highcharts/modules/drilldown");
+    import("highcharts/modules/accessibility");
   }, []);
 
   const statisticalVariables = useMemo(() => {
