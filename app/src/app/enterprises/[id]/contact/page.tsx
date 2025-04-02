@@ -54,7 +54,7 @@ export default async function EnterpriseContactPage(
       subtitle="Contact information such as email, phone and postal address"
     >
       <div className="space-y-8">
-        <form className="space-y-4">
+        <form className="flex flex-col gap-4">
           <span className="font-medium">Communication</span>
           <div className="grid lg:grid-cols-2 gap-4">
             <FormField
@@ -101,7 +101,7 @@ export default async function EnterpriseContactPage(
             />
           </div>
         </form>
-        <form className="space-y-4">
+        <form className="flex flex-col gap-4">
           <span className="font-medium">Postal Location</span>
           <div className="grid grid-cols-2 gap-4">
             <FormField

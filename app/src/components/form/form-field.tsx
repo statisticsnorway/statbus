@@ -21,7 +21,7 @@ export function FormField({
       : null;
   return (
     <div>
-      <Label className="block space-y-2">
+      <Label className="flex flex-col space-y-2">
         <span className="text-xs uppercase text-gray-600">{label}</span>
         <Input
           type="text"
