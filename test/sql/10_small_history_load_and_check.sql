@@ -2,37 +2,6 @@ BEGIN;
 
 \i test/setup.sql
 
--- Create temporary function to execute queries as system user
-CREATE OR REPLACE FUNCTION test.sudo_exec(
-    sql text,
-    OUT results jsonb
-) RETURNS jsonb AS $sudo_exec$
-DECLARE
-    result_rows jsonb;
-BEGIN
-    -- Check if the SQL starts with common DDL keywords
-    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
-        -- For DDL statements, execute directly
-        EXECUTE sql;
-        results := '[]'::jsonb;
-    ELSE
-        -- For DML/queries, wrap in a SELECT to capture results
-        EXECUTE format('
-            SELECT COALESCE(
-                jsonb_agg(row_to_json(t)),
-                ''[]''::jsonb
-            )
-            FROM (%s) t',
-            sql
-        ) INTO result_rows;
-        results := result_rows;
-    END IF;
-END;
-$sudo_exec$ LANGUAGE plpgsql SECURITY DEFINER;
-
--- Grant execute to public since this is for testing
-GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
-
 CREATE TEMP TABLE prepared_small_history (
     valid_from DATE,
     valid_to DATE,
