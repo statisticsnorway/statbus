@@ -8,7 +8,7 @@ import { ClientBaseDataProvider } from "./BaseDataClient";
 export interface BaseData {
   statDefinitions: Tables<"stat_definition_active">[];
   externalIdentTypes: Tables<"external_ident_type_active">[];
-  statbusUsers: Tables<"statbus_user_with_email_and_role">[];
+  statbusUsers: Tables<"user_with_role">[];
   timeContexts: Tables<"time_context">[];
   defaultTimeContext: Tables<"time_context">;
   hasStatisticalUnits: boolean;
@@ -31,7 +31,7 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
     ] = await Promise.all([
       client.from("stat_definition_active").select(),
       client.from("external_ident_type_active").select(),
-      client.from("statbus_user_with_email_and_role").select(),
+      client.from("user_with_role").select(),
       client.from("time_context").select(),
       client.from("statistical_unit").select("*").limit(1),
     ]);

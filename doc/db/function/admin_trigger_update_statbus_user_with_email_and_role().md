@@ -1,5 +1,5 @@
 ```sql
-CREATE OR REPLACE FUNCTION admin.trigger_update_statbus_user_with_email_and_role()
+CREATE OR REPLACE FUNCTION admin.trigger_update_user_with_role()
  RETURNS trigger
  LANGUAGE plpgsql
 AS $function$

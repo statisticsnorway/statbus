@@ -59,7 +59,7 @@ CREATE TABLE public.import_definition(
     note text,
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
     time_context_ident TEXT, -- For lookup in public.time_context(ident) to get computed valid_from/valid_to
-    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL,
+    user_id integer REFERENCES auth.user(id) ON DELETE SET NULL,
     draft boolean NOT NULL DEFAULT true,
     valid boolean NOT NULL DEFAULT false,
     validation_error text,
@@ -346,7 +346,7 @@ CREATE TABLE public.import_job (
     error TEXT,
     review boolean NOT NULL DEFAULT false,
     definition_id integer NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
-    user_id integer REFERENCES public.statbus_user(id) ON DELETE SET NULL
+    user_id integer REFERENCES auth.user(id) ON DELETE SET NULL
 );
 CREATE INDEX ix_import_job_definition_id ON public.import_job USING btree (definition_id);
 CREATE INDEX ix_import_job_user_id ON public.import_job USING btree (user_id);
@@ -451,10 +451,8 @@ BEGIN
     END IF;
 
     -- Set the user_id from the current authenticated user
-    IF NEW.user_id IS NULL AND auth.uid() IS NOT NULL THEN
-        SELECT id INTO NEW.user_id
-        FROM public.statbus_user
-        WHERE uuid = auth.uid();
+    IF NEW.user_id IS NULL THEN
+        NEW.user_id := auth.uid();
     END IF;
 
     RETURN NEW;
@@ -758,6 +756,8 @@ CREATE VIEW public.import_information WITH (security_barrier = true) AS
            , itc.id ASC
 ;
 
+-- Grant SELECT on the view to authenticated
+GRANT SELECT ON public.import_information TO authenticated;
 
 /*
 Each import operates on it's on table.
@@ -1044,28 +1044,31 @@ $import_job_next_state$;
 CREATE FUNCTION admin.set_import_job_user_context(job_id integer)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $set_import_job_user_context$
 DECLARE
-    v_user_uuid uuid;
-    v_original_user_id text;
+    v_email text;
+    v_original_claims jsonb;
 BEGIN
     -- Save the current user context if any
-    v_original_user_id := current_setting('request.jwt.claim.sub', true);
+    v_original_claims := COALESCE(
+        nullif(current_setting('request.jwt.claims', true), '')::jsonb,
+        '{}'::jsonb
+    );
+    
+    -- Store the original claims for reset
+    PERFORM set_config('admin.original_claims', v_original_claims::text, true);
 
-    -- Get the user UUID from the job
-    SELECT su.uuid INTO v_user_uuid
+    -- Get the user email from the job
+    SELECT u.email INTO v_email
     FROM public.import_job ij
-    JOIN public.statbus_user su ON ij.user_id = su.id
+    JOIN auth.user u ON ij.user_id = u.id
     WHERE ij.id = job_id;
 
-    IF v_user_uuid IS NOT NULL THEN
+    IF v_email IS NOT NULL THEN
         -- Set the user context
-        PERFORM set_config('request.jwt.claim.sub', v_user_uuid::text, true);
-        RAISE DEBUG 'Set user context to % for import job %', v_user_uuid, job_id;
+        PERFORM auth.set_user_context_from_email(v_email);
+        RAISE DEBUG 'Set user context to % for import job %', v_email, job_id;
     ELSE
         RAISE DEBUG 'No user found for import job %, using current context', job_id;
     END IF;
-
-    -- Store the original user ID for reset
-    PERFORM set_config('admin.original_user_id', COALESCE(v_original_user_id, ''), true);
 END;
 $set_import_job_user_context$;
 
@@ -1073,19 +1076,22 @@ $set_import_job_user_context$;
 CREATE FUNCTION admin.reset_import_job_user_context()
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER AS $reset_import_job_user_context$
 DECLARE
-    v_original_user_id text;
+    v_original_claims jsonb;
 BEGIN
-    -- Get the original user context
-    v_original_user_id := current_setting('admin.original_user_id', true);
+    -- Get the original claims
+    v_original_claims := COALESCE(
+        nullif(current_setting('admin.original_claims', true), '')::jsonb,
+        '{}'::jsonb
+    );
 
-    IF v_original_user_id != '' THEN
-        -- Reset to the original user context
-        PERFORM set_config('request.jwt.claim.sub', v_original_user_id, true);
-        RAISE DEBUG 'Reset user context to original user %', v_original_user_id;
+    IF v_original_claims != '{}'::jsonb THEN
+        -- Reset to the original claims
+        PERFORM auth.use_jwt_claims_in_session(v_original_claims);
+        RAISE DEBUG 'Reset user context to original claims';
     ELSE
         -- Clear the user context
-        PERFORM set_config('request.jwt.claim.sub', '', true);
-        RAISE DEBUG 'Cleared user context (no original user)';
+        PERFORM auth.reset_session_context();
+        RAISE DEBUG 'Cleared user context (no original claims)';
     END IF;
 END;
 $reset_import_job_user_context$;

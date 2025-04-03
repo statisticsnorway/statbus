@@ -16,7 +16,7 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../../.. && pwd )"
 
 # Verify user exists in auth.users
-if ! $WORKSPACE/devops/manage-statbus.sh psql -t -c "select id from statbus_user_with_email_and_role where email = '${USER_EMAIL}'" | grep -q .; then
+if ! $WORKSPACE/devops/manage-statbus.sh psql -t -c "select id from user_with_role where email = '${USER_EMAIL}'" | grep -q .; then
   echo "Error: No user found with email ${USER_EMAIL}"
   exit 1
 fi
@@ -49,7 +49,7 @@ SELECT def.id,
        'infinity'::DATE,
        'Import Job for BRREG Hovedenhet ${YEAR} Selection',
        'This job handles the import of BRREG Hovedenhet selection data for ${YEAR}.',
-       (select id from statbus_user_with_email_and_role where email = '${USER_EMAIL}')
+       (select id from user_with_role where email = '${USER_EMAIL}')
 FROM def
 ON CONFLICT (slug) DO NOTHING;"
 
@@ -63,7 +63,7 @@ SELECT def.id,
        'infinity'::DATE,
        'Import Job for BRREG Underenhet ${YEAR} Selection',
        'This job handles the import of BRREG Underenhet selection data for ${YEAR}.',
-       (select id from statbus_user_with_email_and_role where email = '${USER_EMAIL}')
+       (select id from user_with_role where email = '${USER_EMAIL}')
 FROM def
 ON CONFLICT (slug) DO NOTHING;"
 

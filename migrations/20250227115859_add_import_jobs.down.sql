@@ -33,7 +33,7 @@ DELETE FROM worker.command_registry WHERE command = 'import_job_process';
 -- Drop queue registry entry
 DELETE FROM worker.queue_registry WHERE queue = 'import';
 
-DELETE FROM public.import_job;
+DELETE FROM public.import_job WHERE true;
 
 -- Drop functions
 DROP FUNCTION admin.check_import_job_state_for_insert();

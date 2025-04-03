@@ -10,39 +10,39 @@ SET client_min_messages TO NOTICE;
 \endif
 \echo Add users for testing purposes
 Add users for testing purposes
-SELECT * FROM public.statbus_user_create('test.super@statbus.org', 'super_user'::statbus_role_type, 'Super#123!');
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
          email          |  password  
 ------------------------+------------
- test.super@statbus.org | Super#123!
+ test.admin@statbus.org | Admin#123!
 (1 row)
 
-SELECT * FROM public.statbus_user_create('test.regular@statbus.org', 'regular_user'::statbus_role_type, 'Regular#123!');
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
           email           |   password   
 --------------------------+--------------
  test.regular@statbus.org | Regular#123!
 (1 row)
 
-SELECT * FROM public.statbus_user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role_type, 'Restricted#123!');
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
             email            |    password     
 -----------------------------+-----------------
  test.restricted@statbus.org | Restricted#123!
 (1 row)
 
 -- Create test users with different roles
-SELECT public.statbus_user_create('test.super@example.com', 'super_user'::statbus_role_type, 'SuperPass123!');
-          statbus_user_create           
+SELECT public.user_create('test.admin@example.com', 'admin_user'::statbus_role, 'AdminPass123!');
+              user_create               
 ----------------------------------------
- (test.super@example.com,SuperPass123!)
+ (test.admin@example.com,AdminPass123!)
 (1 row)
 
-SELECT public.statbus_user_create('test.regular@example.com', 'regular_user'::statbus_role_type, 'RegularPass123!');
-            statbus_user_create             
+SELECT public.user_create('test.regular@example.com', 'regular_user'::statbus_role, 'RegularPass123!');
+                user_create                 
 --------------------------------------------
  (test.regular@example.com,RegularPass123!)
 (1 row)
 
-SELECT public.statbus_user_create('test.restricted@example.com', 'restricted_user'::statbus_role_type, 'RestrictedPass123!');
-               statbus_user_create                
+SELECT public.user_create('test.restricted@example.com', 'restricted_user'::statbus_role, 'RestrictedPass123!');
+                   user_create                    
 --------------------------------------------------
  (test.restricted@example.com,RestrictedPass123!)
 (1 row)
@@ -53,7 +53,7 @@ DECLARE
     v_count integer;
 BEGIN
     SELECT COUNT(*) INTO v_count
-    FROM statbus_user_with_email_and_role
+    FROM user_with_role
     WHERE email LIKE '%@example.com';
 
     IF v_count = 3 THEN
@@ -65,43 +65,43 @@ END $$;
 NOTICE:  ✓ Three users created
 DO $$
 DECLARE
-    v_role_type statbus_role_type;
+    v_statbus_role statbus_role;
 BEGIN
-    SELECT role_type INTO v_role_type
-    FROM statbus_user_with_email_and_role
-    WHERE email = 'test.super@example.com';
+    SELECT statbus_role INTO v_statbus_role
+    FROM user_with_role
+    WHERE email = 'test.admin@example.com';
 
-    IF v_role_type = 'super_user' THEN
+    IF v_statbus_role = 'admin_user' THEN
         RAISE NOTICE '✓ Super user has correct role';
     ELSE
-        RAISE EXCEPTION 'Expected super_user role, but found %', v_role_type;
+        RAISE EXCEPTION 'Expected admin_user role, but found %', v_statbus_role;
     END IF;
 END $$;
 NOTICE:  ✓ Super user has correct role
 -- Test role update functionality with super user
-SAVEPOINT before_super_user_test;
-CALL test.set_user_from_email('test.super@example.com');
+SAVEPOINT before_admin_user_test;
+CALL test.set_user_from_email('test.admin@example.com');
 -- Should succeed: super user updating another user's role
-UPDATE statbus_user_with_email_and_role
-SET role_type = 'regular_user'
+UPDATE user_with_role
+SET statbus_role = 'regular_user'
 WHERE email = 'test.restricted@example.com';
 -- Verify the update worked
 DO $$
 DECLARE
-    v_role_type statbus_role_type;
+    v_statbus_role statbus_role;
 BEGIN
-    SELECT role_type INTO v_role_type
-    FROM statbus_user_with_email_and_role
+    SELECT statbus_role INTO v_statbus_role
+    FROM user_with_role
     WHERE email = 'test.restricted@example.com';
 
-    IF v_role_type = 'regular_user' THEN
+    IF v_statbus_role = 'regular_user' THEN
         RAISE NOTICE '✓ Role update succeeded';
     ELSE
-        RAISE EXCEPTION 'Expected regular_user role, but found %', v_role_type;
+        RAISE EXCEPTION 'Expected regular_user role, but found %', v_statbus_role;
     END IF;
 END $$;
 NOTICE:  ✓ Role update succeeded
-ROLLBACK TO SAVEPOINT before_super_user_test;
+ROLLBACK TO SAVEPOINT before_admin_user_test;
 -- Test permission checks with regular user
 SAVEPOINT before_regular_user_test;
 CALL test.set_user_from_email('test.regular@example.com');
@@ -109,18 +109,18 @@ CALL test.set_user_from_email('test.regular@example.com');
 DO $$
 BEGIN
     BEGIN
-        UPDATE statbus_user_with_email_and_role
-        SET role_type = 'restricted_user'
+        UPDATE user_with_role
+        SET statbus_role = 'restricted_user'
         WHERE email = 'test.regular@example.com';
         RAISE EXCEPTION 'Should not reach this point';
     EXCEPTION
         WHEN OTHERS THEN
-            IF SQLERRM LIKE '%Only super users or system accounts can perform this action%' THEN
+            IF SQLERRM LIKE '%Only admin users or system accounts can perform this action%' THEN
                 RAISE NOTICE '✓ Permission check working: %', SQLERRM;
             ELSE
                 RAISE EXCEPTION 'Unexpected error: %', SQLERRM;
             END IF;
     END;
 END $$;
-NOTICE:  ✓ Permission check working: Only super users or system accounts can perform this action
+NOTICE:  ✓ Permission check working: Only admin users or system accounts can perform this action
 ROLLBACK;

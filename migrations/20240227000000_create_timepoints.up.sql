@@ -11,7 +11,7 @@ BEGIN;
 --    - Timepoints from hierarchical relationships between units
 --
 -- 2. Temporal Integrity Approach:
---    - Uses the '&&' (overlaps) operator to find relationships with any temporal overlap
+--    - Uses the after_to_overlaps function to find relationships with any temporal overlap
 --    - Applies GREATEST/LEAST to trim dateranges to only the overlapping portions
 --    - This ensures we only include timepoints that are valid within the context of both entities
 --
@@ -63,8 +63,7 @@ es_activity AS (
     JOIN public.establishment AS es
        ON a.establishment_id = es.id
     WHERE a.establishment_id IS NOT NULL
-      AND daterange(a.valid_after, a.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
+      AND after_to_overlaps(a.valid_after, a.valid_to, es.valid_after, es.valid_to)
 ),
 es_location AS (
     SELECT 'establishment'::public.statistical_unit_type AS unit_type
@@ -75,8 +74,7 @@ es_location AS (
     JOIN public.establishment AS es
        ON l.establishment_id = es.id
     WHERE l.establishment_id IS NOT NULL
-      AND daterange(l.valid_after, l.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
+      AND after_to_overlaps(l.valid_after, l.valid_to, es.valid_after, es.valid_to)
 ),
 es_stat AS (
     SELECT 'establishment'::public.statistical_unit_type AS unit_type
@@ -87,8 +85,7 @@ es_stat AS (
     JOIN public.establishment AS es
        ON sfu.establishment_id = es.id
     WHERE sfu.establishment_id IS NOT NULL
-      AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
+      AND after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to)
 ),
 es_combined AS (
     SELECT * FROM es_base
@@ -115,8 +112,7 @@ lu_activity AS (
     JOIN public.legal_unit AS lu
        ON a.legal_unit_id = lu.id
     WHERE a.legal_unit_id IS NOT NULL
-      AND daterange(a.valid_after, a.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(a.valid_after, a.valid_to, lu.valid_after, lu.valid_to)
 ),
 lu_location AS (
     SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
@@ -127,8 +123,7 @@ lu_location AS (
     JOIN public.legal_unit AS lu
        ON l.legal_unit_id = lu.id
     WHERE l.legal_unit_id IS NOT NULL
-      AND daterange(l.valid_after, l.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(l.valid_after, l.valid_to, lu.valid_after, lu.valid_to)
 ),
 lu_stat AS (
     SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
@@ -139,8 +134,7 @@ lu_stat AS (
     JOIN public.legal_unit AS lu
        ON sfu.legal_unit_id = lu.id
     WHERE sfu.legal_unit_id IS NOT NULL
-      AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
 ),
 lu_establishment AS (
     SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
@@ -151,8 +145,7 @@ lu_establishment AS (
     JOIN public.legal_unit AS lu
        ON es.legal_unit_id = lu.id
     WHERE es.legal_unit_id IS NOT NULL
-      AND daterange(es.valid_after, es.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(es.valid_after, es.valid_to, lu.valid_after, lu.valid_to)
 ),
 lu_activity_establishment AS (
     SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
@@ -165,10 +158,8 @@ lu_activity_establishment AS (
     JOIN public.legal_unit AS lu
        ON es.legal_unit_id = lu.id
     WHERE es.legal_unit_id IS NOT NULL
-      AND daterange(a.valid_after, a.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
-      AND daterange(a.valid_after, a.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(a.valid_after, a.valid_to, es.valid_after, es.valid_to)
+      AND after_to_overlaps(a.valid_after, a.valid_to, lu.valid_after, lu.valid_to)
 ),
 lu_stat_establishment AS (
     SELECT 'legal_unit'::public.statistical_unit_type AS unit_type
@@ -181,10 +172,8 @@ lu_stat_establishment AS (
     JOIN public.legal_unit AS lu
        ON es.legal_unit_id = lu.id
     WHERE es.legal_unit_id IS NOT NULL
-      AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
-      AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to)
+      AND after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
 ),
 lu_combined AS (
     SELECT * FROM lu_base
@@ -226,8 +215,7 @@ en_establishment_legal_unit AS (
     JOIN public.legal_unit AS lu
        ON es.legal_unit_id = lu.id
     WHERE lu.enterprise_id IS NOT NULL
-      AND daterange(es.valid_after, es.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(es.valid_after, es.valid_to, lu.valid_after, lu.valid_to)
 ),
 en_activity_establishment AS (
     SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -238,8 +226,7 @@ en_activity_establishment AS (
     JOIN public.establishment AS es
        ON a.establishment_id = es.id
     WHERE es.enterprise_id IS NOT NULL
-      AND daterange(a.valid_after, a.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
+      AND after_to_overlaps(a.valid_after, a.valid_to, es.valid_after, es.valid_to)
 ),
 en_activity_legal_unit AS (
     SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -250,8 +237,7 @@ en_activity_legal_unit AS (
     JOIN public.legal_unit AS lu
        ON a.legal_unit_id = lu.id
     WHERE lu.enterprise_id IS NOT NULL
-      AND daterange(a.valid_after, a.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(a.valid_after, a.valid_to, lu.valid_after, lu.valid_to)
 ),
 en_activity_establishment_legal_unit AS (
     SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -264,10 +250,8 @@ en_activity_establishment_legal_unit AS (
     JOIN public.legal_unit AS lu
        ON es.legal_unit_id = lu.id
     WHERE lu.enterprise_id IS NOT NULL
-      AND daterange(a.valid_after, a.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
-      AND daterange(a.valid_after, a.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(a.valid_after, a.valid_to, es.valid_after, es.valid_to)
+      AND after_to_overlaps(a.valid_after, a.valid_to, lu.valid_after, lu.valid_to)
 ),
 en_location_establishment AS (
     SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -278,8 +262,7 @@ en_location_establishment AS (
     JOIN public.establishment AS es
        ON l.establishment_id = es.id
     WHERE es.enterprise_id IS NOT NULL
-      AND daterange(l.valid_after, l.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
+      AND after_to_overlaps(l.valid_after, l.valid_to, es.valid_after, es.valid_to)
 ),
 en_location_legal_unit AS (
     SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -291,8 +274,7 @@ en_location_legal_unit AS (
        ON l.legal_unit_id = lu.id
     WHERE lu.enterprise_id IS NOT NULL
       AND lu.primary_for_enterprise
-      AND daterange(l.valid_after, l.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(l.valid_after, l.valid_to, lu.valid_after, lu.valid_to)
 ),
 en_stat_establishment AS (
     SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -303,8 +285,7 @@ en_stat_establishment AS (
     JOIN public.establishment AS es
        ON sfu.establishment_id = es.id
     WHERE es.enterprise_id IS NOT NULL
-      AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
+      AND after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to)
 ),
 en_stat_legal_unit AS (
     SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -315,8 +296,7 @@ en_stat_legal_unit AS (
     JOIN public.legal_unit AS lu
        ON sfu.legal_unit_id = lu.id
     WHERE lu.enterprise_id IS NOT NULL
-      AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
 ),
 en_stat_establishment_legal_unit AS (
     SELECT 'enterprise'::public.statistical_unit_type AS unit_type
@@ -329,10 +309,8 @@ en_stat_establishment_legal_unit AS (
     JOIN public.legal_unit AS lu
        ON es.legal_unit_id = lu.id
     WHERE lu.enterprise_id IS NOT NULL
-      AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
-      AND daterange(sfu.valid_after, sfu.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+      AND after_to_overlaps(sfu.valid_after, sfu.valid_to, es.valid_after, es.valid_to)
+      AND after_to_overlaps(sfu.valid_after, sfu.valid_to, lu.valid_after, lu.valid_to)
 ),
 en_combined AS (
     SELECT * FROM en_legal_unit

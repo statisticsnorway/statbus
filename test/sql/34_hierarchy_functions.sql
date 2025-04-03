@@ -5,7 +5,7 @@ BEGIN;
 \echo "Setting up Statbus using the web provided examples"
 
 -- A Super User configures statbus.
-CALL test.set_user_from_email('test.super@statbus.org');
+CALL test.set_user_from_email('test.admin@statbus.org');
 
 \echo "User selected the Activity Category Standard"
 INSERT INTO settings(activity_category_standard_id,only_one_setting)

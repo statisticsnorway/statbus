@@ -14,25 +14,31 @@ BEGIN
     -- Enable RLS
     EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', schema_name_str, table_name_str);
 
+    -- Grant permissions to roles
+    -- SELECT for authenticated users
+    EXECUTE format('GRANT SELECT ON %I.%I TO authenticated', schema_name_str, table_name_str);
+    
+    -- ALL permissions for regular_user
+    EXECUTE format('GRANT ALL ON %I.%I TO regular_user', schema_name_str, table_name_str);
+    
+    -- ALL permissions for admin_user
+    EXECUTE format('GRANT ALL ON %I.%I TO admin_user', schema_name_str, table_name_str);
+
     -- Base authenticated read policy
     EXECUTE format(
         'CREATE POLICY %s_authenticated_read ON %I.%I FOR SELECT TO authenticated USING (true)',
         table_name_str, schema_name_str, table_name_str
     );
 
-    -- Regular user full access policy
+    -- Regular user full access policy - using native role system
     EXECUTE format(
-        'CREATE POLICY %s_regular_user_manage ON %I.%I FOR ALL TO authenticated
-         USING (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))
-         WITH CHECK (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))',
+        'CREATE POLICY %s_regular_user_manage ON %I.%I FOR ALL TO regular_user USING (true) WITH CHECK (true)',
         table_name_str, schema_name_str, table_name_str
     );
 
-    -- Super user full access policy
+    -- Admin user full access policy - using native role system
     EXECUTE format(
-        'CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated
-         USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))
-         WITH CHECK (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))',
+        'CREATE POLICY %s_admin_user_manage ON %I.%I FOR ALL TO admin_user USING (true) WITH CHECK (true)',
         table_name_str, schema_name_str, table_name_str
     );
 END;
@@ -52,24 +58,31 @@ BEGIN
     -- Enable RLS
     EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', schema_name_str, table_name_str);
 
+    -- Grant permissions to roles
+    -- SELECT for authenticated users
+    EXECUTE format('GRANT SELECT ON %I.%I TO authenticated', schema_name_str, table_name_str);
+    
+    -- SELECT for regular_user
+    EXECUTE format('GRANT SELECT ON %I.%I TO regular_user', schema_name_str, table_name_str);
+    
+    -- ALL permissions for admin_user
+    EXECUTE format('GRANT ALL ON %I.%I TO admin_user', schema_name_str, table_name_str);
+
     -- Base authenticated read policy
     EXECUTE format(
         'CREATE POLICY %s_authenticated_read ON %I.%I FOR SELECT TO authenticated USING (true)',
         table_name_str, schema_name_str, table_name_str
     );
 
-    -- Regular user read-only policy
+    -- Regular user read-only policy - using native role system
     EXECUTE format(
-        'CREATE POLICY %s_regular_user_read ON %I.%I FOR SELECT TO authenticated
-         USING (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))',
+        'CREATE POLICY %s_regular_user_read ON %I.%I FOR SELECT TO regular_user USING (true)',
         table_name_str, schema_name_str, table_name_str
     );
 
-    -- Super user full access policy
+    -- Admin user full access policy - using native role system
     EXECUTE format(
-        'CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated
-         USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))
-         WITH CHECK (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))',
+        'CREATE POLICY %s_admin_user_manage ON %I.%I FOR ALL TO admin_user USING (true) WITH CHECK (true)',
         table_name_str, schema_name_str, table_name_str
     );
 END;
@@ -87,11 +100,11 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.region'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.sector'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.legal_form'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.statbus_user'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.statbus_role'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.activity_category_standard'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.settings'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.activity_category_role'::regclass);
+    -- We don't need to apply the standard RLS function to activity_category_access
+    -- as it has custom policies that only allow admin_user to modify it
+    -- PERFORM admin.add_rls_regular_user_can_read('public.activity_category_access'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.country'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.data_source'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.tag'::regclass);
@@ -104,7 +117,9 @@ BEGIN
     PERFORM admin.add_rls_regular_user_can_read('public.status'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.external_ident_type'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.person_role'::regclass);
-    PERFORM admin.add_rls_regular_user_can_read('public.region_role'::regclass);
+    -- We don't need to apply the standard RLS function to region_access
+    -- as it has custom policies that only allow admin_user to modify it
+    -- PERFORM admin.add_rls_regular_user_can_read('public.region_access'::regclass);
     PERFORM admin.add_rls_regular_user_can_read('public.stat_definition'::regclass);
     -- Is updated by the statbus worker, using authorized functions.
     PERFORM admin.add_rls_regular_user_can_read('public.timesegments'::regclass);
@@ -159,9 +174,119 @@ BEGIN
 END;
 $verify_all_tables_have_rls$ LANGUAGE plpgsql;
 
+-- Create a function to grant permissions on views
+CREATE OR REPLACE FUNCTION admin.grant_permissions_on_views()
+RETURNS void AS $grant_permissions_on_views$
+DECLARE
+    view_record record;
+BEGIN
+    -- Loop through all views in the public schema and grant permissions
+    FOR view_record IN 
+        SELECT c.relname AS view_name
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public' 
+        AND c.relkind = 'v'
+    LOOP
+        -- Grant SELECT to authenticated, regular_user, and admin_user
+        EXECUTE format('GRANT SELECT ON public.%I TO authenticated, regular_user, admin_user', view_record.view_name);
+        
+        -- Grant INSERT to authenticated, regular_user, and admin_user
+        EXECUTE format('GRANT INSERT ON public.%I TO authenticated, regular_user, admin_user', view_record.view_name);
+    END LOOP;
+    
+    RAISE NOTICE 'Granted permissions on all public views to appropriate roles';
+END;
+$grant_permissions_on_views$ LANGUAGE plpgsql;
+
+-- Create a function to grant permissions on all views in all schemas
+CREATE OR REPLACE FUNCTION admin.grant_select_on_all_views()
+RETURNS void AS $grant_select_on_all_views$
+DECLARE
+    view_record record;
+BEGIN
+    -- Loop through all views in all schemas (except system schemas)
+    FOR view_record IN 
+        SELECT n.nspname AS schema_name, c.relname AS view_name
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+        WHERE c.relkind = 'v'
+        AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+    LOOP
+        -- Grant SELECT to authenticated
+        EXECUTE format('GRANT SELECT ON %I.%I TO authenticated', 
+                      view_record.schema_name, view_record.view_name);
+        
+        RAISE NOTICE 'Granted SELECT on view %.% to authenticated', 
+                    view_record.schema_name, view_record.view_name;
+    END LOOP;
+    
+    RAISE NOTICE 'Granted SELECT permissions on all views to authenticated role';
+END;
+$grant_select_on_all_views$ LANGUAGE plpgsql;
+
+-- Function to verify that relevant views have the necessary grants
+CREATE OR REPLACE FUNCTION admin.verify_relevant_views_have_grant()
+RETURNS void AS $verify_relevant_views_have_grant$
+DECLARE
+    views_without_grants text[];
+    view_record record;
+    role_name text;
+    privilege_name text;
+    required_roles text[] := ARRAY['authenticated', 'regular_user', 'admin_user'];
+    required_privileges text[] := ARRAY['SELECT', 'INSERT'];
+BEGIN
+    -- Initialize array to collect views without proper grants
+    views_without_grants := ARRAY[]::text[];
+    
+    -- Get all views in the public schema
+    FOR view_record IN 
+        SELECT c.relname AS view_name
+        FROM pg_catalog.pg_class c
+        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+        WHERE n.nspname = 'public' 
+        AND c.relkind = 'v'
+    LOOP
+        -- For each view, check privileges for each required role
+        FOREACH role_name IN ARRAY required_roles
+        LOOP
+            -- For each required privilege
+            FOREACH privilege_name IN ARRAY required_privileges
+            LOOP
+                -- Check if the role has the privilege on the view
+                IF NOT EXISTS (
+                    SELECT 1 
+                    FROM pg_catalog.pg_class c
+                    JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
+                    JOIN pg_catalog.pg_roles r ON r.rolname = role_name
+                    WHERE n.nspname = 'public' 
+                    AND c.relname = view_record.view_name
+                    AND has_table_privilege(r.oid, c.oid, privilege_name)
+                ) THEN
+                    views_without_grants := array_append(
+                        views_without_grants, 
+                        format('%s (%s for %s)', view_record.view_name, privilege_name, role_name)
+                    );
+                END IF;
+            END LOOP;
+        END LOOP;
+    END LOOP;
+    
+    -- If any views are missing grants, raise an exception
+    IF array_length(views_without_grants, 1) > 0 THEN
+        RAISE EXCEPTION 'The following views do not have proper grants: %', array_to_string(views_without_grants, ', ');
+    END IF;
+    
+    RAISE NOTICE 'All views in public schema have proper grants for required roles';
+END;
+$verify_relevant_views_have_grant$ LANGUAGE plpgsql;
+
 SET LOCAL client_min_messages TO NOTICE;
 SELECT admin.apply_rls_to_all_tables();
 SELECT admin.verify_all_tables_have_rls();
+SELECT admin.grant_permissions_on_views();
+SELECT admin.grant_select_on_all_views();
+SELECT admin.verify_relevant_views_have_grant();
 SET LOCAL client_min_messages TO INFO;
 
 END;

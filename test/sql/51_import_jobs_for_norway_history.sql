@@ -34,7 +34,7 @@ LEFT JOIN public.import_source_column isc ON im.source_column_id = isc.id
 LEFT JOIN public.import_target_column itc ON im.target_column_id = itc.id
 ORDER BY id.slug, isc.priority NULLS LAST;
 
-CALL test.set_user_from_email('test.super@statbus.org');
+CALL test.set_user_from_email('test.admin@statbus.org');
 
 \i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 \i samples/norway/brreg/create-import-definition-underenhet-2024.sql
@@ -157,7 +157,7 @@ CALL public.disable_rls_on_table('public','import_es_2018_h_upload');
 -- Verify user context is set correctly for import jobs
 \echo "Verifying user context for import jobs"
 SELECT slug,
-       (SELECT email FROM public.statbus_user_with_email_and_role WHERE id = user_id) AS user_email
+       (SELECT email FROM public.user_with_role WHERE id = user_id) AS user_email
 FROM public.import_job
 WHERE slug = 'import_lu_2015_h';
 

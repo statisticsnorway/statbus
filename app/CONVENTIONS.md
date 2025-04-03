@@ -1,4 +1,4 @@
-This is a Supabase + Next.js project using modern PostgreSQL (16+).
+This is a PostgreSQL(17+) + PostgREST(12+) + Next.js project.
 Next.js files are in the app/ directory with TypeScript.
 Legacy code is in legacy/ for reference only.
 The app runs server-side and client-side with SSR, using Next.js 14 in app/src/{app,api,...} directories.
@@ -43,6 +43,8 @@ BEGIN
   ...
 END;
 $$;
+
+When calling functions with multiple arguments (3+), use named arguments for clarity, arg1 => val1, arg2 => val2, etc.
 
 ### SQL Testing
 Is done with pg_regress with test/ as base.

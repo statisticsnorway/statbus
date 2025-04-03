@@ -10,19 +10,19 @@ SET client_min_messages TO NOTICE;
 \endif
 \echo Add users for testing purposes
 Add users for testing purposes
-SELECT * FROM public.statbus_user_create('test.super@statbus.org', 'super_user'::statbus_role_type, 'Super#123!');
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
          email          |  password  
 ------------------------+------------
- test.super@statbus.org | Super#123!
+ test.admin@statbus.org | Admin#123!
 (1 row)
 
-SELECT * FROM public.statbus_user_create('test.regular@statbus.org', 'regular_user'::statbus_role_type, 'Regular#123!');
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
           email           |   password   
 --------------------------+--------------
  test.regular@statbus.org | Regular#123!
 (1 row)
 
-SELECT * FROM public.statbus_user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role_type, 'Restricted#123!');
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
             email            |    password     
 -----------------------------+-----------------
  test.restricted@statbus.org | Restricted#123!
@@ -31,7 +31,7 @@ SELECT * FROM public.statbus_user_create('test.restricted@statbus.org', 'restric
 \echo "Setting up Statbus to load legal_unit without establishment with statistics"
 "Setting up Statbus to load legal_unit without establishment with statistics"
 -- A Super User configures statbus.
-CALL test.set_user_from_email('test.super@statbus.org');
+CALL test.set_user_from_email('test.admin@statbus.org');
 \echo "User selected the Activity Category Standard"
 "User selected the Activity Category Standard"
 INSERT INTO settings(activity_category_standard_id, only_one_setting)

@@ -53,19 +53,21 @@ CREATE OR REPLACE FUNCTION public.timesegments_refresh(
     p_valid_to date DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $timesegments_refresh$
 DECLARE
-    date_range daterange;
+    v_valid_after date;
+    v_valid_to date;
 BEGIN
-    -- Create the date range for filtering
-    date_range := daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
+    -- Set the date range variables for filtering
+    v_valid_after := COALESCE(p_valid_after, '-infinity'::date);
+    v_valid_to := COALESCE(p_valid_to, 'infinity'::date);
     
     -- Create a temporary table with the new data
     CREATE TEMPORARY TABLE temp_timesegments ON COMMIT DROP AS
     SELECT * FROM public.timesegments_def
-    WHERE daterange(valid_after, valid_to, '(]') && date_range;
+    WHERE after_to_overlaps(valid_after, valid_to, v_valid_after, v_valid_to);
     
     -- Delete records that exist in the main table but not in the temp table
     DELETE FROM public.timesegments ts
-    WHERE daterange(ts.valid_after, ts.valid_to, '(]') && date_range
+    WHERE after_to_overlaps(ts.valid_after, ts.valid_to, v_valid_after, v_valid_to)
     AND NOT EXISTS (
         SELECT 1 FROM temp_timesegments tts
         WHERE tts.unit_type = ts.unit_type

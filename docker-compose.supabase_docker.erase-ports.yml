@@ -1,7 +1,0 @@
-services:
-  kong:
-    ports: !reset []
-  analytics:
-    ports: !reset []
-  supavisor:
-    ports: !reset []

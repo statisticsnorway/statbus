@@ -180,22 +180,19 @@ CREATE VIEW public.timeline_establishment_def
       FROM public.timesegments AS t
       INNER JOIN public.establishment AS es
           ON t.unit_type = 'establishment' AND t.unit_id = es.id
-         AND daterange(t.valid_after, t.valid_to, '(]')
-          && daterange(es.valid_after, es.valid_to, '(]')
+         AND after_to_overlaps(t.valid_after, t.valid_to, es.valid_after, es.valid_to)
       --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.establishment_id = es.id
              AND pa.type = 'primary'
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(pa.valid_after, pa.valid_to, '(]')
+             AND after_to_overlaps(t.valid_after, t.valid_to, pa.valid_after, pa.valid_to)
       LEFT JOIN public.activity_category AS pac
               ON pa.category_id = pac.id
       --
       LEFT OUTER JOIN public.activity AS sa
               ON sa.establishment_id = es.id
              AND sa.type = 'secondary'
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sa.valid_after, sa.valid_to, '(]')
+             AND after_to_overlaps(t.valid_after, t.valid_to, sa.valid_after, sa.valid_to)
       LEFT JOIN public.activity_category AS sac
               ON sa.category_id = sac.id
       --
@@ -205,8 +202,7 @@ CREATE VIEW public.timeline_establishment_def
       LEFT OUTER JOIN public.location AS phl
               ON phl.establishment_id = es.id
              AND phl.type = 'physical'
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(phl.valid_after, phl.valid_to, '(]')
+             AND after_to_overlaps(t.valid_after, t.valid_to, phl.valid_after, phl.valid_to)
       LEFT JOIN public.region AS phr
               ON phl.region_id = phr.id
       LEFT JOIN public.country AS phc
@@ -215,16 +211,14 @@ CREATE VIEW public.timeline_establishment_def
       LEFT OUTER JOIN public.location AS pol
               ON pol.establishment_id = es.id
              AND pol.type = 'postal'
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(pol.valid_after, pol.valid_to, '(]')
+             AND after_to_overlaps(t.valid_after, t.valid_to, pol.valid_after, pol.valid_to)
       LEFT JOIN public.region AS por
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
       LEFT OUTER JOIN public.contact AS c
               ON c.establishment_id = es.id
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(c.valid_after, c.valid_to, '(]')
+             AND after_to_overlaps(t.valid_after, t.valid_to, c.valid_after, c.valid_to)
       LEFT JOIN public.unit_size AS us
               ON es.unit_size_id = us.id
       LEFT JOIN public.status AS st
@@ -233,8 +227,7 @@ CREATE VIEW public.timeline_establishment_def
             SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
             FROM public.stat_for_unit AS sfu
             WHERE sfu.establishment_id = es.id
-              AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sfu.valid_after, sfu.valid_to, '(]')
+              AND after_to_overlaps(t.valid_after, t.valid_to, sfu.valid_after, sfu.valid_to)
         ) AS sfu ON TRUE
       LEFT JOIN LATERAL (
         SELECT array_agg(ds.id) AS ids
@@ -304,19 +297,21 @@ CREATE OR REPLACE FUNCTION public.timeline_establishment_refresh(
     p_valid_to date DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $timeline_establishment_refresh$
 DECLARE
-    date_range daterange;
+    v_valid_after date;
+    v_valid_to date;
 BEGIN
-    -- Create the date range for filtering
-    date_range := daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
+    -- Set the time range for filtering
+    v_valid_after := COALESCE(p_valid_after, '-infinity'::date);
+    v_valid_to := COALESCE(p_valid_to, 'infinity'::date);
 
     -- Create a temporary table with the new data
     CREATE TEMPORARY TABLE temp_timeline_establishment ON COMMIT DROP AS
     SELECT * FROM public.timeline_establishment_def
-    WHERE daterange(valid_after, valid_to, '(]') && date_range;
+    WHERE after_to_overlaps(valid_after, valid_to, v_valid_after, v_valid_to);
 
     -- Delete records that exist in the main table but not in the temp table
     DELETE FROM public.timeline_establishment te
-    WHERE daterange(te.valid_after, te.valid_to, '(]') && date_range
+    WHERE after_to_overlaps(te.valid_after, te.valid_to, v_valid_after, v_valid_to)
     AND NOT EXISTS (
         SELECT 1 FROM temp_timeline_establishment tte
         WHERE tte.unit_type = te.unit_type

@@ -11,27 +11,17 @@ DROP FUNCTION IF EXISTS worker.notify_worker_queue_change() CASCADE;
 -- Drop task enqueue functions
 DROP FUNCTION IF EXISTS worker.enqueue_check_table(TEXT, BIGINT);
 DROP FUNCTION IF EXISTS worker.enqueue_deleted_row(TEXT, INT, INT, INT, DATE, DATE);
-DROP FUNCTION IF EXISTS worker.enqueue_timesegments_refresh(INT[], INT[], INT[], DATE, DATE);
-DROP FUNCTION IF EXISTS worker.enqueue_timeline_establishment_refresh(INT[], INT[], INT[], DATE, DATE);
-DROP FUNCTION IF EXISTS worker.enqueue_timeline_legal_unit_refresh(INT[], INT[], INT[], DATE, DATE);
-DROP FUNCTION IF EXISTS worker.enqueue_timeline_enterprise_refresh(INT[], INT[], INT[], DATE, DATE);
-DROP FUNCTION IF EXISTS worker.enqueue_statistical_unit_refresh(INT[], INT[], INT[], DATE, DATE);
-DROP FUNCTION IF EXISTS worker.enqueue_refresh_derived_data(DATE, DATE);
+DROP FUNCTION IF EXISTS worker.enqueue_derive_data(INT[], INT[], INT[], DATE, DATE);
 DROP FUNCTION IF EXISTS worker.enqueue_task_cleanup(INT, INT);
 
 -- Drop command procedures
-DROP PROCEDURE IF EXISTS worker.command_refresh_derived_data(JSONB);
+DROP PROCEDURE IF EXISTS worker.derive_data(JSONB);
 DROP PROCEDURE IF EXISTS worker.command_check_table(JSONB);
 DROP PROCEDURE IF EXISTS worker.command_deleted_row(JSONB);
-DROP PROCEDURE IF EXISTS worker.command_timesegments_refresh(JSONB);
-DROP PROCEDURE IF EXISTS worker.command_timeline_establishment_refresh(JSONB);
-DROP PROCEDURE IF EXISTS worker.command_timeline_legal_unit_refresh(JSONB);
-DROP PROCEDURE IF EXISTS worker.command_timeline_enterprise_refresh(JSONB);
-DROP PROCEDURE IF EXISTS worker.command_statistical_unit_refresh(JSONB);
 DROP PROCEDURE IF EXISTS worker.command_task_cleanup(JSONB);
 
 -- Drop utility functions
-DROP FUNCTION IF EXISTS worker.statistical_unit_refresh(INT[], INT[], INT[], DATE, DATE);
+DROP FUNCTION IF EXISTS worker.derive_data(INT[], INT[], INT[], DATE, DATE);
 DROP FUNCTION IF EXISTS worker.reset_abandoned_processing_tasks();
 DROP PROCEDURE IF EXISTS worker.process_tasks(INT, INT, TEXT);
 

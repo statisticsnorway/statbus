@@ -60,8 +60,7 @@ BEGIN
                       WHERE enterprise_id = $1
                       AND primary_for_enterprise
                       AND id <> $2
-                      AND daterange(valid_from, valid_to, '[]')
-                      && daterange($3, $4, '[]')
+                      AND from_to_overlaps(valid_from, valid_to, $3, $4)
                   )
               $$
               INTO is_primary_for_enterprise
@@ -86,8 +85,7 @@ BEGIN
                     WHERE enterprise_id = $1
                     AND primary_for_enterprise
                     AND id <> $2
-                    AND daterange(valid_from, valid_to, '[]')
-                    && daterange($3, $4, '[]')
+                    AND from_to_overlaps(valid_from, valid_to, $3, $4)
                 )
             $$
             INTO is_primary_for_enterprise

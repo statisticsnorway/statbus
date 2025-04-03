@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP TABLE public.region_role;
+DROP TABLE public.region_access;
 
 END;

@@ -72,8 +72,8 @@ BEGIN
 
 
     SELECT * INTO edit_by_user
-    FROM public.statbus_user
-    WHERE uuid = auth.uid()
+    FROM auth.user
+    WHERE id = auth.uid()
     LIMIT 1;
 
     SELECT tag_id INTO tag.id FROM admin.import_lookup_tag(new_jsonb);

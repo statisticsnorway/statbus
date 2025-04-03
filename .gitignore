@@ -484,6 +484,10 @@ key-*.xml
 # Ignore deployment configuration for Caddy
 deployment.caddyfile
 
+#
+/docker-postgres/volumes/db/data
+
+
 # Ignore aider AI tool files, except those useful.
 .aider*
 !.aider.conf.yml

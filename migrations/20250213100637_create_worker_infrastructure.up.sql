@@ -46,6 +46,7 @@ CREATE TYPE worker.task_state AS ENUM (
 );
 
 CREATE SEQUENCE IF NOT EXISTS public.worker_task_priority_seq AS BIGINT;
+GRANT USAGE ON SEQUENCE public.worker_task_priority_seq TO authenticated;
 
 -- Create tasks table for batch processing
 CREATE TABLE worker.tasks (

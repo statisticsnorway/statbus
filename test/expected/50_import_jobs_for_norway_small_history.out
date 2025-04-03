@@ -20,19 +20,19 @@ SET client_min_messages TO NOTICE;
 \endif
 \echo Add users for testing purposes
 Add users for testing purposes
-SELECT * FROM public.statbus_user_create('test.super@statbus.org', 'super_user'::statbus_role_type, 'Super#123!');
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
          email          |  password  
 ------------------------+------------
- test.super@statbus.org | Super#123!
+ test.admin@statbus.org | Admin#123!
 (1 row)
 
-SELECT * FROM public.statbus_user_create('test.regular@statbus.org', 'regular_user'::statbus_role_type, 'Regular#123!');
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
           email           |   password   
 --------------------------+--------------
  test.regular@statbus.org | Regular#123!
 (1 row)
 
-SELECT * FROM public.statbus_user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role_type, 'Restricted#123!');
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
             email            |    password     
 -----------------------------+-----------------
  test.restricted@statbus.org | Restricted#123!
@@ -328,7 +328,7 @@ ORDER BY id.slug, isc.priority NULLS LAST;
  legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | public             | import_legal_unit_era                       | Import legal units with explicit valid_from and valid_to columns                          | tag_path                         | tag_path                         |                   |              |                     45
 (268 rows)
 
-CALL test.set_user_from_email('test.super@statbus.org');
+CALL test.set_user_from_email('test.admin@statbus.org');
 \i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 -- Pretend the user has clicked and created import definition for BRREG Hovedenhet (legal_unit)
 WITH it AS (
@@ -914,17 +914,17 @@ Verify the concrete tables of one import job
  vedtektsfestetFormaal                     | text |           |          | 
  aktivitet                                 | text |           |          | 
 Policies:
+    POLICY "import_lu_2015_sht_upload_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "import_lu_2015_sht_upload_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "import_lu_2015_sht_upload_regular_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_lu_2015_sht_upload_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
 Triggers:
     import_lu_2015_sht_upload_check_state_before_insert BEFORE INSERT ON import_lu_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.check_import_job_state_for_insert('import_lu_2015_sht')
     import_lu_2015_sht_upload_update_state_after_insert AFTER INSERT ON import_lu_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_lu_2015_sht')
@@ -957,17 +957,17 @@ Indexes:
     "import_lu_2015_sht_data_state_idx" btree (state)
     "import_lu_2015_sht_data_unique_key" UNIQUE CONSTRAINT, btree (tax_ident)
 Policies:
+    POLICY "import_lu_2015_sht_data_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "import_lu_2015_sht_data_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "import_lu_2015_sht_data_regular_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_lu_2015_sht_data_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
 
 \d public.import_lu_2015_sht_import_information
                 Table "public.import_lu_2015_sht_import_information"
@@ -992,16 +992,16 @@ Policies:
 Indexes:
     "import_lu_2015_sht_import_informatio_source_column_priority_idx" btree (source_column_priority)
 Policies:
+    POLICY "import_lu_2015_sht_import_information_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "import_lu_2015_sht_import_information_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "import_lu_2015_sht_import_information_regular_user_read" FOR SELECT
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_lu_2015_sht_import_information_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
 
 \d public.import_es_2015_sht_upload
                   Table "public.import_es_2015_sht_upload"
@@ -1044,17 +1044,17 @@ Policies:
  overordnetEnhet                    | text |           |          | 
  nedleggelsesdato                   | text |           |          | 
 Policies:
+    POLICY "import_es_2015_sht_upload_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "import_es_2015_sht_upload_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "import_es_2015_sht_upload_regular_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_es_2015_sht_upload_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
 Triggers:
     import_es_2015_sht_upload_check_state_before_insert BEFORE INSERT ON import_es_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.check_import_job_state_for_insert('import_es_2015_sht')
     import_es_2015_sht_upload_update_state_after_insert AFTER INSERT ON import_es_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_es_2015_sht')
@@ -1087,17 +1087,17 @@ Indexes:
     "import_es_2015_sht_data_state_idx" btree (state)
     "import_es_2015_sht_data_unique_key" UNIQUE CONSTRAINT, btree (tax_ident)
 Policies:
+    POLICY "import_es_2015_sht_data_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "import_es_2015_sht_data_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "import_es_2015_sht_data_regular_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_es_2015_sht_data_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
 
 \d public.import_es_2015_sht_import_information
                 Table "public.import_es_2015_sht_import_information"
@@ -1122,16 +1122,16 @@ Policies:
 Indexes:
     "import_es_2015_sht_import_informatio_source_column_priority_idx" btree (source_column_priority)
 Policies:
+    POLICY "import_es_2015_sht_import_information_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "import_es_2015_sht_import_information_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "import_es_2015_sht_import_information_regular_user_read" FOR SELECT
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "import_es_2015_sht_import_information_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
 
 SELECT import_job_slug, import_definition_slug, import_name, import_note, target_schema_name, upload_table_name, data_table_name, source_column, source_value, source_expression, target_column, target_type, uniquely_identifying, source_column_priority
 FROM public.import_lu_2015_sht_import_information;
@@ -1292,12 +1292,12 @@ DO UPDATE SET
 \echo "Verifying user context for import jobs"
 "Verifying user context for import jobs"
 SELECT slug,
-       (SELECT email FROM public.statbus_user_with_email_and_role WHERE id = user_id) AS user_email
+       (SELECT email FROM public.user_with_role WHERE id = user_id) AS user_email
 FROM public.import_job
 WHERE slug = 'import_lu_2015_sht';
         slug        |       user_email       
 --------------------+------------------------
- import_lu_2015_sht | test.super@statbus.org
+ import_lu_2015_sht | test.admin@statbus.org
 (1 row)
 
 \echo "Loading historical units"

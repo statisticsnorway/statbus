@@ -50,7 +50,7 @@ case "$action" in
         # since docker compose does not use the --profile to determine
         # if a build is required.
         build_arg=""
-        if [ "$profile" = "all" ] || [ "$profile" = "required" ]; then
+        if [ "$profile" = "all" ] || [ "$profile" = "required" ] || [ "$profile" = "required_not_app" ]; then
             build_arg="--build"
         fi
 
@@ -120,7 +120,7 @@ case "$action" in
         ./devops/manage-statbus.sh test all > "$TEST_OUTPUT" 2>&1 || true
 
         # Check if the test output indicates failure
-        if grep -q "FAILED" "$TEST_OUTPUT"; then
+        if grep -q "not ok" "$TEST_OUTPUT" || grep -q "of .* tests failed" "$TEST_OUTPUT"; then
             echo "One or more tests failed."
             echo "Test summary:"
             grep -A 20 "======================" "$TEST_OUTPUT"
@@ -145,9 +145,16 @@ case "$action" in
       ;;
     'test' )
         eval $(./devops/manage-statbus.sh postgres-variables)
+        
+        # Extract PostgreSQL major version from Dockerfile
+        POSTGRESQL_MAJOR=$(grep -E "^ARG postgresql_major=" "$WORKSPACE/docker-postgres/Dockerfile" | cut -d= -f2)
+        if [ -z "$POSTGRESQL_MAJOR" ]; then
+            echo "Error: Could not extract PostgreSQL major version from Dockerfile"
+            exit 1
+        fi
 
         PG_REGRESS_DIR="$WORKSPACE/test"
-        PG_REGRESS="/usr/lib/postgresql/15/lib/pgxs/src/test/regress/pg_regress"
+        PG_REGRESS="/usr/lib/postgresql/$POSTGRESQL_MAJOR/lib/pgxs/src/test/regress/pg_regress"
         CONTAINER_REGRESS_DIR="/statbus/test"
 
         for suffix in "sql" "expected" "results"; do
@@ -190,7 +197,7 @@ case "$action" in
             done
         elif [ "${ORIGINAL_ARGS[0]}" = "failed" ]; then
             # Get failed tests
-            FAILED_TESTS=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}')
+            FAILED_TESTS=$(grep -E '^not ok' $WORKSPACE/test/regression.out | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
             
             # Process exclusions
             TEST_BASENAMES=""
@@ -232,7 +239,7 @@ case "$action" in
         docker compose exec --workdir "/statbus" db \
             $PG_REGRESS $debug_arg \
             --use-existing \
-            --bindir='/usr/lib/postgresql/15/bin' \
+            --bindir="/usr/lib/postgresql/$POSTGRESQL_MAJOR/bin" \
             --inputdir=$CONTAINER_REGRESS_DIR \
             --outputdir=$CONTAINER_REGRESS_DIR \
             --dbname=$PGDATABASE \
@@ -245,8 +252,12 @@ case "$action" in
           exit 1
       fi
 
-      test=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
-      if [ -n "$test" ]; then
+      # Extract the full test name from the regression output
+      test_line=$(grep -E '^not ok' "$WORKSPACE/test/regression.out" | head -n 1)
+      if [ -n "$test_line" ]; then
+          # Extract the full test name (e.g., "01_load_web_examples")
+          test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
+          
           ui=${1:-tui}
           shift || true
           case $ui in
@@ -273,7 +284,9 @@ case "$action" in
           exit 1
       fi
 
-      grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | while read test; do
+      grep -E '^not ok' "$WORKSPACE/test/regression.out" | while read test_line; do
+          # Extract the full test name (e.g., "01_load_web_examples")
+          test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
           echo "Next test: $test"
           echo "Press C to continue, s to skip, or b to break (default: C)"
           read -n 1 -s input < /dev/tty
@@ -300,7 +313,9 @@ case "$action" in
             exit 1
         fi
 
-        grep 'FAILED' "$WORKSPACE/test/regression.out" | awk '{print $2}' | while read -r test; do
+        grep -E '^not ok' "$WORKSPACE/test/regression.out" | while read -r test_line; do
+            # Extract the full test name (e.g., "01_load_web_examples")
+            test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
             if [ -f "$WORKSPACE/test/results/$test.out" ]; then
                 echo "Copying results to expected for test: $test"
                 cp -f "$WORKSPACE/test/results/$test.out" "$WORKSPACE/test/expected/$test.out"
@@ -337,7 +352,12 @@ case "$action" in
       ;;
     'create-db' )
         ./devops/manage-statbus.sh start required_not_app
-        ./devops/manage-statbus.sh activate_sql_saga
+        JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
+        DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
+        PGDATABASE=statbus_${DEPLOYMENT_SLOT_CODE:-dev}
+        ./devops/manage-statbus.sh psql -c "ALTER DATABASE $PGDATABASE SET app.settings.jwt_secret TO '$JWT_SECRET';"
+        ./devops/manage-statbus.sh psql -c "ALTER DATABASE $PGDATABASE SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
+        ./devops/manage-statbus.sh psql -c "SELECT pg_reload_conf();"
         ./devops/manage-statbus.sh create-db-structure
         ./devops/manage-statbus.sh create-users
       ;;
@@ -348,36 +368,22 @@ case "$action" in
       ;;
     'delete-db' )
         ./devops/manage-statbus.sh stop all
-        # Define the directory path
-        DIRECTORY="$WORKSPACE/supabase_docker/volumes/db/data"
+        # Define the directory path for PostgreSQL volume
+        POSTGRES_DIRECTORY="$WORKSPACE/docker-postgres/volumes/db/data"
 
-        # Check if the directory is accessible
-        if ! test -r "$DIRECTORY" || ! test -w "$DIRECTORY" || ! test -x "$DIRECTORY"; then
-          echo "Removing '$DIRECTORY' with sudo"
-          sudo rm -rf "$DIRECTORY"
-        else
-          echo "Removing '$DIRECTORY'"
-          rm -rf "$DIRECTORY"
+        # Check and remove PostgreSQL directory if it exists
+        if [ -d "$POSTGRES_DIRECTORY" ]; then
+          if ! test -r "$POSTGRES_DIRECTORY" || ! test -w "$POSTGRES_DIRECTORY" || ! test -x "$POSTGRES_DIRECTORY"; then
+            echo "Removing '$POSTGRES_DIRECTORY' with sudo"
+            sudo rm -rf "$POSTGRES_DIRECTORY"
+          else
+            echo "Removing '$POSTGRES_DIRECTORY'"
+            rm -rf "$POSTGRES_DIRECTORY"
+          fi
         fi
       ;;
     'create-users' )
         ./cli/bin/statbus manage create-users -v
-      ;;
-     'upgrade_supabase' )
-        git reset supabase_docker
-        if test ! -d ../supabase; then
-            pushd ..
-            git clone https://github.com/supabase/supabase
-            popd
-        fi
-        pushd ../supabase
-        git pull
-        rsync -av docker/ ../statbus/supabase_docker
-        popd
-        git add supabase_docker
-        ./devops/manage-statbus.sh generate-docker-compose-adjustments
-        git add docker-compose.supabase_docker.*
-        git commit -m 'Upgraded Supabase Docker'
       ;;
      'generate-config' )
         ./cli/bin/statbus manage generate-config
@@ -385,10 +391,10 @@ case "$action" in
      'postgres-variables' )
         PGHOST=127.0.0.1
         PGPORT=$(./devops/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
-        PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_DB)
+        PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_APP_DB)
         # Preserve the USER if already setup, to allow overrides.
-        PGUSER=${PGUSER:-postgres}
-        PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_PASSWORD)
+        PGUSER=${PGUSER:-$(./devops/dotenv --file .env get POSTGRES_ADMIN_USER)}
+        PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_ADMIN_PASSWORD)
         cat <<EOS
 export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD
 EOS
@@ -547,48 +553,6 @@ EOS
         ~/.nvm/nvm-exec npx supabase@beta gen types typescript --db-url "$db_url"
         # Update the types from the database.
         ~/.nvm/nvm-exec npx supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
-      ;;
-     'generate-docker-compose-adjustments' )
-        echo Generating docker-compose.supabase_docker.erase-ports.yml
-        yq '(
-          .. | # recurse through all the nodes
-          select(has("ports")) | # match parents that have volume
-          (.ports) | # select those children
-          select(.) # filter out nulls
-          | . |= "!reset []"
-        ) as $i ireduce({};  # using that set of nodes, create a new result map
-          setpath($i | path; $i) # and put in each node, using its original path
-        ) ' supabase_docker/docker-compose.yml | tr -d "'" > docker-compose.supabase_docker.erase-ports.yml
-
-        echo Generating docker-compose.supabase_docker.erase-depends_on.yml
-        yq '(
-          .. | # recurse through all the nodes
-          select(has("depends_on")) | # match parents that have volume
-          (.depends_on) | # select those children
-          select(.) # filter out nulls
-          | . |= "!reset []"
-        ) as $i ireduce({};  # using that set of nodes, create a new result map
-          setpath($i | path; $i) # and put in each node, using its original path
-        ) ' supabase_docker/docker-compose.yml | tr -d "'" > docker-compose.supabase_docker.erase-depends_on.yml
-
-        echo Generating docker-compose.supabase_docker.customize-container_name.yml
-        yq '(
-          .. | # recurse through all the nodes
-          select(has("container_name")) |
-          .container_name = "${COMPOSE_INSTANCE_NAME:-statbus}-" + key |
-          (.container_name)
-        ) as $i ireduce({};  # using that set of nodes, create a new result map
-          setpath($i | path; $i) # and put in each node, using its original path
-        ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.customize-container_name.yml
-
-        echo Generating docker-compose.supabase_docker.add-all-profile.yml
-        yq '(
-          .services[] | # recurse through all service definitions
-          .profiles = ["all", "all_not_app"] | # set profiles
-          (.profiles) # Only retain profiles
-        ) as $i ireduce({};  # using that set of nodes, create a new result map
-          setpath($i | path; $i) # and put in each node, using its original path
-        ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.add-all-profile.yml
       ;;
      * )
       echo "Unknown action '$action', select one of"

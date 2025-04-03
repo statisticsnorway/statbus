@@ -9,7 +9,7 @@ CREATE TABLE public.tag_for_unit (
     enterprise_group_id integer CHECK (admin.enterprise_group_id_exists(enterprise_group_id)),
     created_at timestamp with time zone DEFAULT statement_timestamp() NOT NULL,
     edit_comment character varying(512),
-    edit_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
+    edit_by_user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE RESTRICT,
     edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     UNIQUE (tag_id, establishment_id),
     UNIQUE (tag_id, legal_unit_id),

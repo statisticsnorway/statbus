@@ -31,32 +31,10 @@ class Config
       puts "  DEBUG=#{ENV["DEBUG"]?}" if ENV["DEBUG"]?
     end
     @project_directory = initialize_project_directory
-
+    
     # Detect if running in Docker using environment variable
     running_in_docker = ENV["RUNNING_IN_DOCKER"]? == "true"
-
-    # Configure database connection based on environment
-    if running_in_docker
-      # In Docker, use the container names and internal Docker network port
-      @postgres_host = ENV["POSTGRES_HOST"]? || @postgres_host
-      @postgres_port = ENV["POSTGRES_PORT"]? || "5432" # Default PostgreSQL port inside Docker network
-    else
-      # In development (local), use localhost
-      @postgres_host = "127.0.0.1"
-      # Port will be set from .env file below if available
-    end
-
-    # Common settings for all environments
-    @postgres_user = ENV["POSTGRES_USER"]? || @postgres_user
-
-    if db = ENV["POSTGRES_DB"]?
-      @postgres_db = db
-    end
-
-    if password = ENV["POSTGRES_PASSWORD"]?
-      @postgres_password = password
-    end
-
+    
     # Try to read from .env file for additional configuration
     env_path = project_directory.join(".env")
     if @verbose
@@ -68,24 +46,28 @@ class Config
 
     if File.exists?(env_path)
       puts "Found .env file" if @verbose
-      env_config = Poncho.from_file(env_path.to_s)
-
-      # Use values from .env if they exist and weren't set from environment variables
-      if !running_in_docker
-        # In local development, use the public localhost port from .env
-        if env_port = env_config["DB_PUBLIC_LOCALHOST_PORT"]?
-          @postgres_port = env_port
-        end
-      end
-
-      if env_db = env_config["POSTGRES_DB"]?
-        @postgres_db = env_db
-      end
-
-      if env_password = env_config["POSTGRES_PASSWORD"]?
-        @postgres_password = env_password
-      end
+      dotenv = Dotenv.from_file(env_path, verbose: @verbose)
+      dotenv.export
     end
+
+    # Configure database connection based on environment
+    if running_in_docker
+      # In Docker, use the container names and internal Docker network port
+      @postgres_host = ENV["POSTGRES_HOST"]? || @postgres_host
+      @postgres_port = ENV["POSTGRES_PORT"]? || @postgres_port
+    else
+      # In development (local), use localhost
+      @postgres_host = "127.0.0.1"
+      # Port will be set from .env file below if available
+      @postgres_port = ENV["DB_PUBLIC_LOCALHOST_PORT"]
+    end
+
+    # Common settings for all environments
+    # Notice that the app database is used for all the data, but migrations run at the admin user,
+    # that does not need RLS rights.
+    @postgres_db = ENV["POSTGRES_APP_DB"]? || @postgres_db
+    @postgres_user = ENV["POSTGRES_ADMIN_USER"]? || @postgres_user
+    @postgres_password = ENV["POSTGRES_ADMIN_PASSWORD"]? || @postgres_password
 
     if @verbose
       puts "Final configuration:"

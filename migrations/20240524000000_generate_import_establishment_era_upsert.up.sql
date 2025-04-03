@@ -80,8 +80,8 @@ BEGIN
     SELECT NULL::int AS id INTO inserted_stat_for_unit;
 
     SELECT * INTO edit_by_user
-    FROM public.statbus_user
-    WHERE uuid = auth.uid()
+    FROM auth.user
+    WHERE id = auth.uid()
     LIMIT 1;
 
     SELECT tag_id INTO tag.id FROM admin.import_lookup_tag(new_jsonb);
@@ -188,8 +188,7 @@ BEGIN
                   WHERE legal_unit_id = %L
                   AND primary_for_legal_unit
                   AND COALESCE(id <> %L,true)
-                  AND daterange(valid_from, valid_to, ''[]'')
-                  && daterange(%L, %L, ''[]'')
+                  AND from_to_overlaps(valid_from, valid_to, %L, %L)
               )',
               legal_unit.id, prior_establishment_id, new_typed.valid_from, new_typed.valid_to
           );

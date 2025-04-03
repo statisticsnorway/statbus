@@ -6,12 +6,12 @@ CREATE TYPE admin.existing_upsert_case AS ENUM
     -- e is existing
     -- e_t is new tail to existing
     -- Used to merge to avoid multiple rows
-    ( 'existing_adjacent_valid_from'
+    ( 'existing_adjacent_before'
     -- [--e--]
     --        [--n--]
     -- IF equivalent THEN delete(e) AND n.valid_from = e.valid.from
     -- [---------n--]
-    , 'existing_adjacent_valid_to'
+    , 'existing_adjacent_after'
     --        [--e--]
     -- [--n--]
     -- IFF equivalent THEN delete(e) AND n.valid_to = e.valid_to

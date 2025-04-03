@@ -8,178 +8,29 @@ SELECT '########################################';
 ########################################
 erDiagram
 	%% Entities (derived from tables)
-	auth_audit_log_entries["auth.audit_log_entries"] {
-		"uuid" instance_id
-		"uuid" id
-		"json" payload
+	auth_refresh_session["auth.refresh_session"] {
+		"integer" id
+		"uuid" jti
+		"integer" user_id
+		"integer" refresh_version
 		"timestamp with time zone" created_at
-		"character varying(64)" ip_address
-	}
-	auth_flow_state["auth.flow_state"] {
-		"uuid" id
-		"uuid" user_id
-		"text" auth_code
-		"auth.code_challenge_method" code_challenge_method
-		"text" code_challenge
-		"text" provider_type
-		"text" provider_access_token
-		"text" provider_refresh_token
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"text" authentication_method
-		"timestamp with time zone" auth_code_issued_at
-	}
-	auth_identities["auth.identities"] {
-		"text" provider_id
-		"uuid" user_id
-		"jsonb" identity_data
-		"text" provider
-		"timestamp with time zone" last_sign_in_at
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"text" email
-		"uuid" id
-	}
-	auth_instances["auth.instances"] {
-		"uuid" id
-		"uuid" uuid
-		"text" raw_base_config
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-	}
-	auth_mfa_amr_claims["auth.mfa_amr_claims"] {
-		"uuid" session_id
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"text" authentication_method
-		"uuid" id
-	}
-	auth_mfa_challenges["auth.mfa_challenges"] {
-		"uuid" id
-		"uuid" factor_id
-		"timestamp with time zone" created_at
-		"timestamp with time zone" verified_at
-		"inet" ip_address
-		"text" otp_code
-	}
-	auth_mfa_factors["auth.mfa_factors"] {
-		"uuid" id
-		"uuid" user_id
-		"text" friendly_name
-		"auth.factor_type" factor_type
-		"auth.factor_status" status
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"text" secret
-		"text" phone
-		"timestamp with time zone" last_challenged_at
-	}
-	auth_one_time_tokens["auth.one_time_tokens"] {
-		"uuid" id
-		"uuid" user_id
-		"auth.one_time_token_type" token_type
-		"text" token_hash
-		"text" relates_to
-		"timestamp without time zone" created_at
-		"timestamp without time zone" updated_at
-	}
-	auth_refresh_tokens["auth.refresh_tokens"] {
-		"uuid" instance_id
-		"bigint" id
-		"character varying(255)" token
-		"character varying(255)" user_id
-		"boolean" revoked
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"character varying(255)" parent
-		"uuid" session_id
-	}
-	auth_saml_providers["auth.saml_providers"] {
-		"uuid" id
-		"uuid" sso_provider_id
-		"text" entity_id
-		"text" metadata_xml
-		"text" metadata_url
-		"jsonb" attribute_mapping
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"text" name_id_format
-	}
-	auth_saml_relay_states["auth.saml_relay_states"] {
-		"uuid" id
-		"uuid" sso_provider_id
-		"text" request_id
-		"text" for_email
-		"text" redirect_to
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"uuid" flow_state_id
-	}
-	auth_schema_migrations["auth.schema_migrations"] {
-		"character varying(255)" version
-	}
-	auth_sessions["auth.sessions"] {
-		"uuid" id
-		"uuid" user_id
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"uuid" factor_id
-		"auth.aal_level" aal
-		"timestamp with time zone" not_after
-		"timestamp without time zone" refreshed_at
+		"timestamp with time zone" last_used_at
+		"timestamp with time zone" expires_at
 		"text" user_agent
-		"inet" ip
-		"text" tag
+		"inet" ip_address
 	}
-	auth_sso_domains["auth.sso_domains"] {
-		"uuid" id
-		"uuid" sso_provider_id
-		"text" domain
+	auth_user["auth.user"] {
+		"integer" id
+		"uuid" sub
+		"text" email
+		"text" password
+		"text" encrypted_password
+		"statbus_role" statbus_role
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
-	}
-	auth_sso_providers["auth.sso_providers"] {
-		"uuid" id
-		"text" resource_id
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-	}
-	auth_users["auth.users"] {
-		"uuid" instance_id
-		"uuid" id
-		"character varying(255)" aud
-		"character varying(255)" role
-		"character varying(255)" email
-		"character varying(255)" encrypted_password
-		"timestamp with time zone" email_confirmed_at
-		"timestamp with time zone" invited_at
-		"character varying(255)" confirmation_token
-		"timestamp with time zone" confirmation_sent_at
-		"character varying(255)" recovery_token
-		"timestamp with time zone" recovery_sent_at
-		"character varying(255)" email_change_token_new
-		"character varying(255)" email_change
-		"timestamp with time zone" email_change_sent_at
 		"timestamp with time zone" last_sign_in_at
-		"jsonb" raw_app_meta_data
-		"jsonb" raw_user_meta_data
-		"boolean" is_super_admin
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"text" phone
-		"timestamp with time zone" phone_confirmed_at
-		"text" phone_change
-		"character varying(255)" phone_change_token
-		"timestamp with time zone" phone_change_sent_at
-		"timestamp with time zone" confirmed_at
-		"character varying(255)" email_change_token_current
-		"smallint" email_change_confirm_status
-		"timestamp with time zone" banned_until
-		"character varying(255)" reauthentication_token
-		"timestamp with time zone" reauthentication_sent_at
-		"boolean" is_sso_user
+		"timestamp with time zone" email_confirmed_at
 		"timestamp with time zone" deleted_at
-		"boolean" is_anonymous
 	}
 	db_migration["db.migration"] {
 		"integer" id
@@ -201,40 +52,6 @@ erDiagram
 		"text" after_insert_trigger_name
 		"text" after_update_trigger_name
 		"text" after_delete_trigger_name
-	}
-	net__http_response["net._http_response"] {
-		"bigint" id
-		"integer" status_code
-		"text" content_type
-		"jsonb" headers
-		"text" content
-		"boolean" timed_out
-		"text" error_msg
-		"timestamp with time zone" created
-	}
-	net_http_request_queue["net.http_request_queue"] {
-		"bigint" id
-		"net.http_method" method
-		"text" url
-		"jsonb" headers
-		"bytea" body
-		"integer" timeout_milliseconds
-	}
-	pgsodium_key["pgsodium.key"] {
-		"uuid" id
-		"pgsodium.key_status" status
-		"timestamp with time zone" created
-		"timestamp with time zone" expires
-		"pgsodium.key_type" key_type
-		"bigint" key_id
-		"bytea" key_context
-		"text" name
-		"text" associated_data
-		"bytea" raw_key
-		"bytea" raw_key_nonce
-		"uuid" parent_key
-		"text" comment
-		"text" user_data
 	}
 	activity["activity"] {
 		"integer" id
@@ -265,9 +82,9 @@ erDiagram
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
-	activity_category_role["activity_category_role"] {
+	activity_category_access["activity_category_access"] {
 		"integer" id
-		"integer" role_id
+		"integer" user_id
 		"integer" activity_category_id
 	}
 	activity_category_standard["activity_category_standard"] {
@@ -626,9 +443,9 @@ erDiagram
 		"numeric(9,6)" center_longitude
 		"numeric(6,1)" center_altitude
 	}
-	region_role["region_role"] {
+	region_access["region_access"] {
 		"integer" id
-		"integer" role_id
+		"integer" user_id
 		"integer" region_id
 	}
 	region_used["region_used"] {
@@ -705,17 +522,6 @@ erDiagram
 		"double precision" value_float
 		"character varying" value_string
 		"boolean" value_bool
-	}
-	statbus_role["statbus_role"] {
-		"integer" id
-		"statbus_role_type" type
-		"character varying(256)" name
-		"text" description
-	}
-	statbus_user["statbus_user"] {
-		"integer" id
-		"uuid" uuid
-		"integer" role_id
 	}
 	statistical_history["statistical_history"] {
 		"history_resolution" resolution
@@ -1171,8 +977,8 @@ erDiagram
 	sql_saga_era["sql_saga.era"] {
 		"regclass" table_name
 		"name" era_name
-		"name" start_column_name
-		"name" end_column_name
+		"name" start_after_column_name
+		"name" stop_on_column_name
 		"regtype" range_type
 		"name" bounds_check_constraint
 		"regclass" audit_table_name
@@ -1198,50 +1004,6 @@ erDiagram
 		"name" era_name
 		"name" unique_constraint
 		"name" exclude_constraint
-	}
-	storage_buckets["storage.buckets"] {
-		"text" id
-		"text" name
-		"uuid" owner
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-	}
-	storage_migrations["storage.migrations"] {
-		"integer" id
-		"character varying(100)" name
-		"character varying(40)" hash
-		"timestamp without time zone" executed_at
-	}
-	storage_objects["storage.objects"] {
-		"uuid" id
-		"text" bucket_id
-		"text" name
-		"uuid" owner
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"timestamp with time zone" last_accessed_at
-		"jsonb" metadata
-	}
-	supabase_functions_hooks["supabase_functions.hooks"] {
-		"bigint" id
-		"integer" hook_table_id
-		"text" hook_name
-		"timestamp with time zone" created_at
-		"bigint" request_id
-	}
-	supabase_functions_migrations["supabase_functions.migrations"] {
-		"text" version
-		"timestamp with time zone" inserted_at
-	}
-	vault_secrets["vault.secrets"] {
-		"uuid" id
-		"text" name
-		"text" description
-		"text" secret
-		"uuid" key_id
-		"bytea" nonce
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
 	}
 	worker_command_registry["worker.command_registry"] {
 		"text" command
@@ -1272,84 +1034,71 @@ erDiagram
 		"jsonb" payload
 	}
 	%% Relationships (derived from foreign keys)
-	auth_identities }|--|| auth.users : identities_user_id_fkey
-	auth_mfa_amr_claims }|--|| auth.sessions : mfa_amr_claims_session_id_fkey
-	auth_mfa_challenges }o--|| auth.mfa_factors : mfa_challenges_auth_factor_id_fkey
-	auth_mfa_factors }|--|| auth.users : mfa_factors_user_id_fkey
-	auth_one_time_tokens }|--|| auth.users : one_time_tokens_user_id_fkey
-	auth_refresh_tokens }o--o| auth.sessions : refresh_tokens_session_id_fkey
-	auth_saml_providers }o--|| auth.sso_providers : saml_providers_sso_provider_id_fkey
-	auth_saml_relay_states }o--o| auth.flow_state : saml_relay_states_flow_state_id_fkey
-	auth_saml_relay_states }o--|| auth.sso_providers : saml_relay_states_sso_provider_id_fkey
-	auth_sessions }|--|| auth.users : sessions_user_id_fkey
-	auth_sso_domains }o--|| auth.sso_providers : sso_domains_sso_provider_id_fkey
-	pgsodium_key }o--o| pgsodium.key : key_parent_key_fkey
+	auth_refresh_session }|--|| auth.user : refresh_session_user_id_fkey
+	activity }o--|| auth.user : activity_edit_by_user_id_fkey
 	activity }o--|| activity_category : activity_category_id_fkey
 	activity }o--o| data_source : activity_data_source_id_fkey
-	activity }o--|| statbus_user : activity_edit_by_user_id_fkey
 	activity_category }o--o| activity_category : activity_category_parent_id_fkey
 	activity_category }|--|| activity_category_standard : activity_category_standard_id_fkey
-	activity_category_role }o--|| activity_category : activity_category_role_activity_category_id_fkey
-	activity_category_role }o--|| statbus_role : activity_category_role_role_id_fkey
+	activity_category_access }|--|| auth.user : activity_category_access_user_id_fkey
+	activity_category_access }o--|| activity_category : activity_category_access_activity_category_id_fkey
+	contact }o--|| auth.user : contact_edit_by_user_id_fkey
 	contact }o--o| data_source : contact_data_source_id_fkey
-	contact }o--|| statbus_user : contact_edit_by_user_id_fkey
-	enterprise }o--|| statbus_user : enterprise_edit_by_user_id_fkey
+	enterprise }o--|| auth.user : enterprise_edit_by_user_id_fkey
+	enterprise_group }o--|| auth.user : enterprise_group_edit_by_user_id_fkey
 	enterprise_group }o--o| data_source : enterprise_group_data_source_id_fkey
 	enterprise_group }o--o| enterprise_group_type : enterprise_group_enterprise_group_type_id_fkey
 	enterprise_group }o--o| foreign_participation : enterprise_group_foreign_participation_id_fkey
 	enterprise_group }o--o| reorg_type : enterprise_group_reorg_type_id_fkey
-	enterprise_group }o--|| statbus_user : enterprise_group_edit_by_user_id_fkey
 	enterprise_group }o--o| unit_size : enterprise_group_unit_size_id_fkey
+	establishment }o--|| auth.user : establishment_edit_by_user_id_fkey
 	establishment }o--o| data_source : establishment_data_source_id_fkey
 	establishment }o--o| enterprise : establishment_enterprise_id_fkey
 	establishment }o--o| sector : establishment_sector_id_fkey
-	establishment }o--|| statbus_user : establishment_edit_by_user_id_fkey
 	establishment }o--o| status : establishment_status_id_fkey
 	establishment }o--o| unit_size : establishment_unit_size_id_fkey
+	external_ident }o--|| auth.user : external_ident_edit_by_user_id_fkey
 	external_ident }o--o| enterprise : external_ident_enterprise_id_fkey
 	external_ident }o--|| external_ident_type : external_ident_type_id_fkey
-	external_ident }o--|| statbus_user : external_ident_edit_by_user_id_fkey
 	external_ident_type }o--o| tag : external_ident_type_by_tag_id_fkey
+	import_definition }o--o| auth.user : import_definition_user_id_fkey
 	import_definition }o--o| data_source : import_definition_data_source_id_fkey
 	import_definition }|--o| import_target : import_definition_target_id_fkey
-	import_definition }o--o| statbus_user : import_definition_user_id_fkey
+	import_job }o--o| auth.user : import_job_user_id_fkey
 	import_job }o--|| import_definition : import_job_definition_id_fkey
-	import_job }o--o| statbus_user : import_job_user_id_fkey
 	import_mapping }|--|| import_definition : import_mapping_definition_id_fkey
 	import_mapping }o--o| import_source_column : import_mapping_source_column_id_fkey
 	import_mapping }o--o| import_target_column : import_mapping_target_column_id_fkey
 	import_source_column }|--o| import_definition : import_source_column_definition_id_fkey
 	import_target_column }o--o| import_target : import_target_column_target_id_fkey
+	legal_unit }o--|| auth.user : legal_unit_edit_by_user_id_fkey
 	legal_unit }o--o| data_source : legal_unit_data_source_id_fkey
 	legal_unit }o--|| enterprise : legal_unit_enterprise_id_fkey
 	legal_unit }o--o| foreign_participation : legal_unit_foreign_participation_id_fkey
 	legal_unit }o--o| legal_form : legal_unit_legal_form_id_fkey
 	legal_unit }o--o| sector : legal_unit_sector_id_fkey
-	legal_unit }o--|| statbus_user : legal_unit_edit_by_user_id_fkey
 	legal_unit }o--o| status : legal_unit_status_id_fkey
 	legal_unit }o--o| unit_size : legal_unit_unit_size_id_fkey
+	location }o--|| auth.user : location_edit_by_user_id_fkey
 	location }o--|| country : location_country_id_fkey
 	location }o--o| data_source : location_data_source_id_fkey
 	location }o--o| region : location_region_id_fkey
-	location }o--|| statbus_user : location_edit_by_user_id_fkey
 	person }|--o| country : person_country_id_fkey
 	person_for_unit }o--o| data_source : person_for_unit_data_source_id_fkey
 	person_for_unit }o--|| person : person_for_unit_person_id_fkey
 	person_for_unit }o--o| person_role : person_for_unit_person_role_id_fkey
 	region }o--o| region : region_parent_id_fkey
-	region_role }o--|| region : region_role_region_id_fkey
-	region_role }o--|| statbus_role : region_role_role_id_fkey
+	region_access }|--|| auth.user : region_access_user_id_fkey
+	region_access }o--|| region : region_access_region_id_fkey
 	settings }|--|| activity_category_standard : settings_activity_category_standard_id_fkey
 	stat_for_unit }o--o| data_source : stat_for_unit_data_source_id_fkey
 	stat_for_unit }|--|| stat_definition : stat_for_unit_stat_definition_id_fkey
-	statbus_user }|--|| auth.users : statbus_user_uuid_fkey
-	statbus_user }|--|| statbus_role : statbus_user_role_id_fkey
 	tag }o--o| tag : tag_parent_id_fkey
+	tag_for_unit }o--|| auth.user : tag_for_unit_edit_by_user_id_fkey
 	tag_for_unit }o--o| enterprise : tag_for_unit_enterprise_id_fkey
-	tag_for_unit }o--|| statbus_user : tag_for_unit_edit_by_user_id_fkey
 	tag_for_unit }|--|| tag : tag_for_unit_tag_id_fkey
+	unit_notes }o--|| auth.user : unit_notes_edit_by_user_id_fkey
 	unit_notes }o--o| enterprise : unit_notes_enterprise_id_fkey
-	unit_notes }o--|| statbus_user : unit_notes_edit_by_user_id_fkey
 	sql_saga_api_view }|--|| sql_saga.era : api_view_table_name_era_name_fkey
 	sql_saga_api_view }|--|| sql_saga.era : api_view_table_name_era_name_fkey
 	sql_saga_foreign_keys }o--|| sql_saga.era : foreign_keys_table_name_era_name_fkey
@@ -1357,10 +1106,6 @@ erDiagram
 	sql_saga_foreign_keys }o--|| sql_saga.unique_keys : foreign_keys_unique_key_fkey
 	sql_saga_unique_keys }o--|| sql_saga.era : unique_keys_table_name_era_name_fkey
 	sql_saga_unique_keys }o--|| sql_saga.era : unique_keys_table_name_era_name_fkey
-	storage_buckets }o--o| auth.users : buckets_owner_fkey
-	storage_objects }o--o| auth.users : objects_owner_fkey
-	storage_objects }o--o| storage.buckets : objects_bucketId_fkey
-	vault_secrets }o--o| pgsodium.key : secrets_key_id_fkey
 	worker_command_registry }o--|| worker.queue_registry : command_registry_queue_fkey
 	worker_tasks }o--|| worker.command_registry : fk_tasks_command
 	worker_tasks }o--|| worker.command_registry : tasks_command_fkey

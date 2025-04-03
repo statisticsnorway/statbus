@@ -185,22 +185,19 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
       FROM public.timesegments AS t
       INNER JOIN public.legal_unit AS lu
           ON t.unit_type = 'legal_unit' AND t.unit_id = lu.id
-         AND daterange(t.valid_after, t.valid_to, '(]')
-          && daterange(lu.valid_after, lu.valid_to, '(]')
+         AND after_to_overlaps(t.valid_after, t.valid_to, lu.valid_after, lu.valid_to)
       --
       LEFT OUTER JOIN public.activity AS pa
               ON pa.legal_unit_id = lu.id
              AND pa.type = 'primary'
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(pa.valid_after, pa.valid_to, '(]')
+             AND after_to_overlaps(t.valid_after, t.valid_to, pa.valid_after, pa.valid_to)
       LEFT JOIN public.activity_category AS pac
               ON pa.category_id = pac.id
       --
       LEFT OUTER JOIN public.activity AS sa
               ON sa.legal_unit_id = lu.id
              AND sa.type = 'secondary'
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(sa.valid_after, sa.valid_to, '(]')
+             AND after_to_overlaps(t.valid_after, t.valid_to, sa.valid_after, sa.valid_to)
       LEFT JOIN public.activity_category AS sac
               ON sa.category_id = sac.id
       --
@@ -213,8 +210,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
       LEFT OUTER JOIN public.location AS phl
               ON phl.legal_unit_id = lu.id
              AND phl.type = 'physical'
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(phl.valid_after, phl.valid_to, '(]')
+             AND after_to_overlaps(t.valid_after, t.valid_to, phl.valid_after, phl.valid_to)
       LEFT JOIN public.region AS phr
               ON phl.region_id = phr.id
       LEFT JOIN public.country AS phc
@@ -223,16 +219,14 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
       LEFT OUTER JOIN public.location AS pol
               ON pol.legal_unit_id = lu.id
              AND pol.type = 'postal'
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(pol.valid_after, pol.valid_to, '(]')
+             AND after_to_overlaps(t.valid_after, t.valid_to, pol.valid_after, pol.valid_to)
       LEFT JOIN public.region AS por
               ON pol.region_id = por.id
       LEFT JOIN public.country AS poc
               ON pol.country_id = poc.id
       LEFT OUTER JOIN public.contact AS c
               ON c.legal_unit_id = lu.id
-             AND daterange(t.valid_after, t.valid_to, '(]')
-              && daterange(c.valid_after, c.valid_to, '(]')
+             AND after_to_overlaps(t.valid_after, t.valid_to, c.valid_after, c.valid_to)
       LEFT JOIN public.unit_size AS us
               ON lu.unit_size_id = us.id
       LEFT JOIN public.status AS st
@@ -241,8 +235,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
               SELECT array_agg(DISTINCT sfu.data_source_id) FILTER (WHERE sfu.data_source_id IS NOT NULL) AS data_source_ids
               FROM public.stat_for_unit AS sfu
               WHERE sfu.legal_unit_id = lu.id
-                AND daterange(t.valid_after, t.valid_to, '(]')
-                && daterange(sfu.valid_after, sfu.valid_to, '(]')
+                AND after_to_overlaps(t.valid_after, t.valid_to, sfu.valid_after, sfu.valid_to)
         ) AS sfu ON TRUE
       LEFT JOIN LATERAL (
           SELECT array_agg(ds.id) AS ids
@@ -283,8 +276,7 @@ CREATE OR REPLACE VIEW public.timeline_legal_unit_def
           FROM public.timeline_establishment AS tes
           INNER JOIN basis
            ON tes.legal_unit_id = basis.legal_unit_id
-          AND daterange(basis.valid_after, basis.valid_to, '(]')
-           && daterange(tes.valid_after, tes.valid_to, '(]')
+          AND after_to_overlaps(basis.valid_after, basis.valid_to, tes.valid_after, tes.valid_to)
         GROUP BY tes.legal_unit_id, basis.valid_after , basis.valid_to
         )
       SELECT basis.unit_type
@@ -433,19 +425,21 @@ CREATE OR REPLACE FUNCTION public.timeline_legal_unit_refresh(
     p_valid_to date DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $timeline_legal_unit_refresh$
 DECLARE
-    date_range daterange;
+    v_valid_after date;
+    v_valid_to date;
 BEGIN
-    -- Create the date range for filtering
-    date_range := daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
+    -- Set the time range for filtering
+    v_valid_after := COALESCE(p_valid_after, '-infinity'::date);
+    v_valid_to := COALESCE(p_valid_to, 'infinity'::date);
 
     -- Create a temporary table with the new data
     CREATE TEMPORARY TABLE temp_timeline_legal_unit ON COMMIT DROP AS
     SELECT * FROM public.timeline_legal_unit_def
-    WHERE daterange(valid_after, valid_to, '(]') && date_range;
+    WHERE after_to_overlaps(valid_after, valid_to, v_valid_after, v_valid_to);
 
     -- Delete records that exist in the main table but not in the temp table
     DELETE FROM public.timeline_legal_unit tlu
-    WHERE daterange(tlu.valid_after, tlu.valid_to, '(]') && date_range
+    WHERE after_to_overlaps(tlu.valid_after, tlu.valid_to, v_valid_after, v_valid_to)
     AND NOT EXISTS (
         SELECT 1 FROM temp_timeline_legal_unit ttlu
         WHERE ttlu.unit_type = tlu.unit_type

@@ -172,8 +172,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
         INNER JOIN public.timeline_legal_unit AS tlu
             ON tlu.enterprise_id = ten.enterprise_id
             AND tlu.primary_for_enterprise = true
-            AND daterange(ten.valid_after, ten.valid_to, '(]')
-            && daterange(tlu.valid_after, tlu.valid_to, '(]')
+            AND after_to_overlaps(ten.valid_after, ten.valid_to, tlu.valid_after, tlu.valid_to)
         LEFT JOIN LATERAL (
           SELECT edit_comment, edit_by_user_id, edit_at
           FROM (
@@ -258,8 +257,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
         INNER JOIN public.timeline_establishment AS tes
             ON tes.enterprise_id = ten.enterprise_id
             AND tes.primary_for_enterprise = true
-            AND daterange(ten.valid_after, ten.valid_to, '(]')
-            && daterange(tes.valid_after, tes.valid_to, '(]')
+            AND after_to_overlaps(ten.valid_after, ten.valid_to, tes.valid_after, tes.valid_to)
         LEFT JOIN LATERAL (
           SELECT edit_comment, edit_by_user_id, edit_at
           FROM (
@@ -468,7 +466,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
                    , public.jsonb_stats_summary_merge_agg(stats_summary) FILTER (WHERE include_unit_in_reports) AS stats_summary
               FROM public.timeline_legal_unit
               WHERE enterprise_id = ten.enterprise_id
-              AND daterange(ten.valid_after, ten.valid_to, '(]') && daterange(valid_after, valid_to, '(]')
+              AND after_to_overlaps(ten.valid_after, ten.valid_to, valid_after, valid_to)
               GROUP BY enterprise_id, ten.valid_after, ten.valid_to
           ) AS tlu ON true
           LEFT JOIN LATERAL (
@@ -483,7 +481,7 @@ CREATE OR REPLACE VIEW public.timeline_enterprise_def
                    , public.jsonb_stats_to_summary_agg(stats) FILTER (WHERE include_unit_in_reports) AS stats_summary
               FROM public.timeline_establishment
               WHERE enterprise_id = ten.enterprise_id
-              AND daterange(ten.valid_after, ten.valid_to, '(]') && daterange(valid_after, valid_to, '(]')
+              AND after_to_overlaps(ten.valid_after, ten.valid_to, valid_after, valid_to)
               GROUP BY enterprise_id, ten.valid_after, ten.valid_to
           ) AS tes ON true
           GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
@@ -723,19 +721,21 @@ CREATE OR REPLACE FUNCTION public.timeline_enterprise_refresh(
     p_valid_to date DEFAULT NULL
 ) RETURNS void LANGUAGE plpgsql AS $timeline_enterprise_refresh$
 DECLARE
-    date_range daterange;
+    v_valid_after date;
+    v_valid_to date;
 BEGIN
-    -- Create the date range for filtering
-    date_range := daterange(COALESCE(p_valid_after, '-infinity'::date), COALESCE(p_valid_to, 'infinity'::date), '(]');
+    -- Set the time range for filtering
+    v_valid_after := COALESCE(p_valid_after, '-infinity'::date);
+    v_valid_to := COALESCE(p_valid_to, 'infinity'::date);
 
     -- Create a temporary table with the new data
     CREATE TEMPORARY TABLE temp_timeline_enterprise ON COMMIT DROP AS
     SELECT * FROM public.timeline_enterprise_def
-    WHERE daterange(valid_after, valid_to, '(]') && date_range;
+    WHERE after_to_overlaps(valid_after, valid_to, v_valid_after, v_valid_to);
 
     -- Delete records that exist in the main table but not in the temp table
     DELETE FROM public.timeline_enterprise te
-    WHERE daterange(te.valid_after, te.valid_to, '(]') && date_range
+    WHERE after_to_overlaps(te.valid_after, te.valid_to, v_valid_after, v_valid_to)
     AND NOT EXISTS (
         SELECT 1 FROM temp_timeline_enterprise tte
         WHERE tte.unit_type = te.unit_type

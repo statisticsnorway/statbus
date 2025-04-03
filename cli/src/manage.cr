@@ -96,17 +96,16 @@ module Statbus
         end
 
         DB.connect(config.connection_string) do |db|
-          available_roles : Array(String) = ["super_user", "regular_user", "restricted_user", "external_user"]
+          available_roles : Array(String) = ["admin_user", "regular_user", "restricted_user", "external_user"]
           begin
             Dir.cd(@config.project_directory) do
               available_roles = db.query_all(
-                "SELECT unnest(enum_range(NULL::public.statbus_role_type))::text AS role",
+                "SELECT unnest(enum_range(NULL::public.statbus_role))::text AS role",
                 as: {role: String}
               ).map { |r| r[:role] }
             end
           rescue ex
             STDERR.puts "Warning: Could not load roles from database: #{ex.message}"
-            available_roles = ["super_user", "regular_user", "restricted_user", "external_user"]
           end
 
           # Read users from YAML file
@@ -118,6 +117,10 @@ module Statbus
             password = user["password"].as_s
             # Default to regular_user if role not specified
             role = user["role"]?.try(&.as_s) || "regular_user"
+            # Gracefully change from old name to new name, to avoid too many changes.
+            if role == "super_user"
+              role = "admin_user"
+            end
 
             # Validate role
             if !available_roles.includes?(role)
@@ -129,7 +132,7 @@ module Statbus
             puts "Creating user: #{email} with role: #{role}" if @config.verbose
 
             db.exec(
-              "SELECT * FROM public.statbus_user_create($1, $2, $3)",
+              "SELECT * FROM public.user_create($1, $2, $3)",
               email,
               role,
               password
@@ -150,7 +153,8 @@ module Statbus
 
     # Type-safe credentials structure
     record CredentialsEnv,
-      postgres_password : String,
+      postgres_admin_password : String,
+      postgres_app_password : String,
       jwt_secret : String,
       dashboard_username : String,
       dashboard_password : String,
@@ -167,7 +171,11 @@ module Statbus
       server_supabase_url : String,
       seq_server_url : String,
       seq_api_key : String,
-      slack_token : String
+      slack_token : String,
+      postgres_admin_db : String,
+      postgres_admin_user : String,
+      postgres_app_db : String,
+      postgres_app_user : String
 
     # Configuration values that are derived from other settings
     record DerivedEnv,
@@ -232,7 +240,8 @@ module Statbus
           service_role_key = JWT.encode(service_role_payload, jwt_secret, JWT::Algorithm::HS256)
 
           CredentialsEnv.new(
-            postgres_password: credentials_env.generate("POSTGRES_PASSWORD") { random_string(20) },
+            postgres_admin_password: credentials_env.generate("POSTGRES_ADMIN_PASSWORD") { random_string(20) },
+            postgres_app_password: credentials_env.generate("POSTGRES_APP_PASSWORD") { random_string(20) },
             jwt_secret: jwt_secret,
             dashboard_username: credentials_env.generate("DASHBOARD_USERNAME") { "admin" },
             dashboard_password: credentials_env.generate("DASHBOARD_PASSWORD") { random_string(20) },
@@ -250,8 +259,11 @@ module Statbus
         end
 
         config = Dotenv.using(config_file) do |config_env|
+          deployment_slot_code = config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" }
+          postgres_app_db = config_env.generate("POSTGRES_APP_DB") { "statbus_#{deployment_slot_code}" }
+          postgres_app_user = config_env.generate("POSTGRES_APP_USER") { "statbus_#{deployment_slot_code}" }
           ConfigEnv.new(
-            deployment_slot_name: config_env.generate("DEPLOYMENT_SLOT_NAME") { "Development" },
+            deployment_slot_name: deployment_slot_code,
             deployment_slot_code: config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" },
             deployment_slot_port_offset: config_env.generate("DEPLOYMENT_SLOT_PORT_OFFSET") { "1" },
             # This needs to be replaced by the publicly available DNS name i.e. statbus.example.org
@@ -264,7 +276,12 @@ module Statbus
             # This must be provided and entered manually.
             seq_api_key: config_env.generate("SEQ_API_KEY") { "secret_seq_api_key" },
             # This must be provided and entered manually.
-            slack_token: config_env.generate("SLACK_TOKEN") { "secret_slack_api_token" }
+            slack_token: config_env.generate("SLACK_TOKEN") { "secret_slack_api_token" },
+            # Database configuration
+            postgres_admin_db: config_env.generate("POSTGRES_ADMIN_DB") { "postgres" },
+            postgres_admin_user: config_env.generate("POSTGRES_ADMIN_USER") { "postgres" },
+            postgres_app_db: postgres_app_db,
+            postgres_app_user: postgres_app_user
           )
         end
 
@@ -418,7 +435,13 @@ module Statbus
       supabase_env_content = File.read(supabase_env_path)
       content += Dotenv.using(supabase_env_content) do |env|
         # Override credentials
-        env.set("POSTGRES_PASSWORD", credentials.postgres_password)
+        env.set("POSTGRES_ADMIN_DB", config.postgres_admin_db)
+        env.set("POSTGRES_ADMIN_USER", config.postgres_admin_user)
+        env.set("POSTGRES_ADMIN_PASSWORD", credentials.postgres_admin_password)
+        env.set("POSTGRES_APP_DB", config.postgres_app_db)
+        env.set("POSTGRES_APP_USER", config.postgres_app_user)
+        env.set("POSTGRES_APP_PASSWORD", credentials.postgres_app_password)
+        env.set("POSTGRES_PASSWORD", credentials.postgres_admin_password)
         env.set("JWT_SECRET", credentials.jwt_secret)
         env.set("ANON_KEY", credentials.anon_key)
         env.set("SERVICE_ROLE_KEY", credentials.service_role_key)

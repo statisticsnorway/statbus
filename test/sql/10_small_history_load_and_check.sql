@@ -176,7 +176,7 @@ GRANT EXECUTE ON FUNCTION insert_into_import_small_history() TO PUBLIC;
 GRANT EXECUTE ON FUNCTION update_validity_dates(INTEGER) TO PUBLIC;
 
 -- A Super User configures statbus.
-CALL test.set_user_from_email('test.super@statbus.org');
+CALL test.set_user_from_email('test.admin@statbus.org');
 
 \echo "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
@@ -266,71 +266,75 @@ $sql$);
 -- Check the query efficiency of the views used for building statistical_unit.
 \a
 \t
-SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
+SELECT test.sudo_exec('SELECT pg_stat_monitor_reset()');
 
 \o tmp/timepoints.log
 EXPLAIN ANALYZE SELECT * FROM public.timepoints;
 SELECT queryid, calls, total_exec_time, rows
-FROM pg_stat_statements
+FROM pg_stat_monitor
 WHERE query LIKE '%SELECT * FROM public.timepoints%';
 \o
 
-SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
+SELECT test.sudo_exec('SELECT pg_stat_monitor_reset()');
 
 \o tmp/timesegments.log
 EXPLAIN ANALYZE SELECT * FROM public.timesegments;
 SELECT queryid, calls, total_exec_time, rows
-FROM pg_stat_statements
+FROM pg_stat_monitor
 WHERE query LIKE '%SELECT * FROM public.timesegments%';
 \o
 
-SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
+SELECT test.sudo_exec('SELECT pg_stat_monitor_reset()');
 
 \o tmp/timeline_establishment.log
 EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment;
 SELECT queryid, calls, total_exec_time, rows
-FROM pg_stat_statements
+FROM pg_stat_monitor
 WHERE query LIKE '%SELECT * FROM public.timeline_establishment%';
 \o
 
-SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
+SELECT test.sudo_exec('SELECT pg_stat_monitor_reset()');
 
 \o tmp/timeline_legal_unit.log
 EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit;
 SELECT queryid, calls, total_exec_time, rows
-FROM pg_stat_statements
+FROM pg_stat_monitor
 WHERE query LIKE '%SELECT * FROM public.timeline_legal_unit%';
 \o
 
-SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
+SELECT test.sudo_exec('SELECT pg_stat_monitor_reset()');
 
 \o tmp/timeline_enterprise.log
 EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise;
 SELECT queryid, calls, total_exec_time, rows
-FROM pg_stat_statements
+FROM pg_stat_monitor
 WHERE query LIKE '%SELECT * FROM public.timeline_enterprise%';
 \o
 
-SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
+SELECT test.sudo_exec('SELECT pg_stat_monitor_reset()');
 
 \o tmp/statistical_unit_def.log
 EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
 SELECT queryid, calls, total_exec_time, rows
-FROM pg_stat_statements
+FROM pg_stat_monitor
 WHERE query LIKE '%SELECT * FROM public.statistical_unit_def%';
 \o
 
-SELECT test.sudo_exec('SELECT pg_stat_statements_reset()');
+SELECT test.sudo_exec('SELECT pg_stat_monitor_reset()');
 
 \a
 \t
 
 \o tmp/top_used_indices.log
+-- Get top used indices with additional information from pg_stat_monitor
 SELECT
     indexrelid::regclass AS index_name,
     relid::regclass AS table_name,
     idx_scan,
-    idx_tup_fetch AS tuples_fetched
+    idx_tup_fetch AS tuples_fetched,
+    (SELECT substr(query, 0, 100) FROM pg_stat_monitor 
+     WHERE relations::text LIKE '%' || relid::regclass::text || '%' 
+     ORDER BY total_exec_time DESC LIMIT 1) AS sample_query
 FROM
     pg_stat_user_indexes
 WHERE

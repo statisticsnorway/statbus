@@ -484,7 +484,13 @@ LANGUAGE plpgsql
 AS $statistical_unit_refresh$
 DECLARE
   v_affected_count int;
+  v_valid_after date;
+  v_valid_to date;
 BEGIN
+  -- Set the time range for filtering
+  v_valid_after := COALESCE(p_valid_after, '-infinity'::date);
+  v_valid_to := COALESCE(p_valid_to, 'infinity'::date);
+
   -- Create a temporary table to store the new data to avoid running the expensive view calculation multiple times.
   CREATE TEMPORARY TABLE temp_statistical_unit AS
   SELECT * FROM public.statistical_unit_def AS sud
@@ -493,9 +499,7 @@ BEGIN
     (p_legal_unit_ids    IS NULL OR sud.related_legal_unit_ids && p_legal_unit_ids) OR
     (p_enterprise_ids    IS NULL OR sud.related_enterprise_ids && p_enterprise_ids)
   )
-  AND daterange(sud.valid_after, sud.valid_to, '(]') &&
-      daterange(COALESCE(p_valid_after, '-infinity'::date),
-              COALESCE(p_valid_to, 'infinity'::date), '(]');
+  AND after_to_overlaps(sud.valid_after, sud.valid_to, v_valid_after, v_valid_to);
 
   -- Delete records that exist in the main table but not in the temp table
   DELETE FROM public.statistical_unit su
@@ -504,9 +508,7 @@ BEGIN
     (p_legal_unit_ids    IS NULL OR su.related_legal_unit_ids && p_legal_unit_ids) OR
     (p_enterprise_ids    IS NULL OR su.related_enterprise_ids && p_enterprise_ids)
   )
-  AND daterange(su.valid_after, su.valid_to, '(]') &&
-      daterange(COALESCE(p_valid_after, '-infinity'::date),
-              COALESCE(p_valid_to, 'infinity'::date), '(]')
+  AND after_to_overlaps(su.valid_after, su.valid_to, v_valid_after, v_valid_to)
   AND NOT EXISTS (
     SELECT 1 FROM temp_statistical_unit tsu
     WHERE tsu.unit_type = su.unit_type

@@ -5,7 +5,7 @@ BEGIN;
 \echo "Setting up Statbus using the web provided examples"
 
 -- A Super User configures statbus.
-CALL test.set_user_from_email('test.super@statbus.org');
+CALL test.set_user_from_email('test.admin@statbus.org');
 
 \echo "User selected the Activity Category Standard"
 INSERT INTO settings(activity_category_standard_id,only_one_setting)
@@ -15,10 +15,12 @@ DO UPDATE SET
    activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
    WHERE settings.id = EXCLUDED.id;
 ;
+
 SELECT acs.code
   FROM public.settings AS s
   JOIN activity_category_standard AS acs
     ON s.activity_category_standard_id = acs.id;
+
 \echo "User uploads the sample activity categories"
 \copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT standard_code

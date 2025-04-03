@@ -14,8 +14,7 @@ BEGIN
     SELECT * INTO establishment_row
       FROM public.establishment
      WHERE id = establishment_id
-       AND daterange(valid_from, valid_to, '[]')
-        && daterange(valid_from_param, valid_to_param, '[]');
+       AND from_to_overlaps(valid_from, valid_to, valid_from_param, valid_to_param);
      IF NOT FOUND THEN
         RAISE EXCEPTION 'Establishment does not exist or is not linked to a legal unit.';
     END IF;
@@ -34,8 +33,7 @@ BEGIN
         SET primary_for_legal_unit = false
         WHERE primary_for_legal_unit
           AND legal_unit_id = establishment_row.legal_unit_id
-          AND daterange(valid_from, valid_to, '[]')
-           && daterange(valid_from_param, valid_to_param, '[]')
+          AND from_to_overlaps(valid_from, valid_to, valid_from_param, valid_to_param)
         RETURNING id
     )
     SELECT jsonb_agg(jsonb_build_object('table', 'establishment', 'id', id)) INTO v_unset_ids FROM updated_rows;
@@ -45,8 +43,7 @@ BEGIN
         UPDATE public.establishment
         SET primary_for_legal_unit = true
         WHERE id = establishment_row.id
-          AND daterange(valid_from, valid_to, '[]')
-           && daterange(valid_from_param, valid_to_param, '[]')
+          AND from_to_overlaps(valid_from, valid_to, valid_from_param, valid_to_param)
         RETURNING id
     )
     SELECT jsonb_build_object('table', 'establishment', 'id', id) INTO v_set_id FROM updated_row;
