@@ -58,7 +58,7 @@ export function StatisticalUnitTableHeader({
             case "region":
               return (
                 <SortableTableHead
-                  className="text-left hidden lg:table-cell [&>*]:align-middle"
+                  className="text-left hidden lg:table-cell *:align-middle"
                   key={`h-cell-${headerCellSuffix(column)}`}
                   name="physical_region_path"
                   label="Region"
@@ -97,7 +97,7 @@ export function StatisticalUnitTableHeader({
                   statDefinition && (
                     <SortableTableHead
                       key={`h-cell-${headerCellSuffix(column)}`}
-                      className="text-right hidden lg:table-cell [&>*]:capitalize"
+                      className="text-right hidden lg:table-cell *:capitalize"
                       name={statDefinition.code!}
                       label={statDefinition.name!}
                     />

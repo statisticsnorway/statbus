@@ -12,7 +12,7 @@ export default function ContactInfoForm({
 
   return (
     <div className="space-y-8">
-      <form className="space-y-4">
+      <form className="flex flex-col gap-4">
         <span className="font-medium">Communication</span>
         <div className="grid lg:grid-cols-2 gap-4">
           <FormField
@@ -59,7 +59,7 @@ export default function ContactInfoForm({
           />
         </div>
       </form>
-      <form className="space-y-4">
+      <form className="flex flex-col gap-4">
         <span className="font-medium">Postal Location</span>
         <div className="grid grid-cols-2 gap-4">
           <FormField

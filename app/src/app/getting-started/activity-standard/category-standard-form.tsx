@@ -15,6 +15,7 @@ import { useForm } from "react-hook-form";
 import { useGettingStarted } from "../GettingStartedContext";
 import { Tables } from "@/lib/database.types";
 import { setCategoryStandard } from "@/app/getting-started/getting-started-server-actions";
+import { useRouter } from "next/navigation";
 
 interface CategoryStandardFormProps {
   readonly standards: Tables<"activity_category_standard">[] | null;
@@ -39,6 +40,7 @@ export default function CategoryStandardForm({
         settings?.[0]?.activity_category_standard_id,
     },
   });
+  const router = useRouter();
 
   const { refreshCounts } = useGettingStarted();
 
@@ -50,8 +52,11 @@ export default function CategoryStandardForm({
       "activity_category_standard_id",
       activity_category_standard_id.toString(10)
     );
-    await setCategoryStandard(formData);
+    const result = await setCategoryStandard(formData);
     await refreshCounts();
+    if (result.success) {
+      router.push("/getting-started/upload-custom-activity-standard-codes");
+    }
   }
 
   return (

@@ -1,7 +1,6 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { useFormState } from "react-dom";
-import React from "react";
+import React, { useActionState } from "react";
 import { z } from "zod";
 import { contactInfoSchema } from "@/app/legal-units/[id]/contact/validation";
 import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
@@ -14,7 +13,7 @@ export default function ContactInfoForm({
   readonly id: string;
   readonly legalUnit: LegalUnit;
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     updateLegalUnit.bind(null, id, "contact-info"),
     null
   );
@@ -23,7 +22,7 @@ export default function ContactInfoForm({
   );
 return (
   <div className="space-y-8">
-    <form className="space-y-4">
+    <form className="flex flex-col gap-4">
       <span className="font-medium">Communication</span>
       <div className="grid lg:grid-cols-2 gap-4">
         <FormField
@@ -70,7 +69,7 @@ return (
         />
       </div>
     </form>
-    <form className="space-y-4">
+    <form className="flex flex-col gap-4">
       <span className="font-medium">Postal Location</span>
       <div className="grid grid-cols-2 gap-4">
         <FormField

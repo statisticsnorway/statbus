@@ -8,11 +8,17 @@ export const metadata: Metadata = {
   title: "Enterprise | Inspect",
 };
 
-export default async function EnterpriseInspectionPage({
-  params: { id },
-}: {
-  readonly params: { id: string };
-}) {
+export default async function EnterpriseInspectionPage(
+  props: {
+    readonly params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    id
+  } = params;
+
   const { enterprise, error } = await getEnterpriseById(id);
 
   if (error) {

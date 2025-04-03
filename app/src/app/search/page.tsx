@@ -16,7 +16,8 @@ export const metadata: Metadata = {
   title: "Search statistical units",
 };
 
-export default async function SearchPage({ searchParams: initialUrlSearchParamsDict }: { searchParams: URLSearchParamsDict }) {
+export default async function SearchPage(props: { searchParams: Promise<URLSearchParamsDict> }) {
+  const initialUrlSearchParamsDict = await props.searchParams;
   const initialUrlSearchParams = toURLSearchParams(initialUrlSearchParamsDict);
 
   /* TODO - Remove this once the search results include the activity category and region names
@@ -72,7 +73,7 @@ export default async function SearchPage({ searchParams: initialUrlSearchParamsD
           <h1 className="text-center mb-6 text-xl lg:mb-12 lg:text-2xl">
             Search for statistical units
           </h1>
-          <div className="flex flex-wrap items-center p-1 lg:p-0 [&>*]:mb-2 [&>*]:mx-1 w-full"></div>
+          <div className="flex flex-wrap items-center p-1 lg:p-0 *:mb-2 *:mx-1 w-full"></div>
           <SelectionProvider>
             <section className="space-y-3">
               <TableToolbar

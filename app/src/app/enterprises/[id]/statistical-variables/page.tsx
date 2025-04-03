@@ -3,11 +3,17 @@ import { getStatisticalUnitStats } from "@/components/statistical-unit-details/r
 import { notFound } from "next/navigation";
 import StatisticalVariablesForm from "./statistical-variables-form";
 
-export default async function EnterpriseStatisticalVariablesPage({
-  params: { id },
-}: {
-  readonly params: { id: string };
-}) {
+export default async function EnterpriseStatisticalVariablesPage(
+  props: {
+    readonly params: Promise<{ id: string }>;
+  }
+) {
+  const params = await props.params;
+
+  const {
+    id
+  } = params;
+
   const { stats, error } = await getStatisticalUnitStats(
     parseInt(id),
     "enterprise"

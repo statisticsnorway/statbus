@@ -1,7 +1,6 @@
 "use client";
 import { updateLegalUnit } from "@/app/legal-units/[id]/update-legal-unit-server-actions";
-import { useFormState } from "react-dom";
-import React from "react";
+import React, { useActionState } from "react";
 import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { FormField } from "@/components/form/form-field";
@@ -14,7 +13,7 @@ export default function GeneralInfoForm({
   readonly id: string;
   readonly legalUnit: LegalUnit;
 }) {
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     updateLegalUnit.bind(null, id, "general-info"),
     null
   );
@@ -27,7 +26,7 @@ export default function GeneralInfoForm({
 
   return (
     <div className="space-y-8">
-      <form className="space-y-4">
+      <form className="flex flex-col gap-4">
         <FormField
           label="Name"
           name="name"
@@ -51,7 +50,7 @@ export default function GeneralInfoForm({
           })}
         </div>
       </form>
-      <form className="space-y-4">
+      <form className="flex flex-col gap-4">
         <span className="font-medium">Physical Location</span>
         <div className="grid lg:grid-cols-2 gap-4">
           <FormField

@@ -1,11 +1,11 @@
 "use client";
 
-import { useFormState, useFormStatus } from "react-dom";
+import { useFormStatus } from "react-dom";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
-import React, { useEffect } from "react";
+import React, { useEffect, useActionState } from "react";
 import { ErrorBox } from "@/components/error-box";
 import { uploadFile } from "@/app/getting-started/getting-started-server-actions";
 import type { UploadView } from "@/app/getting-started/getting-started-server-actions";
@@ -51,7 +51,7 @@ export const UploadCSVForm = ({
   refreshRelevantCounts: () => Promise<void>;
 }) => {
   const filename = "upload-file";
-  const [state, formAction] = useFormState(
+  const [state, formAction] = useActionState(
     uploadFile.bind(null, filename, uploadView),
     { error: null }
   );

@@ -39,7 +39,7 @@ export const createSupabaseSSGClient = async () => {
 
 
 export const createSupabaseSSRClient = async () => {
-  let cookieStore = cookies();
+  let cookieStore = await cookies();
 
   // The createServerClient does return a Promise, even if the typescript type claims otherwise, so the await is required.
   const client = await createServerClient<Database>(
@@ -111,7 +111,7 @@ export const createApiClientAsync = async () => {
   // the request, but use API's, and the underlying Next.js framework
   // will return the set cookies to the browser.
   // This is a design choice for Next.js 13+
-  let cookieStore = cookies();
+  let cookieStore = await cookies();
 
   // The createServerClient does return a Promise, even if the typescript type claims otherwise, so the await is required.
   const client = await createServerClient<Database>(
