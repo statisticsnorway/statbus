@@ -16,6 +16,11 @@ DROP FUNCTION IF EXISTS public.login(text, text);
 DROP FUNCTION IF EXISTS public.refresh();
 DROP FUNCTION IF EXISTS public.list_active_sessions();
 DROP FUNCTION IF EXISTS public.revoke_session(uuid);
+DROP FUNCTION IF EXISTS auth.set_auth_cookies(text, text, timestamptz, timestamptz, integer, text);
+DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
+DROP FUNCTION IF EXISTS auth.extract_refresh_token_from_cookies();
+DROP FUNCTION IF EXISTS auth.build_auth_response(text, text, integer, text, public.statbus_role);
+DROP FUNCTION IF EXISTS auth.generate_jwt(jsonb);
 
 -- Revoke execute permission on logout function
 REVOKE EXECUTE ON FUNCTION public.logout() FROM authenticated;

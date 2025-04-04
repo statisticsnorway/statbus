@@ -163,6 +163,73 @@ AFTER DELETE ON auth.user
 FOR EACH ROW
 EXECUTE FUNCTION auth.drop_user_role();
 
+-- Create a function to set auth cookies
+CREATE OR REPLACE FUNCTION auth.set_auth_cookies(
+  access_jwt text,
+  refresh_jwt text,
+  access_expires timestamptz,
+  refresh_expires timestamptz,
+  user_id integer,
+  user_email text
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $set_auth_cookies$
+BEGIN
+  PERFORM set_config('response.headers',
+    json_build_array(
+      json_build_object(
+        'Set-Cookie',
+        format('statbus-%s=%s; Path=/; Expires=%s; HttpOnly; SameSite=Strict',
+               current_setting('app.settings.deployment_slot_code', true),
+               access_jwt,
+               to_char(access_expires at time zone 'GMT', 'Dy, DD Mon YYYY HH24:MI:SS GMT'))
+      ),
+      json_build_object(
+        'Set-Cookie',
+        format('statbus-%s-refresh=%s; Path=/; Expires=%s; HttpOnly; SameSite=Strict',
+               current_setting('app.settings.deployment_slot_code', true),
+               refresh_jwt,
+               to_char(refresh_expires at time zone 'GMT', 'Dy, DD Mon YYYY HH24:MI:SS GMT'))
+      ),
+      json_build_object(
+        'App-Auth-Token', access_jwt
+      ),
+      json_build_object(
+        'App-Auth-Role', user_email
+      ),
+      json_build_object(
+        'App-Auth-User', user_id
+      )
+    )::text,
+    true
+  );
+END;
+$set_auth_cookies$;
+
+-- Create a function to clear auth cookies
+CREATE OR REPLACE FUNCTION auth.clear_auth_cookies()
+RETURNS void
+LANGUAGE plpgsql
+AS $clear_auth_cookies$
+BEGIN
+  PERFORM set_config('response.headers',
+    json_build_array(
+      json_build_object(
+        'Set-Cookie',
+        format('statbus-%s=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
+               current_setting('app.settings.deployment_slot_code', true))
+      ),
+      json_build_object(
+        'Set-Cookie',
+        format('statbus-%s-refresh=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
+               current_setting('app.settings.deployment_slot_code', true))
+      )
+    )::text,
+    true
+  );
+END;
+$clear_auth_cookies$;
 
 
 -- Create login function that returns JWT token
@@ -172,8 +239,8 @@ LANGUAGE plpgsql SECURITY DEFINER
 AS $login$
 DECLARE
   _user auth.user;
-  access_token text;
-  refresh_session_jwt text;
+  access_jwt text;
+  refresh_jwt text;
   access_expires timestamptz;
   refresh_expires timestamptz;
   refresh_session_jti uuid;
@@ -207,8 +274,8 @@ BEGIN
   END IF;
 
   -- Set expiration times
-  access_expires := now() + (coalesce(current_setting('app.settings.jwt_exp', true)::int, 3600) || ' seconds')::interval;
-  refresh_expires := now() + (coalesce(current_setting('app.settings.refresh_token_exp', true)::int, 2592000) || ' seconds')::interval;
+  access_expires := now() + (coalesce(current_setting('app.settings.access_jwt_exp', true)::int, 3600) || ' seconds')::interval;
+  refresh_expires := now() + (coalesce(current_setting('app.settings.refresh_jwt_exp', true)::int, 2592000) || ' seconds')::interval;
   
   -- Get client information
   user_ip := inet(split_part(current_setting('request.headers', true)::json->>'x-forwarded-for', ',', 1));
@@ -253,15 +320,8 @@ BEGIN
   );
 
   -- Sign the tokens
-  SELECT sign(
-    access_claims::json,
-    current_setting('app.settings.jwt_secret')
-  ) INTO access_token;
-
-  SELECT sign(
-    refresh_claims::json,
-    current_setting('app.settings.jwt_secret')
-  ) INTO refresh_session_jwt;
+  SELECT auth.generate_jwt(access_claims) INTO access_jwt;
+  SELECT auth.generate_jwt(refresh_claims) INTO refresh_jwt;
 
   -- Update last sign in
   UPDATE auth.user
@@ -270,43 +330,22 @@ BEGIN
   WHERE id = _user.id;
 
   -- Set cookies in response headers
-  PERFORM set_config('response.headers',
-    json_build_array(
-      json_build_object(
-        'Set-Cookie',
-        format('statbus-%s=%s; Path=/; Expires=%s; HttpOnly; SameSite=Strict',
-               current_setting('app.settings.deployment_slot_code', true),
-               access_token,
-               to_char(access_expires at time zone 'GMT', 'Dy, DD Mon YYYY HH24:MI:SS GMT'))
-      ),
-      json_build_object(
-        'Set-Cookie',
-        format('statbus-%s-refresh=%s; Path=/; Expires=%s; HttpOnly; SameSite=Strict',
-               current_setting('app.settings.deployment_slot_code', true),
-               refresh_session_jwt,
-               to_char(refresh_expires at time zone 'GMT', 'Dy, DD Mon YYYY HH24:MI:SS GMT'))
-      ),
-      json_build_object(
-        'App-Auth-Token', access_token
-      ),
-      json_build_object(
-        'App-Auth-Role', _user.email
-      ),
-      json_build_object(
-        'App-Auth-User', _user.id
-      )
-    )::text,
-    true
+  PERFORM auth.set_auth_cookies(
+    access_jwt,
+    refresh_jwt,
+    access_expires,
+    refresh_expires,
+    _user.id,
+    _user.email
   );
 
   -- Return tokens in response body
-  RETURN json_build_object(
-    'token', access_token,
-    'refresh_token', refresh_session_jwt,
-    'user_id', _user.id,
-    'role', _user.email,
-    'statbus_role', _user.statbus_role,
-    'email', _user.email
+  RETURN auth.build_auth_response(
+    access_jwt,
+    refresh_jwt,
+    _user.id,
+    _user.email,
+    _user.statbus_role
   );
 END;
 $login$;
@@ -329,34 +368,35 @@ DECLARE
   current_ip inet;
   current_ua text;
   ua_hash text;
-  access_token text;
-  refresh_session_jwt text;
+  access_jwt text;
+  refresh_jwt text;
   access_expires timestamptz;
   refresh_expires timestamptz;
   new_version integer;
   access_claims jsonb;
   refresh_claims jsonb;
 BEGIN
-  -- Get claims from the refresh token in the request
-  claims := current_setting('request.jwt.claims', true)::json;
+  -- Extract the refresh token from the cookie and get its claims
+  DECLARE
+    refresh_token text;
+  BEGIN
+    -- Get refresh token from cookies
+    refresh_token := auth.extract_refresh_token_from_cookies();
+    
+    IF refresh_token IS NULL THEN
+      -- No valid refresh token found in cookies
+      PERFORM auth.clear_auth_cookies();
+      RETURN json_build_object('error', 'No valid refresh token found in cookies');
+    END IF;
+    
+    -- Decode the JWT to get the claims
+    SELECT payload::json INTO claims 
+    FROM verify(refresh_token, current_setting('app.settings.jwt_secret'));
+  END;
   
   -- Verify this is actually a refresh token
   IF claims->>'type' != 'refresh' THEN
-    PERFORM set_config('response.headers',
-      json_build_array(
-        json_build_object(
-          'Set-Cookie',
-          format('statbus-%s=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
-                 current_setting('app.settings.deployment_slot_code', true))
-        ),
-        json_build_object(
-          'Set-Cookie',
-          format('statbus-%s-refresh=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
-                 current_setting('app.settings.deployment_slot_code', true))
-        )
-      )::text,
-      true
-    );
+    PERFORM auth.clear_auth_cookies();
     RETURN json_build_object('error', 'Invalid token type');
   END IF;
   
@@ -376,21 +416,7 @@ BEGIN
     AND u.deleted_at IS NULL;
     
   IF NOT FOUND THEN
-    PERFORM set_config('response.headers',
-      json_build_array(
-        json_build_object(
-          'Set-Cookie',
-          format('statbus-%s=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
-                 current_setting('app.settings.deployment_slot_code', true))
-        ),
-        json_build_object(
-          'Set-Cookie',
-          format('statbus-%s-refresh=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
-                 current_setting('app.settings.deployment_slot_code', true))
-        )
-      )::text,
-      true
-    );
+    PERFORM auth.clear_auth_cookies();
     RETURN json_build_object('error', 'User not found');
   END IF;
   
@@ -402,52 +428,24 @@ BEGIN
     AND s.refresh_version = token_version;
 
   IF NOT FOUND THEN
-    PERFORM set_config('response.headers',
-      json_build_array(
-        json_build_object(
-          'Set-Cookie',
-          format('statbus-%s=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
-                 current_setting('app.settings.deployment_slot_code', true))
-        ),
-        json_build_object(
-          'Set-Cookie',
-          format('statbus-%s-refresh=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
-                 current_setting('app.settings.deployment_slot_code', true))
-        )
-      )::text,
-      true
-    );
+    PERFORM auth.clear_auth_cookies();
     RETURN json_build_object('error', 'Invalid session or token has been superseded');
   END IF;
   
   -- Verify user agent (with some flexibility)
   IF claims->>'ua_hash' != ua_hash THEN
-    PERFORM set_config('response.headers',
-      json_build_array(
-        json_build_object(
-          'Set-Cookie',
-          format('statbus-%s=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
-                 current_setting('app.settings.deployment_slot_code', true))
-        ),
-        json_build_object(
-          'Set-Cookie',
-          format('statbus-%s-refresh=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
-                 current_setting('app.settings.deployment_slot_code', true))
-        )
-      )::text,
-      true
-    );
+    PERFORM auth.clear_auth_cookies();
     RETURN json_build_object('error', 'Session appears to be used from a different browser');
   END IF;
   
   -- Set expiration times, and use clock_timestamp() to have progress within the same transaction when testing.
-  access_expires := clock_timestamp() + (coalesce(current_setting('app.settings.jwt_exp', true)::int, 3600) || ' seconds')::interval;
-  refresh_expires := clock_timestamp() + (coalesce(current_setting('app.settings.refresh_token_exp', true)::int, 2592000) || ' seconds')::interval;
+  access_expires := clock_timestamp() + (coalesce(current_setting('app.settings.access_jwt_exp', true)::int, 3600) || ' seconds')::interval;
+  refresh_expires := clock_timestamp() + (coalesce(current_setting('app.settings.refresh_jwt_exp', true)::int, 2592000) || ' seconds')::interval;
   
   -- Update session version and last used time
   UPDATE auth.refresh_session
   SET refresh_version = refresh_version + 1,
-      last_used_at = now(),
+      last_used_at = clock_timestamp(),
       expires_at = refresh_expires,
       ip_address = current_ip  -- Update to current IP
   WHERE id = _session.id
@@ -478,54 +476,26 @@ BEGIN
   );
 
   -- Sign the tokens
-  SELECT sign(
-    access_claims::json,
-    current_setting('app.settings.jwt_secret')
-  ) INTO access_token;
-
-  SELECT sign(
-    refresh_claims::json,
-    current_setting('app.settings.jwt_secret')
-  ) INTO refresh_session_jwt;
+  SELECT auth.generate_jwt(access_claims) INTO access_jwt;
+  SELECT auth.generate_jwt(refresh_claims) INTO refresh_jwt;
 
   -- Set cookies in response headers
-  PERFORM set_config('response.headers',
-    json_build_array(
-      json_build_object(
-        'Set-Cookie',
-        format('statbus-%s=%s; Path=/; Expires=%s; HttpOnly; SameSite=Strict',
-               current_setting('app.settings.deployment_slot_code', true),
-               access_token,
-               to_char(access_expires at time zone 'GMT', 'Dy, DD Mon YYYY HH24:MI:SS GMT'))
-      ),
-      json_build_object(
-        'Set-Cookie',
-        format('statbus-%s-refresh=%s; Path=/; Expires=%s; HttpOnly; SameSite=Strict',
-               current_setting('app.settings.deployment_slot_code', true),
-               refresh_session_jwt,
-               to_char(refresh_expires at time zone 'GMT', 'Dy, DD Mon YYYY HH24:MI:SS GMT'))
-      ),
-      json_build_object(
-        'App-Auth-Token', access_token
-      ),
-      json_build_object(
-        'App-Auth-Role', _user.email
-      ),
-      json_build_object(
-        'App-Auth-User', _user.id
-      )
-    )::text,
-    true
+  PERFORM auth.set_auth_cookies(
+    access_jwt,
+    refresh_jwt,
+    access_expires,
+    refresh_expires,
+    _user.id,
+    _user.email
   );
 
   -- Return new tokens
-  RETURN json_build_object(
-    'token', access_token,
-    'refresh_token', refresh_session_jwt,
-    'user_id', _user.id,
-    'role', _user.email,
-    'statbus_role', _user.statbus_role,
-    'email', _user.email
+  RETURN auth.build_auth_response(
+    access_jwt,
+    refresh_jwt,
+    _user.id,
+    _user.email,
+    _user.statbus_role
   );
 END;
 $refresh$;
@@ -543,43 +513,42 @@ DECLARE
   claims json;
   user_sub uuid;
   refresh_session_jti uuid;
+  refresh_token text;
 BEGIN
-  -- Get current claims from JWT
-  claims := current_setting('request.jwt.claims', true)::json;
-  user_sub := nullif(claims->>'sub', '')::uuid;
+  -- Extract the refresh token from the cookie
+  refresh_token := auth.extract_refresh_token_from_cookies();
   
-  -- If this is a refresh token, get the session ID
-  IF claims->>'type' = 'refresh' THEN
-    refresh_session_jti := (claims->>'jti')::uuid;
+  -- If we have a refresh token, use its claims
+  IF refresh_token IS NOT NULL THEN
+    SELECT payload::json INTO claims 
+    FROM verify(refresh_token, current_setting('app.settings.jwt_secret'));
     
-    -- Delete just this session
-    IF refresh_session_jti IS NOT NULL THEN
-      DELETE FROM auth.refresh_session
-      WHERE jti = refresh_session_jti AND user_id = (SELECT id FROM auth.user WHERE sub = user_sub);
+    -- If this is a refresh token, get the session ID
+    IF claims->>'type' = 'refresh' THEN
+      refresh_session_jti := (claims->>'jti')::uuid;
+      user_sub := nullif(claims->>'sub', '')::uuid;
+      
+      -- Delete just this session
+      IF refresh_session_jti IS NOT NULL THEN
+        DELETE FROM auth.refresh_session
+        WHERE jti = refresh_session_jti AND user_id = (SELECT id FROM auth.user WHERE sub = user_sub);
+      END IF;
     END IF;
-  ELSIF user_sub IS NOT NULL THEN
+  ELSE
+    -- Fall back to current JWT claims if no refresh token
+    claims := current_setting('request.jwt.claims', true)::json;
+    user_sub := nullif(claims->>'sub', '')::uuid;
+    
     -- For access tokens, we can't identify the specific session
-    -- Option: Delete all sessions for this user (aggressive but secure)
-    DELETE FROM auth.refresh_session
-    WHERE user_id = (SELECT id FROM auth.user WHERE sub = user_sub);
+    IF user_sub IS NOT NULL THEN
+      -- Delete all sessions for this user (aggressive but secure)
+      DELETE FROM auth.refresh_session
+      WHERE user_id = (SELECT id FROM auth.user WHERE sub = user_sub);
+    END IF;
   END IF;
 
   -- Set cookies in response headers to clear them
-  PERFORM set_config('response.headers',
-    json_build_array(
-      json_build_object(
-        'Set-Cookie',
-        format('statbus-%s=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
-               current_setting('app.settings.deployment_slot_code', true))
-      ),
-      json_build_object(
-        'Set-Cookie',
-        format('statbus-%s-refresh=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict',
-               current_setting('app.settings.deployment_slot_code', true))
-      )
-    )::text,
-    true
-  );
+  PERFORM auth.clear_auth_cookies();
 
   -- Return success
   RETURN json_build_object('success', true);
@@ -595,14 +564,10 @@ SECURITY DEFINER
 AS $grant_role$
 DECLARE
   _user auth.user;
-  _current_user_role public.statbus_role;
   _is_admin boolean;
 BEGIN
-  -- Get the current user's role from JWT claims
-  _current_user_role := current_setting('request.jwt.claims', true)::json->>'statbus_role'::public.statbus_role;
-  
   -- Check if current user is admin or superuser
-  _is_admin := _current_user_role = 'admin_user' OR 
+  _is_admin := (current_setting('request.jwt.claims', true)::json->>'statbus_role')::public.statbus_role = 'admin_user' OR 
                (SELECT usesuper FROM pg_user WHERE usename = current_user);
                
   IF NOT _is_admin THEN
@@ -643,7 +608,7 @@ DECLARE
   _is_admin boolean;
 BEGIN
   -- Get the current user's role from JWT claims
-  _current_user_role := current_setting('request.jwt.claims', true)::json->>'statbus_role'::public.statbus_role;
+  _current_user_role := (current_setting('request.jwt.claims', true)::json->>'statbus_role')::public.statbus_role;
   
   -- Check if current user is admin or superuser
   _is_admin := _current_user_role = 'admin_user' OR 
@@ -776,8 +741,8 @@ $$ ;
 GRANT EXECUTE ON FUNCTION public.logout TO authenticated;
 GRANT EXECUTE ON FUNCTION public.login TO anon;
 GRANT EXECUTE ON FUNCTION public.refresh TO authenticated;
-GRANT EXECUTE ON FUNCTION public.grant_role TO authenticated;
-GRANT EXECUTE ON FUNCTION public.revoke_role TO authenticated;
+GRANT EXECUTE ON FUNCTION public.grant_role TO admin_user;
+GRANT EXECUTE ON FUNCTION public.revoke_role TO admin_user;
 GRANT EXECUTE ON FUNCTION public.list_active_sessions TO authenticated;
 GRANT EXECUTE ON FUNCTION public.revoke_session TO authenticated;
 
@@ -838,7 +803,7 @@ BEGIN
   -- Set expiration time
   v_expires_at := COALESCE(
     p_expires_at,
-    now() + (coalesce(current_setting('app.settings.jwt_exp', true)::int, 3600) || ' seconds')::interval
+    clock_timestamp() + (coalesce(current_setting('app.settings.access_jwt_exp', true)::int, 3600) || ' seconds')::interval
   );
   
   -- Build the base claims object with PostgREST compatible structure
@@ -850,9 +815,13 @@ BEGIN
     'email', p_email,
     'type', p_type,
     'iat', extract(epoch from clock_timestamp())::integer,
-    'exp', extract(epoch from v_expires_at)::integer,
-    'jti', gen_random_uuid()::text  -- Always generate a unique ID for each token
+    'exp', extract(epoch from v_expires_at)::integer
   );
+  
+  -- Only add JTI if not already in additional claims
+  IF NOT p_additional_claims ? 'jti' THEN
+    v_claims := v_claims || jsonb_build_object('jti', gen_random_uuid()::text);
+  END IF;
   
   -- Merge any additional claims
   v_claims := v_claims || p_additional_claims;
@@ -873,6 +842,58 @@ BEGIN
 END;
 $$;
 
+-- Create a function to extract refresh token from cookies
+CREATE OR REPLACE FUNCTION auth.extract_refresh_token_from_cookies()
+RETURNS text
+LANGUAGE plpgsql
+AS $extract_refresh_token$
+DECLARE
+  cookie_str text;
+  cookie_pattern text;
+  refresh_token text;
+BEGIN
+  -- Get cookie string from request headers
+  cookie_str := nullif(current_setting('request.headers', true), '')::json->>'cookie';
+  
+  IF cookie_str IS NULL THEN
+    RETURN NULL;
+  END IF;
+  
+  -- Format is: statbus-<slot>-refresh=<token>; other cookies...
+  cookie_pattern := 'statbus-' || 
+                   coalesce(current_setting('app.settings.deployment_slot_code', true), 'dev') || 
+                   '-refresh=([^;]+)';
+  
+  -- Extract the token using regex
+  refresh_token := substring(cookie_str FROM cookie_pattern);
+  
+  RETURN refresh_token;
+END;
+$extract_refresh_token$;
+
+-- Create a function to build a standard auth response object
+CREATE OR REPLACE FUNCTION auth.build_auth_response(
+  access_jwt text,
+  refresh_jwt text,
+  user_id integer,
+  user_email text,
+  user_statbus_role public.statbus_role
+)
+RETURNS json
+LANGUAGE plpgsql
+AS $build_auth_response$
+BEGIN
+  RETURN json_build_object(
+    'access_jwt', access_jwt,
+    'refresh_jwt', refresh_jwt,
+    'user_id', user_id,
+    'email', user_email,
+    'role', user_email,
+    'statbus_role', user_statbus_role
+  );
+END;
+$build_auth_response$;
+
 -- Function to set user context from email
 CREATE OR REPLACE FUNCTION auth.set_user_context_from_email(p_email text)
 RETURNS void
@@ -889,6 +910,24 @@ BEGIN
   PERFORM auth.use_jwt_claims_in_session(v_claims);
 END;
 $$;
+
+-- Function to generate a signed JWT token from claims
+CREATE OR REPLACE FUNCTION auth.generate_jwt(claims jsonb)
+RETURNS text
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $generate_jwt$
+DECLARE
+  token text;
+BEGIN
+  SELECT sign(
+    claims::json,
+    current_setting('app.settings.jwt_secret')
+  ) INTO token;
+  
+  RETURN token;
+END;
+$generate_jwt$;
 
 -- Function to reset the session context
 CREATE OR REPLACE FUNCTION auth.reset_session_context()
@@ -907,6 +946,10 @@ GRANT EXECUTE ON FUNCTION auth.build_jwt_claims TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.use_jwt_claims_in_session TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.set_user_context_from_email TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.reset_session_context TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.build_auth_response TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.set_auth_cookies TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.extract_refresh_token_from_cookies TO authenticated;
+GRANT EXECUTE ON FUNCTION auth.generate_jwt TO authenticated;
 
 -- Create a scheduled job to clean up expired sessions (if pg_cron is available)
 DO $$

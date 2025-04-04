@@ -16,9 +16,9 @@ services:
       PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-token-with-at-least-32-characters-long}
       # Access and refresh tokens use the same secret (PGRST_APP_SETTINGS_JWT_SECRET)
       # JWT expiration time in seconds: 3600 = 1 hour
-      PGRST_APP_SETTINGS_JWT_EXP: ${JWT_EXPIRY:-3600}
+      PGRST_APP_SETTINGS_ACCESS_JWT_EXP: ${JWT_EXPIRY:-3600}
       # Refresh token expiration time in seconds: 2592000 = 30 days
-      PGRST_APP_SETTINGS_REFRESH_TOKEN_EXP: ${REFRESH_TOKEN_EXPIRY:-2592000}
+      PGRST_APP_SETTINGS_REFRESH_JWT_EXP: ${REFRESH_TOKEN_EXPIRY:-2592000}
       # Enable group by counting for getting the available filter values with counts
       PGRST_DB_AGGREGATES_ENABLED: "true"
       # JWT claims available in current_setting('request.jwt.claims')
