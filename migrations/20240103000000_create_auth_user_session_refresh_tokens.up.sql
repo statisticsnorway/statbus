@@ -838,7 +838,7 @@ BEGIN
   -- Set expiration time
   v_expires_at := COALESCE(
     p_expires_at,
-    now() + (coalesce(current_setting('app.settings.access_token_exp', true)::int, 3600) || ' seconds')::interval
+    now() + (coalesce(current_setting('app.settings.jwt_exp', true)::int, 3600) || ' seconds')::interval
   );
   
   -- Build the base claims object with PostgREST compatible structure
