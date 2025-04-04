@@ -20,6 +20,7 @@ ARG pg_stat_monitor_release=main
 ARG pg_repack_release=ver_1.5.2
 ARG hypopg_release=REL1_STABLE
 ARG index_advisor_release=main
+ARG pgjwt_release=master
 
 ####################
 # Setup Postgres PPA
@@ -239,6 +240,18 @@ RUN git clone https://github.com/supabase/index_advisor.git && \
   make DESTDIR=/tmp/index_advisor-dist install
 
 ####################
+# Build pgjwt
+####################
+FROM builder as pgjwt-builder
+ARG pgjwt_release
+WORKDIR /tmp
+RUN git clone https://github.com/michelp/pgjwt.git && \
+  cd pgjwt && \
+  git checkout ${pgjwt_release} && \
+  make && \
+  make DESTDIR=/tmp/pgjwt-dist install
+
+####################
 # Final image
 ####################
 FROM base as final
@@ -256,6 +269,7 @@ COPY --from=pg_stat_monitor-builder /tmp/pg_stat_monitor-dist/ /
 COPY --from=pg_repack-builder /tmp/pg_repack-dist/ /
 COPY --from=hypopg-builder /tmp/hypopg-dist/ /
 COPY --from=index_advisor-builder /tmp/index_advisor-dist/ /
+COPY --from=pgjwt-builder /tmp/pgjwt-dist/ /
 
 # Add initialization script
 COPY init-db.sh /docker-entrypoint-initdb.d/init-db.sh
