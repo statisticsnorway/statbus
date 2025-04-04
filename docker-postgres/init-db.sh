@@ -27,7 +27,14 @@ CREATE DATABASE "template_statbus"
   --LC_CTYPE   'ky_KG.utf8'
   template = template0;
 
+-- Set database-wide defaults
 ALTER DATABASE "template_statbus" SET datestyle TO 'ISO, DMY';
+ALTER DATABASE "template_statbus" SET client_encoding TO 'UTF8';
+ALTER DATABASE "template_statbus" SET standard_conforming_strings TO on;
+ALTER DATABASE "template_statbus" SET check_function_bodies TO true;
+ALTER DATABASE "template_statbus" SET xmloption TO content;
+ALTER DATABASE "template_statbus" SET client_min_messages TO warning;
+ALTER DATABASE "template_statbus" SET row_security TO on;
 \c "template_statbus"
 
 -- Add basic extensions
@@ -42,8 +49,8 @@ CREATE EXTENSION IF NOT EXISTS "http";
 CREATE EXTENSION IF NOT EXISTS "sql_saga";
 CREATE EXTENSION IF NOT EXISTS "hypopg";
 CREATE EXTENSION IF NOT EXISTS "index_advisor";
+CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";  -- Load before pg_stat_monitor according to doc.
 CREATE EXTENSION IF NOT EXISTS "pg_stat_monitor";
-CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";
 -- The extension pg_safeupdate is installed for the roles that PostgREST
 -- uses only, to prevent DELETE without a WHERE via API in a migration with:
 -- ALTER ROLE authenticator SET session_preload_libraries = safeupdate;
