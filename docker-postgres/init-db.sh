@@ -39,7 +39,8 @@ ALTER DATABASE "template_statbus" SET row_security TO on;
 
 -- Add basic extensions
 CREATE EXTENSION IF NOT EXISTS "pg_trgm";
-CREATE EXTENSION IF NOT EXISTS "pgtap";
+-- Disable pgtap since it adds a lot of functions to public, and we don't currently use ut in statbus.
+--CREATE EXTENSION IF NOT EXISTS "pgtap";
 CREATE EXTENSION IF NOT EXISTS "plpgsql_check";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "pgjwt"; -- Depends on pgcrypto
