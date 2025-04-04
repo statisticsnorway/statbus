@@ -19,9 +19,9 @@ Indexes:
     "ix_stat_for_unit_establishment_id" btree (establishment_id)
     "ix_stat_for_unit_legal_unit_id" btree (legal_unit_id)
     "ix_stat_for_unit_stat_definition_id" btree (stat_definition_id)
-    "stat_for_unit_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
+    "stat_for_unit_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "stat_for_unit_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
-    "stat_for_unit_stat_definition_id_establishment_id_daterang_excl" EXCLUDE USING gist (stat_definition_id WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
+    "stat_for_unit_stat_definition_id_establishment_id_daterang_excl" EXCLUDE USING gist (stat_definition_id WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "stat_for_unit_stat_definition_id_establishment_id_valid_aft_key" UNIQUE CONSTRAINT, btree (stat_definition_id, establishment_id, valid_after, valid_to) DEFERRABLE
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL)
@@ -31,17 +31,17 @@ Foreign-key constraints:
     "stat_for_unit_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL
     "stat_for_unit_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE RESTRICT
 Policies:
+    POLICY "stat_for_unit_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "stat_for_unit_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "stat_for_unit_regular_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "stat_for_unit_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
 Triggers:
     check_stat_for_unit_values_trigger BEFORE INSERT OR UPDATE ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION admin.check_stat_for_unit_values()
     stat_for_unit_changes_trigger AFTER INSERT OR UPDATE ON stat_for_unit FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()

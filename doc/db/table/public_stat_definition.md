@@ -17,16 +17,16 @@ Indexes:
 Referenced by:
     TABLE "stat_for_unit" CONSTRAINT "stat_for_unit_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE RESTRICT
 Policies:
+    POLICY "stat_definition_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "stat_definition_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "stat_definition_regular_user_read" FOR SELECT
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "stat_definition_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
 Triggers:
     stat_definition_lifecycle_callbacks_after_delete AFTER DELETE ON stat_definition FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()
     stat_definition_lifecycle_callbacks_after_insert AFTER INSERT ON stat_definition FOR EACH STATEMENT EXECUTE FUNCTION lifecycle_callbacks.cleanup_and_generate()

@@ -54,7 +54,8 @@ SELECT {{ident_type_columns}}
        fax_number,
        primary_activity_category_code,
        secondary_activity_category_code,
-     -- sector_code is Disabled because the legal unit provides the sector_code
+       -- sector_code is Disabled because the legal unit provides the sector_code
+       unit_size_code,
        status_code,
        data_source_code,
 {{stat_definition_columns}}
@@ -111,6 +112,7 @@ BEGIN
         fax_number,
         primary_activity_category_code,
         secondary_activity_category_code,
+        unit_size_code,
         status_code,
         data_source_code,
 {{stats_insert_labels}}
@@ -153,6 +155,7 @@ BEGIN
         NEW.fax_number,
         NEW.primary_activity_category_code,
         NEW.secondary_activity_category_code,
+        NEW.unit_size_code,
         NEW.status_code,
         NEW.data_source_code,
 {{stats_value_labels}}

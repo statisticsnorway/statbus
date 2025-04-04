@@ -18,6 +18,7 @@ DECLARE
     primary_activity_category RECORD;
     secondary_activity_category RECORD;
     sector RECORD;
+    unit_size RECORD;
     status RECORD;
     data_source RECORD;
     meta_data RECORD;
@@ -68,6 +69,7 @@ BEGIN
     SELECT NULL::int AS id INTO primary_activity_category;
     SELECT NULL::int AS id INTO secondary_activity_category;
     SELECT NULL::int AS id INTO sector;
+    SELECT NULL::int AS id INTO unit_size;
     SELECT NULL::int AS id INTO status;
     SELECT NULL::int AS id INTO data_source;
     SELECT NULL::int AS employees
@@ -79,8 +81,8 @@ BEGIN
     SELECT NULL::int AS id INTO inserted_stat_for_unit;
 
     SELECT * INTO edit_by_user
-    FROM public.statbus_user
-    WHERE uuid = auth.uid()
+    FROM auth.user
+    WHERE id = auth.uid()
     LIMIT 1;
 
     SELECT tag_id INTO tag.id FROM admin.import_lookup_tag(new_jsonb);
@@ -147,6 +149,10 @@ BEGIN
     INTO   sector.id , invalid_codes
     FROM admin.import_lookup_sector(new_jsonb, invalid_codes);
 
+    SELECT unit_size_id , updated_invalid_codes
+    INTO   unit_size.id , invalid_codes
+    FROM admin.import_lookup_unit_size(new_jsonb, invalid_codes);
+
     SELECT status_id , updated_invalid_codes
     INTO   status.id , invalid_codes
     FROM admin.import_lookup_status(new_jsonb, invalid_codes);
@@ -183,8 +189,7 @@ BEGIN
                   WHERE legal_unit_id = %L
                   AND primary_for_legal_unit
                   AND COALESCE(id <> %L,true)
-                  AND daterange(valid_from, valid_to, ''[]'')
-                  && daterange(%L, %L, ''[]'')
+                  AND from_to_overlaps(valid_from, valid_to, %L, %L)
               )',
               legal_unit.id, prior_establishment_id, new_typed.valid_from, new_typed.valid_to
           );
@@ -215,6 +220,7 @@ BEGIN
         , active
         , edit_comment
         , sector_id
+        , unit_size_id
         , status_id
         , invalid_codes
         , enterprise_id
@@ -235,6 +241,7 @@ BEGIN
         , meta_data.active
         , meta_data.edit_comment
         , sector.id
+        , unit_size.id
         , status.id
         , meta_data.invalid_codes
         , enterprise.id

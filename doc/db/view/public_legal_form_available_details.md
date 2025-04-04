@@ -10,15 +10,15 @@
  created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT legal_form_ordered.id,
-    legal_form_ordered.code,
-    legal_form_ordered.name,
-    legal_form_ordered.active,
-    legal_form_ordered.custom,
-    legal_form_ordered.created_at,
-    legal_form_ordered.updated_at
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
    FROM legal_form_ordered
-  WHERE legal_form_ordered.active;
+  WHERE active;
 Options: security_invoker=on
 
 ```

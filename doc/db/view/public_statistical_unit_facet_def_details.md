@@ -14,19 +14,19 @@
  count                          | bigint                |           |          |         | plain    | 
  stats_summary                  | jsonb                 |           |          |         | extended | 
 View definition:
- SELECT statistical_unit.valid_from,
-    statistical_unit.valid_to,
-    statistical_unit.unit_type,
-    statistical_unit.physical_region_path,
-    statistical_unit.primary_activity_category_path,
-    statistical_unit.sector_path,
-    statistical_unit.legal_form_id,
-    statistical_unit.physical_country_id,
-    statistical_unit.status_id,
+ SELECT valid_from,
+    valid_to,
+    unit_type,
+    physical_region_path,
+    primary_activity_category_path,
+    sector_path,
+    legal_form_id,
+    physical_country_id,
+    status_id,
     count(*) AS count,
-    jsonb_stats_summary_merge_agg(statistical_unit.stats_summary) AS stats_summary
+    jsonb_stats_summary_merge_agg(stats_summary) AS stats_summary
    FROM statistical_unit
-  WHERE statistical_unit.include_unit_in_reports
-  GROUP BY statistical_unit.valid_from, statistical_unit.valid_to, statistical_unit.unit_type, statistical_unit.physical_region_path, statistical_unit.primary_activity_category_path, statistical_unit.sector_path, statistical_unit.legal_form_id, statistical_unit.physical_country_id, statistical_unit.status_id;
+  WHERE include_unit_in_reports
+  GROUP BY valid_from, valid_to, unit_type, physical_region_path, primary_activity_category_path, sector_path, legal_form_id, physical_country_id, status_id;
 
 ```

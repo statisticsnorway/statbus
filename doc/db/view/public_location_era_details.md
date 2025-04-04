@@ -24,27 +24,27 @@
  edit_by_user_id  | integer                  |           |          |         | plain    | 
  edit_at          | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT location.id,
-    location.valid_after,
-    location.valid_from,
-    location.valid_to,
-    location.type,
-    location.address_part1,
-    location.address_part2,
-    location.address_part3,
-    location.postcode,
-    location.postplace,
-    location.region_id,
-    location.country_id,
-    location.latitude,
-    location.longitude,
-    location.altitude,
-    location.establishment_id,
-    location.legal_unit_id,
-    location.data_source_id,
-    location.edit_comment,
-    location.edit_by_user_id,
-    location.edit_at
+ SELECT id,
+    valid_after,
+    valid_from,
+    valid_to,
+    type,
+    address_part1,
+    address_part2,
+    address_part3,
+    postcode,
+    postplace,
+    region_id,
+    country_id,
+    latitude,
+    longitude,
+    altitude,
+    establishment_id,
+    legal_unit_id,
+    data_source_id,
+    edit_comment,
+    edit_by_user_id,
+    edit_at
    FROM location;
 Triggers:
     location_era_upsert INSTEAD OF INSERT ON location_era FOR EACH ROW EXECUTE FUNCTION admin.location_era_upsert()

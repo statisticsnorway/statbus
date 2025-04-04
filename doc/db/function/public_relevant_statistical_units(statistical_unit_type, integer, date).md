@@ -14,11 +14,11 @@ AS $function$
     ), related_units AS (
         SELECT * FROM valid_units
         WHERE unit_type = 'legal_unit'
-          AND unit_id IN (SELECT unnest(legal_unit_ids) FROM root_unit)
+          AND unit_id IN (SELECT unnest(related_legal_unit_ids) FROM root_unit)
             UNION ALL
         SELECT * FROM valid_units
         WHERE unit_type = 'establishment'
-          AND unit_id IN (SELECT unnest(establishment_ids) FROM root_unit)
+          AND unit_id IN (SELECT unnest(related_establishment_ids) FROM root_unit)
     ), relevant_units AS (
         SELECT * FROM root_unit
             UNION ALL
@@ -97,20 +97,33 @@ AS $function$
          , mobile_number
          , fax_number
          --
+         , unit_size_id
+         , unit_size_code
+         --
          , status_id
          , status_code
          , include_unit_in_reports
          --
+         , last_edit_comment
+         , last_edit_by_user_id
+         , last_edit_at
+         --
          , invalid_codes
          , has_legal_unit
-         , establishment_ids
-         , legal_unit_ids
-         , enterprise_ids
+         , related_establishment_ids
+         , related_legal_unit_ids
+         , related_enterprise_ids
+         , excluded_establishment_ids
+         , excluded_legal_unit_ids
+         , excluded_enterprise_ids
+         , included_establishment_ids
+         , included_legal_unit_ids
+         , included_enterprise_ids
          , stats
          , stats_summary
-         , establishment_count
-         , legal_unit_count
-         , enterprise_count
+         , included_establishment_count
+         , included_legal_unit_count
+         , included_enterprise_count
          , tag_paths
     FROM ordered_units;
 $function$

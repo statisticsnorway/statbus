@@ -10,15 +10,15 @@
  created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT person_role_ordered.id,
-    person_role_ordered.code,
-    person_role_ordered.name,
-    person_role_ordered.active,
-    person_role_ordered.custom,
-    person_role_ordered.created_at,
-    person_role_ordered.updated_at
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
    FROM person_role_ordered
-  WHERE person_role_ordered.active;
+  WHERE active;
 Options: security_invoker=on
 
 ```

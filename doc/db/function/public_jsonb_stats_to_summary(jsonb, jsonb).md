@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION public.jsonb_stats_to_summary(state jsonb, stats jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
- STABLE STRICT
+ STABLE PARALLEL SAFE STRICT
 AS $function$
 DECLARE
     prev_stat_state jsonb;

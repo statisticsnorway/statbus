@@ -26,17 +26,17 @@ Foreign-key constraints:
 Referenced by:
     TABLE "person_for_unit" CONSTRAINT "person_for_unit_person_id_fkey" FOREIGN KEY (person_id) REFERENCES person(id) ON DELETE RESTRICT
 Policies:
+    POLICY "person_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "person_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "person_regular_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "person_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
 Triggers:
     trigger_prevent_person_id_update BEFORE UPDATE OF id ON person FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

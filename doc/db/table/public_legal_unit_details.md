@@ -35,13 +35,13 @@ Indexes:
     "ix_legal_unit_size_id" btree (unit_size_id)
     "ix_legal_unit_status_id" btree (status_id)
     "legal_unit_active_idx" btree (active)
-    "legal_unit_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
+    "legal_unit_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "legal_unit_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
 Check constraints:
     "legal_unit_valid_check" CHECK (valid_after < valid_to)
 Foreign-key constraints:
     "legal_unit_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE RESTRICT
-    "legal_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    "legal_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     "legal_unit_enterprise_id_fkey" FOREIGN KEY (enterprise_id) REFERENCES enterprise(id) ON DELETE RESTRICT
     "legal_unit_foreign_participation_id_fkey" FOREIGN KEY (foreign_participation_id) REFERENCES foreign_participation(id)
     "legal_unit_legal_form_id_fkey" FOREIGN KEY (legal_form_id) REFERENCES legal_form(id)
@@ -49,17 +49,17 @@ Foreign-key constraints:
     "legal_unit_status_id_fkey" FOREIGN KEY (status_id) REFERENCES status(id) ON DELETE RESTRICT
     "legal_unit_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
 Policies:
+    POLICY "legal_unit_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "legal_unit_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "legal_unit_regular_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "legal_unit_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
 Triggers:
     activity_legal_unit_id_valid_uk_delete AFTER DELETE ON legal_unit FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check('activity_legal_unit_id_valid')
     activity_legal_unit_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON legal_unit FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check('activity_legal_unit_id_valid')

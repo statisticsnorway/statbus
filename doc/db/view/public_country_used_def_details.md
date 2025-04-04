@@ -6,13 +6,13 @@
  iso_2  | text    |           |          |         | extended | 
  name   | text    |           |          |         | extended | 
 View definition:
- SELECT c.id,
-    c.iso_2,
-    c.name
+ SELECT id,
+    iso_2,
+    name
    FROM country c
-  WHERE (c.id IN ( SELECT statistical_unit.physical_country_id
+  WHERE (id IN ( SELECT statistical_unit.physical_country_id
            FROM statistical_unit
-          WHERE statistical_unit.physical_country_id IS NOT NULL)) AND c.active
-  ORDER BY c.id;
+          WHERE statistical_unit.physical_country_id IS NOT NULL)) AND active
+  ORDER BY id;
 
 ```

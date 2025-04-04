@@ -6,11 +6,11 @@
  name        | text |           |          |         | extended | 
  description | text |           |          |         | extended | 
 View definition:
- SELECT reorg_type_available.code,
-    reorg_type_available.name,
-    reorg_type_available.description
+ SELECT code,
+    name,
+    description
    FROM reorg_type_available
-  WHERE reorg_type_available.custom = false;
+  WHERE custom = false;
 Triggers:
     upsert_reorg_type_system INSTEAD OF INSERT ON reorg_type_system FOR EACH ROW EXECUTE FUNCTION admin.upsert_reorg_type_system()
 Options: security_invoker=on

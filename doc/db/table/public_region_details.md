@@ -31,19 +31,19 @@ Foreign-key constraints:
     "region_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES region(id) ON DELETE RESTRICT
 Referenced by:
     TABLE "location" CONSTRAINT "location_region_id_fkey" FOREIGN KEY (region_id) REFERENCES region(id) ON DELETE RESTRICT
+    TABLE "region_access" CONSTRAINT "region_access_region_id_fkey" FOREIGN KEY (region_id) REFERENCES region(id) ON DELETE CASCADE
     TABLE "region" CONSTRAINT "region_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES region(id) ON DELETE RESTRICT
-    TABLE "region_role" CONSTRAINT "region_role_region_id_fkey" FOREIGN KEY (region_id) REFERENCES region(id) ON DELETE CASCADE
 Policies:
+    POLICY "region_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "region_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "region_regular_user_read" FOR SELECT
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "region_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
 Triggers:
     trigger_prevent_region_id_update BEFORE UPDATE OF id ON region FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap

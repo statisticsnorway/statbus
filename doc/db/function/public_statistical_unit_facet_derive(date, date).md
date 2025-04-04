@@ -8,15 +8,15 @@ DECLARE
 BEGIN
     RAISE DEBUG 'Running statistical_unit_facet_derive(valid_after=%, valid_to=%)', valid_after, valid_to;
     DELETE FROM public.statistical_unit_facet AS suf
-    WHERE daterange(suf.valid_from, suf.valid_to, '[]') &&
-          daterange(derived_valid_from,
-                    statistical_unit_facet_derive.valid_to, '[]');
-      
+    WHERE from_to_overlaps(suf.valid_from, suf.valid_to, 
+                          derived_valid_from,
+                          statistical_unit_facet_derive.valid_to);
+
     INSERT INTO public.statistical_unit_facet
     SELECT * FROM public.statistical_unit_facet_def AS sufd
-    WHERE daterange(sufd.valid_from, sufd.valid_to, '[]') &&
-          daterange(derived_valid_from,
-                    statistical_unit_facet_derive.valid_to, '[]');
+    WHERE from_to_overlaps(sufd.valid_from, sufd.valid_to,
+                          derived_valid_from,
+                          statistical_unit_facet_derive.valid_to);
 END;
 $function$
 ```

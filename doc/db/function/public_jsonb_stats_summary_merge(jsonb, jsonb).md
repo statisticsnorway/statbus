@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION public.jsonb_stats_summary_merge(a jsonb, b jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
- IMMUTABLE STRICT
+ STABLE PARALLEL SAFE STRICT
 AS $function$
 DECLARE
     key_a text;

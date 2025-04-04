@@ -18,22 +18,22 @@ BEGIN
         p_valid_after := statistical_history_derive.valid_after,
         p_valid_to := statistical_history_derive.valid_to
     );
-        
+
     -- Delete existing records for the affected periods
     DELETE FROM public.statistical_history sh
     USING temp_periods tp
     WHERE sh.year = tp.year
     AND sh.month IS NOT DISTINCT FROM tp.month;
-      
+
     -- Insert new records for the affected periods
     INSERT INTO public.statistical_history
-    SELECT shd.* 
+    SELECT shd.*
     FROM public.statistical_history_def shd
-    JOIN temp_periods p ON 
-        shd.year = p.year AND 
+    JOIN temp_periods p ON
+        shd.year = p.year AND
         shd.month IS NOT DISTINCT FROM p.month
     ORDER BY shd.year, shd.month;
-    
+
     -- Clean up
     DROP TABLE IF EXISTS temp_periods;
 END;

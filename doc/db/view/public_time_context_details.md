@@ -40,17 +40,17 @@ View definition:
            FROM tag
           WHERE tag.active AND tag.context_valid_from IS NOT NULL AND tag.context_valid_to IS NOT NULL AND tag.context_valid_on IS NOT NULL
         )
- SELECT combined_data.type,
-    combined_data.ident,
-    combined_data.name_when_query,
-    combined_data.name_when_input,
-    combined_data.scope,
-    combined_data.valid_from,
-    combined_data.valid_to,
-    combined_data.valid_on,
-    combined_data.code,
-    combined_data.path
+ SELECT type,
+    ident,
+    name_when_query,
+    name_when_input,
+    scope,
+    valid_from,
+    valid_to,
+    valid_on,
+    code,
+    path
    FROM combined_data
-  ORDER BY combined_data.type, combined_data.code, combined_data.path;
+  ORDER BY type, code, path;
 
 ```

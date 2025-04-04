@@ -1,13 +1,9 @@
 ```sql
 CREATE OR REPLACE FUNCTION auth.uid()
- RETURNS uuid
+ RETURNS integer
  LANGUAGE sql
- STABLE
+ SECURITY DEFINER
 AS $function$
-  select 
-  coalesce(
-    nullif(current_setting('request.jwt.claim.sub', true), ''),
-    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
-  )::uuid
+  SELECT id FROM auth.user WHERE sub = auth.sub();
 $function$
 ```

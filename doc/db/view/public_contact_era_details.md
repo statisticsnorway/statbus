@@ -19,22 +19,22 @@
  edit_by_user_id  | integer                  |           |          |         | plain    | 
  edit_at          | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT contact.id,
-    contact.valid_after,
-    contact.valid_from,
-    contact.valid_to,
-    contact.web_address,
-    contact.email_address,
-    contact.phone_number,
-    contact.landline,
-    contact.mobile_number,
-    contact.fax_number,
-    contact.establishment_id,
-    contact.legal_unit_id,
-    contact.data_source_id,
-    contact.edit_comment,
-    contact.edit_by_user_id,
-    contact.edit_at
+ SELECT id,
+    valid_after,
+    valid_from,
+    valid_to,
+    web_address,
+    email_address,
+    phone_number,
+    landline,
+    mobile_number,
+    fax_number,
+    establishment_id,
+    legal_unit_id,
+    data_source_id,
+    edit_comment,
+    edit_by_user_id,
+    edit_at
    FROM contact;
 Triggers:
     contact_era_upsert INSTEAD OF INSERT ON contact_era FOR EACH ROW EXECUTE FUNCTION admin.contact_era_upsert()

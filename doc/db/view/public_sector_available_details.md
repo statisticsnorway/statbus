@@ -14,19 +14,19 @@
  created_at  | timestamp with time zone |           |          |         | plain    | 
  updated_at  | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT sector_ordered.id,
-    sector_ordered.path,
-    sector_ordered.parent_id,
-    sector_ordered.label,
-    sector_ordered.code,
-    sector_ordered.name,
-    sector_ordered.description,
-    sector_ordered.active,
-    sector_ordered.custom,
-    sector_ordered.created_at,
-    sector_ordered.updated_at
+ SELECT id,
+    path,
+    parent_id,
+    label,
+    code,
+    name,
+    description,
+    active,
+    custom,
+    created_at,
+    updated_at
    FROM sector_ordered
-  WHERE sector_ordered.active;
+  WHERE active;
 Options: security_invoker=on
 
 ```

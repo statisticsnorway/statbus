@@ -9,16 +9,16 @@
  code   | character varying |           |          |         | extended | 
  name   | text              |           |          |         | extended | 
 View definition:
- SELECT r.id,
-    r.path,
-    r.level,
-    r.label,
-    r.code,
-    r.name
+ SELECT id,
+    path,
+    level,
+    label,
+    code,
+    name
    FROM region r
-  WHERE r.path @> (( SELECT array_agg(DISTINCT statistical_unit.physical_region_path) AS array_agg
+  WHERE path @> (( SELECT array_agg(DISTINCT statistical_unit.physical_region_path) AS array_agg
            FROM statistical_unit
           WHERE statistical_unit.physical_region_path IS NOT NULL))
-  ORDER BY (nlevel(r.path)), r.path;
+  ORDER BY (nlevel(path)), path;
 
 ```

@@ -2,7 +2,7 @@
 CREATE OR REPLACE FUNCTION public.jsonb_stats_to_summary_round(state jsonb)
  RETURNS jsonb
  LANGUAGE plpgsql
- STABLE STRICT
+ STABLE PARALLEL SAFE STRICT COST 50
 AS $function$
 DECLARE
     key text;

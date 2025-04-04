@@ -11,15 +11,15 @@
  priority    | integer           |           |          |         | plain    | 
  archived    | boolean           |           |          |         | plain    | 
 View definition:
- SELECT stat_definition.id,
-    stat_definition.code,
-    stat_definition.type,
-    stat_definition.frequency,
-    stat_definition.name,
-    stat_definition.description,
-    stat_definition.priority,
-    stat_definition.archived
+ SELECT id,
+    code,
+    type,
+    frequency,
+    name,
+    description,
+    priority,
+    archived
    FROM stat_definition
-  ORDER BY stat_definition.priority, stat_definition.code;
+  ORDER BY priority, code;
 
 ```

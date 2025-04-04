@@ -40,6 +40,7 @@
  primary_activity_category_code   | text |           |          |         | extended | 
  secondary_activity_category_code | text |           |          |         | extended | 
  sector_code                      | text |           |          |         | extended | 
+ unit_size_code                   | text |           |          |         | extended | 
  status_code                      | text |           |          |         | extended | 
  data_source_code                 | text |           |          |         | extended | 
  legal_form_code                  | text |           |          |         | extended | 
@@ -85,6 +86,7 @@ View definition:
     ''::text AS primary_activity_category_code,
     ''::text AS secondary_activity_category_code,
     ''::text AS sector_code,
+    ''::text AS unit_size_code,
     ''::text AS status_code,
     ''::text AS data_source_code,
     ''::text AS legal_form_code,

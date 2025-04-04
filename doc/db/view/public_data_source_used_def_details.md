@@ -6,13 +6,13 @@
  code   | text    |           |          |         | extended | 
  name   | text    |           |          |         | extended | 
 View definition:
- SELECT s.id,
-    s.code,
-    s.name
+ SELECT id,
+    code,
+    name
    FROM data_source s
-  WHERE (s.id IN ( SELECT unnest(array_distinct_concat(statistical_unit.data_source_ids)) AS unnest
+  WHERE (id IN ( SELECT unnest(array_distinct_concat(statistical_unit.data_source_ids)) AS unnest
            FROM statistical_unit
-          WHERE statistical_unit.data_source_ids IS NOT NULL)) AND s.active
-  ORDER BY s.code;
+          WHERE statistical_unit.data_source_ids IS NOT NULL)) AND active
+  ORDER BY code;
 
 ```

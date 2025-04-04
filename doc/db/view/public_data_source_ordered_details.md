@@ -10,15 +10,15 @@
  created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT data_source.id,
-    data_source.code,
-    data_source.name,
-    data_source.active,
-    data_source.custom,
-    data_source.created_at,
-    data_source.updated_at
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
    FROM data_source
-  ORDER BY data_source.code;
+  ORDER BY code;
 Options: security_invoker=on
 
 ```

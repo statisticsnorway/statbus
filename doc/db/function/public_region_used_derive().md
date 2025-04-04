@@ -7,7 +7,7 @@ AS $function$
 BEGIN
     RAISE DEBUG 'Running region_used_derive()';
     TRUNCATE TABLE public.region_used;
-    INSERT INTO public.region_used 
+    INSERT INTO public.region_used
     SELECT * FROM public.region_used_def;
 END;
 $function$

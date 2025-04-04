@@ -8,15 +8,15 @@
  code   | character varying |           |          |         | extended | 
  name   | text              |           |          |         | extended | 
 View definition:
- SELECT s.id,
-    s.path,
-    s.label,
-    s.code,
-    s.name
+ SELECT id,
+    path,
+    label,
+    code,
+    name
    FROM sector s
-  WHERE s.path @> (( SELECT array_agg(DISTINCT statistical_unit.sector_path) AS array_agg
+  WHERE path @> (( SELECT array_agg(DISTINCT statistical_unit.sector_path) AS array_agg
            FROM statistical_unit
-          WHERE statistical_unit.sector_path IS NOT NULL)) AND s.active
-  ORDER BY s.path;
+          WHERE statistical_unit.sector_path IS NOT NULL)) AND active
+  ORDER BY path;
 
 ```

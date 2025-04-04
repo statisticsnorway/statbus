@@ -10,15 +10,15 @@
  created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT enterprise_group_role.id,
-    enterprise_group_role.code,
-    enterprise_group_role.name,
-    enterprise_group_role.active,
-    enterprise_group_role.custom,
-    enterprise_group_role.created_at,
-    enterprise_group_role.updated_at
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
    FROM enterprise_group_role
-  ORDER BY enterprise_group_role.code;
+  ORDER BY code;
 Options: security_invoker=on
 
 ```

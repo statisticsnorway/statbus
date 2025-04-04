@@ -51,6 +51,7 @@ SELECT '' AS valid_from,
        '' AS primary_activity_category_code,
        '' AS secondary_activity_category_code,
        '' AS sector_code,
+       '' AS unit_size_code,
        '' AS status_code,
        '' AS data_source_code,
 {{stat_definition_columns}}

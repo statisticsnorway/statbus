@@ -106,15 +106,15 @@ BEGIN
       SELECT *
            , (%3$s) AS equivalent
            , CASE
-             WHEN valid_to = ($1.valid_from - '1 day'::INTERVAL) THEN 'existing_adjacent_valid_from'
-             WHEN valid_from = ($1.valid_to + '1 day'::INTERVAL) THEN 'existing_adjacent_valid_to'
+             WHEN valid_to = $1.valid_after THEN 'existing_adjacent_before'
+             WHEN valid_after = $1.valid_to THEN 'existing_adjacent_after'
              WHEN valid_from <  $1.valid_from AND valid_to <= $1.valid_to THEN 'existing_overlaps_valid_from'
              WHEN valid_from <  $1.valid_from AND valid_to >  $1.valid_to THEN 'inside_existing'
              WHEN valid_from >= $1.valid_from AND valid_to <= $1.valid_to THEN 'contains_existing'
              WHEN valid_from >= $1.valid_from AND valid_to >  $1.valid_to THEN 'existing_overlaps_valid_to'
              END::admin.existing_upsert_case AS upsert_case
       FROM %1$I.%2$I
-      WHERE daterange(valid_from, valid_to, '[]') && daterange(($1.valid_from - '1 day'::INTERVAL)::DATE, ($1.valid_to + '1 day'::INTERVAL)::DATE, '[]')
+      WHERE from_to_overlaps(valid_from, valid_to, ($1.valid_from - '1 day'::INTERVAL)::DATE, ($1.valid_to + '1 day'::INTERVAL)::DATE)
         AND id = $2
       ORDER BY valid_from$$
       , schema_name
@@ -136,16 +136,16 @@ BEGIN
       $$, schema_name, table_name);
 
       CASE existing.upsert_case
-      WHEN 'existing_adjacent_valid_from' THEN
+      WHEN 'existing_adjacent_before' THEN
         IF existing.equivalent THEN
-          RAISE DEBUG 'Upsert Case: existing_adjacent_valid_from AND equivalent';
+          RAISE DEBUG 'Upsert Case: existing_adjacent_before AND equivalent';
           RAISE DEBUG 'DELETE EXISTING';
           EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           NEW.valid_from := existing.valid_from;
         END IF;
-      WHEN 'existing_adjacent_valid_to' THEN
+      WHEN 'existing_adjacent_after' THEN
         IF existing.equivalent THEN
-          RAISE DEBUG 'Upsert Case: existing_adjacent_valid_to AND equivalent';
+          RAISE DEBUG 'Upsert Case: existing_adjacent_after AND equivalent';
           RAISE DEBUG 'DELETE EXISTING';
           EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           NEW.valid_to := existing.valid_to;
@@ -162,7 +162,7 @@ BEGIN
           RAISE DEBUG 'adjusted_valid_to = %', adjusted_valid_to;
           IF adjusted_valid_to <= existing.valid_from THEN
             RAISE DEBUG 'DELETE EXISTING with zero valid duration %.%(id=%)', schema_name, table_name, existing.id;
-            EXECUTE EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
+            EXECUTE delete_existing_sql USING existing.id, existing.valid_from, existing.valid_to;
           ELSE
             RAISE DEBUG 'Adjusting existing row %.%(id=%)', schema_name, table_name, existing.id;
             EXECUTE format($$

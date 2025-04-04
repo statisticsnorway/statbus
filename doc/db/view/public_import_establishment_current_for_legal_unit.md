@@ -39,6 +39,7 @@
  fax_number                       | text |           |          | 
  primary_activity_category_code   | text |           |          | 
  secondary_activity_category_code | text |           |          | 
+ unit_size_code                   | text |           |          | 
  status_code                      | text |           |          | 
  data_source_code                 | text |           |          | 
  employees                        | text |           |          | 

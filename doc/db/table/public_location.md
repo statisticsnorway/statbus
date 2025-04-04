@@ -24,15 +24,15 @@
  edit_by_user_id  | integer                  |           | not null | 
  edit_at          | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
-    "ix_address_region_id" btree (region_id)
     "ix_location_edit_by_user_id" btree (edit_by_user_id)
-    "ix_location_establishment_id_id" btree (establishment_id)
-    "ix_location_legal_unit_id_id" btree (legal_unit_id)
-    "location_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
+    "ix_location_establishment_id" btree (establishment_id)
+    "ix_location_legal_unit_id" btree (legal_unit_id)
+    "ix_location_region_id" btree (region_id)
+    "location_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "location_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
-    "location_type_establishment_id_daterange_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
+    "location_type_establishment_id_daterange_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "location_type_establishment_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (type, establishment_id, valid_after, valid_to) DEFERRABLE
-    "location_type_legal_unit_id_daterange_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
+    "location_type_legal_unit_id_daterange_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "location_type_legal_unit_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (type, legal_unit_id, valid_after, valid_to) DEFERRABLE
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL)
@@ -49,20 +49,28 @@ END)
 Foreign-key constraints:
     "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     "location_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL
-    "location_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    "location_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     "location_region_id_fkey" FOREIGN KEY (region_id) REFERENCES region(id) ON DELETE RESTRICT
 Policies:
+    POLICY "location_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "location_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "location_regular_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "location_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
+    POLICY "restricted_user_location_access"
+      TO restricted_user
+      USING ((EXISTS ( SELECT 1
+   FROM region_access ra
+  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = ra.region_id)))))
+      WITH CHECK ((EXISTS ( SELECT 1
+   FROM region_access ra
+  WHERE ((ra.user_id = auth.uid()) AND (ra.region_id = ra.region_id)))))
 Triggers:
     location_changes_trigger AFTER INSERT OR UPDATE ON location FOR EACH STATEMENT EXECUTE FUNCTION worker.notify_worker_about_changes()
     location_deletes_trigger BEFORE DELETE ON location FOR EACH ROW EXECUTE FUNCTION worker.notify_worker_about_deletes()

@@ -27,7 +27,7 @@
 Indexes:
     "establishment_active_idx" btree (active)
     "establishment_enterprise_id_primary_for_enterprise_idx" btree (enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL
-    "establishment_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '[)'::text) WITH &&) DEFERRABLE
+    "establishment_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "establishment_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
     "establishment_legal_unit_id_primary_for_legal_unit_idx" btree (legal_unit_id, primary_for_legal_unit) WHERE legal_unit_id IS NOT NULL
     "ix_establishment_data_source_id" btree (data_source_id)
@@ -50,23 +50,23 @@ END)
     "primary_for_legal_unit and legal_unit_id must be defined togeth" CHECK (legal_unit_id IS NOT NULL AND primary_for_legal_unit IS NOT NULL OR legal_unit_id IS NULL AND primary_for_legal_unit IS NULL)
 Foreign-key constraints:
     "establishment_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE RESTRICT
-    "establishment_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    "establishment_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     "establishment_enterprise_id_fkey" FOREIGN KEY (enterprise_id) REFERENCES enterprise(id) ON DELETE RESTRICT
     "establishment_sector_id_fkey" FOREIGN KEY (sector_id) REFERENCES sector(id) ON DELETE RESTRICT
     "establishment_status_id_fkey" FOREIGN KEY (status_id) REFERENCES status(id) ON DELETE RESTRICT
     "establishment_unit_size_id_fkey" FOREIGN KEY (unit_size_id) REFERENCES unit_size(id)
 Policies:
+    POLICY "establishment_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "establishment_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "establishment_regular_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "establishment_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
 Triggers:
     activity_establishment_id_valid_uk_delete AFTER DELETE ON establishment FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check('activity_establishment_id_valid')
     activity_establishment_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON establishment FROM activity DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check('activity_establishment_id_valid')

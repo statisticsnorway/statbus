@@ -10,15 +10,15 @@
  created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT enterprise_group_type_ordered.id,
-    enterprise_group_type_ordered.code,
-    enterprise_group_type_ordered.name,
-    enterprise_group_type_ordered.active,
-    enterprise_group_type_ordered.custom,
-    enterprise_group_type_ordered.created_at,
-    enterprise_group_type_ordered.updated_at
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
    FROM enterprise_group_type_ordered
-  WHERE enterprise_group_type_ordered.active;
+  WHERE active;
 Options: security_invoker=on
 
 ```

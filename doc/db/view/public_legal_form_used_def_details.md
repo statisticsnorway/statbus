@@ -6,13 +6,13 @@
  code   | text    |           |          |         | extended | 
  name   | text    |           |          |         | extended | 
 View definition:
- SELECT lf.id,
-    lf.code,
-    lf.name
+ SELECT id,
+    code,
+    name
    FROM legal_form lf
-  WHERE (lf.id IN ( SELECT statistical_unit.legal_form_id
+  WHERE (id IN ( SELECT statistical_unit.legal_form_id
            FROM statistical_unit
-          WHERE statistical_unit.legal_form_id IS NOT NULL)) AND lf.active
-  ORDER BY lf.id;
+          WHERE statistical_unit.legal_form_id IS NOT NULL)) AND active
+  ORDER BY id;
 
 ```

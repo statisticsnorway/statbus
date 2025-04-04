@@ -25,16 +25,16 @@ Referenced by:
     TABLE "location" CONSTRAINT "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     TABLE "person" CONSTRAINT "person_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id)
 Policies:
+    POLICY "country_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "country_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "country_regular_user_read" FOR SELECT
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "country_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
 Triggers:
     trigger_prevent_country_id_update BEFORE UPDATE OF id ON country FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 

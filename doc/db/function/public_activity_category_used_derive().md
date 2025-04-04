@@ -7,7 +7,7 @@ AS $function$
 BEGIN
     RAISE DEBUG 'Running activity_category_used_derive()';
     TRUNCATE TABLE public.activity_category_used;
-    INSERT INTO public.activity_category_used 
+    INSERT INTO public.activity_category_used
     SELECT * FROM public.activity_category_used_def;
 END;
 $function$

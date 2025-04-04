@@ -15,18 +15,18 @@
  establishment_id | integer                  |           |          |         | plain    | 
  legal_unit_id    | integer                  |           |          |         | plain    | 
 View definition:
- SELECT activity.id,
-    activity.valid_after,
-    activity.valid_from,
-    activity.valid_to,
-    activity.type,
-    activity.category_id,
-    activity.data_source_id,
-    activity.edit_comment,
-    activity.edit_by_user_id,
-    activity.edit_at,
-    activity.establishment_id,
-    activity.legal_unit_id
+ SELECT id,
+    valid_after,
+    valid_from,
+    valid_to,
+    type,
+    category_id,
+    data_source_id,
+    edit_comment,
+    edit_by_user_id,
+    edit_at,
+    establishment_id,
+    legal_unit_id
    FROM activity;
 Triggers:
     activity_era_upsert INSTEAD OF INSERT ON activity_era FOR EACH ROW EXECUTE FUNCTION admin.activity_era_upsert()

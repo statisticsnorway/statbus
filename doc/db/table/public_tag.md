@@ -32,16 +32,16 @@ Referenced by:
     TABLE "tag_for_unit" CONSTRAINT "tag_for_unit_tag_id_fkey" FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
     TABLE "tag" CONSTRAINT "tag_parent_id_fkey" FOREIGN KEY (parent_id) REFERENCES tag(id) ON DELETE RESTRICT
 Policies:
+    POLICY "tag_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "tag_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "tag_regular_user_read" FOR SELECT
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "tag_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
 Triggers:
     trigger_prevent_tag_id_update BEFORE UPDATE OF id ON tag FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 

@@ -99,7 +99,7 @@ BEGIN
           AND n2.nspname !~ '^pg_'
           AND n2.nspname !~ '^_'
           AND n2.nspname <> 'information_schema'
-        ORDER BY n1.nspname, c1.relname, n2.nspname, c2.relname
+        ORDER BY n1.nspname, c1.relname, n2.nspname, c2.relname, c.conname
     LOOP
         result := result || E'\n' || rec.format;
     END LOOP;

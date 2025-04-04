@@ -8,13 +8,13 @@
  center_longitude | text |           |          |         | extended | 
  center_altitude  | text |           |          |         | extended | 
 View definition:
- SELECT region.path::text AS path,
-    region.name,
-    region.center_latitude::text AS center_latitude,
-    region.center_longitude::text AS center_longitude,
-    region.center_altitude::text AS center_altitude
+ SELECT path::text AS path,
+    name,
+    center_latitude::text AS center_latitude,
+    center_longitude::text AS center_longitude,
+    center_altitude::text AS center_altitude
    FROM region
-  ORDER BY (region.path::text);
+  ORDER BY (path::text);
 Triggers:
     region_upload_upsert INSTEAD OF INSERT ON region_upload FOR EACH ROW EXECUTE FUNCTION admin.region_upload_upsert()
 Options: security_invoker=on
