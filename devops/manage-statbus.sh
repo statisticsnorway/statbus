@@ -491,7 +491,12 @@ EOS
           SELECT n.nspname || '.' || p.proname || '(' ||
             regexp_replace(
               regexp_replace(
-                pg_get_function_arguments(p.oid),
+                regexp_replace(
+                  pg_get_function_arguments(p.oid),
+                  'timestamp with time zone',
+                  'timestamptz',
+                  'g'
+                ),
                 ',?\s*OUT [^,\$]+|\s*DEFAULT [^,\$]+|IN (\w+\s+)|INOUT (\w+\s+)',
                 '\1',
                 'g'
