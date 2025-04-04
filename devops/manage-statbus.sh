@@ -524,7 +524,46 @@ EOS
               (n.nspname = 'public' AND p.proname LIKE 'gbtree%') OR
               (n.nspname = 'public' AND p.proname LIKE 'ltree%') OR
               (n.nspname = 'public' AND p.proname LIKE '%\_dist') OR
-              (n.nspname = 'public' AND p.proname LIKE 'gbt\_%')
+              (n.nspname = 'public' AND p.proname LIKE 'gbt\_%') OR
+              (n.nspname = 'public' AND p.proname = 'decode_error_level') OR
+              (n.nspname = 'public' AND p.proname LIKE 'decrypt%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'digest%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'encrypt%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'gen\_random\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'gen\_salt%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'get\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'gin\_%\_trgm%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'gtrgm\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'hash\_%') OR
+              (n.nspname = 'public' AND p.proname = 'histogram') OR
+              (n.nspname = 'public' AND p.proname LIKE 'hmac%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'http%') OR
+              (n.nspname = 'public' AND p.proname = 'dearmor') OR
+              (n.nspname = 'public' AND p.proname LIKE 'hypopg%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'id\_decode%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'id\_encode%') OR
+              (n.nspname = 'public' AND p.proname = 'index_advisor') OR
+              (n.nspname = 'public' AND p.proname LIKE 'pg\_stat\_monitor%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'pg\_stat\_statements%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'pgp\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'pgsm\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_check%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_coverage%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_profiler%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_show%') OR
+              (n.nspname = 'public' AND p.proname = 'range') OR
+              (n.nspname = 'public' AND p.proname LIKE 'set\_limit%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'show\_%') OR
+              (n.nspname = 'public' AND p.proname = 'sign') OR
+              (n.nspname = 'public' AND p.proname LIKE 'similarity%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'strict\_word\_similarity%') OR
+              (n.nspname = 'public' AND p.proname = 'text_to_bytea') OR
+              (n.nspname = 'public' AND p.proname LIKE 'tri\_fkey%') OR
+              (n.nspname = 'public' AND p.proname = 'try_cast_double') OR
+              (n.nspname = 'public' AND p.proname LIKE 'url\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'urlencode%') OR
+              (n.nspname = 'public' AND p.proname = 'verify') OR
+              (n.nspname = 'public' AND p.proname LIKE 'word\_similarity%')
           )
           ORDER BY 1;")
 
