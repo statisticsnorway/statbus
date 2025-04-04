@@ -585,18 +585,24 @@ EOS
 
      'generate-types' )
         pushd $WORKSPACE/app
-        #nvm doesn' work in a script!
-        #if which fnm; then
-        #    fnm use
-        #else
-        #    nvm use
-        #fi
-        eval $($WORKSPACE/devops/manage-statbus.sh postgres-variables)
+        # Activate the Node.js version from .nvmrc using fnm
+        eval "$(fnm env --use-on-cd)" || { echo "Failed to set up fnm environment"; exit 1; }
+        fnm use || { echo "Failed to activate Node version from .nvmrc"; exit 1; }
+        
+        # Get database connection details
+        eval $($WORKSPACE/devops/manage-statbus.sh postgres-variables) || { echo "Failed to get database variables"; exit 1; }
         db_url="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE?sslmode=disable"
-        # Run interactively and say 'y' for installing the latest package
-        ~/.nvm/nvm-exec npx supabase@beta gen types typescript --db-url "$db_url"
-        # Update the types from the database.
-        ~/.nvm/nvm-exec npx supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
+        
+        # First run: This will prompt for package installation if needed
+        # When running for the first time, npx will ask for confirmation to install the package
+        # This interactive step cannot be redirected to a file
+        echo "Running initial command to handle any package installation prompts..."
+        npx supabase@beta gen types typescript --db-url "$db_url" || { echo "Failed to run supabase gen types"; exit 1; }
+        
+        # Second run: Now that the package is installed, we can redirect the output
+        # This run will not prompt for confirmation since the package is already installed
+        echo "Generating TypeScript types file..."
+        npx supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
       ;;
      * )
       echo "Unknown action '$action', select one of"
