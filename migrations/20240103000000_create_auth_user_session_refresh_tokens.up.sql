@@ -849,8 +849,9 @@ BEGIN
     'sub', v_sub::text,
     'email', p_email,
     'type', p_type,
-    'iat', extract(epoch from now())::integer,
-    'exp', extract(epoch from v_expires_at)::integer
+    'iat', extract(epoch from clock_timestamp())::integer,
+    'exp', extract(epoch from v_expires_at)::integer,
+    'jti', gen_random_uuid()::text  -- Always generate a unique ID for each token
   );
   
   -- Merge any additional claims
