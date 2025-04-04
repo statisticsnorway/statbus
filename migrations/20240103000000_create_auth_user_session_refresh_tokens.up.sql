@@ -440,9 +440,9 @@ BEGIN
     RETURN json_build_object('error', 'Session appears to be used from a different browser');
   END IF;
   
-  -- Set expiration times
-  access_expires := now() + (coalesce(current_setting('app.settings.jwt_exp', true)::int, 3600) || ' seconds')::interval;
-  refresh_expires := now() + (coalesce(current_setting('app.settings.refresh_token_exp', true)::int, 2592000) || ' seconds')::interval;
+  -- Set expiration times, and use clock_timestamp() to have progress within the same transaction when testing.
+  access_expires := clock_timestamp() + (coalesce(current_setting('app.settings.jwt_exp', true)::int, 3600) || ' seconds')::interval;
+  refresh_expires := clock_timestamp() + (coalesce(current_setting('app.settings.refresh_token_exp', true)::int, 2592000) || ' seconds')::interval;
   
   -- Update session version and last used time
   UPDATE auth.refresh_session
