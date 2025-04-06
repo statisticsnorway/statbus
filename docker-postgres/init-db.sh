@@ -52,6 +52,7 @@ CREATE EXTENSION IF NOT EXISTS "hypopg";
 CREATE EXTENSION IF NOT EXISTS "index_advisor";
 CREATE EXTENSION IF NOT EXISTS "pg_stat_statements";  -- Load before pg_stat_monitor according to doc.
 CREATE EXTENSION IF NOT EXISTS "pg_stat_monitor";
+CREATE EXTENSION IF NOT EXISTS "pg_graphql";
 -- The extension pg_safeupdate is installed for the roles that PostgREST
 -- uses only, to prevent DELETE without a WHERE via API in a migration with:
 -- ALTER ROLE authenticator SET session_preload_libraries = safeupdate;

@@ -1,7 +1,9 @@
 # syntax=docker/dockerfile:1.6
 # Create image with
 #   docker build -t statbus_postgres -f docker-postgres/Dockerfile docker-postgres
-# Using PostgreSQL 17 on Ubuntu
+# To see all output use
+#   docker build --progress=plain -t statbus_postgres -f docker-postgres/Dockerfile docker-postgres
+# Using PostgreSQL 17 on Ubuntu lastest LTS
 
 # Set PostgreSQL version
 ARG postgresql_major=17
@@ -21,6 +23,7 @@ ARG pg_repack_release=ver_1.5.2
 ARG hypopg_release=REL1_STABLE
 ARG index_advisor_release=main
 ARG pgjwt_release=master
+ARG pg_graphql_release=master
 
 ####################
 # Setup Postgres PPA
@@ -252,6 +255,46 @@ RUN git clone https://github.com/michelp/pgjwt.git && \
   make DESTDIR=/tmp/pgjwt-dist install
 
 ####################
+# Build pg_graphql
+####################
+FROM builder as pg_graphql-builder
+ARG pg_graphql_release
+ARG postgresql_major
+WORKDIR /tmp
+
+# Install Rust and cargo
+RUN apt-get update && apt-get install -y --no-install-recommends \
+  curl \
+  pkg-config \
+  libssl-dev \
+  && rm -rf /var/lib/apt/lists/* \
+  && curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+
+# Add cargo to PATH
+ENV PATH="/root/.cargo/bin:${PATH}"
+
+# Install cargo-pgrx with a compatible version
+RUN git clone https://github.com/supabase/pg_graphql.git && \
+  cd pg_graphql && \
+  git checkout ${pg_graphql_release} && \
+  # Install a known compatible version of cargo-pgrx
+  cargo install --locked cargo-pgrx@0.12.9
+
+# Build pg_graphql with PostgreSQL 17 support
+RUN cd /tmp/pg_graphql && \
+  cargo pgrx init --pg17=$(which pg_config) && \
+  cargo pgrx install --release --features pg17
+
+# Prepare files for installation
+RUN mkdir -p /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib && \
+  mkdir -p /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension && \
+  # Copy the built library for PostgreSQL 17
+  cp /usr/lib/postgresql/17/lib/pg_graphql.so /tmp/pg_graphql-dist/usr/lib/postgresql/${postgresql_major}/lib/ && \
+  # Copy the control file and SQL files from the correct location
+  find / -name "pg_graphql.control" -exec cp {} /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/ \; && \
+  find / -name "pg_graphql--*.sql" -exec cp {} /tmp/pg_graphql-dist/usr/share/postgresql/${postgresql_major}/extension/ \;
+
+####################
 # Final image
 ####################
 FROM base as final
@@ -270,6 +313,7 @@ COPY --from=pg_repack-builder /tmp/pg_repack-dist/ /
 COPY --from=hypopg-builder /tmp/hypopg-dist/ /
 COPY --from=index_advisor-builder /tmp/index_advisor-dist/ /
 COPY --from=pgjwt-builder /tmp/pgjwt-dist/ /
+COPY --from=pg_graphql-builder /tmp/pg_graphql-dist/ /
 
 # Add initialization script
 COPY init-db.sh /docker-entrypoint-initdb.d/init-db.sh
