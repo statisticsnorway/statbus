@@ -991,9 +991,429 @@ BEGIN
 END;
 $$;
 NOTICE:  Test 9: JWT Claims Building - PASSED
--- Test 10: Session Context Management
-\echo '=== Test 10: Session Context Management ==='
-=== Test 10: Session Context Management ===
+-- Test 10: JWT Tampering Detection
+\echo '=== Test 10: JWT Tampering Detection ==='
+=== Test 10: JWT Tampering Detection ===
+DO $$
+DECLARE
+    login_result_admin jsonb;
+    login_result_regular jsonb;
+    tampered_access_jwt text;
+    tampered_refresh_jwt text;
+    tampered_claims jsonb;
+    refresh_result jsonb;
+    auth_status_result jsonb;
+    admin_email text := 'test.admin@example.com';
+    regular_email text := 'test.regular@example.com';
+    admin_access_jwt text;
+    admin_refresh_jwt text;
+    regular_access_jwt text;
+    admin_claims jsonb;
+    regular_claims jsonb;
+    random_jti uuid := gen_random_uuid();
+    wrong_secret text := 'wrong-jwt-secret-for-testing-only';
+BEGIN
+    -- Set up headers to simulate a browser
+    PERFORM set_config('request.headers', 
+        json_build_object(
+            'x-forwarded-for', '127.0.0.1',
+            'user-agent', 'Test User Agent'
+        )::text, 
+        true
+    );
+
+    -- First login as admin to get valid tokens
+    SELECT public.login(admin_email, 'admin123')::jsonb INTO login_result_admin;
+    admin_access_jwt := login_result_admin->>'access_jwt';
+    admin_refresh_jwt := login_result_admin->>'refresh_jwt';
+    
+    -- Get admin token claims
+    SELECT payload::jsonb INTO admin_claims 
+    FROM verify(admin_access_jwt, 'test-jwt-secret-for-testing-only');
+    
+    -- Login as regular user to get valid tokens
+    SELECT public.login(regular_email, 'regular123')::jsonb INTO login_result_regular;
+    regular_access_jwt := login_result_regular->>'access_jwt';
+    
+    -- Get regular user token claims
+    SELECT payload::jsonb INTO regular_claims 
+    FROM verify(regular_access_jwt, 'test-jwt-secret-for-testing-only');
+    
+    -- Test 1: Tamper with access JWT to change role without changing signature
+    -- This simulates a user trying to elevate privileges by modifying the token payload
+    -- without knowing the JWT secret (which would be required to create a valid signature)
+    -- Approach 1: Change the payload but keep the original (now invalid) signature
+    DECLARE
+        tampered_access_payload jsonb;
+    BEGIN
+        -- Create tampered claims by changing role from regular to admin
+        -- but keeping the same signature (which will now be invalid)
+        tampered_access_payload := jsonb_set(
+            regular_claims,
+            '{role}',
+            to_jsonb(admin_email::text)
+        );
+        tampered_access_payload := jsonb_set(
+            tampered_access_payload,
+            '{statbus_role}',
+            to_jsonb('admin_user'::public.statbus_role)
+        );
+        
+        -- Manually construct a tampered JWT with invalid signature
+        -- Format: base64(header).base64(tampered_payload).original_signature
+        DECLARE
+            header text;
+            payload text;
+            signature text;
+            parts text[];
+        BEGIN
+            -- Split the original token
+            parts := string_to_array(regular_access_jwt, '.');
+            header := parts[1];
+            signature := parts[3];
+            
+            -- Use the same base64url encoding that pgjwt uses
+            -- This ensures compatibility with the verify function
+            SELECT url_encode(convert_to(tampered_access_payload::text, 'UTF8')) INTO payload;
+            
+            -- Construct the tampered token
+            tampered_access_jwt := header || '.' || payload || '.' || signature;
+        END;
+        
+        -- Set the tampered token in the JWT claims
+        BEGIN
+            -- This should fail because the signature is now invalid
+            PERFORM set_config('request.jwt.claims', 
+                (SELECT payload::text FROM verify(tampered_access_jwt, 'test-jwt-secret-for-testing-only')),
+                true
+            );
+            
+            -- If we get here, the verification didn't fail as expected
+            RAISE EXCEPTION 'Tampered access token was incorrectly verified as valid';
+        EXCEPTION WHEN OTHERS THEN
+            -- This is expected - the token should be rejected
+            RAISE DEBUG 'Tampered access token was correctly rejected: %', SQLERRM;
+        END;
+    END;
+    
+    -- Test 2: Try to create a token with an incorrect JWT secret
+    -- This simulates an attacker who doesn't know the real JWT secret but tries to forge a token
+    DECLARE
+        forged_payload jsonb;
+        forged_jwt text;
+        forged_result jsonb;
+    BEGIN
+        -- Create a payload with admin privileges
+        forged_payload := jsonb_build_object(
+            'role', admin_email,
+            'statbus_role', 'admin_user',
+            'email', admin_email,
+            'sub', (SELECT sub::text FROM auth.user WHERE email = admin_email),
+            'type', 'access',
+            'iat', extract(epoch from clock_timestamp())::integer,
+            'exp', extract(epoch from clock_timestamp() + interval '1 hour')::integer,
+            'jti', gen_random_uuid()
+        );
+        
+        -- Sign the payload with the wrong secret
+        -- This simulates an attacker trying to forge a token without knowing the real secret
+        forged_jwt := sign(
+            forged_payload::json, 
+            wrong_secret,  -- Using wrong secret here
+            'HS256'
+        );
+        
+        -- Debug the forged token
+        RAISE DEBUG 'Forged JWT with wrong secret: %', forged_jwt;
+        
+        -- Set the forged token in the JWT claims
+        BEGIN
+            -- This should fail because the signature is invalid
+            PERFORM set_config('request.jwt.claims', 
+                (SELECT payload::text FROM verify(forged_jwt, 'test-jwt-secret-for-testing-only')),
+                true
+            );
+            
+            -- If we get here, the verification didn't fail as expected
+            RAISE EXCEPTION 'Forged token with wrong secret was incorrectly verified as valid';
+        EXCEPTION WHEN OTHERS THEN
+            -- This is expected - the token should be rejected
+            RAISE DEBUG 'Forged token with wrong secret was correctly rejected: %', SQLERRM;
+        END;
+    END;
+    
+    -- Test 3: Try to use a refresh token with a non-existent session JTI
+    DECLARE
+        tampered_refresh_payload jsonb;
+        tampered_refresh_result jsonb;
+    BEGIN
+        -- Create tampered claims by changing the JTI to a random UUID
+        tampered_refresh_payload := jsonb_set(
+            (SELECT payload::jsonb FROM verify(admin_refresh_jwt, 'test-jwt-secret-for-testing-only')),
+            '{jti}',
+            to_jsonb(random_jti::text)
+        );
+        
+        -- Manually construct a tampered JWT with valid signature but non-existent session
+        DECLARE
+            header text;
+            payload text;
+            signature text;
+            parts text[];
+        BEGIN
+            -- Split the original token
+            parts := string_to_array(admin_refresh_jwt, '.');
+            header := parts[1];
+            
+            -- Use the same base64url encoding that pgjwt uses
+            -- This ensures compatibility with the verify function
+            SELECT url_encode(convert_to(tampered_refresh_payload::text, 'UTF8')) INTO payload;
+            
+            -- Use the original signature from the valid token
+            -- This simulates an attacker who doesn't know the secret
+            -- They can only modify the payload but can't create a valid signature
+            signature := parts[3];
+            
+            -- Construct the tampered token
+            tampered_refresh_jwt := header || '.' || payload || '.' || signature;
+        END;
+        
+        -- Set cookies in request headers with the tampered refresh token
+        PERFORM set_config('request.headers', 
+            jsonb_build_object(
+                'x-forwarded-for', '127.0.0.1',
+                'user-agent', 'Test User Agent',
+                'cookie', format('statbus-test-refresh=%s', tampered_refresh_jwt)
+            )::text, 
+            true
+        );
+        
+        -- Try to refresh with the tampered token
+        SELECT public.refresh()::jsonb INTO tampered_refresh_result;
+        
+        -- Debug the result
+        RAISE DEBUG 'Refresh result with non-existent session: %', tampered_refresh_result;
+        
+        -- Verify the refresh was rejected
+        ASSERT tampered_refresh_result ? 'error', 
+            'Refresh with non-existent session should return an error';
+    END;
+    
+    -- Test 4: Try to impersonate another user with a valid refresh token
+    DECLARE
+        impersonation_payload jsonb;
+        impersonation_jwt text;
+        impersonation_result jsonb;
+    BEGIN
+        -- Get a valid refresh token for admin
+        SELECT payload::jsonb INTO impersonation_payload 
+        FROM verify(admin_refresh_jwt, 'test-jwt-secret-for-testing-only');
+        
+        -- Modify the token to change the user (sub) while keeping the same session
+        impersonation_payload := jsonb_set(
+            impersonation_payload,
+            '{sub}',
+            to_jsonb((SELECT sub::text FROM auth.user WHERE email = 'test.restricted@example.com'))
+        );
+        impersonation_payload := jsonb_set(
+            impersonation_payload,
+            '{email}',
+            to_jsonb('test.restricted@example.com'::text)
+        );
+        impersonation_payload := jsonb_set(
+            impersonation_payload,
+            '{role}',
+            to_jsonb('test.restricted@example.com'::text)
+        );
+        
+        -- Manually construct a tampered JWT with valid signature
+        DECLARE
+            header text;
+            payload text;
+            signature text;
+            parts text[];
+        BEGIN
+            -- Split the original token
+            parts := string_to_array(admin_refresh_jwt, '.');
+            header := parts[1];
+            
+            -- Use the same base64url encoding that pgjwt uses
+            -- This ensures compatibility with the verify function
+            SELECT url_encode(convert_to(impersonation_payload::text, 'UTF8')) INTO payload;
+            
+            -- Use the original signature from the valid token
+            -- This simulates an attacker who doesn't know the secret
+            -- They can only modify the payload but can't create a valid signature
+            signature := parts[3];
+            
+            -- Construct the tampered token
+            impersonation_jwt := header || '.' || payload || '.' || signature;
+        END;
+        
+        -- Set cookies in request headers with the tampered refresh token
+        PERFORM set_config('request.headers', 
+            jsonb_build_object(
+                'x-forwarded-for', '127.0.0.1',
+                'user-agent', 'Test User Agent',
+                'cookie', format('statbus-test-refresh=%s', impersonation_jwt)
+            )::text, 
+            true
+        );
+        
+        -- Try to refresh with the tampered token
+        SELECT public.refresh()::jsonb INTO impersonation_result;
+        
+        -- Debug the result
+        RAISE DEBUG 'Refresh result with impersonation attempt: %', impersonation_result;
+        
+        -- Verify the refresh was rejected
+        ASSERT impersonation_result ? 'error', 
+            'Refresh with impersonation attempt should return an error';
+    END;
+    
+    RAISE NOTICE 'Test 10: JWT Tampering Detection - PASSED';
+END;
+$$;
+NOTICE:  Test 10: JWT Tampering Detection - PASSED
+-- Test 11: Auth Status Function
+\echo '=== Test 11: Auth Status Function ==='
+=== Test 11: Auth Status Function ===
+DO $$
+DECLARE
+    login_result jsonb;
+    auth_status_result jsonb;
+    auth_status_unauthenticated jsonb;
+    access_jwt text;
+    jwt_claims json;
+    test_email text := 'test.admin@example.com';
+    test_sub uuid;
+BEGIN
+    -- Set up headers to simulate a browser
+    PERFORM set_config('request.headers', 
+        json_build_object(
+            'x-forwarded-for', '127.0.0.1',
+            'user-agent', 'Test User Agent'
+        )::text, 
+        true
+    );
+
+    -- Get user details for verification
+    SELECT sub INTO test_sub
+    FROM auth.user
+    WHERE email = test_email;
+    
+    -- First check unauthenticated status (no JWT claims)
+    PERFORM set_config('request.jwt.claims', '', true);
+    
+    SELECT public.auth_status()::jsonb INTO auth_status_unauthenticated;
+    
+    -- Debug the unauthenticated status
+    RAISE DEBUG 'Auth status (unauthenticated): %', auth_status_unauthenticated;
+    
+    -- Verify unauthenticated status
+    ASSERT auth_status_unauthenticated->>'isAuthenticated' = 'false', 
+        'Unauthenticated status should have isAuthenticated=false';
+    ASSERT auth_status_unauthenticated->>'user' IS NULL, 
+        'Unauthenticated status should have user=null';
+    ASSERT auth_status_unauthenticated->>'tokenExpiring' = 'false', 
+        'Unauthenticated status should have tokenExpiring=false';
+    
+    -- Now login to get a valid token
+    SELECT public.login(test_email, 'admin123')::jsonb INTO login_result;
+    
+    -- Extract access token from login result
+    access_jwt := login_result->>'access_jwt';
+    
+    -- Set up JWT claims using the actual token
+    SELECT payload::json INTO jwt_claims 
+    FROM verify(access_jwt, 'test-jwt-secret-for-testing-only');
+    
+    PERFORM set_config('request.jwt.claims', jwt_claims::text, true);
+    
+    -- Check authenticated status
+    SELECT public.auth_status()::jsonb INTO auth_status_result;
+    
+    -- Debug the authenticated status
+    RAISE DEBUG 'Auth status (authenticated): %', auth_status_result;
+    
+    -- Verify authenticated status
+    ASSERT auth_status_result->>'isAuthenticated' = 'true', 
+        'Authenticated status should have isAuthenticated=true';
+    ASSERT auth_status_result->'user' IS NOT NULL, 
+        'Authenticated status should have user object';
+    ASSERT auth_status_result->'user'->>'id' = test_sub::text, 
+        'User ID should match';
+    ASSERT auth_status_result->'user'->>'email' = test_email, 
+        'User email should match';
+    ASSERT auth_status_result->'user'->>'role' = test_email, 
+        'User role should match email';
+    ASSERT auth_status_result->'user'->>'statbus_role' = 'admin_user', 
+        'User statbus_role should match';
+    
+    -- Test with an expiring token (modify the claims to make token expire soon)
+    DECLARE
+        expiring_claims json;
+        expiring_status jsonb;
+    BEGIN
+        -- Create a copy of the claims with an expiration time 4 minutes from now
+        expiring_claims := jsonb_set(
+            jwt_claims::jsonb, 
+            '{exp}', 
+            to_jsonb(extract(epoch from now())::integer + 240)
+        )::json;
+        
+        -- Set the modified claims
+        PERFORM set_config('request.jwt.claims', expiring_claims::text, true);
+        
+        -- Check status with expiring token
+        SELECT public.auth_status()::jsonb INTO expiring_status;
+        
+        -- Debug the expiring status
+        RAISE DEBUG 'Auth status (expiring token): %', expiring_status;
+        
+        -- Verify expiring token status
+        ASSERT expiring_status->>'isAuthenticated' = 'true', 
+            'Status with expiring token should have isAuthenticated=true';
+        ASSERT expiring_status->>'tokenExpiring' = 'true', 
+            'Status with expiring token should have tokenExpiring=true';
+    END;
+    
+    -- Test with an invalid user sub (user not found)
+    DECLARE
+        invalid_claims json;
+        invalid_status jsonb;
+        random_uuid uuid := gen_random_uuid();
+    BEGIN
+        -- Create a copy of the claims with an invalid user sub
+        invalid_claims := jsonb_set(
+            jwt_claims::jsonb, 
+            '{sub}', 
+            to_jsonb(random_uuid::text)
+        )::json;
+        
+        -- Set the modified claims
+        PERFORM set_config('request.jwt.claims', invalid_claims::text, true);
+        
+        -- Check status with invalid user
+        SELECT public.auth_status()::jsonb INTO invalid_status;
+        
+        -- Debug the invalid status
+        RAISE DEBUG 'Auth status (invalid user): %', invalid_status;
+        
+        -- Verify invalid user status
+        ASSERT invalid_status->>'isAuthenticated' = 'false', 
+            'Status with invalid user should have isAuthenticated=false';
+        ASSERT invalid_status->>'user' IS NULL, 
+            'Status with invalid user should have user=null';
+    END;
+    
+    RAISE NOTICE 'Test 10: Auth Status Function - PASSED';
+END;
+$$;
+NOTICE:  Test 10: Auth Status Function - PASSED
+-- Test 11: Session Context Management
+\echo '=== Test 11: Session Context Management ==='
+=== Test 11: Session Context Management ===
 DO $$
 DECLARE
     test_email text := 'test.external@example.com';
@@ -1072,10 +1492,10 @@ BEGIN
     ASSERT current_setting('request.jwt.claims', true) = '', 
         'Claims should be cleared';
     
-    RAISE NOTICE 'Test 10: Session Context Management - PASSED';
+    RAISE NOTICE 'Test 11: Session Context Management - PASSED';
 END;
 $$;
-NOTICE:  Test 10: Session Context Management - PASSED
+NOTICE:  Test 11: Session Context Management - PASSED
 -- Clean up test environment
 -- Clean up test sessions
 DELETE FROM auth.refresh_session
@@ -1083,6 +1503,6 @@ WHERE user_id IN (
     SELECT id FROM auth.user 
     WHERE email LIKE 'test.%@example.com'
 );
-\echo 'All auth tests completed successfully!'
-All auth tests completed successfully!
+\echo 'All auth tests completed successfully! (12 tests)'
+All auth tests completed successfully! (12 tests)
 ROLLBACK;

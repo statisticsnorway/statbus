@@ -737,6 +737,75 @@ AS $$
 $$ ;
 
 
+-- Function to get current authentication status
+CREATE OR REPLACE FUNCTION public.auth_status()
+RETURNS json
+LANGUAGE plpgsql
+AS $auth_status$
+DECLARE
+  claims json;
+  user_sub uuid;
+  user_record auth.user;
+  is_authenticated boolean;
+  token_expiring boolean;
+  current_epoch integer;
+  expiration_time integer;
+BEGIN
+  -- Get current JWT claims
+  claims := nullif(current_setting('request.jwt.claims', true), '')::json;
+  
+  -- Check if we have valid claims
+  IF claims IS NULL OR claims->>'sub' IS NULL THEN
+    -- No valid claims found
+    RETURN json_build_object(
+      'isAuthenticated', false,
+      'user', null,
+      'tokenExpiring', false
+    );
+  END IF;
+  
+  -- Extract user ID from claims
+  user_sub := (claims->>'sub')::uuid;
+  
+  -- Get user record
+  SELECT * INTO user_record
+  FROM auth.user
+  WHERE sub = user_sub AND deleted_at IS NULL;
+  
+  -- Check if user exists
+  IF NOT FOUND THEN
+    -- User not found or deleted
+    RETURN json_build_object(
+      'isAuthenticated', false,
+      'user', null,
+      'tokenExpiring', false
+    );
+  END IF;
+  
+  -- Check if token is about to expire (within 5 minutes)
+  current_epoch := extract(epoch from clock_timestamp())::integer;
+  expiration_time := (claims->>'exp')::integer;
+  token_expiring := expiration_time - current_epoch < 300; -- 5 minutes in seconds
+  
+  -- Return authentication status
+  RETURN json_build_object(
+    'isAuthenticated', true,
+    'tokenExpiring', token_expiring,
+    'user', json_build_object(
+      'id', user_record.sub,
+      'email', user_record.email,
+      'role', user_record.email,
+      'statbus_role', user_record.statbus_role,
+      'last_sign_in_at', user_record.last_sign_in_at,
+      'created_at', user_record.created_at
+    )
+  );
+END;
+$auth_status$;
+
+-- Grant execute to both anonymous and authenticated users
+GRANT EXECUTE ON FUNCTION public.auth_status TO anon, authenticated;
+
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION public.logout TO authenticated;
 GRANT EXECUTE ON FUNCTION public.login TO anon;
