@@ -29,11 +29,14 @@ In 2023 we changed the technology stack with the following goals in mind:
 
 ## Technology Stack
 
-* [Supabase](https://supabase.com) with
+* Backend with
   * [PostgreSQL](https://www.postgresql.org) (Database)
-    * With [Row Level Security](https://www.postgresql.org/docs/16/ddl-rowsecurity.html)
+    * With [Row Level Security](https://www.postgresql.org/docs/17/ddl-rowsecurity.html)
+    * With [SQL Saga](https://github.com/veridit/sql_saga) for Temporal Foreign Keys.
   * [PostgREST](https://postgrest.org/) (Automatic API from Database)
-  * GoTrue (Supabase JWT authentication integrated with PostgREST)
+  * [Caddy](https://caddyserver.com) (Secure Web Server)
+  * Our own custom auth (JWT authentication integrated with PostgREST)
+    * One user one role - leveraging Row Level Security for secure API and database access.
 * [Next.js](https://nextjs.org) (app with backend and frontend)
   * Using the [TypeScript Language](https://www.typescriptlang.org).
   * [Shadcn](https://ui.shadcn.com) Library for components with UI and behaviour.
