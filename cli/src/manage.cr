@@ -421,7 +421,7 @@ module Statbus
     EOS
       content += "\n\n"
 
-      supabase_env_filename = "supabase_docker/.env.example"
+      supabase_env_filename = ".env.example"
       content += <<-EOS
     ################################################################
     # Supabase Container Configuration
