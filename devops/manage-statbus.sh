@@ -46,11 +46,11 @@ case "$action" in
         # Always build the worker
         eval docker compose build worker
 
-        # Conditionally add the --build argument if the profile is 'all' or 'required'
+        # Conditionally add the --build argument if the profile is 'all' or 'all_except_app'
         # since docker compose does not use the --profile to determine
         # if a build is required.
         build_arg=""
-        if [ "$profile" = "all" ] || [ "$profile" = "required" ] || [ "$profile" = "required_not_app" ]; then
+        if [ "$profile" = "all" ] || [ "$profile" = "all_except_app" ]; then
             build_arg="--build"
         fi
 
@@ -351,7 +351,7 @@ case "$action" in
         ./devops/manage-statbus.sh create-users
       ;;
     'create-db' )
-        ./devops/manage-statbus.sh start required_not_app
+        ./devops/manage-statbus.sh start all_except_app
         JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
         DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
         PGDATABASE=statbus_${DEPLOYMENT_SLOT_CODE:-dev}

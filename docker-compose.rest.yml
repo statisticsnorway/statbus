@@ -29,7 +29,5 @@ services:
       - "${REST_PORT:-3000}:3000"
     profiles:
       - "all"
-      - "not_app"
-      - "required"
-      - "required_not_app"
+      - "all_except_app"
     command: "postgrest"

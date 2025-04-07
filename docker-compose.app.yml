@@ -15,8 +15,6 @@ services:
       - "${APP_BIND_ADDRESS:-127.0.0.1:3010}:3000"
     profiles:
       - "all"
-      - "required"
-      - "app"
     environment:
       NEXT_PUBLIC_SUPABASE_ANON_KEY: ${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       NEXT_PUBLIC_BROWSER_SUPABASE_URL: ${NEXT_PUBLIC_BROWSER_SUPABASE_URL}

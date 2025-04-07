@@ -25,7 +25,7 @@ services:
       - rest
     profiles:
       - "all"
-      - "not_app"
+      - "all_except_app"
 
 volumes:
   caddy_data:

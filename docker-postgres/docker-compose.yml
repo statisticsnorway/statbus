@@ -34,8 +34,7 @@ services:
 
     profiles:
       - "all"
-      - "required"
-      - "required_not_app"
+      - "all_except_app"
     # Prevent the database from using too much memory
     shm_size: 4g
     mem_limit: 4G
