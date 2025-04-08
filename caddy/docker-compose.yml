@@ -19,9 +19,8 @@ services:
       REST_HOST: rest
       REST_PORT: 3000
       SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
-      CADDY_ENVIRONMENT: ${CADDY_ENVIRONMENT:-development}
-      CADDY_AUTO_HTTPS: ${CADDY_AUTO_HTTPS:-off}
       DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
+      CADDY_DEPLOYMENT_MODE: ${CADDY_DEPLOYMENT_MODE:-development}
       MAINTENANCE_FILE_PATH: ${MAINTENANCE_FILE_PATH:-/maintenance}
       MAINTENANCE_ROOT_PATH: ${MAINTENANCE_ROOT_PATH:-/app/public}
       CADDY_LOG_PATH: ${CADDY_LOG_PATH:-/var/log/caddy/access.log}

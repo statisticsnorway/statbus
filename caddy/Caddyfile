@@ -4,9 +4,6 @@
     log {
         format json
     }
-    
-    # Control automatic HTTPS based on environment
-    auto_https {$CADDY_AUTO_HTTPS:off}
 }
 
 # Snippet for development environment configuration
@@ -20,9 +17,21 @@
 
 # Main site configuration
 {$SITE_ADDRESS:localhost} {
-    # Import development config if in development environment
-    @is_development expression {$CADDY_ENVIRONMENT:development} == "development"
+    # Import configs based on deployment mode
+    @is_development {
+        expression {$CADDY_DEPLOYMENT_MODE} == "development"
+    }
     import development_config @is_development
+    
+    # Handle HTTPS based on deployment mode
+    @is_standalone {
+        expression {$CADDY_DEPLOYMENT_MODE} == "standalone"
+    }
+    @not_standalone {
+        expression {$CADDY_DEPLOYMENT_MODE} != "standalone"
+    }
+    tls internal @is_standalone
+    tls off @not_standalone
     
     # Enable compression
     encode gzip
@@ -77,11 +86,13 @@
         }
     }
 
-    # Maintenance mode check (only in production)
+    # Maintenance mode check (not in development)
     @maintenance {
-        expression {$CADDY_ENVIRONMENT:development} == "production"
+        not {
+            expression {$CADDY_DEPLOYMENT_MODE} == "development"
+        }
         file {
-            try_files {$MAINTENANCE_FILE_PATH:/maintenance}
+            try_files {$MAINTENANCE_FILE_PATH}
         }
     }
     
@@ -93,9 +104,9 @@
         }
     }
 
-    # For development environment, return a message for non-API requests
+    # For development mode, return a message for non-API requests
     @development_non_api {
-        expression {$CADDY_ENVIRONMENT:development} == "development"
+        expression {$CADDY_DEPLOYMENT_MODE} == "development"
         not path /api/*
     }
     
@@ -103,9 +114,11 @@
         respond "Statbus API Gateway - Next.js app should be running locally on http://localhost:3000" 200
     }
 
-    # For production environment, proxy to the Next.js app
+    # For private or standalone mode, proxy to the Next.js app
     @production_non_api {
-        expression {$CADDY_ENVIRONMENT:development} == "production"
+        not {
+            expression {$CADDY_DEPLOYMENT_MODE} == "development"
+        }
         not path /api/*
     }
     
@@ -118,7 +131,7 @@
 
     # Log all requests
     log {
-        output file {$CADDY_LOG_PATH:/var/log/caddy/access.log}
+        output file {$CADDY_LOG_PATH}
         format json
     }
 }

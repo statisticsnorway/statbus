@@ -177,7 +177,9 @@ module Statbus
       postgres_app_db : String,
       postgres_app_user : String,
       access_jwt_expiry : String,
-      refresh_jwt_expiry : String
+      refresh_jwt_expiry : String,
+      caddy_deployment_mode : String,
+      site_domain : String
 
     # Configuration values that are derived from other settings
     record DerivedEnv,
@@ -285,7 +287,10 @@ module Statbus
             postgres_app_user: postgres_app_user,
             # JWT configuration
             access_jwt_expiry: config_env.generate("ACCESS_JWT_EXPIRY") { "3600" }, # 1 hour in seconds
-            refresh_jwt_expiry: config_env.generate("REFRESH_JWT_EXPIRY") { "2592000" } # 30 days in seconds
+            refresh_jwt_expiry: config_env.generate("REFRESH_JWT_EXPIRY") { "2592000" }, # 30 days in seconds
+            # Caddy configuration
+            caddy_deployment_mode: config_env.generate("CADDY_DEPLOYMENT_MODE") { "development" },
+            site_domain: config_env.generate("SITE_DOMAIN") { "#{deployment_slot_code}.statbus.org" }
           )
         end
 
@@ -359,7 +364,7 @@ module Statbus
           new_caddy_content = generate_caddy_content(derived)
 
           # Check if file exists and content differs
-          deployment_caddyfilename = "deployment.caddyfile"
+          deployment_caddyfilename = "caddy/config/deployment.caddyfile"
           if File.exists?(deployment_caddyfilename)
             current_content = File.read(deployment_caddyfilename)
             if new_caddy_content != current_content
