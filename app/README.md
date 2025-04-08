@@ -33,7 +33,6 @@ an `.env.local` file in the root of the project and add the following,
 with adjustments:
 
 ```env
-NEXT_PUBLIC_SUPABASE_ANON_KEY=...
 SERVER_API_URL=http://localhost:3001
 NEXT_PUBLIC_BROWSER_API_URL=http://localhost:3001
 NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=Development

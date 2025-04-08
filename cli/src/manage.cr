@@ -158,7 +158,6 @@ module Statbus
       jwt_secret : String,
       dashboard_username : String,
       dashboard_password : String,
-      anon_key : String,
       service_role_key : String
 
     # Type-safe configuration structure
@@ -236,7 +235,6 @@ module Statbus
             exp:  exp,
           }
 
-          anon_key = JWT.encode(anon_payload, jwt_secret, JWT::Algorithm::HS256)
           service_role_key = JWT.encode(service_role_payload, jwt_secret, JWT::Algorithm::HS256)
 
           CredentialsEnv.new(
@@ -245,7 +243,6 @@ module Statbus
             jwt_secret: jwt_secret,
             dashboard_username: credentials_env.generate("DASHBOARD_USERNAME") { "admin" },
             dashboard_password: credentials_env.generate("DASHBOARD_PASSWORD") { random_string(20) },
-            anon_key: credentials_env.generate("ANON_KEY") { anon_key },
             service_role_key: credentials_env.generate("SERVICE_ROLE_KEY") { service_role_key },
           )
         end
@@ -443,7 +440,6 @@ module Statbus
         env.set("POSTGRES_APP_PASSWORD", credentials.postgres_app_password)
         env.set("POSTGRES_PASSWORD", credentials.postgres_admin_password)
         env.set("JWT_SECRET", credentials.jwt_secret)
-        env.set("ANON_KEY", credentials.anon_key)
         env.set("SERVICE_ROLE_KEY", credentials.service_role_key)
         env.set("DASHBOARD_USERNAME", credentials.dashboard_username)
         env.set("DASHBOARD_PASSWORD", credentials.dashboard_password)
@@ -470,7 +466,6 @@ module Statbus
     # Add all the variables here that are exposed publicly,
     # i.e. available in the web page source code for all to see.
     #
-    NEXT_PUBLIC_SUPABASE_ANON_KEY=#{credentials.anon_key}
     NEXT_PUBLIC_BROWSER_API_URL=#{config.browser_api_url}
     NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=#{config.deployment_slot_name}
     NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=#{config.deployment_slot_code}
