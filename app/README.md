@@ -34,8 +34,8 @@ with adjustments:
 
 ```env
 NEXT_PUBLIC_SUPABASE_ANON_KEY=...
-SERVER_SUPABASE_URL=http://localhost:3001
-NEXT_PUBLIC_BROWSER_SUPABASE_URL=http://localhost:3001
+SERVER_API_URL=http://localhost:3001
+NEXT_PUBLIC_BROWSER_API_URL=http://localhost:3001
 NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=Development
 NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=dev
 VERSION=0.0.1.local
@@ -43,8 +43,9 @@ SEQ_SERVER_URL=http://localhost:5341
 SEQ_API_KEY=unused-when-running-locally
 ```
 
-The NEXT_PUBLIC_SUPABASE_ANON_KEY must match the supabase instance you are connecting
-too, and the SEQ_API_KEY must match the server you are connecting to.
+# The connection uses direct PostgREST with our custom auth system
+# We use Supabase client libraries for type safety, but not Supabase services
+# The SEQ_API_KEY must match the server you are connecting to.
 
 ### Run the Development Server
 

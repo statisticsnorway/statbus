@@ -167,8 +167,8 @@ module Statbus
       deployment_slot_code : String,
       deployment_slot_port_offset : String,
       statbus_url : String,
-      browser_supabase_url : String,
-      server_supabase_url : String,
+      browser_api_url : String,
+      server_api_url : String,
       seq_server_url : String,
       seq_api_key : String,
       slack_token : String,
@@ -181,13 +181,13 @@ module Statbus
     record DerivedEnv,
       app_port : Int32,
       app_bind_address : String,
-      supabase_port : Int32,
-      supabase_bind_address : String,
+      api_port : Int32,
+      api_bind_address : String,
       db_public_localhost_port : String,
       version : String,
       site_url : String,
       api_external_url : String,
-      supabase_public_url : String,
+      api_public_url : String,
       deployment_user : String,
       domain : String,
       enable_email_signup : Bool,
@@ -269,9 +269,9 @@ module Statbus
             # This needs to be replaced by the publicly available DNS name i.e. statbus.example.org
             statbus_url: config_env.generate("STATBUS_URL") { "http://localhost:3010" },
             # This needs to be replaced by the publicly available DNS name i.e. statbus-api.example.org
-            browser_supabase_url: config_env.generate("BROWSER_SUPABASE_URL") { "http://localhost:3011" },
-            # This is hardcoded for docker containers, as the name kong always resolves for the backend app.
-            server_supabase_url: config_env.generate("SERVER_SUPABASE_URL") { "http://kong:8000" },
+            browser_api_url: config_env.generate("BROWSER_API_URL") { "http://localhost:3011" },
+            # This is hardcoded for docker containers, as the name caddy always resolves for the backend app.
+            server_api_url: config_env.generate("SERVER_API_URL") { "http://caddy:80" },
             seq_server_url: config_env.generate("SEQ_SERVER_URL") { "https://log.statbus.org" },
             # This must be provided and entered manually.
             seq_api_key: config_env.generate("SEQ_API_KEY") { "secret_seq_api_key" },
@@ -290,15 +290,15 @@ module Statbus
         slot_multiplier = 10
         port_offset = base_port + (config.deployment_slot_port_offset.to_i * slot_multiplier)
         app_port = port_offset
-        supabase_port = port_offset + 1
+        api_port = port_offset + 1
 
         derived = DerivedEnv.new(
           # The host address connected to the STATBUS app
           app_port: app_port,
           app_bind_address: "127.0.0.1:#{app_port}",
           # The host address connected to Supabase
-          supabase_port: supabase_port,
-          supabase_bind_address: "127.0.0.1:#{supabase_port}",
+          api_port: api_port,
+          api_bind_address: "127.0.0.1:#{api_port}",
           # The publicly exposed address of PostgreSQL inside Supabase
           db_public_localhost_port: (port_offset + 2).to_s,
           # Git version of the deployed commit
@@ -306,9 +306,9 @@ module Statbus
           # URL where the site is hosted
           site_url: config.statbus_url,
           # External URL for the API
-          api_external_url: config.browser_supabase_url,
+          api_external_url: config.browser_api_url,
           # Public URL for Supabase access
-          supabase_public_url: config.browser_supabase_url,
+          api_public_url: config.browser_api_url,
           # Caddy configuration
           deployment_user: "statbus_#{config.deployment_slot_code}",
           domain: "#{config.deployment_slot_code}.statbus.org",
@@ -401,8 +401,8 @@ module Statbus
     DEPLOYMENT_SLOT_NAME=#{config.deployment_slot_name}
     # Urls configured in Caddy and DNS.
     STATBUS_URL=#{config.statbus_url}
-    BROWSER_SUPABASE_URL=#{config.browser_supabase_url}
-    SERVER_SUPABASE_URL=#{config.server_supabase_url}
+    BROWSER_API_URL=#{config.browser_api_url}
+    SERVER_API_URL=#{config.server_api_url}
     # Logging server
     SEQ_SERVER_URL=#{config.seq_server_url}
     SEQ_API_KEY=#{config.seq_api_key}
@@ -413,7 +413,7 @@ module Statbus
     # The host address connected to the STATBUS app
     APP_BIND_ADDRESS=#{derived.app_bind_address}
     # The host address connected to Supabase
-    SUPABASE_BIND_ADDRESS=#{derived.supabase_bind_address}
+    API_BIND_ADDRESS=#{derived.api_bind_address}
     # The publicly exposed address of PostgreSQL inside Supabase
     DB_PUBLIC_LOCALHOST_PORT=#{derived.db_public_localhost_port}
     # Updated by manage-statbus.sh start required
@@ -451,7 +451,7 @@ module Statbus
         # Set derived values
         env.set("SITE_URL", derived.site_url)
         env.set("API_EXTERNAL_URL", derived.api_external_url)
-        env.set("SUPABASE_PUBLIC_URL", derived.supabase_public_url)
+        env.set("API_PUBLIC_URL", derived.api_public_url)
         env.set("ENABLE_EMAIL_SIGNUP", derived.enable_email_signup.to_s)
         env.set("ENABLE_EMAIL_AUTOCONFIRM", derived.enable_email_autoconfirm.to_s)
         env.set("DISABLE_SIGNUP", derived.disable_signup.to_s)
@@ -471,7 +471,7 @@ module Statbus
     # i.e. available in the web page source code for all to see.
     #
     NEXT_PUBLIC_SUPABASE_ANON_KEY=#{credentials.anon_key}
-    NEXT_PUBLIC_BROWSER_SUPABASE_URL=#{config.browser_supabase_url}
+    NEXT_PUBLIC_BROWSER_API_URL=#{config.browser_api_url}
     NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=#{config.deployment_slot_name}
     NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=#{config.deployment_slot_code}
     #
@@ -506,7 +506,7 @@ module Statbus
     }
 
     api.#{derived.domain} {
-            reverse_proxy 127.0.0.1:#{derived.supabase_port}
+            reverse_proxy 127.0.0.1:#{derived.api_port}
     }
     EOS
     end
