@@ -147,7 +147,7 @@ case "$action" in
         eval $(./devops/manage-statbus.sh postgres-variables)
         
         # Extract PostgreSQL major version from Dockerfile
-        POSTGRESQL_MAJOR=$(grep -E "^ARG postgresql_major=" "$WORKSPACE/docker-postgres/Dockerfile" | cut -d= -f2)
+        POSTGRESQL_MAJOR=$(grep -E "^ARG postgresql_major=" "$WORKSPACE/postgres/Dockerfile" | cut -d= -f2)
         if [ -z "$POSTGRESQL_MAJOR" ]; then
             echo "Error: Could not extract PostgreSQL major version from Dockerfile"
             exit 1
@@ -369,7 +369,7 @@ case "$action" in
     'delete-db' )
         ./devops/manage-statbus.sh stop all
         # Define the directory path for PostgreSQL volume
-        POSTGRES_DIRECTORY="$WORKSPACE/docker-postgres/volumes/db/data"
+        POSTGRES_DIRECTORY="$WORKSPACE/postgres/volumes/db/data"
 
         # Check and remove PostgreSQL directory if it exists
         if [ -d "$POSTGRES_DIRECTORY" ]; then

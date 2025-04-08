@@ -4,95 +4,121 @@
     log {
         format json
     }
+    
+    # Control automatic HTTPS based on environment
+    auto_https {$CADDY_AUTO_HTTPS:off}
+}
+
+# Snippet for development environment configuration
+(development_config) {
+    # Add CORS headers for development
+    header Access-Control-Allow-Origin "http://localhost:3000"
+    header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+    header Access-Control-Allow-Headers "Content-Type, Authorization"
+    header Access-Control-Allow-Credentials "true"
 }
 
 # Main site configuration
-{$SITE_ADDRESS} {
+{$SITE_ADDRESS:localhost} {
+    # Import development config if in development environment
+    @is_development expression {$CADDY_ENVIRONMENT:development} == "development"
+    import development_config @is_development
+    
     # Enable compression
     encode gzip
 
-    # Handle login endpoint - extract JWT from response and set as cookie
+    # Handle OPTIONS preflight requests
+    @options method OPTIONS
+    handle @options {
+        header Access-Control-Allow-Origin "http://localhost:3000"
+        header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
+        header Access-Control-Allow-Headers "Content-Type, Authorization"
+        header Access-Control-Allow-Credentials "true"
+        respond 204
+    }
+
+    # Handle login endpoint
     handle /api/rpc/login {
         uri strip_prefix /api
-        reverse_proxy {$REST_HOST}:{$REST_PORT} {
+        reverse_proxy {$REST_HOST:rest}:{$REST_PORT:3000} {
             header_up Host {host}
             header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
-            
-            # Pass any existing auth token
-            header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE}}"
-            
-            # Handle successful login response
-            @success status 2xx
-            handle_response @success {
-                # Extract token from response and set as cookie
-                # The login function in PostgreSQL sets response.headers with Set-Cookie
-                # which will be passed through automatically
-            }
+            header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE:dev}}"
         }
     }
     
-    # Handle logout endpoint - clear the auth cookie
+    # Handle logout endpoint
     handle /api/rpc/logout {
         uri strip_prefix /api
-        reverse_proxy {$REST_HOST}:{$REST_PORT} {
+        reverse_proxy {$REST_HOST:rest}:{$REST_PORT:3000} {
             header_up Host {host}
             header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
-            
-            # Pass the auth token for validation
-            header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE}}"
-            
-            # The logout function in PostgreSQL sets response.headers with Set-Cookie
-            # which will be passed through automatically
+            header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE:dev}}"
         }
     }
     
     # Handle refresh token endpoint
     handle /api/rpc/refresh {
         uri strip_prefix /api
-        reverse_proxy {$REST_HOST}:{$REST_PORT} {
+        reverse_proxy {$REST_HOST:rest}:{$REST_PORT:3000} {
             header_up Host {host}
             header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
-            
-            # Pass the refresh token from cookie as Authorization header
-            # The refresh token is a valid JWT that can be used to authenticate
-            # with PostgREST for the purpose of getting new tokens
-            header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE}-refresh}"
+            header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE:dev}-refresh}"
         }
     }
 
-    # Handle all other API requests - pass JWT from cookie as Authorization header
+    # Handle all other API requests
     handle /api/* {
         uri strip_prefix /api
-        reverse_proxy {$REST_HOST}:{$REST_PORT} {
+        reverse_proxy {$REST_HOST:rest}:{$REST_PORT:3000} {
             header_up Host {host}
             header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
-            
-            # Pass the access token from cookie as Authorization header
-            header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE}}"
+            header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE:dev}}"
         }
     }
 
-    # Handle all other requests (Next.js app)
-    handle {
-        reverse_proxy {$APP_HOST}:{$APP_PORT} {
+    # Maintenance mode check (only in production)
+    @maintenance {
+        expression {$CADDY_ENVIRONMENT:development} == "production"
+        file {
+            try_files {$MAINTENANCE_FILE_PATH:/maintenance}
+        }
+    }
+    
+    handle @maintenance {
+        root * {$MAINTENANCE_ROOT_PATH:/app/public}
+        rewrite * /maintenance.html
+        file_server {
+            status 503
+        }
+    }
+
+    # For development environment, return a message for non-API requests
+    @development_non_api {
+        expression {$CADDY_ENVIRONMENT:development} == "development"
+        not path /api/*
+    }
+    
+    handle @development_non_api {
+        respond "Statbus API Gateway - Next.js app should be running locally on http://localhost:3000" 200
+    }
+
+    # For production environment, proxy to the Next.js app
+    @production_non_api {
+        expression {$CADDY_ENVIRONMENT:development} == "production"
+        not path /api/*
+    }
+    
+    handle @production_non_api {
+        reverse_proxy {$APP_HOST:app}:{$APP_PORT:3000} {
             header_up Host {host}
             header_up X-Real-IP {remote}
-            header_up X-Forwarded-For {remote}
-            header_up X-Forwarded-Proto {scheme}
         }
     }
 
     # Log all requests
     log {
-        output file /var/log/caddy/access.log
+        output file {$CADDY_LOG_PATH:/var/log/caddy/access.log}
         format json
     }
 }

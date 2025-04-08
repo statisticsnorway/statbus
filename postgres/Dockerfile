@@ -1,8 +1,8 @@
 # syntax=docker/dockerfile:1.6
 # Create image with
-#   docker build -t statbus_postgres -f docker-postgres/Dockerfile docker-postgres
+#   docker build -t statbus_postgres -f postgres/Dockerfile postgres
 # To see all output use
-#   docker build --progress=plain -t statbus_postgres -f docker-postgres/Dockerfile docker-postgres
+#   docker build --progress=plain -t statbus_postgres -f postgres/Dockerfile postgres
 # Using PostgreSQL 17 on Ubuntu lastest LTS
 
 # Set PostgreSQL version

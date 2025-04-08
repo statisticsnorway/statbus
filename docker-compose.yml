@@ -12,10 +12,10 @@ include:
       - "docker-compose.worker.yml"
   - path:
       # PostgreSQL database
-      - "docker-postgres/docker-compose.yml"
+      - "postgres/docker-compose.yml"
   - path:
       # PostgREST API
       - "docker-compose.rest.yml"
   - path:
       # Caddy web server
-      - "docker-compose.caddy.yml"
+      - "caddy/docker-compose.yml"
