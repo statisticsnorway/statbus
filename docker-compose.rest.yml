@@ -16,9 +16,9 @@ services:
       PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in the generated .env}
       # Access and refresh tokens use the same secret (PGRST_APP_SETTINGS_JWT_SECRET)
       # JWT expiration time in seconds: 3600 = 1 hour
-      PGRST_APP_SETTINGS_ACCESS_JWT_EXP: ${JWT_EXPIRY:?JWT_EXPIRY must be set in the generated .env}
+      PGRST_APP_SETTINGS_ACCESS_JWT_EXP: ${ACCESS_JWT_EXPIRY:?ACCESS_JWT_EXPIRY must be set in the generated .env}
       # Refresh token expiration time in seconds: 2592000 = 30 days
-      PGRST_APP_SETTINGS_REFRESH_JWT_EXP: ${REFRESH_TOKEN_EXPIRY:?REFRESH_TOKEN_EXPIRY must be set in the generated .env}
+      PGRST_APP_SETTINGS_REFRESH_JWT_EXP: ${REFRESH_JWT_EXPIRY:?REFRESH_JWT_EXPIRY must be set in the generated .env}
       # Enable group by counting for getting the available filter values with counts
       PGRST_DB_AGGREGATES_ENABLED: "true"
       # JWT claims available in current_setting('request.jwt.claims')

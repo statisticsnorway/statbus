@@ -175,7 +175,9 @@ module Statbus
       postgres_admin_db : String,
       postgres_admin_user : String,
       postgres_app_db : String,
-      postgres_app_user : String
+      postgres_app_user : String,
+      access_jwt_expiry : String,
+      refresh_jwt_expiry : String
 
     # Configuration values that are derived from other settings
     record DerivedEnv,
@@ -280,7 +282,10 @@ module Statbus
             postgres_admin_db: config_env.generate("POSTGRES_ADMIN_DB") { "postgres" },
             postgres_admin_user: config_env.generate("POSTGRES_ADMIN_USER") { "postgres" },
             postgres_app_db: postgres_app_db,
-            postgres_app_user: postgres_app_user
+            postgres_app_user: postgres_app_user,
+            # JWT configuration
+            access_jwt_expiry: config_env.generate("ACCESS_JWT_EXPIRY") { "3600" }, # 1 hour in seconds
+            refresh_jwt_expiry: config_env.generate("REFRESH_JWT_EXPIRY") { "2592000" } # 30 days in seconds
           )
         end
 
@@ -442,6 +447,8 @@ module Statbus
         env.set("POSTGRES_APP_PASSWORD", credentials.postgres_app_password)
         env.set("POSTGRES_AUTHENTICATOR_PASSWORD", credentials.postgres_authenticator_password)
         env.set("POSTGRES_PASSWORD", credentials.postgres_admin_password)
+        env.set("ACCESS_JWT_EXPIRY", config.access_jwt_expiry)
+        env.set("REFRESH_JWT_EXPIRY", config.refresh_jwt_expiry)
         env.set("JWT_SECRET", credentials.jwt_secret)
         env.set("SERVICE_ROLE_KEY", credentials.service_role_key)
         env.set("DASHBOARD_USERNAME", credentials.dashboard_username)
