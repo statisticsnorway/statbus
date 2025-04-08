@@ -155,6 +155,7 @@ module Statbus
     record CredentialsEnv,
       postgres_admin_password : String,
       postgres_app_password : String,
+      postgres_authenticator_password : String,
       jwt_secret : String,
       dashboard_username : String,
       dashboard_password : String,
@@ -240,6 +241,7 @@ module Statbus
           CredentialsEnv.new(
             postgres_admin_password: credentials_env.generate("POSTGRES_ADMIN_PASSWORD") { random_string(20) },
             postgres_app_password: credentials_env.generate("POSTGRES_APP_PASSWORD") { random_string(20) },
+            postgres_authenticator_password: credentials_env.generate("POSTGRES_AUTHENTICATOR_PASSWORD") { random_string(20) },
             jwt_secret: jwt_secret,
             dashboard_username: credentials_env.generate("DASHBOARD_USERNAME") { "admin" },
             dashboard_password: credentials_env.generate("DASHBOARD_PASSWORD") { random_string(20) },
@@ -438,6 +440,7 @@ module Statbus
         env.set("POSTGRES_APP_DB", config.postgres_app_db)
         env.set("POSTGRES_APP_USER", config.postgres_app_user)
         env.set("POSTGRES_APP_PASSWORD", credentials.postgres_app_password)
+        env.set("POSTGRES_AUTHENTICATOR_PASSWORD", credentials.postgres_authenticator_password)
         env.set("POSTGRES_PASSWORD", credentials.postgres_admin_password)
         env.set("JWT_SECRET", credentials.jwt_secret)
         env.set("SERVICE_ROLE_KEY", credentials.service_role_key)

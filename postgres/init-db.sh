@@ -77,7 +77,7 @@ psql -c "CREATE DATABASE statbus_test WITH template template_statbus OWNER statb
 
 echo "Setting up authentication roles..."
 # Create authenticator role for PostgREST
-psql -d "$POSTGRES_APP_DB" -c "CREATE ROLE authenticator NOINHERIT LOGIN PASSWORD '$POSTGRES_APP_PASSWORD';"
+psql -d "$POSTGRES_APP_DB" -c "CREATE ROLE authenticator NOINHERIT LOGIN PASSWORD '$POSTGRES_AUTHENTICATOR_PASSWORD';"
 
 # Create anon and authenticated roles
 psql -d "$POSTGRES_APP_DB" -c "CREATE ROLE anon NOLOGIN NOINHERIT;"
