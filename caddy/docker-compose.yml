@@ -10,7 +10,7 @@ services:
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
-      - caddy_config:/config
+      - ./config:/config
       - caddy_logs:/var/log/caddy
     environment:
       APP_BIND_ADDRESS: ${APP_BIND_ADDRESS:-app:3000}
@@ -30,5 +30,4 @@ services:
 
 volumes:
   caddy_data:
-  caddy_config:
   caddy_logs:
