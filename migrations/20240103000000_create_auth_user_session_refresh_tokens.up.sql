@@ -108,6 +108,9 @@ BEGIN
     -- With INHERIT, the user will automatically have all permissions from authenticated
     EXECUTE format('GRANT authenticated TO %I', role_name);
     
+    -- Grant the user role to authenticator to allow role switching via JWT impersonation
+    EXECUTE format('GRANT %I TO authenticator', role_name);
+    
     -- Grant the appropriate statbus role to the new role
     -- This determines the user's permission level (admin, regular, restricted, external)
     -- The user inherits all permissions from their statbus_role through role inheritance
