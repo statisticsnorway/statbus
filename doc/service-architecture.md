@@ -38,8 +38,8 @@ with Caddy serving as a reverse proxy and authentication gateway.
 - **Container**: `statbus-{slot}-caddy`
 - **Purpose**: Reverse proxy and authentication gateway
 - **Key Features**:
-  - Routes `/api/*` requests to PostgREST
-  - Routes other requests to the Next.js app
+  - Routes `/postgrest/*` requests to PostgREST using POSTGREST_BIND_ADDRESS
+  - Routes other requests to the Next.js app using APP_BIND_ADDRESS
   - Handles cookie-to-header JWT conversion
   - Manages authentication flow (login, logout, refresh)
   - Supports multiple deployment modes
@@ -66,12 +66,12 @@ with Caddy serving as a reverse proxy and authentication gateway.
 
 ## Authentication Flow
 
-1. **Login**: User credentials sent to `/api/rpc/login`, validated by PostgreSQL function
+1. **Login**: User credentials sent to `/postgrest/rpc/login`, validated by PostgreSQL function
    and returns cookies with JWT tokens.
 2. **Token Management**: JWT tokens stored in cookies (`statbus-{slot}` and `statbus-{slot}-refresh`)
 3. **API Access**: Caddy extracts JWT from cookies and adds as Authorization headers,
    since [https://github.com/PostgREST/postgrest/issues/3033](PostgREST does not support reading the JWT access token from a cookie)
-4. **Token Refresh**: Automatic refresh via `/api/rpc/refresh` endpoint that consumes the jwt refresh token,
+4. **Token Refresh**: Automatic refresh via `/postgrest/rpc/refresh` endpoint that consumes the jwt refresh token,
    that can only be used once, and is found in the cookie, and returns a new access token and refresh token as cookies.
 5. **Logout**: Reads tokens from cookies and clears them as well as removing the refresh token.
 

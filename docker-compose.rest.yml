@@ -1,7 +1,7 @@
 # PostgREST API service configuration
 services:
   rest:
-    container_name: ${COMPOSE_INSTANCE_NAME:-statbus}-rest
+    container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-rest
     image: postgrest/postgrest:v12.2.0
     depends_on:
       db:
@@ -26,7 +26,7 @@ services:
       # Pass deployment slot code to database for cookie naming
       PGRST_DB_CONFIG: app.settings.deployment_slot_code=${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
     ports:
-      - "${REST_PORT:-3000}:3000"
+      - "${POSTGREST_BIND_ADDRESS:?POSTGREST_BIND_ADDRESS must be set in the generated .env}:3000"
     profiles:
       - "all"
       - "all_except_app"

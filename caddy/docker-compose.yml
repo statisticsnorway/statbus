@@ -1,7 +1,7 @@
 # Caddy web server configuration
 services:
   caddy:
-    container_name: ${COMPOSE_INSTANCE_NAME:-statbus}-caddy
+    container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-caddy
     image: caddy:2.7-alpine
     restart: unless-stopped
     ports:
@@ -13,11 +13,8 @@ services:
       - caddy_config:/config
       - caddy_logs:/var/log/caddy
     environment:
-      # These variables will be used in the Caddyfile
-      APP_HOST: ${APP_HOST:-app}
-      APP_PORT: ${APP_PORT:-3000}
-      REST_HOST: rest
-      REST_PORT: 3000
+      APP_BIND_ADDRESS: ${APP_BIND_ADDRESS:-app:3000}
+      POSTGREST_BIND_ADDRESS: ${POSTGREST_BIND_ADDRESS:-rest:3000}
       SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
       DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
       CADDY_DEPLOYMENT_MODE: ${CADDY_DEPLOYMENT_MODE:-development}

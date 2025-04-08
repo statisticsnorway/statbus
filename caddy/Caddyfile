@@ -47,9 +47,9 @@
     }
 
     # Handle login endpoint
-    handle /api/rpc/login {
-        uri strip_prefix /api
-        reverse_proxy {$REST_HOST:rest}:{$REST_PORT:3000} {
+    handle /postgrest/rpc/login {
+        uri strip_prefix /postgrest
+        reverse_proxy {$POSTGREST_BIND_ADDRESS:rest:3000} {
             header_up Host {host}
             header_up X-Real-IP {remote}
             header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE:dev}}"
@@ -57,9 +57,9 @@
     }
     
     # Handle logout endpoint
-    handle /api/rpc/logout {
-        uri strip_prefix /api
-        reverse_proxy {$REST_HOST:rest}:{$REST_PORT:3000} {
+    handle /postgrest/rpc/logout {
+        uri strip_prefix /postgrest
+        reverse_proxy {$POSTGREST_BIND_ADDRESS:rest:3000} {
             header_up Host {host}
             header_up X-Real-IP {remote}
             header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE:dev}}"
@@ -67,19 +67,19 @@
     }
     
     # Handle refresh token endpoint
-    handle /api/rpc/refresh {
-        uri strip_prefix /api
-        reverse_proxy {$REST_HOST:rest}:{$REST_PORT:3000} {
+    handle /postgrest/rpc/refresh {
+        uri strip_prefix /postgrest
+        reverse_proxy {$POSTGREST_BIND_ADDRESS:rest:3000} {
             header_up Host {host}
             header_up X-Real-IP {remote}
             header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE:dev}-refresh}"
         }
     }
 
-    # Handle all other API requests
-    handle /api/* {
-        uri strip_prefix /api
-        reverse_proxy {$REST_HOST:rest}:{$REST_PORT:3000} {
+    # Handle all other PostgREST requests
+    handle /postgrest/* {
+        uri strip_prefix /postgrest
+        reverse_proxy {$POSTGREST_BIND_ADDRESS:rest:3000} {
             header_up Host {host}
             header_up X-Real-IP {remote}
             header_up Authorization "Bearer {http.request.cookie.statbus-{$DEPLOYMENT_SLOT_CODE:dev}}"
@@ -123,7 +123,7 @@
     }
     
     handle @production_non_api {
-        reverse_proxy {$APP_HOST:app}:{$APP_PORT:3000} {
+        reverse_proxy {$APP_BIND_ADDRESS:app:3000} {
             header_up Host {host}
             header_up X-Real-IP {remote}
         }
