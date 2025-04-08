@@ -2,17 +2,38 @@
 
 This document outlines the architecture of the Statbus application, focusing on the Docker Compose setup and the authentication flow.
 
+## Supabase Libraries Usage
+
+While the application uses direct PostgREST for database access and a custom authentication system, it still leverages Supabase client libraries for several reasons:
+
+1. **Type Safety**: The Supabase client provides TypeScript types that match our database schema
+2. **Consistent API**: The client offers a familiar, well-documented API for database operations
+3. **Query Building**: The client includes utilities for building complex queries with proper escaping
+4. **Error Handling**: Standardized error responses and handling patterns
+
+IMPORTANT: We are NOT using Supabase as a service, only their client libraries.
+
+Key distinctions:
+
+- We use the Supabase client libraries (`@supabase/supabase-js`) but connect directly to our own PostgREST instance
+- Authentication is handled entirely by our custom system, not Supabase Auth
+- The client is configured with a dummy anon key since we use our own JWT-based auth system
+- We extract the REST URL and fetch function from the client for direct API access when needed
+- All data remains in our own PostgreSQL database, not in any Supabase-hosted service
+
+This approach gives us the benefits of Supabase's type-safe client while maintaining full control over our authentication, database access, and data sovereignty.
+
 ## Docker Compose Services
 
 The application is containerized using Docker Compose, orchestrating several services defined across multiple `docker-compose.*.yml` files. Profiles (`all`, `required`, `required_not_app`) allow selective startup of services.
 
 1.  **`postgres` (Database)**
-    *   Defined in `docker-postgres/docker-compose.yml`.
-    *   Uses a custom PostgreSQL 17 image built via `docker-postgres/Dockerfile`.
+    *   Defined in `postgres/docker-compose.yml`.
+    *   Uses a custom PostgreSQL 17 image built via `postgres/Dockerfile`.
     *   Includes numerous extensions:
         *   pgtap, plpgsql_check, pg_safeupdate, wal2json, pg_hashids, pgsql_http
         *   sql_saga, pg_stat_monitor, pg_repack, hypopg, index_advisor, pgjwt
-    *   Initialized by `docker-postgres/init-user-db.sh`, which:
+    *   Initialized by `postgres/init-user-db.sh`, which:
         *   Creates a template database (`template_statbus`) with required extensions (pg_trgm, pgcrypto, etc.).
         *   Creates the main application database (`statbus_development`) and a test database (`statbus_test`).
         *   Sets up core roles: `authenticator` (for PostgREST login), `anon` (unauthenticated users), `authenticated` (base role for logged-in users).
@@ -66,8 +87,7 @@ The application is containerized using Docker Compose, orchestrating several ser
     *   The main user-facing web application built from the `./app` directory.
     *   Configured with Supabase connection details and deployment slot information.
     *   Environment variables include:
-        *   Supabase configuration (`NEXT_PUBLIC_SUPABASE_ANON_KEY`, `NEXT_PUBLIC_BROWSER_SUPABASE_URL`)
-        *   Server-side Supabase URL (`SERVER_SUPABASE_URL`)
+        *   Server-side PostgREST URL (`SERVER_API_URL`)
         *   Logging configuration (`SEQ_SERVER_URL`, `SEQ_API_KEY`)
         *   Deployment slot information (`NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME`, `NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE`)
     *   Interacts with the API via Caddy (`/api/*`).
@@ -82,12 +102,11 @@ The application is containerized using Docker Compose, orchestrating several ser
 
 ## Authentication Flow
 
-Authentication relies on JWTs managed via PostgreSQL functions, PostgREST, and Caddy working together.
+Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, with direct API calls from the browser.
 
 1.  **Login:**
     *   User submits email/password to the Next.js app.
-    *   App POSTs to `/api/rpc/login`.
-    *   Caddy proxies the request to PostgREST (`/rpc/login`).
+    *   App directly POSTs to `/api/rpc/login` using the `auth.login()` function.
     *   PostgREST executes the `public.login(email, password)` function as the `anon` role.
     *   `public.login`:
         *   Verifies credentials against `auth.users`.
@@ -107,18 +126,19 @@ Authentication relies on JWTs managed via PostgreSQL functions, PostgREST, and C
             *   `ua_hash`: User agent hash (for verification)
         *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the access token (`statbus-<slot>`) and refresh token (`statbus-<slot>-refresh`). The `<slot>` is determined by `app.settings.deployment_slot_code`.
         *   Returns tokens and user info in the JSON response body.
-    *   PostgREST sends the response, including the `Set-Cookie` headers, back through Caddy.
-    *   Caddy forwards the response to the browser, which stores the cookies.
+    *   The browser stores the cookies automatically.
 
 2.  **Authenticated Requests:**
     *   Browser automatically includes the `statbus-<slot>` cookie with requests to the API (`/api/*`).
-    *   Caddy intercepts the request.
-    *   Caddy reads the access token cookie value and sets the `Authorization: Bearer <token>` header.
-    *   Caddy proxies the modified request to PostgREST, adding headers for:
-        *   `Host`: Original host
-        *   `X-Real-IP`: Client IP
-        *   `X-Forwarded-For`: Client IP
-        *   `X-Forwarded-Proto`: Original scheme (http/https)
+    *   For client-side requests, the `fetchWithAuth` utility is used, which:
+        *   Automatically includes credentials (cookies)
+        *   Handles 401 errors by attempting to refresh the token
+        *   Retries the original request with the new token
+    *   For server-side requests, the middleware:
+        *   Extracts the token from cookies
+        *   Verifies the token
+        *   Refreshes the token if needed
+        *   Forwards the token to PostgREST
     *   PostgREST validates the JWT. If valid, it:
         *   Reads the `role` claim (user's email)
         *   Executes `SET LOCAL ROLE <email>` for the PostgreSQL transaction
@@ -127,32 +147,32 @@ Authentication relies on JWTs managed via PostgreSQL functions, PostgREST, and C
     *   Functions like `auth.uid()`, `auth.email()`, and `auth.statbus_role()` can access JWT claims.
 
 3.  **Logout:**
-    *   App calls `/api/rpc/logout`.
-    *   Caddy adds the `Authorization` header (from the cookie) and proxies to PostgREST (`/rpc/logout`).
+    *   App directly calls `/api/rpc/logout` using the `auth.logout()` function.
     *   PostgREST executes `public.logout()` as the authenticated user.
     *   `public.logout`:
         *   Retrieves the user ID and possibly session ID from the current JWT claims (`current_setting('request.jwt.claims', true)`).
         *   If it's a refresh token, deletes the specific session from `auth.refresh_session`.
         *   If it's an access token, optionally deletes all sessions for the user.
-    *   PostgREST sends a success response back through Caddy.
-    *   Caddy's configuration for `/api/rpc/logout` includes a `handle_response` block that explicitly adds `Set-Cookie` headers to expire/clear the `statbus-<slot>` and `statbus-<slot>-refresh` cookies in the browser.
+        *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers that clear the auth cookies.
+    *   The browser clears the cookies automatically.
 
 4.  **Token Refresh:**
-    *   When the JWT (`statbus-<slot>`) expires, the client-side application should detect this (e.g., via API errors or proactive checking).
-    *   The browser automatically sends both the (potentially expired) `statbus-<slot>` cookie and the `statbus-<slot>-refresh` cookie when the client POSTs to `/api/rpc/refresh`.
-    *   Caddy proxies the request to PostgREST (`/rpc/refresh`).
-        *   Caddy extracts the refresh token from the cookie and sets it as the `Authorization` header before forwarding to PostgREST.
-    *   PostgREST validates the refresh token JWT and executes `public.refresh()`.
-    *   `public.refresh`:
-        *   Extracts the refresh token from cookies using `auth.extract_refresh_token_from_cookies()`.
-        *   Validates the token and extracts claims.
-        *   Verifies the session exists in `auth.refresh_session` with matching user ID and version.
-        *   Verifies the user agent hash matches.
-        *   Increments the session version and updates last used time and expiry.
-        *   Generates a *new* access token JWT and a *new* refresh token JWT with updated version.
-        *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the *new* tokens.
-    *   PostgREST sends the response (with new tokens in the body and new `Set-Cookie` headers) back through Caddy.
-    *   Caddy forwards the response to the browser, which updates the cookies.
+    *   Token refresh happens in three ways:
+        *   **Proactive refresh**: The `DirectAuthContext` checks token expiration and refreshes proactively
+        *   **Reactive refresh**: The `fetchWithAuth` utility detects 401 errors and refreshes the token
+        *   **Middleware refresh**: The Next.js middleware detects expired tokens and refreshes them
+    *   The refresh process:
+        *   Client directly calls `/api/rpc/refresh` with the refresh token cookie
+        *   PostgREST validates the refresh token JWT and executes `public.refresh()`
+        *   `public.refresh`:
+            *   Extracts the refresh token from cookies using `auth.extract_refresh_token_from_cookies()`.
+            *   Validates the token and extracts claims.
+            *   Verifies the session exists in `auth.refresh_session` with matching user ID and version.
+            *   Verifies the user agent hash matches.
+            *   Increments the session version and updates last used time and expiry.
+            *   Generates a *new* access token JWT and a *new* refresh token JWT with updated version.
+            *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the *new* tokens.
+        *   The browser updates the cookies automatically.
 
 ## Key Configuration Points
 
