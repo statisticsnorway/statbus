@@ -403,6 +403,7 @@ module Statbus
 
     # The name displayed on the web
     DEPLOYMENT_SLOT_NAME=#{config.deployment_slot_name}
+    DEPLOYMENT_SLOT_CODE=#{config.deployment_slot_code}
     # Urls configured in Caddy and DNS.
     STATBUS_URL=#{config.statbus_url}
     BROWSER_API_URL=#{config.browser_api_url}

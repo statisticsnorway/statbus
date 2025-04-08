@@ -8,8 +8,8 @@ services:
       context: ./app
       args:
         NEXT_PUBLIC_BROWSER_API_URL: ${NEXT_PUBLIC_BROWSER_API_URL}
-        NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME: ${NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME}
-        NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE: ${NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE}
+        NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME: ${DEPLOYMENT_SLOT_NAME:?DEPLOYMENT_SLOT_NAME must be set in the generated .env}
+        NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
     ports:
       - "${APP_BIND_ADDRESS:-127.0.0.1:3010}:3000"
     profiles:
@@ -19,10 +19,10 @@ services:
       SERVER_API_URL: "http://caddy:80/api"
       SEQ_SERVER_URL: ${SEQ_SERVER_URL:-https://log.statbus.org}
       SEQ_API_KEY: ${SEQ_API_KEY}
-      NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME: ${NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME}
-      NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE: ${NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE}
-      POSTGRES_DB: statbus_${NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE:-dev}
-      POSTGRES_USER: statbus_${NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE:-dev}
+      NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME: ${DEPLOYMENT_SLOT_NAME:?DEPLOYMENT_SLOT_NAME must be set in the generated .env}
+      NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
+      POSTGRES_DB: statbus_${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
+      POSTGRES_USER: statbus_${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
       VERSION: ${VERSION}
     restart: unless-stopped
     depends_on:

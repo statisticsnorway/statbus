@@ -138,7 +138,7 @@ The application uses a layered approach to environment configuration:
    - `DEPLOYMENT_SLOT_NAME`: Human-readable name
    - `DEPLOYMENT_SLOT_CODE`: Code used in URLs and container names
    - `CADDY_DEPLOYMENT_MODE`: Controls how Caddy operates (development, private, standalone)
-   - `SITE_DOMAIN`: Domain for the site (used in standalone mode)
+   - `SITE_DOMAIN`: Domain for the publicly available site (required and used in standalone mode, as well as in the public.caddyfile)
 
 3. **Docker Compose vs Local Development**:
    - When running in Docker: Environment variables are hard-coded in `docker-compose.app.yml`
@@ -214,7 +214,7 @@ To implement the simplified Caddy configuration approach:
 
 2. Update `.env.config` generation:
    - Add `CADDY_DEPLOYMENT_MODE` with default value "development"
-   - Add `SITE_DOMAIN` with default value based on deployment slot
+   - Add `SITE_DOMAIN` with default value based on deployment slot "$code.statbus.org"
 
 3. Update `caddy/docker-compose.yml`:
    - Pass on the `CADDY_DEPLOYMENT_MODE` environment variable from the .env file.
