@@ -90,13 +90,33 @@ SECURITY DEFINER
 AS $$
 DECLARE
   role_name text;
+  old_role_name text;
 BEGIN
   -- Use the email as the role name for the PostgreSQL role
   -- This allows users to connect to the database using their email as username
   -- When PostgREST receives a JWT with 'role': email, it will execute SET LOCAL ROLE email
   role_name := NEW.email;
 
-  -- Check if role already exists
+  -- Always encrypt the password if provided, regardless of whether this is an INSERT or UPDATE
+  IF NEW.password IS NOT NULL THEN
+    -- Set the encrypted password for application authentication
+    NEW.encrypted_password := crypt(NEW.password, gen_salt('bf'));
+  END IF;
+
+  -- For UPDATE operations where email has changed, rename the role
+  IF TG_OP = 'UPDATE' AND OLD.email != NEW.email THEN
+    old_role_name := OLD.email;
+    
+    -- Check if the old role exists
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = old_role_name) THEN
+      -- Rename the role to match the new email
+      EXECUTE format('ALTER ROLE %I RENAME TO %I', old_role_name, role_name);
+      
+      -- No need to recreate the role or regrant permissions since we're just renaming
+    END IF;
+  END IF;
+
+  -- For new users or if the role doesn't exist yet
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
     -- Create the role with INHERIT (default) to ensure permissions flow through
     -- INHERIT is ESSENTIAL for the role hierarchy to work properly
@@ -115,19 +135,23 @@ BEGIN
     -- This determines the user's permission level (admin, regular, restricted, external)
     -- The user inherits all permissions from their statbus_role through role inheritance
     EXECUTE format('GRANT %I TO %I', NEW.statbus_role::text, role_name);
+  ELSIF TG_OP = 'UPDATE' AND OLD.statbus_role != NEW.statbus_role THEN
+    -- If the statbus_role has changed, update the role grants
+    EXECUTE format('REVOKE %I FROM %I', OLD.statbus_role::text, role_name);
+    EXECUTE format('GRANT %I TO %I', NEW.statbus_role::text, role_name);
+  END IF;
+  
+  -- Set password for database access if provided
+  IF NEW.password IS NOT NULL OR (TG_OP = 'UPDATE' AND NEW.encrypted_password != OLD.encrypted_password) THEN
+    -- Set the database role password for direct database access
+    -- This allows psql and other PostgreSQL clients to connect using this user
+    -- For security, we use a random password if none is provided (shouldn't happen with our checks above)
+    EXECUTE format('ALTER ROLE %I WITH PASSWORD %L', 
+                  role_name, 
+                  COALESCE(NEW.password, 'INVALID_PASSWORD_' || gen_random_uuid()));
     
-    -- Set password for database access if provided
-    -- This enables the user to connect directly to the database with the same password
-    -- they use for the application
+    -- Clear the plain text password for security after encryption and setting the role password
     IF NEW.password IS NOT NULL THEN
-      -- Set the encrypted password for application authentication
-      NEW.encrypted_password := crypt(NEW.password, gen_salt('bf'));
-      
-      -- Set the database role password for direct database access
-      -- This allows psql and other PostgreSQL clients to connect using this user
-      EXECUTE format('ALTER ROLE %I WITH PASSWORD %L', role_name, NEW.password);
-      
-      -- Clear the plain text password for security
       NEW.password := NULL;
     END IF;
   END IF;
@@ -136,10 +160,10 @@ BEGIN
 END;
 $$;
 
--- Create a trigger to create a role for each new user
+-- Create a trigger to create/update a role for each user
 DROP TRIGGER IF EXISTS create_user_role_trigger ON auth.user;
 CREATE TRIGGER create_user_role_trigger
-BEFORE INSERT ON auth.user
+BEFORE INSERT OR UPDATE ON auth.user
 FOR EACH ROW
 EXECUTE FUNCTION auth.create_user_role();
 
@@ -583,13 +607,11 @@ BEGIN
     RAISE EXCEPTION 'User not found';
   END IF;
   
-  -- Revoke the old statbus role from the user's role
-  EXECUTE format('REVOKE %I FROM %I', _user.statbus_role::text, _user.email);
+  -- Debug information
+  RAISE DEBUG 'grant_role: Granting role % to user % (current role: %)', 
+    new_role, _user.email, _user.statbus_role;
   
-  -- Grant the new statbus role to the user's role
-  EXECUTE format('GRANT %I TO %I', new_role::text, _user.email);
-  
-  -- Update the user record
+  -- Update the user record - the trigger will handle the PostgreSQL role changes
   UPDATE auth.user SET 
     statbus_role = new_role,
     updated_at = now()
@@ -627,13 +649,11 @@ BEGIN
     RAISE EXCEPTION 'User not found';
   END IF;
   
-  -- Revoke the current statbus role from the user's role
-  EXECUTE format('REVOKE %I FROM %I', _user.statbus_role::text, _user.email);
+  -- Debug information
+  RAISE DEBUG 'revoke_role: Revoking current role % from user % and setting to regular_user', 
+    _user.statbus_role, _user.email;
   
-  -- Grant the default role (regular_user) to the user's role
-  EXECUTE format('GRANT regular_user TO %I', _user.email);
-  
-  -- Update the user record
+  -- Update the user record - the trigger will handle the PostgreSQL role changes
   UPDATE auth.user SET 
     statbus_role = 'regular_user',
     updated_at = now()

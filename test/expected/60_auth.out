@@ -649,6 +649,9 @@ DECLARE
     original_role public.statbus_role;
     new_role public.statbus_role;
     access_jwt text;
+    user_email text;
+    role_exists boolean;
+    role_granted boolean;
 BEGIN
     -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
@@ -660,9 +663,30 @@ BEGIN
     );
 
     -- Get user sub and original role for the target user
-    SELECT sub, statbus_role INTO user_sub, original_role
+    SELECT sub, statbus_role, email INTO user_sub, original_role, user_email
     FROM auth.user
     WHERE email = 'test.external@example.com';
+    
+    RAISE DEBUG 'Testing role management for user: % (sub: %, original role: %)', 
+        user_email, user_sub, original_role;
+    
+    -- Check if the user role exists in PostgreSQL
+    SELECT EXISTS (
+        SELECT 1 FROM pg_roles WHERE rolname = user_email
+    ) INTO role_exists;
+    
+    RAISE DEBUG 'User role exists in PostgreSQL: %', role_exists;
+    
+    -- Check current role grants
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = original_role::text AND r2.rolname = user_email
+    ) INTO role_granted;
+    
+    RAISE DEBUG 'Original role % is granted to user %: %', 
+        original_role, user_email, role_granted;
     
     -- First login as admin to get valid JWT
     SELECT public.login('test.admin@example.com', 'admin123')::jsonb INTO login_result;
@@ -687,9 +711,39 @@ BEGIN
         true
     );
     
+    -- Check if restricted_user role exists
+    SELECT EXISTS (
+        SELECT 1 FROM pg_roles WHERE rolname = 'restricted_user'
+    ) INTO role_exists;
+    
+    RAISE DEBUG 'restricted_user role exists in PostgreSQL: %', role_exists;
+    
+    -- Check if restricted_user is already granted to the user
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'restricted_user' AND r2.rolname = user_email
+    ) INTO role_granted;
+    
+    RAISE DEBUG 'restricted_user role is already granted to user %: %', 
+        user_email, role_granted;
+    
     -- Grant restricted_user role
+    RAISE DEBUG 'Attempting to grant restricted_user role to %', user_email;
     SELECT public.grant_role(user_sub, 'restricted_user'::public.statbus_role) INTO grant_result;
     RAISE DEBUG 'Grant result: %', grant_result;
+    
+    -- Check if the role was actually granted
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'restricted_user' AND r2.rolname = user_email
+    ) INTO role_granted;
+    
+    RAISE DEBUG 'After grant: restricted_user role is granted to user %: %', 
+        user_email, role_granted;
     
     -- Verify grant was successful
     ASSERT grant_result = true, 'Grant role should return true';
@@ -699,12 +753,44 @@ BEGIN
     FROM auth.user
     WHERE sub = user_sub;
     
+    RAISE DEBUG 'User role in database after grant: %', new_role;
+    
     ASSERT new_role = 'restricted_user', 
         'User role should be updated to restricted_user';
     
+    -- Check if regular_user role exists
+    SELECT EXISTS (
+        SELECT 1 FROM pg_roles WHERE rolname = 'regular_user'
+    ) INTO role_exists;
+    
+    RAISE DEBUG 'regular_user role exists in PostgreSQL: %', role_exists;
+    
+    -- Check if regular_user is already granted to the user
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'regular_user' AND r2.rolname = user_email
+    ) INTO role_granted;
+    
+    RAISE DEBUG 'regular_user role is already granted to user %: %', 
+        user_email, role_granted;
+    
     -- Revoke role (which sets it back to regular_user)
+    RAISE DEBUG 'Attempting to revoke role from % (setting back to regular_user)', user_email;
     SELECT public.revoke_role(user_sub) INTO revoke_result;
     RAISE DEBUG 'Revoke result: %', revoke_result;
+    
+    -- Check if the role was actually granted
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'regular_user' AND r2.rolname = user_email
+    ) INTO role_granted;
+    
+    RAISE DEBUG 'After revoke: regular_user role is granted to user %: %', 
+        user_email, role_granted;
     
     -- Verify revoke was successful
     ASSERT revoke_result = true, 'Revoke role should return true';
@@ -714,11 +800,32 @@ BEGIN
     FROM auth.user
     WHERE sub = user_sub;
     
+    RAISE DEBUG 'User role in database after revoke: %', new_role;
+    
     ASSERT new_role = 'regular_user', 
         'User role should be reset to regular_user';
     
     -- Reset to original role
+    RAISE DEBUG 'Resetting user % to original role: %', user_email, original_role;
     PERFORM public.grant_role(user_sub, original_role);
+    
+    -- Verify final role state
+    SELECT statbus_role INTO new_role
+    FROM auth.user
+    WHERE sub = user_sub;
+    
+    RAISE DEBUG 'Final user role in database: %', new_role;
+    
+    -- Check if the original role was actually granted
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = original_role::text AND r2.rolname = user_email
+    ) INTO role_granted;
+    
+    RAISE DEBUG 'Final check: original role % is granted to user %: %', 
+        original_role, user_email, role_granted;
     
     RAISE NOTICE 'Test 6: Role Management - PASSED';
 END;
@@ -1407,13 +1514,201 @@ BEGIN
             'Status with invalid user should have user=null';
     END;
     
-    RAISE NOTICE 'Test 10: Auth Status Function - PASSED';
+    RAISE NOTICE 'Test 11: Auth Status Function - PASSED';
 END;
 $$;
-NOTICE:  Test 10: Auth Status Function - PASSED
--- Test 11: Session Context Management
-\echo '=== Test 11: Session Context Management ==='
-=== Test 11: Session Context Management ===
+NOTICE:  Test 11: Auth Status Function - PASSED
+-- Test 12: Idempotent User Creation
+\echo '=== Test 11: Idempotent User Creation ==='
+=== Test 11: Idempotent User Creation ===
+DO $$
+DECLARE
+    first_creation_result record;
+    second_creation_result record;
+    user_count_before integer;
+    user_count_after integer;
+    test_email text := 'test.idempotent@example.com';
+    test_password text := 'idempotent123';
+    test_role public.statbus_role := 'regular_user';
+BEGIN
+    -- Count users with this email before
+    SELECT COUNT(*) INTO user_count_before
+    FROM auth.user
+    WHERE email = test_email;
+    
+    -- First creation
+    SELECT * INTO first_creation_result 
+    FROM public.user_create(test_email, test_role, test_password);
+    
+    -- Debug the first creation result
+    RAISE DEBUG 'First creation result: %', first_creation_result;
+    
+    -- Verify first creation
+    ASSERT first_creation_result.email = test_email, 'First creation should return correct email';
+    ASSERT first_creation_result.password = test_password, 'First creation should return correct password';
+    
+    -- Verify user exists in database
+    ASSERT EXISTS (
+        SELECT 1 FROM auth.user WHERE email = test_email
+    ), 'User should exist after first creation';
+    
+    -- Second creation with same email but different password and role
+    SELECT * INTO second_creation_result 
+    FROM public.user_create(test_email, 'admin_user'::public.statbus_role, 'newpassword123');
+    
+    -- Debug the second creation result
+    RAISE DEBUG 'Second creation result: %', second_creation_result;
+    
+    -- Verify second creation
+    ASSERT second_creation_result.email = test_email, 'Second creation should return correct email';
+    ASSERT second_creation_result.password = 'newpassword123', 'Second creation should return new password';
+    
+    -- Count users with this email after
+    SELECT COUNT(*) INTO user_count_after
+    FROM auth.user
+    WHERE email = test_email;
+    
+    -- Verify only one user exists (idempotent)
+    ASSERT user_count_after = 1, 'Should still have only one user after second creation';
+    
+    -- Verify user was updated with new role and password
+    ASSERT (
+        SELECT statbus_role FROM auth.user WHERE email = test_email
+    ) = 'admin_user'::public.statbus_role, 'User role should be updated';
+    
+    ASSERT (
+        SELECT crypt('newpassword123', encrypted_password) = encrypted_password 
+        FROM auth.user 
+        WHERE email = test_email
+    ), 'User password should be updated';
+    
+    -- Clean up
+    DELETE FROM auth.user WHERE email = test_email;
+    
+    RAISE NOTICE 'Test 12: Idempotent User Creation - PASSED';
+END;
+$$;
+NOTICE:  Test 12: Idempotent User Creation - PASSED
+-- Test 13: Trigger Role Change Handling
+\echo '=== Test 12: Trigger Role Change Handling ==='
+=== Test 12: Trigger Role Change Handling ===
+DO $$
+DECLARE
+    test_email text := 'test.role.change@example.com';
+    test_password text := 'rolechange123';
+    user_sub uuid;
+    role_exists boolean;
+    role_granted boolean;
+BEGIN
+    -- Create a test user with regular_user role
+    PERFORM public.user_create(test_email, 'regular_user'::public.statbus_role, test_password);
+    
+    -- Get the user's sub
+    SELECT sub INTO user_sub FROM auth.user WHERE email = test_email;
+    
+    -- Verify the PostgreSQL role exists
+    SELECT EXISTS (
+        SELECT 1 FROM pg_roles WHERE rolname = test_email
+    ) INTO role_exists;
+    
+    ASSERT role_exists, 'PostgreSQL role should exist for the user';
+    
+    -- Verify regular_user role is granted
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'regular_user' AND r2.rolname = test_email
+    ) INTO role_granted;
+    
+    ASSERT role_granted, 'regular_user role should be granted initially';
+    
+    -- Change role directly in the database (this should trigger the role change)
+    UPDATE auth.user SET statbus_role = 'admin_user' WHERE email = test_email;
+    
+    -- Verify admin_user role is now granted
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'admin_user' AND r2.rolname = test_email
+    ) INTO role_granted;
+    
+    ASSERT role_granted, 'admin_user role should be granted after update';
+    
+    -- Verify regular_user role is no longer granted
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'regular_user' AND r2.rolname = test_email
+    ) INTO role_granted;
+    
+    ASSERT NOT role_granted, 'regular_user role should be revoked after update';
+    
+    -- Change to restricted_user
+    UPDATE auth.user SET statbus_role = 'restricted_user' WHERE email = test_email;
+    
+    -- Verify restricted_user role is now granted
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'restricted_user' AND r2.rolname = test_email
+    ) INTO role_granted;
+    
+    ASSERT role_granted, 'restricted_user role should be granted after update';
+    
+    -- Verify admin_user role is no longer granted
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'admin_user' AND r2.rolname = test_email
+    ) INTO role_granted;
+    
+    ASSERT NOT role_granted, 'admin_user role should be revoked after update';
+    
+    -- Change to external_user
+    UPDATE auth.user SET statbus_role = 'external_user' WHERE email = test_email;
+    
+    -- Verify external_user role is now granted
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'external_user' AND r2.rolname = test_email
+    ) INTO role_granted;
+    
+    ASSERT role_granted, 'external_user role should be granted after update';
+    
+    -- Verify restricted_user role is no longer granted
+    SELECT EXISTS (
+        SELECT 1 FROM pg_auth_members m
+        JOIN pg_roles r1 ON m.roleid = r1.oid
+        JOIN pg_roles r2 ON m.member = r2.oid
+        WHERE r1.rolname = 'restricted_user' AND r2.rolname = test_email
+    ) INTO role_granted;
+    
+    ASSERT NOT role_granted, 'restricted_user role should be revoked after update';
+    
+    -- Clean up
+    DELETE FROM auth.user WHERE email = test_email;
+    
+    -- Verify the PostgreSQL role was dropped by the delete trigger
+    SELECT EXISTS (
+        SELECT 1 FROM pg_roles WHERE rolname = test_email
+    ) INTO role_exists;
+    
+    ASSERT NOT role_exists, 'PostgreSQL role should be dropped after user deletion';
+    
+    RAISE NOTICE 'Test 13: Trigger Role Change Handling - PASSED';
+END;
+$$;
+NOTICE:  Test 13: Trigger Role Change Handling - PASSED
+-- Test 14: Session Context Management
+\echo '=== Test 13: Session Context Management ==='
+=== Test 13: Session Context Management ===
 DO $$
 DECLARE
     test_email text := 'test.external@example.com';
@@ -1492,10 +1787,10 @@ BEGIN
     ASSERT current_setting('request.jwt.claims', true) = '', 
         'Claims should be cleared';
     
-    RAISE NOTICE 'Test 11: Session Context Management - PASSED';
+    RAISE NOTICE 'Test 14: Session Context Management - PASSED';
 END;
 $$;
-NOTICE:  Test 11: Session Context Management - PASSED
+NOTICE:  Test 14: Session Context Management - PASSED
 -- Clean up test environment
 -- Clean up test sessions
 DELETE FROM auth.refresh_session
@@ -1503,6 +1798,6 @@ WHERE user_id IN (
     SELECT id FROM auth.user 
     WHERE email LIKE 'test.%@example.com'
 );
-\echo 'All auth tests completed successfully! (12 tests)'
-All auth tests completed successfully! (12 tests)
+\echo 'All auth tests completed successfully! (14 tests)'
+All auth tests completed successfully! (14 tests)
 ROLLBACK;
