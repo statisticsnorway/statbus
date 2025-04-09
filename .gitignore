@@ -481,8 +481,6 @@ key-*.xml
 .env.credentials
 .env.local
 .users.yml
-# Ignore deployment configuration for Caddy
-deployment.caddyfile
 
 # Ignore postgres data files
 /postgres/volumes/db/data

@@ -1,4 +1,16 @@
 <!DOCTYPE html>
+<!--
+  Maintenance page for Statbus
+  
+  This page is displayed when the maintenance file is present
+  and the maintenance mode snippet in Caddy is triggered.
+  
+  Features:
+  - Multilingual support (en, nb, fr, ru, ar, tr, el)
+  - Automatic countdown and refresh
+  - Manual refresh button
+  - RTL support for Arabic
+-->
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -70,7 +82,13 @@
 
     <script>
         (function() {
-            // Define translations
+            // Define translations for multiple languages
+            // Each language includes:
+            // - title: The main heading
+            // - message: The explanation text
+            // - countdown: The countdown message with {0} placeholder for seconds
+            // - checkNow: The button text
+            // - digits: The digits to use (important for Arabic)
             var translations = {
                 'en': {
                     'title': 'We\'re Performing Maintenance',
@@ -125,6 +143,7 @@
 
 
         // Function to parse URL query parameters
+        // Used to detect language preference from URL (?locale=xx)
         function getQueryParam(param) {
             var search = window.location.search.substring(1);
             var variables = search.split('&');
@@ -137,6 +156,8 @@
             return false;
         }
 
+        // Function to translate digits to the appropriate script for the language
+        // Especially important for Arabic which uses different digit glyphs
         function translateDigits(number, langDigits) {
             return number.toString().split('').map(function(digit) {
                 return langDigits[parseInt(digit, 10)];
@@ -151,12 +172,15 @@
         var langCode = userLang.toLowerCase().substring(0, 2);
         var translation = translations[langCode] || translations['en'];
 
+        // Update the countdown message with the correct localized digits
         function updateCountdownMessage() {
             var localizedDigits = translateDigits(countdownTime, translation.digits);
             countdownElement.textContent = localizedDigits;
             document.getElementById('countdown').innerHTML = translation.countdown.replace('{0}', `<span id="timer">${localizedDigits}</span>`);
         }
 
+        // Start or restart the countdown timer
+        // Counts down from 60 seconds and then checks if the site is back online
         function startCountdown() {
             countdownTime = 60;
             updateCountdownMessage();
@@ -171,6 +195,9 @@
             }, 1000);
         }
 
+        // Check if the site is back online by making a HEAD request
+        // If still in maintenance mode (503), restart the countdown
+        // If back online, reload the page
         function checkSiteStatus() {
             fetch('/', { method: 'HEAD' })
                 .then(response => {
@@ -188,13 +215,15 @@
                 });
         }
 
-        // Event listener for the "Check Now" button for an immediate check
+        // Event listener for the "Check Now" button
+        // Allows users to manually check if the site is back online
         checkNowBtn.addEventListener('click', function() {
             clearInterval(countdownInterval); // Stop the current countdown
             checkSiteStatus(); // Immediately check site status
         });
 
-        // Apply initial translations and start countdown
+        // Apply initial translations based on detected language and start countdown
+        // Special handling for RTL languages like Arabic
         document.getElementById('headline').textContent = translation.title;
         document.getElementById('message').textContent = translation.message;
         checkNowBtn.textContent = translation.checkNow;

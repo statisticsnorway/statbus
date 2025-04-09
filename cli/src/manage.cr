@@ -360,25 +360,8 @@ module Statbus
           File.write(".env", new_content)
         end
 
-        begin
-          # Generate new Caddy content
-          new_caddy_content = generate_caddy_content(derived, config)
-
-          # Check if file exists and content differs
-          deployment_caddyfilename = "caddy/config/deployment.caddyfile"
-          if File.exists?(deployment_caddyfilename)
-            current_content = File.read(deployment_caddyfilename)
-            if new_caddy_content != current_content
-              puts "Updating #{deployment_caddyfilename} with changes for #{derived.domain}" if @config.verbose
-              File.write(deployment_caddyfilename, new_caddy_content)
-            else
-              puts "No changes needed in #{deployment_caddyfilename} for #{derived.domain}" if @config.verbose
-            end
-          else
-            puts "Creating new #{deployment_caddyfilename} for #{derived.domain}" if @config.verbose
-            File.write(deployment_caddyfilename, new_caddy_content)
-          end
-        end
+        # Generate and write all Caddyfile variants
+        generate_caddy_content(derived, config)
       end
     end
 
@@ -517,12 +500,81 @@ module Statbus
     class CaddyfilePrivateTemplate < CaddyfileTemplate
       ECR.def_to_s "src/templates/private.caddyfile.ecr"
     end
+    
+    class CaddyfileDevelopmentTemplate < CaddyfileTemplate
+      ECR.def_to_s "src/templates/development.caddyfile.ecr"
+    end
+    
+    class CaddyfilePublicTemplate < CaddyfileTemplate
+      ECR.def_to_s "src/templates/public.caddyfile.ecr"
+    end
+    
+    class CaddyfileStandaloneTemplate < CaddyfileTemplate
+      ECR.def_to_s "src/templates/standalone.caddyfile.ecr"
+    end
+    
+    class CaddyfileMainTemplate < CaddyfileTemplate
+      getter caddy_deployment_mode : String
+      
+      def initialize(derived : DerivedEnv, config : ConfigEnv)
+        super(derived, config)
+        @caddy_deployment_mode = config.caddy_deployment_mode
+      end
+      
+      ECR.def_to_s "src/templates/main.caddyfile.ecr"
+    end
 
-    private def generate_caddy_content(derived : DerivedEnv, config : ConfigEnv) : String
-      # Create a Caddyfile object with the required properties
-      caddyfile_template = CaddyfilePrivateTemplate.new(derived, config)
-      caddyfile = caddyfile_template.to_s
-      return caddyfile
+    class CaddyfileCommonTemplate < CaddyfileTemplate
+      ECR.def_to_s "src/templates/common.caddyfile.ecr"
+    end
+    
+    # Generate all Caddyfile variants and write them to disk
+    private def generate_caddy_content(derived : DerivedEnv, config : ConfigEnv)
+      caddyfile_targets = {
+        # Common snippets used by all configurations
+        "common" => CaddyfileCommonTemplate.new(derived, config),
+        # For development mode
+        "development" => CaddyfileDevelopmentTemplate.new(derived, config),
+        # For private mode
+        "private" => CaddyfilePrivateTemplate.new(derived, config),
+        "public" => CaddyfilePublicTemplate.new(derived, config),
+        # For standalone mode
+        "standalone" => CaddyfileStandaloneTemplate.new(derived, config),
+        # Main file for including the right file depending on mode
+        "main" => CaddyfileMainTemplate.new(derived, config)
+      }
+      
+      # Write each Caddyfile variant
+      caddyfile_targets.each do |target, template|
+        content = template.to_s
+        caddyfilename = "caddy/config/#{target}.caddyfile"
+        
+        write_caddy_file(caddyfilename, content, derived.domain)
+      end
+
+      # Validate that the deployment mode is valid
+      current_mode = config.caddy_deployment_mode
+      if !caddyfile_targets.has_key?(current_mode)
+        raise "Error: Unrecognized CADDY_DEPLOYMENT_MODE '#{current_mode}'. Must be one of: #{caddyfile_targets.keys.reject { |k| k == "main" }.join(", ")}"
+      end
+    end
+    
+    # Helper method to write a Caddyfile with proper logging
+    private def write_caddy_file(filename : String, content : String, domain : String, mode : String? = nil)
+      mode_info = mode ? " with #{mode} mode" : ""
+      
+      if File.exists?(filename)
+        current_content = File.read(filename)
+        if content != current_content
+          puts "Updating #{filename}#{mode_info} for #{domain}" if @config.verbose
+          File.write(filename, content)
+        else
+          puts "No changes needed in #{filename} for #{domain}" if @config.verbose
+        end
+      else
+        puts "Creating new #{filename}#{mode_info} for #{domain}" if @config.verbose
+        File.write(filename, content)
+      end
     end
   end
 end
