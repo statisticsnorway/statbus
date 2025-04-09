@@ -184,11 +184,15 @@ module Statbus
 
     # Configuration values that are derived from other settings
     record DerivedEnv,
+      caddy_http_port : Int32,
+      caddy_http_bind_address : String,
+      caddy_https_port : Int32,
+      caddy_https_bind_address : String,
       app_port : Int32,
       app_bind_address : String,
       postgrest_port : Int32,
       postgrest_bind_address : String,
-      db_public_localhost_port : String,
+      db_public_localhost_port : Int32,
       version : String,
       site_url : String,
       api_external_url : String,
@@ -299,10 +303,30 @@ module Statbus
         base_port = 3000
         slot_multiplier = 10
         port_offset = base_port + (config.deployment_slot_port_offset.to_i * slot_multiplier)
-        app_port = port_offset
-        postgrest_port = port_offset + 1
+        caddy_http_port = port_offset
+        caddy_https_port = port_offset + 1
+        app_port = port_offset + 2
+        postgrest_port = port_offset + 3
+        db_public_localhost_port = port_offset + 4
+        
+        if config.caddy_deployment_mode == "standalone"
+          # For standalone mode, bind to all interfaces, at the official HTTP(S) ports.
+          caddy_http_port = 80
+          caddy_https_port = 443
+          caddy_http_bind_address = "0.0.0.0:#{caddy_http_port}"
+          caddy_https_bind_address = "0.0.0.0:#{caddy_https_port}"
+        else
+          # For other modes, bind to localhost with non conflicting ports for running multiple statbus installations on the same host.
+          caddy_http_bind_address = "127.0.0.1:#{caddy_http_port}"
+          caddy_https_bind_address = "127.0.0.1:#{caddy_https_port}"
+        end
 
         derived = DerivedEnv.new(
+          # Caddy
+          caddy_http_port: caddy_http_port,
+          caddy_https_port: caddy_https_port,
+          caddy_http_bind_address: caddy_http_bind_address,
+          caddy_https_bind_address: caddy_https_bind_address,
           # The host address connected to the STATBUS app
           app_port: app_port,
           app_bind_address: "127.0.0.1:#{app_port}",
@@ -310,7 +334,7 @@ module Statbus
           postgrest_port: postgrest_port,
           postgrest_bind_address: "127.0.0.1:#{postgrest_port}",
           # The publicly exposed address of PostgreSQL inside Supabase
-          db_public_localhost_port: (port_offset + 2).to_s,
+          db_public_localhost_port: db_public_localhost_port,
           # Git version of the deployed commit
           version: `git describe --always`.strip,
           # URL where the site is hosted
@@ -365,7 +389,7 @@ module Statbus
       end
     end
 
-    private def generate_env_content(credentials : CredentialsEnv, config : ConfigEnv, derived : DerivedEnv) : String
+    private def generate_env_content(credentials : CredentialsEnv, config : ConfigEnv, derived : DerivedEnv) : String      
       content = <<-EOS
     ################################################################
     # Statbus Environment Variables
@@ -404,6 +428,11 @@ module Statbus
     SLACK_TOKEN=#{config.slack_token}
     # The prefix used for all container names in docker
     COMPOSE_INSTANCE_NAME=statbus-#{config.deployment_slot_code}
+    # Caddy configuration
+    CADDY_HTTP_PORT=#{derived.caddy_http_port}
+    CADDY_HTTPS_PORT=#{derived.caddy_https_port}
+    CADDY_HTTP_BIND_ADDRESS=#{derived.caddy_http_bind_address}
+    CADDY_HTTPS_BIND_ADDRESS=#{derived.caddy_https_bind_address}
     # The host address connected to the STATBUS app
     APP_BIND_ADDRESS=#{derived.app_bind_address}
     # The host address connected to Supabase
@@ -434,6 +463,7 @@ module Statbus
         env.set("POSTGRES_ADMIN_PASSWORD", credentials.postgres_admin_password)
         env.set("POSTGRES_APP_DB", config.postgres_app_db)
         env.set("POSTGRES_APP_USER", config.postgres_app_user)
+        env.set("CADDY_DEPLOYMENT_MODE", config.caddy_deployment_mode)        
         env.set("POSTGRES_APP_PASSWORD", credentials.postgres_app_password)
         env.set("POSTGRES_AUTHENTICATOR_PASSWORD", credentials.postgres_authenticator_password)
         env.set("POSTGRES_PASSWORD", credentials.postgres_admin_password)
@@ -485,6 +515,10 @@ module Statbus
       getter app_bind_address : String
       getter deployment_slot_code : String
       getter program_name : String
+      getter caddy_http_port : Int32
+      getter caddy_https_port : Int32
+      getter caddy_http_bind_address : String
+      getter caddy_https_bind_address : String
 
       def initialize(derived : DerivedEnv, config : ConfigEnv)
         @domain = derived.domain
@@ -494,6 +528,10 @@ module Statbus
         @app_bind_address = derived.app_bind_address
         @deployment_slot_code = config.deployment_slot_code
         @program_name = PROGRAM_NAME
+        @caddy_http_port = derived.caddy_http_port
+        @caddy_https_port = derived.caddy_https_port
+        @caddy_http_bind_address = derived.caddy_http_bind_address
+        @caddy_https_bind_address = derived.caddy_https_bind_address
       end
     end
     

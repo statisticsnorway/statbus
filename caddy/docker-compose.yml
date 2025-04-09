@@ -5,21 +5,18 @@ services:
     image: caddy:2.7-alpine
     restart: unless-stopped
     ports:
-      - "${CADDY_HTTP_PORT:-80}:80"
-      - "${CADDY_HTTPS_PORT:-443}:443"
+      - "${CADDY_HTTP_BIND_ADDRESS:?CADDY_HTTP_BIND_ADDRESS must be set in the generated .env}:80"
+      - "${CADDY_HTTPS_BIND_ADDRESS:?CADDY_HTTPS_BIND_ADDRESS must be set in the generated .env}:443"
     volumes:
       - ./config/main.caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - ./config:/config
       - caddy_logs:/var/log/caddy
     environment:
-      APP_BIND_ADDRESS: ${APP_BIND_ADDRESS:-app:3000}
-      POSTGREST_BIND_ADDRESS: ${POSTGREST_BIND_ADDRESS:-rest:3000}
-      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
+      APP_BIND_ADDRESS: http://app:3000
+      POSTGREST_BIND_ADDRESS: http://rest:3000
       DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
-      CADDY_DEPLOYMENT_MODE: ${CADDY_DEPLOYMENT_MODE:-development}
-      MAINTENANCE_FILE_PATH: ${MAINTENANCE_FILE_PATH:-/maintenance}
-      MAINTENANCE_ROOT_PATH: ${MAINTENANCE_ROOT_PATH:-/app/public}
+      CADDY_DEPLOYMENT_MODE: ${CADDY_DEPLOYMENT_MODE:?CADDY_DEPLOYMENT_MODE must be set in the generated .env}
       CADDY_LOG_PATH: ${CADDY_LOG_PATH:-/var/log/caddy/access.log}
     depends_on:
       rest:
