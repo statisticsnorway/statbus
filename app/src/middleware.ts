@@ -9,15 +9,14 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname === "/login" ||
     request.nextUrl.pathname.startsWith("/_next/") ||
     request.nextUrl.pathname.startsWith("/favicon.ico") ||
-    request.nextUrl.pathname.startsWith("/api/rpc/") ||
-    request.nextUrl.pathname.startsWith("/api/auth_status")
+    request.nextUrl.pathname.startsWith("/postgrest/")
   ) {
     return NextResponse.next();
   }
 
   // Get the tokens from cookies
-  const accessToken = request.cookies.get('statbus');
-  const refreshToken = request.cookies.get('statbus-refresh');
+  const accessToken = await request.cookies.get('statbus');
+  const refreshToken = await request.cookies.get('statbus-refresh');
   
   // If no tokens at all, redirect to login
   if (!accessToken && !refreshToken) {
@@ -40,12 +39,14 @@ export async function middleware(request: NextRequest) {
   if (needsRefresh && refreshToken) {
     try {
       // Call the refresh endpoint directly
-      const response = await fetch(`${process.env.SERVER_API_URL}/rpc/refresh`, {
+      const apiUrl = process.env.SERVER_API_URL;
+      const response = await fetch(`${apiUrl}/postgrest/rpc/refresh`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${refreshToken.value}`,
           'Content-Type': 'application/json'
-        }
+        },
+        credentials: 'include'
       });
       
       if (response.ok) {

@@ -3,6 +3,10 @@ import { Database } from '@/lib/database.types';
 import { cookies } from 'next/headers';
 import { getDeploymentSlotCode } from './jwt';
 
+import { getAuthStatus } from '@/services/auth';
+import { isAuthenticated } from '@/utils/auth/auth-utils';
+// Remove direct import of serverFetch
+
 /**
  * Creates a PostgREST client for server-side rendering (SSR) contexts
  * 
@@ -22,44 +26,50 @@ import { getDeploymentSlotCode } from './jwt';
  * - The authentication to use our JWT tokens
  * - The fetch behavior to include our auth headers
  */
-async function checkAuthStatus(): Promise<boolean> {
-  try {
-    const serverApiUrl = process.env.SERVER_API_URL;
-    if (!serverApiUrl) {
-      console.error('SERVER_API_URL environment variable is not set');
-      return false;
-    }
+// Cache the client to avoid creating multiple instances
+let cachedClient: SupabaseClient<Database> | null = null;
+let clientTimestamp: number = 0;
+const CLIENT_TTL = 5 * 60 * 1000; // 5 minutes
 
-    const response = await fetch(`${serverApiUrl}/postgrest/rpc/auth_status`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      },
-      credentials: 'include'
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      return data.authenticated === true;
-    }
-    return false;
-  } catch (error) {
-    console.error('Error checking auth status:', error);
-    return false;
-  }
-}
+// Use the isAuthenticated function directly from auth-utils
+// No need for a separate checkAuthStatus function
 
 export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Database>> {
-  console.log('Creating PostgREST SSR client');
-  
-  // Check if user is authenticated
-  const isAuthenticated = await checkAuthStatus();
-  if (!isAuthenticated) {
-    console.log('User is not authenticated, creating client without auth token');
+  // Check if we have a cached client that's still valid
+  const now = Date.now();
+  if (cachedClient && (now - clientTimestamp < CLIENT_TTL)) {
+    console.log('Using cached PostgREST SSR client');
+    return cachedClient;
   }
+
+  console.log('Creating new PostgREST SSR client');
   
+  // Get cookies first
   const cookieStore = await cookies();
   const token = cookieStore.get('statbus');
+  
+  // Log the available cookies for debugging
+  console.log('Available cookies:', {
+    hasStatbusToken: !!token,
+    tokenValue: token ? token.value.substring(0, 10) + '...' : 'none',
+    cookieCount: [...cookieStore.getAll()].length
+  });
+  
+  let authenticated = false;
+  try {
+    // Use isAuthenticated directly
+    authenticated = await isAuthenticated();
+    if (process.env.NODE_ENV === 'development') {
+      if (!authenticated) {
+        console.log('Not authenticated, creating client without auth token');
+      } else {
+        console.log('Authenticated, creating client with auth token');
+      }
+    }
+  } catch (error) {
+    console.error('Authentication check failed:', error);
+    console.log('Proceeding with unauthenticated client');
+  }
   
   // Get the server API URL from environment
   const serverApiUrl = process.env.SERVER_API_URL;
@@ -70,28 +80,46 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
     throw new Error('SERVER_API_URL environment variable is not set');
   }
   
-  // Test if the server API URL is reachable
-  try {
-    console.log('Testing connectivity to PostgREST endpoint...');
-    const testResponse = await fetch(serverApiUrl, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
+  // Skip connectivity test in production to avoid unnecessary errors
+  if (process.env.NODE_ENV === 'development') {
+    try {
+      console.log('Testing connectivity to PostgREST endpoint...');
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
+      // Dynamically import serverFetch
+      const { serverFetch } = await import('./server-fetch');
+      const testResponse = await serverFetch(serverApiUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('PostgREST endpoint test response:', {
+        status: testResponse.status,
+        statusText: testResponse.statusText,
+        ok: testResponse.ok
+      });
+    } catch (error) {
+      // Don't throw here, as the client might still work in some cases
+      if (error.name === 'AbortError') {
+        console.warn('PostgREST endpoint connectivity test timed out');
+      } else {
+        console.warn('Could not reach PostgREST endpoint during initialization:', error);
       }
-    });
-    console.log('PostgREST endpoint test response:', {
-      status: testResponse.status,
-      statusText: testResponse.statusText,
-      ok: testResponse.ok
-    });
-  } catch (error) {
-    console.warn('Could not reach PostgREST endpoint during initialization:', error);
-    // Don't throw here, as the client might still work in some cases
+    }
   }
+  
+  // Ensure the serverApiUrl ends with a trailing slash if needed
+  const apiUrl = serverApiUrl.endsWith('/') ? serverApiUrl : `${serverApiUrl}/`;
   
   // Create a Supabase client configured to use our PostgREST endpoint
   const client = createClient<Database>(
-    serverApiUrl,
+    apiUrl,
     // We need to provide an anon key, but it's not used with our auth system
     // PostgREST will use the JWT token from cookies instead
     'dummy-key-for-postgrest',
@@ -104,15 +132,41 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
       global: {
         headers: {
           // Add the auth token to all requests if available
-          ...(token ? { 'Authorization': `Bearer ${token.value}` } : {})
+          ...(token ? { 'Authorization': `Bearer ${token.value}` } : {}),
+          'Accept': 'application/json',
+          'Content-Type': 'application/json'
         },
+        fetch: async (url, options) => {
+          // Fix the URL path: replace /rest/v1 with /postgrest if needed
+          const urlString = url.toString().replace('/rest/v1', '/postgrest');
+          
+          // Dynamically import and use our server-side fetch utility
+          const { serverFetch } = await import('./server-fetch');
+          return serverFetch(urlString, options);
+        }
       },
     }
   );
 
   // Modify the REST URL to use /postgrest instead of rest/v1
-  (client as any).rest.url = (client as any).rest.url.replace(/rest\/v1$/, 'postgrest');
+  if ((client as any).rest && (client as any).rest.url) {
+    const originalUrl = (client as any).rest.url;
+    // Make sure we're only replacing at the end of the URL
+    if (originalUrl.includes('rest/v1')) {
+      (client as any).rest.url = originalUrl.replace(/rest\/v1$/, 'postgrest');
+      console.log('Modified REST URL:', (client as any).rest.url);
+    } else {
+      console.warn('Could not modify REST URL, unexpected format:', originalUrl);
+    }
+  } else {
+    console.warn('Client REST URL property not found');
+  }
   
   console.log('PostgREST client created successfully with URL:', (client as any).rest.url);
+  
+  // Cache the client
+  cachedClient = client;
+  clientTimestamp = Date.now();
+  
   return client;
 }

@@ -2,6 +2,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
 import { SupabaseClient } from '@supabase/supabase-js';
+import { isAuthenticated } from '@/utils/auth/auth-utils';
+import { timeContextStore } from '@/context/TimeContextStore';
 
 interface GettingStartedState {
   activity_category_standard: { id: number, name: string } | null;
@@ -106,16 +108,70 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
   ]);
 
   useEffect(() => {
+    let isMounted = true;
     const initializeClient = async () => {
       const supabaseClient = await createPostgRESTBrowserClient();
-      setClient(supabaseClient);
+      if (isMounted) {
+        setClient(supabaseClient);
+      }
     };
     initializeClient();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
     if (client) {
-      refreshCounts();
+      let isMounted = true;
+      
+      const loadData = async () => {
+        try {
+          // Check authentication status first
+          const authenticated = await isAuthenticated();
+          console.log('GettingStartedContext: Authentication status:', authenticated);
+          
+          if (!authenticated || !isMounted) {
+            console.warn("Not authenticated or component unmounted, skipping data fetch");
+            return;
+          }
+          
+          // Pre-fetch time contexts to ensure they're cached
+          try {
+            await timeContextStore.getTimeContextData(client);
+            console.log('Time contexts pre-fetched successfully');
+          } catch (error) {
+            console.warn('Failed to pre-fetch time contexts:', error);
+            // Continue anyway, as this is just optimization
+          }
+          
+          // Test connection with a simple query first
+          const response = await client.from("settings").select("id").limit(1);
+          console.log('Connection test result:', {
+            success: !response.error,
+            error: response.error,
+            status: response.status
+          });
+          
+          if (!response.error && isMounted) {
+            // Only try to access data if authenticated and test succeeded
+            await refreshCounts();
+          } else if (isMounted) {
+            console.error("Connection test failed:", response.error);
+          }
+        } catch (err) {
+          if (isMounted) {
+            console.error("Failed to load data:", err);
+          }
+        }
+      };
+      
+      loadData();
+      
+      return () => {
+        isMounted = false;
+      };
     }
   }, [client, refreshCounts]);
 

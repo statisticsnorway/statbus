@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { login as apiLogin, logout as apiLogout, refreshToken, getAuthStatus } from '@/services/auth';
 import { fetchWithAuth } from '@/utils/auth/fetch-with-auth';
+import { useRouter } from 'next/navigation';
 
 interface User {
   id: string;
@@ -17,16 +18,17 @@ interface AuthContextType {
   isLoading: boolean;
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<any>;
   fetch: typeof fetchWithAuth;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const router = useRouter();
   
   const refreshAuth = async () => {
     try {
@@ -35,6 +37,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Get auth status from server
       try {
         const authStatus = await getAuthStatus();
+        
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('Auth status result:', authStatus);
+        }
+        
         setIsAuthenticated(authStatus.isAuthenticated);
         setUser(authStatus.user);
         
@@ -60,11 +67,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       const result = await apiLogin(email, password);
-      if (result.error) {
+      
+      if (result && result.error) {
         throw new Error(result.error);
       }
+      
+      // Update auth state after successful login
       await refreshAuth();
       return result;
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw error;
     } finally {
       setIsLoading(false);
     }
@@ -74,6 +87,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       await apiLogout();
+      router.push('/login');
+    } catch (error) {
+      console.error('Logout error:', error);
     } finally {
       setIsAuthenticated(false);
       setUser(null);
@@ -94,6 +110,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Add event listener for 401 errors
     const handle401 = async () => {
       await refreshAuth();
+      
+      // If still not authenticated after refresh attempt, redirect to login
+      if (!isAuthenticated) {
+        router.push('/login');
+      }
     };
     
     // Add event listener for logout events
@@ -110,7 +131,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('auth:401', handle401);
       window.removeEventListener('auth:logout', handleLogoutEvent as EventListener);
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, router]);
   
   return (
     <AuthContext.Provider
@@ -129,10 +150,3 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-export function useAuthContext() {
-  const context = useContext(AuthContext);
-  if (context === undefined) {
-    throw new Error('useAuthContext must be used within an AuthProvider');
-  }
-  return context;
-}

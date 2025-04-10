@@ -9,10 +9,21 @@ export async function fetchWithAuth(
   url: string, 
   options: RequestInit = {}
 ): Promise<Response> {
+  // Log request in development mode
+  if (process.env.NODE_ENV === 'development') {
+    console.debug(`Fetch request to: ${url}`);
+  }
+  
   // First attempt with current token
   let response = await fetch(url, {
     ...options,
     credentials: 'include', // Always include cookies
+    mode: 'cors', // Explicitly set CORS mode (this is browser-only code)
+    headers: {
+      ...options.headers,
+      'Content-Type': options.headers?.['Content-Type'] || 'application/json',
+      'Accept': options.headers?.['Accept'] || 'application/json',
+    }
   });
   
   // If we get a 401 Unauthorized, try to refresh the token
@@ -26,6 +37,12 @@ export async function fetchWithAuth(
         response = await fetch(url, {
           ...options,
           credentials: 'include',
+          mode: 'cors',
+          headers: {
+            ...options.headers,
+            'Content-Type': options.headers?.['Content-Type'] || 'application/json',
+            'Accept': options.headers?.['Accept'] || 'application/json',
+          }
         });
       } else {
         // If refresh failed, dispatch an event for the auth context to handle

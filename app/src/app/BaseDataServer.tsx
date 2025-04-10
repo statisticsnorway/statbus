@@ -4,6 +4,7 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Tables } from "@/lib/database.types";
 import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import { ClientBaseDataProvider } from "./BaseDataClient";
+// Remove direct import of serverFetch
 
 export interface BaseData {
   statDefinitions: Tables<"stat_definition_active">[];
@@ -14,34 +15,27 @@ export interface BaseData {
   hasStatisticalUnits: boolean;
 }
 
-async function checkAuthStatus(): Promise<boolean> {
-  try {
-    const response = await fetch(`${process.env.SERVER_API_URL}/postgrest/rpc/auth_status`, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      },
-      credentials: 'include'
-    });
-    
-    if (response.ok) {
-      const data = await response.json();
-      return data.authenticated === true;
-    }
-    return false;
-  } catch (error) {
-    console.error('Error checking auth status:', error);
-    return false;
-  }
-}
+import { isAuthenticated } from '@/utils/auth/auth-utils';
 
 export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
   console.log('Starting getBaseData with client:', !!client);
 
-  // Check if user is authenticated before proceeding
-  const isAuthenticated = await checkAuthStatus();
-  if (!isAuthenticated) {
-    console.log('User is not authenticated, returning empty base data');
+  // We'll check authentication once at the beginning
+  let authenticated = false;
+  try {
+    authenticated = await isAuthenticated();
+    if (process.env.NODE_ENV === 'development') {
+      console.log('BaseDataServer: Authentication status:', authenticated);
+    }
+  } catch (error) {
+    console.error('Authentication check failed in getBaseData:', error);
+  }
+  
+  // Return empty data if not authenticated
+  if (!authenticated) {
+    if (process.env.NODE_ENV === 'development') {
+      console.log('User is not authenticated, returning empty base data');
+    }
     return {
       statDefinitions: [],
       externalIdentTypes: [],
@@ -65,7 +59,9 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
   
   // Test basic connectivity to the API
   try {
-    const response = await fetch(restUrl, {
+    // Dynamically import serverFetch
+    const { serverFetch } = await import('@/utils/auth/server-fetch');
+    const response = await serverFetch(restUrl, {
       method: 'GET',
       headers: {
         'Accept': 'application/json'
@@ -80,20 +76,30 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
     console.error('API connectivity test failed:', error);
   }
 
-  let maybeStatDefinitions, maybeExternalIdentTypes, maybeStatbusUsers, maybeTimeContexts, maybeStatisticalUnit;
+  // Import the timeContextStore
+  const { timeContextStore } = await import('@/context/TimeContextStore');
+  
+  let maybeStatDefinitions, maybeExternalIdentTypes, maybeStatbusUsers, maybeStatisticalUnit;
+  let timeContextData;
+  
   try {
     console.log('Fetching base data from database...');
     
-    // Fetch time contexts separately first for better debugging
-    console.log('Fetching time contexts...');
-    const timeContextResponse = await client.from("time_context").select();
-    console.log('Time context response:', {
-      status: timeContextResponse.status,
-      statusText: timeContextResponse.statusText,
-      error: timeContextResponse.error,
-      count: timeContextResponse.data?.length || 0
-    });
-    maybeTimeContexts = timeContextResponse.data;
+    // Use TimeContextStore as the single source of truth for time context data
+    console.log('Fetching time contexts via TimeContextStore...');
+    try {
+      timeContextData = await timeContextStore.getTimeContextData(client);
+      console.log(`Successfully fetched ${timeContextData.timeContexts?.length || 0} time contexts via TimeContextStore`);
+    } catch (error) {
+      console.error('Error fetching time contexts via TimeContextStore:', error);
+      // No fallback - we trust our TimeContextStore implementation
+      // Return empty data to avoid crashes, but log the error clearly
+      console.error('TimeContextStore failed - this is a critical error that needs fixing');
+      timeContextData = {
+        timeContexts: [],
+        defaultTimeContext: null
+      };
+    }
     
     // Fetch the rest of the data
     [
@@ -112,7 +118,7 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
       statDefinitions: maybeStatDefinitions?.length || 0,
       externalIdentTypes: maybeExternalIdentTypes?.length || 0,
       statbusUsers: maybeStatbusUsers?.length || 0,
-      timeContexts: maybeTimeContexts?.length || 0,
+      timeContexts: timeContextData.timeContexts?.length || 0,
       hasStatisticalUnits: maybeStatisticalUnit?.length || 0
     });
   } catch (error) {
@@ -124,16 +130,24 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
     }
   }
 
-  if (!maybeTimeContexts || maybeTimeContexts.length === 0) {
-    console.error('Missing required time context. Raw response:', maybeTimeContexts);
-    throw new Error("Missing required time context");
+  if (!timeContextData.timeContexts || timeContextData.timeContexts.length === 0) {
+    console.error('Missing required time context.');
+    // Instead of throwing an error, return empty data
+    return {
+      statDefinitions: [],
+      externalIdentTypes: [],
+      statbusUsers: [],
+      timeContexts: [],
+      defaultTimeContext: null as any,
+      hasStatisticalUnits: false,
+    };
   }
-  console.log('Time contexts found:', maybeTimeContexts.length);
+  console.log('Time contexts found:', timeContextData.timeContexts.length);
   const statDefinitions = maybeStatDefinitions as NonNullable<typeof maybeStatDefinitions>;
   const externalIdentTypes = maybeExternalIdentTypes as NonNullable<typeof maybeExternalIdentTypes>;
-const statbusUsers = maybeStatbusUsers as NonNullable<typeof maybeStatbusUsers>;
-  const timeContexts = maybeTimeContexts as NonNullable<typeof maybeTimeContexts>;
-  const defaultTimeContext = timeContexts[0];
+  const statbusUsers = maybeStatbusUsers as NonNullable<typeof maybeStatbusUsers>;
+  const timeContexts = timeContextData.timeContexts;
+  const defaultTimeContext = timeContextData.defaultTimeContext || timeContexts[0];
   const hasStatisticalUnits = maybeStatisticalUnit !== null && maybeStatisticalUnit.length > 0;
 
   return {
