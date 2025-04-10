@@ -16,11 +16,11 @@ import /config/common.caddyfile
     # Enable compression
     encode gzip
     
-    # Use common CORS handling for preflight requests
-    import cors
+    # Use common CORS handling for local development host
+    import cors_preflight "http://localhost:3000"
     
-    # Use common PostgREST endpoint handling with development CORS headers
-    import postgrest_endpoints_dev {$POSTGREST_BIND_ADDRESS} http://localhost:3000
+    # Use common PostgREST endpoint handling
+    import postgrest_endpoints {$POSTGREST_BIND_ADDRESS}
 
     # For non-API requests in development mode, show a message
     # since the Next.js app is running separately

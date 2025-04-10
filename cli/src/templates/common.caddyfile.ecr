@@ -4,7 +4,7 @@
 # Common snippets for all Caddyfile configurations
 
 # Auth-related paths definition (as a snippet to be used in matchers)
-(auth_paths) {
+(secure_cookie_handling_auth_paths) {
     path /postgrest/rpc/login
     path /postgrest/rpc/logout
     path /postgrest/rpc/refresh
@@ -12,29 +12,52 @@
     path /postgrest/rpc/auth_test
 }
 
-# CORS handling for preflight requests
-(cors) {
-    @options method OPTIONS
-    handle @options {
-        header Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-        header Access-Control-Allow-Headers "Content-Type, Authorization"
-        header Access-Control-Allow-Credentials "true"
-        respond 204
+# CORS handling with specific url
+# args[0]: The allowed origin url
+(cors_preflight) {
+    @cors_preflight_allowed {
+        method OPTIONS
+        header Origin {args[0]}
+    }
+    @cors_preflight_denied {
+        method OPTIONS
+        not header Origin {args[0]}
+    }
+
+    # Handle allowed preflight requests
+    handle @cors_preflight_allowed {
+        header {
+            Access-Control-Allow-Origin "{http.request.header.Origin}"
+            Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+            Access-Control-Allow-Headers "Content-Type, Authorization, Accept"
+            Access-Control-Allow-Credentials "true"
+            Access-Control-Max-Age "3600"
+            Vary "Origin"
+        }
+        respond "" 204
+    }
+
+    # Explicitly reject preflight requests from non-allowed origins
+    handle @cors_preflight_denied {
+        respond "CORS not allowed for this origin" 403
     }
 }
 
-# CORS headers for development mode with origin
-(cors_dev) {
-    @origin header Origin {args[0]}
-    header @origin {
-        Access-Control-Allow-Origin "{args[0]}"
-        Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-        Access-Control-Allow-Headers "Authorization, Content-Type, Accept"
-        Access-Control-Allow-Credentials true
-        Access-Control-Max-Age 3600
-        defer
+# Add extra CORS headers to another request for a specific host, include inside a reverse_proxy for instance.
+(cors_inflight) {
+    @cors_origin {
+        header Origin {args[0]}
+    }
+    # Add CORS headers to regular requests from allowed origins
+    header @cors_origin {
+          Access-Control-Allow-Origin "{http.request.header.Origin}"
+          Access-Control-Allow-Credentials "true"
+          Access-Control-Expose-Headers "Content-Type, Authorization, Accept"
+          Vary "Origin"
+          defer
     }
 }
+
 
 # Maintenance mode handling
 (maintenance) {
@@ -58,6 +81,7 @@
         header_up Host {host}
         header_up X-Real-IP {remote}
     }
+    import cors_inflight http://localhost:3000
 }
 
 # Reverse proxy with auth token - args[0] is the target address
@@ -67,6 +91,7 @@
         header_up X-Real-IP {remote}
         header_up Authorization "Bearer {http.request.cookie.statbus}"
     }
+    import cors_inflight http://localhost:3000
 }
 
 # Common PostgREST endpoint handling - args[0] is the postgrest address
@@ -75,8 +100,8 @@
     # therefore the Authorization is not set.
     # Those functions directly look at the cookies as they can be called by anonymous.
     @auth_requests {
-        import auth_paths
-    }
+        import secure_cookie_handling_auth_paths
+    }    
     
     handle @auth_requests {
         uri strip_prefix /postgrest
@@ -86,33 +111,14 @@
     # Handle all other PostgREST requests (excluding login/logout/refresh/auth_status)
     handle_path /postgrest/* {
         import reverse_proxy_auth {args[0]}
-    }
-}
-
-# PostgREST endpoint handling with CORS for development - args[0] is the postgrest address, args[2] is the CORS origin
-(postgrest_endpoints_dev) {
-    # Handle PostgREST auth requests (login/logout/refresh/auth_status) that should not fail due to expired Authorization
-    @auth_requests {
-        import auth_paths
-    }
-    
-    handle @auth_requests {
-        uri strip_prefix /postgrest
-        import reverse_proxy_standard {args[0]}
-        import cors_dev {args[2]}
-    }
-    
-    # Handle all other PostgREST requests (excluding login/logout/refresh/auth_status)
-    handle_path /postgrest/* {
-        import reverse_proxy_auth {args[0]}
-        import cors_dev {args[2]}
     }
 }
 
 # Standard logging configuration - args[0] is the log path
 (standard_logging) {
     log {
-        output file {args[0]}
-        format json
+        #output file {args[0]}
+        #format json
+        output stdout
     }
 }

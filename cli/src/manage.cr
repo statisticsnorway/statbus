@@ -514,6 +514,7 @@ module Statbus
       getter postgrest_bind_address : String
       getter app_bind_address : String
       getter deployment_slot_code : String
+      getter caddy_deployment_mode : String
       getter program_name : String
       getter caddy_http_port : Int32
       getter caddy_https_port : Int32
@@ -527,6 +528,7 @@ module Statbus
         @postgrest_bind_address = derived.postgrest_bind_address
         @app_bind_address = derived.app_bind_address
         @deployment_slot_code = config.deployment_slot_code
+        @caddy_deployment_mode = config.caddy_deployment_mode
         @program_name = PROGRAM_NAME
         @caddy_http_port = derived.caddy_http_port
         @caddy_https_port = derived.caddy_https_port
@@ -552,13 +554,6 @@ module Statbus
     end
     
     class CaddyfileMainTemplate < CaddyfileTemplate
-      getter caddy_deployment_mode : String
-      
-      def initialize(derived : DerivedEnv, config : ConfigEnv)
-        super(derived, config)
-        @caddy_deployment_mode = config.caddy_deployment_mode
-      end
-      
       ECR.def_to_s "src/templates/main.caddyfile.ecr"
     end
 
