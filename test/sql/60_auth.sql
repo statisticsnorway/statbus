@@ -148,7 +148,7 @@ BEGIN
     RAISE DEBUG 'Login result: %', login_result;
     
     -- Debug the returned headers from the login function
-    RAISE DEBUG 'Response headers: %', nullif(current_setting('response.headers', true), '')::jsonb;
+    RAISE DEBUG 'Response headers after login: %', nullif(current_setting('response.headers', true), '')::jsonb;
     
     -- Verify login result contains expected fields
     ASSERT login_result ? 'access_jwt', 'Login result should contain access_jwt';
@@ -185,10 +185,10 @@ BEGIN
     -- Verify cookies were set
     FOR cookies IN SELECT * FROM test.extract_cookies()
     LOOP
-        IF cookies.cookie_name = 'statbus-test' THEN
+        IF cookies.cookie_name = 'statbus' THEN
             has_access_cookie := true;
             ASSERT cookies.cookie_value = access_token, 'Access cookie value does not match token';
-        ELSIF cookies.cookie_name = 'statbus-test-refresh' THEN
+        ELSIF cookies.cookie_name = 'statbus-refresh' THEN
             has_refresh_cookie := true;
             ASSERT cookies.cookie_value = refresh_jwt, 'Refresh cookie value does not match token';
         END IF;
@@ -211,13 +211,23 @@ BEGIN
         WHERE email = 'test.regular@example.com'
     ), 'last_sign_in_at was not updated';
     
+    
     -- Now test auth_status using the cookies
-    -- Set up cookie header to simulate browser cookies
+    -- Set up cookies to simulate browser cookies
+    -- PostgREST puts cookies in `request.cookies` not in the headers
+    PERFORM set_config('request.cookies', 
+        json_build_object(
+            'statbus', access_token,
+            'statbus-refresh', refresh_jwt
+        )::text, 
+        true
+    );
+    
+    -- Also set headers for completeness
     PERFORM set_config('request.headers', 
         json_build_object(
             'x-forwarded-for', '127.0.0.1',
-            'user-agent', 'Test User Agent',
-            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', access_token, refresh_jwt)
+            'user-agent', 'Test User Agent'
         )::text, 
         true
     );
@@ -323,7 +333,7 @@ BEGIN
     RAISE DEBUG 'Login result: %', login_result;
     
     -- Debug the returned headers from the login function
-    RAISE DEBUG 'Response headers: %', nullif(current_setting('response.headers', true), '')::jsonb;
+    RAISE DEBUG 'Response headers after login: %', nullif(current_setting('response.headers', true), '')::jsonb;
     
     -- Extract and verify response headers
     DECLARE
@@ -340,14 +350,14 @@ BEGIN
         FOR header_obj IN SELECT * FROM jsonb_array_elements(response_headers)
         LOOP
             IF header_obj ? 'Set-Cookie' THEN
-                IF header_obj->>'Set-Cookie' LIKE 'statbus-test=%' THEN
+                IF header_obj->>'Set-Cookie' LIKE 'statbus=%' THEN
                     access_cookie_found := true;
                     -- Verify HttpOnly and SameSite attributes
                     IF header_obj->>'Set-Cookie' LIKE '%HttpOnly%' AND 
                        header_obj->>'Set-Cookie' LIKE '%SameSite=Strict%' THEN
                         access_cookie_valid := true;
                     END IF;
-                ELSIF header_obj->>'Set-Cookie' LIKE 'statbus-test-refresh=%' THEN
+                ELSIF header_obj->>'Set-Cookie' LIKE 'statbus-refresh=%' THEN
                     refresh_cookie_found := true;
                     -- Verify HttpOnly and SameSite attributes
                     IF header_obj->>'Set-Cookie' LIKE '%HttpOnly%' AND 
@@ -359,12 +369,12 @@ BEGIN
         END LOOP;
         
         -- Assert that both cookies were found and valid
-        ASSERT access_cookie_found, 'Access cookie not found in response headers';
-        ASSERT refresh_cookie_found, 'Refresh cookie not found in response headers';
+        ASSERT access_cookie_found, 'Access cookie not found in login response headers';
+        ASSERT refresh_cookie_found, 'Refresh cookie not found in login response headers';
         ASSERT access_cookie_valid, 'Access cookie missing required security attributes';
         ASSERT refresh_cookie_valid, 'Refresh cookie missing required security attributes';
         
-        RAISE DEBUG 'Cookie validation passed: Access cookie and refresh cookie both have required security attributes';
+        RAISE DEBUG 'Login cookie validation passed: Access cookie and refresh cookie both have required security attributes';
     END;
         
     -- Assert login result contains expected fields
@@ -416,7 +426,7 @@ BEGIN
         json_build_object(
             'x-forwarded-for', '127.0.0.1',
             'user-agent', 'Test User Agent',
-            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', access_jwt, refresh_jwt)
+            'cookie', format('statbus=%s; statbus-refresh=%s', access_jwt, refresh_jwt)
         )::text, 
         true
     );
@@ -431,12 +441,19 @@ BEGIN
     -- Verify auth status before refresh
     ASSERT auth_status_before->>'isAuthenticated' = 'true', 'Should be authenticated before refresh';
         
-    -- Set cookies in request headers to simulate browser cookies for refresh
+    -- Set cookies to simulate browser cookies for refresh
+    PERFORM set_config('request.cookies', 
+        json_build_object(
+            'statbus-refresh', refresh_jwt
+        )::text, 
+        true
+    );
+    
+    -- Also set headers for completeness
     PERFORM set_config('request.headers', 
         json_build_object(
             'x-forwarded-for', '127.0.0.1',
-            'user-agent', 'Test User Agent',
-            'cookie', format('statbus-test-refresh=%s', refresh_jwt)
+            'user-agent', 'Test User Agent'
         )::text, 
         true
     );
@@ -531,7 +548,7 @@ BEGIN
         json_build_object(
             'x-forwarded-for', '127.0.0.1',
             'user-agent', 'Test User Agent',
-            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', 
+            'cookie', format('statbus=%s; statbus-refresh=%s', 
                             refresh_result->>'access_jwt', refresh_result->>'refresh_jwt')
         )::text, 
         true
@@ -597,11 +614,19 @@ BEGIN
     RAISE DEBUG 'Session count before logout: %', session_count_before;
     
     -- Check auth status before logout
+    PERFORM set_config('request.cookies', 
+        json_build_object(
+            'statbus', access_jwt,
+            'statbus-refresh', refresh_jwt
+        )::text, 
+        true
+    );
+    
+    -- Also set headers for completeness
     PERFORM set_config('request.headers', 
         json_build_object(
             'x-forwarded-for', '127.0.0.1',
-            'user-agent', 'Test User Agent',
-            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', access_jwt, refresh_jwt)
+            'user-agent', 'Test User Agent'
         )::text, 
         true
     );
@@ -616,12 +641,20 @@ BEGIN
     -- Verify auth status before logout
     ASSERT auth_status_before->>'isAuthenticated' = 'true', 'Should be authenticated before logout';
     
-    -- Set cookies in request headers to simulate browser cookies for logout
+    -- Set cookies to simulate browser cookies for logout
+    PERFORM set_config('request.cookies', 
+        json_build_object(
+            'statbus', access_jwt,
+            'statbus-refresh', refresh_jwt
+        )::text, 
+        true
+    );
+    
+    -- Also set headers for completeness
     PERFORM set_config('request.headers', 
         json_build_object(
             'x-forwarded-for', '127.0.0.1',
-            'user-agent', 'Test User Agent',
-            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', access_jwt, refresh_jwt)
+            'user-agent', 'Test User Agent'
         )::text, 
         true
     );
@@ -652,10 +685,10 @@ BEGIN
     FOR cookies IN SELECT * FROM test.extract_cookies()
     LOOP
         RAISE DEBUG 'Cookie found: name=%, value=%, expires=%', cookies.cookie_name, cookies.cookie_value, cookies.expires_at;
-        IF cookies.cookie_name = 'statbus-test' AND 
+        IF cookies.cookie_name = 'statbus' AND 
            (cookies.cookie_value = '' OR cookies.expires_at = '1970-01-01 00:00:00+00'::timestamptz) THEN
             has_cleared_access_cookie := true;
-        ELSIF cookies.cookie_name = 'statbus-test-refresh' AND 
+        ELSIF cookies.cookie_name = 'statbus-refresh' AND 
               (cookies.cookie_value = '' OR cookies.expires_at = '1970-01-01 00:00:00+00'::timestamptz) THEN
             has_cleared_refresh_cookie := true;
         END IF;
@@ -666,11 +699,19 @@ BEGIN
     
     -- Check auth status after logout
     -- Use the cleared cookies
+    PERFORM set_config('request.cookies', 
+        json_build_object(
+            'statbus', '',
+            'statbus-refresh', ''
+        )::text, 
+        true
+    );
+    
+    -- Also set headers for completeness
     PERFORM set_config('request.headers', 
         json_build_object(
             'x-forwarded-for', '127.0.0.1',
-            'user-agent', 'Test User Agent',
-            'cookie', 'statbus-test=; statbus-test-refresh='
+            'user-agent', 'Test User Agent'
         )::text, 
         true
     );
@@ -753,12 +794,19 @@ BEGIN
         true
     );
     
-    -- Set cookies in request headers to simulate browser cookies
+    -- Set cookies to simulate browser cookies
+    PERFORM set_config('request.cookies', 
+        jsonb_build_object(
+            'statbus', access_jwt
+        )::text, 
+        true
+    );
+    
+    -- Also set headers for completeness
     PERFORM set_config('request.headers', 
         jsonb_build_object(
             'x-forwarded-for', '127.0.0.1',
-            'user-agent', 'Test User Agent',
-            'cookie', format('statbus-test=%s', access_jwt)
+            'user-agent', 'Test User Agent'
         )::text, 
         true
     );
@@ -1333,12 +1381,19 @@ BEGIN
             tampered_refresh_jwt := header || '.' || payload || '.' || signature;
         END;
         
-        -- Set cookies in request headers with the tampered refresh token
+        -- Set cookies with the tampered refresh token
+        PERFORM set_config('request.cookies', 
+            jsonb_build_object(
+                'statbus-refresh', tampered_refresh_jwt
+            )::text, 
+            true
+        );
+    
+        -- Also set headers for completeness
         PERFORM set_config('request.headers', 
             jsonb_build_object(
                 'x-forwarded-for', '127.0.0.1',
-                'user-agent', 'Test User Agent',
-                'cookie', format('statbus-test-refresh=%s', tampered_refresh_jwt)
+                'user-agent', 'Test User Agent'
             )::text, 
             true
         );
@@ -1405,12 +1460,19 @@ BEGIN
             impersonation_jwt := header || '.' || payload || '.' || signature;
         END;
         
-        -- Set cookies in request headers with the tampered refresh token
+        -- Set cookies with the tampered refresh token
+        PERFORM set_config('request.cookies', 
+            jsonb_build_object(
+                'statbus-refresh', impersonation_jwt
+            )::text, 
+            true
+        );
+    
+        -- Also set headers for completeness
         PERFORM set_config('request.headers', 
             jsonb_build_object(
                 'x-forwarded-for', '127.0.0.1',
-                'user-agent', 'Test User Agent',
-                'cookie', format('statbus-test-refresh=%s', impersonation_jwt)
+                'user-agent', 'Test User Agent'
             )::text, 
             true
         );
@@ -1458,6 +1520,7 @@ BEGIN
     WHERE email = test_email;
     
     -- First check unauthenticated status (no cookies)
+    PERFORM set_config('request.cookies', '{}', true);
     PERFORM set_config('request.headers', 
         json_build_object(
             'x-forwarded-for', '127.0.0.1',
@@ -1487,12 +1550,20 @@ BEGIN
     access_jwt := login_result->>'access_jwt';
     refresh_jwt := login_result->>'refresh_jwt';
     
-    -- Set up cookies in request headers to simulate browser cookies
+    -- Set up cookies to simulate browser cookies
+    PERFORM set_config('request.cookies', 
+        json_build_object(
+            'statbus', access_jwt,
+            'statbus-refresh', refresh_jwt
+        )::text, 
+        true
+    );
+    
+    -- Also set headers for completeness
     PERFORM set_config('request.headers', 
         json_build_object(
             'x-forwarded-for', '127.0.0.1',
-            'user-agent', 'Test User Agent',
-            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', access_jwt, refresh_jwt)
+            'user-agent', 'Test User Agent'
         )::text, 
         true
     );
@@ -1541,11 +1612,19 @@ BEGIN
         SELECT sign(expiring_claims, 'test-jwt-secret-for-testing-only') INTO expiring_jwt;
         
         -- Set the cookie with the expiring token
+        PERFORM set_config('request.cookies', 
+            json_build_object(
+                'statbus', expiring_jwt,
+                'statbus-refresh', refresh_jwt
+            )::text, 
+            true
+        );
+        
+        -- Also set headers for completeness
         PERFORM set_config('request.headers', 
             json_build_object(
                 'x-forwarded-for', '127.0.0.1',
-                'user-agent', 'Test User Agent',
-                'cookie', format('statbus-test=%s; statbus-test-refresh=%s', expiring_jwt, refresh_jwt)
+                'user-agent', 'Test User Agent'
             )::text, 
             true
         );
@@ -1588,11 +1667,19 @@ BEGIN
         SELECT sign(invalid_claims, 'test-jwt-secret-for-testing-only') INTO invalid_jwt;
         
         -- Set the cookie with the invalid token
+        PERFORM set_config('request.cookies', 
+            json_build_object(
+                'statbus', invalid_jwt,
+                'statbus-refresh', refresh_jwt
+            )::text, 
+            true
+        );
+        
+        -- Also set headers for completeness
         PERFORM set_config('request.headers', 
             json_build_object(
                 'x-forwarded-for', '127.0.0.1',
-                'user-agent', 'Test User Agent',
-                'cookie', format('statbus-test=%s; statbus-test-refresh=%s', invalid_jwt, refresh_jwt)
+                'user-agent', 'Test User Agent'
             )::text, 
             true
         );

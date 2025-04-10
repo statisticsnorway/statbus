@@ -14,6 +14,7 @@ import requests
 import psycopg2
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any, Union
+from requests.sessions import Session
 
 # Colors for output
 RED = '\033[0;31m'
@@ -47,7 +48,6 @@ CADDY_BASE_URL = f"http://{caddy_host}:{caddy_port}"
 DB_HOST = "127.0.0.1"
 DB_PORT = os.environ["DB_PUBLIC_LOCALHOST_PORT"]
 DB_NAME = os.environ["POSTGRES_APP_DB"]
-COOKIE_JAR = WORKSPACE / "tmp" / "statbus_cookies.txt"
 
 # Test users from setup.sql
 ADMIN_EMAIL = "test.admin@statbus.org"
@@ -62,9 +62,22 @@ def log_success(message: str) -> None:
     """Print a success message"""
     print(f"{GREEN}✓ {message}{NC}")
 
-def log_error(message: str) -> None:
-    """Print an error message and exit"""
+def log_error(message: str, debug_info_fn=None) -> None:
+    """Print an error message and exit
+    
+    Args:
+        message: The error message to display
+        debug_info_fn: Optional function to call for additional debug info before exit
+    """
     print(f"{RED}✗ {message}{NC}")
+    
+    # Call the debug info function if provided
+    if debug_info_fn and callable(debug_info_fn):
+        try:
+            debug_info_fn()
+        except Exception as e:
+            print(f"{RED}Error while printing debug info: {e}{NC}")
+    
     sys.exit(1)
 
 def log_info(message: str) -> None:
@@ -148,10 +161,6 @@ def initialize_test_environment() -> None:
     # Create tmp directory if it doesn't exist
     (WORKSPACE / "tmp").mkdir(exist_ok=True)
     
-    # Clean up any existing cookie jar
-    if COOKIE_JAR.exists():
-        COOKIE_JAR.unlink()
-    
     # Check if API is reachable
     try:
         response = requests.get(CADDY_BASE_URL, timeout=5)
@@ -210,7 +219,7 @@ def initialize_test_environment() -> None:
         log_warning(f"Setup SQL might have issues: {e}")
         debug_info(f"Setup SQL stderr: {e.stderr}")
 
-def test_api_login(email: str, password: str, expected_role: str) -> Optional[int]:
+def test_api_login(session: Session, email: str, password: str, expected_role: str) -> Optional[int]:
     """Test API login and return user ID if successful"""
     log_info(f"Testing API login for {email} (expected role: {expected_role})...")
     
@@ -219,26 +228,22 @@ def test_api_login(email: str, password: str, expected_role: str) -> Optional[in
         debug_info(f"Sending login request to {CADDY_BASE_URL}/postgrest/rpc/login")
         debug_info(f"Request payload: {{'email': '{email}', 'password': '********'}}")
         
-        response = requests.post(
+        response = session.post(
             f"{CADDY_BASE_URL}/postgrest/rpc/login",
             json={"email": email, "password": password},
-            headers={"Content-Type": "application/json"},
-            cookies={}
+            headers={"Content-Type": "application/json"}
         )
         
         debug_info(f"Response status code: {response.status_code}")
         debug_info(f"Response headers: {dict(response.headers)}")
         
-        # Save cookies to file
-        with open(COOKIE_JAR, "w") as f:
-            for cookie in response.cookies:
-                f.write(f"{cookie.name}={cookie.value}\n")
-        
         # Check if response is not successful
         if response.status_code != 200:
-            log_error(f"API login failed for {email}. Status code: {response.status_code}")
-            print(f"Response body: {response.text}")
-            print(f"API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login")
+            def print_response_debug_info():
+                print(f"Response body: {response.text}")
+                print(f"API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login")
+            
+            log_error(f"API login failed for {email}. Status code: {response.status_code}", print_response_debug_info)
             return None
         
         # Debug: Print raw response body
@@ -249,17 +254,21 @@ def test_api_login(email: str, password: str, expected_role: str) -> Optional[in
         try:
             # Handle empty response case
             if not response.text or response.text.strip() == "":
-                log_error(f"API login failed for {email}. Empty response from server.")
-                print(f"API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login")
+                def print_endpoint_info():
+                    print(f"API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login")
+                
+                log_error(f"API login failed for {email}. Empty response from server.", print_endpoint_info)
                 return None
                 
             data = response.json()
             debug_info(f"Login response: {json.dumps(data, indent=2)}")
         except json.JSONDecodeError as e:
-            log_error(f"Failed to parse JSON response: {e}")
-            print(f"Response text: {response.text!r}")  # Use repr to show whitespace/control chars
-            print(f"Response headers: {dict(response.headers)}")
-            print(f"API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login")
+            def print_response_details():
+                print(f"Response text: {response.text!r}")  # Use repr to show whitespace/control chars
+                print(f"Response headers: {dict(response.headers)}")
+                print(f"API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login")
+            
+            log_error(f"Failed to parse JSON response: {e}", print_response_details)
             return None
         
         # Check if login was successful
@@ -267,7 +276,7 @@ def test_api_login(email: str, password: str, expected_role: str) -> Optional[in
             log_success(f"API login successful for {email}")
             
             # Verify cookies were set
-            if response.cookies:
+            if session.cookies:
                 log_success("Auth cookies were set correctly")
             else:
                 log_error("Auth cookies were not set")
@@ -275,9 +284,11 @@ def test_api_login(email: str, password: str, expected_role: str) -> Optional[in
             # Return the user ID for further tests
             return data.get("user_id")
         else:
-            log_error(f"API login failed for {email}.")
-            print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
-            print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login{NC}")
+            def print_login_failure_details():
+                print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
+                print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login{NC}")
+            
+            log_error(f"API login failed for {email}.", print_login_failure_details)
             return None
     
     except requests.RequestException as e:
@@ -288,34 +299,27 @@ def test_api_login(email: str, password: str, expected_role: str) -> Optional[in
         print(f"{RED}Response text: {response.text}{NC}")
         return None
 
-def test_api_access(email: str, endpoint: str, expected_status: int) -> None:
+def test_api_access(session: Session, email: str, endpoint: str, expected_status: int) -> None:
     """Test API access with authenticated user"""
     log_info(f"Testing API access to {endpoint} for {email} (expected status: {expected_status})...")
     
-    # Load cookies from file
-    cookies = {}
-    if COOKIE_JAR.exists():
-        with open(COOKIE_JAR, "r") as f:
-            for line in f:
-                if "=" in line:
-                    name, value = line.strip().split("=", 1)
-                    cookies[name] = value
-    
     # Make authenticated request
     try:
-        response = requests.get(
+        response = session.get(
             f"{CADDY_BASE_URL}{endpoint}",
-            headers={"Content-Type": "application/json"},
-            cookies=cookies
+            headers={"Content-Type": "application/json"}
         )
         
         if response.status_code == expected_status:
             log_success(f"API access to {endpoint} returned expected status {expected_status}")
         else:
-            log_error(f"API access to {endpoint} returned status {response.status_code}, expected {expected_status}")
-            print(f"{RED}Response body:{NC}")
-            print(response.text)
-            print(f"{RED}API endpoint: {CADDY_BASE_URL}{endpoint}{NC}")
+            def print_api_access_details():
+                print(f"{RED}Response body:{NC}")
+                print(response.text)
+                print(f"{RED}API endpoint: {CADDY_BASE_URL}{endpoint}{NC}")
+            
+            log_error(f"API access to {endpoint} returned status {response.status_code}, expected {expected_status}", 
+                     print_api_access_details)
     
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
@@ -335,28 +339,29 @@ def test_db_access(email: str, password: str, query: str, expected_result: str) 
     
     # If user check fails, report the error
     if email not in user_check:
-        log_error(f"Database connection failed for {email}.")
-        print(f"{RED}User check failed{NC}")
-        print(f"{RED}Result: {user_check}{NC}")
-        print(f"{RED}Connection: {email}@{DB_HOST}:{DB_PORT}/{DB_NAME}{NC}")
-        print(f"{RED}Manual command to try: PGPASSWORD='{password}' psql -h {DB_HOST} -p {DB_PORT} -d {DB_NAME} -U {email} -c \"SELECT current_user;\"{NC}")
-        
-        # Try to get more diagnostic information
-        debug_info("Checking if the user role exists in the database...")
-        role_check = subprocess.run(
-            [str(WORKSPACE / "devops" / "manage-statbus.sh"), "psql", "-c", f"SELECT rolname FROM pg_roles WHERE rolname = '{email}';"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=5
-        )
-        debug_info(f"Role check result: {role_check.stdout}")
-        
-        if email in role_check.stdout:
-            debug_info(f"Role '{email}' exists in the database")
-        else:
-            debug_info(f"Role '{email}' does NOT exist in the database")
+        def print_db_debug_info():
+            print(f"{RED}User check failed{NC}")
+            print(f"{RED}Result: {user_check}{NC}")
+            print(f"{RED}Connection: {email}@{DB_HOST}:{DB_PORT}/{DB_NAME}{NC}")
+            print(f"{RED}Manual command to try: PGPASSWORD='{password}' psql -h {DB_HOST} -p {DB_PORT} -d {DB_NAME} -U {email} -c \"SELECT current_user;\"{NC}")
+                
+            # Try to get more diagnostic information
+            debug_info("Checking if the user role exists in the database...")
+            role_check = subprocess.run(
+                [str(WORKSPACE / "devops" / "manage-statbus.sh"), "psql", "-c", f"SELECT rolname FROM pg_roles WHERE rolname = '{email}';"],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=5
+            )
+            debug_info(f"Role check result: {role_check.stdout}")
+                
+            if email in role_check.stdout:
+                debug_info(f"Role '{email}' exists in the database")
+            else:
+                debug_info(f"Role '{email}' does NOT exist in the database")
             
+        log_error(f"Database connection failed for {email}.", print_db_debug_info)
         return
     
     # User check passed, now execute the actual query
@@ -370,38 +375,28 @@ def test_db_access(email: str, password: str, query: str, expected_result: str) 
     if re.search(expected_result, result):
         log_success(f"Database access successful for {email}")
     else:
-        log_error(f"Database access failed for {email}.")
-        print(f"{RED}Query: {query}{NC}")
-        print(f"{RED}Result: '{result}'{NC}")
-        print(f"{RED}Expected to match: {expected_result}{NC}")
-        print(f"{RED}Connection: {email}@{DB_HOST}:{DB_PORT}/{DB_NAME}{NC}")
-        print(f"{RED}Manual command to try: PGPASSWORD='{password}' {psql_cmd}{NC}")
+        def print_query_debug_info():
+            print(f"{RED}Query: {query}{NC}")
+            print(f"{RED}Result: '{result}'{NC}")
+            print(f"{RED}Expected to match: {expected_result}{NC}")
+            print(f"{RED}Connection: {email}@{DB_HOST}:{DB_PORT}/{DB_NAME}{NC}")
+            print(f"{RED}Manual command to try: PGPASSWORD='{password}' {psql_cmd}{NC}")
+        
+        log_error(f"Database access failed for {email}.", print_query_debug_info)
 
-def test_api_logout() -> None:
+def test_api_logout(session: Session) -> None:
     """Test API logout"""
     log_info("Testing API logout...")
     
-    # Load cookies from file
-    cookies = {}
-    if COOKIE_JAR.exists():
-        with open(COOKIE_JAR, "r") as f:
-            for line in f:
-                if "=" in line:
-                    name, value = line.strip().split("=", 1)
-                    cookies[name] = value
+    # Store the number of cookies before logout
+    cookies_before = len(session.cookies)
     
     # Make logout request
     try:
-        response = requests.post(
+        response = session.post(
             f"{CADDY_BASE_URL}/postgrest/rpc/logout",
-            headers={"Content-Type": "application/json"},
-            cookies=cookies
+            headers={"Content-Type": "application/json"}
         )
-        
-        # Save updated cookies to file
-        with open(COOKIE_JAR, "w") as f:
-            for cookie in response.cookies:
-                f.write(f"{cookie.name}={cookie.value}\n")
         
         # Check if logout was successful
         data = response.json()
@@ -421,26 +416,17 @@ def test_api_logout() -> None:
                 for cookie in response.cookies
             )
             
-            if cleared_headers or not cookies:  # Either cookies were cleared or there were none to begin with
+            cookies_after = len(session.cookies)
+            
+            if cleared_headers or cookies_after < cookies_before:
                 log_success("Auth cookies were cleared correctly")
             else:
-                # Check the cookie jar file - it might be empty which is also correct
-                with open(COOKIE_JAR, "r") as f:
-                    cookie_jar_content = f.read().strip()
-                
-                if not cookie_jar_content:
-                    log_success("Auth cookies were cleared correctly (empty cookie jar)")
-                else:
-                    log_warning("Auth cookies might not have been properly cleared")
-                    print(f"{YELLOW}Cookie jar contents:{NC}")
-                    print(cookie_jar_content)
+                log_warning("Auth cookies might not have been properly cleared")
+                print(f"{YELLOW}Session cookies: {session.cookies}{NC}")
         else:
             log_error("API logout failed.")
             print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
             print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/logout{NC}")
-            print(f"{RED}Cookie jar contents:{NC}")
-            with open(COOKIE_JAR, "r") as f:
-                print(f.read())
     
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
@@ -448,55 +434,37 @@ def test_api_logout() -> None:
         log_error(f"Invalid JSON response from server")
         print(f"{RED}Response text: {response.text}{NC}")
 
-def test_token_refresh(email: str, password: str) -> None:
+def test_token_refresh(session: Session, email: str, password: str) -> None:
     """Test token refresh"""
     log_info(f"Testing token refresh for {email}...")
     
     # First login to get initial tokens
-    test_api_login(email, password, "admin_user")
+    test_api_login(session, email, password, "admin_user")
     
-    # Load cookies from file to get initial access token
-    initial_cookies = {}
-    if COOKIE_JAR.exists():
-        with open(COOKIE_JAR, "r") as f:
-            for line in f:
-                if "=" in line:
-                    name, value = line.strip().split("=", 1)
-                    initial_cookies[name] = value
+    # Store initial cookies for comparison
+    initial_cookies = {cookie.name: cookie.value for cookie in session.cookies}
     
     # Sleep 1 second to ensure the iat will increase
     time.sleep(1)
     
     # Make refresh request
     try:
-        response = requests.post(
+        response = session.post(
             f"{CADDY_BASE_URL}/postgrest/rpc/refresh",
-            headers={"Content-Type": "application/json"},
-            cookies=initial_cookies
+            headers={"Content-Type": "application/json"}
         )
-        
-        # Save updated cookies to file
-        with open(COOKIE_JAR, "w") as f:
-            for cookie in response.cookies:
-                f.write(f"{cookie.name}={cookie.value}\n")
         
         # Check if refresh was successful
         data = response.json()
         if "access_jwt" in data:
             log_success(f"Token refresh successful for {email}")
             
-            # Load new cookies to compare
-            new_cookies = {}
-            with open(COOKIE_JAR, "r") as f:
-                for line in f:
-                    if "=" in line:
-                        name, value = line.strip().split("=", 1)
-                        new_cookies[name] = value
+            # Get new cookies for comparison
+            new_cookies = {cookie.name: cookie.value for cookie in session.cookies}
             
             # Verify tokens were updated
-            slot_code = os.environ.get("DEPLOYMENT_SLOT_CODE", "default")
-            access_cookie_name = f"statbus-{slot_code}"
-            refresh_cookie_name = f"statbus-{slot_code}-refresh"
+            access_cookie_name = "statbus"
+            refresh_cookie_name = "statbus-refresh"
             
             if (access_cookie_name in new_cookies and 
                 access_cookie_name in initial_cookies and
@@ -515,9 +483,6 @@ def test_token_refresh(email: str, password: str) -> None:
             log_error("Token refresh failed.")
             print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
             print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/refresh{NC}")
-            print(f"{RED}Cookie jar contents:{NC}")
-            with open(COOKIE_JAR, "r") as f:
-                print(f.read())
     
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
@@ -525,27 +490,17 @@ def test_token_refresh(email: str, password: str) -> None:
         log_error(f"Invalid JSON response from server")
         print(f"{RED}Response text: {response.text}{NC}")
 
-def test_auth_status(expected_auth: bool) -> None:
+def test_auth_status(session: Session, expected_auth: bool) -> None:
     """Test auth status"""
     log_info(f"Testing auth status (expected authenticated: {expected_auth})...")
     
-    # Load cookies from file
-    cookies = {}
-    if COOKIE_JAR.exists():
-        with open(COOKIE_JAR, "r") as f:
-            for line in f:
-                if "=" in line:
-                    name, value = line.strip().split("=", 1)
-                    cookies[name] = value
-    
-    debug_info(f"Cookies for auth_status: {cookies}")
+    debug_info(f"Session cookies: {session.cookies}")
     
     # Make auth status request
     try:
-        response = requests.get(
+        response = session.get(
             f"{CADDY_BASE_URL}/postgrest/rpc/auth_status",
-            headers={"Content-Type": "application/json"},
-            cookies=cookies
+            headers={"Content-Type": "application/json"}
         )
         
         debug_info(f"Auth status response code: {response.status_code}")
@@ -560,18 +515,54 @@ def test_auth_status(expected_auth: bool) -> None:
             if data.get("isAuthenticated") == expected_auth:
                 log_success(f"Auth status returned expected authentication state: {expected_auth}")
             else:
-                log_error(f"Auth status did not return expected authentication state.")
-                print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
-                print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/auth_status{NC}")
-                print(f"{RED}Expected isAuthenticated: {expected_auth}{NC}")
-                print(f"{RED}Cookie jar contents:{NC}")
-                with open(COOKIE_JAR, "r") as f:
-                    print(f.read())
+                def print_auth_status_details():
+                    print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
+                    print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/auth_status{NC}")
+                    print(f"{RED}Expected isAuthenticated: {expected_auth}{NC}")
+                
+                log_error(f"Auth status did not return expected authentication state.", print_auth_status_details)
         except json.JSONDecodeError as e:
-            log_error(f"Invalid JSON response from auth_status: {e}")
-            print(f"{RED}Response text: {response.text!r}{NC}")
-            print(f"{RED}Response status: {response.status_code}{NC}")
-            print(f"{RED}Response headers: {dict(response.headers)}{NC}")
+            def print_auth_status_response_details():
+                print(f"{RED}Response text: {response.text!r}{NC}")
+                print(f"{RED}Response status: {response.status_code}{NC}")
+                print(f"{RED}Response headers: {dict(response.headers)}{NC}")
+            
+            log_error(f"Invalid JSON response from auth_status: {e}", print_auth_status_response_details)
+    
+    except requests.RequestException as e:
+        log_error(f"API request failed: {e}")
+
+def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
+    """Test the auth_test endpoint to get detailed debug information"""
+    log_info(f"Testing auth_test endpoint (logged in: {logged_in})...")
+    
+    # Make auth_test request
+    try:
+        response = session.get(
+            f"{CADDY_BASE_URL}/postgrest/rpc/auth_test",
+            headers={"Content-Type": "application/json"}
+        )
+        
+        # Check if request was successful
+        if response.status_code == 200:
+            log_success(f"Auth test endpoint returned status 200")
+            
+            # Parse and print the response if in debug mode
+            try:
+                data = response.json()
+                if os.environ.get("DEBUG"):
+                    print(f"\n{YELLOW}=== Auth Test Response ({logged_in=}) ==={NC}")
+                    print(f"{YELLOW}{json.dumps(data, indent=2)}{NC}\n")
+            except json.JSONDecodeError as e:
+                def print_auth_test_response():
+                    print(f"{RED}Response text: {response.text!r}{NC}")
+                
+                log_error(f"Invalid JSON response from auth_test: {e}", print_auth_test_response)
+        else:
+            def print_auth_test_error():
+                print(f"{RED}Response: {response.text}{NC}")
+            
+            log_error(f"Auth test endpoint returned status {response.status_code}", print_auth_test_error)
     
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
@@ -585,56 +576,80 @@ def main() -> None:
     # Initialize test environment
     initialize_test_environment()
     
+    # Create a session for unauthenticated tests
+    unauthenticated_session = requests.Session()
+    
+    # Test auth_test endpoint before login
+    print(f"\n{BLUE}=== Test 0: Auth Test Endpoint (Before Login) ==={NC}")
+    test_auth_test_endpoint(unauthenticated_session, logged_in=False)
+    
+    # Create a session for admin user
+    admin_session = requests.Session()
+    
     # Test 1: Admin user API login and access
     print(f"\n{BLUE}=== Test 1: Admin User API Login and Access ==={NC}")
-    admin_id = test_api_login(ADMIN_EMAIL, ADMIN_PASSWORD, "admin_user")
-    test_api_access(ADMIN_EMAIL, "/postgrest/region?limit=10", 200)
-    test_auth_status(True)
+    admin_id = test_api_login(admin_session, ADMIN_EMAIL, ADMIN_PASSWORD, "admin_user")
+    test_api_access(admin_session, ADMIN_EMAIL, "/postgrest/region?limit=10", 200)
+    test_auth_status(admin_session, True)
+    
+    # Test auth_test endpoint after login
+    print(f"\n{BLUE}=== Test 1.1: Auth Test Endpoint (After Login) ==={NC}")
+    test_auth_test_endpoint(admin_session, logged_in=True)
     
     # Test 2: Admin user direct database access
     print(f"\n{BLUE}=== Test 2: Admin User Direct Database Access ==={NC}")
     test_db_access(ADMIN_EMAIL, ADMIN_PASSWORD, "SELECT statbus_role FROM auth.user WHERE email = current_user;", "admin_user")
     test_db_access(ADMIN_EMAIL, ADMIN_PASSWORD, "SELECT COUNT(*) FROM auth.user;", "[0-9]+")
     
+    # Create a session for regular user
+    regular_session = requests.Session()
+    
     # Test 3: Regular user API login and access
     print(f"\n{BLUE}=== Test 3: Regular User API Login and Access ==={NC}")
-    test_api_logout()
-    regular_id = test_api_login(REGULAR_EMAIL, REGULAR_PASSWORD, "regular_user")
-    test_api_access(REGULAR_EMAIL, "/postgrest/region?limit=10", 200)
-    test_auth_status(True)
+    test_api_logout(admin_session)
+    regular_id = test_api_login(regular_session, REGULAR_EMAIL, REGULAR_PASSWORD, "regular_user")
+    test_api_access(regular_session, REGULAR_EMAIL, "/postgrest/region?limit=10", 200)
+    test_auth_status(regular_session, True)
     
     # Test 4: Regular user direct database access
     print(f"\n{BLUE}=== Test 4: Regular User Direct Database Access ==={NC}")
     test_db_access(REGULAR_EMAIL, REGULAR_PASSWORD, "SELECT statbus_role FROM auth.user WHERE email = current_user;", "regular_user")
     test_db_access(REGULAR_EMAIL, REGULAR_PASSWORD, "SELECT COUNT(*) FROM public.region;", "[0-9]+")
     
+    # Create a session for restricted user
+    restricted_session = requests.Session()
+    
     # Test 5: Restricted user API login and access
     print(f"\n{BLUE}=== Test 5: Restricted User API Login and Access ==={NC}")
-    test_api_logout()
-    restricted_id = test_api_login(RESTRICTED_EMAIL, RESTRICTED_PASSWORD, "restricted_user")
-    test_api_access(RESTRICTED_EMAIL, "/postgrest/region?limit=10", 200)
-    test_auth_status(True)
+    test_api_logout(regular_session)
+    restricted_id = test_api_login(restricted_session, RESTRICTED_EMAIL, RESTRICTED_PASSWORD, "restricted_user")
+    test_api_access(restricted_session, RESTRICTED_EMAIL, "/postgrest/region?limit=10", 200)
+    test_auth_status(restricted_session, True)
     
     # Test 6: Restricted user direct database access
     print(f"\n{BLUE}=== Test 6: Restricted User Direct Database Access ==={NC}")
     test_db_access(RESTRICTED_EMAIL, RESTRICTED_PASSWORD, "SELECT statbus_role FROM auth.user WHERE email = current_user;", "restricted_user")
     test_db_access(RESTRICTED_EMAIL, RESTRICTED_PASSWORD, "SELECT COUNT(*) FROM public.region;", "[0-9]+")
     
+    # Create a new session for token refresh test
+    refresh_session = requests.Session()
+    
     # Test 7: Token refresh
     print(f"\n{BLUE}=== Test 7: Token Refresh ==={NC}")
-    test_api_logout()
-    test_token_refresh(ADMIN_EMAIL, ADMIN_PASSWORD)
+    test_api_logout(restricted_session)
+    test_token_refresh(refresh_session, ADMIN_EMAIL, ADMIN_PASSWORD)
     
     # Test 8: Logout and verify authentication state
     print(f"\n{BLUE}=== Test 8: Logout and Verify Authentication State ==={NC}")
-    test_api_logout()
-    test_auth_status(False)
+    test_api_logout(refresh_session)
+    test_auth_status(refresh_session, False)
     
     # Test 9: Failed login with incorrect password
     print(f"\n{BLUE}=== Test 9: Failed Login with Incorrect Password ==={NC}")
     log_info("Testing login with incorrect password...")
+    failed_login_session = requests.Session()
     try:
-        response = requests.post(
+        response = failed_login_session.post(
             f"{CADDY_BASE_URL}/postgrest/rpc/login",
             json={"email": ADMIN_EMAIL, "password": "WrongPassword"},
             headers={"Content-Type": "application/json"}
@@ -643,9 +658,11 @@ def main() -> None:
         if not response.text or response.text.strip() == "null":
             log_success("Login correctly failed with incorrect password")
         else:
-            log_error("Login unexpectedly succeeded with incorrect password.")
-            print(f"{RED}Response: {response.text}{NC}")
-            print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login{NC}")
+            def print_unexpected_login_success():
+                print(f"{RED}Response: {response.text}{NC}")
+                print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login{NC}")
+            
+            log_error("Login unexpectedly succeeded with incorrect password.", print_unexpected_login_success)
     
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
@@ -658,9 +675,11 @@ def main() -> None:
     if "password authentication failed" in result:
         log_success("Database access correctly failed with incorrect password")
     else:
-        log_error("Database access unexpectedly succeeded with incorrect password.")
-        print(f"{RED}Result: {result}{NC}")
-        print(f"{RED}Connection: {ADMIN_EMAIL}@{DB_HOST}:{DB_PORT}/{DB_NAME}{NC}")
+        def print_unexpected_db_access():
+            print(f"{RED}Result: {result}{NC}")
+            print(f"{RED}Connection: {ADMIN_EMAIL}@{DB_HOST}:{DB_PORT}/{DB_NAME}{NC}")
+        
+        log_error("Database access unexpectedly succeeded with incorrect password.", print_unexpected_db_access)
     
     # Print summary of test results
     print(f"\n{GREEN}=== All Authentication Tests Completed Successfully ==={NC}\n")

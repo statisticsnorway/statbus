@@ -20,7 +20,7 @@ import /config/common.caddyfile
     import cors
     
     # Use common PostgREST endpoint handling with development CORS headers
-    import postgrest_endpoints_dev {$POSTGREST_BIND_ADDRESS} <%= @deployment_slot_code %> http://localhost:3000
+    import postgrest_endpoints_dev {$POSTGREST_BIND_ADDRESS} http://localhost:3000
 
     # For non-API requests in development mode, show a message
     # since the Next.js app is running separately

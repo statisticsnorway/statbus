@@ -9,6 +9,7 @@
     path /postgrest/rpc/logout
     path /postgrest/rpc/refresh
     path /postgrest/rpc/auth_status
+    path /postgrest/rpc/auth_test
 }
 
 # CORS handling for preflight requests
@@ -59,16 +60,16 @@
     }
 }
 
-# Reverse proxy with auth token - args[0] is the target address, args[1] is the token cookie name
+# Reverse proxy with auth token - args[0] is the target address
 (reverse_proxy_auth) {
     reverse_proxy {args[0]} {
         header_up Host {host}
         header_up X-Real-IP {remote}
-        header_up Authorization "Bearer {http.request.cookie.{args[1]}}"
+        header_up Authorization "Bearer {http.request.cookie.statbus}"
     }
 }
 
-# Common PostgREST endpoint handling - args[0] is the postgrest address, args[1] is the deployment slot code
+# Common PostgREST endpoint handling - args[0] is the postgrest address
 (postgrest_endpoints) {
     # Handle PostgREST auth requests (login/logout/refresh/auth_status) that should not fail due to expired Authorization
     # therefore the Authorization is not set.
@@ -84,11 +85,11 @@
     
     # Handle all other PostgREST requests (excluding login/logout/refresh/auth_status)
     handle_path /postgrest/* {
-        import reverse_proxy_auth {args[0]} statbus-{args[1]}
+        import reverse_proxy_auth {args[0]}
     }
 }
 
-# PostgREST endpoint handling with CORS for development - args[0] is the postgrest address, args[1] is the deployment slot code, args[2] is the CORS origin
+# PostgREST endpoint handling with CORS for development - args[0] is the postgrest address, args[2] is the CORS origin
 (postgrest_endpoints_dev) {
     # Handle PostgREST auth requests (login/logout/refresh/auth_status) that should not fail due to expired Authorization
     @auth_requests {
@@ -103,7 +104,7 @@
     
     # Handle all other PostgREST requests (excluding login/logout/refresh/auth_status)
     handle_path /postgrest/* {
-        import reverse_proxy_auth {args[0]} statbus-{args[1]}
+        import reverse_proxy_auth {args[0]}
         import cors_dev {args[2]}
     }
 }
