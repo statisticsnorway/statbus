@@ -78,6 +78,9 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
     }
   );
 
-  console.log('PostgREST client created successfully');
+  // Modify the REST URL to use /postgrest instead of rest/v1
+  (client as any).rest.url = (client as any).rest.url.replace(/rest\/v1$/, 'postgrest');
+  
+  console.log('PostgREST client created successfully with URL:', (client as any).rest.url);
   return client;
 }
