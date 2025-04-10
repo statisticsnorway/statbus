@@ -130,6 +130,7 @@ DECLARE
     cookies record;
     has_access_cookie boolean := false;
     has_refresh_cookie boolean := false;
+    auth_status_result jsonb;
 BEGIN
     -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
@@ -210,6 +211,31 @@ BEGIN
         WHERE email = 'test.regular@example.com'
     ), 'last_sign_in_at was not updated';
     
+    -- Now test auth_status using the cookies
+    -- Set up cookie header to simulate browser cookies
+    PERFORM set_config('request.headers', 
+        json_build_object(
+            'x-forwarded-for', '127.0.0.1',
+            'user-agent', 'Test User Agent',
+            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', access_token, refresh_jwt)
+        )::text, 
+        true
+    );
+    
+    -- Reset JWT claims to ensure we're using cookies
+    PERFORM set_config('request.jwt.claims', '', true);
+    
+    -- Call auth_status
+    SELECT public.auth_status()::jsonb INTO auth_status_result;
+    
+    -- Debug the auth status result
+    RAISE DEBUG 'Auth status result: %', auth_status_result;
+    
+    -- Verify auth status result
+    ASSERT auth_status_result->>'isAuthenticated' = 'true', 'Auth status should show authenticated';
+    ASSERT auth_status_result->'user' IS NOT NULL, 'Auth status should include user info';
+    ASSERT auth_status_result->'user'->>'email' = 'test.regular@example.com', 'Auth status should have correct email';
+    
     RAISE NOTICE 'Test 1: User Login Success - PASSED';
 END;
 $$;
@@ -277,8 +303,11 @@ DECLARE
     login_result jsonb;
     refresh_result jsonb;
     refresh_jwt text;
+    access_jwt text;
     refresh_session_before record;
     refresh_session_after record;
+    auth_status_before jsonb;
+    auth_status_after jsonb;
 BEGIN
     -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
@@ -368,6 +397,7 @@ BEGIN
         ASSERT access_jwt_payload->>'sub' IS NOT NULL, 'Subject should be present';        
     END;
         
+    access_jwt := login_result->>'access_jwt';
     refresh_jwt := login_result->>'refresh_jwt';
     
     -- Store session info before refresh
@@ -380,10 +410,30 @@ BEGIN
     
     -- Debug the refresh session before refresh
     RAISE DEBUG 'Refresh session before refresh: %', row_to_json(refresh_session_before);
+    
+    -- Check auth status before refresh
+    PERFORM set_config('request.headers', 
+        json_build_object(
+            'x-forwarded-for', '127.0.0.1',
+            'user-agent', 'Test User Agent',
+            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', access_jwt, refresh_jwt)
+        )::text, 
+        true
+    );
+    
+    -- Reset JWT claims to ensure we're using cookies
+    PERFORM set_config('request.jwt.claims', '', true);
+    
+    -- Get auth status before refresh
+    SELECT public.auth_status()::jsonb INTO auth_status_before;
+    RAISE DEBUG 'Auth status before refresh: %', auth_status_before;
+    
+    -- Verify auth status before refresh
+    ASSERT auth_status_before->>'isAuthenticated' = 'true', 'Should be authenticated before refresh';
         
     -- Set cookies in request headers to simulate browser cookies for refresh
     PERFORM set_config('request.headers', 
-        jsonb_build_object(
+        json_build_object(
             'x-forwarded-for', '127.0.0.1',
             'user-agent', 'Test User Agent',
             'cookie', format('statbus-test-refresh=%s', refresh_jwt)
@@ -476,6 +526,28 @@ BEGIN
     ASSERT refresh_session_after.last_used_at > refresh_session_before.last_used_at, 
         'Session last_used_at should be updated';
     
+    -- Check auth status after refresh with new tokens
+    PERFORM set_config('request.headers', 
+        json_build_object(
+            'x-forwarded-for', '127.0.0.1',
+            'user-agent', 'Test User Agent',
+            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', 
+                            refresh_result->>'access_jwt', refresh_result->>'refresh_jwt')
+        )::text, 
+        true
+    );
+    
+    -- Reset JWT claims to ensure we're using cookies
+    PERFORM set_config('request.jwt.claims', '', true);
+    
+    -- Get auth status after refresh
+    SELECT public.auth_status()::jsonb INTO auth_status_after;
+    RAISE DEBUG 'Auth status after refresh: %', auth_status_after;
+    
+    -- Verify auth status after refresh
+    ASSERT auth_status_after->>'isAuthenticated' = 'true', 'Should be authenticated after refresh';
+    ASSERT auth_status_after->'user'->>'email' = 'test.admin@example.com', 'Email should match in auth status';
+    
     RAISE NOTICE 'Test 4: Token Refresh - PASSED';
 END;
 $$;
@@ -493,6 +565,8 @@ DECLARE
     cookies record;
     access_jwt text;
     refresh_jwt text;
+    auth_status_before jsonb;
+    auth_status_after jsonb;
 BEGIN
     -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
@@ -522,15 +596,29 @@ BEGIN
     
     RAISE DEBUG 'Session count before logout: %', session_count_before;
     
-    -- Set up JWT claims to simulate being logged in with the actual token
-    PERFORM set_config('request.jwt.claims', 
-        (SELECT payload::text FROM verify(access_jwt, 'test-jwt-secret-for-testing-only')),
+    -- Check auth status before logout
+    PERFORM set_config('request.headers', 
+        json_build_object(
+            'x-forwarded-for', '127.0.0.1',
+            'user-agent', 'Test User Agent',
+            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', access_jwt, refresh_jwt)
+        )::text, 
         true
     );
     
+    -- Reset JWT claims to ensure we're using cookies
+    PERFORM set_config('request.jwt.claims', '', true);
+    
+    -- Get auth status before logout
+    SELECT public.auth_status()::jsonb INTO auth_status_before;
+    RAISE DEBUG 'Auth status before logout: %', auth_status_before;
+    
+    -- Verify auth status before logout
+    ASSERT auth_status_before->>'isAuthenticated' = 'true', 'Should be authenticated before logout';
+    
     -- Set cookies in request headers to simulate browser cookies for logout
     PERFORM set_config('request.headers', 
-        jsonb_build_object(
+        json_build_object(
             'x-forwarded-for', '127.0.0.1',
             'user-agent', 'Test User Agent',
             'cookie', format('statbus-test=%s; statbus-test-refresh=%s', access_jwt, refresh_jwt)
@@ -575,6 +663,28 @@ BEGIN
     
     ASSERT has_cleared_access_cookie, 'Access cookie was not cleared';
     ASSERT has_cleared_refresh_cookie, 'Refresh cookie was not cleared';
+    
+    -- Check auth status after logout
+    -- Use the cleared cookies
+    PERFORM set_config('request.headers', 
+        json_build_object(
+            'x-forwarded-for', '127.0.0.1',
+            'user-agent', 'Test User Agent',
+            'cookie', 'statbus-test=; statbus-test-refresh='
+        )::text, 
+        true
+    );
+    
+    -- Reset JWT claims to ensure we're using cookies
+    PERFORM set_config('request.jwt.claims', '', true);
+    
+    -- Get auth status after logout
+    SELECT public.auth_status()::jsonb INTO auth_status_after;
+    RAISE DEBUG 'Auth status after logout: %', auth_status_after;
+    
+    -- Verify auth status after logout
+    ASSERT auth_status_after->>'isAuthenticated' = 'false', 'Should not be authenticated after logout';
+    ASSERT auth_status_after->>'user' IS NULL, 'User should be null after logout';
     
     RAISE NOTICE 'Test 5: Logout - PASSED';
 END;
@@ -1328,6 +1438,7 @@ DECLARE
     auth_status_result jsonb;
     auth_status_unauthenticated jsonb;
     access_jwt text;
+    refresh_jwt text;
     jwt_claims json;
     test_email text := 'test.admin@example.com';
     test_sub uuid;
@@ -1346,7 +1457,14 @@ BEGIN
     FROM auth.user
     WHERE email = test_email;
     
-    -- First check unauthenticated status (no JWT claims)
+    -- First check unauthenticated status (no cookies)
+    PERFORM set_config('request.headers', 
+        json_build_object(
+            'x-forwarded-for', '127.0.0.1',
+            'user-agent', 'Test User Agent'
+        )::text, 
+        true
+    );
     PERFORM set_config('request.jwt.claims', '', true);
     
     SELECT public.auth_status()::jsonb INTO auth_status_unauthenticated;
@@ -1365,20 +1483,28 @@ BEGIN
     -- Now login to get a valid token
     SELECT public.login(test_email, 'admin123')::jsonb INTO login_result;
     
-    -- Extract access token from login result
+    -- Extract tokens from login result
     access_jwt := login_result->>'access_jwt';
+    refresh_jwt := login_result->>'refresh_jwt';
     
-    -- Set up JWT claims using the actual token
-    SELECT payload::json INTO jwt_claims 
-    FROM verify(access_jwt, 'test-jwt-secret-for-testing-only');
+    -- Set up cookies in request headers to simulate browser cookies
+    PERFORM set_config('request.headers', 
+        json_build_object(
+            'x-forwarded-for', '127.0.0.1',
+            'user-agent', 'Test User Agent',
+            'cookie', format('statbus-test=%s; statbus-test-refresh=%s', access_jwt, refresh_jwt)
+        )::text, 
+        true
+    );
     
-    PERFORM set_config('request.jwt.claims', jwt_claims::text, true);
+    -- Reset JWT claims to ensure we're using cookies
+    PERFORM set_config('request.jwt.claims', '', true);
     
-    -- Check authenticated status
+    -- Check authenticated status using cookies
     SELECT public.auth_status()::jsonb INTO auth_status_result;
     
     -- Debug the authenticated status
-    RAISE DEBUG 'Auth status (authenticated): %', auth_status_result;
+    RAISE DEBUG 'Auth status (authenticated via cookies): %', auth_status_result;
     
     -- Verify authenticated status
     ASSERT auth_status_result->>'isAuthenticated' = 'true', 
@@ -1394,11 +1520,16 @@ BEGIN
     ASSERT auth_status_result->'user'->>'statbus_role' = 'admin_user', 
         'User statbus_role should match';
     
-    -- Test with an expiring token (modify the claims to make token expire soon)
+    -- Test with an expiring token (modify the token to make it expire soon)
     DECLARE
         expiring_claims json;
+        expiring_jwt text;
         expiring_status jsonb;
     BEGIN
+        -- Get the claims from the token
+        SELECT payload::json INTO jwt_claims 
+        FROM verify(access_jwt, 'test-jwt-secret-for-testing-only');
+        
         -- Create a copy of the claims with an expiration time 4 minutes from now
         expiring_claims := jsonb_set(
             jwt_claims::jsonb, 
@@ -1406,8 +1537,21 @@ BEGIN
             to_jsonb(extract(epoch from now())::integer + 240)
         )::json;
         
-        -- Set the modified claims
-        PERFORM set_config('request.jwt.claims', expiring_claims::text, true);
+        -- Create a new token with the modified claims
+        SELECT sign(expiring_claims, 'test-jwt-secret-for-testing-only') INTO expiring_jwt;
+        
+        -- Set the cookie with the expiring token
+        PERFORM set_config('request.headers', 
+            json_build_object(
+                'x-forwarded-for', '127.0.0.1',
+                'user-agent', 'Test User Agent',
+                'cookie', format('statbus-test=%s; statbus-test-refresh=%s', expiring_jwt, refresh_jwt)
+            )::text, 
+            true
+        );
+        
+        -- Reset JWT claims to ensure we're using cookies
+        PERFORM set_config('request.jwt.claims', '', true);
         
         -- Check status with expiring token
         SELECT public.auth_status()::jsonb INTO expiring_status;
@@ -1425,9 +1569,14 @@ BEGIN
     -- Test with an invalid user sub (user not found)
     DECLARE
         invalid_claims json;
+        invalid_jwt text;
         invalid_status jsonb;
         random_uuid uuid := gen_random_uuid();
     BEGIN
+        -- Get the claims from the token
+        SELECT payload::json INTO jwt_claims 
+        FROM verify(access_jwt, 'test-jwt-secret-for-testing-only');
+        
         -- Create a copy of the claims with an invalid user sub
         invalid_claims := jsonb_set(
             jwt_claims::jsonb, 
@@ -1435,8 +1584,21 @@ BEGIN
             to_jsonb(random_uuid::text)
         )::json;
         
-        -- Set the modified claims
-        PERFORM set_config('request.jwt.claims', invalid_claims::text, true);
+        -- Create a new token with the modified claims
+        SELECT sign(invalid_claims, 'test-jwt-secret-for-testing-only') INTO invalid_jwt;
+        
+        -- Set the cookie with the invalid token
+        PERFORM set_config('request.headers', 
+            json_build_object(
+                'x-forwarded-for', '127.0.0.1',
+                'user-agent', 'Test User Agent',
+                'cookie', format('statbus-test=%s; statbus-test-refresh=%s', invalid_jwt, refresh_jwt)
+            )::text, 
+            true
+        );
+        
+        -- Reset JWT claims to ensure we're using cookies
+        PERFORM set_config('request.jwt.claims', '', true);
         
         -- Check status with invalid user
         SELECT public.auth_status()::jsonb INTO invalid_status;
