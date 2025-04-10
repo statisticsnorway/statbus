@@ -23,6 +23,8 @@ services:
       PGRST_DB_AGGREGATES_ENABLED: "true"
       # JWT claims available in current_setting('request.jwt.claims')
       PGRST_JWT_AUD: "statbus"
+      # Ensure OpenAPI documentation uses the right base url
+      PGRST_OPENAPI_SERVER_PROXY_URI: ${SITE_URL:?SITE_URL must be set in the generated .env}/postgrest
       # Pass deployment slot code to database for cookie naming
       PGRST_DB_CONFIG: app.settings.deployment_slot_code=${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
     ports:
