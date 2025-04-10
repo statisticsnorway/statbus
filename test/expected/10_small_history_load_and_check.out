@@ -8,31 +8,12 @@ SET client_min_messages TO debug1;
 \else
 SET client_min_messages TO NOTICE;
 \endif
-\echo Add users for testing purposes
-Add users for testing purposes
-SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
-         email          |  password  
-------------------------+------------
- test.admin@statbus.org | Admin#123!
-(1 row)
-
-SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
-          email           |   password   
---------------------------+--------------
- test.regular@statbus.org | Regular#123!
-(1 row)
-
-SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
-            email            |    password     
------------------------------+-----------------
- test.restricted@statbus.org | Restricted#123!
-(1 row)
-
 -- Create temporary function to execute queries as system user
 CREATE OR REPLACE FUNCTION test.sudo_exec(
     sql text,
     OUT results jsonb
-) RETURNS jsonb AS $sudo_exec$
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
 DECLARE
     result_rows jsonb;
 BEGIN
@@ -54,9 +35,29 @@ BEGIN
         results := result_rows;
     END IF;
 END;
-$sudo_exec$ LANGUAGE plpgsql SECURITY DEFINER;
+$sudo_exec$;
 -- Grant execute to public since this is for testing
 GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
 CREATE TEMP TABLE prepared_small_history (
     valid_from DATE,
     valid_to DATE,
