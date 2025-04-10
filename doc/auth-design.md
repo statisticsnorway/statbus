@@ -74,13 +74,14 @@ The application is containerized using Docker Compose, orchestrating several ser
     *   Acts as the main entry point for web traffic (ports 80/443).
     *   Configured via `caddy/Caddyfile`.
     *   Routes requests:
-        *   `/api/*` requests are proxied to the `rest` service (PostgREST).
+        *   `/postgrest/*` requests are proxied to the `rest` service (PostgREST).
         *   All other requests are proxied to the `app` service (Next.js).
     *   Handles authentication cookie management:
-        *   **Login (`/api/rpc/login`):** Proxies to PostgREST. Forwards `Set-Cookie` headers from the PostgREST response (set by the `public.login` function) to the client.
-        *   **Logout (`/api/rpc/logout`):** Proxies to PostgREST (adding `Authorization` header). On response, explicitly sends headers to clear auth cookies.
-        *   **Refresh (`/api/rpc/refresh`):** Proxies to PostgREST, using the refresh token cookie as the Authorization header.
-        *   **Other API calls (`/api/*`):** Extracts the JWT from the `statbus-<slot>` cookie and adds it as an `Authorization: Bearer <token>` header before proxying to PostgREST.
+        *   **Login (`/postgrest/rpc/login`):** Proxies to PostgREST. Forwards `Set-Cookie` headers from the PostgREST response (set by the `public.login` function) to the client.
+        *   **Logout (`/postgrest/rpc/logout`):** Proxies to PostgREST (adding `Authorization` header). On response, explicitly sends headers to clear auth cookies.
+        *   **Refresh (`/postgrest/rpc/refresh`):** Proxies to PostgREST, uses cookies to analyse refresh token, and ignore possible expired access token. Can be called by anonymous.
+        *   **AuthStatus (`/postgrest/rpc/auth_status`):** Proxies to PostgREST, uses cookies to determine auth status and return user information if authenticated. Can be called by anonymous.
+        *   **Other API calls (`/postgrest/*`):** Extracts the JWT from the `statbus-<slot>` cookie and adds it as an `Authorization: Bearer <token>` header before proxying to PostgREST.
 
 4.  **`app` (Frontend/Backend - Next.js)**
     *   Defined in `docker-compose.app.yml`.
@@ -90,7 +91,7 @@ The application is containerized using Docker Compose, orchestrating several ser
         *   Server-side PostgREST URL (`SERVER_API_URL`)
         *   Logging configuration (`SEQ_SERVER_URL`, `SEQ_API_KEY`)
         *   Deployment slot information (`NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME`, `NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE`)
-    *   Interacts with the API via Caddy (`/api/*`).
+    *   Interacts with the API via Caddy (`/postgrest/*`).
     *   Depends on the database service being healthy before starting.
 
 5.  **`worker` (Background Jobs)**
@@ -106,7 +107,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
 
 1.  **Login:**
     *   User submits email/password to the Next.js app.
-    *   App directly POSTs to `/api/rpc/login` using the `auth.login()` function.
+    *   App directly POSTs to `/postgrest/rpc/login` using the `auth.login()` function.
     *   PostgREST executes the `public.login(email, password)` function as the `anon` role.
     *   `public.login`:
         *   Verifies credentials against `auth.users`.
@@ -129,7 +130,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     *   The browser stores the cookies automatically.
 
 2.  **Authenticated Requests:**
-    *   Browser automatically includes the `statbus-<slot>` cookie with requests to the API (`/api/*`).
+    *   Browser automatically includes the `statbus-<slot>` cookie with requests to the API (`/postgrest/*`).
     *   For client-side requests, the `fetchWithAuth` utility is used, which:
         *   Automatically includes credentials (cookies)
         *   Handles 401 errors by attempting to refresh the token
@@ -147,7 +148,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     *   Functions like `auth.uid()`, `auth.email()`, and `auth.statbus_role()` can access JWT claims.
 
 3.  **Logout:**
-    *   App directly calls `/api/rpc/logout` using the `auth.logout()` function.
+    *   App directly calls `/postgrest/rpc/logout` using the `auth.logout()` function.
     *   PostgREST executes `public.logout()` as the authenticated user.
     *   `public.logout`:
         *   Retrieves the user ID and possibly session ID from the current JWT claims (`current_setting('request.jwt.claims', true)`).
@@ -162,7 +163,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
         *   **Reactive refresh**: The `fetchWithAuth` utility detects 401 errors and refreshes the token
         *   **Middleware refresh**: The Next.js middleware detects expired tokens and refreshes them
     *   The refresh process:
-        *   Client directly calls `/api/rpc/refresh` with the refresh token cookie
+        *   Client directly calls `/postgrest/rpc/refresh` with the refresh token cookie
         *   PostgREST validates the refresh token JWT and executes `public.refresh()`
         *   `public.refresh`:
             *   Extracts the refresh token from cookies using `auth.extract_refresh_token_from_cookies()`.
