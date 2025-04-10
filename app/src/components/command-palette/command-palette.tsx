@@ -26,7 +26,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 

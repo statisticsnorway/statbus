@@ -1,4 +1,4 @@
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
 import { useState } from "react";
 import useSWR, { Fetcher } from "swr";
 
@@ -17,7 +17,7 @@ type SearchState = {
 
 const fetcher: Fetcher<RegionResult, SearchState> = async ({pagination, queries}: SearchState) =>
   {
-    const client = await createSupabaseBrowserClientAsync();
+    const client = await createPostgRESTBrowserClient();
     let query = client
       .from('region')
       .select('*', {count: 'exact'})

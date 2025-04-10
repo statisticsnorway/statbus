@@ -1,5 +1,5 @@
 "use client";
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { useTimeContext } from "@/app/time-context";
@@ -19,7 +19,7 @@ export const StatisticalUnitCountCard = ({
 
   useEffect(() => {
     const fetchData = async (validOn: string) => {
-      const client = await createSupabaseBrowserClientAsync();
+      const client = await createPostgRESTBrowserClient();
       const { count, error } = await client
         .from("statistical_unit")
         .select("", { count: "exact" })

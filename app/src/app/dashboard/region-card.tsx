@@ -2,10 +2,10 @@
 
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Globe2 } from "lucide-react";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 
 export const RegionCard = async () => {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
 
   const { count, error } = await client
     .from("region")

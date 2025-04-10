@@ -1,8 +1,8 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import UnitSizeOptions from "@/app/search/filters/unit-size/unit-size-options";
 
 export default async function UnitSizeFilter() {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const { data: unitSizes } = await client
     .from("unit_size")
     .select()

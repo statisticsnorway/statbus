@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { Level, LogEvent, Logger } from "pino";
 
 import { createServerLogger } from "@/lib/server-logger";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 
 // Interface for log requests
 interface ClientLogRequest {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     const logger = await createServerLogger();
     const { level = "info", event }: ClientLogRequest = await request.json();
 
-    const client = await createSupabaseSSRClient();
+    const client = await createPostgRESTSSRClient();
     // Check for authentication
     const isLoggedIn =
       client !== undefined ?

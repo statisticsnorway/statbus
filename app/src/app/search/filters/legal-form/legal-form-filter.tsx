@@ -1,8 +1,8 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import LegalFormOptions from "@/app/search/filters/legal-form/legal-form-options";
 
 export default async function LegalFormFilter() {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const legalForms = await client
     .from("legal_form_used")
     .select()

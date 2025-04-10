@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
 import { SupabaseClient } from '@supabase/supabase-js';
 
 interface GettingStartedState {
@@ -107,7 +107,7 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
 
   useEffect(() => {
     const initializeClient = async () => {
-      const supabaseClient = await createSupabaseBrowserClientAsync();
+      const supabaseClient = await createPostgRESTBrowserClient();
       setClient(supabaseClient);
     };
     initializeClient();

@@ -1,8 +1,8 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import { PostgrestError } from "@supabase/supabase-js";
 
 export async function getEnterpriseById(id: string) {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const { data: enterprises, error } = await client
     .from("enterprise")
     .select("*")
@@ -14,7 +14,7 @@ export async function getEnterpriseById(id: string) {
 }
 
 export async function getEstablishmentById(id: string) {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const { data: establishments, error } = await client
     .from("establishment")
     .select("*")
@@ -26,7 +26,7 @@ export async function getEstablishmentById(id: string) {
 }
 
 export async function getLegalUnitById(id: string) {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const { data: legalUnits, error } = await client
     .from("legal_unit")
     .select("*")
@@ -44,7 +44,7 @@ export async function getStatisticalUnitHierarchy(
   hierarchy: StatisticalUnitHierarchy | null, 
   error: { name: string } & PostgrestError | null 
 }> {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   try {
     const { data, error } = await client
       .rpc("statistical_unit_hierarchy", {
@@ -95,7 +95,7 @@ export async function getStatisticalUnitDetails(
   unit: StatisticalUnitDetails | null, 
   error: { name: string } & PostgrestError | null 
 }> {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   try {
     const { data, error } = await client
       .rpc("statistical_unit_details", {
@@ -147,7 +147,7 @@ export async function getStatisticalUnitStats(
   unitId: number,
   unitType: "enterprise" | "enterprise_group" | "legal_unit" | "establishment"
 ) {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const { data: stats, error } = await client
     .rpc("statistical_unit_stats", {
       unit_id: unitId,

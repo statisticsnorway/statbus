@@ -1,8 +1,8 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import StatusOptions from "@/app/search/filters/status/status-options";
 
 export default async function StatusFilter() {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const { data: statuses } = await client
     .from("status")
     .select()

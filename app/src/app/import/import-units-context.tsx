@@ -6,7 +6,7 @@ import React, {
   useEffect,
   useCallback,
 } from "react";
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
 import { SupabaseClient } from "@supabase/supabase-js";
 
 interface ImportUnitsState {
@@ -93,7 +93,7 @@ export const ImportUnitsProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     const initializeClient = async () => {
-      const supabaseClient = await createSupabaseBrowserClientAsync();
+      const supabaseClient = await createPostgRESTBrowserClient();
       setClient(supabaseClient);
     };
     initializeClient();

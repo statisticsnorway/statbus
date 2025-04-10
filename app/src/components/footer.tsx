@@ -1,4 +1,4 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import Link from "next/link";
 import { Github, Globe } from "lucide-react";
 import { Session } from "@supabase/auth-js/src/lib/types";
@@ -15,7 +15,7 @@ export function FooterSkeleton() {
 }
 
 export default async function Footer() {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const session = (await client.auth.getSession()).data.session;
 
   return (

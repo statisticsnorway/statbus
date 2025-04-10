@@ -1,9 +1,9 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
 
   let query = client.from('region')
     .select(

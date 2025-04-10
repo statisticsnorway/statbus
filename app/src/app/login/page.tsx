@@ -18,7 +18,17 @@ export default function LoginPage() {
     const email = formData.get("email");
     const password = formData.get("password");
 
-    const response = await fetch("/api/auth/login", {
+    const { login } = useAuth();
+    try {
+      await login(email as string, password as string);
+      window.location.href = "/";
+      return;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Login failed");
+    }
+    
+    // Fallback to direct API call if the auth context method fails
+    const response = await fetch(`${process.env.NEXT_PUBLIC_BROWSER_API_URL}/rpc/login`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",

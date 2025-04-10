@@ -1,5 +1,5 @@
 "use server";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import pino from "pino";
 import { createStream } from "pino-seq";
 import { headers } from "next/headers";
@@ -11,7 +11,7 @@ const seqApiKey = process.env.SEQ_API_KEY;
  * Create a pino logger for the server that includes the user's email and the app version
  */
 export async function createServerLogger() {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
 
   const user = (await client?.auth.getUser())?.data?.user;
 

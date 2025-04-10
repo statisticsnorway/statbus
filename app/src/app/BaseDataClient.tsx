@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
 import { SupabaseClient } from '@supabase/supabase-js';
 import { BaseData } from './BaseDataServer';
 
@@ -27,7 +27,7 @@ export const ClientBaseDataProvider = ({ children, initalBaseData }: { children:
 
   useEffect(() => {
     const initializeClient = async () => {
-      const supabaseClient = await createSupabaseBrowserClientAsync();
+      const supabaseClient = await createPostgRESTBrowserClient();
       setClient(supabaseClient);
     };
     initializeClient();

@@ -1,8 +1,8 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import SectorOptions from "@/app/search/filters/sector/sector-options";
 
 export default async function SectorFilter() {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const sectors = await client.from("sector_used").select();
 
   return (

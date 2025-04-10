@@ -1,9 +1,9 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { ScrollText } from "lucide-react";
 
 export const ActivityCategoryCard = async () => {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
 
   const { data: settings, error } = await client
     .from("settings")

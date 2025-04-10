@@ -1,5 +1,5 @@
 "use server";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
@@ -30,7 +30,7 @@ export async function uploadFile(
   try {
     const logger = await createServerLogger();
     const file = formData.get(filename) as File;
-    const client = await createSupabaseSSRClient();
+    const client = await createPostgRESTSSRClient();
 
     const authFetch = (client as any).rest.fetch as Fetch;
     const supabaseUrl = (client as any).rest.url as String;
@@ -61,7 +61,7 @@ export async function uploadFile(
 
 export async function setCategoryStandard(formData: FormData) {
   "use server";
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const logger = await createServerLogger();
 
   const activityCategoryStandardIdFormEntry = formData.get(

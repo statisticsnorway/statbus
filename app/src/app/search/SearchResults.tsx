@@ -11,7 +11,7 @@ import { TableColumnsProvider } from "./table-columns";
 import { SearchResult, SearchOrder, SearchPagination, SearchState, SearchAction } from "./search.d";
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
 import { getStatisticalUnits } from "./search-requests";
 import {
   activityCategoryDeriveStateUpdateFromSearchParams,
@@ -29,10 +29,10 @@ import {
 } from "./filters/url-search-params";
 
 const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
-  // Notice that the createSupabaseBrowserClientAsync must be inside the fetcher
+  // Notice that the createPostgRESTBrowserClient must be inside the fetcher
   // if placed outside we get a strange rendering error.
   // Error: Element type is invalid. Received a promise that resolves to: undefined. Lazy element type must resolve to a class or function.
-  const client = await createSupabaseBrowserClientAsync();
+  const client = await createPostgRESTBrowserClient();
   try {
     const response = await getStatisticalUnits(client, derivedApiSearchParams);
     return response

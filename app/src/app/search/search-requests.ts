@@ -3,13 +3,16 @@ import { SearchResult } from './search';
 import { Fetch } from '@supabase/auth-js/src/lib/fetch';
 
 export async function getStatisticalUnits(client: SupabaseClient, searchParams: URLSearchParams): Promise<SearchResult> {
-  // Inspect inside the client and get the correct url,
-  // as server side and client side code uses different urls.
-  // due to running inside docker containers.
+  // Extract the API URL and fetcher from the client
+  // We use the Supabase client for type safety, but extract these properties
+  // to make direct API calls to PostgREST with our custom authentication.
+  // We're NOT using Supabase as a service, only their client libraries.
+  // This approach gives us more control over the request while still
+  // benefiting from the type safety and consistent API of the Supabase client
   const apiFetcher = (client as any).rest.fetch as Fetch;
-  const supabase_url = (client as any).rest.url as String
+  const api_url = (client as any).rest.url as String
   var response = await apiFetcher(
-    `${supabase_url}/statistical_unit?${searchParams}`,
+    `${api_url}/statistical_unit?${searchParams}`,
     {
       method: "GET",
       headers: {

@@ -2,7 +2,7 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Tables } from "@/lib/database.types";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import { ClientBaseDataProvider } from "./BaseDataClient";
 
 export interface BaseData {
@@ -15,37 +15,85 @@ export interface BaseData {
 }
 
 export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
+  console.log('Starting getBaseData with client:', !!client);
 
   if (!client || typeof client.from !== 'function') {
-    throw new Error('Supabase client is not properly initialized.');
+    console.error('PostgREST client initialization error:', client);
+    throw new Error('PostgREST client is not properly initialized.');
+  }
+
+  // Get the REST URL and fetch function from the client for debugging
+  const restUrl = (client as any).rest?.url || 'URL not available';
+  const restFetch = (client as any).rest?.fetch || 'Fetch function not available';
+  console.log('Using REST URL:', restUrl);
+  console.log('REST fetch available:', !!restFetch);
+  
+  // Test basic connectivity to the API
+  try {
+    const response = await fetch(restUrl, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    console.log('API connectivity test:', {
+      status: response.status,
+      statusText: response.statusText,
+      ok: response.ok
+    });
+  } catch (error) {
+    console.error('API connectivity test failed:', error);
   }
 
   let maybeStatDefinitions, maybeExternalIdentTypes, maybeStatbusUsers, maybeTimeContexts, maybeStatisticalUnit;
   try {
+    console.log('Fetching base data from database...');
+    
+    // Fetch time contexts separately first for better debugging
+    console.log('Fetching time contexts...');
+    const timeContextResponse = await client.from("time_context").select();
+    console.log('Time context response:', {
+      status: timeContextResponse.status,
+      statusText: timeContextResponse.statusText,
+      error: timeContextResponse.error,
+      count: timeContextResponse.data?.length || 0
+    });
+    maybeTimeContexts = timeContextResponse.data;
+    
+    // Fetch the rest of the data
     [
       { data: maybeStatDefinitions },
       { data: maybeExternalIdentTypes },
       { data: maybeStatbusUsers },
-      { data: maybeTimeContexts },
       { data: maybeStatisticalUnit },
     ] = await Promise.all([
       client.from("stat_definition_active").select(),
       client.from("external_ident_type_active").select(),
       client.from("user_with_role").select(),
-      client.from("time_context").select(),
       client.from("statistical_unit").select("*").limit(1),
     ]);
+    
+    console.log('Data fetch results:', {
+      statDefinitions: maybeStatDefinitions?.length || 0,
+      externalIdentTypes: maybeExternalIdentTypes?.length || 0,
+      statbusUsers: maybeStatbusUsers?.length || 0,
+      timeContexts: maybeTimeContexts?.length || 0,
+      hasStatisticalUnits: maybeStatisticalUnit?.length || 0
+    });
   } catch (error) {
+    console.error('Error fetching base data:', error);
     if (error instanceof Error) {
-      throw new Error(`Failed to create Supabase client: ${error.message}`);
+      throw new Error(`Failed to fetch base data: ${error.message}`);
     } else {
-      throw new Error('Failed to create Supabase client: An unknown error occurred.');
+      throw new Error('Failed to fetch base data: An unknown error occurred.');
     }
   }
 
   if (!maybeTimeContexts || maybeTimeContexts.length === 0) {
+    console.error('Missing required time context. Raw response:', maybeTimeContexts);
     throw new Error("Missing required time context");
   }
+  console.log('Time contexts found:', maybeTimeContexts.length);
   const statDefinitions = maybeStatDefinitions as NonNullable<typeof maybeStatDefinitions>;
   const externalIdentTypes = maybeExternalIdentTypes as NonNullable<typeof maybeExternalIdentTypes>;
 const statbusUsers = maybeStatbusUsers as NonNullable<typeof maybeStatbusUsers>;
@@ -65,7 +113,7 @@ const statbusUsers = maybeStatbusUsers as NonNullable<typeof maybeStatbusUsers>;
 
 // Server component to fetch and provide base data
 export const ServerBaseDataProvider = async ({ children }: { children: React.ReactNode }) => {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const baseData = await getBaseData(client);
 
   return (

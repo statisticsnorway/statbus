@@ -1,8 +1,8 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import DataSourceOptions from "@/app/search/filters/data-source/data-source-options";
 
 export default async function DataSourceFilter() {
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const {data: dataSources} = await client.from("data_source_used").select();
 
   return (

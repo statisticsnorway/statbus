@@ -7,7 +7,7 @@ import SearchResultPagination from "@/app/search/components/search-result-pagina
 import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
 import { Selection } from "@/app/search/components/selection";
 import { SelectionProvider } from "@/app/search/selection-provider";
-import { createSupabaseSSRClient } from "@/utils/supabase/server"; // Use SSG client if needed
+import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server"; // Use SSG client if needed
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 import { defaultOrder } from "./search-filter-reducer";
 import { SearchOrder } from "./search";
@@ -28,7 +28,7 @@ export default async function SearchPage(props: { searchParams: Promise<URLSearc
    * A better solution would be to include the names in the search results
    * so that we do not need any blocking calls to supabase here.
    */
-  const client = await createSupabaseSSRClient();
+  const client = await createPostgRESTSSRClient();
   const [
     { data: activityCategories },
     { data: regions },

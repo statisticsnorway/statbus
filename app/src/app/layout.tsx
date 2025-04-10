@@ -13,6 +13,7 @@ import { ServerBaseDataProvider } from "@/app/BaseDataServer";
 import { AuthProvider } from "@/context/AuthContext";
 import { TimeContextProvider } from "@/app/time-context";
 import { deploymentSlotName } from "@/lib/deployment-variables";
+import RootLayoutClient from "./RootLayoutClient";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -38,22 +39,24 @@ export default function RootLayout({
         )}
       >
         <AuthProvider>
-          <ServerBaseDataProvider>
-            <Suspense fallback={<div>Loading...</div>}>
-              <TimeContextProvider>
-                <PopStateHandler />
-                <Suspense fallback={<NavbarSkeleton />}>
-                  <Navbar />
-                </Suspense>
-                {children}
-                <CommandPalette />
-                <Toaster />
-                <Suspense fallback={<FooterSkeleton />}>
-                  <Footer />
-                </Suspense>
-              </TimeContextProvider>
-            </Suspense>
-          </ServerBaseDataProvider>
+          <RootLayoutClient>
+            <ServerBaseDataProvider>
+              <Suspense fallback={<div>Loading...</div>}>
+                <TimeContextProvider>
+                  <PopStateHandler />
+                  <Suspense fallback={<NavbarSkeleton />}>
+                    <Navbar />
+                  </Suspense>
+                  {children}
+                  <CommandPalette />
+                  <Toaster />
+                  <Suspense fallback={<FooterSkeleton />}>
+                    <Footer />
+                  </Suspense>
+                </TimeContextProvider>
+              </Suspense>
+            </ServerBaseDataProvider>
+          </RootLayoutClient>
           <GlobalErrorReporter />
         </AuthProvider>
       </body>
