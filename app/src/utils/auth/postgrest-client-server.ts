@@ -27,7 +27,7 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
   
   const cookieStore = await cookies();
   const deploymentSlot = getDeploymentSlotCode();
-  const token = cookieStore.get(`statbus-${deploymentSlot}`);
+  const token = cookieStore.get('statbus');
   
   // Get the server API URL from environment
   const serverApiUrl = process.env.SERVER_API_URL;
