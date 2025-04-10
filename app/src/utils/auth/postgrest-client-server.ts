@@ -22,16 +22,48 @@ import { getDeploymentSlotCode } from './jwt';
  * - The authentication to use our JWT tokens
  * - The fetch behavior to include our auth headers
  */
+async function checkAuthStatus(): Promise<boolean> {
+  try {
+    const serverApiUrl = process.env.SERVER_API_URL;
+    if (!serverApiUrl) {
+      console.error('SERVER_API_URL environment variable is not set');
+      return false;
+    }
+
+    const response = await fetch(`${serverApiUrl}/postgrest/rpc/auth_status`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return data.authenticated === true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error checking auth status:', error);
+    return false;
+  }
+}
+
 export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Database>> {
   console.log('Creating PostgREST SSR client');
   
+  // Check if user is authenticated
+  const isAuthenticated = await checkAuthStatus();
+  if (!isAuthenticated) {
+    console.log('User is not authenticated, creating client without auth token');
+  }
+  
   const cookieStore = await cookies();
-  const deploymentSlot = getDeploymentSlotCode();
   const token = cookieStore.get('statbus');
   
   // Get the server API URL from environment
   const serverApiUrl = process.env.SERVER_API_URL;
-  console.log('Auth token available:', !!token, 'Deployment slot:', deploymentSlot, 'Server API URL:', serverApiUrl);
+  console.log('Auth token available:', !!token, 'Server API URL:', serverApiUrl);
   
   if (!serverApiUrl) {
     console.error('SERVER_API_URL environment variable is not set');

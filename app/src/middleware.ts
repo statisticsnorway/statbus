@@ -9,15 +9,15 @@ export async function middleware(request: NextRequest) {
     request.nextUrl.pathname === "/login" ||
     request.nextUrl.pathname.startsWith("/_next/") ||
     request.nextUrl.pathname.startsWith("/favicon.ico") ||
-    request.nextUrl.pathname.startsWith("/api/rpc/")
+    request.nextUrl.pathname.startsWith("/api/rpc/") ||
+    request.nextUrl.pathname.startsWith("/api/auth_status")
   ) {
     return NextResponse.next();
   }
 
   // Get the tokens from cookies
-  const deploymentSlot = getDeploymentSlotCode();
-  const accessToken = request.cookies.get(`statbus-${deploymentSlot}`);
-  const refreshToken = request.cookies.get(`statbus-${deploymentSlot}-refresh`);
+  const accessToken = request.cookies.get('statbus');
+  const refreshToken = request.cookies.get('statbus-refresh');
   
   // If no tokens at all, redirect to login
   if (!accessToken && !refreshToken) {

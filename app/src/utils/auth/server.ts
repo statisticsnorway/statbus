@@ -10,8 +10,7 @@ import { getDeploymentSlotCode } from './jwt';
  */
 export const createAuthSSRClient = async () => {
   const cookieStore = await cookies();
-  const deploymentSlot = getDeploymentSlotCode();
-  const token = cookieStore.get(`statbus-${deploymentSlot}`);
+  const token = cookieStore.get('statbus');
 
   return {
     /**
@@ -19,7 +18,7 @@ export const createAuthSSRClient = async () => {
      */
     rpc: async (functionName: string, params = {}) => {
       try {
-        const response = await fetch(`${process.env.SERVER_API_URL}/rpc/${functionName}`, {
+        const response = await fetch(`${process.env.SERVER_API_URL}/postgrest/rpc/${functionName}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -44,7 +43,7 @@ export const createAuthSSRClient = async () => {
      * Query a PostgreSQL table via PostgREST
      */
     from: (tableName: string) => {
-      const baseUrl = `${process.env.SERVER_API_URL}/${tableName}`;
+      const baseUrl = `${process.env.SERVER_API_URL}/postgrest/${tableName}`;
       
       return {
         select: async (columns: string = '*', options = {}) => {
@@ -121,8 +120,7 @@ export const createAuthApiClient = createAuthSSRClient;
  * Handles token refresh in middleware
  */
 export async function refreshAuthToken(request: NextRequest, origin: string): Promise<Response | null> {
-  const deploymentSlot = getDeploymentSlotCode();
-  const refreshToken = request.cookies.get(`statbus-${deploymentSlot}-refresh`);
+  const refreshToken = request.cookies.get('statbus-refresh');
   
   if (!refreshToken) {
     return null;

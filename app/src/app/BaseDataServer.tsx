@@ -14,8 +14,43 @@ export interface BaseData {
   hasStatisticalUnits: boolean;
 }
 
+async function checkAuthStatus(): Promise<boolean> {
+  try {
+    const response = await fetch(`${process.env.SERVER_API_URL}/postgrest/rpc/auth_status`, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json'
+      },
+      credentials: 'include'
+    });
+    
+    if (response.ok) {
+      const data = await response.json();
+      return data.authenticated === true;
+    }
+    return false;
+  } catch (error) {
+    console.error('Error checking auth status:', error);
+    return false;
+  }
+}
+
 export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
   console.log('Starting getBaseData with client:', !!client);
+
+  // Check if user is authenticated before proceeding
+  const isAuthenticated = await checkAuthStatus();
+  if (!isAuthenticated) {
+    console.log('User is not authenticated, returning empty base data');
+    return {
+      statDefinitions: [],
+      externalIdentTypes: [],
+      statbusUsers: [],
+      timeContexts: [],
+      defaultTimeContext: null as any,
+      hasStatisticalUnits: false,
+    };
+  }
 
   if (!client || typeof client.from !== 'function') {
     console.error('PostgREST client initialization error:', client);
