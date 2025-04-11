@@ -7,17 +7,16 @@
 
 # Set PostgreSQL version
 ARG postgresql_major=17
-ARG postgresql_release=${postgresql_major}.0
 
 # Set extension versions
 ARG pgtap_release=1.2.0
-ARG plpgsql_check_release=2.2.5
-ARG pg_safeupdate_release=1.4
-ARG wal2json_release=2_5
+ARG plpgsql_check_release=master
+ARG pg_safeupdate_release=master
+ARG wal2json_release=master
 ARG pg_hashids_release=cd0e1b31d52b394a0df64079406a14a4f7387cd6
-ARG pgsql_http_release=1.5.0
+ARG pgsql_http_release=master
 ARG pg_trgm_release=1.6
-ARG sql_saga_release=c65b6f850f3d123003b073fa59c666f1d44e7021
+ARG sql_saga_release=master
 ARG pg_stat_monitor_release=main
 ARG pg_repack_release=ver_1.5.2
 ARG hypopg_release=REL1_STABLE
@@ -46,7 +45,6 @@ RUN echo "deb [signed-by=/usr/share/keyrings/postgresql-archive-keyring.gpg] htt
 FROM ppa as base
 # Redeclare args for use in subsequent stages
 ARG postgresql_major
-ARG postgresql_release
 
 # Install PostgreSQL with non-interactive timezone setting
 ENV DEBIAN_FRONTEND=noninteractive
@@ -85,7 +83,6 @@ RUN mkdir -p /docker-entrypoint-initdb.d
 ####################
 FROM base as builder
 ARG postgresql_major
-ARG postgresql_release
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -123,8 +120,7 @@ ARG plpgsql_check_release
 WORKDIR /tmp
 RUN git clone https://github.com/okbob/plpgsql_check.git && \
   cd plpgsql_check && \
-  # Use master branch for PostgreSQL 17 compatibility
-  git checkout master && \
+  git checkout ${plpgsql_check_release} && \
   make && \
   make DESTDIR=/tmp/plpgsql_check-dist install
 
@@ -136,8 +132,7 @@ ARG pg_safeupdate_release
 WORKDIR /tmp
 RUN git clone https://github.com/eradman/pg-safeupdate.git && \
   cd pg-safeupdate && \
-  # Use master branch for PostgreSQL 17 compatibility
-  git checkout master && \
+  git checkout ${pg_safeupdate_release} && \
   make && \
   make DESTDIR=/tmp/pg_safeupdate-dist install && \
   find /tmp/pg_safeupdate-dist -type f | sort
@@ -150,8 +145,7 @@ ARG wal2json_release
 WORKDIR /tmp
 RUN git clone https://github.com/eulerto/wal2json.git && \
   cd wal2json && \
-  # Use master branch for PostgreSQL 17 compatibility
-  git checkout master && \
+  git checkout ${wal2json_release} && \
   make && \
   make DESTDIR=/tmp/wal2json-dist install && \
   find /tmp/wal2json-dist -type f | sort
@@ -176,8 +170,7 @@ ARG pgsql_http_release
 WORKDIR /tmp
 RUN git clone https://github.com/pramsey/pgsql-http.git && \
   cd pgsql-http && \
-  # Use master branch for PostgreSQL 17 compatibility
-  git checkout master && \
+  git checkout ${pgsql_http_release} && \
   make && \
   make DESTDIR=/tmp/pgsql_http-dist install
 
@@ -189,8 +182,7 @@ ARG sql_saga_release
 WORKDIR /tmp
 RUN git clone https://github.com/veridit/sql_saga.git && \
   cd sql_saga && \
-  # Use master branch for PostgreSQL 17 compatibility
-  git checkout master && \
+  git checkout ${sql_saga_release} && \
   make install && \
   make DESTDIR=/tmp/sql_saga-dist install
 
