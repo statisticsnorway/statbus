@@ -52,18 +52,45 @@
     # Handle PostgREST auth requests (login/logout/refresh/auth_status) that should not fail due to expired Authorization
     # therefore the Authorization is not set.
     # Those functions directly look at the cookies as they can be called by anonymous.
-    @auth_requests {
-        import secure_cookie_handling_auth_paths
+    @auth_paths {
+        path /postgrest/rpc/login
+        path /postgrest/rpc/logout
+        path /postgrest/rpc/refresh
+        path /postgrest/rpc/auth_status
+        path /postgrest/rpc/auth_test
     }    
     
-    handle @auth_requests {
+    handle @auth_paths {
         uri strip_prefix /postgrest
-        import reverse_proxy_standard {args[0]}
+        reverse_proxy {args[0]} {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+        }
     }
-    
-    # Handle all other PostgREST requests (excluding login/logout/refresh/auth_status)
-    handle_path /postgrest/* {
-        import reverse_proxy_auth {args[0]}
+
+    # Only add Authorization header if the cookie exists and there is no Authorization header,
+    # because "Bearer {http.request.cookie.statbus}" gets expanded literally
+    # if there is no cookie, and causes a JWT parse error.
+    @has_auth_cookie_and_no_auth_header {
+        # Has auth cookie
+        header_regexp cookie Cookie .*statbus=([^;]+).*
+        # Has NO auth header
+        header !Authorization
+    }
+    handle /postgrest/* {
+        uri strip_prefix /postgrest
+        
+        reverse_proxy @has_auth_cookie_and_no_auth_header {args[0]} {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+            header_up Authorization "Bearer {http.request.cookie.statbus}"
+        }
+        
+        reverse_proxy {args[0]} {
+            header_up Host {host}
+            header_up X-Real-IP {remote}
+        }
+        
     }
 }
 
