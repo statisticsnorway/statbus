@@ -71,8 +71,12 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
     console.log('Proceeding with unauthenticated client');
   }
   
-  // Get the server API URL from environment
-  const serverApiUrl = process.env.SERVER_API_URL;
+  // Use the Next.js app URL in development to ensure we go through the proxy
+  // In production, use SERVER_API_URL which should point to Caddy
+  const serverApiUrl = process.env.NODE_ENV === 'development' 
+    ? 'http://localhost:3000' // Use the Next.js app URL which proxies to PostgREST
+    : process.env.SERVER_API_URL;
+    
   console.log('Auth token available:', !!token, 'Server API URL:', serverApiUrl);
   
   if (!serverApiUrl) {
@@ -89,7 +93,7 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
       
       // Dynamically import serverFetch
       const { serverFetch } = await import('./server-fetch');
-      const testResponse = await serverFetch(serverApiUrl, {
+      const testResponse = await serverFetch(`${serverApiUrl}/postgrest`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json'
@@ -138,6 +142,7 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
         },
         fetch: async (url, options) => {
           // Fix the URL path: replace /rest/v1 with /postgrest if needed
+          // This ensures we're using the same URL structure in all environments
           const urlString = url.toString().replace('/rest/v1', '/postgrest');
           
           // Dynamically import and use our server-side fetch utility

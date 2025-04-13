@@ -12,51 +12,6 @@
     path /postgrest/rpc/auth_test
 }
 
-# CORS handling with specific url
-# args[0]: The allowed origin url
-(cors_preflight) {
-    @cors_preflight_allowed {
-        method OPTIONS
-        header Origin {args[0]}
-    }
-    @cors_preflight_denied {
-        method OPTIONS
-        not header Origin {args[0]}
-    }
-
-    # Handle allowed preflight requests
-    handle @cors_preflight_allowed {
-        header {
-            Access-Control-Allow-Origin "{http.request.header.Origin}"
-            Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS"
-            Access-Control-Allow-Headers "Content-Type, Authorization, Accept"
-            Access-Control-Allow-Credentials "true"
-            Access-Control-Max-Age "3600"
-            Vary "Origin"
-        }
-        respond "" 204
-    }
-
-    # Explicitly reject preflight requests from non-allowed origins
-    handle @cors_preflight_denied {
-        respond "CORS not allowed for this origin" 403
-    }
-}
-
-# Add extra CORS headers to another request for a specific host, include inside a reverse_proxy for instance.
-(cors_inflight) {
-    @cors_origin {
-        header Origin {args[0]}
-    }
-    # Add CORS headers to regular requests from allowed origins
-    header @cors_origin {
-          Access-Control-Allow-Origin "{http.request.header.Origin}"
-          Access-Control-Allow-Credentials "true"
-          Access-Control-Expose-Headers "Content-Type, Authorization, Accept"
-          Vary "Origin"
-          defer
-    }
-}
 
 
 # Maintenance mode handling
@@ -81,7 +36,6 @@
         header_up Host {host}
         header_up X-Real-IP {remote}
     }
-    import cors_inflight http://localhost:3000
 }
 
 # Reverse proxy with auth token - args[0] is the target address
@@ -91,7 +45,6 @@
         header_up X-Real-IP {remote}
         header_up Authorization "Bearer {http.request.cookie.statbus}"
     }
-    import cors_inflight http://localhost:3000
 }
 
 # Common PostgREST endpoint handling - args[0] is the postgrest address

@@ -17,7 +17,6 @@ export function setupGlobalErrorHandler() {
         init = {
           ...init,
           credentials: 'include',
-          mode: 'cors',
           headers: {
             ...init?.headers,
             'Content-Type': 'application/json',

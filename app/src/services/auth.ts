@@ -30,12 +30,6 @@ export async function getAuthStatus() {
         
         console.log(`Server-side auth check: ${result.isAuthenticated ? 'Token found' : 'No token'}`);
         
-        // Cache the result
-        authStatusCache = {
-          data: result,
-          timestamp: now
-        };
-        
         return result;
       } catch (error) {
         console.error('Error accessing cookies in server component:', error);
@@ -43,22 +37,25 @@ export async function getAuthStatus() {
       }
     }
     
-    // Use NEXT_PUBLIC_BROWSER_API_URL for client-side requests
-    const apiUrl = typeof window !== 'undefined' 
-      ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-      : process.env.SERVER_API_URL;
+    // Always use the proxy URL for consistency in development
+    // In development, this should be the Next.js app URL which proxies to PostgREST
+    const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
+      ? '' // Use relative URL to ensure we hit the same origin
+      : (typeof window !== 'undefined' 
+          ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
+          : process.env.SERVER_API_URL);
       
-    console.log(`Checking auth status at ${apiUrl}/postgrest/rpc/auth_status`);
+    const apiEndpoint = `${apiUrl}/postgrest/rpc/auth_status`;
+    console.log(`Checking auth status at ${apiEndpoint}`);
     
     // Use a consistent approach for both client and server
     const { serverFetch } = await import('@/utils/auth/server-fetch');
-    const response = await serverFetch(`${apiUrl}/postgrest/rpc/auth_status`, {
+    const response = await serverFetch(apiEndpoint, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
-      },
-      ...(typeof window !== 'undefined' ? { mode: 'cors' } : {})
+      }
     });
     
     if (!response.ok) {
@@ -137,11 +134,13 @@ export async function getAuthStatus() {
  * This calls the PostgreSQL login function directly via PostgREST
  */
 export async function login(email: string, password: string) {
-  // Use NEXT_PUBLIC_BROWSER_API_URL for client-side requests
-  const apiUrl = typeof window !== 'undefined' 
-    ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-    : process.env.SERVER_API_URL;
-    
+  // Always use the proxy URL for consistency in development
+  const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
+    ? '' // Use relative URL to ensure we hit the same origin
+    : (typeof window !== 'undefined' 
+        ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
+        : process.env.SERVER_API_URL);
+      
   const response = await fetch(`${apiUrl}/postgrest/rpc/login`, {
     method: 'POST',
     headers: {
@@ -149,8 +148,7 @@ export async function login(email: string, password: string) {
       'Accept': 'application/json'
     },
     body: JSON.stringify({ email, password }),
-    credentials: 'include', // Important for cookies
-    ...(typeof window !== 'undefined' ? { mode: 'cors' } : {})
+    credentials: 'include' // Important for cookies
   });
   
   // Log response details in development
@@ -169,10 +167,12 @@ export async function login(email: string, password: string) {
  * This calls the PostgreSQL logout function directly via PostgREST
  */
 export async function logout() {
-  // Use NEXT_PUBLIC_BROWSER_API_URL for client-side requests
-  const apiUrl = typeof window !== 'undefined' 
-    ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-    : process.env.SERVER_API_URL;
+  // Always use the proxy URL for consistency in development
+  const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
+    ? '' // Use relative URL to ensure we hit the same origin
+    : (typeof window !== 'undefined' 
+        ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
+        : process.env.SERVER_API_URL);
     
   const response = await fetch(`${apiUrl}/postgrest/rpc/logout`, {
     method: 'POST',
@@ -180,8 +180,7 @@ export async function logout() {
       'Content-Type': 'application/json',
       'Accept': 'application/json'
     },
-    credentials: 'include',
-    ...(typeof window !== 'undefined' ? { mode: 'cors' } : {})
+    credentials: 'include'
   });
   
   // Log response details in development
@@ -200,10 +199,12 @@ export async function logout() {
  * This calls the PostgreSQL refresh function directly via PostgREST
  */
 export async function refreshToken() {
-  // Use NEXT_PUBLIC_BROWSER_API_URL for client-side requests
-  const apiUrl = typeof window !== 'undefined' 
-    ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-    : process.env.SERVER_API_URL;
+  // Always use the proxy URL for consistency in development
+  const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
+    ? '' // Use relative URL to ensure we hit the same origin
+    : (typeof window !== 'undefined' 
+        ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
+        : process.env.SERVER_API_URL);
     
   const response = await fetch(`${apiUrl}/postgrest/rpc/refresh`, {
     method: 'POST',
@@ -225,10 +226,12 @@ export async function refreshToken() {
  * List all active sessions for the current user
  */
 export async function listActiveSessions() {
-  // Use NEXT_PUBLIC_BROWSER_API_URL for client-side requests
-  const apiUrl = typeof window !== 'undefined' 
-    ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-    : process.env.SERVER_API_URL;
+  // Always use the proxy URL for consistency in development
+  const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
+    ? '' // Use relative URL to ensure we hit the same origin
+    : (typeof window !== 'undefined' 
+        ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
+        : process.env.SERVER_API_URL);
     
   const response = await fetch(`${apiUrl}/postgrest/rpc/list_active_sessions`, {
     method: 'POST',
@@ -250,10 +253,12 @@ export async function listActiveSessions() {
  * Revoke a specific session
  */
 export async function revokeSession(sessionId: string) {
-  // Use NEXT_PUBLIC_BROWSER_API_URL for client-side requests
-  const apiUrl = typeof window !== 'undefined' 
-    ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-    : process.env.SERVER_API_URL;
+  // Always use the proxy URL for consistency in development
+  const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
+    ? '' // Use relative URL to ensure we hit the same origin
+    : (typeof window !== 'undefined' 
+        ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
+        : process.env.SERVER_API_URL);
     
   const response = await fetch(`${apiUrl}/postgrest/rpc/revoke_session`, {
     method: 'POST',

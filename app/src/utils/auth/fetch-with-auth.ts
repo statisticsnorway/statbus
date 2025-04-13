@@ -18,7 +18,6 @@ export async function fetchWithAuth(
   let response = await fetch(url, {
     ...options,
     credentials: 'include', // Always include cookies
-    mode: 'cors', // Explicitly set CORS mode (this is browser-only code)
     headers: {
       ...options.headers,
       'Content-Type': options.headers?.['Content-Type'] || 'application/json',
@@ -37,7 +36,6 @@ export async function fetchWithAuth(
         response = await fetch(url, {
           ...options,
           credentials: 'include',
-          mode: 'cors',
           headers: {
             ...options.headers,
             'Content-Type': options.headers?.['Content-Type'] || 'application/json',

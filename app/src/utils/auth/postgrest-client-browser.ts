@@ -54,17 +54,10 @@ export async function createPostgRESTBrowserClient(): Promise<SupabaseClient<Dat
           const { fetchWithAuth } = await import('@/utils/auth/fetch-with-auth');
           
           // Fix the URL path: replace /rest/v1 with /postgrest
+          // This ensures we're using the same URL structure in all environments
           const urlString = url.toString().replace('/rest/v1', '/postgrest');
           
-          // Remove any X-Requested-With headers that might cause CORS issues
-          const cleanOptions = { ...options };
-          if (cleanOptions.headers && typeof cleanOptions.headers === 'object') {
-            const headers = new Headers(cleanOptions.headers as HeadersInit);
-            headers.delete('X-Requested-With');
-            cleanOptions.headers = headers;
-          }
-          
-          return fetchWithAuth(urlString, cleanOptions);
+          return fetchWithAuth(urlString, options);
         },
       },
     }

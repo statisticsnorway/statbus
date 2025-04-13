@@ -84,7 +84,6 @@ The system supports three deployment modes for the Caddy service, controlled by 
 ### 1. Development Mode
 - **Purpose**: For local development with Next.js running separately
 - **Features**:
-  - CORS headers for local development
   - API forwarding to PostgREST
   - Message for non-API requests (since Next.js runs locally)
   - HTTP only (no HTTPS)
@@ -205,28 +204,3 @@ The system supports multiple deployment slots for different countries (ma(rocco)
 
 Each deployment uses the same architecture but with isolated databases and configuration.
 
-## TODO: Caddy Configuration Refactoring
-
-To implement the simplified Caddy configuration approach:
-
-1. Update `cli/src/manage.cr`:
-   - Modify the `DerivedEnv` record to include `caddy_deployment_mode` and `site_domain`
-   - Create separate functions for generating global Caddy config and mode-specific configs
-   - Always generate each of the caddyfiles for inspection by making different versions of `generate_caddy_content`.
-
-2. Update `.env.config` generation:
-   - Add `CADDY_DEPLOYMENT_MODE` with default value "development"
-   - Add `SITE_DOMAIN` with default value based on deployment slot "$code.statbus.org"
-
-3. Update `caddy/docker-compose.yml`:
-   - Pass on the `CADDY_DEPLOYMENT_MODE` environment variable from the .env file.
-   - Ensure proper volume mounting for caddy/config to load the correct generated config.
-
-4. Update `caddy/Caddyfile`:
-   - Either symlink to appropriate file depending on CADDY_DEPLOYMENT_MODE,
-     or make a dynamic include using CADDY_DEPLOYMENT_MODE to select the correct file.
-
-5. Improve manage.cr to generate all the caddyfiles:
-   - Use a functional approach with one function for each file,
-     and possibly call shared functions for common code.
-   - Remove the www. and api. prefixes in favour of just using the `derived.domain` - a single domain.

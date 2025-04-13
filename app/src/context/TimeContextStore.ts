@@ -174,17 +174,12 @@ class TimeContextStore {
       environment: typeof window !== 'undefined' ? 'browser' : 'server'
     };
     console.log('TimeContextStore client debug info:', clientDebugInfo);
-
-    console.log('Fetching time context data from API...');
     
     try {
       // Always use the client directly for consistency
       // This is the most reliable approach that works in both client and server contexts
       console.log(`${typeof window !== 'undefined' ? 'Browser' : 'Server'}-side: Using direct client query for time contexts`);
-      
-      // Add more detailed logging before the query
-      console.log('About to execute time_context query with client');
-      
+            
       // Execute the query with detailed error handling
       const result = await client.from("time_context").select("*");
       const { data: timeContexts, error, status, statusText } = result;

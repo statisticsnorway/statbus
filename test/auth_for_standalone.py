@@ -2,6 +2,7 @@
 """
 Test script for authentication in standalone mode
 Tests both API access and direct database access with the same credentials
+Run with `./test/auth_for_standalone.sh` that uses venv.
 """
 
 import os
@@ -532,87 +533,7 @@ def test_auth_status(session: Session, expected_auth: bool) -> None:
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
 
-def test_cors_headers(session: Session, origin: str, should_have_cors: bool) -> None:
-    """Test CORS headers in response"""
-    log_info(f"Testing CORS headers with Origin: {origin} (should have CORS: {should_have_cors})...")
-    
-    # Make request with specified Origin
-    try:
-        response = session.get(
-            f"{CADDY_BASE_URL}/postgrest/rpc/auth_status",
-            headers={
-                "Content-Type": "application/json",
-                "Origin": origin
-            }
-        )
-        
-        debug_info(f"Response status code: {response.status_code}")
-        debug_info(f"Response headers: {dict(response.headers)}")
-        
-        # Check for CORS headers
-        has_cors_headers = (
-            "Access-Control-Allow-Origin" in response.headers and
-            "Access-Control-Allow-Credentials" in response.headers
-        )
-        
-        if has_cors_headers and should_have_cors:
-            if response.headers.get("Access-Control-Allow-Origin") == origin:
-                log_success(f"CORS headers correctly present with matching origin: {origin}")
-            else:
-                log_error(f"CORS headers present but origin mismatch: {response.headers.get('Access-Control-Allow-Origin')} != {origin}")
-        elif not has_cors_headers and not should_have_cors:
-            log_success(f"CORS headers correctly absent for origin: {origin}")
-        elif has_cors_headers and not should_have_cors:
-            log_error(f"CORS headers unexpectedly present for origin: {origin}")
-        else:
-            log_error(f"CORS headers unexpectedly absent for origin: {origin}")
-    
-    except requests.RequestException as e:
-        log_error(f"API request failed: {e}")
-
-def test_cors_preflight(origin: str, should_succeed: bool) -> None:
-    """Test CORS preflight OPTIONS request"""
-    log_info(f"Testing CORS preflight with Origin: {origin} (should succeed: {should_succeed})...")
-    
-    # Make OPTIONS request with specified Origin
-    try:
-        response = requests.options(
-            f"{CADDY_BASE_URL}/postgrest/rpc/auth_status",
-            headers={
-                "Origin": origin,
-                "Access-Control-Request-Method": "GET",
-                "Access-Control-Request-Headers": "Content-Type, Accept"
-            }
-        )
-        
-        debug_info(f"Preflight response status code: {response.status_code}")
-        debug_info(f"Preflight response headers: {dict(response.headers)}")
-        
-        # Check for CORS preflight headers
-        has_preflight_headers = (
-            "Access-Control-Allow-Origin" in response.headers and
-            "Access-Control-Allow-Methods" in response.headers and
-            "Access-Control-Allow-Headers" in response.headers
-        )
-        
-        expected_status = 204 if should_succeed else 403
-        
-        if response.status_code == expected_status and has_preflight_headers == should_succeed:
-            log_success(f"CORS preflight correctly returned status {response.status_code} for origin: {origin}")
-            if should_succeed and response.headers.get("Access-Control-Allow-Origin") == origin:
-                log_success(f"CORS preflight headers correctly set with matching origin: {origin}")
-            elif should_succeed and response.headers.get("Access-Control-Allow-Origin") != origin:
-                log_error(f"CORS preflight headers present but origin mismatch: {response.headers.get('Access-Control-Allow-Origin')} != {origin}")
-        else:
-            def print_preflight_error():
-                print(f"{RED}Expected status: {expected_status}, got: {response.status_code}{NC}")
-                print(f"{RED}Expected CORS headers: {should_succeed}, got: {has_preflight_headers}{NC}")
-                print(f"{RED}Response headers: {dict(response.headers)}{NC}")
-            
-            log_error(f"CORS preflight test failed for origin: {origin}", print_preflight_error)
-    
-    except requests.RequestException as e:
-        log_error(f"API request failed: {e}")
+# CORS test functions removed as they're no longer needed with the simplified architecture
 
 def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
     """Test the auth_test endpoint to get detailed debug information"""
@@ -763,22 +684,7 @@ def main() -> None:
         
         log_error("Database access unexpectedly succeeded with incorrect password.", print_unexpected_db_access)
     
-    # Test 11: CORS headers with allowed origin
-    print(f"\n{BLUE}=== Test 11: CORS Headers with Allowed Origin ==={NC}")
-    cors_session = requests.Session()
-    test_cors_headers(cors_session, "http://localhost:3000", True)
-    
-    # Test 12: CORS headers with disallowed origin
-    print(f"\n{BLUE}=== Test 12: CORS Headers with Disallowed Origin ==={NC}")
-    test_cors_headers(cors_session, "http://example.com", False)
-    
-    # Test 13: CORS preflight with allowed origin
-    print(f"\n{BLUE}=== Test 13: CORS Preflight with Allowed Origin ==={NC}")
-    test_cors_preflight("http://localhost:3000", True)
-    
-    # Test 14: CORS preflight with disallowed origin
-    print(f"\n{BLUE}=== Test 14: CORS Preflight with Disallowed Origin ==={NC}")
-    test_cors_preflight("http://example.com", False)
+    # CORS tests removed as they're no longer needed with the simplified architecture
     
     # Print summary of test results
     print(f"\n{GREEN}=== All Authentication Tests Completed Successfully ==={NC}\n")

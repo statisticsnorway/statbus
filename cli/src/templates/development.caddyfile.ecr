@@ -2,12 +2,11 @@
 # Do not edit directly - changes will be lost
 
 # This file configures Caddy for local development mode
-# It provides API access to PostgREST while the Next.js app runs separately
+# It provides API access to PostgREST directly
 # Features:
 # - HTTP only (no HTTPS) for local development
-# - CORS headers for localhost:3000
 # - JWT token handling for authentication
-# - Message for non-API requests
+# - Direct access to PostgREST API
 
 # Import common snippets
 import /config/common.caddyfile
@@ -16,16 +15,24 @@ import /config/common.caddyfile
     # Enable compression
     encode gzip
     
-    # Use common CORS handling for local development host
-    import cors_preflight "http://localhost:3000"
-    
     # Use common PostgREST endpoint handling
     import postgrest_endpoints {$POSTGREST_BIND_ADDRESS}
 
     # For non-API requests in development mode, show a message
-    # since the Next.js app is running separately
+    # since the Next.js app runs separately and proxies to PostgREST
     handle {
-        respond "Statbus API server running in development mode. The Next.js app should be started separately." 200
+        @json {
+            header Accept application/json*
+        }
+        handle @json {
+            header Content-Type application/json
+            respond `{"error":"configuration_error","message":"Statbus API server running in development mode. The Next.js app should be started separately with 'pnpm run dev' in the app directory."}` 503
+        }
+        
+        handle {
+            header Content-Type text/plain
+            respond "Statbus API server running in development mode. The Next.js app should be started separately with 'pnpm run dev' in the app directory." 503
+        }
     }
 
     # Use standard logging

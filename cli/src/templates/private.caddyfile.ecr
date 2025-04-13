@@ -8,8 +8,6 @@ import /config/common.caddyfile
     # Enable compression
     encode gzip
     
-    # Use common CORS handling
-    import cors ^https?://<%= @domain %>$
     
     # Use common maintenance mode handling
     import maintenance /home/<%= @deployment_user %> /home/<%= @deployment_user %>/statbus/app/public
