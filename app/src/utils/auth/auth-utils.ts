@@ -38,7 +38,7 @@ export async function isAuthenticated(): Promise<boolean> {
         console.log('Server-side auth check via cookies:', { 
           isAuthenticated, 
           hasToken: !!token,
-          tokenPrefix: token ? token.value.substring(0, 10) + '...' : 'none'
+          tokenPrefix: token ? token.value.substring(0, 10) + '...' : null
         });
       }
       
