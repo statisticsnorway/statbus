@@ -56,25 +56,6 @@ export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
   const restFetch = (client as any).rest?.fetch || 'Fetch function not available';
   console.log('Using REST URL:', restUrl);
   console.log('REST fetch available:', !!restFetch);
-  
-  // Test basic connectivity to the API
-  try {
-    // Dynamically import serverFetch
-    const { serverFetch } = await import('@/utils/auth/server-fetch');
-    const response = await serverFetch(restUrl, {
-      method: 'GET',
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
-    console.log('API connectivity test:', {
-      status: response.status,
-      statusText: response.statusText,
-      ok: response.ok
-    });
-  } catch (error) {
-    console.error('API connectivity test failed:', error);
-  }
 
   // Import the timeContextStore
   const { timeContextStore } = await import('@/context/TimeContextStore');

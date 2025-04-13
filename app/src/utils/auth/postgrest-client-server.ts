@@ -84,40 +84,6 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
     throw new Error('SERVER_API_URL environment variable is not set');
   }
   
-  // Skip connectivity test in production to avoid unnecessary errors
-  if (process.env.NODE_ENV === 'development') {
-    try {
-      console.log('Testing connectivity to PostgREST endpoint...');
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
-      
-      // Dynamically import serverFetch
-      const { serverFetch } = await import('./server-fetch');
-      const testResponse = await serverFetch(`${serverApiUrl}/postgrest`, {
-        method: 'GET',
-        headers: {
-          'Accept': 'application/json'
-        },
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      
-      console.log('PostgREST endpoint test response:', {
-        status: testResponse.status,
-        statusText: testResponse.statusText,
-        ok: testResponse.ok
-      });
-    } catch (error) {
-      // Don't throw here, as the client might still work in some cases
-      if (error.name === 'AbortError') {
-        console.warn('PostgREST endpoint connectivity test timed out');
-      } else {
-        console.warn('Could not reach PostgREST endpoint during initialization:', error);
-      }
-    }
-  }
-  
   // Ensure the serverApiUrl ends with a trailing slash if needed
   const apiUrl = serverApiUrl.endsWith('/') ? serverApiUrl : `${serverApiUrl}/`;
   
