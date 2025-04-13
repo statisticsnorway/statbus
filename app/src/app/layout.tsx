@@ -25,25 +25,11 @@ export const metadata: Metadata = {
   description: "Simple To Use, Simple To Understand, Simply useful!",
 };
 
-// Server action to initialize auth status before rendering
-async function initializeAuth() {
-  try {
-    const { getAuthStatus } = await import('@/services/auth');
-    await getAuthStatus();
-    return true;
-  } catch (error) {
-    console.error('Failed to initialize auth status:', error);
-    return false;
-  }
-}
-
 export default async function RootLayout({
   children,
 }: {
   readonly children: ReactNode;
 }) {
-  // Initialize auth status before rendering anything
-  await initializeAuth();
   
   return (
     <html lang="en" className="h-full bg-white">

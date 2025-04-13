@@ -34,9 +34,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Get auth status from server
+      // Get auth status from AuthStore
       try {
-        const authStatus = await getAuthStatus();
+        const { authStore } = await import('@/context/AuthStore');
+        const authStatus = await authStore.refreshAuthStatus();
         
         if (process.env.NODE_ENV === 'development') {
           console.debug('Auth status result:', authStatus);
@@ -48,6 +49,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // If token is expiring soon, refresh it proactively
         if (authStatus.tokenExpiring) {
           await refreshToken();
+          // Update the auth store after token refresh
+          await authStore.refreshAuthStatus();
         }
       } catch (error) {
         console.error('Error getting auth status:', error);

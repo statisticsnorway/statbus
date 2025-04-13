@@ -1,4 +1,4 @@
-import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
+import { getBrowserClient } from "@/context/ClientStore";
 import { useState } from "react";
 import useSWR, { Fetcher } from "swr";
 
@@ -17,7 +17,7 @@ type SearchState = {
 
 const fetcher: Fetcher<RegionResult, SearchState> = async ({pagination, queries}: SearchState) =>
   {
-    const client = await createPostgRESTBrowserClient();
+    const client = await getBrowserClient();
     let query = client
       .from('region')
       .select('*', {count: 'exact'})

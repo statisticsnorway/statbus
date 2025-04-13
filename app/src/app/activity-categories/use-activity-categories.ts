@@ -1,5 +1,5 @@
 import { Tables } from "@/lib/database.types";
-import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
+import { getBrowserClient } from "@/context/ClientStore";
 import { useState } from "react";
 import useSWR, { Fetcher } from "swr";
 
@@ -21,7 +21,7 @@ type ActivityCategoryResult = {
 };
 
 const fetcher: Fetcher<ActivityCategoryResult, { pagination: Pagination; queries: Queries }> = async ({ pagination, queries }) => {
-  const client = await createPostgRESTBrowserClient();
+  const client = await getBrowserClient();
   let query = client.from('activity_category_available').select('*', { count: 'exact' });
 
   const offset = pagination.pageNumber && pagination.pageSize

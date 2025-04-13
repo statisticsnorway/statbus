@@ -2,9 +2,6 @@ import { SupabaseClient, createClient } from '@supabase/supabase-js';
 import { Database } from '@/lib/database.types';
 import { getDeploymentSlotCode } from './jwt';
 
-import { getAuthStatus } from '@/services/auth';
-import { isAuthenticated } from '@/utils/auth/auth-utils';
-
 /**
  * Creates a PostgREST client for server-side rendering (SSR) contexts
  * 
@@ -24,31 +21,20 @@ import { isAuthenticated } from '@/utils/auth/auth-utils';
  * - The authentication to use our JWT tokens
  * - The fetch behavior to include our auth headers
  */
+
 // Global singleton for the server-side client
 // This ensures we have a single source of truth
 let cachedClient: SupabaseClient<Database> | null = null;
 let clientTimestamp: number = 0;
 const CLIENT_TTL = 5 * 60 * 1000; // 5 minutes
 
-// Export the singleton for direct access when needed
-export const getServerClient = async (): Promise<SupabaseClient<Database>> => {
-  if (!cachedClient || (Date.now() - clientTimestamp > CLIENT_TTL)) {
-    return createPostgRESTSSRClient();
-  }
-  return cachedClient;
-};
+// Export the getServerClient function from ClientStore
+export { getServerClient } from '@/context/ClientStore';
 
-// Use the isAuthenticated function directly from auth-utils
-// No need for a separate checkAuthStatus function
+// The createPostgRESTSSRClient function is now primarily used by ClientStore
+// Other code should use getServerClient() from ClientStore instead
 
 export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Database>> {
-  // Check if we have a cached client that's still valid
-  const now = Date.now();
-  if (cachedClient && (now - clientTimestamp < CLIENT_TTL)) {
-    console.log('Using cached PostgREST SSR client');
-    return cachedClient;
-  }
-
   console.log('Creating new PostgREST SSR client');
   
   // Get cookies first - using dynamic import to avoid issues with next/headers
@@ -69,20 +55,15 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
     // Continue without token
   }
   
-  let authenticated = false;
-  try {
-    // Use isAuthenticated directly
-    authenticated = await isAuthenticated();
-    if (process.env.NODE_ENV === 'development') {
-      if (!authenticated) {
-        console.log('Not authenticated, creating client without auth token');
-      } else {
-        console.log('Authenticated, creating client with auth token');
-      }
+  // Check for token directly instead of using isAuthenticated()
+  // to avoid circular dependencies
+  let authenticated = !!token;
+  if (process.env.NODE_ENV === 'development') {
+    if (!authenticated) {
+      console.log('Not authenticated, creating client without auth token');
+    } else {
+      console.log('Authenticated, creating client with auth token');
     }
-  } catch (error) {
-    console.error('Authentication check failed:', error);
-    console.log('Proceeding with unauthenticated client');
   }
   
   // Use the Next.js app URL in development to ensure we go through the proxy
@@ -149,7 +130,8 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
   
   console.log('PostgREST client created successfully with URL:', (client as any).rest.url);
   
-  // Cache the client
+  // Cache the client for backward compatibility
+  // Note: This is redundant with ClientStore but ensures this function works standalone
   cachedClient = client;
   clientTimestamp = Date.now();
   

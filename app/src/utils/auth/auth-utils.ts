@@ -1,82 +1,34 @@
 /**
  * Utility functions for authentication
  */
-import { getAuthStatus } from '@/services/auth';
-
-// Cache the authentication status for a short period to avoid excessive API calls
-let authStatusCache: { 
-  isAuthenticated: boolean;
-  user: any | null;
-  tokenExpiring: boolean;
-  timestamp: number;
-} | null = null;
-
-const CACHE_TTL = 30000; // 30 seconds
 
 /**
  * Check if the user is authenticated
- * This function caches the result for a short period to avoid excessive API calls
+ * This function uses the AuthStore to get the authentication status
  */
 export async function isAuthenticated(): Promise<boolean> {
-  const now = Date.now();
-  
-  // Use cached value if available and not expired
-  if (authStatusCache && (now - authStatusCache.timestamp < CACHE_TTL)) {
-    return authStatusCache.isAuthenticated;
-  }
-  
-  // For server-side, check cookies directly
-  if (typeof window === 'undefined') {
-    try {
-      // Use dynamic import to avoid issues with next/headers
-      const { cookies } = await import('next/headers');
-      const cookieStore = await cookies();
-      const token = cookieStore.get('statbus');
-      const isAuthenticated = !!token;
-      
-      // Log authentication status for debugging
-      if (process.env.NODE_ENV === 'development') {
-        console.log('Server-side auth check via cookies:', { 
-          isAuthenticated, 
-          hasToken: !!token,
-          tokenPrefix: token ? token.value.substring(0, 10) + '...' : null
-        });
-      }
-      
-      // Cache the result
-      authStatusCache = {
-        isAuthenticated,
-        user: null,
-        tokenExpiring: false,
-        timestamp: now
-      };
-      
-      // If authenticated, ensure we have a valid client ready
-      if (isAuthenticated) {
-        try {
-          const { getServerClient } = await import('./postgrest-client-server');
-          await getServerClient();
-        } catch (error) {
-          console.error('Failed to initialize server client during auth check:', error);
-        }
-      }
-      
-      return isAuthenticated;
-    } catch (error) {
-      console.error('Error checking server-side authentication:', error);
-      // Fall back to API call if cookies can't be accessed
-    }
-  }
-  
-  // Get fresh authentication status from API
   try {
-    const authStatus = await getAuthStatus();
+    // For server-side requests, check if we can access the token directly
+    if (typeof window === 'undefined') {
+      try {
+        // Use dynamic import to avoid issues with next/headers
+        const { cookies } = await import('next/headers');
+        const cookieStore = await cookies();
+        const token = cookieStore.get('statbus');
+        
+        // Simple check - if token exists, user is authenticated
+        return !!token;
+      } catch (error) {
+        console.error('Error accessing cookies in server component:', error);
+        // Fall back to AuthStore if cookies can't be accessed
+      }
+    }
     
-    // Cache the full result
-    authStatusCache = {
-      ...authStatus,
-      timestamp: now
-    };
+    // Import the authStore
+    const { authStore } = await import('@/context/AuthStore');
+    
+    // Get the authentication status from the store
+    const authStatus = await authStore.getAuthStatus();
     
     return authStatus.isAuthenticated;
   } catch (error) {
@@ -90,9 +42,14 @@ export async function isAuthenticated(): Promise<boolean> {
  * Call this when logging in or out to ensure fresh status
  */
 export function clearAuthStatusCache(): void {
-  authStatusCache = null;
+  // Import and clear the AuthStore cache
+  import('@/context/AuthStore').then(({ authStore }) => {
+    authStore.clearCache();
+  }).catch(err => {
+    console.error('Failed to clear auth cache:', err);
+  });
   
-  // Also clear the time context cache when auth cache is cleared
+  // Also clear the client, time context and base data caches when auth cache is cleared
   // We'll import dynamically to avoid circular dependencies
   if (typeof window !== 'undefined') {
     // Only run this in the browser
@@ -100,6 +57,18 @@ export function clearAuthStatusCache(): void {
       timeContextStore.clearCache();
     }).catch(err => {
       console.error('Failed to clear time context cache:', err);
+    });
+    
+    import('@/context/BaseDataStore').then(({ baseDataStore }) => {
+      baseDataStore.clearCache();
+    }).catch(err => {
+      console.error('Failed to clear base data cache:', err);
+    });
+    
+    import('@/context/ClientStore').then(({ clientStore }) => {
+      clientStore.clearCache();
+    }).catch(err => {
+      console.error('Failed to clear client cache:', err);
     });
   }
 }

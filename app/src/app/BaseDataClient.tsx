@@ -1,14 +1,20 @@
 "use client";
 
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
-import { getBrowserClient } from "@/utils/auth/postgrest-client-browser";
+import { getBrowserClient } from "@/context/ClientStore";
 import { SupabaseClient } from '@supabase/supabase-js';
-import { BaseData } from './BaseDataServer';
+import { BaseData } from '@/context/BaseDataStore';
 
 // Create a context for the base data
-const BaseDataClientContext = createContext<BaseData & { refreshHasStatisticalUnits: () => Promise<void> }>({
+const BaseDataClientContext = createContext<BaseData & { 
+  refreshHasStatisticalUnits: () => Promise<boolean>;
+  refreshAllBaseData: () => Promise<void>;
+  getDebugInfo: () => Record<string, any>;
+}>({
   ...({} as BaseData),
-  refreshHasStatisticalUnits: async () => {},
+  refreshHasStatisticalUnits: async () => false,
+  refreshAllBaseData: async () => {},
+  getDebugInfo: () => ({}),
 });
 
 // Hook to use the base data context
@@ -40,17 +46,77 @@ export const ClientBaseDataProvider = ({ children, initalBaseData }: { children:
   }, []);
 
   const refreshHasStatisticalUnits = useCallback(async () => {
-    if (!client) return;
-    const maybeUnit = await client.from("statistical_unit").select("*").limit(1);
-    const hasStatisticalUnits = (maybeUnit.data && maybeUnit.data?.length > 0) ?? false;
-    setBaseData((prevBaseData) => ({
-      ...prevBaseData,
-      hasStatisticalUnits,
-    }));
+    if (!client) return false;
+    
+    try {
+      // Import the baseDataStore
+      const { baseDataStore } = await import('@/context/BaseDataStore');
+      
+      // Use the BaseDataStore to refresh the hasStatisticalUnits flag
+      const hasStatisticalUnits = await baseDataStore.refreshHasStatisticalUnits(client);
+      
+      // Update the local state with the new value
+      setBaseData((prevBaseData) => ({
+        ...prevBaseData,
+        hasStatisticalUnits,
+      }));
+      
+      return hasStatisticalUnits;
+    } catch (error) {
+      console.error("Error refreshing hasStatisticalUnits:", error);
+      return false;
+    }
   }, [client]);
+  
+  const refreshAllBaseData = useCallback(async () => {
+    if (!client) return;
+    
+    try {
+      // Import the baseDataStore
+      const { baseDataStore } = await import('@/context/BaseDataStore');
+      
+      // Use the BaseDataStore to refresh all base data
+      const freshBaseData = await baseDataStore.refreshBaseData(client);
+      
+      // Update the local state with the new data
+      setBaseData(freshBaseData);
+      
+      console.log('Base data refreshed successfully', {
+        statDefinitionsCount: freshBaseData.statDefinitions.length,
+        externalIdentTypesCount: freshBaseData.externalIdentTypes.length,
+        statbusUsersCount: freshBaseData.statbusUsers.length,
+        timeContextsCount: freshBaseData.timeContexts.length,
+        hasDefaultTimeContext: !!freshBaseData.defaultTimeContext,
+        hasStatisticalUnits: freshBaseData.hasStatisticalUnits
+      });
+    } catch (error) {
+      console.error("Error refreshing base data:", error);
+    }
+  }, [client]);
+  
+  const getDebugInfo = useCallback(() => {
+    // Import the baseDataStore
+    try {
+      // We need to use a dynamic import here since we're in a callback
+      // This is a bit of a hack, but it works for debugging purposes
+      const baseDataStore = require('@/context/BaseDataStore').baseDataStore;
+      return baseDataStore.getDebugInfo();
+    } catch (error) {
+      console.error("Error getting base data debug info:", error);
+      return {
+        error: 'Failed to get debug info',
+        message: error instanceof Error ? error.message : String(error)
+      };
+    }
+  }, []);
 
-return (
-    <BaseDataClientContext.Provider value={{ ...baseData, refreshHasStatisticalUnits }}>
+  return (
+    <BaseDataClientContext.Provider value={{ 
+      ...baseData, 
+      refreshHasStatisticalUnits,
+      refreshAllBaseData,
+      getDebugInfo
+    }}>
       {children}
     </BaseDataClientContext.Provider>
   );

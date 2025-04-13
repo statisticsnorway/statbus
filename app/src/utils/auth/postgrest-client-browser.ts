@@ -4,35 +4,11 @@ import { SupabaseClient, createClient } from '@supabase/supabase-js';
 import { Database } from '@/lib/database.types';
 import { isAuthenticated } from '@/utils/auth/auth-utils';
 
-// Global singleton instance of the client
-// This prevents the "Multiple GoTrueClient instances detected" warning
-let globalClient: SupabaseClient<Database> | null = null;
-let clientInitPromise: Promise<SupabaseClient<Database>> | null = null;
+// Export the getBrowserClient function from ClientStore
+export { getBrowserClient } from '@/context/ClientStore';
 
-// Export the singleton for direct access when needed
-export const getBrowserClient = async (): Promise<SupabaseClient<Database>> => {
-  // If client already exists, return it immediately
-  if (globalClient) {
-    return globalClient;
-  }
-  
-  // If initialization is in progress, return the existing promise
-  if (clientInitPromise) {
-    return clientInitPromise;
-  }
-  
-  // Start initialization and store the promise
-  clientInitPromise = createPostgRESTBrowserClient();
-  
-  try {
-    // Wait for initialization to complete
-    globalClient = await clientInitPromise;
-    return globalClient;
-  } finally {
-    // Clear the promise once done (success or failure)
-    clientInitPromise = null;
-  }
-};
+// The createPostgRESTBrowserClient function is now primarily used by ClientStore
+// Other code should use getBrowserClient() from ClientStore instead
 
 /**
  * Creates a PostgREST client for browser contexts

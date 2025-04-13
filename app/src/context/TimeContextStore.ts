@@ -46,11 +46,20 @@ class TimeContextStore {
   public async getTimeContextData(client: any): Promise<TimeContextData> {
     const now = Date.now();
     
-    // Check authentication first
+    // Check authentication directly from cookies if on server
     let authenticated = false;
     try {
-      const { isAuthenticated } = await import('@/utils/auth/auth-utils');
-      authenticated = await isAuthenticated();
+      if (typeof window === 'undefined') {
+        // Server-side - check cookies directly
+        const { cookies } = await import('next/headers');
+        const cookieStore = await cookies();
+        const token = cookieStore.get('statbus');
+        authenticated = !!token;
+      } else {
+        // Client-side - use auth-utils
+        const { isAuthenticated } = await import('@/utils/auth/auth-utils');
+        authenticated = await isAuthenticated();
+      }
       
       if (!authenticated) {
         console.log('Not authenticated, returning empty time context data');

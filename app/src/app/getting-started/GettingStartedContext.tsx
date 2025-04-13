@@ -1,9 +1,8 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
+import { getBrowserClient } from "@/context/ClientStore";
 import { SupabaseClient } from '@supabase/supabase-js';
 import { isAuthenticated } from '@/utils/auth/auth-utils';
-import { timeContextStore } from '@/context/TimeContextStore';
 
 interface GettingStartedState {
   activity_category_standard: { id: number, name: string } | null;
@@ -110,9 +109,13 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
   useEffect(() => {
     let isMounted = true;
     const initializeClient = async () => {
-      const supabaseClient = await createPostgRESTBrowserClient();
-      if (isMounted) {
-        setClient(supabaseClient);
+      try {
+        const supabaseClient = await getBrowserClient();
+        if (isMounted) {
+          setClient(supabaseClient);
+        }
+      } catch (error) {
+        console.error("Error initializing browser client in GettingStartedContext:", error);
       }
     };
     initializeClient();
@@ -137,12 +140,13 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
             return;
           }
           
-          // Pre-fetch time contexts to ensure they're cached
+          // Pre-fetch base data to ensure it's cached (includes time contexts)
           try {
-            await timeContextStore.getTimeContextData(client);
-            console.log('Time contexts pre-fetched successfully');
+            const { baseDataStore } = await import('@/context/BaseDataStore');
+            await baseDataStore.getBaseData(client);
+            console.log('Base data pre-fetched successfully');
           } catch (error) {
-            console.warn('Failed to pre-fetch time contexts:', error);
+            console.warn('Failed to pre-fetch base data:', error);
             // Continue anyway, as this is just optimization
           }
           

@@ -11,7 +11,7 @@ import { TableColumnsProvider } from "./table-columns";
 import { SearchResult, SearchOrder, SearchPagination, SearchState, SearchAction } from "./search.d";
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
-import { createPostgRESTBrowserClient } from "@/utils/auth/postgrest-client-browser";
+import { getBrowserClient } from "@/context/ClientStore";
 import { getStatisticalUnits } from "./search-requests";
 import {
   activityCategoryDeriveStateUpdateFromSearchParams,
@@ -29,10 +29,9 @@ import {
 } from "./filters/url-search-params";
 
 const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
-  // Notice that the createPostgRESTBrowserClient must be inside the fetcher
-  // if placed outside we get a strange rendering error.
-  // Error: Element type is invalid. Received a promise that resolves to: undefined. Lazy element type must resolve to a class or function.
-  const client = await createPostgRESTBrowserClient();
+  // Use getBrowserClient instead of createPostgRESTBrowserClient
+  // This ensures we're using the singleton pattern correctly
+  const client = await getBrowserClient();
   try {
     const response = await getStatisticalUnits(client, derivedApiSearchParams);
     return response
