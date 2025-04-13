@@ -18,6 +18,8 @@ Deployed on custom servers behind Caddy with HTTPS.
  • Group components by feature in components/.
  • Use TypeScript; define types in .d.ts or locally.
  • Use functional components with hooks.
+ • Use a Fail Fast Approach for functionality that is supposed to work.
+ • Try to have a single source of truth in the codebase.
 ## Routing System
 This project uses **App Routing** with the `app/` directory structure. Do not use the Pages Router.
 
