@@ -46,6 +46,24 @@ class TimeContextStore {
   public async getTimeContextData(client: any): Promise<TimeContextData> {
     const now = Date.now();
     
+    // Check authentication first
+    let authenticated = false;
+    try {
+      const { isAuthenticated } = await import('@/utils/auth/auth-utils');
+      authenticated = await isAuthenticated();
+      
+      if (!authenticated) {
+        console.log('Not authenticated, returning empty time context data');
+        return {
+          timeContexts: [],
+          defaultTimeContext: null,
+        };
+      }
+    } catch (error) {
+      console.error('Authentication check failed in TimeContextStore:', error);
+      // Continue with the request, but log the error
+    }
+    
     // If data is already loaded and cache is still valid, return it immediately
     if (this.status === 'success' && now - this.lastFetchTime < this.CACHE_TTL) {
       console.log('Using cached time context data', {
@@ -173,7 +191,10 @@ class TimeContextStore {
       hasAuth: !!(client as any).auth,
       environment: typeof window !== 'undefined' ? 'browser' : 'server'
     };
-    console.log('TimeContextStore client debug info:', clientDebugInfo);
+    
+    if (process.env.NODE_ENV === 'development') {
+      console.log('TimeContextStore client debug info:', clientDebugInfo);
+    }
     
     try {
       // Always use the client directly for consistency
@@ -184,15 +205,17 @@ class TimeContextStore {
       const result = await client.from("time_context").select("*");
       const { data: timeContexts, error, status, statusText } = result;
       
-      // Log the complete response for debugging
-      console.log('Time context query response:', {
-        status,
-        statusText,
-        hasError: !!error,
-        errorMessage: error?.message,
-        errorCode: error?.code,
-        dataCount: timeContexts?.length || 0
-      });
+      // Log the complete response for debugging only in development
+      if (process.env.NODE_ENV === 'development') {
+        console.log('Time context query response:', {
+          status,
+          statusText,
+          hasError: !!error,
+          errorMessage: error?.message,
+          errorCode: error?.code,
+          dataCount: timeContexts?.length || 0
+        });
+      }
       
       if (error) {
         console.error('Error fetching time contexts with client:', error);

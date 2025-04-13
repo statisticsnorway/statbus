@@ -28,6 +28,7 @@ export async function isAuthenticated(): Promise<boolean> {
   // For server-side, check cookies directly
   if (typeof window === 'undefined') {
     try {
+      // Use dynamic import to avoid issues with next/headers
       const { cookies } = await import('next/headers');
       const cookieStore = await cookies();
       const token = cookieStore.get('statbus');
@@ -49,6 +50,16 @@ export async function isAuthenticated(): Promise<boolean> {
         tokenExpiring: false,
         timestamp: now
       };
+      
+      // If authenticated, ensure we have a valid client ready
+      if (isAuthenticated) {
+        try {
+          const { getServerClient } = await import('./postgrest-client-server');
+          await getServerClient();
+        } catch (error) {
+          console.error('Failed to initialize server client during auth check:', error);
+        }
+      }
       
       return isAuthenticated;
     } catch (error) {

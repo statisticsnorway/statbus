@@ -8,6 +8,14 @@ import { isAuthenticated } from '@/utils/auth/auth-utils';
 // This prevents the "Multiple GoTrueClient instances detected" warning
 let globalClient: SupabaseClient<Database> | null = null;
 
+// Export the singleton for direct access when needed
+export const getBrowserClient = async (): Promise<SupabaseClient<Database>> => {
+  if (!globalClient) {
+    return createPostgRESTBrowserClient();
+  }
+  return globalClient;
+};
+
 /**
  * Creates a PostgREST client for browser contexts
  * 

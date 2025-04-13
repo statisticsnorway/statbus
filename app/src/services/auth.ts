@@ -12,12 +12,13 @@ import { clearAuthStatusCache } from '@/utils/auth/auth-utils';
 // We'll use the cache from auth-utils.ts instead of maintaining our own
 
 export async function getAuthStatus() {
-  // Check if we're in a server component
+  console.log('Explicit auth_status check called');
   
   try {
     // For server-side requests, check if we can access the token directly
     if (typeof window === 'undefined') {
       try {
+        // Use dynamic import to avoid issues with next/headers
         const { cookies } = await import('next/headers');
         const cookieStore = await cookies();
         const token = cookieStore.get('statbus');
@@ -29,6 +30,16 @@ export async function getAuthStatus() {
         };
         
         console.log(`Server-side auth check: ${result.isAuthenticated ? 'Token found' : 'No token'}`);
+        
+        // If authenticated, ensure we have a valid client ready
+        if (result.isAuthenticated) {
+          try {
+            const { getServerClient } = await import('@/utils/auth/postgrest-client-server');
+            await getServerClient();
+          } catch (error) {
+            console.error('Failed to initialize server client during auth check:', error);
+          }
+        }
         
         return result;
       } catch (error) {

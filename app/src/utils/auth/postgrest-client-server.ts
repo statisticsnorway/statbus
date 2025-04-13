@@ -1,11 +1,9 @@
 import { SupabaseClient, createClient } from '@supabase/supabase-js';
 import { Database } from '@/lib/database.types';
-import { cookies } from 'next/headers';
 import { getDeploymentSlotCode } from './jwt';
 
 import { getAuthStatus } from '@/services/auth';
 import { isAuthenticated } from '@/utils/auth/auth-utils';
-// Remove direct import of serverFetch
 
 /**
  * Creates a PostgREST client for server-side rendering (SSR) contexts
@@ -26,10 +24,19 @@ import { isAuthenticated } from '@/utils/auth/auth-utils';
  * - The authentication to use our JWT tokens
  * - The fetch behavior to include our auth headers
  */
-// Cache the client to avoid creating multiple instances
+// Global singleton for the server-side client
+// This ensures we have a single source of truth
 let cachedClient: SupabaseClient<Database> | null = null;
 let clientTimestamp: number = 0;
 const CLIENT_TTL = 5 * 60 * 1000; // 5 minutes
+
+// Export the singleton for direct access when needed
+export const getServerClient = async (): Promise<SupabaseClient<Database>> => {
+  if (!cachedClient || (Date.now() - clientTimestamp > CLIENT_TTL)) {
+    return createPostgRESTSSRClient();
+  }
+  return cachedClient;
+};
 
 // Use the isAuthenticated function directly from auth-utils
 // No need for a separate checkAuthStatus function
@@ -44,16 +51,23 @@ export async function createPostgRESTSSRClient(): Promise<SupabaseClient<Databas
 
   console.log('Creating new PostgREST SSR client');
   
-  // Get cookies first
-  const cookieStore = await cookies();
-  const token = cookieStore.get('statbus');
-  
-  // Log the available cookies for debugging
-  console.log('Available cookies:', {
-    hasStatbusToken: !!token,
-    tokenValue: token ? token.value.substring(0, 10) + '...' : 'none',
-    cookieCount: [...cookieStore.getAll()].length
-  });
+  // Get cookies first - using dynamic import to avoid issues with next/headers
+  let token = null;
+  try {
+    const { cookies } = await import('next/headers');
+    const cookieStore = await cookies();
+    token = cookieStore.get('statbus');
+    
+    // Log the available cookies for debugging
+    console.log('Available cookies:', {
+      hasStatbusToken: !!token,
+      tokenValue: token ? token.value.substring(0, 10) + '...' : 'none',
+      cookieCount: [...cookieStore.getAll()].length
+    });
+  } catch (error) {
+    console.error('Error accessing cookies:', error);
+    // Continue without token
+  }
   
   let authenticated = false;
   try {

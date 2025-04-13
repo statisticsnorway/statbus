@@ -4,7 +4,6 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { Tables } from "@/lib/database.types";
 import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
 import { ClientBaseDataProvider } from "./BaseDataClient";
-// Remove direct import of serverFetch
 
 export interface BaseData {
   statDefinitions: Tables<"stat_definition_active">[];
@@ -20,7 +19,7 @@ import { isAuthenticated } from '@/utils/auth/auth-utils';
 export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
   console.log('Starting getBaseData with client:', !!client);
 
-  // We'll check authentication once at the beginning
+  // Check authentication status once using isAuthenticated
   let authenticated = false;
   try {
     authenticated = await isAuthenticated();
