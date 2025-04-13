@@ -7,13 +7,31 @@ import { isAuthenticated } from '@/utils/auth/auth-utils';
 // Global singleton instance of the client
 // This prevents the "Multiple GoTrueClient instances detected" warning
 let globalClient: SupabaseClient<Database> | null = null;
+let clientInitPromise: Promise<SupabaseClient<Database>> | null = null;
 
 // Export the singleton for direct access when needed
 export const getBrowserClient = async (): Promise<SupabaseClient<Database>> => {
-  if (!globalClient) {
-    return createPostgRESTBrowserClient();
+  // If client already exists, return it immediately
+  if (globalClient) {
+    return globalClient;
   }
-  return globalClient;
+  
+  // If initialization is in progress, return the existing promise
+  if (clientInitPromise) {
+    return clientInitPromise;
+  }
+  
+  // Start initialization and store the promise
+  clientInitPromise = createPostgRESTBrowserClient();
+  
+  try {
+    // Wait for initialization to complete
+    globalClient = await clientInitPromise;
+    return globalClient;
+  } finally {
+    // Clear the promise once done (success or failure)
+    clientInitPromise = null;
+  }
 };
 
 /**
@@ -33,18 +51,16 @@ export const getBrowserClient = async (): Promise<SupabaseClient<Database>> => {
  * of GoTrueClient being created in the same browser context.
  */
 export async function createPostgRESTBrowserClient(): Promise<SupabaseClient<Database>> {
-  // Return the global instance if it exists
-  if (globalClient) {
-    console.log('Using global PostgREST browser client');
-    return globalClient;
-  }
+  console.log('Creating new PostgREST browser client');
   
   // Check authentication status
   const authenticated = await isAuthenticated();
-  console.log('Authentication status in browser client:', authenticated);
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Authentication status in browser client:', authenticated);
+  }
 
   // Create a new Supabase client configured to use our PostgREST endpoint
-  globalClient = createClient<Database>(
+  const client = createClient<Database>(
     process.env.NEXT_PUBLIC_BROWSER_API_URL!,
     // We need to provide an anon key, but it's not used with our auth system
     // PostgREST will use the JWT token from cookies instead
@@ -71,6 +87,6 @@ export async function createPostgRESTBrowserClient(): Promise<SupabaseClient<Dat
     }
   );
 
-  // The client is already stored in the global variable
-  return globalClient;
+  console.log('PostgREST browser client created successfully');
+  return client;
 }
