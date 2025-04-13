@@ -1,26 +1,27 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import { PostgrestClient } from '@supabase/postgrest-js';
+import { Database } from '@/lib/database.types';
 import { SearchResult } from './search';
-import { Fetch } from '@supabase/auth-js/src/lib/fetch';
+import { getServerClient } from '@/context/ClientStore';
 
-export async function getStatisticalUnits(client: SupabaseClient, searchParams: URLSearchParams): Promise<SearchResult> {
-  // Extract the API URL and fetcher from the client
-  // We use the Supabase client for type safety, but extract these properties
-  // to make direct API calls to PostgREST with our custom authentication.
-  // We're NOT using Supabase as a service, only their client libraries.
-  // This approach gives us more control over the request while still
-  // benefiting from the type safety and consistent API of the Supabase client
-  const apiFetcher = (client as any).rest.fetch as Fetch;
-  const api_url = (client as any).rest.url as String
-  var response = await apiFetcher(
-    `${api_url}/statistical_unit?${searchParams}`,
-    {
-      method: "GET",
-      headers: {
-        Prefer: "count=exact",
-        "Range-Unit": "items",
-      },
-    }
-  ) as Response;
+export async function getStatisticalUnits(client: PostgrestClient<Database> | null = null, searchParams: URLSearchParams): Promise<SearchResult> {
+  // If no client is provided, get one from ClientStore
+  if (!client) {
+    client = await getServerClient();
+  }
+  // Use the PostgrestClient directly
+  const url = new URL(`statistical_unit?${searchParams}`, client.url);
+  
+  // Use the fetch method with proper headers
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Prefer: "count=exact",
+      "Range-Unit": "items",
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    credentials: 'include', // Include cookies for auth
+  });
 
   if (!response.ok) {
     throw new Error(`Error: ${response.statusText} (Status: ${response.status})`);

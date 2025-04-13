@@ -4,7 +4,7 @@ import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { useTimeContext } from "@/app/time-context";
 import { useEffect, useState } from "react";
-import { PostgrestError } from "@supabase/supabase-js";
+import { PostgrestError } from "@supabase/postgrest-js";
 
 export const StatisticalUnitCountCard = ({
   unitType,

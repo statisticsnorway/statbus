@@ -2,7 +2,6 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { login as apiLogin, logout as apiLogout, refreshToken, getAuthStatus } from '@/services/auth';
-import { fetchWithAuth } from '@/utils/auth/fetch-with-auth';
 import { useRouter } from 'next/navigation';
 
 interface User {
@@ -19,7 +18,6 @@ interface AuthContextType {
   refreshAuth: () => Promise<void>;
   logout: () => Promise<void>;
   login: (email: string, password: string) => Promise<any>;
-  fetch: typeof fetchWithAuth;
 }
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -144,8 +142,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         refreshAuth,
         logout: handleLogout,
-        login: handleLogin,
-        fetch: fetchWithAuth
+        login: handleLogin
       }}
     >
       {children}

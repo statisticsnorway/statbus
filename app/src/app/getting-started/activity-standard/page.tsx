@@ -6,10 +6,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 
 export default async function ActivityStandardPage() {
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
 
   const { data: standards } = await client
     .from("activity_category_standard")

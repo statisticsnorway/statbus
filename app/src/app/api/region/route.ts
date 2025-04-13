@@ -1,9 +1,9 @@
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
 
   let query = client.from('region')
     .select(

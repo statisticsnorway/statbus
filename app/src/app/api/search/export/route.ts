@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStatisticalUnits } from "@/app/search/search-requests";
 import { toCSV } from "@/lib/csv-utils";
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import { getBaseData } from "@/app/BaseDataServer";
 
 export async function GET(request: NextRequest) {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   const hasSingleUnitType = unitType && !unitType.includes(",");
   const isEstablishment = unitType === "establishment";
 
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
   const { externalIdentTypes, statDefinitions } = await getBaseData(client);
 
   const externalIdentColumns = externalIdentTypes.map(({ code }) => `${code}:external_idents->>${code}`);

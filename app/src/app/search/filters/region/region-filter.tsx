@@ -1,9 +1,9 @@
 "use server";
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import RegionOptions from "@/app/search/filters/region/region-options";
 
 export default async function RegionFilter() {
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
   const regions = await client.from("region_used").select();
 
   return (

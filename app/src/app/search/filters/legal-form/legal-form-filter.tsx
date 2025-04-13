@@ -1,8 +1,8 @@
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import LegalFormOptions from "@/app/search/filters/legal-form/legal-form-options";
 
 export default async function LegalFormFilter() {
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
   const legalForms = await client
     .from("legal_form_used")
     .select()

@@ -7,7 +7,11 @@ import React, {
   useCallback,
 } from "react";
 import { getBrowserClient } from "@/context/ClientStore";
-import { SupabaseClient } from "@supabase/supabase-js";
+import { PostgrestClient } from '@supabase/postgrest-js';
+import { Database } from '@/lib/database.types';
+
+// Define StatbusClient type locally
+type StatbusClient = PostgrestClient<Database>;
 
 interface ImportUnitsState {
   numberOfLegalUnits: number | null;
@@ -35,7 +39,7 @@ export const ImportUnitsProvider: React.FC<{ children: React.ReactNode }> = ({
     numberOfEstablishmentsWithoutLegalUnit: null,
   });
 
-  const [client, setClient] = useState<SupabaseClient | null>(null);
+  const [client, setClient] = useState<StatbusClient | null>(null);
 
   const refreshNumberOfLegalUnits = useCallback(async () => {
     if (!client) return;
@@ -94,8 +98,8 @@ export const ImportUnitsProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     const initializeClient = async () => {
       try {
-        const supabaseClient = await getBrowserClient();
-        setClient(supabaseClient);
+        const postgrestClient = await getBrowserClient();
+        setClient(postgrestClient);
       } catch (error) {
         console.error("Error initializing browser client in ImportUnitsProvider:", error);
       }

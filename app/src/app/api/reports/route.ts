@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     requestParams[key] = value;
   });
 
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
   const { data, error } = await client.rpc('statistical_unit_facet_drilldown', requestParams);
 
   if (error) {

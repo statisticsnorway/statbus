@@ -2,8 +2,12 @@
 
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import { getBrowserClient } from "@/context/ClientStore";
-import { SupabaseClient } from '@supabase/supabase-js';
+import { PostgrestClient } from '@supabase/postgrest-js';
+import { Database } from '@/lib/database.types';
 import { BaseData } from '@/context/BaseDataStore';
+
+// Define StatbusClient type locally
+type StatbusClient = PostgrestClient<Database>;
 
 // Create a context for the base data
 const BaseDataClientContext = createContext<BaseData & { 
@@ -29,15 +33,15 @@ export const useBaseData = () => {
 // Client component to provide base data context
 export const ClientBaseDataProvider = ({ children, initalBaseData }: { children: ReactNode, initalBaseData: BaseData }) => {
   const [baseData, setBaseData] = useState(initalBaseData);
-  const [client, setClient] = useState<SupabaseClient | null>(null);
+  const [client, setClient] = useState<StatbusClient | null>(null);
 
   useEffect(() => {
     const initializeClient = async () => {
       try {
-        // Use getBrowserClient instead of createPostgRESTBrowserClient
+        // Use getBrowserClient from ClientStore
         // This ensures we're using the singleton pattern correctly
-        const supabaseClient = await getBrowserClient();
-        setClient(supabaseClient);
+        const postgrestClient = await getBrowserClient();
+        setClient(postgrestClient);
       } catch (error) {
         console.error("Error initializing browser client:", error);
       }

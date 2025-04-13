@@ -1,8 +1,12 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { getBrowserClient } from "@/context/ClientStore";
-import { SupabaseClient } from '@supabase/supabase-js';
+import { PostgrestClient } from '@supabase/postgrest-js';
+import { Database } from '@/lib/database.types';
 import { isAuthenticated } from '@/utils/auth/auth-utils';
+
+// Define StatbusClient type locally
+type StatbusClient = PostgrestClient<Database>;
 
 interface GettingStartedState {
   activity_category_standard: { id: number, name: string } | null;
@@ -31,7 +35,7 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
     numberOfCustomLegalForms: null,
   });
 
-  const [client, setClient] = useState<SupabaseClient | null>(null);
+  const [client, setClient] = useState<StatbusClient | null>(null);
 
   const refreshActivityCategoryStandard = useCallback(async () => {
     if (!client) return;
@@ -110,9 +114,9 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
     let isMounted = true;
     const initializeClient = async () => {
       try {
-        const supabaseClient = await getBrowserClient();
+        const postgrestClient = await getBrowserClient();
         if (isMounted) {
-          setClient(supabaseClient);
+          setClient(postgrestClient);
         }
       } catch (error) {
         console.error("Error initializing browser client in GettingStartedContext:", error);

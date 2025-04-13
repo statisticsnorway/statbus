@@ -1,9 +1,8 @@
 "use server";
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
-import { Fetch } from "@supabase/auth-js/src/lib/fetch";
 
 interface State {
   readonly error: string | null;
@@ -30,12 +29,11 @@ export async function uploadFile(
   try {
     const logger = await createServerLogger();
     const file = formData.get(filename) as File;
-    const client = await createPostgRESTSSRClient();
+    const client = await getServerClient();
 
-    const authFetch = (client as any).rest.fetch as Fetch;
-    const supabaseUrl = (client as any).rest.url as String;
-    const response = await authFetch(
-      `${supabaseUrl}/${uploadView}`,
+    const postgrestUrl = client.url;
+    const response = await fetch(
+      `${postgrestUrl}/${uploadView}`,
       {
         method: "POST",
         headers: {
@@ -61,7 +59,7 @@ export async function uploadFile(
 
 export async function setCategoryStandard(formData: FormData) {
   "use server";
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
   const logger = await createServerLogger();
 
   const activityCategoryStandardIdFormEntry = formData.get(

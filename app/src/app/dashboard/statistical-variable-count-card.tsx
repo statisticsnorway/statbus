@@ -1,9 +1,9 @@
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { BarChart3 } from "lucide-react";
 
 export const StatisticalVariableCountCard = async () => {
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
 
   const { count, error } = await client
     .from("stat_definition_active")

@@ -1,5 +1,5 @@
 "use server";
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import pino from "pino";
 import { createStream } from "pino-seq";
 import { headers } from "next/headers";
@@ -9,11 +9,10 @@ const seqApiKey = process.env.SEQ_API_KEY;
 
 /**
  * Create a pino logger for the server that includes the user's email and the app version
+ * @param user Optional user object with email property
  */
-export async function createServerLogger() {
-  const client = await createPostgRESTSSRClient();
-
-  const user = (await client?.auth.getUser())?.data?.user;
+export async function createServerLogger(user?: { email: string } | null) {
+  const client = await getServerClient();
 
   return pino(
     {

@@ -1,8 +1,8 @@
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import ActivityCategoryOptions from "@/app/search/filters/activity-category/activity-category-options";
 
 export default async function ActivityCategoryFilter() {
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
   const activityCategories = await client
     .from("activity_category_used")
     .select();

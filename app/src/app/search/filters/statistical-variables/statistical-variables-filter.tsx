@@ -1,9 +1,9 @@
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import StatisticalVariablesOptions from "@/app/search/filters/statistical-variables/statistical-variables-options";
 import { FilterWrapper } from "../../components/filter-wrapper";
 
 export default async function StatisticalVariablesFilter() {
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
   const statDefinitions = await client.from("stat_definition_active").select();
 
   return (

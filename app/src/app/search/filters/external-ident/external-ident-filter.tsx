@@ -5,12 +5,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import { ExternalIdentInputs } from "./external-ident-inputs";
 import { ActiveExternalIdentBadges } from "./active-external-ident-badges";
 
 export default async function ExternalIdentFilter() {
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
   const externalIdentTypes = await client
     .from("external_ident_type_active")
     .select();

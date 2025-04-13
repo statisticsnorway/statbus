@@ -1,11 +1,15 @@
 "use server";
 
-import { SupabaseClient } from '@supabase/supabase-js';
+import { PostgrestClient } from '@supabase/postgrest-js';
+import { Database } from '@/lib/database.types';
 import { getServerClient } from "@/context/ClientStore";
 import { ClientBaseDataProvider } from "./BaseDataClient";
 import { BaseData } from '@/context/BaseDataStore';
 
-export async function getBaseData(client: SupabaseClient): Promise<BaseData> {
+// Define StatbusClient type locally
+type StatbusClient = PostgrestClient<Database>;
+
+export async function getBaseData(client: StatbusClient): Promise<BaseData> {
   console.log('Starting getBaseData with client:', !!client);
 
   // Import the baseDataStore

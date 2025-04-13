@@ -1,9 +1,9 @@
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { BookText } from "lucide-react";
 
 export const TotalActivityCategoryCard = async () => {
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
 
   const { count, error } = await client
     .from("activity_category_available")

@@ -8,17 +8,17 @@
  * 4. Requests for clients are deduplicated
  */
 
-import { SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '@/lib/database.types';
-
+import { Database } from "@/lib/database.types";
+import { PostgrestClient } from "@supabase/postgrest-js";
+ 
 type ClientType = 'server' | 'browser';
 type ClientStatus = 'idle' | 'initializing' | 'ready' | 'error';
 
 interface ClientInfo {
-  client: SupabaseClient<Database> | null;
+  client: PostgrestClient<Database> | null;
   status: ClientStatus;
   error: Error | null;
-  initPromise: Promise<SupabaseClient<Database>> | null;
+  initPromise: Promise<PostgrestClient<Database>> | null;
   lastInitTime: number;
 }
 
@@ -57,7 +57,7 @@ class ClientStore {
    * Get a PostgREST client for the specified context
    * This method deduplicates requests - multiple calls will share the same Promise
    */
-  public async getClient(type: ClientType): Promise<SupabaseClient<Database>> {
+  public async getClient(type: ClientType): Promise<PostgrestClient<Database>> {
     const now = Date.now();
     const clientInfo = this.clients[type];
     
@@ -115,7 +115,7 @@ class ClientStore {
   /**
    * Force refresh the client
    */
-  public async refreshClient(type: ClientType): Promise<SupabaseClient<Database>> {
+  public async refreshClient(type: ClientType): Promise<PostgrestClient<Database>> {
     this.clients[type].status = 'initializing';
     this.clients[type].initPromise = this.initializeClient(type);
     
@@ -204,34 +204,90 @@ class ClientStore {
   /**
    * Internal method to initialize a client
    */
-  private async initializeClient(type: ClientType): Promise<SupabaseClient<Database>> {
+  private async initializeClient(type: ClientType): Promise<PostgrestClient<Database>> {
     try {
       if (type === 'server') {
-        // Import the server client creator
-        const { createPostgRESTSSRClient } = await import('@/utils/auth/postgrest-client-server');
+        // Create server client
+        const apiBaseUrl = process.env.SERVER_API_URL;        
+        if (!apiBaseUrl) {
+          throw new Error('SERVER_API_URL environment variable is not defined');
+        }
+        const apiUrl = apiBaseUrl + '/postgrest';
         
         // Add a timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('Client initialization timed out')), 10000);
         });
         
+        // Create a new PostgrestClient
+        const createClient = async () => {
+          console.log('Server API URL:', apiUrl);
+          
+          return new PostgrestClient<Database>(apiUrl, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          });
+        };
+        
         // Race the client creation against the timeout
         return await Promise.race([
-          createPostgRESTSSRClient(),
+          createClient(),
           timeoutPromise
         ]);
       } else {
-        // Import the browser client creator
-        const { createPostgRESTBrowserClient } = await import('@/utils/auth/postgrest-client-browser');
+        // Create browser client
+        const apiBaseUrl = process.env.NEXT_PUBLIC_BROWSER_API_URL;
+        
+        if (!apiBaseUrl) {
+          throw new Error('NEXT_PUBLIC_BROWSER_API_URL environment variable is not defined');
+        }
+        
+        const apiUrl = apiBaseUrl + '/postgrest';
+        
+        console.log('Browser client initialization with URL:', apiUrl);
         
         // Add a timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('Client initialization timed out')), 10000);
         });
         
+        // Create a new PostgrestClient with fetch wrapper for auth
+        const createClient = async () => {
+          // Ensure apiUrl is valid
+          if (!apiUrl) {
+            throw new Error('API URL is undefined or empty');
+          }
+          
+          // For browser clients, we're using a fixed relative URL '/postgrest'
+          console.log('Using browser API URL:', apiUrl);
+          
+          console.log('Creating PostgrestClient with URL:', apiUrl);
+          
+          // For browser clients, we need to ensure the URL is properly set
+          // The PostgrestClient constructor doesn't handle relative URLs correctly
+          const client = new PostgrestClient<Database>(apiUrl, {
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            fetch: this.fetchWithAuthRefresh.bind(this) as typeof fetch,
+          });
+          
+          // Force the URL to be the relative path for browser clients
+          if (type === 'browser') {
+            // @ts-ignore - We need to modify the private url property
+            client.url = apiUrl;
+          }
+          
+          // Verify the client URL is set correctly
+          console.log('Created client with URL:', client.url);
+          
+          return client;
+        };
+        
         // Race the client creation against the timeout
         return await Promise.race([
-          createPostgRESTBrowserClient(),
+          createClient(),
           timeoutPromise
         ]);
       }
@@ -240,16 +296,98 @@ class ClientStore {
       throw error;
     }
   }
+  
+  /**
+   * Custom fetch function that handles token refresh automatically
+   * If a request returns 401 Unauthorized, it will attempt to refresh the token
+   * and retry the original request
+   */
+  private async fetchWithAuthRefresh(
+    url: string, 
+    options: RequestInit = {}
+  ): Promise<Response> {
+    // Log request in development mode
+    if (process.env.NODE_ENV === 'development') {
+      console.debug(`Fetch request to: ${url}`);
+    }
+    
+    // Handle relative URLs for the PostgreSQL client
+    // If the URL doesn't start with http or /, prepend /postgrest/
+    if (!url.startsWith('http') && !url.startsWith('/')) {
+      url = `/postgrest/${url}`;
+      console.debug(`Modified URL to: ${url}`);
+    }
+    
+    // First attempt with current token
+    let response = await fetch(url, {
+      ...options,
+      credentials: 'include', // Always include cookies
+      headers: {
+        ...options.headers,
+        'Content-Type': typeof options.headers === 'object' && options.headers 
+          ? (options.headers as Record<string, string>)['Content-Type'] || 'application/json'
+          : 'application/json',
+        'Accept': typeof options.headers === 'object' && options.headers
+          ? (options.headers as Record<string, string>)['Accept'] || 'application/json'
+          : 'application/json',
+      }
+    });
+    
+    // If we get a 401 Unauthorized, try to refresh the token
+    if (response.status === 401) {
+      try {
+        // Import the refresh token function dynamically to avoid circular dependencies
+        const { refreshToken } = await import('@/services/auth');
+        
+        // Try to refresh the token
+        const refreshResponse = await refreshToken();
+        
+        if (!refreshResponse.error) {
+          // Retry the original request with the new token
+          response = await fetch(url, {
+            ...options,
+            credentials: 'include',
+            headers: {
+              ...options.headers,
+              'Content-Type': typeof options.headers === 'object' && options.headers 
+                ? (options.headers as Record<string, string>)['Content-Type'] || 'application/json'
+                : 'application/json',
+              'Accept': typeof options.headers === 'object' && options.headers
+                ? (options.headers as Record<string, string>)['Accept'] || 'application/json'
+                : 'application/json',
+            }
+          });
+        } else {
+          // If refresh failed, dispatch an event for the auth context to handle
+          if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('auth:logout', { 
+              detail: { reason: 'refresh_failed' } 
+            }));
+          }
+        }
+      } catch (error) {
+        console.error('Error refreshing token:', error);
+        // Dispatch an event for the auth context to handle
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new CustomEvent('auth:logout', { 
+            detail: { reason: 'refresh_error', error } 
+          }));
+        }
+      }
+    }
+    
+    return response;
+  }
 }
 
 // Export a singleton instance
 export const clientStore = ClientStore.getInstance();
 
 // Export convenience methods
-export async function getServerClient(): Promise<SupabaseClient<Database>> {
+export async function getServerClient(): Promise<PostgrestClient<Database>> {
   return clientStore.getClient('server');
 }
 
-export async function getBrowserClient(): Promise<SupabaseClient<Database>> {
+export async function getBrowserClient(): Promise<PostgrestClient<Database>> {
   return clientStore.getClient('browser');
 }

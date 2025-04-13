@@ -9,6 +9,7 @@
  */
 
 import { Tables } from "@/lib/database.types";
+import { PostgrestClient } from "@supabase/postgrest-js";
 
 type TimeContextData = {
   timeContexts: Tables<"time_context">[];
@@ -43,7 +44,7 @@ class TimeContextStore {
    * Get time context data, fetching from API if needed
    * This method deduplicates requests - multiple calls will share the same Promise
    */
-  public async getTimeContextData(client: any): Promise<TimeContextData> {
+  public async getTimeContextData(client: PostgrestClient): Promise<TimeContextData> {
     const now = Date.now();
     
     // Check authentication directly from cookies if on server
@@ -127,7 +128,7 @@ class TimeContextStore {
   /**
    * Force refresh the time context data
    */
-  public async refreshTimeContextData(client: any): Promise<TimeContextData> {
+  public async refreshTimeContextData(client: PostgrestClient): Promise<TimeContextData> {
     this.status = 'loading';
     this.fetchPromise = this.fetchTimeContextData(client);
     
@@ -186,7 +187,7 @@ class TimeContextStore {
   /**
    * Internal method to fetch time context data from API
    */
-  private async fetchTimeContextData(client: any): Promise<TimeContextData> {
+  private async fetchTimeContextData(client: PostgrestClient): Promise<TimeContextData> {
     if (!client || typeof client.from !== 'function') {
       console.error('Invalid client provided to fetchTimeContextData');
       throw new Error('Invalid client provided');

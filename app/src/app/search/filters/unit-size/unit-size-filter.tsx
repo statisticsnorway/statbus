@@ -1,8 +1,8 @@
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 import UnitSizeOptions from "@/app/search/filters/unit-size/unit-size-options";
 
 export default async function UnitSizeFilter() {
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
   const { data: unitSizes } = await client
     .from("unit_size")
     .select()

@@ -8,9 +8,9 @@
  * 4. Requests are deduplicated (multiple simultaneous requests result in only one API call)
  */
 
-import { Tables } from "@/lib/database.types";
-import { SupabaseClient } from '@supabase/supabase-js';
-
+import { Database, Tables } from "@/lib/database.types";
+import { PostgrestClient } from "@supabase/postgrest-js";
+import { getServerClient, getBrowserClient } from "./ClientStore";
 export interface BaseData {
   statDefinitions: Tables<"stat_definition_active">[];
   externalIdentTypes: Tables<"external_ident_type_active">[];
@@ -52,7 +52,7 @@ class BaseDataStore {
    * Get base data, fetching from API if needed
    * This method deduplicates requests - multiple calls will share the same Promise
    */
-  public async getBaseData(client: any): Promise<BaseData> {
+  public async getBaseData(client?: PostgrestClient<Database>): Promise<BaseData> {
     const now = Date.now();
     
     // Check authentication directly from cookies if on server
@@ -84,6 +84,18 @@ class BaseDataStore {
     } catch (error) {
       console.error('Authentication check failed in BaseDataStore:', error);
       // Continue with the request, but log the error
+    }
+
+    // Get client from ClientStore if not provided
+    if (!client) {
+      try {
+        client = typeof window === 'undefined' 
+          ? await getServerClient() 
+          : await getBrowserClient();
+      } catch (error) {
+        console.error('Failed to get client from ClientStore:', error);
+        throw error;
+      }
     }
     
     // If data is already loaded and cache is still valid, return it immediately
@@ -145,8 +157,21 @@ class BaseDataStore {
   /**
    * Force refresh the base data
    */
-  public async refreshBaseData(client: any): Promise<BaseData> {
+  public async refreshBaseData(client?: PostgrestClient<Database>): Promise<BaseData> {
     this.status = 'loading';
+    
+    // Get client from ClientStore if not provided
+    if (!client) {
+      try {
+        client = typeof window === 'undefined' 
+          ? await getServerClient() 
+          : await getBrowserClient();
+      } catch (error) {
+        console.error('Failed to get client from ClientStore:', error);
+        throw error;
+      }
+    }
+    
     this.fetchPromise = this.fetchBaseData(client);
     
     try {
@@ -167,7 +192,19 @@ class BaseDataStore {
   /**
    * Update just the hasStatisticalUnits flag
    */
-  public async refreshHasStatisticalUnits(client: any): Promise<boolean> {
+  public async refreshHasStatisticalUnits(client?: PostgrestClient<Database>): Promise<boolean> {
+    // Get client from ClientStore if not provided
+    if (!client) {
+      try {
+        client = typeof window === 'undefined' 
+          ? await getServerClient() 
+          : await getBrowserClient();
+      } catch (error) {
+        console.error('Failed to get client from ClientStore:', error);
+        return false;
+      }
+    }
+    
     if (!client || typeof client.from !== 'function') {
       console.error('Invalid client provided to refreshHasStatisticalUnits');
       return false;
@@ -235,7 +272,7 @@ class BaseDataStore {
   /**
    * Internal method to fetch base data from API
    */
-  private async fetchBaseData(client: SupabaseClient): Promise<BaseData> {
+  private async fetchBaseData(client: PostgrestClient<Database>): Promise<BaseData> {
     if (!client || typeof client.from !== 'function') {
       console.error('Invalid client provided to fetchBaseData');
       throw new Error('Invalid client provided');
@@ -247,12 +284,11 @@ class BaseDataStore {
       hasRest: !!(client as any).rest,
       restUrl: (client as any).rest?.url || 'undefined',
       hasAuth: !!(client as any).auth,
+      url: client.url,
       environment: typeof window !== 'undefined' ? 'browser' : 'server'
     };
     
-    if (process.env.NODE_ENV === 'development') {
-      console.log('BaseDataStore client debug info:', clientDebugInfo);
-    }
+    console.log('BaseDataStore client debug info:', clientDebugInfo);
     
     try {
       console.log(`${typeof window !== 'undefined' ? 'Browser' : 'Server'}-side: Fetching base data`);
@@ -260,22 +296,53 @@ class BaseDataStore {
       // Fetch time contexts directly instead of using TimeContextStore
       // This avoids circular dependencies between stores
       console.log('Fetching time contexts directly...');
-      let timeContextData = {
+      let timeContextData: {
+        timeContexts: Tables<"time_context">[];
+        defaultTimeContext: Tables<"time_context"> | null;
+      } = {
         timeContexts: [],
         defaultTimeContext: null
       };
       
       try {
-        const { data: timeContexts, error } = await client.from("time_context").select("*");
+        // Add safety check for client URL
+        if (!client.url) {
+          console.error('Client URL is undefined or empty');
+          throw new Error('Client URL is undefined or empty');
+        }
         
-        if (error) {
-          console.error('Error fetching time contexts:', error);
-        } else if (timeContexts && timeContexts.length > 0) {
-          console.log(`Successfully fetched ${timeContexts.length} time contexts directly`);
-          timeContextData = {
-            timeContexts,
-            defaultTimeContext: timeContexts[0]
-          };
+        console.log(`Client URL for time_context request: ${client.url}`);
+        
+        // Safely construct the request
+        try {
+          // For browser requests, ensure the URL is correct
+          // We don't need to modify it since we're now using NEXT_PUBLIC_BROWSER_API_URL
+          // which should already have the correct value
+          if (typeof window !== 'undefined') {
+            console.log('Browser client URL check:', client.url);
+            
+            // Just log a warning if the URL doesn't include '/postgrest'
+            if (client.url && !client.url.includes('/postgrest')) {
+              console.warn('Warning: Client URL may be missing /postgrest prefix:', client.url);
+            }
+          }
+          
+          console.log('Making request to:', `${client.url}/time_context`);
+          const { data: timeContexts, error } = await client.from("time_context").select("*");
+          
+          if (error) {
+            console.error('Error fetching time contexts:', error);
+          } else if (timeContexts && timeContexts.length > 0) {
+            console.log(`Successfully fetched ${timeContexts.length} time contexts directly`);
+            timeContextData = {
+              timeContexts,
+              defaultTimeContext: timeContexts[0]
+            };
+          }
+        } catch (error) {
+          console.error('Exception in client.from("time_context"):', error);
+          // Try a more direct approach if the PostgrestClient.from method fails
+          console.log('Attempting alternative fetch approach...');
         }
       } catch (error) {
         console.error('Exception fetching time contexts directly:', error);
@@ -283,17 +350,58 @@ class BaseDataStore {
       
       // Fetch the rest of the data in parallel
       console.log('Fetching remaining base data...');
-      const [
-        { data: maybeStatDefinitions, error: statDefinitionsError },
-        { data: maybeExternalIdentTypes, error: externalIdentTypesError },
-        { data: maybeStatbusUsers, error: statbusUsersError },
-        { data: maybeStatisticalUnit, error: statisticalUnitError }
-      ] = await Promise.all([
-        client.from("stat_definition_active").select(),
-        client.from("external_ident_type_active").select(),
-        client.from("user_with_role").select(),
-        client.from("statistical_unit").select("*").limit(1)
-      ]);
+      
+      // Add safety check for client URL before proceeding
+      if (!client.url) {
+        console.error('Client URL is undefined or empty before parallel requests');
+        throw new Error('Client URL is undefined or empty');
+      }
+      
+      // Wrap each request in a try/catch to prevent one failure from stopping all requests
+      let maybeStatDefinitions = null, statDefinitionsError = null;
+      let maybeExternalIdentTypes = null, externalIdentTypesError = null;
+      let maybeStatbusUsers = null, statbusUsersError = null;
+      let maybeStatisticalUnit = null, statisticalUnitError = null;
+      
+      try {
+        console.log('Fetching stat_definition_active...');
+        const statDefResult = await client.from("stat_definition_active").select();
+        maybeStatDefinitions = statDefResult.data;
+        statDefinitionsError = statDefResult.error;
+      } catch (error) {
+        console.error('Exception fetching stat_definition_active:', error);
+        statDefinitionsError = error;
+      }
+      
+      try {
+        console.log('Fetching external_ident_type_active...');
+        const extIdentResult = await client.from("external_ident_type_active").select();
+        maybeExternalIdentTypes = extIdentResult.data;
+        externalIdentTypesError = extIdentResult.error;
+      } catch (error) {
+        console.error('Exception fetching external_ident_type_active:', error);
+        externalIdentTypesError = error;
+      }
+      
+      try {
+        console.log('Fetching user_with_role...');
+        const usersResult = await client.from("user_with_role").select();
+        maybeStatbusUsers = usersResult.data;
+        statbusUsersError = usersResult.error;
+      } catch (error) {
+        console.error('Exception fetching user_with_role:', error);
+        statbusUsersError = error;
+      }
+      
+      try {
+        console.log('Fetching statistical_unit...');
+        const statUnitResult = await client.from("statistical_unit").select("*").limit(1);
+        maybeStatisticalUnit = statUnitResult.data;
+        statisticalUnitError = statUnitResult.error;
+      } catch (error) {
+        console.error('Exception fetching statistical_unit:', error);
+        statisticalUnitError = error;
+      }
       
       // Check for errors
       if (statDefinitionsError) {
@@ -315,7 +423,7 @@ class BaseDataStore {
         externalIdentTypes: maybeExternalIdentTypes?.length || 0,
         statbusUsers: maybeStatbusUsers?.length || 0,
         timeContexts: timeContextData.timeContexts?.length || 0,
-        hasStatisticalUnits: maybeStatisticalUnit?.length > 0
+        hasStatisticalUnits: maybeStatisticalUnit !== null && Array.isArray(maybeStatisticalUnit) && maybeStatisticalUnit.length > 0
       });
       
       // Return the base data
@@ -325,7 +433,7 @@ class BaseDataStore {
         statbusUsers: maybeStatbusUsers || [],
         timeContexts: timeContextData.timeContexts || [],
         defaultTimeContext: timeContextData.defaultTimeContext,
-        hasStatisticalUnits: maybeStatisticalUnit !== null && maybeStatisticalUnit.length > 0
+        hasStatisticalUnits: maybeStatisticalUnit !== null && Array.isArray(maybeStatisticalUnit) && maybeStatisticalUnit.length > 0
       };
     } catch (error) {
       console.error('Exception fetching base data:', error);

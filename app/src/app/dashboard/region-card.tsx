@@ -2,10 +2,10 @@
 
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Globe2 } from "lucide-react";
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 
 export const RegionCard = async () => {
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
 
   const { count, error } = await client
     .from("region")

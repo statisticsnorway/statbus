@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { Level, LogEvent, Logger } from "pino";
 
 import { createServerLogger } from "@/lib/server-logger";
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 
 // Interface for log requests
 interface ClientLogRequest {
@@ -53,12 +53,9 @@ export async function POST(request: NextRequest) {
     const logger = await createServerLogger();
     const { level = "info", event }: ClientLogRequest = await request.json();
 
-    const client = await createPostgRESTSSRClient();
-    // Check for authentication
-    const isLoggedIn =
-      client !== undefined ?
-        (await client?.auth.getSession())?.data?.session :
-        null;
+    const client = await getServerClient();
+    // Check for authentication using cookies instead of client.auth
+    const isLoggedIn = request.cookies.has('statbus');
 
 
     // Parse the payload

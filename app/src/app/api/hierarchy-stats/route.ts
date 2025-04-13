@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createPostgRESTSSRClient } from "@/utils/auth/postgrest-client-server";
+import { getServerClient } from "@/context/ClientStore";
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
 
@@ -12,7 +12,7 @@ export async function GET(request: NextRequest) {
       { status: 400 }
     );
   }
-  const client = await createPostgRESTSSRClient();
+  const client = await getServerClient();
   const { data, error } = await client
     .rpc("statistical_unit_stats", {
       unit_id: parseInt(unitId, 10),
