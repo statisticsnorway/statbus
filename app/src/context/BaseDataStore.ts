@@ -79,7 +79,6 @@ class BaseDataStore {
     }
     
     // Start a new fetch
-    console.log('Starting new base data fetch');
     this.status = 'loading';
     this.fetchPromise = this.fetchBaseData(client);
     
@@ -173,7 +172,6 @@ class BaseDataStore {
     }
 
     try {
-      console.log('Checking for statistical units...');
       const { data: maybeStatisticalUnit } = await client.from("statistical_unit").select("*").limit(1);
       const hasStatisticalUnits = maybeStatisticalUnit !== null && maybeStatisticalUnit.length > 0;
       
@@ -243,21 +241,17 @@ class BaseDataStore {
     // Enhanced debugging for client object
     const clientDebugInfo = {
       hasFrom: typeof client.from === 'function',
-      hasRest: !!(client as any).rest,
-      restUrl: (client as any).rest?.url || 'undefined',
       hasAuth: !!(client as any).auth,
       url: client.url,
-      environment: typeof window !== 'undefined' ? 'browser' : 'server'
+      type: typeof window !== 'undefined' ? 'browser' : 'server'
     };
     
     console.log('BaseDataStore client debug info:', clientDebugInfo);
     
     try {
-      console.log(`${typeof window !== 'undefined' ? 'Browser' : 'Server'}-side: Fetching base data`);
-      
+      // AI? Could the TimeContext be part of the BaseDataStore? Analyse the code base and figure that out.
       // Fetch time contexts directly instead of using TimeContextStore
       // This avoids circular dependencies between stores
-      console.log('Fetching time contexts directly...');
       let timeContextData: {
         timeContexts: Tables<"time_context">[];
         defaultTimeContext: Tables<"time_context"> | null;
@@ -266,58 +260,18 @@ class BaseDataStore {
         defaultTimeContext: null
       };
       
-      try {
-        // Add safety check for client URL
-        if (!client.url) {
-          console.error('Client URL is undefined or empty');
-          throw new Error('Client URL is undefined or empty');
-        }
-        
-        console.log(`Client URL for time_context request: ${client.url}`);
-        
-        // Safely construct the request
-        try {
-          // For browser requests, ensure the URL is correct
-          // We don't need to modify it since we're now using NEXT_PUBLIC_BROWSER_API_URL
-          // which should already have the correct value
-          if (typeof window !== 'undefined') {
-            console.log('Browser client URL check:', client.url);
-            
-            // Just log a warning if the URL doesn't include '/postgrest'
-            if (client.url && !client.url.includes('/postgrest')) {
-              console.warn('Warning: Client URL may be missing /postgrest prefix:', client.url);
-            }
-          }
-          
-          console.log('Making request to:', `${client.url}/time_context`);
-          const { data: timeContexts, error } = await client.from("time_context").select("*");
-          
-          if (error) {
-            console.error('Error fetching time contexts:', error);
-          } else if (timeContexts && timeContexts.length > 0) {
-            console.log(`Successfully fetched ${timeContexts.length} time contexts directly`);
-            timeContextData = {
-              timeContexts,
-              defaultTimeContext: timeContexts[0]
-            };
-          }
-        } catch (error) {
-          console.error('Exception in client.from("time_context"):', error);
-          // Try a more direct approach if the PostgrestClient.from method fails
-          console.log('Attempting alternative fetch approach...');
-        }
-      } catch (error) {
-        console.error('Exception fetching time contexts directly:', error);
+      const { data: timeContexts, error } = await client.from("time_context").select("*");      
+      if (error) {
+        console.error('Error fetching time contexts:', error);
+      } else if (timeContexts && timeContexts.length > 0) {
+        timeContextData = {
+          timeContexts,
+          defaultTimeContext: timeContexts[0]
+        };
+        console.log(`Successfully fetched ${timeContexts.length} time contexts directly`, timeContextData);
       }
       
       // Fetch the rest of the data in parallel
-      console.log('Fetching remaining base data...');
-      
-      // Add safety check for client URL before proceeding
-      if (!client.url) {
-        console.error('Client URL is undefined or empty before parallel requests');
-        throw new Error('Client URL is undefined or empty');
-      }
       
       // Wrap each request in a try/catch to prevent one failure from stopping all requests
       let maybeStatDefinitions = null, statDefinitionsError = null;

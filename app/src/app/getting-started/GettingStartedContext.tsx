@@ -136,9 +136,7 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
       const loadData = async () => {
         try {
           // Check authentication status first
-          const authenticated = await authStore.isAuthenticated();
-          console.log('GettingStartedContext: Authentication status:', authenticated);
-          
+          const authenticated = await authStore.isAuthenticated();          
           if (!authenticated || !isMounted) {
             console.warn("Not authenticated or component unmounted, skipping data fetch");
             return;
@@ -148,25 +146,14 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
           try {
             const { baseDataStore } = await import('@/context/BaseDataStore');
             await baseDataStore.getBaseData(client);
-            console.log('Base data pre-fetched successfully');
           } catch (error) {
             console.warn('Failed to pre-fetch base data:', error);
             // Continue anyway, as this is just optimization
           }
-          
-          // Test connection with a simple query first
-          const response = await client.from("settings").select("id").limit(1);
-          console.log('Connection test result:', {
-            success: !response.error,
-            error: response.error,
-            status: response.status
-          });
-          
-          if (!response.error && isMounted) {
+
+          if (isMounted) {
             // Only try to access data if authenticated and test succeeded
             await refreshCounts();
-          } else if (isMounted) {
-            console.error("Connection test failed:", response.error);
           }
         } catch (err) {
           if (isMounted) {
