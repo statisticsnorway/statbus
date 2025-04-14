@@ -287,10 +287,20 @@ BEGIN
 END;
 $clear_auth_cookies$;
 
+-- Create auth response type
+CREATE TYPE auth.auth_response AS (
+  access_jwt text,
+  refresh_jwt text,
+  uid integer,
+  sub uuid,
+  email text,
+  role text,
+  statbus_role public.statbus_role
+);
 
 -- Create login function that returns JWT token
 CREATE OR REPLACE FUNCTION public.login(email text, password text)
-RETURNS "application/json"
+RETURNS auth.auth_response
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $login$
@@ -398,6 +408,7 @@ BEGIN
     access_jwt,
     refresh_jwt,
     _user.id,
+    _user.sub,
     _user.email,
     _user.statbus_role
   );
@@ -410,7 +421,7 @@ GRANT EXECUTE ON FUNCTION public.login TO anon;
 
 -- Create refresh function that returns a new JWT token
 CREATE OR REPLACE FUNCTION public.refresh()
-RETURNS "application/json"
+RETURNS auth.auth_response
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $refresh$
@@ -440,7 +451,7 @@ BEGIN
     IF refresh_token IS NULL THEN
       -- No valid refresh token found in cookies
       PERFORM auth.clear_auth_cookies();
-      RETURN json_build_object('error', 'No valid refresh token found in cookies');
+      RAISE EXCEPTION 'No valid refresh token found in cookies';
     END IF;
     
     -- Decode the JWT to get the claims
@@ -451,7 +462,7 @@ BEGIN
   -- Verify this is actually a refresh token
   IF claims->>'type' != 'refresh' THEN
     PERFORM auth.clear_auth_cookies();
-    RETURN json_build_object('error', 'Invalid token type');
+    RAISE EXCEPTION 'Invalid token type';
   END IF;
   
   -- Extract claims
@@ -470,7 +481,7 @@ BEGIN
     
   IF NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
-    RETURN json_build_object('error', 'User not found');
+    RAISE EXCEPTION 'User not found';
   END IF;
   
   -- Get the session
@@ -482,7 +493,7 @@ BEGIN
 
   IF NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
-    RETURN json_build_object('error', 'Invalid session or token has been superseded');
+    RAISE EXCEPTION 'Invalid session or token has been superseded';
   END IF;
   
   
@@ -541,6 +552,7 @@ BEGIN
     access_jwt,
     refresh_jwt,
     _user.id,
+    _user.sub,
     _user.email,
     _user.statbus_role
   );
@@ -551,9 +563,14 @@ $refresh$;
 GRANT EXECUTE ON FUNCTION public.refresh TO authenticated;
 
 
+-- Create logout response type
+CREATE TYPE auth.logout_response AS (
+  success boolean
+);
+
 -- Create a logout function
 CREATE OR REPLACE FUNCTION public.logout()
-RETURNS "application/json"
+RETURNS auth.logout_response
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $logout$
@@ -562,6 +579,7 @@ DECLARE
   user_sub uuid;
   refresh_session_jti uuid;
   refresh_token text;
+  result auth.logout_response;
 BEGIN
   -- Extract the refresh token from the cookie
   refresh_token := auth.extract_refresh_token_from_cookies();
@@ -599,7 +617,8 @@ BEGIN
   PERFORM auth.clear_auth_cookies();
 
   -- Return success
-  RETURN json_build_object('success', true);
+  result.success := true;
+  RETURN result;
 END;
 $logout$;
 
@@ -684,9 +703,19 @@ BEGIN
 END;
 $revoke_role$;
 
+-- Create session info type
+CREATE TYPE auth.session_info AS (
+  id integer,
+  created_at timestamptz,
+  last_used_at timestamptz,
+  user_agent text,
+  ip_address inet,
+  current_session boolean
+);
+
 -- Function to list a user's active sessions
 CREATE OR REPLACE FUNCTION public.list_active_sessions()
-RETURNS SETOF json
+RETURNS SETOF auth.session_info
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
@@ -697,14 +726,13 @@ BEGIN
   user_sub := (current_setting('request.jwt.claims', true)::json->>'sub')::uuid;
   
   RETURN QUERY
-  SELECT json_build_object(
-    'id', s.id,
-    'created_at', s.created_at,
-    'last_used_at', s.last_used_at,
-    'user_agent', s.user_agent,
-    'ip_address', s.ip_address,
-    'current_session', (current_setting('request.jwt.claims', true)::json->>'jti')::uuid = s.jti
-  )
+  SELECT 
+    s.id,
+    s.created_at,
+    s.last_used_at,
+    s.user_agent,
+    s.ip_address,
+    (current_setting('request.jwt.claims', true)::json->>'jti')::uuid = s.jti AS current_session
   FROM auth.refresh_session s
   WHERE s.user_id = (SELECT id FROM auth.user WHERE sub = user_sub)
   ORDER BY s.last_used_at DESC;
@@ -781,9 +809,22 @@ AS $$
 $$ ;
 
 
+-- Create auth status response type
+CREATE TYPE auth.auth_status_response AS (
+  is_authenticated boolean,
+  token_expiring boolean,
+  uid integer,
+  sub uuid,
+  email text,
+  role text,
+  statbus_role public.statbus_role,
+  last_sign_in_at timestamptz,
+  created_at timestamptz
+);
+
 -- Function to get current authentication status
 CREATE OR REPLACE FUNCTION public.auth_status()
-RETURNS json
+RETURNS auth.auth_status_response
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $auth_status$
@@ -798,6 +839,7 @@ DECLARE
   access_token text;
   refresh_token text;
   jwt_secret text;
+  result auth.auth_status_response;
 BEGIN
   jwt_secret := current_setting('app.settings.jwt_secret', true);
   
@@ -840,11 +882,16 @@ BEGIN
     
   -- Check if we have valid claims
   IF claims IS NULL OR claims->>'sub' IS NULL THEN
-    RETURN json_build_object(
-      'isAuthenticated', false,
-      'user', null,
-      'tokenExpiring', false
-    );
+    result.is_authenticated := false;
+    result.token_expiring := false;
+    result.uid := NULL;
+    result.sub := NULL;
+    result.email := NULL;
+    result.role := NULL;
+    result.statbus_role := NULL;
+    result.last_sign_in_at := NULL;
+    result.created_at := NULL;
+    RETURN result;
   END IF;
   
   -- Get user from claims
@@ -855,11 +902,16 @@ BEGIN
   WHERE sub = user_sub AND deleted_at IS NULL;
   
   IF NOT FOUND THEN
-    RETURN json_build_object(
-      'isAuthenticated', false,
-      'user', null,
-      'tokenExpiring', false
-    );
+    result.is_authenticated := false;
+    result.token_expiring := false;
+    result.uid := NULL;
+    result.sub := NULL;
+    result.email := NULL;
+    result.role := NULL;
+    result.statbus_role := NULL;
+    result.last_sign_in_at := NULL;
+    result.created_at := NULL;
+    RETURN result;
   END IF;
   
   -- User exists and is authenticated
@@ -870,26 +922,48 @@ BEGIN
   expiration_time := (claims->>'exp')::integer;
   token_expiring := expiration_time - current_epoch < 300; -- 5 minutes
   
-  -- Return authentication status
-  RETURN json_build_object(
-    'isAuthenticated', is_authenticated,
-    'tokenExpiring', token_expiring,
-    'user', json_build_object(
-      'id', user_record.sub,
-      'email', user_record.email,
-      'role', user_record.email,
-      'statbus_role', user_record.statbus_role,
-      'last_sign_in_at', user_record.last_sign_in_at,
-      'created_at', user_record.created_at
-    )
-  );
+  -- Build result with flattened user info
+  result.is_authenticated := is_authenticated;
+  result.token_expiring := token_expiring;
+  result.uid := user_record.id;
+  result.sub := user_record.sub;
+  result.email := user_record.email;
+  result.role := user_record.email;
+  result.statbus_role := user_record.statbus_role;
+  result.last_sign_in_at := user_record.last_sign_in_at;
+  result.created_at := user_record.created_at;
+  
+  RETURN result;
 END;
 $auth_status$;
 
 
+-- Create token info type
+CREATE TYPE auth.token_info AS (
+  present boolean,
+  token_length integer,
+  claims json,
+  valid boolean,
+  expired boolean,
+  jti text,
+  version text
+);
+
+-- Create auth test response type
+CREATE TYPE auth.auth_test_response AS (
+  headers json,
+  cookies json,
+  claims json,
+  access_token auth.token_info,
+  refresh_token auth.token_info,
+  timestamp timestamptz,
+  deployment_slot text,
+  is_https boolean
+);
+
 -- Create a function to debug authentication inputs
 CREATE OR REPLACE FUNCTION public.auth_test()
-RETURNS json
+RETURNS auth.auth_test_response
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $auth_test$
@@ -902,6 +976,9 @@ DECLARE
   access_claims json := NULL;
   refresh_claims json := NULL;
   jwt_secret text;
+  result auth.auth_test_response;
+  access_token_info auth.token_info;
+  refresh_token_info auth.token_info;
 BEGIN
   -- Get headers, cookies, and claims from the current request
   headers := nullif(current_setting('request.headers', true), '')::json;
@@ -933,43 +1010,52 @@ BEGIN
     END;
   END IF;
   
-  -- Return all debug information in a structured JSON format
-  RETURN json_build_object(
-    'headers', headers,
-    'cookies', cookies,
-    'claims', claims,
-    'tokens', json_build_object(
-      'access_token', CASE WHEN access_token IS NULL THEN NULL 
-                    ELSE json_build_object(
-                      'present', TRUE,
-                      'length', length(access_token),
-                      'claims', access_claims,
-                      'valid', access_claims IS NOT NULL AND NOT (access_claims::jsonb ? 'error'),
-                      'expired', CASE 
-                        WHEN access_claims IS NULL OR access_claims::jsonb ? 'error' THEN NULL
-                        WHEN (access_claims->>'exp')::numeric < extract(epoch from clock_timestamp()) THEN TRUE
-                        ELSE FALSE
-                      END
-                    ) END,
-      'refresh_token', CASE WHEN refresh_token IS NULL THEN NULL 
-                     ELSE json_build_object(
-                       'present', TRUE,
-                       'length', length(refresh_token),
-                       'claims', refresh_claims,
-                       'valid', refresh_claims IS NOT NULL AND NOT (refresh_claims::jsonb ? 'error'),
-                       'expired', CASE 
-                         WHEN refresh_claims IS NULL OR refresh_claims::jsonb ? 'error' THEN NULL
-                         WHEN (refresh_claims->>'exp')::numeric < extract(epoch from clock_timestamp()) THEN TRUE
-                         ELSE FALSE
-                       END,
-                       'jti', refresh_claims->>'jti',
-                       'version', refresh_claims->>'version'
-                     ) END
-    ),
-    'timestamp', clock_timestamp(),
-    'deployment_slot', coalesce(current_setting('app.settings.deployment_slot_code', true), 'dev'),
-    'is_https', headers->>'x-forwarded-proto' = 'https'
-  );
+  -- Build access token info
+  IF access_token IS NOT NULL THEN
+    access_token_info.present := TRUE;
+    access_token_info.token_length := length(access_token);
+    access_token_info.claims := access_claims;
+    access_token_info.valid := access_claims IS NOT NULL AND NOT (access_claims::jsonb ? 'error');
+    
+    IF access_claims IS NULL OR access_claims::jsonb ? 'error' THEN
+      access_token_info.expired := NULL;
+    ELSIF (access_claims->>'exp')::numeric < extract(epoch from clock_timestamp()) THEN
+      access_token_info.expired := TRUE;
+    ELSE
+      access_token_info.expired := FALSE;
+    END IF;
+  END IF;
+  
+  -- Build refresh token info
+  IF refresh_token IS NOT NULL THEN
+    refresh_token_info.present := TRUE;
+    refresh_token_info.token_length := length(refresh_token);
+    refresh_token_info.claims := refresh_claims;
+    refresh_token_info.valid := refresh_claims IS NOT NULL AND NOT (refresh_claims::jsonb ? 'error');
+    
+    IF refresh_claims IS NULL OR refresh_claims::jsonb ? 'error' THEN
+      refresh_token_info.expired := NULL;
+    ELSIF (refresh_claims->>'exp')::numeric < extract(epoch from clock_timestamp()) THEN
+      refresh_token_info.expired := TRUE;
+    ELSE
+      refresh_token_info.expired := FALSE;
+    END IF;
+    
+    refresh_token_info.jti := refresh_claims->>'jti';
+    refresh_token_info.version := refresh_claims->>'version';
+  END IF;
+  
+  -- Build result
+  result.headers := headers;
+  result.cookies := cookies;
+  result.claims := claims;
+  result.access_token := access_token_info;
+  result.refresh_token := refresh_token_info;
+  result.timestamp := clock_timestamp();
+  result.deployment_slot := coalesce(current_setting('app.settings.deployment_slot_code', true), 'dev');
+  result.is_https := headers->>'x-forwarded-proto' = 'https';
+  
+  RETURN result;
 END;
 $auth_test$;
 
@@ -1047,7 +1133,7 @@ BEGIN
   
   -- Build claims with PostgREST compatible structure
   v_claims := jsonb_build_object(
-    'role', p_email,
+    'role', p_email, -- PostgREST does a 'SET LOCAL ROLE $role' to ensure security for all of the API
     'statbus_role', v_statbus_role::text,
     'sub', v_sub::text,
     'email', p_email,
@@ -1100,20 +1186,24 @@ CREATE OR REPLACE FUNCTION auth.build_auth_response(
   access_jwt text,
   refresh_jwt text,
   user_id integer,
+  user_sub uuid,
   user_email text,
   user_statbus_role public.statbus_role
-) RETURNS "application/json"
+) RETURNS auth.auth_response
 LANGUAGE plpgsql
 AS $build_auth_response$
+DECLARE
+  result auth.auth_response;
 BEGIN
-  RETURN json_build_object(
-    'access_jwt', access_jwt,
-    'refresh_jwt', refresh_jwt,
-    'user_id', user_id,
-    'email', user_email,
-    'role', user_email,
-    'statbus_role', user_statbus_role
-  );
+  result.access_jwt := access_jwt;
+  result.refresh_jwt := refresh_jwt;
+  result.uid := user_id;
+  result.sub := user_sub;
+  result.email := user_email;
+  result.role := user_email;
+  result.statbus_role := user_statbus_role;
+  
+  RETURN result;
 END;
 $build_auth_response$;
 

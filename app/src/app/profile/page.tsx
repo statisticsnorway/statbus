@@ -1,22 +1,28 @@
-import { createAuthSSRClient } from "@/utils/auth/server";
 import { redirect } from "next/navigation";
 import LogoutForm from "./LogoutForm";
 import { logger } from "@/lib/client-logger";
+import { authStore } from "@/context/AuthStore";
+import { getServerClient } from "@/context/ClientStore";
 
 export default async function ProfilePage() {
   try {
-    const client = await createAuthSSRClient();
+    // Get authentication status from AuthStore
+    const authStatus = await authStore.getAuthStatus();
     
-    // Call the auth_status function to get current user info
-    const { data, error } = await client.rpc('auth_status');
-    
-    if (error || !data.isAuthenticated) {
+    if (!authStatus.isAuthenticated || !authStatus.user) {
       const errorMessage = "User not found. Cannot retrieve profile.";
-      logger.error({ context: "ProfilePage", error }, errorMessage);
+      logger.error({ context: "ProfilePage" }, errorMessage);
       redirect('/login');
     }
     
-    const user = data.user;
+    // Get additional user details that might not be in the AuthStore
+    const client = await getServerClient();
+    const { data, error } = await client.rpc('auth_status');
+    
+    if (error) {
+      logger.error({ context: "ProfilePage", error }, "Error fetching user details");
+      redirect('/login');
+    }
 
     return (
       <main className="flex flex-col items-center justify-between px-2 py-8 md:py-24">
@@ -36,7 +42,7 @@ export default async function ProfilePage() {
                   User ID
                 </dt>
                 <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                  {user.id}
+                  {authStatus.user.uid}
                 </dd>
               </div>
               <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -44,7 +50,7 @@ export default async function ProfilePage() {
                   Full name
                 </dt>
                 <dd className="mt-1 text-sm capitalize leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                  {user.email?.split("@")[0].replace(/\./, " ")}
+                  {authStatus.user.email?.split("@")[0].replace(/\./, " ")}
                 </dd>
               </div>
               <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -52,7 +58,7 @@ export default async function ProfilePage() {
                   Email address
                 </dt>
                 <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                  {user.email}
+                  {authStatus.user.email}
                 </dd>
               </div>
               <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -60,7 +66,7 @@ export default async function ProfilePage() {
                   Role
                 </dt>
                 <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                  {user.statbus_role}
+                  {authStatus.user.statbus_role}
                 </dd>
               </div>
               <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -68,7 +74,7 @@ export default async function ProfilePage() {
                   Last sign in
                 </dt>
                 <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                  {user.last_sign_in_at ? new Date(user.last_sign_in_at).toLocaleString() : "N/A"}
+                  {data.last_sign_in_at ? new Date(data.last_sign_in_at).toLocaleString() : "N/A"}
                 </dd>
               </div>
               <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -76,7 +82,7 @@ export default async function ProfilePage() {
                   Account created
                 </dt>
                 <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                  {user.created_at ? new Date(user.created_at).toLocaleString() : "N/A"}
+                  {data.created_at ? new Date(data.created_at).toLocaleString() : "N/A"}
                 </dd>
               </div>
             </dl>

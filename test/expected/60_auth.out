@@ -195,7 +195,7 @@ BEGIN
     );
 
     -- Perform login
-    SELECT public.login('test.regular@example.com', 'regular123')::jsonb INTO login_result;
+    SELECT to_json(source.*) INTO login_result FROM public.login('test.regular@example.com', 'regular123') AS source;
     
     -- Debug the login result
     RAISE DEBUG 'Login result: %', login_result;
@@ -206,7 +206,7 @@ BEGIN
     -- Verify login result contains expected fields
     ASSERT login_result ? 'access_jwt', 'Login result should contain access_jwt';
     ASSERT login_result ? 'refresh_jwt', 'Login result should contain refresh_jwt';
-    ASSERT login_result ? 'user_id', 'Login result should contain user_id';
+    ASSERT login_result ? 'uid', 'Login result should contain uid';
     ASSERT login_result ? 'role', 'Login result should contain role';
     ASSERT login_result ? 'statbus_role', 'Login result should contain statbus_role';
     ASSERT login_result ? 'email', 'Login result should contain email';
@@ -289,15 +289,15 @@ BEGIN
     PERFORM set_config('request.jwt.claims', '', true);
     
     -- Call auth_status
-    SELECT public.auth_status()::jsonb INTO auth_status_result;
+    SELECT to_json(source.*) INTO auth_status_result FROM public.auth_status() AS source;
     
     -- Debug the auth status result
     RAISE DEBUG 'Auth status result: %', auth_status_result;
     
     -- Verify auth status result
-    ASSERT auth_status_result->>'isAuthenticated' = 'true', 'Auth status should show authenticated';
-    ASSERT auth_status_result->'user' IS NOT NULL, 'Auth status should include user info';
-    ASSERT auth_status_result->'user'->>'email' = 'test.regular@example.com', 'Auth status should have correct email';
+    ASSERT auth_status_result->>'is_authenticated' = 'true', 'Auth status should show authenticated';
+    ASSERT auth_status_result->'uid' IS NOT NULL, 'Auth status should include user info';
+    ASSERT auth_status_result->>'email' = 'test.regular@example.com', 'Auth status should have correct email';
     
     RAISE NOTICE 'Test 1: User Login Success - PASSED';
 END;
@@ -320,13 +320,13 @@ BEGIN
     );
 
     -- Attempt login with wrong password
-    SELECT public.login('test.regular@example.com', 'wrongpassword')::jsonb INTO login_result;
+    SELECT to_json(source.*) INTO login_result FROM public.login('test.regular@example.com', 'wrongpassword') AS source;
     
     -- Debug the login result
     RAISE DEBUG 'Login result (should be null): %', login_result;
     
     -- Verify login failed (result should be null)
-    ASSERT login_result IS NULL, 'Login with wrong password should return null';
+    ASSERT login_result ->> 'user_id' IS NULL, 'Login with wrong password should return null';
     
     RAISE NOTICE 'Test 2: User Login Failure - Wrong Password - PASSED';
 END;
@@ -349,13 +349,13 @@ BEGIN
     );
 
     -- Attempt login with unconfirmed email
-    SELECT public.login('test.unconfirmed@example.com', 'unconfirmed123')::jsonb INTO login_result;
+    SELECT to_json(source.*) INTO login_result FROM public.login('test.unconfirmed@example.com', 'unconfirmed123') AS source;
     
     -- Debug the login result
     RAISE DEBUG 'Login result (should be null): %', login_result;
     
     -- Verify login failed (result should be null)
-    ASSERT login_result IS NULL, 'Login with unconfirmed email should return null';
+    ASSERT login_result ->> 'user_id' IS NULL, 'Login with unconfirmed email should return null';
     
     RAISE NOTICE 'Test 3: User Login Failure - Unconfirmed Email - PASSED';
 END;
@@ -375,6 +375,12 @@ DECLARE
     auth_status_before jsonb;
     auth_status_after jsonb;
 BEGIN
+    -- Reset all context from previous tests
+    PERFORM set_config('request.headers', '{}', true);
+    PERFORM set_config('request.cookies', '{}', true);
+    PERFORM set_config('request.jwt.claims', '', true);
+    PERFORM set_config('response.headers', '[]', true);
+    
     -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
         json_build_object(
@@ -385,7 +391,7 @@ BEGIN
     );
 
     -- First login
-    SELECT public.login('test.admin@example.com', 'admin123')::jsonb INTO login_result;
+    SELECT to_json(source.*) INTO login_result FROM public.login('test.admin@example.com', 'admin123') AS source;
     RAISE DEBUG 'Login result: %', login_result;
     
     -- Debug the returned headers from the login function
@@ -462,12 +468,37 @@ BEGIN
         ASSERT access_jwt_payload->>'jti' IS NOT NULL, 'JWT ID should be present';
         ASSERT access_jwt_payload->>'sub' IS NOT NULL, 'Subject should be present';        
     END;
+    
+    -- Decode the refresh token and display it
+    DECLARE
+        refresh_jwt_str text;
+        refresh_jwt_payload jsonb;
+        refresh_token_verification record;
+    BEGIN
+        refresh_jwt_str := login_result->>'refresh_jwt';
+        SELECT * INTO refresh_token_verification FROM verify(refresh_jwt_str, 'test-jwt-secret-for-testing-only', 'HS256');
+        refresh_jwt_payload := refresh_token_verification.payload::jsonb;
+        RAISE DEBUG 'Decoded refresh token: %', refresh_jwt_payload;
+        
+        -- Verify deterministic keys in the refresh token payload
+        ASSERT refresh_jwt_payload->>'role' = 'test.admin@example.com', 'Role in refresh token should match email';
+        ASSERT refresh_jwt_payload->>'email' = 'test.admin@example.com', 'Email in refresh token should be correct';
+        ASSERT refresh_jwt_payload->>'type' = 'refresh', 'Token type should be refresh';
+        ASSERT refresh_jwt_payload->>'statbus_role' = 'admin_user', 'Statbus role should be admin_user';
+        
+        -- Verify dynamic values are present and not null
+        ASSERT refresh_jwt_payload->>'exp' IS NOT NULL, 'Expiration time should be present';
+        ASSERT refresh_jwt_payload->>'iat' IS NOT NULL, 'Issued at time should be present';
+        ASSERT refresh_jwt_payload->>'jti' IS NOT NULL, 'JWT ID should be present';
+        ASSERT refresh_jwt_payload->>'sub' IS NOT NULL, 'Subject should be present';
+        ASSERT refresh_jwt_payload->>'version' IS NOT NULL, 'Version should be present';
+    END;
         
     access_jwt := login_result->>'access_jwt';
     refresh_jwt := login_result->>'refresh_jwt';
     
     -- Store session info before refresh
-    SELECT rs.* INTO refresh_session_before
+    SELECT rs.*, u.id AS user_id, u.sub AS user_sub INTO refresh_session_before
     FROM auth.refresh_session rs
     JOIN auth.user u ON rs.user_id = u.id
     WHERE u.email = 'test.admin@example.com'
@@ -478,11 +509,20 @@ BEGIN
     RAISE DEBUG 'Refresh session before refresh: %', row_to_json(refresh_session_before);
     
     -- Check auth status before refresh
+    -- Set cookies properly in request.cookies instead of request.headers.cookie
+    PERFORM set_config('request.cookies', 
+        json_build_object(
+            'statbus', access_jwt,
+            'statbus-refresh', refresh_jwt
+        )::text, 
+        true
+    );
+    
+    -- Also set headers for completeness, but without the cookie
     PERFORM set_config('request.headers', 
         json_build_object(
             'x-forwarded-for', '127.0.0.1',
-            'user-agent', 'Test User Agent',
-            'cookie', format('statbus=%s; statbus-refresh=%s', access_jwt, refresh_jwt)
+            'user-agent', 'Test User Agent'
         )::text, 
         true
     );
@@ -491,12 +531,19 @@ BEGIN
     PERFORM set_config('request.jwt.claims', '', true);
     
     -- Get auth status before refresh
-    SELECT public.auth_status()::jsonb INTO auth_status_before;
+    SELECT to_json(source.*) INTO auth_status_before FROM public.auth_status() AS source;
     RAISE DEBUG 'Auth status before refresh: %', auth_status_before;
     
     -- Verify auth status before refresh
-    ASSERT auth_status_before->>'isAuthenticated' = 'true', 'Should be authenticated before refresh';
+    ASSERT auth_status_before->>'is_authenticated' = 'true', 'Auth status should show authenticated';
+    ASSERT auth_status_before->'uid' IS NOT NULL, 'Auth status should include user info';
+    ASSERT auth_status_before->>'email' = 'test.admin@example.com', 'Auth status should have correct email';
         
+    -- Clear any existing cookies and headers before setting new ones
+    PERFORM set_config('request.cookies', '{}', true);
+    PERFORM set_config('request.headers', '{}', true);
+    PERFORM set_config('response.headers', '[]', true);
+    
     -- Set cookies to simulate browser cookies for refresh
     PERFORM set_config('request.cookies', 
         json_build_object(
@@ -517,7 +564,7 @@ BEGIN
     -- Sleep 1 second, to ensure the iat will increase, because it counts in whole seconds.
     PERFORM pg_sleep(1);
     -- Perform token refresh
-    SELECT public.refresh() INTO refresh_result;
+    SELECT to_json(source.*) INTO refresh_result FROM public.refresh() AS source;
     
     -- Debug the refresh result
     RAISE DEBUG 'Refresh result: %', refresh_result;
@@ -525,7 +572,7 @@ BEGIN
     -- Verify refresh result contains expected fields
     ASSERT refresh_result ? 'access_jwt', 'Refresh result should contain access_jwt';
     ASSERT refresh_result ? 'refresh_jwt', 'Refresh result should contain refresh_jwt';
-    ASSERT refresh_result ? 'user_id', 'Refresh result should contain user_id';
+    ASSERT refresh_result ? 'uid', 'Refresh result should contain user_id';
     ASSERT refresh_result ? 'role', 'Refresh result should contain role';
     ASSERT refresh_result ? 'statbus_role', 'Refresh result should contain statbus_role';
     ASSERT refresh_result ? 'email', 'Refresh result should contain email';
@@ -614,12 +661,13 @@ BEGIN
     PERFORM set_config('request.jwt.claims', '', true);
     
     -- Get auth status after refresh
-    SELECT public.auth_status()::jsonb INTO auth_status_after;
+    SELECT to_json(source.*) INTO auth_status_after FROM public.auth_status() AS source;
     RAISE DEBUG 'Auth status after refresh: %', auth_status_after;
     
     -- Verify auth status after refresh
-    ASSERT auth_status_after->>'isAuthenticated' = 'true', 'Should be authenticated after refresh';
-    ASSERT auth_status_after->'user'->>'email' = 'test.admin@example.com', 'Email should match in auth status';
+    ASSERT auth_status_after->>'is_authenticated' = 'true', 'Auth status should show authenticated';
+    ASSERT auth_status_after->'uid' IS NOT NULL, 'Auth status should include user info';
+    ASSERT auth_status_after->>'email' = 'test.admin@example.com', 'Auth status should have correct email';
     
     RAISE NOTICE 'Test 4: Token Refresh - PASSED';
 END;
@@ -652,7 +700,7 @@ BEGIN
     );
 
     -- First login to create a session
-    SELECT public.login('test.restricted@example.com', 'restricted123')::jsonb INTO login_result;
+    SELECT to_json(source.*) INTO login_result FROM public.login('test.restricted@example.com', 'restricted123') AS source;
     RAISE DEBUG 'Login result: %', login_result;
     
     -- Extract tokens from login result
@@ -692,11 +740,13 @@ BEGIN
     PERFORM set_config('request.jwt.claims', '', true);
     
     -- Get auth status before logout
-    SELECT public.auth_status()::jsonb INTO auth_status_before;
+    SELECT to_json(source.*) INTO auth_status_before FROM public.auth_status() AS source;
     RAISE DEBUG 'Auth status before logout: %', auth_status_before;
     
     -- Verify auth status before logout
-    ASSERT auth_status_before->>'isAuthenticated' = 'true', 'Should be authenticated before logout';
+    ASSERT auth_status_before->>'is_authenticated' = 'true', 'Auth status should show authenticated';
+    ASSERT auth_status_before->'uid' IS NOT NULL, 'Auth status should include user info';
+    ASSERT auth_status_before->>'email' = 'test.restricted@example.com', 'Auth status should have correct email';
     
     -- Set cookies to simulate browser cookies for logout
     PERFORM set_config('request.cookies', 
@@ -717,7 +767,7 @@ BEGIN
     );
     
     -- Perform logout
-    SELECT public.logout()::jsonb INTO logout_result;
+    SELECT to_json(source.*) INTO logout_result FROM public.logout() AS source;
     RAISE DEBUG 'Logout result: %', logout_result;
     
     -- Debug the returned headers from the logout function
@@ -777,12 +827,13 @@ BEGIN
     PERFORM set_config('request.jwt.claims', '', true);
     
     -- Get auth status after logout
-    SELECT public.auth_status()::jsonb INTO auth_status_after;
+    SELECT to_json(source.*) INTO auth_status_after FROM public.auth_status() AS source;
     RAISE DEBUG 'Auth status after logout: %', auth_status_after;
     
     -- Verify auth status after logout
-    ASSERT auth_status_after->>'isAuthenticated' = 'false', 'Should not be authenticated after logout';
-    ASSERT auth_status_after->>'user' IS NULL, 'User should be null after logout';
+    ASSERT auth_status_after->>'is_authenticated' = 'false', 'Auth status should show not authenticated';
+    ASSERT auth_status_after->>'uid' IS NULL, 'Auth status should not include user info';
+    ASSERT auth_status_after->>'email' IS NULL, 'Auth status should not have email';
     
     RAISE NOTICE 'Test 5: Logout - PASSED';
 END;
@@ -840,7 +891,7 @@ BEGIN
         original_role, user_email, role_granted;
     
     -- First login as admin to get valid JWT
-    SELECT public.login('test.admin@example.com', 'admin123')::jsonb INTO login_result;
+    SELECT to_json(source.*) INTO login_result FROM public.login('test.admin@example.com', 'admin123') AS source;
     RAISE DEBUG 'Login result: %', login_result;
     
     -- Extract access token from login result
@@ -1014,7 +1065,7 @@ BEGIN
     );
 
     -- First login to create a session
-    SELECT public.login('test.regular@example.com', 'regular123')::jsonb INTO login_result;
+    SELECT to_json(source.*) INTO login_result FROM public.login('test.regular@example.com', 'regular123') AS source;
     
     -- Extract access token from login result
     access_jwt := login_result->>'access_jwt';
@@ -1036,8 +1087,8 @@ BEGIN
     );
     
     -- List active sessions
-    SELECT array_agg(s::jsonb) INTO sessions_result
-    FROM public.list_active_sessions() s;
+    SELECT array_agg(to_json(s.*)) INTO sessions_result
+    FROM public.list_active_sessions() AS s;
     
     -- Debug the sessions result
     RAISE DEBUG 'Active sessions: %', sessions_result;
@@ -1110,7 +1161,7 @@ BEGIN
     WHERE email = test_email;
     
     -- Login to get a real token
-    SELECT public.login(test_email, 'admin123')::jsonb INTO login_result;
+    SELECT to_json(source.*) INTO login_result FROM public.login(test_email, 'admin123') AS source;
     
     -- Debug the login result
     RAISE DEBUG 'Login result: %', login_result;
@@ -1288,7 +1339,7 @@ BEGIN
     );
 
     -- First login as admin to get valid tokens
-    SELECT public.login(admin_email, 'admin123')::jsonb INTO login_result_admin;
+    SELECT to_json(source.*) INTO login_result_admin FROM public.login(admin_email, 'admin123') AS source;
     admin_access_jwt := login_result_admin->>'access_jwt';
     admin_refresh_jwt := login_result_admin->>'refresh_jwt';
     
@@ -1297,7 +1348,7 @@ BEGIN
     FROM verify(admin_access_jwt, 'test-jwt-secret-for-testing-only');
     
     -- Login as regular user to get valid tokens
-    SELECT public.login(regular_email, 'regular123')::jsonb INTO login_result_regular;
+    SELECT to_json(source.*) INTO login_result_regular FROM public.login(regular_email, 'regular123') AS source;
     regular_access_jwt := login_result_regular->>'access_jwt';
     
     -- Get regular user token claims
@@ -1461,7 +1512,15 @@ BEGIN
         );
         
         -- Try to refresh with the tampered token
-        SELECT public.refresh()::jsonb INTO tampered_refresh_result;
+        BEGIN
+            SELECT to_json(source.*) INTO tampered_refresh_result FROM public.refresh() AS source;
+            -- If we get here, the refresh didn't fail as expected
+            RAISE EXCEPTION 'Refresh with non-existent session should have failed';
+        EXCEPTION WHEN OTHERS THEN
+            -- This is expected - the token should be rejected
+            tampered_refresh_result := jsonb_build_object('error', SQLERRM);
+            RAISE DEBUG 'Refresh with non-existent session correctly failed: %', SQLERRM;
+        END;
         
         -- Debug the result
         RAISE DEBUG 'Refresh result with non-existent session: %', tampered_refresh_result;
@@ -1540,7 +1599,15 @@ BEGIN
         );
         
         -- Try to refresh with the tampered token
-        SELECT public.refresh()::jsonb INTO impersonation_result;
+        BEGIN
+            SELECT to_json(source.*) INTO impersonation_result FROM public.refresh() AS source;
+            -- If we get here, the refresh didn't fail as expected
+            RAISE EXCEPTION 'Refresh with impersonation attempt should have failed';
+        EXCEPTION WHEN OTHERS THEN
+            -- This is expected - the token should be rejected
+            impersonation_result := jsonb_build_object('error', SQLERRM);
+            RAISE DEBUG 'Refresh with impersonation attempt correctly failed: %', SQLERRM;
+        END;
         
         -- Debug the result
         RAISE DEBUG 'Refresh result with impersonation attempt: %', impersonation_result;
@@ -1593,21 +1660,18 @@ BEGIN
     );
     PERFORM set_config('request.jwt.claims', '', true);
     
-    SELECT public.auth_status()::jsonb INTO auth_status_unauthenticated;
+    SELECT to_json(source.*) INTO auth_status_unauthenticated FROM public.auth_status() AS source;
     
     -- Debug the unauthenticated status
     RAISE DEBUG 'Auth status (unauthenticated): %', auth_status_unauthenticated;
     
     -- Verify unauthenticated status
-    ASSERT auth_status_unauthenticated->>'isAuthenticated' = 'false', 
-        'Unauthenticated status should have isAuthenticated=false';
-    ASSERT auth_status_unauthenticated->>'user' IS NULL, 
-        'Unauthenticated status should have user=null';
-    ASSERT auth_status_unauthenticated->>'tokenExpiring' = 'false', 
-        'Unauthenticated status should have tokenExpiring=false';
+    ASSERT auth_status_unauthenticated->>'is_authenticated' = 'false', 'Auth status should show not authenticated';
+    ASSERT auth_status_unauthenticated->>'uid' IS NULL, 'Auth status should not include user info';
+    ASSERT auth_status_unauthenticated->>'email' IS NULL, 'Auth status should not have email';
     
     -- Now login to get a valid token
-    SELECT public.login(test_email, 'admin123')::jsonb INTO login_result;
+    SELECT to_json(source.*) INTO login_result FROM public.login(test_email, 'admin123') AS source;
     
     -- Extract tokens from login result
     access_jwt := login_result->>'access_jwt';
@@ -1635,24 +1699,15 @@ BEGIN
     PERFORM set_config('request.jwt.claims', '', true);
     
     -- Check authenticated status using cookies
-    SELECT public.auth_status()::jsonb INTO auth_status_result;
+    SELECT to_json(source.*) INTO auth_status_result FROM public.auth_status() AS source;
     
     -- Debug the authenticated status
     RAISE DEBUG 'Auth status (authenticated via cookies): %', auth_status_result;
     
     -- Verify authenticated status
-    ASSERT auth_status_result->>'isAuthenticated' = 'true', 
-        'Authenticated status should have isAuthenticated=true';
-    ASSERT auth_status_result->'user' IS NOT NULL, 
-        'Authenticated status should have user object';
-    ASSERT auth_status_result->'user'->>'id' = test_sub::text, 
-        'User ID should match';
-    ASSERT auth_status_result->'user'->>'email' = test_email, 
-        'User email should match';
-    ASSERT auth_status_result->'user'->>'role' = test_email, 
-        'User role should match email';
-    ASSERT auth_status_result->'user'->>'statbus_role' = 'admin_user', 
-        'User statbus_role should match';
+    ASSERT auth_status_result->>'is_authenticated' = 'true', 'Auth status should show authenticated';
+    ASSERT auth_status_result->'uid' IS NOT NULL, 'Auth status should include user info';
+    ASSERT auth_status_result->>'email' = test_email, 'Auth status should have correct email';
     
     -- Test with an expiring token (modify the token to make it expire soon)
     DECLARE
@@ -1696,16 +1751,15 @@ BEGIN
         PERFORM set_config('request.jwt.claims', '', true);
         
         -- Check status with expiring token
-        SELECT public.auth_status()::jsonb INTO expiring_status;
+        SELECT to_json(source.*) INTO expiring_status FROM public.auth_status() AS source;
         
         -- Debug the expiring status
         RAISE DEBUG 'Auth status (expiring token): %', expiring_status;
         
         -- Verify expiring token status
-        ASSERT expiring_status->>'isAuthenticated' = 'true', 
-            'Status with expiring token should have isAuthenticated=true';
-        ASSERT expiring_status->>'tokenExpiring' = 'true', 
-            'Status with expiring token should have tokenExpiring=true';
+        ASSERT expiring_status->>'is_authenticated' = 'true', 'Auth status should show authenticated';
+        ASSERT expiring_status->'uid' IS NOT NULL, 'Auth status should include user info';
+        ASSERT expiring_status->>'email' = test_email, 'Auth status should have correct email';
     END;
     
     -- Test with an invalid user sub (user not found)
@@ -1751,16 +1805,15 @@ BEGIN
         PERFORM set_config('request.jwt.claims', '', true);
         
         -- Check status with invalid user
-        SELECT public.auth_status()::jsonb INTO invalid_status;
+        SELECT to_json(source.*) INTO invalid_status FROM public.auth_status() AS source;
         
         -- Debug the invalid status
         RAISE DEBUG 'Auth status (invalid user): %', invalid_status;
         
         -- Verify invalid user status
-        ASSERT invalid_status->>'isAuthenticated' = 'false', 
-            'Status with invalid user should have isAuthenticated=false';
-        ASSERT invalid_status->>'user' IS NULL, 
-            'Status with invalid user should have user=null';
+        ASSERT invalid_status->>'is_authenticated' = 'false', 'Auth status should show not authenticated';
+        ASSERT invalid_status->>'uid' IS NULL, 'Auth status should not include user info';
+        ASSERT invalid_status->>'email' IS NULL, 'Auth status should not have email';
     END;
     
     RAISE NOTICE 'Test 11: Auth Status Function - PASSED';

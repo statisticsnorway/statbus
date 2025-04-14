@@ -283,7 +283,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
                 log_error("Auth cookies were not set")
             
             # Return the user ID for further tests
-            return data.get("user_id")
+            return data.get("uid")
         else:
             def print_login_failure_details():
                 print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
@@ -512,14 +512,14 @@ def test_auth_status(session: Session, expected_auth: bool) -> None:
         try:
             data = response.json()
             debug_info(f"Auth status parsed response: {json.dumps(data, indent=2)}")
-            
-            if data.get("isAuthenticated") == expected_auth:
+                
+            if data.get("is_authenticated") == expected_auth:
                 log_success(f"Auth status returned expected authentication state: {expected_auth}")
             else:
                 def print_auth_status_details():
                     print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
                     print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/auth_status{NC}")
-                    print(f"{RED}Expected isAuthenticated: {expected_auth}{NC}")
+                    print(f"{RED}Expected is_authenticated: {expected_auth}{NC}")
                 
                 log_error(f"Auth status did not return expected authentication state.", print_auth_status_details)
         except json.JSONDecodeError as e:
@@ -658,7 +658,8 @@ def main() -> None:
             headers={"Content-Type": "application/json"}
         )
         
-        if not response.text or response.text.strip() == "null":
+        data = response.json()
+        if data.get("uid") is None and data.get("access_jwt") is None:
             log_success("Login correctly failed with incorrect password")
         else:
             def print_unexpected_login_success():

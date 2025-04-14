@@ -12,7 +12,7 @@
  * User type definition for authentication
  */
 export interface User {
-  id: string;
+  uid: string;
   email: string;
   role: string;
   statbus_role: string;
@@ -303,12 +303,14 @@ class AuthStore {
       
       // Call the auth_status RPC function with type assertion
       const { data, error } = await client.rpc("auth_status");
-      const authData = data as any as AuthStatus;
       
       if (error) {
         console.error("Auth status check failed:", error);
         return { isAuthenticated: false, user: null, tokenExpiring: false };
       }
+      
+      // Map the response to our AuthStatus format
+      const authData = data as any;
       
       const result = authData === null
         ? {
@@ -317,10 +319,14 @@ class AuthStore {
             tokenExpiring: false,
           }
         : {
-            isAuthenticated: authData.isAuthenticated,
-            user: authData.user || null,
-            tokenExpiring:
-              authData.tokenExpiring === true,
+            isAuthenticated: authData.is_authenticated,
+            tokenExpiring: authData.token_expiring === true,
+            user: authData.uid ? {
+              uid: authData.uid,
+              email: authData.email,
+              role: authData.role,
+              statbus_role: authData.statbus_role
+            } : null
           };
 
       if (process.env.NODE_ENV === "development") {

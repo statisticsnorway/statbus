@@ -42,6 +42,14 @@ REVOKE EXECUTE ON FUNCTION auth.clear_auth_cookies FROM authenticated;
 -- Revoke pg_monitor from admin role
 REVOKE pg_monitor FROM admin_user;
 
+-- Drop types
+DROP TYPE IF EXISTS auth.auth_test_response;
+DROP TYPE IF EXISTS auth.token_info;
+DROP TYPE IF EXISTS auth.auth_status_response;
+DROP TYPE IF EXISTS auth.session_info;
+DROP TYPE IF EXISTS auth.logout_response;
+DROP TYPE IF EXISTS auth.auth_response;
+
 -- Drop public functions
 DROP FUNCTION IF EXISTS public.auth_test();
 DROP FUNCTION IF EXISTS public.auth_status();
