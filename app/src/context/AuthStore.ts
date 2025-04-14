@@ -75,6 +75,8 @@ class AuthStore {
       now - this.lastFetchTime < this.CACHE_TTL
     ) {
       if (process.env.NODE_ENV === "development") {
+        // The cache is purged when logging in/out via clearAllCaches() or when manually cleared
+        // It doesn't automatically detect cookie changes, but has a short TTL (30s)
         console.log("Using cached auth status", {
           cacheAge: Math.round((now - this.lastFetchTime) / 1000) + "s",
           user: this.status.user,
@@ -187,18 +189,10 @@ class AuthStore {
     // Clear auth cache
     this.clearCache();
 
-    // Also clear the client, time context and base data caches when auth cache is cleared
+    // Also clear the client and base data caches when auth cache is cleared
     // We'll import dynamically to avoid circular dependencies
     if (typeof window !== "undefined") {
       // Only run this in the browser
-      import("@/context/TimeContextStore")
-        .then(({ timeContextStore }) => {
-          timeContextStore.clearCache();
-        })
-        .catch((err) => {
-          console.error("Failed to clear time context cache:", err);
-        });
-
       import("@/context/BaseDataStore")
         .then(({ baseDataStore }) => {
           baseDataStore.clearCache();

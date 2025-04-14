@@ -5,7 +5,7 @@ import { Database } from '@/lib/database.types';
 import { getServerClient } from "@/context/ClientStore";
 import { ClientBaseDataProvider } from "./BaseDataClient";
 import { BaseData } from '@/context/BaseDataStore';
-import { authStore, AuthenticationError } from '@/context/AuthStore';
+import { authStore, AuthenticationError, User } from '@/context/AuthStore';
 
 // Define StatbusClient type locally
 type StatbusClient = PostgrestClient<Database>;

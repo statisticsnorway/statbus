@@ -142,7 +142,7 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
             return;
           }
           
-          // Pre-fetch base data to ensure it's cached (includes time contexts)
+          // Pre-fetch base data to ensure it's cached (includes time contexts and other reference data)
           try {
             const { baseDataStore } = await import('@/context/BaseDataStore');
             await baseDataStore.getBaseData(client);

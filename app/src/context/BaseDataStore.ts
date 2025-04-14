@@ -223,11 +223,14 @@ class BaseDataStore {
       statDefinitionsCount: this.data.statDefinitions.length,
       externalIdentTypesCount: this.data.externalIdentTypes.length,
       statbusUsersCount: this.data.statbusUsers.length,
+      timeContextsCount: this.data.timeContexts.length,
+      hasDefaultTimeContext: !!this.data.defaultTimeContext,
       hasStatisticalUnits: this.data.hasStatisticalUnits,
       cacheTTL: this.CACHE_TTL / 1000 + 's',
       environment: typeof window !== 'undefined' ? 'browser' : 'server'
     };
   }
+
 
   /**
    * Internal method to fetch base data from API
@@ -249,75 +252,88 @@ class BaseDataStore {
     console.log('BaseDataStore client debug info:', clientDebugInfo);
     
     try {
-      // AI? Could the TimeContext be part of the BaseDataStore? Analyse the code base and figure that out.
-      // Fetch time contexts directly instead of using TimeContextStore
-      // This avoids circular dependencies between stores
-      let timeContextData: {
-        timeContexts: Tables<"time_context">[];
-        defaultTimeContext: Tables<"time_context"> | null;
-      } = {
-        timeContexts: [],
-        defaultTimeContext: null
+      // Fetch all the data in parallel using Promise.all      
+      // Define all the fetch operations
+      const fetchStatDefinitions = async () => {
+        try {
+          const result = await client.from("stat_definition_active").select();
+          return { data: result.data, error: result.error };
+        } catch (error) {
+          console.error('Exception fetching stat_definition_active:', error);
+          return { data: null, error };
+        }
       };
       
-      const { data: timeContexts, error } = await client.from("time_context").select("*");      
-      if (error) {
-        console.error('Error fetching time contexts:', error);
-      } else if (timeContexts && timeContexts.length > 0) {
-        timeContextData = {
-          timeContexts,
-          defaultTimeContext: timeContexts[0]
-        };
-        console.log(`Successfully fetched ${timeContexts.length} time contexts directly`, timeContextData);
-      }
+      const fetchExternalIdentTypes = async () => {
+        try {
+          const result = await client.from("external_ident_type_active").select();
+          return { data: result.data, error: result.error };
+        } catch (error) {
+          console.error('Exception fetching external_ident_type_active:', error);
+          return { data: null, error };
+        }
+      };
       
-      // Fetch the rest of the data in parallel
+      const fetchStatbusUsers = async () => {
+        try {
+          const result = await client.from("user_with_role").select();
+          return { data: result.data, error: result.error };
+        } catch (error) {
+          console.error('Exception fetching user_with_role:', error);
+          return { data: null, error };
+        }
+      };
       
-      // Wrap each request in a try/catch to prevent one failure from stopping all requests
-      let maybeStatDefinitions = null, statDefinitionsError = null;
-      let maybeExternalIdentTypes = null, externalIdentTypesError = null;
-      let maybeStatbusUsers = null, statbusUsersError = null;
-      let maybeStatisticalUnit = null, statisticalUnitError = null;
+      const fetchStatisticalUnit = async () => {
+        try {
+          const result = await client.from("statistical_unit").select("*").limit(1);
+          return { data: result.data, error: result.error };
+        } catch (error) {
+          console.error('Exception fetching statistical_unit:', error);
+          return { data: null, error };
+        }
+      };
       
-      try {
-        console.log('Fetching stat_definition_active...');
-        const statDefResult = await client.from("stat_definition_active").select();
-        maybeStatDefinitions = statDefResult.data;
-        statDefinitionsError = statDefResult.error;
-      } catch (error) {
-        console.error('Exception fetching stat_definition_active:', error);
-        statDefinitionsError = error;
-      }
+      const fetchTimeContexts = async () => {
+        try {
+          const result = await client.from("time_context").select("*");
+          return { data: result.data, error: result.error };
+        } catch (error) {
+          console.error('Exception fetching time_context:', error);
+          return { data: null, error };
+        }
+      };
       
-      try {
-        console.log('Fetching external_ident_type_active...');
-        const extIdentResult = await client.from("external_ident_type_active").select();
-        maybeExternalIdentTypes = extIdentResult.data;
-        externalIdentTypesError = extIdentResult.error;
-      } catch (error) {
-        console.error('Exception fetching external_ident_type_active:', error);
-        externalIdentTypesError = error;
-      }
+      // Execute all fetch operations in parallel
+      const [
+        statDefinitionsResult,
+        externalIdentTypesResult,
+        statbusUsersResult,
+        statisticalUnitResult,
+        timeContextsResult
+      ] = await Promise.all([
+        fetchStatDefinitions(),
+        fetchExternalIdentTypes(),
+        fetchStatbusUsers(),
+        fetchStatisticalUnit(),
+        fetchTimeContexts()
+      ]);
       
-      try {
-        console.log('Fetching user_with_role...');
-        const usersResult = await client.from("user_with_role").select();
-        maybeStatbusUsers = usersResult.data;
-        statbusUsersError = usersResult.error;
-      } catch (error) {
-        console.error('Exception fetching user_with_role:', error);
-        statbusUsersError = error;
-      }
+      // Extract results
+      const maybeStatDefinitions = statDefinitionsResult.data;
+      const statDefinitionsError = statDefinitionsResult.error;
       
-      try {
-        console.log('Fetching statistical_unit...');
-        const statUnitResult = await client.from("statistical_unit").select("*").limit(1);
-        maybeStatisticalUnit = statUnitResult.data;
-        statisticalUnitError = statUnitResult.error;
-      } catch (error) {
-        console.error('Exception fetching statistical_unit:', error);
-        statisticalUnitError = error;
-      }
+      const maybeExternalIdentTypes = externalIdentTypesResult.data;
+      const externalIdentTypesError = externalIdentTypesResult.error;
+      
+      const maybeStatbusUsers = statbusUsersResult.data;
+      const statbusUsersError = statbusUsersResult.error;
+      
+      const maybeStatisticalUnit = statisticalUnitResult.data;
+      const statisticalUnitError = statisticalUnitResult.error;
+      
+      const maybeTimeContexts = timeContextsResult.data;
+      const timeContextsError = timeContextsResult.error;
       
       // Check for errors
       if (statDefinitionsError) {
@@ -331,6 +347,27 @@ class BaseDataStore {
       }
       if (statisticalUnitError) {
         console.error('Error checking for statistical units:', statisticalUnitError);
+      }
+      if (timeContextsError) {
+        console.error('Error fetching time contexts:', timeContextsError);
+      }
+      
+      // Initialize time context data
+      let timeContextData: {
+        timeContexts: Tables<"time_context">[];
+        defaultTimeContext: Tables<"time_context"> | null;
+      } = {
+        timeContexts: [],
+        defaultTimeContext: null
+      };
+      
+      // Process time contexts
+      if (maybeTimeContexts && maybeTimeContexts.length > 0) {
+        timeContextData = {
+          timeContexts: maybeTimeContexts as Tables<"time_context">[],
+          defaultTimeContext: maybeTimeContexts[0] as Tables<"time_context">
+        };
+        console.log(`Successfully fetched ${maybeTimeContexts.length} time contexts`);
       }
       
       // Log the results

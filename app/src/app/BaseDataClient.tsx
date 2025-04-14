@@ -92,7 +92,7 @@ export const ClientBaseDataProvider = ({
       const freshBaseData = await baseDataStore.refreshBaseData(client);
       
       // Update the local state with the new data
-      setBaseData(freshBaseData);
+      setBaseData(freshBaseData as BaseData & { isAuthenticated: boolean; user: User | null });
       
       console.log('Base data refreshed successfully', {
         statDefinitionsCount: freshBaseData.statDefinitions.length,
