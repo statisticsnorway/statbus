@@ -213,13 +213,33 @@ class ClientStore {
           setTimeout(() => reject(new Error('Client initialization timed out')), 10000);
         });
         
-        // Create a new PostgrestClient
-        const createClient = async () => {          
-          return new PostgrestClient<Database>(apiUrl, {
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
+        // Create a new PostgrestClient with auth headers from cookies
+        const createClient = async () => {
+          // Get auth token from cookies for server components
+          let headers: Record<string, string> = {
+            'Content-Type': 'application/json',
+          };
+          
+          try {
+            const { cookies } = await import("next/headers");
+            const cookieStore = await cookies();
+            const token = cookieStore.get("statbus");
+            
+            if (token) {
+              // Add the token as an Authorization header
+              headers['Authorization'] = `Bearer ${token.value}`;
+              
+              if (process.env.NODE_ENV === 'development') {
+                console.log('Server client initialized with auth token');
+              }
+            } else {
+              console.log('No auth token found in cookies for server client');
+            }
+          } catch (error) {
+            console.error('Error getting cookies for server client:', error);
+          }
+          
+          return new PostgrestClient<Database>(apiUrl, { headers });
         };
         
         // Race the client creation against the timeout
@@ -302,19 +322,26 @@ class ClientStore {
       }
     }
     
+    // Get auth token from cookies for browser requests
+    let headers: Record<string, string> = {
+      'Content-Type': typeof options.headers === 'object' && options.headers 
+        ? (options.headers as Record<string, string>)['Content-Type'] || 'application/json'
+        : 'application/json',
+      'Accept': typeof options.headers === 'object' && options.headers
+        ? (options.headers as Record<string, string>)['Accept'] || 'application/json'
+        : 'application/json',
+    };
+    
+    // Merge with existing headers
+    if (options.headers) {
+      headers = { ...headers, ...(options.headers as Record<string, string>) };
+    }
+    
     // First attempt with current token
     let response = await fetch(url, {
       ...options,
       credentials: 'include', // Always include cookies
-      headers: {
-        ...options.headers,
-        'Content-Type': typeof options.headers === 'object' && options.headers 
-          ? (options.headers as Record<string, string>)['Content-Type'] || 'application/json'
-          : 'application/json',
-        'Accept': typeof options.headers === 'object' && options.headers
-          ? (options.headers as Record<string, string>)['Accept'] || 'application/json'
-          : 'application/json',
-      }
+      headers
     });
     
     // If we get a 401 Unauthorized, try to refresh the token
@@ -375,4 +402,14 @@ export async function getServerClient(): Promise<PostgrestClient<Database>> {
 
 export async function getBrowserClient(): Promise<PostgrestClient<Database>> {
   return clientStore.getClient('browser');
+}
+
+/**
+ * Get a client that automatically selects between server and browser client
+ * based on the current environment
+ */
+export async function getClient(): Promise<PostgrestClient<Database>> {
+  return typeof window === 'undefined'
+    ? await clientStore.getClient('server')
+    : await clientStore.getClient('browser');
 }

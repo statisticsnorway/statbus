@@ -10,7 +10,7 @@
 
 import { Database, Tables } from "@/lib/database.types";
 import { PostgrestClient } from "@supabase/postgrest-js";
-import { getServerClient, getBrowserClient } from "./ClientStore";
+import { getServerClient, getBrowserClient, getClient } from "./ClientStore";
 export interface BaseData {
   statDefinitions: Tables<"stat_definition_active">[];
   externalIdentTypes: Tables<"external_ident_type_active">[];
@@ -58,9 +58,7 @@ class BaseDataStore {
     // Get client from ClientStore if not provided
     if (!client) {
       try {
-        client = typeof window === 'undefined' 
-          ? await getServerClient() 
-          : await getBrowserClient();
+        client = await getClient();
       } catch (error) {
         console.error('Failed to get client from ClientStore:', error);
         throw error;
@@ -124,9 +122,7 @@ class BaseDataStore {
     // Get client from ClientStore if not provided
     if (!client) {
       try {
-        client = typeof window === 'undefined' 
-          ? await getServerClient() 
-          : await getBrowserClient();
+        client = await getClient();
       } catch (error) {
         console.error('Failed to get client from ClientStore:', error);
         throw error;
@@ -157,9 +153,7 @@ class BaseDataStore {
     // Get client from ClientStore if not provided
     if (!client) {
       try {
-        client = typeof window === 'undefined' 
-          ? await getServerClient() 
-          : await getBrowserClient();
+        client = await getClient();
       } catch (error) {
         console.error('Failed to get client from ClientStore:', error);
         return false;

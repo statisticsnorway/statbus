@@ -23,9 +23,10 @@ export interface User {
  */
 export interface AuthStatus {
   isAuthenticated: boolean;
-  user: User | null;
   tokenExpiring: boolean;
+  user: User | null;
 }
+
 
 /**
  * Authentication error class
@@ -227,11 +228,10 @@ class AuthStore {
 
   /**
    * Check if a token needs refresh and refresh it if needed
-   * Returns success status and new tokens if refreshed
+   * Returns success status
    */
   public async refreshTokenIfNeeded(): Promise<{
     success: boolean;
-    newTokens?: { accessToken: string; refreshToken: string };
   }> {
     try {
       // First check auth status to see if token is expiring
@@ -247,93 +247,26 @@ class AuthStore {
         return { success: true };
       }
 
-      // Check if we're on the server or client
-      if (typeof window === "undefined") {
-        try {
-          // Get cookies for server-side refresh
-          const { cookies } = await import("next/headers");
-          const cookieStore = await cookies();
-          const refreshToken = cookieStore.get("statbus-refresh");
-
-          // No refresh token
-          if (!refreshToken) {
-            return { success: false };
-          }
-
-          // Call the refresh endpoint
-          const apiUrl = process.env.SERVER_API_URL;
-          const response = await fetch(`${apiUrl}/postgrest/rpc/refresh`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bearer ${refreshToken.value}`,
-              "Content-Type": "application/json",
-            },
-            credentials: "include",
-          });
-
-          if (response.ok) {
-            // Extract the new tokens from the response
-            const cookies = response.headers.getSetCookie();
-
-            // Extract token values for potential use in the current request
-            const newAccessToken = this.extractTokenFromCookies(
-              cookies,
-              "statbus"
-            );
-            const newRefreshToken = this.extractTokenFromCookies(
-              cookies,
-              "statbus-refresh"
-            );
-
-            // Clear auth cache to ensure fresh status on next check
-            this.clearAllCaches();
-
-            return {
-              success: true,
-              newTokens: {
-                accessToken: newAccessToken,
-                refreshToken: newRefreshToken,
-              },
-            };
-          }
-
-          // Refresh failed
-          return { success: false };
-        } catch (error) {
-          console.error("Error refreshing token on server:", error);
-          return { success: false };
-        }
-      } else {
-        // Client-side refresh
-        const { refreshToken } = await import("@/services/auth");
-        const result = await refreshToken();
-
-        // Clear auth cache to ensure fresh status on next check
-        if (!result.error) {
-          this.clearAllCaches();
-        }
-
-        return { success: !result.error };
+      // Get the appropriate client based on environment
+      const { getClient } = await import("@/context/ClientStore");
+      
+      // Client-side or server-side refresh using the appropriate client
+      const client = await getClient();
+        
+      const { data, error } = await client.rpc("refresh");
+      
+      // Clear auth cache to ensure fresh status on next check
+      if (!error) {
+        this.clearAllCaches();
+        return { success: true };
       }
+      
+      console.error("Token refresh failed:", error);
+      return { success: false };
     } catch (error) {
       console.error("Error in refreshTokenIfNeeded:", error);
       return { success: false };
     }
-  }
-
-  /**
-   * Helper function to extract token from Set-Cookie headers
-   */
-  private extractTokenFromCookies(cookies: string[], name: string): string {
-    for (const cookie of cookies) {
-      if (cookie.startsWith(`${name}=`)) {
-        const match = cookie.match(new RegExp(`${name}=([^;]+)`));
-        if (match && match[1]) {
-          return match[1];
-        }
-      }
-    }
-    return "";
   }
 
   /**
@@ -362,78 +295,37 @@ class AuthStore {
     };
   }
 
-  /**
-   * Internal method to fetch auth status from API
-   * This is the definitive source of truth for authentication status
-   */
   private async fetchAuthStatus(): Promise<AuthStatus> {
     try {
-      // Always use the auth_status endpoint for accurate authentication status
-      // Don't rely on cookie presence as a shortcut
-
-      // Always use the proxy URL for consistency in development
-      const apiUrl =
-        process.env.NODE_ENV === "development" && typeof window !== "undefined"
-          ? "" // Use relative URL to ensure we hit the same origin
-          : typeof window !== "undefined"
-            ? process.env.NEXT_PUBLIC_BROWSER_API_URL
-            : process.env.SERVER_API_URL;
-
-      const apiEndpoint = `${apiUrl}/postgrest/rpc/auth_status`;
-
-      // Make the authenticated request directly
-      const headers = new Headers({
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      });
-
-      // In server components, get the token from cookies
-      if (typeof window === "undefined") {
-        const { cookies } = await import("next/headers");
-        const cookieStore = await cookies();
-        const token = cookieStore.get("statbus");
-
-        if (token) {
-          // Add the token as a cookie header
-          headers.set("Cookie", `statbus=${token.value}`);
-        }
-      }
-
-      const response = await fetch(apiEndpoint, {
-        method: "GET",
-        headers,
-        credentials: "include", // Always include cookies
-      });
-
-      if (!response.ok) {
-        console.error(
-          `Auth status check failed: ${response.status} ${response.statusText}`
-        );
+      // Get the appropriate client based on environment
+      const { getClient } = await import("@/context/ClientStore");
+      const client = await getClient();
+      
+      // Call the auth_status RPC function with type assertion
+      const { data, error } = await client.rpc("auth_status");
+      const authData = data as any as AuthStatus;
+      
+      if (error) {
+        console.error("Auth status check failed:", error);
         return { isAuthenticated: false, user: null, tokenExpiring: false };
       }
-
-      // Safely parse the JSON response - this handles empty or non-JSON responses
-      const { safeParseJSON } = await import("@/utils/debug-helpers");
-      const data = await safeParseJSON(response);
-
-      const result =
-        data === null
-          ? {
-              isAuthenticated: false,
-              user: null,
-              tokenExpiring: false,
-            }
-          : {
-              isAuthenticated: data.isAuthenticated,
-              user: data.user || null,
-              tokenExpiring:
-                data.token_expiring === true || data.tokenExpiring === true,
-            };
+      
+      const result = authData === null
+        ? {
+            isAuthenticated: false,
+            user: null,
+            tokenExpiring: false,
+          }
+        : {
+            isAuthenticated: authData.isAuthenticated,
+            user: authData.user || null,
+            tokenExpiring:
+              authData.tokenExpiring === true,
+          };
 
       if (process.env.NODE_ENV === "development") {
         console.log(`Checked auth status`, {
-          url: apiEndpoint,
-          user: data.user || null,
+          user: authData?.user || null,
           result: result,
         });
       }

@@ -11,10 +11,16 @@ import { getServerClient } from "@/context/ClientStore";
 export default async function ActivityStandardPage() {
   const client = await getServerClient();
 
-  const { data: standards } = await client
+  const { data: standards, error: standardsError } = await client
     .from("activity_category_standard")
     .select()
-    .order("code")
+    .order("code");
+
+  if (standardsError) {
+    console.error("Activity standards fetch error:", { 
+      error: standardsError
+    });
+  }
 
   const { data: settings } = await client.from("settings").select();
 

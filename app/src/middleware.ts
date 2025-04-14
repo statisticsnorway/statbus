@@ -35,10 +35,8 @@ export async function middleware(request: NextRequest) {
   // If token was refreshed, create a new response with the updated cookies
   let response = NextResponse.next();
   
-  if (refreshResult.newTokens) {
-    // Add auth info header to indicate a refresh happened
-    response.headers.set('X-Auth-Refreshed', 'true');
-  }
+  // Add auth info header to indicate a refresh happened
+  response.headers.set('X-Auth-Refreshed', 'true');
   
   // If we have an access token, continue with the request
   if (accessToken) {
@@ -50,9 +48,9 @@ export async function middleware(request: NextRequest) {
       
       if (request.nextUrl.pathname === "/") {
         // Check if settings exist
-        const { data: settings } = await (await client
-          .from("settings")
-          .limit(1))
+        const { data: settings } = await client
+            .from("settings")
+            .limit(1)
           .select("id");
         if (!settings?.length) {
           return NextResponse.redirect(
@@ -69,13 +67,13 @@ export async function middleware(request: NextRequest) {
         }
 
         // Check if units exist
-        const { data: legalUnits } = await (await client
-          .from("legal_unit")
-          .limit(1))
+        const { data: legalUnits } = await client
+            .from("legal_unit")
+            .limit(1)
           .select("id");
-        const { data: establishments } = await (await client
-          .from("establishment")
-          .limit(1))
+        const { data: establishments } = await client
+            .from("establishment")
+            .limit(1)
           .select("id");
         if (!legalUnits?.length && !establishments?.length) {
           return NextResponse.redirect(`${request.nextUrl.origin}/import`);
