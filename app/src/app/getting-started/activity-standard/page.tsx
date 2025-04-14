@@ -13,7 +13,8 @@ export default async function ActivityStandardPage() {
 
   const { data: standards } = await client
     .from("activity_category_standard")
-    .select();
+    .select()
+    .order("code")
 
   const { data: settings } = await client.from("settings").select();
 
