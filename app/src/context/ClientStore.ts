@@ -304,7 +304,7 @@ class ClientStore {
    * If a request returns 401 Unauthorized, it will attempt to refresh the token
    * and retry the original request
    */
-  private async fetchWithAuthRefresh(
+  public async fetchWithAuthRefresh(
     url: string, 
     options: RequestInit = {}
   ): Promise<Response> {
@@ -322,7 +322,7 @@ class ClientStore {
       }
     }
     
-    // Get auth token from cookies for browser requests
+    // Get auth token from cookies
     let headers: Record<string, string> = {
       'Content-Type': typeof options.headers === 'object' && options.headers 
         ? (options.headers as Record<string, string>)['Content-Type'] || 'application/json'
@@ -331,6 +331,25 @@ class ClientStore {
         ? (options.headers as Record<string, string>)['Accept'] || 'application/json'
         : 'application/json',
     };
+    
+    // Add auth token from cookies
+    try {
+      if (typeof window === 'undefined') {
+        // Server-side: Get token from next/headers
+        const { cookies } = require('next/headers');
+        const cookieStore = cookies();
+        const token = cookieStore.get("statbus");
+        
+        if (token) {
+          headers['Authorization'] = `Bearer ${token.value}`;
+        }
+      } else {
+        // Browser-side: Cookies will be sent automatically with credentials: 'include'
+        // No need to manually set Authorization header
+      }
+    } catch (error) {
+      console.error('Error getting auth token from cookies:', error);
+    }
     
     // Merge with existing headers
     if (options.headers) {
@@ -402,6 +421,14 @@ export async function getServerClient(): Promise<PostgrestClient<Database>> {
 
 export async function getBrowserClient(): Promise<PostgrestClient<Database>> {
   return clientStore.getClient('browser');
+}
+
+// Export the fetch function with auth refresh handling
+export async function fetchWithAuth(
+  url: string,
+  options: RequestInit = {}
+): Promise<Response> {
+  return clientStore.fetchWithAuthRefresh(url, options);
 }
 
 /**

@@ -1,5 +1,5 @@
 "use server";
-import { getServerClient } from "@/context/ClientStore";
+import { getServerClient, fetchWithAuth } from "@/context/ClientStore";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
@@ -31,8 +31,11 @@ export async function uploadFile(
     const file = formData.get(filename) as File;
     const client = await getServerClient();
 
+    // Get the base URL from the client
     const postgrestUrl = client.url;
-    const response = await fetch(
+    
+    // We need to use the full URL here because uploadView is a view name, not a relative path
+    const response = await fetchWithAuth(
       `${postgrestUrl}/${uploadView}`,
       {
         method: "POST",
