@@ -57,9 +57,8 @@ class TimeContextStore {
         const token = cookieStore.get('statbus');
         authenticated = !!token;
       } else {
-        // Client-side - use auth-utils
-        const { isAuthenticated } = await import('@/utils/auth/auth-utils');
-        authenticated = await isAuthenticated();
+        // Client-side - use AuthStore directly
+        authenticated = await authStore.isAuthenticated();
       }
       
       if (!authenticated) {
@@ -76,10 +75,6 @@ class TimeContextStore {
     
     // If data is already loaded and cache is still valid, return it immediately
     if (this.status === 'success' && now - this.lastFetchTime < this.CACHE_TTL) {
-      console.log('Using cached time context data', {
-        cacheAge: Math.round((now - this.lastFetchTime) / 1000) + 's',
-        contextCount: this.data.timeContexts.length
-      });
       return this.data;
     }
     

@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { getBrowserClient } from "@/context/ClientStore";
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { Database } from '@/lib/database.types';
-import { isAuthenticated } from '@/utils/auth/auth-utils';
+import { authStore } from '@/context/AuthStore';
 
 // Define StatbusClient type locally
 type StatbusClient = PostgrestClient<Database>;
@@ -136,7 +136,7 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
       const loadData = async () => {
         try {
           // Check authentication status first
-          const authenticated = await isAuthenticated();
+          const authenticated = await authStore.isAuthenticated();
           console.log('GettingStartedContext: Authentication status:', authenticated);
           
           if (!authenticated || !isMounted) {

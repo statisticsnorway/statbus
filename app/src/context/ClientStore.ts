@@ -1,6 +1,9 @@
 /**
  * ClientStore - A singleton store for managing PostgREST client instances
  * 
+ * This store manages PostgrestClient instances that connect to a PostgREST API server.
+ * PostgREST is a standalone web server that turns your PostgreSQL database directly into a RESTful API.
+ * 
  * This store ensures that client instances are:
  * 1. Created only once per context (server/browser)
  * 2. Properly cached
@@ -64,11 +67,6 @@ class ClientStore {
     // If client is already initialized and not expired, return it immediately
     if (clientInfo.status === 'ready' && clientInfo.client && 
         (now - clientInfo.lastInitTime < this.CLIENT_TTL)) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Using cached ${type} client`, {
-          cacheAge: Math.round((now - clientInfo.lastInitTime) / 1000) + 's'
-        });
-      }
       return clientInfo.client;
     }
     
@@ -81,10 +79,6 @@ class ClientStore {
     }
     
     // Start a new initialization
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`Starting new ${type} client initialization`);
-    }
-    
     this.clients[type].status = 'initializing';
     this.clients[type].initPromise = this.initializeClient(type);
     
@@ -96,7 +90,7 @@ class ClientStore {
       this.clients[type].error = null;
       
       if (process.env.NODE_ENV === 'development') {
-        console.log(`${type} client initialization completed successfully`);
+        console.log(`PostgREST client initialized`,{url: client.url, type: type});
       }
       
       return client;
@@ -220,9 +214,7 @@ class ClientStore {
         });
         
         // Create a new PostgrestClient
-        const createClient = async () => {
-          console.log('Server API URL:', apiUrl);
-          
+        const createClient = async () => {          
           return new PostgrestClient<Database>(apiUrl, {
             headers: {
               'Content-Type': 'application/json',
@@ -245,7 +237,7 @@ class ClientStore {
         
         const apiUrl = apiBaseUrl + '/postgrest';
         
-        console.log('Browser client initialization with URL:', apiUrl);
+        // Browser client initialization is logged at the end with timing information
         
         // Add a timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) => {
@@ -254,17 +246,11 @@ class ClientStore {
         
         // Create a new PostgrestClient with fetch wrapper for auth
         const createClient = async () => {
-          // Ensure apiUrl is valid
           if (!apiUrl) {
             throw new Error('API URL is undefined or empty');
           }
           
-          // For browser clients, we're using a fixed relative URL '/postgrest'
-          console.log('Using browser API URL:', apiUrl);
-          
-          console.log('Creating PostgrestClient with URL:', apiUrl);
-          
-          // For browser clients, we need to ensure the URL is properly set
+          // For browser clients, we need to ensure the PostgREST API URL is properly set
           // The PostgrestClient constructor doesn't handle relative URLs correctly
           const client = new PostgrestClient<Database>(apiUrl, {
             headers: {
@@ -277,11 +263,7 @@ class ClientStore {
           if (type === 'browser') {
             // @ts-ignore - We need to modify the private url property
             client.url = apiUrl;
-          }
-          
-          // Verify the client URL is set correctly
-          console.log('Created client with URL:', client.url);
-          
+          }          
           return client;
         };
         
@@ -307,15 +289,17 @@ class ClientStore {
     options: RequestInit = {}
   ): Promise<Response> {
     // Log request in development mode
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' && !url.includes('/auth/token')) {
       console.debug(`Fetch request to: ${url}`);
     }
     
-    // Handle relative URLs for the PostgreSQL client
-    // If the URL doesn't start with http or /, prepend /postgrest/
+    // Handle URLs for the PostgREST client
+    // Ensure we have a properly formatted URL
     if (!url.startsWith('http') && !url.startsWith('/')) {
       url = `/postgrest/${url}`;
-      console.debug(`Modified URL to: ${url}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`Modified relative URL to: ${url}`);
+      }
     }
     
     // First attempt with current token
@@ -336,11 +320,12 @@ class ClientStore {
     // If we get a 401 Unauthorized, try to refresh the token
     if (response.status === 401) {
       try {
-        // Import the refresh token function dynamically to avoid circular dependencies
-        const { refreshToken } = await import('@/services/auth');
+        // Import the AuthStore dynamically to avoid circular dependencies
+        const { authStore } = await import('@/context/AuthStore');
         
         // Try to refresh the token
-        const refreshResponse = await refreshToken();
+        const refreshResult = await authStore.refreshTokenIfNeeded();
+        const refreshResponse = { error: !refreshResult.success };
         
         if (!refreshResponse.error) {
           // Retry the original request with the new token
@@ -383,7 +368,7 @@ class ClientStore {
 // Export a singleton instance
 export const clientStore = ClientStore.getInstance();
 
-// Export convenience methods
+// Export convenience methods for accessing PostgREST clients
 export async function getServerClient(): Promise<PostgrestClient<Database>> {
   return clientStore.getClient('server');
 }

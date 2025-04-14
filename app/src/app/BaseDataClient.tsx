@@ -5,20 +5,24 @@ import { getBrowserClient } from "@/context/ClientStore";
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { Database } from '@/lib/database.types';
 import { BaseData } from '@/context/BaseDataStore';
-
-// Define StatbusClient type locally
-type StatbusClient = PostgrestClient<Database>;
+import { authStore, User } from '@/context/AuthStore';
 
 // Create a context for the base data
 const BaseDataClientContext = createContext<BaseData & { 
+  isAuthenticated: boolean;
+  user: User | null;
   refreshHasStatisticalUnits: () => Promise<boolean>;
   refreshAllBaseData: () => Promise<void>;
   getDebugInfo: () => Record<string, any>;
+  ensureAuthenticated: () => boolean;
 }>({
+  isAuthenticated: false,
+  user: null,
   ...({} as BaseData),
   refreshHasStatisticalUnits: async () => false,
   refreshAllBaseData: async () => {},
   getDebugInfo: () => ({}),
+  ensureAuthenticated: () => false,
 });
 
 // Hook to use the base data context
@@ -31,9 +35,15 @@ export const useBaseData = () => {
 };
 
 // Client component to provide base data context
-export const ClientBaseDataProvider = ({ children, initalBaseData }: { children: ReactNode, initalBaseData: BaseData }) => {
+export const ClientBaseDataProvider = ({ 
+  children, 
+  initalBaseData 
+}: { 
+  children: ReactNode, 
+  initalBaseData: BaseData & { isAuthenticated: boolean; user: User | null } 
+}) => {
   const [baseData, setBaseData] = useState(initalBaseData);
-  const [client, setClient] = useState<StatbusClient | null>(null);
+  const [client, setClient] = useState<PostgrestClient<Database> | null>(null);
 
   useEffect(() => {
     const initializeClient = async () => {
@@ -51,7 +61,6 @@ export const ClientBaseDataProvider = ({ children, initalBaseData }: { children:
 
   const refreshHasStatisticalUnits = useCallback(async () => {
     if (!client) return false;
-    
     try {
       // Import the baseDataStore
       const { baseDataStore } = await import('@/context/BaseDataStore');
@@ -114,12 +123,26 @@ export const ClientBaseDataProvider = ({ children, initalBaseData }: { children:
     }
   }, []);
 
+  // Function to check if authenticated and warn if not
+  const ensureAuthenticated = useCallback(() => {
+    if (!baseData.isAuthenticated) {
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('Attempting to use base data while not authenticated');
+      }
+      return false;
+    }
+    return true;
+  }, [baseData.isAuthenticated]);
+
   return (
     <BaseDataClientContext.Provider value={{ 
       ...baseData, 
+      isAuthenticated: baseData.isAuthenticated,
+      user: baseData.user,
       refreshHasStatisticalUnits,
       refreshAllBaseData,
-      getDebugInfo
+      getDebugInfo,
+      ensureAuthenticated
     }}>
       {children}
     </BaseDataClientContext.Provider>

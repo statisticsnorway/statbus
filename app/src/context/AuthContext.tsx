@@ -1,15 +1,9 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { login as apiLogin, logout as apiLogout, refreshToken, getAuthStatus } from '@/services/auth';
+import { login as apiLogin, logout as apiLogout, refreshToken } from '@/services/auth';
 import { useRouter } from 'next/navigation';
-
-interface User {
-  id: string;
-  email: string;
-  role: string;
-  statbus_role: string;
-}
+import { User, authStore } from '@/context/AuthStore';
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -32,10 +26,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       setIsLoading(true);
       
-      // Get auth status from AuthStore
+      // Get complete auth status from the AuthStore
       try {
-        const { authStore } = await import('@/context/AuthStore');
-        const authStatus = await authStore.refreshAuthStatus();
+        const authStatus = await authStore.getAuthStatus();
         
         if (process.env.NODE_ENV === 'development') {
           console.debug('Auth status result:', authStatus);
@@ -47,8 +40,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // If token is expiring soon, refresh it proactively
         if (authStatus.tokenExpiring) {
           await refreshToken();
-          // Update the auth store after token refresh
-          await authStore.refreshAuthStatus();
+          // Get updated auth status after token refresh
+          const updatedStatus = await authStore.getAuthStatus();
+          setIsAuthenticated(updatedStatus.isAuthenticated);
+          setUser(updatedStatus.user);
         }
       } catch (error) {
         console.error('Error getting auth status:', error);

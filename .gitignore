@@ -60,6 +60,8 @@ app/.vscode/*
 !app/.vscode/tasks.json
 !app/.vscode/launch.json
 
+# Add this here for Aider
+app/.next
 
 ### Csharp ###
 ## Ignore Visual Studio temporary files, build results, and

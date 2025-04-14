@@ -6,7 +6,7 @@ import { logResponseDebug, safeParseJSON } from '@/utils/debug-helpers';
 /**
  * Get the current authentication status from the server
  */
-import { clearAuthStatusCache } from '@/utils/auth/auth-utils';
+import { authStore } from '@/context/AuthStore';
 
 export async function getAuthStatus() {
   console.log('Explicit auth_status check called');
@@ -89,7 +89,12 @@ export async function logout() {
   logResponseDebug(response, 'Logout');
   
   // Clear the auth cache when logging out
-  clearAuthStatusCache();
+  try {
+    const { authStore } = await import('@/context/AuthStore');
+    authStore.clearAllCaches();
+  } catch (error) {
+    console.error('Failed to clear auth caches:', error);
+  }
   
   // Update the auth store with the new status
   try {

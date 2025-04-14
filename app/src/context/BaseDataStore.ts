@@ -54,37 +54,6 @@ class BaseDataStore {
    */
   public async getBaseData(client?: PostgrestClient<Database>): Promise<BaseData> {
     const now = Date.now();
-    
-    // Check authentication directly from cookies if on server
-    let authenticated = false;
-    try {
-      if (typeof window === 'undefined') {
-        // Server-side - check cookies directly
-        const { cookies } = await import('next/headers');
-        const cookieStore = await cookies();
-        const token = cookieStore.get('statbus');
-        authenticated = !!token;
-      } else {
-        // Client-side - use auth-utils
-        const { isAuthenticated } = await import('@/utils/auth/auth-utils');
-        authenticated = await isAuthenticated();
-      }
-      
-      if (!authenticated) {
-        console.log('Not authenticated, returning empty base data');
-        return {
-          statDefinitions: [],
-          externalIdentTypes: [],
-          statbusUsers: [],
-          timeContexts: [],
-          defaultTimeContext: null,
-          hasStatisticalUnits: false,
-        };
-      }
-    } catch (error) {
-      console.error('Authentication check failed in BaseDataStore:', error);
-      // Continue with the request, but log the error
-    }
 
     // Get client from ClientStore if not provided
     if (!client) {
@@ -100,13 +69,6 @@ class BaseDataStore {
     
     // If data is already loaded and cache is still valid, return it immediately
     if (this.status === 'success' && now - this.lastFetchTime < this.CACHE_TTL) {
-      console.log('Using cached base data', {
-        cacheAge: Math.round((now - this.lastFetchTime) / 1000) + 's',
-        hasStatisticalUnits: this.data.hasStatisticalUnits,
-        statDefinitionsCount: this.data.statDefinitions.length,
-        externalIdentTypesCount: this.data.externalIdentTypes.length,
-        statbusUsersCount: this.data.statbusUsers.length
-      });
       return this.data;
     }
     
