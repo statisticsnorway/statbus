@@ -367,7 +367,6 @@ class BaseDataStore {
           timeContexts: maybeTimeContexts as Tables<"time_context">[],
           defaultTimeContext: maybeTimeContexts[0] as Tables<"time_context">
         };
-        console.log(`Successfully fetched ${maybeTimeContexts.length} time contexts`);
       }
       
       // Log the results
