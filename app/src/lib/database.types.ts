@@ -6979,13 +6979,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -6995,7 +6988,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -7008,13 +7001,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
@@ -7063,13 +7063,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country"
@@ -7079,7 +7072,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used_def"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -7092,13 +7085,20 @@ export type Database = {
           {
             foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
+            isOneToOne: false
+            referencedRelation: "country_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
+            columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
@@ -7214,13 +7214,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -7230,7 +7223,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -7243,13 +7236,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
@@ -7340,13 +7340,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_region_id_fkey"
             columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region"
@@ -7355,13 +7348,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
@@ -7566,6 +7566,14 @@ export type Database = {
       array_distinct_concat_final: {
         Args: { "": unknown }
         Returns: unknown
+      }
+      auth_status: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      auth_test: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
       bytea_to_text: {
         Args: { data: string }
@@ -8087,7 +8095,7 @@ export type Database = {
         Returns: number
       }
       id_encode: {
-        Args: { "": number } | { "": number[] }
+        Args: { "": number[] } | { "": number }
         Returns: string
       }
       index_advisor: {
@@ -8148,11 +8156,11 @@ export type Database = {
       }
       login: {
         Args: { email: string; password: string }
-        Returns: Json
+        Returns: unknown
       }
       logout: {
         Args: Record<PropertyKey, never>
-        Returns: Json
+        Returns: unknown
       }
       lquery_in: {
         Args: { "": unknown }
@@ -8303,7 +8311,7 @@ export type Database = {
       plpgsql_check_function: {
         Args:
           | {
-              name: string
+              funcoid: unknown
               relid?: unknown
               format?: string
               fatal_errors?: boolean
@@ -8326,7 +8334,7 @@ export type Database = {
               constant_tracing?: boolean
             }
           | {
-              funcoid: unknown
+              name: string
               relid?: unknown
               format?: string
               fatal_errors?: boolean
@@ -8427,11 +8435,11 @@ export type Database = {
         Returns: number
       }
       plpgsql_coverage_statements: {
-        Args: { name: string } | { funcoid: unknown }
+        Args: { funcoid: unknown } | { name: string }
         Returns: number
       }
       plpgsql_profiler_function_statements_tb: {
-        Args: { name: string } | { funcoid: unknown }
+        Args: { funcoid: unknown } | { name: string }
         Returns: {
           stmtid: number
           parent_stmtid: number
@@ -8496,7 +8504,7 @@ export type Database = {
       plpgsql_show_dependency_tb: {
         Args:
           | {
-              funcoid: unknown
+              fnname: string
               relid?: unknown
               anyelememttype?: unknown
               anyenumtype?: unknown
@@ -8505,7 +8513,7 @@ export type Database = {
               anycompatiblerangetype?: unknown
             }
           | {
-              fnname: string
+              funcoid: unknown
               relid?: unknown
               anyelememttype?: unknown
               anyenumtype?: unknown
@@ -8527,7 +8535,7 @@ export type Database = {
       }
       refresh: {
         Args: Record<PropertyKey, never>
-        Returns: Json
+        Returns: unknown
       }
       region_hierarchy: {
         Args: { region_id: number }
@@ -8870,7 +8878,7 @@ export type Database = {
         Returns: string
       }
       urlencode: {
-        Args: { string: string } | { data: Json } | { string: string }
+        Args: { data: Json } | { string: string } | { string: string }
         Returns: string
       }
       user_create: {
