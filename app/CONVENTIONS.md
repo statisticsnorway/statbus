@@ -19,7 +19,8 @@ Deployed on custom servers behind Caddy with HTTPS.
  • Use TypeScript; define types in .d.ts or locally.
  • Use functional components with hooks.
  • Use a Fail Fast Approach for functionality that is supposed to work.
- • Try to have a single source of truth in the codebase.
+ • Have a single source of truth in the codebase - avoid duplicate stores for the same data.
+ • When refactoring, complete the full migration without compatibility layers.
 ## Routing System
 This project uses **App Routing** with the `app/` directory structure. Do not use the Pages Router.
 
