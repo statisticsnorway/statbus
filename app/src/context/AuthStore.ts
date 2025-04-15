@@ -70,26 +70,17 @@ class AuthStore {
    * Get authentication status, always fetching fresh data from API
    */
   public async getAuthStatus(): Promise<AuthStatus> {
-    console.log("AuthStore.getAuthStatus: Starting auth status check");
     // Always fetch fresh data - no caching
     this.fetchStatus = "loading";
     
     try {
       // Directly fetch auth status without caching
-      console.log("AuthStore.getAuthStatus: Fetching fresh auth status");
       const result = await this.fetchAuthStatus();
       
       // Update the status for other methods that might use it
       this.status = result;
       this.fetchStatus = "success";
       this.lastFetchTime = Date.now();
-
-      console.log("AuthStore.getAuthStatus: Auth status result:", {
-        isAuthenticated: result.isAuthenticated,
-        hasUser: !!result.user,
-        tokenExpiring: result.tokenExpiring,
-        userEmail: result.user?.email || 'none'
-      });
 
       return result;
     } catch (error) {
@@ -267,25 +258,20 @@ class AuthStore {
   }
 
   private async fetchAuthStatus(): Promise<AuthStatus> {
-    console.log("AuthStore.fetchAuthStatus: Starting fetch");
     try {
       // Get the appropriate client based on environment
       const { getRestClient } = await import("@/context/RestClientStore");
-      console.log("AuthStore.fetchAuthStatus: Getting REST client");
       const client = await getRestClient();
-      console.log("AuthStore.fetchAuthStatus: Got REST client");
       
       // Call the auth_status RPC function with type assertion
-      console.log("AuthStore.fetchAuthStatus: Calling auth_status RPC");
       const { data, error } = await client.rpc("auth_status");
       
       if (error) {
-        console.error("AuthStore.fetchAuthStatus: Auth status check failed:", error);
+        console.error("Auth status check failed:", error);
         return { isAuthenticated: false, user: null, tokenExpiring: false };
       }
       
       // Map the response to our AuthStatus format
-      console.log("AuthStore.fetchAuthStatus: Raw auth data:", data);
       const authData = data as any;
       
       const result = authData === null
@@ -307,13 +293,6 @@ class AuthStore {
               created_at: authData.created_at
             } : null
           };
-
-      console.log("AuthStore.fetchAuthStatus: Processed auth result:", {
-        isAuthenticated: result.isAuthenticated,
-        tokenExpiring: result.tokenExpiring,
-        hasUser: !!result.user,
-        userEmail: result.user?.email || 'none'
-      });
 
       return result;
     } catch (error) {
