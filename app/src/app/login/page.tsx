@@ -20,22 +20,19 @@ export default async function LoginPage() {
     // If already authenticated, redirect to home
     if (authStatus.isAuthenticated) {
       console.log("LoginPage: User is authenticated, redirecting to home...");
-      // Force a hard redirect instead of using Next.js redirect
-      // This ensures the redirect happens even if there are issues with Next.js redirect
-      if (typeof window !== 'undefined') {
-        window.location.href = '/';
-        return null; // Return null to prevent rendering while redirect happens
-      } else {
-        redirect('/');
-      }
+      redirect('/'); 
+      // Note: redirect() throws a special error NEXT_REDIRECT, 
+      // which is handled by Next.js and won't be caught below.
     } else {
       console.log("LoginPage: User is not authenticated, showing login form");
     }
   } catch (error) {
+    // This catch block will only handle errors from authStore.getAuthStatus()
     console.error("Error checking authentication status:", error);
-    // Continue to login page if there's an error checking auth status
+    // If checking auth status fails, proceed to show the login form.
   }
 
+  // If not redirected (i.e., not authenticated or error during check), render the login page
   return (
     <main className="px-6 py-24 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">

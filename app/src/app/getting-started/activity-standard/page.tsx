@@ -17,7 +17,7 @@ export default async function ActivityStandardPage() {
     .order("code");
 
   if (standardsError) {
-    console.error("Activity standards fetch error:", { 
+    console.error("Activity category standards fetch error:", { 
       error: standardsError
     });
   }

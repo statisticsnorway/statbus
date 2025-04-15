@@ -27,14 +27,8 @@ interface ClientInfo {
 
 class RestClientStore {
   private static instance: RestClientStore;
-  private clients: Record<ClientType, ClientInfo> = {
-    server: {
-      client: null,
-      status: 'idle',
-      error: null,
-      initPromise: null,
-      lastInitTime: 0
-    },
+  // Only browser client state is stored now
+  private clients: { browser: ClientInfo } = {
     browser: {
       client: null,
       status: 'idle',
@@ -43,7 +37,8 @@ class RestClientStore {
       lastInitTime: 0
     }
   };
-  private readonly CLIENT_TTL = 10 * 60 * 1000; // 10 minutes
+  // TTL only relevant for browser client now
+  private readonly BROWSER_CLIENT_TTL = 10 * 60 * 1000; // 10 minutes
 
   private constructor() {
     // Private constructor to enforce singleton pattern
@@ -61,105 +56,85 @@ class RestClientStore {
    * This method deduplicates requests - multiple calls will share the same Promise
    */
   public async getRestClient(type: ClientType): Promise<PostgrestClient<Database>> {
-    const now = Date.now();
-    const clientInfo = this.clients[type];
-    
-    // If client is already initialized and not expired, return it immediately
-    if (clientInfo.status === 'ready' && clientInfo.client && 
-        (now - clientInfo.lastInitTime < this.CLIENT_TTL)) {
-      return clientInfo.client;
-    }
-    
-    // If initialization is already in progress, return the existing promise
-    if (clientInfo.status === 'initializing' && clientInfo.initPromise) {
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`Reusing in-progress ${type} client initialization`);
+    if (type === 'server') {
+      // Server client: Always create a new instance, no caching.
+      // Initialization reads current request headers via next/headers.
+      // We don't store the promise or client globally for 'server'
+      try {
+        const client = await this.initializeClient('server');
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Server PostgREST client initialized for request`, { url: client.url });
+        }
+        return client;
+      } catch (error) {
+        console.error(`Failed to initialize server client for request:`, error);
+        throw error;
       }
-      return clientInfo.initPromise;
-    }
-    
-    // Start a new initialization
-    this.clients[type].status = 'initializing';
-    this.clients[type].initPromise = this.initializeClient(type);
-    
-    try {
-      const client = await this.clients[type].initPromise;
-      this.clients[type].client = client;
-      this.clients[type].status = 'ready';
-      this.clients[type].lastInitTime = Date.now();
-      this.clients[type].error = null;
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log(`PostgREST client initialized`,{url: client.url, type: type});
+    } else {
+      // Browser client: Use caching and promise deduplication
+      const now = Date.now();
+      const clientInfo = this.clients.browser;
+
+      // If client is already initialized and not expired, return it immediately
+      if (clientInfo.status === 'ready' && clientInfo.client &&
+          (now - clientInfo.lastInitTime < this.BROWSER_CLIENT_TTL)) {
+        return clientInfo.client;
       }
-      
-      return client;
-    } catch (error) {
-      this.clients[type].status = 'error';
-      this.clients[type].error = error instanceof Error ? error : new Error(String(error));
-      
-      console.error(`Failed to initialize ${type} client:`, error);
-      
-      throw error;
-    } finally {
-      this.clients[type].initPromise = null;
+
+      // If initialization is already in progress, return the existing promise
+      if (clientInfo.status === 'initializing' && clientInfo.initPromise) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Reusing in-progress browser client initialization`);
+        }
+        return clientInfo.initPromise;
+      }
+
+      // Start a new initialization for the browser client
+      clientInfo.status = 'initializing';
+      clientInfo.initPromise = this.initializeClient('browser');
+
+      try {
+        const client = await clientInfo.initPromise;
+        clientInfo.client = client;
+        clientInfo.status = 'ready';
+        clientInfo.lastInitTime = Date.now();
+        clientInfo.error = null;
+
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Browser PostgREST client initialized`, { url: client.url });
+        }
+
+        return client;
+      } catch (error) {
+        clientInfo.status = 'error';
+        clientInfo.error = error instanceof Error ? error : new Error(String(error));
+        console.error(`Failed to initialize browser client:`, error);
+        throw error;
+      } finally {
+        clientInfo.initPromise = null;
+      }
     }
   }
 
   /**
-   * Force refresh the client
-   */
-  public async refreshClient(type: ClientType): Promise<PostgrestClient<Database>> {
-    this.clients[type].status = 'initializing';
-    this.clients[type].initPromise = this.initializeClient(type);
-    
-    try {
-      const client = await this.clients[type].initPromise;
-      this.clients[type].client = client;
-      this.clients[type].status = 'ready';
-      this.clients[type].lastInitTime = Date.now();
-      this.clients[type].error = null;
-      return client;
-    } catch (error) {
-      this.clients[type].status = 'error';
-      this.clients[type].error = error instanceof Error ? error : new Error(String(error));
-      throw error;
-    } finally {
-      this.clients[type].initPromise = null;
-    }
-  }
-
-  /**
-   * Clear the cached client
+   * Clear the cached browser client
    */
   public clearCache(type?: ClientType): void {
-    if (type) {
-      this.clients[type] = {
+    // Only browser client uses caching now
+    if (type === 'browser' || !type) {
+       this.clients.browser = {
         client: null,
         status: 'idle',
         error: null,
         initPromise: null,
         lastInitTime: 0
       };
-      
       if (process.env.NODE_ENV === 'development') {
-        console.log(`${type} client cache cleared`);
+        console.log(`Browser client cache cleared`);
       }
-    } else {
-      // Clear all clients
-      Object.keys(this.clients).forEach(clientType => {
-        this.clients[clientType as ClientType] = {
-          client: null,
-          status: 'idle',
-          error: null,
-          initPromise: null,
-          lastInitTime: 0
-        };
-      });
-      
-      if (process.env.NODE_ENV === 'development') {
-        console.log('All client caches cleared');
-      }
+    }
+    if (type === 'server' && process.env.NODE_ENV === 'development') {
+       console.log(`Server client cache does not exist, clearCache ignored`);
     }
   }
 
@@ -167,30 +142,31 @@ class RestClientStore {
    * Get debug information about the store state
    */
   public getDebugInfo(): Record<string, any> {
+    // Server client state is no longer stored globally in the store
+    const serverDebugInfo = {
+      status: 'N/A (created per request)',
+      lastInitTime: 'N/A',
+      cacheAge: 'N/A',
+      hasClient: 'N/A',
+      hasInitPromise: 'N/A',
+      hasError: 'N/A',
+      errorMessage: 'N/A'
+    };
+
     return {
-      server: {
-        status: this.clients.server.status,
-        lastInitTime: this.clients.server.lastInitTime,
-        cacheAge: this.clients.server.lastInitTime ? 
-          Math.round((Date.now() - this.clients.server.lastInitTime) / 1000) + 's' : 
-          'never',
-        hasClient: !!this.clients.server.client,
-        hasInitPromise: !!this.clients.server.initPromise,
-        hasError: !!this.clients.server.error,
-        errorMessage: this.clients.server.error?.message
-      },
+      server: serverDebugInfo,
       browser: {
         status: this.clients.browser.status,
         lastInitTime: this.clients.browser.lastInitTime,
-        cacheAge: this.clients.browser.lastInitTime ? 
-          Math.round((Date.now() - this.clients.browser.lastInitTime) / 1000) + 's' : 
+        cacheAge: this.clients.browser.lastInitTime ?
+          Math.round((Date.now() - this.clients.browser.lastInitTime) / 1000) + 's' :
           'never',
         hasClient: !!this.clients.browser.client,
         hasInitPromise: !!this.clients.browser.initPromise,
         hasError: !!this.clients.browser.error,
         errorMessage: this.clients.browser.error?.message
       },
-      cacheTTL: this.CLIENT_TTL / 1000 + 's',
+      browserCacheTTL: this.BROWSER_CLIENT_TTL / 1000 + 's',
       environment: typeof window !== 'undefined' ? 'browser' : 'server'
     };
   }
