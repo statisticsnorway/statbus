@@ -8,8 +8,10 @@ export async function getStatisticalUnits(client: PostgrestClient<Database> | nu
   if (!client) {
     client = await getServerRestClient();
   }
-  // Use the PostgrestClient directly
-  const url = new URL(`statistical_unit?${searchParams}`, client.url);
+  // Use the PostgrestClient directly, that searchParams that is properly formatted for PostgREST can be used directly.
+  // Ensure the base URL ends with a slash for proper URL construction
+  const baseUrl = client.url.endsWith('/') ? client.url : `${client.url}/`;
+  const url = new URL(`statistical_unit?${searchParams}`, baseUrl);
   
   // Use the fetch method with proper headers
   const response = await fetch(url, {
