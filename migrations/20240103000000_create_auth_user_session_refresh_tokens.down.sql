@@ -42,15 +42,7 @@ REVOKE EXECUTE ON FUNCTION auth.clear_auth_cookies FROM authenticated;
 -- Revoke pg_monitor from admin role
 REVOKE pg_monitor FROM admin_user;
 
--- Drop types
-DROP TYPE IF EXISTS auth.auth_test_response;
-DROP TYPE IF EXISTS auth.token_info;
-DROP TYPE IF EXISTS auth.auth_status_response;
-DROP TYPE IF EXISTS auth.session_info;
-DROP TYPE IF EXISTS auth.logout_response;
-DROP TYPE IF EXISTS auth.auth_response;
-
--- Drop public functions
+-- Drop public functions first
 DROP FUNCTION IF EXISTS public.auth_test();
 DROP FUNCTION IF EXISTS public.auth_status();
 DROP FUNCTION IF EXISTS public.revoke_session(uuid);
@@ -61,13 +53,13 @@ DROP FUNCTION IF EXISTS public.logout();
 DROP FUNCTION IF EXISTS public.refresh();
 DROP FUNCTION IF EXISTS public.login(text, text);
 
--- Drop auth functions
+-- Drop auth functions first
 DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
 DROP FUNCTION IF EXISTS auth.extract_access_token_from_cookies();
 DROP FUNCTION IF EXISTS auth.reset_session_context();
 DROP FUNCTION IF EXISTS auth.generate_jwt(jsonb);
 DROP FUNCTION IF EXISTS auth.extract_refresh_token_from_cookies();
-DROP FUNCTION IF EXISTS auth.build_auth_response(text, text, integer, text, public.statbus_role);
+DROP FUNCTION IF EXISTS auth.build_auth_response(text, text, integer, uuid, text, public.statbus_role);
 DROP FUNCTION IF EXISTS auth.set_user_context_from_email(text);
 DROP FUNCTION IF EXISTS auth.use_jwt_claims_in_session(jsonb);
 DROP FUNCTION IF EXISTS auth.build_jwt_claims(text, uuid, public.statbus_role, timestamptz, text, jsonb);
@@ -78,6 +70,14 @@ DROP FUNCTION IF EXISTS auth.role();
 DROP FUNCTION IF EXISTS auth.sub();
 DROP FUNCTION IF EXISTS auth.uid();
 DROP FUNCTION IF EXISTS auth.cleanup_expired_sessions();
+
+-- Now drop types
+DROP TYPE IF EXISTS auth.auth_test_response;
+DROP TYPE IF EXISTS auth.token_info;
+DROP TYPE IF EXISTS auth.auth_status_response;
+DROP TYPE IF EXISTS auth.session_info;
+DROP TYPE IF EXISTS auth.logout_response;
+DROP TYPE IF EXISTS auth.auth_response;
 
 -- Find and drop all user-specific roles created by the system
 DO $$
