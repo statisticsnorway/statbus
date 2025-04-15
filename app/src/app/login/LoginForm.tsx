@@ -28,9 +28,10 @@ export default function LoginForm() {
       }
       
       // If login successful, use window.location for a hard redirect
+      // This ensures a full page refresh which will update auth state everywhere
       window.location.href = "/";
     } catch (error) {
-      console.error("Login error:", error);
+      console.error("LoginForm: Login error:", error);
       setError(error instanceof Error ? error.message : "Login failed. Please check your credentials.");
     } finally {
       setIsLoading(false);

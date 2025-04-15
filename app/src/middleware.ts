@@ -4,7 +4,7 @@ import { authStore } from '@/context/AuthStore';
 import { getServerRestClient } from '@/context/RestClientStore';
 
 export async function middleware(request: NextRequest) {
-  // Skip auth check for login page and public assets
+  // Skip auth check for login page, public assets and API endpoints
   if (
     request.nextUrl.pathname === "/login" ||
     request.nextUrl.pathname.startsWith("/_next/") ||
@@ -13,18 +13,13 @@ export async function middleware(request: NextRequest) {
   ) {
     return NextResponse.next();
   }
-
+  
   // Get authentication status directly from AuthStore
   const authStatus = await authStore.getAuthStatus();
   
   // Single source of truth for authentication redirects
   if (!authStatus.isAuthenticated) {
     return NextResponse.redirect(`${request.nextUrl.origin}/login`);
-  }
-  
-  // If we're on the login page and already authenticated, redirect to home
-  if (request.nextUrl.pathname === "/login") {
-    return NextResponse.redirect(`${request.nextUrl.origin}/`);
   }
   
   // User is authenticated, continue with app setup checks

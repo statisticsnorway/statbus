@@ -67,89 +67,56 @@ class AuthStore {
   }
 
   /**
-   * Get authentication status, fetching from API if needed
-   * This method deduplicates requests - multiple calls will share the same Promise
+   * Get authentication status, always fetching fresh data from API
    */
   public async getAuthStatus(): Promise<AuthStatus> {
-    const now = Date.now();
-
-    // If status is already loaded and cache is still valid, return it immediately
-    if (
-      this.fetchStatus === "success" &&
-      now - this.lastFetchTime < this.CACHE_TTL
-    ) {
-      if (process.env.NODE_ENV === "development") {
-        // The cache is purged when logging in/out via clearAllCaches() or when manually cleared
-        // It doesn't automatically detect cookie changes, but has a short TTL (30s)
-        console.log("Using cached auth status", {
-          cacheAge: Math.round((now - this.lastFetchTime) / 1000) + "s",
-          user: this.status.user,
-        });
-      }
-      return this.status;
-    }
-
-    // If a fetch is already in progress, return the existing promise
-    if (this.fetchStatus === "loading" && this.fetchPromise) {
-      if (process.env.NODE_ENV === "development") {
-        console.log("Reusing in-progress auth status fetch");
-      }
-      return this.fetchPromise;
-    }
-
-    // Start a new fetch
+    console.log("AuthStore.getAuthStatus: Starting auth status check");
+    // Always fetch fresh data - no caching
     this.fetchStatus = "loading";
-    this.fetchPromise = this.fetchAuthStatus();
-
+    
     try {
-      const result = await this.fetchPromise;
+      // Directly fetch auth status without caching
+      console.log("AuthStore.getAuthStatus: Fetching fresh auth status");
+      const result = await this.fetchAuthStatus();
+      
+      // Update the status for other methods that might use it
       this.status = result;
       this.fetchStatus = "success";
       this.lastFetchTime = Date.now();
 
+      console.log("AuthStore.getAuthStatus: Auth status result:", {
+        isAuthenticated: result.isAuthenticated,
+        hasUser: !!result.user,
+        tokenExpiring: result.tokenExpiring,
+        userEmail: result.user?.email || 'none'
+      });
+
       return result;
     } catch (error) {
       this.fetchStatus = "error";
-      console.error("Failed to fetch auth status:", error);
+      console.error("AuthStore.getAuthStatus: Failed to fetch auth status:", error);
 
       // Add more detailed error logging
       if (error instanceof Error) {
-        console.error("Error details:", {
+        console.error("AuthStore.getAuthStatus: Error details:", {
           name: error.name,
           message: error.message,
           stack: error.stack,
         });
       }
 
-      // Return the last known status or default to not authenticated
-      return this.status.isAuthenticated
-        ? this.status
-        : { isAuthenticated: false, user: null, tokenExpiring: false };
-    } finally {
-      this.fetchPromise = null;
+      // Always return a fresh unauthenticated state on error
+      console.log("AuthStore.getAuthStatus: Returning unauthenticated state due to error");
+      return { isAuthenticated: false, user: null, tokenExpiring: false };
     }
   }
 
   /**
    * Force refresh the auth status
+   * (Now identical to getAuthStatus since caching is removed)
    */
   public async refreshAuthStatus(): Promise<AuthStatus> {
-    this.fetchStatus = "loading";
-    this.fetchPromise = this.fetchAuthStatus();
-
-    try {
-      const result = await this.fetchPromise;
-      this.status = result;
-      this.fetchStatus = "success";
-      this.lastFetchTime = Date.now();
-      return result;
-    } catch (error) {
-      this.fetchStatus = "error";
-      console.error("Failed to refresh auth status:", error);
-      throw error;
-    } finally {
-      this.fetchPromise = null;
-    }
+    return this.getAuthStatus();
   }
 
   /**
@@ -237,8 +204,8 @@ class AuthStore {
     success: boolean;
   }> {
     try {
-      // First check auth status to see if token is expiring
-      const authStatus = await this.getAuthStatus();
+      // Always fetch fresh auth status
+      const authStatus = await this.fetchAuthStatus();
 
       // If not authenticated at all, no point in refreshing
       if (!authStatus.isAuthenticated) {
@@ -258,9 +225,10 @@ class AuthStore {
         
       const { data, error } = await client.rpc("refresh");
       
-      // Clear auth cache to ensure fresh status on next check
       if (!error) {
-        this.clearAllCaches();
+        if (process.env.NODE_ENV === "development") {
+          console.log("Token refreshed successfully");
+        }
         return { success: true };
       }
       
@@ -299,20 +267,25 @@ class AuthStore {
   }
 
   private async fetchAuthStatus(): Promise<AuthStatus> {
+    console.log("AuthStore.fetchAuthStatus: Starting fetch");
     try {
       // Get the appropriate client based on environment
       const { getRestClient } = await import("@/context/RestClientStore");
+      console.log("AuthStore.fetchAuthStatus: Getting REST client");
       const client = await getRestClient();
+      console.log("AuthStore.fetchAuthStatus: Got REST client");
       
       // Call the auth_status RPC function with type assertion
+      console.log("AuthStore.fetchAuthStatus: Calling auth_status RPC");
       const { data, error } = await client.rpc("auth_status");
       
       if (error) {
-        console.error("Auth status check failed:", error);
+        console.error("AuthStore.fetchAuthStatus: Auth status check failed:", error);
         return { isAuthenticated: false, user: null, tokenExpiring: false };
       }
       
       // Map the response to our AuthStatus format
+      console.log("AuthStore.fetchAuthStatus: Raw auth data:", data);
       const authData = data as any;
       
       const result = authData === null
@@ -335,16 +308,23 @@ class AuthStore {
             } : null
           };
 
-      if (process.env.NODE_ENV === "development") {
-        console.log(`Checked auth status`, {
-          user: result?.user || null,
-          result: result,
-        });
-      }
+      console.log("AuthStore.fetchAuthStatus: Processed auth result:", {
+        isAuthenticated: result.isAuthenticated,
+        tokenExpiring: result.tokenExpiring,
+        hasUser: !!result.user,
+        userEmail: result.user?.email || 'none'
+      });
 
       return result;
     } catch (error) {
-      console.error("Error checking auth status:", error);
+      console.error("AuthStore.fetchAuthStatus: Error checking auth status:", error);
+      if (error instanceof Error) {
+        console.error("AuthStore.fetchAuthStatus: Error details:", {
+          name: error.name,
+          message: error.message,
+          stack: error.stack,
+        });
+      }
       return { isAuthenticated: false, user: null, tokenExpiring: false };
     }
   }
