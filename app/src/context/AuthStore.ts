@@ -337,7 +337,7 @@ class AuthStore {
 
       if (process.env.NODE_ENV === "development") {
         console.log(`Checked auth status`, {
-          user: authData?.user || null,
+          user: result?.user || null,
           result: result,
         });
       }

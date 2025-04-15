@@ -1,8 +1,8 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { getDeploymentSlotCode } from '@/utils/auth/jwt';
-import { createAuthApiClient } from '@/utils/auth/server';
 import { authStore } from '@/context/AuthStore';
+import { getServerRestClient } from '@/context/RestClientStore';
 
 export async function middleware(request: NextRequest) {
   // Skip auth check for login page and public assets
@@ -44,14 +44,15 @@ export async function middleware(request: NextRequest) {
     // The actual verification will be done by PostgREST when we make API calls
     
     // Continue with app setup checks
-    const client = await createAuthApiClient();
+    const client = await getServerRestClient();
       
       if (request.nextUrl.pathname === "/") {
         // Check if settings exist
-        const { data: settings } = await client
-            .from("settings")
-            .limit(1)
-          .select("id");
+        const { data: settings, error: settingsError } = await client
+          .from("settings")
+          .select("id")
+          .limit(1);
+          
         if (!settings?.length) {
           return NextResponse.redirect(
             `${request.nextUrl.origin}/getting-started/activity-standard`
@@ -59,7 +60,11 @@ export async function middleware(request: NextRequest) {
         }
 
         // Check if regions exist
-        const { data: regions } = await (await client.from("region").limit(1)).select("id");
+        const { data: regions, error: regionsError } = await client
+          .from("region")
+          .select("id")
+          .limit(1);
+          
         if (!regions?.length) {
           return NextResponse.redirect(
             `${request.nextUrl.origin}/getting-started/upload-regions`
@@ -67,14 +72,15 @@ export async function middleware(request: NextRequest) {
         }
 
         // Check if units exist
-        const { data: legalUnits } = await client
-            .from("legal_unit")
-            .limit(1)
-          .select("id");
-        const { data: establishments } = await client
-            .from("establishment")
-            .limit(1)
-          .select("id");
+        const { data: legalUnits, error: legalUnitsError } = await client
+          .from("legal_unit")
+          .select("id")
+          .limit(1);
+          
+        const { data: establishments, error: establishmentsError } = await client
+          .from("establishment")
+          .select("id")
+          .limit(1);
         if (!legalUnits?.length && !establishments?.length) {
           return NextResponse.redirect(`${request.nextUrl.origin}/import`);
         }
