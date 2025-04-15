@@ -11,7 +11,7 @@ import { TableColumnsProvider } from "./table-columns";
 import { SearchResult, SearchOrder, SearchPagination, SearchState, SearchAction } from "./search.d";
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
-import { getBrowserClient } from "@/context/ClientStore";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 import { getStatisticalUnits } from "./search-requests";
 import {
   activityCategoryDeriveStateUpdateFromSearchParams,
@@ -29,9 +29,9 @@ import {
 } from "./filters/url-search-params";
 
 const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
-  // Use getBrowserClient instead of createPostgRESTBrowserClient
+  // Use getBrowserRestClient instead of createPostgRESTBrowserClient
   // This ensures we're using the singleton pattern correctly
-  const client = await getBrowserClient();
+  const client = await getBrowserRestClient();
   try {
     const response = await getStatisticalUnits(client, derivedApiSearchParams);
     return response

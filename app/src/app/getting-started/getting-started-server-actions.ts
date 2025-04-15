@@ -1,5 +1,5 @@
 "use server";
-import { getServerClient, fetchWithAuth } from "@/context/ClientStore";
+import { getServerRestClient, fetchWithAuth } from "@/context/RestClientStore";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
@@ -29,7 +29,7 @@ export async function uploadFile(
   try {
     const logger = await createServerLogger();
     const file = formData.get(filename) as File;
-    const client = await getServerClient();
+    const client = await getServerRestClient();
 
     // Get the base URL from the client
     const postgrestUrl = client.url;
@@ -62,7 +62,7 @@ export async function uploadFile(
 
 export async function setCategoryStandard(formData: FormData) {
   "use server";
-  const client = await getServerClient();
+  const client = await getServerRestClient();
   const logger = await createServerLogger();
 
   const activityCategoryStandardIdFormEntry = formData.get(

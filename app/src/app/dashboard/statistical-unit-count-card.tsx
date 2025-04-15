@@ -1,5 +1,5 @@
 "use client";
-import { getBrowserClient } from "@/context/ClientStore";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { useTimeContext } from "@/app/time-context";
@@ -19,7 +19,7 @@ export const StatisticalUnitCountCard = ({
 
   useEffect(() => {
     const fetchData = async (validOn: string) => {
-      const client = await getBrowserClient();
+      const client = await getBrowserRestClient();
       const { count, error } = await client
         .from("statistical_unit")
         .select("", { count: "exact" })

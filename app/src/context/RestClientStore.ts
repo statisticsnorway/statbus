@@ -1,5 +1,5 @@
 /**
- * ClientStore - A singleton store for managing PostgREST client instances
+ * RestClientStore - A singleton store for managing PostgREST client instances
  * 
  * This store manages PostgrestClient instances that connect to a PostgREST API server.
  * PostgREST is a standalone web server that turns your PostgreSQL database directly into a RESTful API.
@@ -25,8 +25,8 @@ interface ClientInfo {
   lastInitTime: number;
 }
 
-class ClientStore {
-  private static instance: ClientStore;
+class RestClientStore {
+  private static instance: RestClientStore;
   private clients: Record<ClientType, ClientInfo> = {
     server: {
       client: null,
@@ -49,18 +49,18 @@ class ClientStore {
     // Private constructor to enforce singleton pattern
   }
 
-  public static getInstance(): ClientStore {
-    if (!ClientStore.instance) {
-      ClientStore.instance = new ClientStore();
+  public static getInstance(): RestClientStore {
+    if (!RestClientStore.instance) {
+      RestClientStore.instance = new RestClientStore();
     }
-    return ClientStore.instance;
+    return RestClientStore.instance;
   }
 
   /**
    * Get a PostgREST client for the specified context
    * This method deduplicates requests - multiple calls will share the same Promise
    */
-  public async getClient(type: ClientType): Promise<PostgrestClient<Database>> {
+  public async getRestClient(type: ClientType): Promise<PostgrestClient<Database>> {
     const now = Date.now();
     const clientInfo = this.clients[type];
     
@@ -202,11 +202,11 @@ class ClientStore {
     try {
       if (type === 'server') {
         // Create server client
-        const apiBaseUrl = process.env.SERVER_API_URL;        
+        const apiBaseUrl = process.env.SERVER_REST_URL;        
         if (!apiBaseUrl) {
-          throw new Error('SERVER_API_URL environment variable is not defined');
+          throw new Error('SERVER_REST_URL environment variable is not defined');
         }
-        const apiUrl = apiBaseUrl + '/postgrest';
+        const apiUrl = apiBaseUrl + '/rest';
         
         // Add a timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) => {
@@ -249,13 +249,13 @@ class ClientStore {
         ]);
       } else {
         // Create browser client
-        const apiBaseUrl = process.env.NEXT_PUBLIC_BROWSER_API_URL;
+        const apiBaseUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL;
         
         if (!apiBaseUrl) {
-          throw new Error('NEXT_PUBLIC_BROWSER_API_URL environment variable is not defined');
+          throw new Error('NEXT_PUBLIC_BROWSER_REST_URL environment variable is not defined');
         }
         
-        const apiUrl = apiBaseUrl + '/postgrest';
+        const apiUrl = apiBaseUrl + '/rest';
         
         // Browser client initialization is logged at the end with timing information
         
@@ -316,7 +316,7 @@ class ClientStore {
     // Handle URLs for the PostgREST client
     // Ensure we have a properly formatted URL
     if (!url.startsWith('http') && !url.startsWith('/')) {
-      url = `/postgrest/${url}`;
+      url = `/rest/${url}`;
       if (process.env.NODE_ENV === 'development') {
         console.debug(`Modified relative URL to: ${url}`);
       }
@@ -337,7 +337,7 @@ class ClientStore {
       if (typeof window === 'undefined') {
         // Server-side: Get token from next/headers
         const { cookies } = require('next/headers');
-        const cookieStore = cookies();
+        const cookieStore = await cookies();
         const token = cookieStore.get("statbus");
         
         if (token) {
@@ -412,15 +412,15 @@ class ClientStore {
 }
 
 // Export a singleton instance
-export const clientStore = ClientStore.getInstance();
+export const clientStore = RestClientStore.getInstance();
 
 // Export convenience methods for accessing PostgREST clients
-export async function getServerClient(): Promise<PostgrestClient<Database>> {
-  return clientStore.getClient('server');
+export async function getServerRestClient(): Promise<PostgrestClient<Database>> {
+  return clientStore.getRestClient('server');
 }
 
-export async function getBrowserClient(): Promise<PostgrestClient<Database>> {
-  return clientStore.getClient('browser');
+export async function getBrowserRestClient(): Promise<PostgrestClient<Database>> {
+  return clientStore.getRestClient('browser');
 }
 
 // Export the fetch function with auth refresh handling
@@ -435,8 +435,8 @@ export async function fetchWithAuth(
  * Get a client that automatically selects between server and browser client
  * based on the current environment
  */
-export async function getClient(): Promise<PostgrestClient<Database>> {
+export async function getRestClient(): Promise<PostgrestClient<Database>> {
   return typeof window === 'undefined'
-    ? await clientStore.getClient('server')
-    : await clientStore.getClient('browser');
+    ? await clientStore.getRestClient('server')
+    : await clientStore.getRestClient('browser');
 }

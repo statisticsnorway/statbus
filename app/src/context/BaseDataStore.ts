@@ -10,7 +10,7 @@
 
 import { Database, Tables } from "@/lib/database.types";
 import { PostgrestClient } from "@supabase/postgrest-js";
-import { getServerClient, getBrowserClient, getClient } from "./ClientStore";
+import { getServerRestClient, getBrowserRestClient, getRestClient } from "./RestClientStore";
 export interface BaseData {
   statDefinitions: Tables<"stat_definition_active">[];
   externalIdentTypes: Tables<"external_ident_type_active">[];
@@ -55,12 +55,12 @@ class BaseDataStore {
   public async getBaseData(client?: PostgrestClient<Database>): Promise<BaseData> {
     const now = Date.now();
 
-    // Get client from ClientStore if not provided
+    // Get client from RestClientStore if not provided
     if (!client) {
       try {
-        client = await getClient();
+        client = await getRestClient();
       } catch (error) {
-        console.error('Failed to get client from ClientStore:', error);
+        console.error('Failed to get client from RestClientStore:', error);
         throw error;
       }
     }
@@ -119,12 +119,12 @@ class BaseDataStore {
   public async refreshBaseData(client?: PostgrestClient<Database>): Promise<BaseData> {
     this.status = 'loading';
     
-    // Get client from ClientStore if not provided
+    // Get client from RestClientStore if not provided
     if (!client) {
       try {
-        client = await getClient();
+        client = await getRestClient();
       } catch (error) {
-        console.error('Failed to get client from ClientStore:', error);
+        console.error('Failed to get client from RestClientStore:', error);
         throw error;
       }
     }
@@ -150,12 +150,12 @@ class BaseDataStore {
    * Update just the hasStatisticalUnits flag
    */
   public async refreshHasStatisticalUnits(client?: PostgrestClient<Database>): Promise<boolean> {
-    // Get client from ClientStore if not provided
+    // Get client from RestClientStore if not provided
     if (!client) {
       try {
-        client = await getClient();
+        client = await getRestClient();
       } catch (error) {
-        console.error('Failed to get client from ClientStore:', error);
+        console.error('Failed to get client from RestClientStore:', error);
         return false;
       }
     }

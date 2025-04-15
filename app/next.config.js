@@ -21,23 +21,23 @@ const nextConfig = {
 // Add API proxying in development mode
 if (isDevelopment) {
   // Get the PostgREST URL from environment and ensure it has http:// prefix
-  const serverApiUrl = process.env.SERVER_API_URL;
+  const serverApiUrl = process.env.SERVER_REST_URL;
   
   if (!serverApiUrl) {
-    console.error('SERVER_API_URL environment variable is not set');
-    throw new Error('SERVER_API_URL environment variable is required for development mode');
+    console.error('SERVER_REST_URL environment variable is not set');
+    throw new Error('SERVER_REST_URL environment variable is required for development mode');
   }
   
   // Ensure the URL has http:// prefix
-  const SERVER_API_URL = serverApiUrl.startsWith('http') 
+  const SERVER_REST_URL = serverApiUrl.startsWith('http') 
     ? serverApiUrl 
     : `http://${serverApiUrl}`;
   
   nextConfig.rewrites = async () => {
-    console.log(`Development proxy configured: /postgrest/* -> ${SERVER_API_URL}/*`);
+    console.log(`Development proxy for PostgREST configured: /rest/* -> ${SERVER_REST_URL}/*`);
     return [
-      // Proxy all /postgrest/* requests to the PostgREST server
-      { source: '/postgrest/:path*', destination: `${SERVER_API_URL}/postgrest/:path*` },
+      // Proxy all /rest/* requests to the PostgREST server
+      { source: '/rest/:path*', destination: `${SERVER_REST_URL}/rest/:path*` },
     ];
   };
 }

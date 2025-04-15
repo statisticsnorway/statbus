@@ -1,9 +1,9 @@
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
-  const client = await getServerClient();
+  const client = await getServerRestClient();
 
   let query = client.from('region')
     .select(

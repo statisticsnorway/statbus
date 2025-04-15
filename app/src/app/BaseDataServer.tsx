@@ -2,15 +2,12 @@
 
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { Database } from '@/lib/database.types';
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import { ClientBaseDataProvider } from "./BaseDataClient";
 import { BaseData } from '@/context/BaseDataStore';
 import { authStore, AuthenticationError, User } from '@/context/AuthStore';
 
-// Define StatbusClient type locally
-type StatbusClient = PostgrestClient<Database>;
-
-export async function getBaseData(client: StatbusClient): Promise<BaseData & { isAuthenticated: boolean; user: User | null }> {
+export async function getBaseData(client: PostgrestClient<Database>): Promise<BaseData & { isAuthenticated: boolean; user: User | null }> {
   try {
     // Get authentication status from the single source of truth
     const authStatus = await authStore.getAuthStatus();
@@ -107,7 +104,7 @@ export async function getBaseData(client: StatbusClient): Promise<BaseData & { i
 
 // Server component to fetch and provide base data
 export const ServerBaseDataProvider = async ({ children }: { children: React.ReactNode }) => {
-  const client = await getServerClient();
+  const client = await getServerRestClient();
   const baseData = await getBaseData(client);
 
   return (

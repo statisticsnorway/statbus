@@ -277,9 +277,9 @@ module Statbus
             # This needs to be replaced by the publicly available DNS name i.e. statbus.example.org
             statbus_url: config_env.generate("STATBUS_URL") { "http://localhost:3010" },
             # This needs to be replaced by the publicly available DNS name i.e. statbus-api.example.org
-            browser_api_url: config_env.generate("BROWSER_API_URL") { "http://localhost:3011" },
+            browser_api_url: config_env.generate("BROWSER_REST_URL") { "http://localhost:3011" },
             # This is hardcoded for docker containers, as the name caddy always resolves for the backend app.
-            server_api_url: config_env.generate("SERVER_API_URL") { "http://caddy:80" },
+            server_api_url: config_env.generate("SERVER_REST_URL") { "http://caddy:80" },
             seq_server_url: config_env.generate("SEQ_SERVER_URL") { "https://log.statbus.org" },
             # This must be provided and entered manually.
             seq_api_key: config_env.generate("SEQ_API_KEY") { "secret_seq_api_key" },
@@ -419,8 +419,8 @@ module Statbus
     DEPLOYMENT_SLOT_CODE=#{config.deployment_slot_code}
     # Urls configured in Caddy and DNS.
     STATBUS_URL=#{config.statbus_url}
-    BROWSER_API_URL=#{config.browser_api_url}
-    SERVER_API_URL=#{config.server_api_url}
+    BROWSER_REST_URL=#{config.browser_api_url}
+    SERVER_REST_URL=#{config.server_api_url}
     # Logging server
     SEQ_SERVER_URL=#{config.seq_server_url}
     SEQ_API_KEY=#{config.seq_api_key}
@@ -436,7 +436,7 @@ module Statbus
     # The host address connected to the STATBUS app
     APP_BIND_ADDRESS=#{derived.app_bind_address}
     # The host address connected to Supabase
-    POSTGREST_BIND_ADDRESS=#{derived.postgrest_bind_address}
+    REST_BIND_ADDRESS=#{derived.postgrest_bind_address}
     # The publicly exposed address of PostgreSQL inside Supabase
     DB_PUBLIC_LOCALHOST_PORT=#{derived.db_public_localhost_port}
     # Updated by manage-statbus.sh start required
@@ -496,7 +496,7 @@ module Statbus
     # Add all the variables here that are exposed publicly,
     # i.e. available in the web page source code for all to see.
     #
-    NEXT_PUBLIC_BROWSER_API_URL=#{config.browser_api_url}
+    NEXT_PUBLIC_BROWSER_REST_URL=#{config.browser_api_url}
     NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=#{config.deployment_slot_name}
     NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=#{config.deployment_slot_code}
     #

@@ -7,7 +7,7 @@ services:
     build:
       context: ./app
       args:
-        NEXT_PUBLIC_BROWSER_API_URL: ${NEXT_PUBLIC_BROWSER_API_URL}
+        NEXT_PUBLIC_BROWSER_REST_URL: ${NEXT_PUBLIC_BROWSER_REST_URL}
         NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME: ${DEPLOYMENT_SLOT_NAME:?DEPLOYMENT_SLOT_NAME must be set in the generated .env}
         NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
     ports:
@@ -15,8 +15,8 @@ services:
     profiles:
       - "all"
     environment:
-      NEXT_PUBLIC_BROWSER_API_URL: ${NEXT_PUBLIC_BROWSER_API_URL}
-      SERVER_API_URL: "http://caddy:80"
+      NEXT_PUBLIC_BROWSER_REST_URL: ${NEXT_PUBLIC_BROWSER_REST_URL}
+      SERVER_REST_URL: "http://caddy:80"
       SEQ_SERVER_URL: ${SEQ_SERVER_URL:-https://log.statbus.org}
       SEQ_API_KEY: ${SEQ_API_KEY}
       NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME: ${DEPLOYMENT_SLOT_NAME:?DEPLOYMENT_SLOT_NAME must be set in the generated .env}

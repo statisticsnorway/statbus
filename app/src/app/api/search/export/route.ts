@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getStatisticalUnits } from "@/app/search/search-requests";
 import { toCSV } from "@/lib/csv-utils";
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import { getBaseData } from "@/app/BaseDataServer";
 
 export async function GET(request: NextRequest) {
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
   const hasSingleUnitType = unitType && !unitType.includes(",");
   const isEstablishment = unitType === "establishment";
 
-  const client = await getServerClient();
+  const client = await getServerRestClient();
   const { externalIdentTypes, statDefinitions } = await getBaseData(client);
 
   const externalIdentColumns = externalIdentTypes.map(({ code }) => `${code}:external_idents->>${code}`);

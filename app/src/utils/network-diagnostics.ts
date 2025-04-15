@@ -84,18 +84,18 @@ export async function testConnectivity(url: string, options: RequestInit = {}): 
  * @returns Diagnostic information about all connection attempts
  */
 export async function runNetworkDiagnostics() {
-  const serverApiUrl = process.env.SERVER_API_URL;
-  const browserApiUrl = process.env.NEXT_PUBLIC_BROWSER_API_URL;
+  const serverApiUrl = process.env.SERVER_REST_URL;
+  const browserApiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL;
   
   const results = await Promise.all([
     serverApiUrl ? testConnectivity(serverApiUrl) : Promise.resolve({
-      url: 'SERVER_API_URL not set',
+      url: 'SERVER_REST_URL not set',
       success: false,
       error: 'Environment variable not set',
       timing: { start: 0, end: 0, duration: 0 }
     }),
     browserApiUrl ? testConnectivity(browserApiUrl) : Promise.resolve({
-      url: 'NEXT_PUBLIC_BROWSER_API_URL not set',
+      url: 'NEXT_PUBLIC_BROWSER_REST_URL not set',
       success: false,
       error: 'Environment variable not set',
       timing: { start: 0, end: 0, duration: 0 }

@@ -1,4 +1,4 @@
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import Link from "next/link";
 import { Github, Globe } from "lucide-react";
 import { CommandPaletteTriggerButton } from "@/components/command-palette/command-palette-trigger-button";
@@ -14,12 +14,10 @@ export function FooterSkeleton() {
 }
 
 export default async function Footer() {
-  const client = await getServerClient();
-  // Check if user is authenticated by checking for a token
-  const { cookies } = await import('next/headers');
-  const cookieStore = await cookies();
-  const token = cookieStore.get('statbus');
-  const isAuthenticated = !!token;
+  // Check if user is authenticated using AuthStore
+  const { authStore } = await import('@/context/AuthStore');
+  const authStatus = await authStore.getAuthStatus();
+  const isAuthenticated = authStatus.isAuthenticated;
 
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">

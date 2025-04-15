@@ -1,12 +1,12 @@
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { Database } from '@/lib/database.types';
 import { SearchResult } from './search';
-import { getServerClient } from '@/context/ClientStore';
+import { getServerRestClient } from '@/context/RestClientStore';
 
 export async function getStatisticalUnits(client: PostgrestClient<Database> | null = null, searchParams: URLSearchParams): Promise<SearchResult> {
-  // If no client is provided, get one from ClientStore
+  // If no client is provided, get one from RestClientStore
   if (!client) {
-    client = await getServerClient();
+    client = await getServerRestClient();
   }
   // Use the PostgrestClient directly
   const url = new URL(`statistical_unit?${searchParams}`, client.url);

@@ -5,11 +5,11 @@
 
 # Auth-related paths definition (as a snippet to be used in matchers)
 (secure_cookie_handling_auth_paths) {
-    path /postgrest/rpc/login
-    path /postgrest/rpc/logout
-    path /postgrest/rpc/refresh
-    path /postgrest/rpc/auth_status
-    path /postgrest/rpc/auth_test
+    path /rest/rpc/login
+    path /rest/rpc/logout
+    path /rest/rpc/refresh
+    path /rest/rpc/auth_status
+    path /rest/rpc/auth_test
 }
 
 
@@ -53,15 +53,15 @@
     # therefore the Authorization is not set.
     # Those functions directly look at the cookies as they can be called by anonymous.
     @auth_paths {
-        path /postgrest/rpc/login
-        path /postgrest/rpc/logout
-        path /postgrest/rpc/refresh
-        path /postgrest/rpc/auth_status
-        path /postgrest/rpc/auth_test
+        path /rest/rpc/login
+        path /rest/rpc/logout
+        path /rest/rpc/refresh
+        path /rest/rpc/auth_status
+        path /rest/rpc/auth_test
     }    
     
     handle @auth_paths {
-        uri strip_prefix /postgrest
+        uri strip_prefix /rest
         reverse_proxy {args[0]} {
             header_up Host {host}
             header_up X-Real-IP {remote}
@@ -77,8 +77,8 @@
         # Has NO auth header
         header !Authorization
     }
-    handle /postgrest/* {
-        uri strip_prefix /postgrest
+    handle /rest/* {
+        uri strip_prefix /rest
         
         reverse_proxy @has_auth_cookie_and_no_auth_header {args[0]} {
             header_up Host {host}

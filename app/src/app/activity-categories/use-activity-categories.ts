@@ -1,5 +1,5 @@
 import { Tables } from "@/lib/database.types";
-import { getBrowserClient } from "@/context/ClientStore";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 import { useState } from "react";
 import useSWR, { Fetcher } from "swr";
 
@@ -21,7 +21,7 @@ type ActivityCategoryResult = {
 };
 
 const fetcher: Fetcher<ActivityCategoryResult, { pagination: Pagination; queries: Queries }> = async ({ pagination, queries }) => {
-  const client = await getBrowserClient();
+  const client = await getBrowserRestClient();
   let query = client.from('activity_category_available').select('*', { count: 'exact' });
 
   const offset = pagination.pageNumber && pagination.pageSize

@@ -1,8 +1,8 @@
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import LegalFormOptions from "@/app/search/filters/legal-form/legal-form-options";
 
 export default async function LegalFormFilter() {
-  const client = await getServerClient();
+  const client = await getServerRestClient();
   const legalForms = await client
     .from("legal_form_used")
     .select()

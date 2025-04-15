@@ -1,5 +1,5 @@
 "use server";
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import pino from "pino";
 import { createStream } from "pino-seq";
 import { headers } from "next/headers";
@@ -12,7 +12,7 @@ const seqApiKey = process.env.SEQ_API_KEY;
  * @param user Optional user object with email property
  */
 export async function createServerLogger(user?: { email: string } | null) {
-  const client = await getServerClient();
+  const client = await getServerRestClient();
 
   return pino(
     {

@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import LogoutForm from "./LogoutForm";
 import { logger } from "@/lib/client-logger";
 import { authStore } from "@/context/AuthStore";
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 
 export default async function ProfilePage() {
   try {
@@ -15,8 +15,8 @@ export default async function ProfilePage() {
       redirect('/login');
     }
     
-    // Get additional user details that might not be in the AuthStore
-    const client = await getServerClient();
+    // All user details are now in the AuthStore
+    const client = await getServerRestClient();
     const { data, error } = await client.rpc('auth_status');
     
     if (error) {
@@ -74,7 +74,7 @@ export default async function ProfilePage() {
                   Last sign in
                 </dt>
                 <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                  {data.last_sign_in_at ? new Date(data.last_sign_in_at).toLocaleString() : "N/A"}
+                  {authStatus.user.last_sign_in_at ? new Date(authStatus.user.last_sign_in_at).toLocaleString() : "N/A"}
                 </dd>
               </div>
               <div className="px-4 py-6 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-0">
@@ -82,7 +82,7 @@ export default async function ProfilePage() {
                   Account created
                 </dt>
                 <dd className="mt-1 text-sm leading-6 text-gray-700 sm:col-span-2 sm:mt-0">
-                  {data.created_at ? new Date(data.created_at).toLocaleString() : "N/A"}
+                  {authStatus.user.created_at ? new Date(authStatus.user.created_at).toLocaleString() : "N/A"}
                 </dd>
               </div>
             </dl>

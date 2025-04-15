@@ -1,8 +1,8 @@
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import ActivityCategoryOptions from "@/app/search/filters/activity-category/activity-category-options";
 
 export default async function ActivityCategoryFilter() {
-  const client = await getServerClient();
+  const client = await getServerRestClient();
   const activityCategories = await client
     .from("activity_category_used")
     .select();

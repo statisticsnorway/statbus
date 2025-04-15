@@ -1,9 +1,9 @@
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { ScrollText } from "lucide-react";
 
 export const ActivityCategoryCard = async () => {
-  const client = await getServerClient();
+  const client = await getServerRestClient();
 
   const { data: settings, error } = await client
     .from("settings")

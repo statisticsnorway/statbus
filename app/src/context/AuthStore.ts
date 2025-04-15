@@ -12,10 +12,13 @@
  * User type definition for authentication
  */
 export interface User {
-  uid: string;
+  uid: number;
+  sub: string;
   email: string;
   role: string;
   statbus_role: string;
+  last_sign_in_at: string;
+  created_at: string;
 }
 
 /**
@@ -202,7 +205,7 @@ class AuthStore {
           console.error("Failed to clear base data cache:", err);
         });
 
-      import("@/context/ClientStore")
+      import("@/context/RestClientStore")
         .then(({ clientStore }) => {
           clientStore.clearCache();
         })
@@ -248,10 +251,10 @@ class AuthStore {
       }
 
       // Get the appropriate client based on environment
-      const { getClient } = await import("@/context/ClientStore");
+      const { getRestClient } = await import("@/context/RestClientStore");
       
       // Client-side or server-side refresh using the appropriate client
-      const client = await getClient();
+      const client = await getRestClient();
         
       const { data, error } = await client.rpc("refresh");
       
@@ -298,8 +301,8 @@ class AuthStore {
   private async fetchAuthStatus(): Promise<AuthStatus> {
     try {
       // Get the appropriate client based on environment
-      const { getClient } = await import("@/context/ClientStore");
-      const client = await getClient();
+      const { getRestClient } = await import("@/context/RestClientStore");
+      const client = await getRestClient();
       
       // Call the auth_status RPC function with type assertion
       const { data, error } = await client.rpc("auth_status");
@@ -323,9 +326,12 @@ class AuthStore {
             tokenExpiring: authData.token_expiring === true,
             user: authData.uid ? {
               uid: authData.uid,
+              sub: authData.sub,
               email: authData.email,
               role: authData.role,
-              statbus_role: authData.statbus_role
+              statbus_role: authData.statbus_role,
+              last_sign_in_at: authData.last_sign_in_at,
+              created_at: authData.created_at
             } : null
           };
 

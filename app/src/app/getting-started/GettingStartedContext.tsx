@@ -1,6 +1,6 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { getBrowserClient } from "@/context/ClientStore";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { Database } from '@/lib/database.types';
 import { authStore } from '@/context/AuthStore';
@@ -114,7 +114,7 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
     let isMounted = true;
     const initializeClient = async () => {
       try {
-        const postgrestClient = await getBrowserClient();
+        const postgrestClient = await getBrowserRestClient();
         if (isMounted) {
           setClient(postgrestClient);
         }

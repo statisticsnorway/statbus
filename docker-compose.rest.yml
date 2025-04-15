@@ -28,7 +28,7 @@ services:
       # Pass deployment slot code to database for cookie naming
       PGRST_DB_CONFIG: app.settings.deployment_slot_code=${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
     ports:
-      - "${POSTGREST_BIND_ADDRESS:?POSTGREST_BIND_ADDRESS must be set in the generated .env}:3000"
+      - "${REST_BIND_ADDRESS:?REST_BIND_ADDRESS must be set in the generated .env}:3000"
     profiles:
       - "all"
       - "all_except_app"

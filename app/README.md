@@ -33,8 +33,8 @@ an `.env.local` file in the root of the project and add the following,
 with adjustments:
 
 ```env
-SERVER_API_URL=http://localhost:3001
-NEXT_PUBLIC_BROWSER_API_URL=http://localhost:3001
+SERVER_REST_URL=http://localhost:3001
+NEXT_PUBLIC_BROWSER_REST_URL=http://localhost:3001
 NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=Development
 NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=dev
 VERSION=0.0.1.local

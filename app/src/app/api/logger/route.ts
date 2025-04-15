@@ -2,7 +2,7 @@ import { NextResponse, NextRequest } from "next/server";
 import { Level, LogEvent, Logger } from "pino";
 
 import { createServerLogger } from "@/lib/server-logger";
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 
 // Interface for log requests
 interface ClientLogRequest {
@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
     const logger = await createServerLogger();
     const { level = "info", event }: ClientLogRequest = await request.json();
 
-    const client = await getServerClient();
+    const client = await getServerRestClient();
     // Check for authentication using cookies instead of client.auth
     const isLoggedIn = request.cookies.has('statbus');
 

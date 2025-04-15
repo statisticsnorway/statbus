@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import { createServerLogger } from "@/lib/server-logger";
 
 export async function POST(request: NextRequest, props: { readonly params: Promise<{ id: string }> }) {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, props: { readonly params: Promi
       );
     }
 
-    const client = await getServerClient();
+    const client = await getServerRestClient();
     const { data, error } = await client.rpc(
       "connect_legal_unit_to_enterprise",
       {

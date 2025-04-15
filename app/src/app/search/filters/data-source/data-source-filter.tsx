@@ -1,8 +1,8 @@
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import DataSourceOptions from "@/app/search/filters/data-source/data-source-options";
 
 export default async function DataSourceFilter() {
-  const client = await getServerClient();
+  const client = await getServerRestClient();
   const {data: dataSources} = await client.from("data_source_used").select();
 
   return (

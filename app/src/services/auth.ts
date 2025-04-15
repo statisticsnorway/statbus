@@ -6,7 +6,6 @@ import { logResponseDebug, safeParseJSON } from '@/utils/debug-helpers';
 /**
  * Get the current authentication status from the server
  */
-import { authStore } from '@/context/AuthStore';
 
 export async function getAuthStatus() {
   console.log('Explicit auth_status check called');
@@ -32,10 +31,10 @@ export async function login(email: string, password: string) {
   const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
     ? '' // Use relative URL to ensure we hit the same origin
     : (typeof window !== 'undefined' 
-        ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-        : process.env.SERVER_API_URL);
+        ? process.env.NEXT_PUBLIC_BROWSER_REST_URL 
+        : process.env.SERVER_REST_URL);
       
-  const response = await fetch(`${apiUrl}/postgrest/rpc/login`, {
+  const response = await fetch(`${apiUrl}/rest/rpc/login`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -73,10 +72,10 @@ export async function logout() {
   const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
     ? '' // Use relative URL to ensure we hit the same origin
     : (typeof window !== 'undefined' 
-        ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-        : process.env.SERVER_API_URL);
+        ? process.env.NEXT_PUBLIC_BROWSER_REST_URL 
+        : process.env.SERVER_REST_URL);
     
-  const response = await fetch(`${apiUrl}/postgrest/rpc/logout`, {
+  const response = await fetch(`${apiUrl}/rest/rpc/logout`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -120,10 +119,10 @@ export async function refreshToken() {
   const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
     ? '' // Use relative URL to ensure we hit the same origin
     : (typeof window !== 'undefined' 
-        ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-        : process.env.SERVER_API_URL);
+        ? process.env.NEXT_PUBLIC_BROWSER_REST_URL 
+        : process.env.SERVER_REST_URL);
     
-  const response = await fetch(`${apiUrl}/postgrest/rpc/refresh`, {
+  const response = await fetch(`${apiUrl}/rest/rpc/refresh`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -147,10 +146,10 @@ export async function listActiveSessions() {
   const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
     ? '' // Use relative URL to ensure we hit the same origin
     : (typeof window !== 'undefined' 
-        ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-        : process.env.SERVER_API_URL);
+        ? process.env.NEXT_PUBLIC_BROWSER_REST_URL 
+        : process.env.SERVER_REST_URL);
     
-  const response = await fetch(`${apiUrl}/postgrest/rpc/list_active_sessions`, {
+  const response = await fetch(`${apiUrl}/rest/rpc/list_active_sessions`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -174,10 +173,10 @@ export async function revokeSession(sessionId: string) {
   const apiUrl = process.env.NODE_ENV === 'development' && typeof window !== 'undefined'
     ? '' // Use relative URL to ensure we hit the same origin
     : (typeof window !== 'undefined' 
-        ? process.env.NEXT_PUBLIC_BROWSER_API_URL 
-        : process.env.SERVER_API_URL);
+        ? process.env.NEXT_PUBLIC_BROWSER_REST_URL 
+        : process.env.SERVER_REST_URL);
     
-  const response = await fetch(`${apiUrl}/postgrest/rpc/revoke_session`, {
+  const response = await fetch(`${apiUrl}/rest/rpc/revoke_session`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

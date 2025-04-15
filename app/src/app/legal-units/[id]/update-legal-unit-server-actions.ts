@@ -1,5 +1,5 @@
 "use server";
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
@@ -13,7 +13,7 @@ export async function updateLegalUnit(
   formData: FormData
 ): Promise<UpdateResponse> {
   "use server";
-  const client = await getServerClient();
+  const client = await getServerRestClient();
   const schema = resolveSchemaByType(schemaType);
   const validatedFields = schema.safeParse(formData);
 
@@ -49,7 +49,7 @@ export async function updateLegalUnit(
 export async function setPrimaryLegalUnit(id: number) {
   "use server";
   const logger = await createServerLogger();
-  const client = await getServerClient();
+  const client = await getServerRestClient();
   const { error } = await client.rpc("set_primary_legal_unit_for_enterprise", {
     legal_unit_id: id,
   });

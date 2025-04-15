@@ -1,8 +1,8 @@
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import StatusOptions from "@/app/search/filters/status/status-options";
 
 export default async function StatusFilter() {
-  const client = await getServerClient();
+  const client = await getServerRestClient();
   const { data: statuses } = await client
     .from("status")
     .select()

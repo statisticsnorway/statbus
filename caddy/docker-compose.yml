@@ -1,7 +1,7 @@
 # Caddy web server configuration
 services:
-  caddy:
-    container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-caddy
+  proxy:
+    container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-proxy
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
@@ -14,7 +14,7 @@ services:
       - caddy_logs:/var/log/caddy
     environment:
       APP_BIND_ADDRESS: http://app:3000
-      POSTGREST_BIND_ADDRESS: http://rest:3000
+      REST_BIND_ADDRESS: http://rest:3000
       DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
       CADDY_DEPLOYMENT_MODE: ${CADDY_DEPLOYMENT_MODE:?CADDY_DEPLOYMENT_MODE must be set in the generated .env}
       CADDY_LOG_PATH: ${CADDY_LOG_PATH:-/var/log/caddy/access.log}

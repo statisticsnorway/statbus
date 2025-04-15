@@ -1,8 +1,8 @@
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import SectorOptions from "@/app/search/filters/sector/sector-options";
 
 export default async function SectorFilter() {
-  const client = await getServerClient();
+  const client = await getServerRestClient();
   const sectors = await client.from("sector_used").select();
 
   return (

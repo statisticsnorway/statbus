@@ -6,10 +6,10 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 
 export default async function ActivityStandardPage() {
-  const client = await getServerClient();
+  const client = await getServerRestClient();
 
   const { data: standards, error: standardsError } = await client
     .from("activity_category_standard")

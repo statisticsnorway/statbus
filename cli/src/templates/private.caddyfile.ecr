@@ -13,7 +13,7 @@ import /config/common.caddyfile
     import maintenance /home/<%= @deployment_user %> /home/<%= @deployment_user %>/statbus/app/public
     
     # Use common PostgREST endpoint handling
-    import postgrest_endpoints {$POSTGREST_BIND_ADDRESS}
+    import postgrest_endpoints {$REST_BIND_ADDRESS}
     
     # Handle all other requests
     handle {

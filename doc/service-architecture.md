@@ -38,7 +38,7 @@ with Caddy serving as a reverse proxy and authentication gateway.
 - **Container**: `statbus-{slot}-caddy`
 - **Purpose**: Reverse proxy and authentication gateway
 - **Key Features**:
-  - Routes `/postgrest/*` requests to PostgREST using POSTGREST_BIND_ADDRESS (via postgrest_endpoints)
+  - Routes `/postgrest/*` requests to PostgREST using REST_BIND_ADDRESS (via postgrest_endpoints)
     - Notice that the auth related functions are callable by anonymous, and to themselves
       process cookies, ensure security and return cookies. (login/refresh/logout/auth_status)
   - Routes all other requests to the Next.js app using APP_BIND_ADDRESS
@@ -170,7 +170,7 @@ For local Next.js development:
 3. **Development Environment**:
    - In `.env.config` set `CADDY_DEPLOYMENT_MODE=development` and generate `.env`
    - The local Next.js app runs on http://localhost:3000
-   - Caddy serves as an API gateway on NEXT_PUBLIC_BROWSER_API_URL
+   - Caddy serves as an API gateway on NEXT_PUBLIC_BROWSER_REST_URL
    - All API requests from the local Next.js app go through Caddy
    - Caddy handles authentication by converting cookies to JWT headers
      - Caddy includes the `development.caddyfile` where

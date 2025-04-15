@@ -88,7 +88,7 @@ The application is containerized using Docker Compose, orchestrating several ser
     *   The main user-facing web application built from the `./app` directory.
     *   Configured with Supabase connection details and deployment slot information.
     *   Environment variables include:
-        *   Server-side PostgREST URL (`SERVER_API_URL`)
+        *   Server-side PostgREST URL (`SERVER_REST_URL`)
         *   Logging configuration (`SEQ_SERVER_URL`, `SEQ_API_KEY`)
         *   Deployment slot information (`NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME`, `NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE`)
     *   Interacts with the API via Caddy (`/postgrest/*`).

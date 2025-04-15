@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
-import { getBrowserClient } from "@/context/ClientStore";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { Database } from '@/lib/database.types';
 import { BaseData } from '@/context/BaseDataStore';
@@ -48,9 +48,9 @@ export const ClientBaseDataProvider = ({
   useEffect(() => {
     const initializeClient = async () => {
       try {
-        // Use getBrowserClient from ClientStore
+        // Use getBrowserRestClient from RestClientStore
         // This ensures we're using the singleton pattern correctly
-        const postgrestClient = await getBrowserClient();
+        const postgrestClient = await getBrowserRestClient();
         setClient(postgrestClient);
       } catch (error) {
         console.error("Error initializing browser client:", error);

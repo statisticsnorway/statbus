@@ -16,7 +16,7 @@ import /config/common.caddyfile
     encode gzip
     
     # Use common PostgREST endpoint handling
-    import postgrest_endpoints {$POSTGREST_BIND_ADDRESS}
+    import postgrest_endpoints {$REST_BIND_ADDRESS}
 
     # For non-API requests in development mode, show a message
     # since the Next.js app runs separately and proxies to PostgREST

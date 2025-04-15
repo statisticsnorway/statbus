@@ -1,9 +1,9 @@
-import { getServerClient } from "@/context/ClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { BookText } from "lucide-react";
 
 export const TotalActivityCategoryCard = async () => {
-  const client = await getServerClient();
+  const client = await getServerRestClient();
 
   const { count, error } = await client
     .from("activity_category_available")

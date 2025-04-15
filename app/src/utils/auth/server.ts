@@ -18,7 +18,7 @@ export const createAuthSSRClient = async () => {
      */
     rpc: async (functionName: string, params = {}) => {
       try {
-        const response = await fetch(`${process.env.SERVER_API_URL}/postgrest/rpc/${functionName}`, {
+        const response = await fetch(`${process.env.SERVER_REST_URL}/rest/rpc/${functionName}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -43,7 +43,7 @@ export const createAuthSSRClient = async () => {
      * Query a PostgreSQL table via PostgREST
      */
     from: (tableName: string) => {
-      const baseUrl = `${process.env.SERVER_API_URL}/postgrest/${tableName}`;
+      const baseUrl = `${process.env.SERVER_REST_URL}/rest/${tableName}`;
       
       return {
         select: async (columns: string = '*', options = {}) => {
@@ -128,7 +128,7 @@ export async function refreshAuthToken(request: NextRequest, origin: string): Pr
   
   try {
     // Call the PostgREST refresh endpoint directly
-    const response = await fetch(`${process.env.SERVER_API_URL}/rpc/refresh`, {
+    const response = await fetch(`${process.env.SERVER_REST_URL}/rpc/refresh`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${refreshToken.value}`,

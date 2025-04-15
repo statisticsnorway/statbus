@@ -26,7 +26,7 @@ Frontend: ${STATBUS_URL}/
 Username Role Password:
 ${statbus_users}
 ############################################################
-API: ${NEXT_PUBLIC_BROWSER_API_URL}
+API: ${NEXT_PUBLIC_BROWSER_REST_URL}
 API Username ${DASHBOARD_USERNAME}
 API Password ${DASHBOARD_PASSWORD}
 Shell Access: 'ssh ${USER}@niue.statbus.org'
