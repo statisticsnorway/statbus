@@ -3024,6 +3024,10 @@ reset_getting_started
         "changed_count": 36,
         "deleted_count": 33
     },
+    "status": {
+        "changed_count": 0,
+        "deleted_count": 0
+    },
     "contact": {
         "deleted_count": 0
     },
@@ -3036,6 +3040,10 @@ reset_getting_started
     "settings": {
         "deleted_count": 1
     },
+    "unit_size": {
+        "changed_count": 0,
+        "deleted_count": 0
+    },
     "enterprise": {
         "deleted_count": 0
     },
@@ -3045,6 +3053,10 @@ reset_getting_started
     },
     "legal_unit": {
         "deleted_count": 0
+    },
+    "data_source": {
+        "changed_count": 4,
+        "deleted_count": 3
     },
     "tag_for_unit": {
         "deleted_count": 0
@@ -3084,6 +3096,10 @@ reset_all
         "changed_count": 0,
         "deleted_count": 0
     },
+    "status": {
+        "changed_count": 0,
+        "deleted_count": 0
+    },
     "contact": {
         "deleted_count": 0
     },
@@ -3096,6 +3112,10 @@ reset_all
     "settings": {
         "deleted_count": 0
     },
+    "unit_size": {
+        "changed_count": 0,
+        "deleted_count": 0
+    },
     "enterprise": {
         "deleted_count": 0
     },
@@ -3104,6 +3124,10 @@ reset_all
         "deleted_count": 0
     },
     "legal_unit": {
+        "deleted_count": 0
+    },
+    "data_source": {
+        "changed_count": 0,
         "deleted_count": 0
     },
     "tag_for_unit": {
