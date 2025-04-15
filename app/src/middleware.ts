@@ -17,7 +17,7 @@ export async function middleware(request: NextRequest) {
   // Get authentication status directly from AuthStore
   const authStatus = await authStore.getAuthStatus();
   
-  // If not authenticated, redirect to login
+  // Single source of truth for authentication redirects
   if (!authStatus.isAuthenticated) {
     return NextResponse.redirect(`${request.nextUrl.origin}/login`);
   }

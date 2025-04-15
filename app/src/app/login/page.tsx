@@ -2,19 +2,12 @@ import React from "react";
 import Image from "next/image";
 import logo from "@/../public/statbus-logo.png";
 import LoginForm from "./LoginForm";
-import ClientRedirect from "./ClientRedirect";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 
 export default async function LoginPage() {
-  // Simple server-side check if user is already logged in
-  const cookieStore = await cookies();
-  const token = cookieStore.get('statbus');
-  
-  // If token exists, redirect to home
-  if (token) {
-    redirect("/");
-  }
+  // We don't need server-side redirect logic here
+  // Authentication redirects are handled by middleware
 
   return (
     <main className="px-6 py-24 lg:px-8">
@@ -33,7 +26,6 @@ export default async function LoginPage() {
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
         <LoginForm />
-        <ClientRedirect />
       </div>
     </main>
   );
