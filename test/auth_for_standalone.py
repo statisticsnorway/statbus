@@ -226,11 +226,11 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
     
     # Make login request
     try:
-        debug_info(f"Sending login request to {CADDY_BASE_URL}/postgrest/rpc/login")
+        debug_info(f"Sending login request to {CADDY_BASE_URL}/rest/rpc/login")
         debug_info(f"Request payload: {{'email': '{email}', 'password': '********'}}")
         
         response = session.post(
-            f"{CADDY_BASE_URL}/postgrest/rpc/login",
+            f"{CADDY_BASE_URL}/rest/rpc/login",
             json={"email": email, "password": password},
             headers={"Content-Type": "application/json"}
         )
@@ -242,7 +242,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
         if response.status_code != 200:
             def print_response_debug_info():
                 print(f"Response body: {response.text}")
-                print(f"API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login")
+                print(f"API endpoint: {CADDY_BASE_URL}/rest/rpc/login")
             
             log_error(f"API login failed for {email}. Status code: {response.status_code}", print_response_debug_info)
             return None
@@ -256,7 +256,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
             # Handle empty response case
             if not response.text or response.text.strip() == "":
                 def print_endpoint_info():
-                    print(f"API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login")
+                    print(f"API endpoint: {CADDY_BASE_URL}/rest/rpc/login")
                 
                 log_error(f"API login failed for {email}. Empty response from server.", print_endpoint_info)
                 return None
@@ -267,7 +267,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
             def print_response_details():
                 print(f"Response text: {response.text!r}")  # Use repr to show whitespace/control chars
                 print(f"Response headers: {dict(response.headers)}")
-                print(f"API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login")
+                print(f"API endpoint: {CADDY_BASE_URL}/rest/rpc/login")
             
             log_error(f"Failed to parse JSON response: {e}", print_response_details)
             return None
@@ -287,7 +287,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
         else:
             def print_login_failure_details():
                 print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
-                print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login{NC}")
+                print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/login{NC}")
             
             log_error(f"API login failed for {email}.", print_login_failure_details)
             return None
@@ -395,7 +395,7 @@ def test_api_logout(session: Session) -> None:
     # Make logout request
     try:
         response = session.post(
-            f"{CADDY_BASE_URL}/postgrest/rpc/logout",
+            f"{CADDY_BASE_URL}/rest/rpc/logout",
             headers={"Content-Type": "application/json"}
         )
         
@@ -427,7 +427,7 @@ def test_api_logout(session: Session) -> None:
         else:
             log_error("API logout failed.")
             print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
-            print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/logout{NC}")
+            print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/logout{NC}")
     
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
@@ -451,7 +451,7 @@ def test_token_refresh(session: Session, email: str, password: str) -> None:
     # Make refresh request
     try:
         response = session.post(
-            f"{CADDY_BASE_URL}/postgrest/rpc/refresh",
+            f"{CADDY_BASE_URL}/rest/rpc/refresh",
             headers={"Content-Type": "application/json"}
         )
         
@@ -483,7 +483,7 @@ def test_token_refresh(session: Session, email: str, password: str) -> None:
         else:
             log_error("Token refresh failed.")
             print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
-            print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/refresh{NC}")
+            print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/refresh{NC}")
     
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
@@ -500,7 +500,7 @@ def test_auth_status(session: Session, expected_auth: bool) -> None:
     # Make auth status request
     try:
         response = session.get(
-            f"{CADDY_BASE_URL}/postgrest/rpc/auth_status",
+            f"{CADDY_BASE_URL}/rest/rpc/auth_status",
             headers={"Content-Type": "application/json"}
         )
         
@@ -518,7 +518,7 @@ def test_auth_status(session: Session, expected_auth: bool) -> None:
             else:
                 def print_auth_status_details():
                     print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
-                    print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/auth_status{NC}")
+                    print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/auth_status{NC}")
                     print(f"{RED}Expected is_authenticated: {expected_auth}{NC}")
                 
                 log_error(f"Auth status did not return expected authentication state.", print_auth_status_details)
@@ -533,6 +533,112 @@ def test_auth_status(session: Session, expected_auth: bool) -> None:
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
 
+def test_bearer_token_auth(email: str, password: str) -> None:
+    """Test API access using Bearer token in Authorization header"""
+    log_info(f"Testing API access with Bearer token for {email}...")
+    
+    # First, get the token by logging in
+    session = requests.Session()
+    try:
+        login_response = session.post(
+            f"{CADDY_BASE_URL}/rest/rpc/login",
+            json={"email": email, "password": password},
+            headers={"Content-Type": "application/json"}
+        )
+        
+        if login_response.status_code != 200:
+            log_error(f"Failed to get token: Login failed with status {login_response.status_code}")
+            return
+        
+        login_data = login_response.json()
+        access_token = login_data.get("access_jwt")
+        
+        if not access_token:
+            log_error("Failed to get access token from login response")
+            return
+        
+        debug_info(f"Got access token: {access_token[:20]}...")
+        
+        # Test 1: Verify auth_status endpoint with Bearer token
+        log_info("Testing auth_status endpoint with Bearer token...")
+        auth_status_response = requests.get(
+            f"{CADDY_BASE_URL}/rest/rpc/auth_status",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            }
+        )
+        
+        debug_info(f"Bearer auth_status response code: {auth_status_response.status_code}")
+        debug_info(f"Bearer auth_status response headers: {dict(auth_status_response.headers)}")
+        
+        if auth_status_response.status_code == 200:
+            try:
+                auth_data = auth_status_response.json()
+                if auth_data.get("is_authenticated") is True:
+                    log_success(f"Auth status with Bearer token shows authenticated user")
+                    debug_info(f"Auth status response: {json.dumps(auth_data, indent=2)}")
+                else:
+                    def print_auth_status_details():
+                        print(f"{RED}Response: {json.dumps(auth_data, indent=2)}{NC}")
+                        print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/auth_status{NC}")
+                        print(f"{RED}Expected is_authenticated: True{NC}")
+                    
+                    log_error(f"Auth status with Bearer token shows unauthenticated user", print_auth_status_details)
+            except json.JSONDecodeError as e:
+                def print_auth_status_response_details():
+                    print(f"{RED}Response text: {auth_status_response.text!r}{NC}")
+                    print(f"{RED}Response status: {auth_status_response.status_code}{NC}")
+                
+                log_error(f"Invalid JSON response from auth_status with Bearer token: {e}", print_auth_status_response_details)
+        else:
+            def print_auth_status_error_details():
+                print(f"{RED}Response status: {auth_status_response.status_code}{NC}")
+                print(f"{RED}Response text: {auth_status_response.text}{NC}")
+                print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/auth_status{NC}")
+            
+            log_error(f"Auth status with Bearer token failed", print_auth_status_error_details)
+        
+        # Test 2: Verify data access endpoint with Bearer token
+        log_info("Testing data access endpoint with Bearer token...")
+        bearer_response = requests.get(
+            f"{CADDY_BASE_URL}/rest/country?limit=5",
+            headers={
+                "Authorization": f"Bearer {access_token}",
+                "Content-Type": "application/json"
+            }
+        )
+        
+        debug_info(f"Bearer auth response code: {bearer_response.status_code}")
+        debug_info(f"Bearer auth response headers: {dict(bearer_response.headers)}")
+        
+        if bearer_response.status_code == 200:
+            # Try to parse the response to verify it's valid
+            try:
+                data = bearer_response.json()
+                if isinstance(data, list) and len(data) > 0:
+                    log_success(f"API access with Bearer token successful")
+                else:
+                    log_warning(f"API access with Bearer token returned empty result")
+            except json.JSONDecodeError as e:
+                def print_bearer_response_details():
+                    print(f"{RED}Response text: {bearer_response.text!r}{NC}")
+                
+                log_error(f"Invalid JSON response from Bearer token request: {e}", print_bearer_response_details)
+        else:
+            def print_bearer_error_details():
+                print(f"{RED}Response status: {bearer_response.status_code}{NC}")
+                print(f"{RED}Response text: {bearer_response.text}{NC}")
+                print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/region?limit=5{NC}")
+                print(f"{RED}Authorization header: Bearer {access_token[:10]}...{NC}")
+            
+            log_error(f"API access with Bearer token failed", print_bearer_error_details)
+    
+    except requests.RequestException as e:
+        log_error(f"API request failed: {e}")
+    except json.JSONDecodeError as e:
+        log_error(f"Invalid JSON response: {e}")
+
 # CORS test functions removed as they're no longer needed with the simplified architecture
 
 def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
@@ -542,7 +648,7 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
     # Make auth_test request
     try:
         response = session.get(
-            f"{CADDY_BASE_URL}/postgrest/rpc/auth_test",
+            f"{CADDY_BASE_URL}/rest/rpc/auth_test",
             headers={"Content-Type": "application/json"}
         )
         
@@ -592,7 +698,7 @@ def main() -> None:
     # Test 1: Admin user API login and access
     print(f"\n{BLUE}=== Test 1: Admin User API Login and Access ==={NC}")
     admin_id = test_api_login(admin_session, ADMIN_EMAIL, ADMIN_PASSWORD, "admin_user")
-    test_api_access(admin_session, ADMIN_EMAIL, "/postgrest/region?limit=10", 200)
+    test_api_access(admin_session, ADMIN_EMAIL, "/rest/region?limit=10", 200)
     test_auth_status(admin_session, True)
     
     # Test auth_test endpoint after login
@@ -611,7 +717,7 @@ def main() -> None:
     print(f"\n{BLUE}=== Test 3: Regular User API Login and Access ==={NC}")
     test_api_logout(admin_session)
     regular_id = test_api_login(regular_session, REGULAR_EMAIL, REGULAR_PASSWORD, "regular_user")
-    test_api_access(regular_session, REGULAR_EMAIL, "/postgrest/region?limit=10", 200)
+    test_api_access(regular_session, REGULAR_EMAIL, "/rest/region?limit=10", 200)
     test_auth_status(regular_session, True)
     
     # Test 4: Regular user direct database access
@@ -626,7 +732,7 @@ def main() -> None:
     print(f"\n{BLUE}=== Test 5: Restricted User API Login and Access ==={NC}")
     test_api_logout(regular_session)
     restricted_id = test_api_login(restricted_session, RESTRICTED_EMAIL, RESTRICTED_PASSWORD, "restricted_user")
-    test_api_access(restricted_session, RESTRICTED_EMAIL, "/postgrest/region?limit=10", 200)
+    test_api_access(restricted_session, RESTRICTED_EMAIL, "/rest/region?limit=10", 200)
     test_auth_status(restricted_session, True)
     
     # Test 6: Restricted user direct database access
@@ -653,7 +759,7 @@ def main() -> None:
     failed_login_session = requests.Session()
     try:
         response = failed_login_session.post(
-            f"{CADDY_BASE_URL}/postgrest/rpc/login",
+            f"{CADDY_BASE_URL}/rest/rpc/login",
             json={"email": ADMIN_EMAIL, "password": "WrongPassword"},
             headers={"Content-Type": "application/json"}
         )
@@ -664,7 +770,7 @@ def main() -> None:
         else:
             def print_unexpected_login_success():
                 print(f"{RED}Response: {response.text}{NC}")
-                print(f"{RED}API endpoint: {CADDY_BASE_URL}/postgrest/rpc/login{NC}")
+                print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/login{NC}")
             
             log_error("Login unexpectedly succeeded with incorrect password.", print_unexpected_login_success)
     
@@ -684,6 +790,10 @@ def main() -> None:
             print(f"{RED}Connection: {ADMIN_EMAIL}@{DB_HOST}:{DB_PORT}/{DB_NAME}{NC}")
         
         log_error("Database access unexpectedly succeeded with incorrect password.", print_unexpected_db_access)
+    
+    # Test 11: API access with Bearer token
+    print(f"\n{BLUE}=== Test 11: API Access with Bearer Token ==={NC}")
+    test_bearer_token_auth(ADMIN_EMAIL, ADMIN_PASSWORD)
     
     # CORS tests removed as they're no longer needed with the simplified architecture
     
