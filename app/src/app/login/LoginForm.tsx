@@ -27,8 +27,8 @@ export default function LoginForm() {
         throw new Error(result.error);
       }
       
-      // If login successful, redirect
-      router.push("/");
+      // If login successful, use window.location for a hard redirect
+      window.location.href = "/";
     } catch (error) {
       console.error("Login error:", error);
       setError(error instanceof Error ? error.message : "Login failed. Please check your credentials.");

@@ -1,6 +1,5 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-import { getDeploymentSlotCode } from '@/utils/auth/jwt';
 import { authStore } from '@/context/AuthStore';
 import { getServerRestClient } from '@/context/RestClientStore';
 
@@ -15,36 +14,21 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Get the tokens from cookies
-  const accessToken = request.cookies.get('statbus');
-  const refreshToken = request.cookies.get('statbus-refresh');
+  // Get authentication status directly from AuthStore
+  const authStatus = await authStore.getAuthStatus();
   
-  // If no tokens at all, redirect to login
-  if (!accessToken && !refreshToken) {
+  // If not authenticated, redirect to login
+  if (!authStatus.isAuthenticated) {
     return NextResponse.redirect(`${request.nextUrl.origin}/login`);
   }
   
-  // Try to refresh token if needed using the AuthStore
-  const refreshResult = await authStore.refreshTokenIfNeeded();
-  
-  if (!refreshResult.success) {
-    // If refresh failed or wasn't possible, redirect to login
-    return NextResponse.redirect(`${request.nextUrl.origin}/login`);
+  // If we're on the login page and already authenticated, redirect to home
+  if (request.nextUrl.pathname === "/login") {
+    return NextResponse.redirect(`${request.nextUrl.origin}/`);
   }
   
-  // If token was refreshed, create a new response with the updated cookies
-  let response = NextResponse.next();
-  
-  // Add auth info header to indicate a refresh happened
-  response.headers.set('X-Auth-Refreshed', 'true');
-  
-  // If we have an access token, continue with the request
-  if (accessToken) {
-    // We don't verify the token here, we just check if it's present
-    // The actual verification will be done by PostgREST when we make API calls
-    
-    // Continue with app setup checks
-    const client = await getServerRestClient();
+  // User is authenticated, continue with app setup checks
+  const client = await getServerRestClient();
       
       if (request.nextUrl.pathname === "/") {
         // Check if settings exist
@@ -88,10 +72,6 @@ export async function middleware(request: NextRequest) {
       
       // All checks passed, continue to the requested page
       return NextResponse.next();
-  }
-  
-  // Fallback - redirect to login
-  return NextResponse.redirect(`${request.nextUrl.origin}/login`);
 }
 
 export const config = {

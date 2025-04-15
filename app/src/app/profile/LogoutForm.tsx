@@ -11,7 +11,8 @@ export default function LogoutForm() {
   const handleLogout = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     await logout();
-    router.push("/login");
+    // Use window.location for a hard redirect to match login behavior
+    window.location.href = "/login";
   };
 
   return (
