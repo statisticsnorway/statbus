@@ -395,8 +395,8 @@ VALUES
     , ('hjelpeenhetskode.kode', NULL, NULL)
     , ('hjelpeenhetskode.beskrivelse', NULL, NULL)
     , ('harRegistrertAntallAnsatte', NULL, NULL)
-    , ('antallAnsatte', NULL, NULL)
-    , ('hjemmeside', NULL, NULL)
+    , ('antallAnsatte', NULL, 'employees')
+    , ('hjemmeside', NULL, 'website')
     , ('postadresse.adresse', NULL, 'postal_address_part1')
     , ('postadresse.poststed', NULL, 'postal_postplace')
     , ('postadresse.postnummer', NULL, 'postal_postcode')
@@ -499,7 +499,7 @@ ORDER BY source_column_priority, target_column;
  brreg_hovedenhet_2024 | hjelpeenhetskode.kode                     |              |                   |                     13 | 
  brreg_hovedenhet_2024 | hjelpeenhetskode.beskrivelse              |              |                   |                     14 | 
  brreg_hovedenhet_2024 | harRegistrertAntallAnsatte                |              |                   |                     15 | 
- brreg_hovedenhet_2024 | antallAnsatte                             |              |                   |                     16 | 
+ brreg_hovedenhet_2024 | antallAnsatte                             |              |                   |                     16 | employees
  brreg_hovedenhet_2024 | hjemmeside                                |              |                   |                     17 | 
  brreg_hovedenhet_2024 | postadresse.adresse                       |              |                   |                     18 | postal_address_part1
  brreg_hovedenhet_2024 | postadresse.poststed                      |              |                   |                     19 | postal_postplace
@@ -602,8 +602,8 @@ VALUES
     , ('hjelpeenhetskode.kode', NULL, NULL)
     , ('hjelpeenhetskode.beskrivelse', NULL, NULL)
     , ('harRegistrertAntallAnsatte', NULL, NULL)
-    , ('antallAnsatte', NULL, NULL)
-    , ('hjemmeside', NULL, NULL)
+    , ('antallAnsatte', NULL, 'employees')
+    , ('hjemmeside', NULL, 'website')
     , ('postadresse.adresse', NULL, 'postal_address_part1')
     , ('postadresse.poststed', NULL, 'postal_postplace')
     , ('postadresse.postnummer', NULL, 'postal_postcode')
@@ -688,7 +688,7 @@ ORDER BY source_column_priority, target_column;
  brreg_underenhet_2024 | hjelpeenhetskode.kode              |              |                   |                     13 | 
  brreg_underenhet_2024 | hjelpeenhetskode.beskrivelse       |              |                   |                     14 | 
  brreg_underenhet_2024 | harRegistrertAntallAnsatte         |              |                   |                     15 | 
- brreg_underenhet_2024 | antallAnsatte                      |              |                   |                     16 | 
+ brreg_underenhet_2024 | antallAnsatte                      |              |                   |                     16 | employees
  brreg_underenhet_2024 | hjemmeside                         |              |                   |                     17 | 
  brreg_underenhet_2024 | postadresse.adresse                |              |                   |                     18 | postal_address_part1
  brreg_underenhet_2024 | postadresse.poststed               |              |                   |                     19 | postal_postplace
@@ -968,6 +968,7 @@ Triggers:
  legal_form_code                  | text              |           |          | 
  primary_activity_category_code   | text              |           |          | 
  secondary_activity_category_code | text              |           |          | 
+ employees                        | text              |           |          | 
  postal_address_part1             | text              |           |          | 
  postal_postplace                 | text              |           |          | 
  postal_postcode                  | text              |           |          | 
@@ -1097,6 +1098,7 @@ Triggers:
  name                             | text              |           |          | 
  primary_activity_category_code   | text              |           |          | 
  secondary_activity_category_code | text              |           |          | 
+ employees                        | text              |           |          | 
  postal_address_part1             | text              |           |          | 
  postal_postplace                 | text              |           |          | 
  postal_postcode                  | text              |           |          | 
@@ -1180,7 +1182,7 @@ FROM public.import_lu_2015_sht_import_information;
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjelpeenhetskode.kode                     |              |                   |                                  |             |                      |                     13
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjelpeenhetskode.beskrivelse              |              |                   |                                  |             |                      |                     14
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | harRegistrertAntallAnsatte                |              |                   |                                  |             |                      |                     15
- import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | antallAnsatte                             |              |                   |                                  |             |                      |                     16
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | antallAnsatte                             |              |                   | employees                        | text        | f                    |                     16
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjemmeside                                |              |                   |                                  |             |                      |                     17
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.adresse                       |              |                   | postal_address_part1             | text        | f                    |                     18
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.poststed                      |              |                   | postal_postplace                 | text        | f                    |                     19
@@ -1245,7 +1247,7 @@ WHERE import_job_slug = 'import_lu_2015_sht';
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjelpeenhetskode.kode                     |              |                   |                                  |             |                      |                     13
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjelpeenhetskode.beskrivelse              |              |                   |                                  |             |                      |                     14
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | harRegistrertAntallAnsatte                |              |                   |                                  |             |                      |                     15
- import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | antallAnsatte                             |              |                   |                                  |             |                      |                     16
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | antallAnsatte                             |              |                   | employees                        | text        | f                    |                     16
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjemmeside                                |              |                   |                                  |             |                      |                     17
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.adresse                       |              |                   | postal_address_part1             | text        | f                    |                     18
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.poststed                      |              |                   | postal_postplace                 | text        | f                    |                     19
@@ -1396,7 +1398,7 @@ CALL worker.process_tasks();
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
     queue    |   state   | count 
 -------------+-----------+-------
- analytics   | completed |    10
+ analytics   | completed |    12
  import      | completed |    32
  maintenance | pending   |     1
 (3 rows)
@@ -1472,6 +1474,7 @@ SELECT valid_from
 ------------+------------+------------------------------------+-----------+---------------
  2015-01-01 | 2015-12-31 | BYGGMESTER RICHARD FOSSER MINGE AS | 918420533 | legal_unit
  2015-01-01 | 2015-12-31 | BYGGMESTER RICHARD FOSSER MINGE AS | 918420533 | enterprise
+ 2015-01-01 | 2015-12-31 | BYGGMESTER RICHARD FOSSER MINGE AS | 992603216 | establishment
  2015-01-01 | 2015-12-31 | MYHRE ANLEGG & INDUSTRI AS         | 996294552 | legal_unit
  2015-01-01 | 2015-12-31 | MYHRE ANLEGG & INDUSTRI AS         | 996294552 | enterprise
  2015-01-01 | 2015-12-31 | MYHRE ANLEGG & INDUSTRI AS         | 996464415 | establishment
@@ -1481,7 +1484,6 @@ SELECT valid_from
  2015-01-01 | 2016-12-31 | BOBILER AS                         | 876278812 | legal_unit
  2015-01-01 | 2016-12-31 | BOBILER AS                         | 876278812 | enterprise
  2015-01-01 | 2016-12-31 | BOBILER AS                         | 929895711 | establishment
- 2015-01-01 | 2017-12-31 | BYGGMESTER RICHARD FOSSER MINGE AS | 992603216 | establishment
  2016-01-01 | 2016-12-31 | DONNA CLASSICA AS                  | 972287091 | establishment
  2016-01-01 | 2016-12-31 | DONNA CLASSICA AS                  | 976126637 | legal_unit
  2016-01-01 | 2016-12-31 | DONNA CLASSICA AS                  | 976126637 | enterprise
@@ -1490,6 +1492,7 @@ SELECT valid_from
  2016-01-01 | 2016-12-31 | ENGEN DETALJHANDEL                 | 928719510 | establishment
  2016-01-01 | 2017-12-31 | BYGGMESTER RICHARD FOSSER MINGE AS | 918420533 | legal_unit
  2016-01-01 | 2017-12-31 | BYGGMESTER RICHARD FOSSER MINGE AS | 918420533 | enterprise
+ 2016-01-01 | 2017-12-31 | BYGGMESTER RICHARD FOSSER MINGE AS | 992603216 | establishment
  2016-01-01 | 2017-12-31 | MYHRE ANLEGG & INDUSTRI AS         | 996294552 | legal_unit
  2016-01-01 | 2017-12-31 | MYHRE ANLEGG & INDUSTRI AS         | 996294552 | enterprise
  2016-01-01 | infinity   | MYHRE ANLEGG & INDUSTRI AS         | 996464415 | establishment
@@ -1499,24 +1502,26 @@ SELECT valid_from
  2017-01-01 | 2017-12-31 | BOBILER AS                         | 876278812 | legal_unit
  2017-01-01 | 2017-12-31 | BOBILER AS                         | 876278812 | enterprise
  2017-01-01 | 2017-12-31 | BOBILER AS                         | 929895711 | establishment
+ 2017-01-01 | 2017-12-31 | DONNA CLASSICA AS                  | 976126637 | legal_unit
+ 2017-01-01 | 2017-12-31 | DONNA CLASSICA AS                  | 976126637 | enterprise
  2017-01-01 | 2017-12-31 | ENGEN DETALJHANDEL                 | 928554198 | legal_unit
  2017-01-01 | 2017-12-31 | ENGEN DETALJHANDEL                 | 928554198 | enterprise
  2017-01-01 | 2017-12-31 | ENGEN DETALJHANDEL                 | 928719510 | establishment
  2017-01-01 | infinity   | DONNA CLASSICA AS                  | 972287091 | establishment
- 2017-01-01 | infinity   | DONNA CLASSICA AS                  | 976126637 | legal_unit
- 2017-01-01 | infinity   | DONNA CLASSICA AS                  | 976126637 | enterprise
  2018-01-01 | infinity   | BOBILER AS                         | 876278812 | legal_unit
  2018-01-01 | infinity   | BOBILER AS                         | 876278812 | enterprise
  2018-01-01 | infinity   | BOBILER AS                         | 929895711 | establishment
  2018-01-01 | infinity   | BYGGMESTER RICHARD FOSSER MINGE AS | 918420533 | legal_unit
  2018-01-01 | infinity   | BYGGMESTER RICHARD FOSSER MINGE AS | 918420533 | enterprise
  2018-01-01 | infinity   | BYGGMESTER RICHARD FOSSER MINGE AS | 992603216 | establishment
+ 2018-01-01 | infinity   | DONNA CLASSICA AS                  | 976126637 | legal_unit
+ 2018-01-01 | infinity   | DONNA CLASSICA AS                  | 976126637 | enterprise
  2018-01-01 | infinity   | ENGEN DETALJHANDEL                 | 928554198 | legal_unit
  2018-01-01 | infinity   | ENGEN DETALJHANDEL                 | 928554198 | enterprise
  2018-01-01 | infinity   | ENGEN DETALJHANDEL                 | 928719510 | establishment
  2018-01-01 | infinity   | MYHRE ANLEGG & INDUSTRI AS         | 996294552 | legal_unit
  2018-01-01 | infinity   | MYHRE ANLEGG & INDUSTRI AS         | 996294552 | enterprise
-(46 rows)
+(49 rows)
 
 \echo Getting statistical_units after upload
 Getting statistical_units after upload
@@ -1616,6 +1621,88 @@ valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
 unit_type             | establishment
+external_idents       | {"tax_ident": "992603216"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
+                      |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": "2008-02-17",                                        +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": null,                                               +
+                      |     "sector_name": null,                                               +
+                      |     "sector_path": null,                                               +
+                      |     "status_code": "active",                                           +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": null,                                           +
+                      |     "legal_form_name": null,                                           +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": null,                                           +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": null,                                          +
+                      |     "data_source_codes": [                                             +
+                      |     ],                                                                 +
+                      |     "last_edit_comment": "Batch import",                               +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "1406",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "SKI",                                       +
+                      |     "postal_region_code": null,                                        +
+                      |     "postal_region_path": null,                                        +
+                      |     "physical_region_code": "3207",                                    +
+                      |     "physical_region_path": "32.07",                                   +
+                      |     "postal_address_part1": null,                                      +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": null,                                      +
+                      |     "physical_address_part1": "Måsaveien 42",                          +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "F.41.2"                                                       +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": null,                              +
+                      |     "primary_activity_category_code": "41.2",                          +
+                      |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
+stats                 | {                                                                      +
+                      |     "employees": 143                                                   +
+                      | }
+stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 143,                                                    +
+                      |         "min": 143,                                                    +
+                      |         "sum": 143,                                                    +
+                      |         "mean": 143,                                                   +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0,                                                   +
+                      |         "variance": 0,                                                 +
+                      |         "sum_sq_diff": 0,                                              +
+                      |         "coefficient_of_variation_pct": 0                              +
+                      |     }                                                                  +
+                      | }
+-[ RECORD 3 ]---------+------------------------------------------------------------------------
+valid_after           | 2014-12-31
+valid_from            | 2015-01-01
+valid_to              | 2015-12-31
+unit_type             | establishment
 external_idents       | {"tax_ident": "996464415"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
@@ -1677,10 +1764,23 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
+                      |     "employees": 15                                                    +
                       | }
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 15,                                                     +
+                      |         "min": 15,                                                     +
+                      |         "sum": 15,                                                     +
+                      |         "mean": 15,                                                    +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0,                                                   +
+                      |         "variance": 0,                                                 +
+                      |         "sum_sq_diff": 0,                                              +
+                      |         "coefficient_of_variation_pct": 0                              +
+                      |     }                                                                  +
                       | }
--[ RECORD 3 ]---------+------------------------------------------------------------------------
+-[ RECORD 4 ]---------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
@@ -1747,8 +1847,20 @@ statistical_unit_data | {                                                       
 stats                 | {                                                                      +
                       | }
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 143,                                                    +
+                      |         "min": 143,                                                    +
+                      |         "sum": 143,                                                    +
+                      |         "mean": 143.00,                                                +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
                       | }
--[ RECORD 4 ]---------+------------------------------------------------------------------------
+-[ RECORD 5 ]---------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
@@ -1809,74 +1921,6 @@ statistical_unit_data | {                                                       
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "90.011",                        +
                       |     "primary_activity_category_path": "R.90.0.1.1",                    +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | {                                                                      +
-                      | }
-stats_summary         | {                                                                      +
-                      | }
--[ RECORD 5 ]---------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
-valid_from            | 2015-01-01
-valid_to              | 2015-12-31
-unit_type             | legal_unit
-external_idents       | {"tax_ident": "996294552"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
-                      |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": "2010-12-03",                                        +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": "2100",                                             +
-                      |     "sector_name": "Private aksjeselskaper mv.",                       +
-                      |     "sector_path": "innl.a_ikke_fin.2100",                             +
-                      |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": "AS",                                           +
-                      |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": "3516",                                         +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": "HØNEFOSS",                                    +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "Batch import",                               +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "3516",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "HØNEFOSS",                                  +
-                      |     "postal_region_code": "3305",                                      +
-                      |     "postal_region_path": "33.05",                                     +
-                      |     "physical_region_code": "3305",                                    +
-                      |     "physical_region_path": "33.05",                                   +
-                      |     "postal_address_part1": "Pålerudbyen 84",                          +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": "NO",                                      +
-                      |     "physical_address_part1": "Hensveien 180",                         +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "H.49.4.1"                                                     +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": 1,                                 +
-                      |     "primary_activity_category_code": "49.41",                         +
-                      |     "primary_activity_category_path": "H.49.4.1",                      +
                       |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
@@ -1888,6 +1932,87 @@ stats_summary         | {                                                       
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
+unit_type             | legal_unit
+external_idents       | {"tax_ident": "996294552"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
+                      |     "search": "'anlegg':2 'as':4 'industri':3 'myhre':1",              +
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": "2010-12-03",                                        +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": "2100",                                             +
+                      |     "sector_name": "Private aksjeselskaper mv.",                       +
+                      |     "sector_path": "innl.a_ikke_fin.2100",                             +
+                      |     "status_code": "active",                                           +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": "AS",                                           +
+                      |     "legal_form_name": "Aksjeselskap",                                 +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": "3516",                                         +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": "HØNEFOSS",                                    +
+                      |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "3516",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "HØNEFOSS",                                  +
+                      |     "postal_region_code": "3305",                                      +
+                      |     "postal_region_path": "33.05",                                     +
+                      |     "physical_region_code": "3305",                                    +
+                      |     "physical_region_path": "33.05",                                   +
+                      |     "postal_address_part1": "Pålerudbyen 84",                          +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": "NO",                                      +
+                      |     "physical_address_part1": "Hensveien 180",                         +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "H.49.4.1"                                                     +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
+                      |     "primary_activity_category_code": "49.41",                         +
+                      |     "primary_activity_category_path": "H.49.4.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
+stats                 | {                                                                      +
+                      |     "employees": 15                                                    +
+                      | }
+stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 15,                                                     +
+                      |         "min": 15,                                                     +
+                      |         "sum": 30,                                                     +
+                      |         "mean": 15.00000000000000000000,                               +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.0000000000000000000000,                            +
+                      |         "variance": 0.0000000000000000000000,                          +
+                      |         "sum_sq_diff": 0.0000000000000000000000,                       +
+                      |         "coefficient_of_variation_pct": 0.0000000000000000000000       +
+                      |     }                                                                  +
+                      | }
+-[ RECORD 7 ]---------+------------------------------------------------------------------------
+valid_after           | 2014-12-31
+valid_from            | 2015-01-01
+valid_to              | 2015-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "918420533"}
 statistical_unit_data | {                                                                      +
@@ -1950,8 +2075,20 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 143,                                                    +
+                      |         "min": 143,                                                    +
+                      |         "sum": 143,                                                    +
+                      |         "mean": 143.00,                                                +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
                       | }
--[ RECORD 7 ]---------+------------------------------------------------------------------------
+-[ RECORD 8 ]---------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
@@ -2018,7 +2155,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 8 ]---------+------------------------------------------------------------------------
+-[ RECORD 9 ]---------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2015-12-31
@@ -2084,8 +2221,20 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 15,                                                     +
+                      |         "min": 15,                                                     +
+                      |         "sum": 30,                                                     +
+                      |         "mean": 15.00,                                                 +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
                       | }
--[ RECORD 9 ]---------+------------------------------------------------------------------------
+-[ RECORD 10 ]--------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2016-12-31
@@ -2154,7 +2303,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 10 ]--------+------------------------------------------------------------------------
+-[ RECORD 11 ]--------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2016-12-31
@@ -2222,7 +2371,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 11 ]--------+------------------------------------------------------------------------
+-[ RECORD 12 ]--------+------------------------------------------------------------------------
 valid_after           | 2014-12-31
 valid_from            | 2015-01-01
 valid_to              | 2016-12-31
@@ -2287,75 +2436,6 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | 
-stats_summary         | {                                                                      +
-                      | }
--[ RECORD 12 ]--------+------------------------------------------------------------------------
-valid_after           | 2014-12-31
-valid_from            | 2015-01-01
-valid_to              | 2017-12-31
-unit_type             | establishment
-external_idents       | {"tax_ident": "992603216"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
-                      |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": "2008-02-17",                                        +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": null,                                               +
-                      |     "sector_name": null,                                               +
-                      |     "sector_path": null,                                               +
-                      |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": null,                                           +
-                      |     "legal_form_name": null,                                           +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": null,                                          +
-                      |     "data_source_codes": [                                             +
-                      |     ],                                                                 +
-                      |     "last_edit_comment": "Batch import",                               +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "1406",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "SKI",                                       +
-                      |     "postal_region_code": null,                                        +
-                      |     "postal_region_path": null,                                        +
-                      |     "physical_region_code": "3207",                                    +
-                      |     "physical_region_path": "32.07",                                   +
-                      |     "postal_address_part1": null,                                      +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": null,                                      +
-                      |     "physical_address_part1": "Måsaveien 42",                          +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "F.41.2"                                                       +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": null,                              +
-                      |     "primary_activity_category_code": "41.2",                          +
-                      |     "primary_activity_category_path": "F.41.2",                        +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | {                                                                      +
-                      | }
 stats_summary         | {                                                                      +
                       | }
 -[ RECORD 13 ]--------+------------------------------------------------------------------------
@@ -2493,8 +2573,21 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
+                      |     "employees": 6                                                     +
                       | }
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 6,                                                      +
+                      |         "min": 6,                                                      +
+                      |         "sum": 6,                                                      +
+                      |         "mean": 6,                                                     +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0,                                                   +
+                      |         "variance": 0,                                                 +
+                      |         "sum_sq_diff": 0,                                              +
+                      |         "coefficient_of_variation_pct": 0                              +
+                      |     }                                                                  +
                       | }
 -[ RECORD 15 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
@@ -2629,8 +2722,21 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
+                      |     "employees": 6                                                     +
                       | }
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 6,                                                      +
+                      |         "min": 6,                                                      +
+                      |         "sum": 12,                                                     +
+                      |         "mean": 6.00000000000000000000,                                +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.0000000000000000000000,                            +
+                      |         "variance": 0.0000000000000000000000,                          +
+                      |         "sum_sq_diff": 0.0000000000000000000000,                       +
+                      |         "coefficient_of_variation_pct": 0.0000000000000000000000       +
+                      |     }                                                                  +
                       | }
 -[ RECORD 17 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
@@ -2765,25 +2871,37 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 6,                                                      +
+                      |         "min": 6,                                                      +
+                      |         "sum": 12,                                                     +
+                      |         "mean": 6.00,                                                  +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
                       | }
 -[ RECORD 19 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2017-12-31
-unit_type             | legal_unit
-external_idents       | {"tax_ident": "918420533"}
+unit_type             | establishment
+external_idents       | {"tax_ident": "992603216"}
 statistical_unit_data | {                                                                      +
                       |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
                       |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
                       |     "landline": null,                                                  +
                       |     "tag_paths": [                                                     +
                       |     ],                                                                 +
-                      |     "birth_date": "2014-01-01",                                        +
+                      |     "birth_date": "2008-02-17",                                        +
                       |     "death_date": null,                                                +
                       |     "fax_number": null,                                                +
-                      |     "sector_code": "8200",                                             +
-                      |     "sector_name": "Personlig næringsdrivende",                        +
-                      |     "sector_path": "innl.e_hush.8200",                                 +
+                      |     "sector_code": null,                                               +
+                      |     "sector_name": null,                                               +
+                      |     "sector_path": null,                                               +
                       |     "status_code": "active",                                           +
                       |     "web_address": null,                                               +
                       |     "phone_number": null,                                              +
@@ -2792,14 +2910,15 @@ statistical_unit_data | {                                                       
                       |     "mobile_number": null,                                             +
                       |     "has_legal_unit": true,                                            +
                       |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": "AS",                                           +
-                      |     "legal_form_name": "Aksjeselskap",                                 +
+                      |     "legal_form_code": null,                                           +
+                      |     "legal_form_name": null,                                           +
                       |     "postal_altitude": null,                                           +
                       |     "postal_latitude": null,                                           +
                       |     "postal_postcode": null,                                           +
                       |     "postal_longitude": null,                                          +
                       |     "postal_postplace": null,                                          +
-                      |     "data_source_codes": null,                                         +
+                      |     "data_source_codes": [                                             +
+                      |     ],                                                                 +
                       |     "last_edit_comment": "Batch import",                               +
                       |     "physical_altitude": null,                                         +
                       |     "physical_latitude": null,                                         +
@@ -2824,21 +2943,114 @@ statistical_unit_data | {                                                       
                       |     "include_unit_in_reports": true,                                   +
                       |     "included_enterprise_count": null,                                 +
                       |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": 1,                                 +
+                      |     "included_establishment_count": null,                              +
                       |     "primary_activity_category_code": "41.2",                          +
                       |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
+                      |     "employees": 127                                                   +
                       | }
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 127,                                                    +
+                      |         "min": 127,                                                    +
+                      |         "sum": 127,                                                    +
+                      |         "mean": 127,                                                   +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0,                                                   +
+                      |         "variance": 0,                                                 +
+                      |         "sum_sq_diff": 0,                                              +
+                      |         "coefficient_of_variation_pct": 0                              +
+                      |     }                                                                  +
                       | }
 -[ RECORD 20 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2017-12-31
 unit_type             | legal_unit
+external_idents       | {"tax_ident": "918420533"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
+                      |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": "2014-01-01",                                        +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": "8200",                                             +
+                      |     "sector_name": "Personlig næringsdrivende",                        +
+                      |     "sector_path": "innl.e_hush.8200",                                 +
+                      |     "status_code": "active",                                           +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": "AS",                                           +
+                      |     "legal_form_name": "Aksjeselskap",                                 +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": null,                                           +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": null,                                          +
+                      |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "1406",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "SKI",                                       +
+                      |     "postal_region_code": null,                                        +
+                      |     "postal_region_path": null,                                        +
+                      |     "physical_region_code": "3207",                                    +
+                      |     "physical_region_path": "32.07",                                   +
+                      |     "postal_address_part1": null,                                      +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": null,                                      +
+                      |     "physical_address_part1": "Måsaveien 42",                          +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "F.41.2"                                                       +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
+                      |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
+stats                 | {                                                                      +
+                      | }
+stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 127,                                                    +
+                      |         "min": 127,                                                    +
+                      |         "sum": 127,                                                    +
+                      |         "mean": 127.00,                                                +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
+                      | }
+-[ RECORD 21 ]--------+------------------------------------------------------------------------
+valid_after           | 2015-12-31
+valid_from            | 2016-01-01
+valid_to              | 2017-12-31
+unit_type             | legal_unit
 external_idents       | {"tax_ident": "996294552"}
 statistical_unit_data | {                                                                      +
                       |     "name": "MYHRE ANLEGG & INDUSTRI AS",                              +
@@ -2899,10 +3111,23 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
+                      |     "employees": 30                                                    +
                       | }
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 30,                                                     +
+                      |         "min": 30,                                                     +
+                      |         "sum": 60,                                                     +
+                      |         "mean": 30.00000000000000000000,                               +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.0000000000000000000000,                            +
+                      |         "variance": 0.0000000000000000000000,                          +
+                      |         "sum_sq_diff": 0.0000000000000000000000,                       +
+                      |         "coefficient_of_variation_pct": 0.0000000000000000000000       +
+                      |     }                                                                  +
                       | }
--[ RECORD 21 ]--------+------------------------------------------------------------------------
+-[ RECORD 22 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2017-12-31
@@ -2968,8 +3193,20 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 127,                                                    +
+                      |         "min": 127,                                                    +
+                      |         "sum": 127,                                                    +
+                      |         "mean": 127.00,                                                +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
                       | }
--[ RECORD 22 ]--------+------------------------------------------------------------------------
+-[ RECORD 23 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | 2017-12-31
@@ -3035,8 +3272,20 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 30,                                                     +
+                      |         "min": 30,                                                     +
+                      |         "sum": 60,                                                     +
+                      |         "mean": 30.00,                                                 +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
                       | }
--[ RECORD 23 ]--------+------------------------------------------------------------------------
+-[ RECORD 24 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | infinity
@@ -3105,7 +3354,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 24 ]--------+------------------------------------------------------------------------
+-[ RECORD 25 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | infinity
@@ -3171,10 +3420,23 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
+                      |     "employees": 30                                                    +
                       | }
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 30,                                                     +
+                      |         "min": 30,                                                     +
+                      |         "sum": 30,                                                     +
+                      |         "mean": 30,                                                    +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0,                                                   +
+                      |         "variance": 0,                                                 +
+                      |         "sum_sq_diff": 0,                                              +
+                      |         "coefficient_of_variation_pct": 0                              +
+                      |     }                                                                  +
                       | }
--[ RECORD 25 ]--------+------------------------------------------------------------------------
+-[ RECORD 26 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | infinity
@@ -3242,7 +3504,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 26 ]--------+------------------------------------------------------------------------
+-[ RECORD 27 ]--------+------------------------------------------------------------------------
 valid_after           | 2015-12-31
 valid_from            | 2016-01-01
 valid_to              | infinity
@@ -3309,7 +3571,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 27 ]--------+------------------------------------------------------------------------
+-[ RECORD 28 ]--------+------------------------------------------------------------------------
 valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
@@ -3378,7 +3640,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 28 ]--------+------------------------------------------------------------------------
+-[ RECORD 29 ]--------+------------------------------------------------------------------------
 valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
@@ -3447,7 +3709,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 29 ]--------+------------------------------------------------------------------------
+-[ RECORD 30 ]--------+------------------------------------------------------------------------
 valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
@@ -3508,74 +3770,6 @@ statistical_unit_data | {                                                       
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | {                                                                      +
-                      | }
-stats_summary         | {                                                                      +
-                      | }
--[ RECORD 30 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
-valid_from            | 2017-01-01
-valid_to              | 2017-12-31
-unit_type             | legal_unit
-external_idents       | {"tax_ident": "928554198"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "ENGEN DETALJHANDEL",                                      +
-                      |     "search": "'detaljhandel':2 'engen':1",                            +
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": null,                                                +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": "8200",                                             +
-                      |     "sector_name": "Personlig næringsdrivende",                        +
-                      |     "sector_path": "innl.e_hush.8200",                                 +
-                      |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": "ENK",                                          +
-                      |     "legal_form_name": "Enkeltpersonforetak",                          +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": null,                                          +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "Batch import",                               +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "4550",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "FARSUND",                                   +
-                      |     "postal_region_code": null,                                        +
-                      |     "postal_region_path": null,                                        +
-                      |     "physical_region_code": "4206",                                    +
-                      |     "physical_region_path": "42.06",                                   +
-                      |     "postal_address_part1": null,                                      +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": null,                                      +
-                      |     "physical_address_part1": "Lyngdalsveien 810",                     +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "L.68.2.0.9"                                                   +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": 1,                                 +
-                      |     "primary_activity_category_code": "68.209",                        +
-                      |     "primary_activity_category_path": "L.68.2.0.9",                    +
                       |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
@@ -3587,6 +3781,155 @@ stats_summary         | {                                                       
 valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
+unit_type             | legal_unit
+external_idents       | {"tax_ident": "928554198"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "ENGEN DETALJHANDEL",                                      +
+                      |     "search": "'detaljhandel':2 'engen':1",                            +
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": null,                                                +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": "8200",                                             +
+                      |     "sector_name": "Personlig næringsdrivende",                        +
+                      |     "sector_path": "innl.e_hush.8200",                                 +
+                      |     "status_code": "active",                                           +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": "ENK",                                          +
+                      |     "legal_form_name": "Enkeltpersonforetak",                          +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": null,                                           +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": null,                                          +
+                      |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "4550",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "FARSUND",                                   +
+                      |     "postal_region_code": null,                                        +
+                      |     "postal_region_path": null,                                        +
+                      |     "physical_region_code": "4206",                                    +
+                      |     "physical_region_path": "42.06",                                   +
+                      |     "postal_address_part1": null,                                      +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": null,                                      +
+                      |     "physical_address_part1": "Lyngdalsveien 810",                     +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "L.68.2.0.9"                                                   +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
+                      |     "primary_activity_category_code": "68.209",                        +
+                      |     "primary_activity_category_path": "L.68.2.0.9",                    +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
+stats                 | {                                                                      +
+                      | }
+stats_summary         | {                                                                      +
+                      | }
+-[ RECORD 32 ]--------+------------------------------------------------------------------------
+valid_after           | 2016-12-31
+valid_from            | 2017-01-01
+valid_to              | 2017-12-31
+unit_type             | legal_unit
+external_idents       | {"tax_ident": "976126637"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "DONNA CLASSICA AS",                                       +
+                      |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": "1996-02-15",                                        +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": "2100",                                             +
+                      |     "sector_name": "Private aksjeselskaper mv.",                       +
+                      |     "sector_path": "innl.a_ikke_fin.2100",                             +
+                      |     "status_code": "active",                                           +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": "AS",                                           +
+                      |     "legal_form_name": "Aksjeselskap",                                 +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": null,                                           +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": null,                                          +
+                      |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "4340",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "BRYNE",                                     +
+                      |     "postal_region_code": null,                                        +
+                      |     "postal_region_path": null,                                        +
+                      |     "physical_region_code": "1121",                                    +
+                      |     "physical_region_path": "11.21",                                   +
+                      |     "postal_address_part1": null,                                      +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": null,                                      +
+                      |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "G.47.7.1"                                                     +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
+                      |     "primary_activity_category_code": "47.71",                         +
+                      |     "primary_activity_category_path": "G.47.7.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
+stats                 | {                                                                      +
+                      |     "employees": 6                                                     +
+                      | }
+stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 6,                                                      +
+                      |         "min": 6,                                                      +
+                      |         "sum": 12,                                                     +
+                      |         "mean": 6.00000000000000000000,                                +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.0000000000000000000000,                            +
+                      |         "variance": 0.0000000000000000000000,                          +
+                      |         "sum_sq_diff": 0.0000000000000000000000,                       +
+                      |         "coefficient_of_variation_pct": 0.0000000000000000000000       +
+                      |     }                                                                  +
+                      | }
+-[ RECORD 33 ]--------+------------------------------------------------------------------------
+valid_after           | 2016-12-31
+valid_from            | 2017-01-01
+valid_to              | 2017-12-31
 unit_type             | enterprise
 external_idents       | {"tax_ident": "876278812"}
 statistical_unit_data | {                                                                      +
@@ -3650,7 +3993,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 32 ]--------+------------------------------------------------------------------------
+-[ RECORD 34 ]--------+------------------------------------------------------------------------
 valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | 2017-12-31
@@ -3717,7 +4060,86 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 33 ]--------+------------------------------------------------------------------------
+-[ RECORD 35 ]--------+------------------------------------------------------------------------
+valid_after           | 2016-12-31
+valid_from            | 2017-01-01
+valid_to              | 2017-12-31
+unit_type             | enterprise
+external_idents       | {"tax_ident": "976126637"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "DONNA CLASSICA AS",                                       +
+                      |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": "1996-02-15",                                        +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": "2100",                                             +
+                      |     "sector_name": "Private aksjeselskaper mv.",                       +
+                      |     "sector_path": "innl.a_ikke_fin.2100",                             +
+                      |     "status_code": "active",                                           +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": "AS",                                           +
+                      |     "legal_form_name": "Aksjeselskap",                                 +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": null,                                           +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": null,                                          +
+                      |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "4340",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "BRYNE",                                     +
+                      |     "postal_region_code": null,                                        +
+                      |     "postal_region_path": null,                                        +
+                      |     "physical_region_code": "1121",                                    +
+                      |     "physical_region_path": "11.21",                                   +
+                      |     "postal_address_part1": null,                                      +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": null,                                      +
+                      |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "G.47.7.1"                                                     +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
+                      |     "primary_activity_category_code": "47.71",                         +
+                      |     "primary_activity_category_path": "G.47.7.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
+stats                 | 
+stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 6,                                                      +
+                      |         "min": 6,                                                      +
+                      |         "sum": 12,                                                     +
+                      |         "mean": 6.00,                                                  +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
+                      | }
+-[ RECORD 36 ]--------+------------------------------------------------------------------------
 valid_after           | 2016-12-31
 valid_from            | 2017-01-01
 valid_to              | infinity
@@ -3783,145 +4205,23 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
+                      |     "employees": 6                                                     +
                       | }
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 6,                                                      +
+                      |         "min": 6,                                                      +
+                      |         "sum": 6,                                                      +
+                      |         "mean": 6,                                                     +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0,                                                   +
+                      |         "variance": 0,                                                 +
+                      |         "sum_sq_diff": 0,                                              +
+                      |         "coefficient_of_variation_pct": 0                              +
+                      |     }                                                                  +
                       | }
--[ RECORD 34 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
-valid_from            | 2017-01-01
-valid_to              | infinity
-unit_type             | legal_unit
-external_idents       | {"tax_ident": "976126637"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "DONNA CLASSICA AS",                                       +
-                      |     "search": "'as':3 'classica':2 'donna':1",                         +
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": "1996-02-15",                                        +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": "2100",                                             +
-                      |     "sector_name": "Private aksjeselskaper mv.",                       +
-                      |     "sector_path": "innl.a_ikke_fin.2100",                             +
-                      |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": "AS",                                           +
-                      |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": null,                                          +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "Batch import",                               +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "4340",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "BRYNE",                                     +
-                      |     "postal_region_code": null,                                        +
-                      |     "postal_region_path": null,                                        +
-                      |     "physical_region_code": "1121",                                    +
-                      |     "physical_region_path": "11.21",                                   +
-                      |     "postal_address_part1": null,                                      +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": null,                                      +
-                      |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "G.47.7.1"                                                     +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": 1,                                 +
-                      |     "primary_activity_category_code": "47.71",                         +
-                      |     "primary_activity_category_path": "G.47.7.1",                      +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | {                                                                      +
-                      | }
-stats_summary         | {                                                                      +
-                      | }
--[ RECORD 35 ]--------+------------------------------------------------------------------------
-valid_after           | 2016-12-31
-valid_from            | 2017-01-01
-valid_to              | infinity
-unit_type             | enterprise
-external_idents       | {"tax_ident": "976126637"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "DONNA CLASSICA AS",                                       +
-                      |     "search": "'as':3 'classica':2 'donna':1",                         +
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": "1996-02-15",                                        +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": "2100",                                             +
-                      |     "sector_name": "Private aksjeselskaper mv.",                       +
-                      |     "sector_path": "innl.a_ikke_fin.2100",                             +
-                      |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": "AS",                                           +
-                      |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": null,                                          +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "Batch import",                               +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "4340",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "BRYNE",                                     +
-                      |     "postal_region_code": null,                                        +
-                      |     "postal_region_path": null,                                        +
-                      |     "physical_region_code": "1121",                                    +
-                      |     "physical_region_path": "11.21",                                   +
-                      |     "postal_address_part1": null,                                      +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": null,                                      +
-                      |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "G.47.7.1"                                                     +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": 1,                                    +
-                      |     "included_establishment_count": 1,                                 +
-                      |     "primary_activity_category_code": "47.71",                         +
-                      |     "primary_activity_category_path": "G.47.7.1",                      +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | 
-stats_summary         | {                                                                      +
-                      | }
--[ RECORD 36 ]--------+------------------------------------------------------------------------
+-[ RECORD 37 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -3990,7 +4290,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 37 ]--------+------------------------------------------------------------------------
+-[ RECORD 38 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -4059,7 +4359,7 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 38 ]--------+------------------------------------------------------------------------
+-[ RECORD 39 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -4125,10 +4425,23 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
+                      |     "employees": 127                                                   +
                       | }
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 127,                                                    +
+                      |         "min": 127,                                                    +
+                      |         "sum": 127,                                                    +
+                      |         "mean": 127,                                                   +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0,                                                   +
+                      |         "variance": 0,                                                 +
+                      |         "sum_sq_diff": 0,                                              +
+                      |         "coefficient_of_variation_pct": 0                              +
+                      |     }                                                                  +
                       | }
--[ RECORD 39 ]--------+------------------------------------------------------------------------
+-[ RECORD 40 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -4189,74 +4502,6 @@ statistical_unit_data | {                                                       
                       |     "included_establishment_count": 1,                                 +
                       |     "primary_activity_category_code": "45.112",                        +
                       |     "primary_activity_category_path": "G.45.1.1.2",                    +
-                      |     "secondary_activity_category_code": null,                          +
-                      |     "secondary_activity_category_path": null                           +
-                      | }
-stats                 | {                                                                      +
-                      | }
-stats_summary         | {                                                                      +
-                      | }
--[ RECORD 40 ]--------+------------------------------------------------------------------------
-valid_after           | 2017-12-31
-valid_from            | 2018-01-01
-valid_to              | infinity
-unit_type             | legal_unit
-external_idents       | {"tax_ident": "918420533"}
-statistical_unit_data | {                                                                      +
-                      |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
-                      |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
-                      |     "landline": null,                                                  +
-                      |     "tag_paths": [                                                     +
-                      |     ],                                                                 +
-                      |     "birth_date": "2014-01-01",                                        +
-                      |     "death_date": null,                                                +
-                      |     "fax_number": null,                                                +
-                      |     "sector_code": "8200",                                             +
-                      |     "sector_name": "Personlig næringsdrivende",                        +
-                      |     "sector_path": "innl.e_hush.8200",                                 +
-                      |     "status_code": "active",                                           +
-                      |     "web_address": null,                                               +
-                      |     "phone_number": null,                                              +
-                      |     "email_address": null,                                             +
-                      |     "invalid_codes": null,                                             +
-                      |     "mobile_number": null,                                             +
-                      |     "has_legal_unit": true,                                            +
-                      |     "unit_size_code": null,                                            +
-                      |     "legal_form_code": "AS",                                           +
-                      |     "legal_form_name": "Aksjeselskap",                                 +
-                      |     "postal_altitude": null,                                           +
-                      |     "postal_latitude": null,                                           +
-                      |     "postal_postcode": null,                                           +
-                      |     "postal_longitude": null,                                          +
-                      |     "postal_postplace": null,                                          +
-                      |     "data_source_codes": null,                                         +
-                      |     "last_edit_comment": "Batch import",                               +
-                      |     "physical_altitude": null,                                         +
-                      |     "physical_latitude": null,                                         +
-                      |     "physical_postcode": "3114",                                       +
-                      |     "physical_longitude": null,                                        +
-                      |     "physical_postplace": "TØNSBERG",                                  +
-                      |     "postal_region_code": null,                                        +
-                      |     "postal_region_path": null,                                        +
-                      |     "physical_region_code": "3905",                                    +
-                      |     "physical_region_path": "39.05",                                   +
-                      |     "postal_address_part1": null,                                      +
-                      |     "postal_address_part2": null,                                      +
-                      |     "postal_address_part3": null,                                      +
-                      |     "postal_country_iso_2": null,                                      +
-                      |     "physical_address_part1": "Ingrids vei 29",                        +
-                      |     "physical_address_part2": null,                                    +
-                      |     "physical_address_part3": null,                                    +
-                      |     "physical_country_iso_2": "NO",                                    +
-                      |     "activity_category_paths": [                                       +
-                      |         "F.41.2"                                                       +
-                      |     ],                                                                 +
-                      |     "include_unit_in_reports": true,                                   +
-                      |     "included_enterprise_count": null,                                 +
-                      |     "included_legal_unit_count": null,                                 +
-                      |     "included_establishment_count": 1,                                 +
-                      |     "primary_activity_category_code": "41.2",                          +
-                      |     "primary_activity_category_path": "F.41.2",                        +
                       |     "secondary_activity_category_code": null,                          +
                       |     "secondary_activity_category_path": null                           +
                       | }
@@ -4269,6 +4514,86 @@ valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
 unit_type             | legal_unit
+external_idents       | {"tax_ident": "918420533"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "BYGGMESTER RICHARD FOSSER MINGE AS",                      +
+                      |     "search": "'as':5 'byggmester':1 'fosser':3 'minge':4 'richard':2",+
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": "2014-01-01",                                        +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": "8200",                                             +
+                      |     "sector_name": "Personlig næringsdrivende",                        +
+                      |     "sector_path": "innl.e_hush.8200",                                 +
+                      |     "status_code": "active",                                           +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": "AS",                                           +
+                      |     "legal_form_name": "Aksjeselskap",                                 +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": null,                                           +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": null,                                          +
+                      |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "3114",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "TØNSBERG",                                  +
+                      |     "postal_region_code": null,                                        +
+                      |     "postal_region_path": null,                                        +
+                      |     "physical_region_code": "3905",                                    +
+                      |     "physical_region_path": "39.05",                                   +
+                      |     "postal_address_part1": null,                                      +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": null,                                      +
+                      |     "physical_address_part1": "Ingrids vei 29",                        +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "F.41.2"                                                       +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
+                      |     "primary_activity_category_code": "41.2",                          +
+                      |     "primary_activity_category_path": "F.41.2",                        +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
+stats                 | {                                                                      +
+                      | }
+stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 127,                                                    +
+                      |         "min": 127,                                                    +
+                      |         "sum": 127,                                                    +
+                      |         "mean": 127.00,                                                +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
+                      | }
+-[ RECORD 42 ]--------+------------------------------------------------------------------------
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
+valid_to              | infinity
+unit_type             | legal_unit
 external_idents       | {"tax_ident": "928554198"}
 statistical_unit_data | {                                                                      +
                       |     "name": "ENGEN DETALJHANDEL",                                      +
@@ -4332,7 +4657,88 @@ stats                 | {                                                       
                       | }
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 42 ]--------+------------------------------------------------------------------------
+-[ RECORD 43 ]--------+------------------------------------------------------------------------
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
+valid_to              | infinity
+unit_type             | legal_unit
+external_idents       | {"tax_ident": "976126637"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "DONNA CLASSICA AS",                                       +
+                      |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": "1996-02-15",                                        +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": "2100",                                             +
+                      |     "sector_name": "Private aksjeselskaper mv.",                       +
+                      |     "sector_path": "innl.a_ikke_fin.2100",                             +
+                      |     "status_code": "active",                                           +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": "AS",                                           +
+                      |     "legal_form_name": "Aksjeselskap",                                 +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": null,                                           +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": null,                                          +
+                      |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "4340",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "BRYNE",                                     +
+                      |     "postal_region_code": null,                                        +
+                      |     "postal_region_path": null,                                        +
+                      |     "physical_region_code": "1121",                                    +
+                      |     "physical_region_path": "11.21",                                   +
+                      |     "postal_address_part1": null,                                      +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": null,                                      +
+                      |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "G.47.7.1"                                                     +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": null,                                 +
+                      |     "included_establishment_count": 1,                                 +
+                      |     "primary_activity_category_code": "47.71",                         +
+                      |     "primary_activity_category_path": "G.47.7.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
+stats                 | {                                                                      +
+                      |     "employees": 9                                                     +
+                      | }
+stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 9,                                                      +
+                      |         "min": 6,                                                      +
+                      |         "sum": 15,                                                     +
+                      |         "mean": 7.5000000000000000,                                    +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 2.121320343559642573,                                +
+                      |         "variance": 4.500000000000000000,                              +
+                      |         "sum_sq_diff": 4.500000000000000000,                           +
+                      |         "coefficient_of_variation_pct": 28.28427124746190097300        +
+                      |     }                                                                  +
+                      | }
+-[ RECORD 44 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -4397,10 +4803,23 @@ statistical_unit_data | {                                                       
                       |     "secondary_activity_category_path": null                           +
                       | }
 stats                 | {                                                                      +
+                      |     "employees": 30                                                    +
                       | }
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 30,                                                     +
+                      |         "min": 30,                                                     +
+                      |         "sum": 60,                                                     +
+                      |         "mean": 30.00000000000000000000,                               +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.0000000000000000000000,                            +
+                      |         "variance": 0.0000000000000000000000,                          +
+                      |         "sum_sq_diff": 0.0000000000000000000000,                       +
+                      |         "coefficient_of_variation_pct": 0.0000000000000000000000       +
+                      |     }                                                                  +
                       | }
--[ RECORD 43 ]--------+------------------------------------------------------------------------
+-[ RECORD 45 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -4467,7 +4886,7 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 44 ]--------+------------------------------------------------------------------------
+-[ RECORD 46 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -4533,8 +4952,20 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 127,                                                    +
+                      |         "min": 127,                                                    +
+                      |         "sum": 127,                                                    +
+                      |         "mean": 127.00,                                                +
+                      |         "type": "number",                                              +
+                      |         "count": 1,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
                       | }
--[ RECORD 45 ]--------+------------------------------------------------------------------------
+-[ RECORD 47 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -4601,7 +5032,86 @@ statistical_unit_data | {                                                       
 stats                 | 
 stats_summary         | {                                                                      +
                       | }
--[ RECORD 46 ]--------+------------------------------------------------------------------------
+-[ RECORD 48 ]--------+------------------------------------------------------------------------
+valid_after           | 2017-12-31
+valid_from            | 2018-01-01
+valid_to              | infinity
+unit_type             | enterprise
+external_idents       | {"tax_ident": "976126637"}
+statistical_unit_data | {                                                                      +
+                      |     "name": "DONNA CLASSICA AS",                                       +
+                      |     "search": "'as':3 'classica':2 'donna':1",                         +
+                      |     "landline": null,                                                  +
+                      |     "tag_paths": [                                                     +
+                      |     ],                                                                 +
+                      |     "birth_date": "1996-02-15",                                        +
+                      |     "death_date": null,                                                +
+                      |     "fax_number": null,                                                +
+                      |     "sector_code": "2100",                                             +
+                      |     "sector_name": "Private aksjeselskaper mv.",                       +
+                      |     "sector_path": "innl.a_ikke_fin.2100",                             +
+                      |     "status_code": "active",                                           +
+                      |     "web_address": null,                                               +
+                      |     "phone_number": null,                                              +
+                      |     "email_address": null,                                             +
+                      |     "invalid_codes": null,                                             +
+                      |     "mobile_number": null,                                             +
+                      |     "has_legal_unit": true,                                            +
+                      |     "unit_size_code": null,                                            +
+                      |     "legal_form_code": "AS",                                           +
+                      |     "legal_form_name": "Aksjeselskap",                                 +
+                      |     "postal_altitude": null,                                           +
+                      |     "postal_latitude": null,                                           +
+                      |     "postal_postcode": null,                                           +
+                      |     "postal_longitude": null,                                          +
+                      |     "postal_postplace": null,                                          +
+                      |     "data_source_codes": null,                                         +
+                      |     "last_edit_comment": "Batch import",                               +
+                      |     "physical_altitude": null,                                         +
+                      |     "physical_latitude": null,                                         +
+                      |     "physical_postcode": "4340",                                       +
+                      |     "physical_longitude": null,                                        +
+                      |     "physical_postplace": "BRYNE",                                     +
+                      |     "postal_region_code": null,                                        +
+                      |     "postal_region_path": null,                                        +
+                      |     "physical_region_code": "1121",                                    +
+                      |     "physical_region_path": "11.21",                                   +
+                      |     "postal_address_part1": null,                                      +
+                      |     "postal_address_part2": null,                                      +
+                      |     "postal_address_part3": null,                                      +
+                      |     "postal_country_iso_2": null,                                      +
+                      |     "physical_address_part1": "Jupitervegen 2/nM44- Nedremarka",       +
+                      |     "physical_address_part2": null,                                    +
+                      |     "physical_address_part3": null,                                    +
+                      |     "physical_country_iso_2": "NO",                                    +
+                      |     "activity_category_paths": [                                       +
+                      |         "G.47.7.1"                                                     +
+                      |     ],                                                                 +
+                      |     "include_unit_in_reports": true,                                   +
+                      |     "included_enterprise_count": null,                                 +
+                      |     "included_legal_unit_count": 1,                                    +
+                      |     "included_establishment_count": 1,                                 +
+                      |     "primary_activity_category_code": "47.71",                         +
+                      |     "primary_activity_category_path": "G.47.7.1",                      +
+                      |     "secondary_activity_category_code": null,                          +
+                      |     "secondary_activity_category_path": null                           +
+                      | }
+stats                 | 
+stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 9,                                                      +
+                      |         "min": 6,                                                      +
+                      |         "sum": 15,                                                     +
+                      |         "mean": 7.50,                                                  +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 2.12,                                                +
+                      |         "variance": 4.50,                                              +
+                      |         "sum_sq_diff": 4.50,                                           +
+                      |         "coefficient_of_variation_pct": 28.28                          +
+                      |     }                                                                  +
+                      | }
+-[ RECORD 49 ]--------+------------------------------------------------------------------------
 valid_after           | 2017-12-31
 valid_from            | 2018-01-01
 valid_to              | infinity
@@ -4667,6 +5177,18 @@ statistical_unit_data | {                                                       
                       | }
 stats                 | 
 stats_summary         | {                                                                      +
+                      |     "employees": {                                                     +
+                      |         "max": 30,                                                     +
+                      |         "min": 30,                                                     +
+                      |         "sum": 60,                                                     +
+                      |         "mean": 30.00,                                                 +
+                      |         "type": "number",                                              +
+                      |         "count": 2,                                                    +
+                      |         "stddev": 0.00,                                                +
+                      |         "variance": 0.00,                                              +
+                      |         "sum_sq_diff": 0.00,                                           +
+                      |         "coefficient_of_variation_pct": 0.00                           +
+                      |     }                                                                  +
                       | }
 
 \x
