@@ -310,18 +310,9 @@ class RestClientStore {
   ): Promise<Response> {
     // Log request in development mode
     if (process.env.NODE_ENV === 'development' && !url.includes('/auth/token')) {
-      console.debug(`Fetch request to: ${url}`);
+      console.debug(`Request to: ${url}`);
     }
-    
-    // Handle URLs for the PostgREST client
-    // Ensure we have a properly formatted URL
-    if (!url.startsWith('http') && !url.startsWith('/')) {
-      url = `/rest/${url}`;
-      if (process.env.NODE_ENV === 'development') {
-        console.debug(`Modified relative URL to: ${url}`);
-      }
-    }
-    
+        
     // Get auth token from cookies
     let headers: Record<string, string> = {
       'Content-Type': typeof options.headers === 'object' && options.headers 
