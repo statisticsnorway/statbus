@@ -7569,11 +7569,11 @@ export type Database = {
       }
       auth_status: {
         Args: Record<PropertyKey, never>
-        Returns: Json
+        Returns: unknown
       }
       auth_test: {
         Args: Record<PropertyKey, never>
-        Returns: Json
+        Returns: unknown
       }
       bytea_to_text: {
         Args: { data: string }
@@ -8144,7 +8144,7 @@ export type Database = {
       }
       list_active_sessions: {
         Args: Record<PropertyKey, never>
-        Returns: Json[]
+        Returns: unknown[]
       }
       location_hierarchy: {
         Args: {
