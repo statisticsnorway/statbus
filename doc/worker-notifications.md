@@ -14,17 +14,17 @@ We'll implement a lightweight system stability indicator that shows whether the 
 - Add notification triggers for system state changes
 - Create supporting functions for detailed status information
 
-### 2. Backend Components
+### 2. Backend Components (Node.js/Next.js)
 
-- Implement WebSocket server in Crystal for real-time notifications
-- Create separate channels for lightweight status and detailed information
-- Add API endpoint for detailed status information
+- Implement a persistent PostgreSQL notification listener (`pg` library) within the long-running Next.js application process (managed as a singleton).
+- Create a Next.js API route using Server-Sent Events (SSE) to stream stability status updates to connected clients.
+- Add a standard Next.js API route to fetch detailed job/task status information on demand for the details modal.
 
 ### 3. Frontend Components
 
 - Create React hook for system stability status
 - Implement status indicator component
-- Build detailed status modal with lazy loading
+- Build detailed status modal that fetches data via a standard API call when opened.
 
 ## Database Implementation
 
@@ -113,71 +113,153 @@ We'll implement a lightweight system stability indicator that shows whether the 
    $$;
    ```
 
-## Crystal WebSocket Server
+## Backend Implementation (Node.js/Next.js)
 
-1. Extend the worker.cr file to include WebSocket handling:
-   ```crystal
-   module Statbus
-     class WorkerMonitor
-       @stability_sockets = [] of HTTP::WebSocket
-       @detail_sockets = [] of HTTP::WebSocket
-       
-       def initialize_websocket
-         # Lightweight stability status WebSocket
-         ws "/api/system-stability" do |socket|
-           # Send initial stability status
-           initial_status = get_system_stability
-           socket.send({stable: initial_status}.to_json)
-           
-           @stability_sockets << socket
-           
-           socket.on_close do
-             @stability_sockets.delete(socket)
-           end
-         end
-         
-         # Detailed job status WebSocket (only used when details view is open)
-         ws "/api/job-details" do |socket|
-           # Send initial detailed status
-           initial_details = get_detailed_status
-           socket.send(initial_details.to_json)
-           
-           @detail_sockets << socket
-           
-           socket.on_close do
-             @detail_sockets.delete(socket)
-           end
-         end
-         
-         # Listen for PostgreSQL notifications
-         spawn monitor_pg_notifications
-       end
-       
-       private def monitor_pg_notifications
-         PG.connect_listen(@config.connection_string, 
-                           channels: ["system_stability", "import_job_progress"]) do |notification|
-           case notification.channel
-           when "system_stability"
-             # Broadcast lightweight status to all stability sockets
-             broadcast_to_stability_clients(notification.payload)
-             
-             # Also update detail sockets if any are connected
-             if !@detail_sockets.empty?
-               details = get_detailed_status
-               broadcast_to_detail_clients(details.to_json)
-             end
-             
-           when "import_job_progress"
-             # Only broadcast to detail sockets
-             if !@detail_sockets.empty?
-               broadcast_to_detail_clients(notification.payload)
-             end
-           end
-         end
-       end
-     end
-   end
-   ```
+1.  **Persistent Database Listener (`lib/db-listener.ts` - Singleton):**
+    Manages a single, persistent `pg` client connection that listens for `pg_notify` events. It handles connection, errors, reconnections, and distributes notifications to subscribed SSE clients.
+
+    ```typescript
+    // lib/db-listener.ts (Conceptual Example)
+    import { Client } from 'pg';
+
+    // Stores callbacks for active SSE connections
+    const activeClientCallbacks = new Set<(payload: any) => void>();
+    let pgClient: Client | null = null;
+
+    async function initializeListener() {
+      // Robust connection logic with retry/reconnect needed here
+      pgClient = new Client({ /* connection options */ });
+
+      pgClient.on('notification', (msg) => {
+        if (msg.channel === 'system_stability' && msg.payload) {
+          try {
+            const payload = JSON.parse(msg.payload);
+            activeClientCallbacks.forEach(callback => callback(payload));
+          } catch (e) { console.error("Error processing notification", e); }
+        }
+        // Handle 'import_job_progress' if needed for detailed view updates
+      });
+
+      pgClient.on('error', (err) => {
+        console.error('DB Listener Error:', err);
+        // Implement reconnection logic
+        pgClient = null;
+      });
+
+      await pgClient.connect();
+      await pgClient.query('LISTEN system_stability;');
+      // LISTEN import_job_progress; // If needed
+      console.log('DB Listener active.');
+    }
+
+    export function addClientCallback(callback: (payload: any) => void) {
+      activeClientCallbacks.add(callback);
+    }
+
+    export function removeClientCallback(callback: (payload: any) => void) {
+      activeClientCallbacks.delete(callback);
+    }
+
+    // Function to get current state on demand (e.g., for initial SSE connection)
+    export async function getSystemStabilityState() {
+        if (!pgClient) throw new Error("Database listener not connected");
+        const { rows } = await pgClient.query('SELECT public.is_system_stable() as stable;');
+        return rows[0]?.stable ?? null;
+    }
+
+    // Initialize on server start
+    initializeListener().catch(err => {
+        console.error("Failed to initialize DB listener:", err);
+        // Handle critical startup failure
+    });
+    ```
+
+2.  **Server-Sent Events API Route (`app/api/system-status/live/route.ts`):**
+    Handles client connections for real-time stability updates.
+
+    ```typescript
+    // app/api/system-status/live/route.ts
+    import { NextResponse } from 'next/server';
+    import { addClientCallback, removeClientCallback, getSystemStabilityState } from '@/lib/db-listener'; // Adjust path
+
+    export const dynamic = 'force-dynamic'; // Ensure this route is not statically optimized
+
+    export async function GET(request: Request) {
+      const stream = new ReadableStream({
+        async start(controller) {
+          const handleNotification = (payload: any) => {
+            controller.enqueue(`data: ${JSON.stringify(payload)}\n\n`);
+          };
+
+          // Send initial state
+          try {
+              const initialState = await getSystemStabilityState();
+              if (initialState !== null) {
+                  controller.enqueue(`data: ${JSON.stringify({ stable: initialState })}\n\n`);
+              }
+          } catch (err) { console.error("Error fetching initial state for SSE:", err); }
+
+          addClientCallback(handleNotification);
+
+          request.signal.addEventListener('abort', () => {
+            removeClientCallback(handleNotification);
+            controller.close();
+          });
+        },
+        cancel() {
+          // Handle stream cancellation if needed
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+        },
+      });
+    }
+    ```
+
+3.  **API Route for Detailed Status (`app/api/system-status/details/route.ts`):**
+    Provides detailed job/task information when requested by the modal.
+
+    ```typescript
+    // src/app/api/system-status/details/route.ts
+    import { NextResponse } from 'next/server';
+    import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'; // Or your preferred DB client method
+    import { cookies } from 'next/headers';
+
+    export async function GET() {
+      // Use appropriate server-side client for database access
+      const supabase = createRouteHandlerClient({ cookies }); // Example using Supabase helpers
+
+      try {
+        // Get import jobs in progress
+        const { data: importJobs, error: importError } = await supabase
+          .from('import_job')
+          .select('*')
+          .not('state', 'in', '("finished","rejected","waiting_for_review","waiting_for_upload")') // Refined states
+          .order('priority');
+
+        if (importError) throw importError;
+
+        // Get analytics tasks in progress
+        const { data: analyticsTasks, error: analyticsError } = await supabase.rpc('get_analytics_tasks_in_progress');
+
+        if (analyticsError) throw analyticsError;
+
+        return NextResponse.json({
+          import_jobs: importJobs || [],
+          analytics_tasks: analyticsTasks || [],
+          system_stable: (importJobs?.length === 0 && analyticsTasks?.length === 0)
+        });
+      } catch (error) {
+        console.error("Error fetching system status details:", error);
+        return NextResponse.json({ error: "Failed to fetch status details" }, { status: 500 });
+      }
+    }
+    ```
 
 ## Frontend Implementation
 
@@ -185,48 +267,51 @@ We'll implement a lightweight system stability indicator that shows whether the 
    ```typescript
    // src/hooks/useSystemStability.ts
    import { useState, useEffect } from 'react';
-   import { createClient } from '@supabase/supabase-js';
 
    export function useSystemStability() {
      const [isStable, setIsStable] = useState<boolean | null>(null);
      const [loading, setLoading] = useState(true);
-     
+     const [error, setError] = useState<string | null>(null);
+
      useEffect(() => {
-       // Initial status fetch via API
-       const fetchInitialStatus = async () => {
-         try {
-           const supabase = createSupabaseClient();
-           const { data } = await supabase.rpc('is_system_stable');
-           setIsStable(data);
-         } catch (err) {
-           console.error('Error fetching system stability:', err);
-         } finally {
-           setLoading(false);
-         }
+       // Use relative URL for EventSource
+       const eventSource = new EventSource('/api/system-status/live');
+       setLoading(true);
+
+       eventSource.onopen = () => {
+         console.log('SSE connection opened for system stability');
+         setError(null);
        };
-       
-       fetchInitialStatus();
-       
-       // Set up WebSocket connection for lightweight updates
-       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-       const wsUrl = `${protocol}//${window.location.host}/api/system-stability`;
-       const socket = new WebSocket(wsUrl);
-       
-       socket.onmessage = (event) => {
+
+       eventSource.onmessage = (event) => {
          try {
            const data = JSON.parse(event.data);
            setIsStable(data.stable);
+           setLoading(false); // Set loading false after receiving the first valid message
          } catch (err) {
-           console.error('Error parsing WebSocket message:', err);
+           console.error('Error parsing SSE message:', err);
+           setError('Error processing status update.');
+           setLoading(false);
          }
        };
-       
-       return () => {
-         socket.close();
+
+       eventSource.onerror = (err) => {
+         console.error('EventSource failed:', err);
+         setError('Connection error. Status updates may be unavailable.');
+         setLoading(false);
+         setIsStable(null); // Indicate unknown state on error
+         eventSource.close();
+         // Consider adding retry logic here
        };
-     }, []);
-     
-     return { isStable, loading };
+
+       // Cleanup function: close the connection when the component unmounts
+       return () => {
+         console.log('Closing SSE connection for system stability');
+         eventSource.close();
+       };
+     }, []); // Empty dependency array ensures this runs once on mount
+
+     return { isStable, loading, error };
    }
    ```
 
@@ -284,63 +369,69 @@ We'll implement a lightweight system stability indicator that shows whether the 
    import { Spinner } from './ui/spinner';
    import { Progress } from './ui/progress';
 
+   // Define types for detailed status (adjust as needed)
+   interface ImportJob {
+     id: number;
+     slug: string;
+     state: string;
+     total_rows?: number;
+     imported_rows?: number;
+     progress_pct?: number;
+   }
+
+   interface AnalyticsTask {
+     id: number;
+     command: string;
+     state: string;
+   }
+
+   interface DetailedStatus {
+     import_jobs: ImportJob[];
+     analytics_tasks: AnalyticsTask[];
+     system_stable: boolean;
+   }
+
    export function SystemStatusModal() {
      const [open, setOpen] = useState(false);
-     const [detailedStatus, setDetailedStatus] = useState(null);
+     const [detailedStatus, setDetailedStatus] = useState<DetailedStatus | null>(null);
      const [loading, setLoading] = useState(false);
-     const [socket, setSocket] = useState<WebSocket | null>(null);
-     
-     // Only connect to WebSocket when modal is open
+     const [error, setError] = useState<string | null>(null);
+
+     // Fetch detailed status only when the modal is opened
      useEffect(() => {
        if (!open) {
-         // Close socket when modal closes
-         if (socket) {
-           socket.close();
-           setSocket(null);
-         }
+         setDetailedStatus(null); // Clear status when closed
+         setError(null);
          return;
        }
-       
-       // Fetch initial data and open WebSocket when modal opens
-       setLoading(true);
-       
+
        const fetchDetailedStatus = async () => {
+         setLoading(true);
+         setError(null);
          try {
-           const response = await fetch('/api/system-status-details');
-           const data = await response.json();
+           const response = await fetch('/api/system-status/details'); // Use the REST API endpoint
+           if (!response.ok) {
+             throw new Error(`HTTP error! status: ${response.status}`);
+           }
+           const data: DetailedStatus = await response.json();
            setDetailedStatus(data);
-         } catch (err) {
+         } catch (err: any) {
            console.error('Error fetching detailed status:', err);
+           setError(`Failed to load details: ${err.message}`);
+           setDetailedStatus(null);
          } finally {
            setLoading(false);
          }
        };
-       
+
        fetchDetailedStatus();
-       
-       // Set up WebSocket for detailed updates
-       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-       const wsUrl = `${protocol}//${window.location.host}/api/job-details`;
-       const newSocket = new WebSocket(wsUrl);
-       
-       newSocket.onmessage = (event) => {
-         try {
-           const data = JSON.parse(event.data);
-           setDetailedStatus(data);
-         } catch (err) {
-           console.error('Error parsing WebSocket message:', err);
-         }
-       };
-       
-       setSocket(newSocket);
-       
-       return () => {
-         if (newSocket) {
-           newSocket.close();
-         }
-       };
-     }, [open]);
-     
+
+       // Optional: Implement polling or listen to the main SSE stream
+       // for hints to refresh details if needed, but avoid a dedicated
+       // WebSocket connection just for this modal.
+
+     }, [open]); // Re-run effect when 'open' state changes
+
      return (
        <Dialog open={open} onOpenChange={setOpen}>
          <DialogTrigger asChild>
@@ -352,25 +443,26 @@ We'll implement a lightweight system stability indicator that shows whether the 
            </DialogHeader>
            
            {loading && <Spinner message="Loading details..." />}
-           
-           {detailedStatus && (
-             <div className="space-y-4">
-               {/* Detailed status display */}
-               {detailedStatus.import_jobs.length > 0 && (
+           {error && <p className="text-red-600 text-center">{error}</p>}
+
+           {detailedStatus && !loading && !error && (
+             <div className="space-y-4 max-h-[60vh] overflow-y-auto p-1">
+               {/* Display Import Jobs */}
+               {detailedStatus.import_jobs.length > 0 ? (
                  <div>
-                   <h3 className="font-medium mb-2">Import Jobs</h3>
+                   <h3 className="font-medium mb-2">Import Jobs In Progress</h3>
                    <div className="space-y-3">
                      {detailedStatus.import_jobs.map(job => (
-                       <div key={job.id} className="border rounded p-3">
+                       <div key={`import-${job.id}`} className="border rounded p-3 text-sm">
                          <div className="flex justify-between mb-1">
-                           <span className="font-medium">{job.slug}</span>
-                           <span className="text-sm">{job.state}</span>
+                           <span className="font-medium truncate pr-2" title={job.slug}>{job.slug}</span>
+                           <span className="text-xs capitalize">{job.state.replace(/_/g, ' ')}</span>
                          </div>
-                         {job.total_rows && (
+                         {job.total_rows != null && job.total_rows > 0 && (
                            <>
-                             <Progress value={job.progress_pct || 0} className="h-2 mb-1" />
-                             <div className="text-xs text-right">
-                               {job.imported_rows || 0} of {job.total_rows} rows ({job.progress_pct || 0}%)
+                             <Progress value={job.progress_pct ?? 0} className="h-2 mb-1" />
+                             <div className="text-xs text-right text-gray-600">
+                               {job.imported_rows ?? 0} of {job.total_rows} rows ({job.progress_pct ?? 0}%)
                              </div>
                            </>
                          )}
@@ -378,28 +470,42 @@ We'll implement a lightweight system stability indicator that shows whether the 
                      ))}
                    </div>
                  </div>
+               ) : (
+                 !detailedStatus.analytics_tasks.length && <p className="text-sm text-gray-500">No active import jobs.</p>
                )}
-               
-               {detailedStatus.analytics_tasks.length > 0 && (
+
+               {/* Display Analytics Tasks */}
+               {detailedStatus.analytics_tasks.length > 0 ? (
                  <div>
-                   <h3 className="font-medium mb-2">Analytics Tasks</h3>
+                   <h3 className="font-medium mb-2 pt-3">Analytics Tasks In Progress</h3>
                    <div className="space-y-2">
                      {detailedStatus.analytics_tasks.map(task => (
-                       <div key={task.id} className="border rounded p-2 flex justify-between">
-                         <span>{task.command}</span>
-                         <span className="text-sm">{task.state}</span>
+                       <div key={`task-${task.id}`} className="border rounded p-2 flex justify-between items-center text-sm">
+                         <span className="truncate pr-2" title={task.command}>{task.command}</span>
+                         <span className="text-xs capitalize">{task.state.replace(/_/g, ' ')}</span>
                        </div>
                      ))}
                    </div>
                  </div>
+                ) : (
+                 !detailedStatus.import_jobs.length && <p className="text-sm text-gray-500">No active analytics tasks.</p>
                )}
-               
+
+               {/* Overall Stability Footer */}
                {detailedStatus.system_stable && (
-                 <div className="text-center text-green-600 py-2">
-                   All data processing complete
+                 <div className="text-center text-green-600 pt-4 text-sm font-medium">
+                   System Stable: All data processing complete.
                  </div>
                )}
+                {!detailedStatus.system_stable && detailedStatus.import_jobs.length === 0 && detailedStatus.analytics_tasks.length === 0 && (
+                 <div className="text-center text-yellow-600 pt-4 text-sm font-medium">
+                    System may still be processing background tasks.
+                 </div>
+                )}
              </div>
+           )}
+           {!detailedStatus && !loading && !error && (
+              <p className="text-center text-gray-500 py-4">Could not load status details.</p>
            )}
          </DialogContent>
        </Dialog>
@@ -407,50 +513,27 @@ We'll implement a lightweight system stability indicator that shows whether the 
    }
    ```
 
-4. Add API route for detailed status:
-   ```typescript
-   // src/app/api/system-status-details/route.ts
-   import { NextResponse } from 'next/server';
-   import { createSupabaseSSRClient } from '@/utils/supabase/server';
-
-   export async function GET() {
-     const client = await createSupabaseSSRClient();
-     
-     // Get import jobs in progress
-     const { data: importJobs } = await client
-       .from('import_job')
-       .select('*')
-       .not('state', 'in', '("finished","rejected")')
-       .order('priority');
-     
-     // Get analytics tasks in progress
-     const { data: analyticsTasks } = await client.rpc('get_analytics_tasks_in_progress');
-     
-     return NextResponse.json({
-       import_jobs: importJobs || [],
-       analytics_tasks: analyticsTasks || [],
-       system_stable: (importJobs?.length === 0 && analyticsTasks?.length === 0)
-     });
-   }
-   ```
-
 ## Testing Plan
 
 1. Unit tests for database functions:
-   - Test `is_system_stable()` with various system states
-   - Test notification triggers with simulated state changes
+   - Test `is_system_stable()` and `get_analytics_tasks_in_progress()` with various system states.
+   - Test notification triggers (`notify_system_stability_change`) with simulated state changes on `import_job` and `worker.tasks`.
 
-2. Integration tests for WebSocket server:
-   - Test connection and message handling
-   - Verify correct notification routing
+2. Backend Integration Tests (Node.js/Next.js):
+   - Test the `db-listener` singleton's ability to connect, listen, handle notifications, and manage reconnection.
+   - Test the SSE API route (`/api/system-status/live`): client connection/disconnection handling, initial state sending, and forwarding of notifications from the listener.
+   - Test the details API route (`/api/system-status/details`) for correct data retrieval and error handling.
 
 3. Frontend component tests:
-   - Test status indicator rendering
-   - Test modal lazy loading behavior
+   - Test `useSystemStability` hook: connection via `EventSource`, state updates (`isStable`, `loading`, `error`), and cleanup.
+   - Test `SystemStatusIndicator` rendering based on hook state.
+   - Test `SystemStatusModal`: opening, fetching data from the details API, displaying loading/error/data states correctly.
 
 ## Deployment Considerations
 
-1. Ensure WebSocket server is properly configured in production
-2. Monitor WebSocket connection performance
-3. Consider rate limiting for detailed status requests
-4. Add appropriate error handling for all components
+1.  **Node.js Process Management:** Ensure the long-running Next.js Node process (started via `next start` in the Docker container) is monitored and restarted if it crashes (e.g., using Docker's `restart: unless-stopped` policy, which is already present).
+2.  **Database Connection Robustness:** The `db-listener` singleton needs robust error handling and automatic reconnection logic for the PostgreSQL connection. Consider using connection pooling (`pg-pool`) if the listener needs to perform other queries, although a single client is sufficient for `LISTEN`.
+3.  **Resource Usage:** Monitor the resource usage (CPU, memory) of the Next.js container, as it now handles persistent DB connections and SSE streaming alongside regular request processing.
+4.  **SSE Connection Limits:** Be aware of potential limits on the number of concurrent open HTTP connections imposed by the server or infrastructure. SSE connections are long-lived.
+5.  **Caddy Configuration:** Ensure Caddy proxy timeouts are sufficient for long-lived SSE connections (usually defaults are fine, but worth checking if issues arise). No special WebSocket configuration is needed for SSE.
+6.  **Error Handling:** Implement comprehensive error handling in the listener, API routes, and frontend components. Provide informative feedback to the user when status updates are unavailable.
