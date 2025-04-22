@@ -23,6 +23,8 @@ services:
       NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
       POSTGRES_DB: statbus_${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
       POSTGRES_USER: statbus_${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
       VERSION: ${VERSION}
     restart: unless-stopped
     depends_on:

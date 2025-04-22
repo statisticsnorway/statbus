@@ -37,6 +37,17 @@ class BaseDataStore {
   private lastFetchTime: number = 0;
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
+  // Derivation Status State
+  private isDerivingUnits: boolean | null = null;
+  private isDerivingReports: boolean | null = null;
+  private derivationStatusLoading: boolean = false;
+  private derivationStatusError: string | null = null;
+  private lastDerivationStatusFetchTime: number = 0;
+  private readonly DERIVATION_STATUS_CACHE_TTL = 10 * 1000; // 10 seconds cache for status
+
+  // Listener callback registry for derivation status changes
+  private derivationStatusListeners: Set<() => void> = new Set();
+
   private constructor() {
     // Private constructor to enforce singleton pattern
   }
@@ -112,6 +123,104 @@ class BaseDataStore {
       this.fetchPromise = null;
     }
   }
+
+  /**
+   * Refresh the derivation status (is_deriving_units, is_deriving_reports)
+   */
+  public async refreshDerivationStatus(client?: PostgrestClient<Database>): Promise<{ isDerivingUnits: boolean | null, isDerivingReports: boolean | null }> {
+    const now = Date.now();
+    // Basic throttling/caching
+    if (this.derivationStatusLoading && now - this.lastDerivationStatusFetchTime < 5000) { // Avoid rapid refires
+        console.log("Derivation status refresh already in progress or recently completed.");
+        return { isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
+    }
+
+    this.derivationStatusLoading = true;
+    this.derivationStatusError = null;
+    this.lastDerivationStatusFetchTime = now;
+
+    // Get client if not provided
+    let currentClient = client;
+    if (!currentClient) {
+      try {
+        currentClient = await getRestClient();
+      } catch (error) {
+        console.error('Failed to get client for derivation status refresh:', error);
+        this.derivationStatusError = "Failed to get API client";
+        this.derivationStatusLoading = false;
+        return { isDerivingUnits: null, isDerivingReports: null };
+      }
+    }
+
+    if (!currentClient || typeof currentClient.rpc !== 'function') {
+      console.error('Invalid client provided to refreshDerivationStatus');
+      this.derivationStatusError = "Invalid API client";
+      this.derivationStatusLoading = false;
+      return { isDerivingUnits: null, isDerivingReports: null };
+    }
+
+    try {
+      const [unitsResult, reportsResult] = await Promise.all([
+        currentClient.rpc("is_deriving_statistical_units"),
+        currentClient.rpc("is_deriving_reports")
+      ]);
+
+      if (unitsResult.error) throw new Error(`Units status error: ${unitsResult.error.message}`);
+      if (reportsResult.error) throw new Error(`Reports status error: ${reportsResult.error.message}`);
+
+      this.isDerivingUnits = unitsResult.data ?? null;
+      this.isDerivingReports = reportsResult.data ?? null;
+      console.log(`Derivation status refreshed: Units=${this.isDerivingUnits}, Reports=${this.isDerivingReports}`);
+      return { isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
+
+    } catch (error: any) {
+      console.error('Failed to refresh derivation status:', error);
+      this.derivationStatusError = error.message || "Unknown error fetching derivation status";
+      this.isDerivingUnits = null; // Invalidate on error
+      this.isDerivingReports = null;
+      // Notify listeners about the change
+      this.notifyDerivationStatusListeners();
+      return { isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
+
+    } finally {
+      this.derivationStatusLoading = false;
+      // Notify listeners that loading finished (even if error occurred)
+      this.notifyDerivationStatusListeners();
+    }
+  }
+
+  // Method to notify listeners
+  private notifyDerivationStatusListeners() {
+    this.derivationStatusListeners.forEach(listener => listener());
+  }
+
+  // Method for components to subscribe
+  public subscribeDerivationStatus(listener: () => void): () => void {
+    this.derivationStatusListeners.add(listener);
+    // Return an unsubscribe function
+    return () => {
+      this.derivationStatusListeners.delete(listener);
+    };
+  }
+
+  /**
+   * Get the current cached derivation status
+   */
+  public getDerivationStatus(): { isDerivingUnits: boolean | null, isDerivingReports: boolean | null, isLoading: boolean, error: string | null } {
+    // Check cache validity - might force a refresh if stale, but keep it simple for now
+    // const now = Date.now();
+    // if (now - this.lastDerivationStatusFetchTime > this.DERIVATION_STATUS_CACHE_TTL && !this.derivationStatusLoading) {
+    //   console.log("Derivation status cache stale, triggering background refresh.");
+    //   this.refreshDerivationStatus(); // Trigger refresh in background
+    // }
+    return {
+      isDerivingUnits: this.isDerivingUnits,
+      isDerivingReports: this.isDerivingReports,
+      isLoading: this.derivationStatusLoading,
+      error: this.derivationStatusError
+    };
+  }
+
 
   /**
    * Force refresh the base data
@@ -221,6 +330,9 @@ class BaseDataStore {
       hasDefaultTimeContext: !!this.data.defaultTimeContext,
       hasStatisticalUnits: this.data.hasStatisticalUnits,
       cacheTTL: this.CACHE_TTL / 1000 + 's',
+      derivationStatus: this.getDerivationStatus(),
+      lastDerivationStatusFetchTime: this.lastDerivationStatusFetchTime,
+      derivationStatusCacheAge: this.lastDerivationStatusFetchTime ? Math.round((Date.now() - this.lastDerivationStatusFetchTime) / 1000) + 's' : 'never',
       environment: typeof window !== 'undefined' ? 'browser' : 'server'
     };
   }

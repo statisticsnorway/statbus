@@ -1,37 +1,71 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useBaseData } from "@/app/BaseDataClient";
+// No longer need useSystemStatusNotifications or baseDataStore directly here
 
-type AnalysisState = "checking" | "finished" | "failed";
+type AnalysisState = "checking_status" | "deriving" | "finished" | "failed";
 
 export function StatisticalUnitsRefresher({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [state, setState] = useState("checking" as AnalysisState);
+  const [state, setState] = useState<AnalysisState>("checking_status");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { hasStatisticalUnits, refreshHasStatisticalUnits } = useBaseData();
+  // Get status and refresh function directly from context
+  const { derivationStatus, hasStatisticalUnits, refreshHasStatisticalUnits } = useBaseData();
 
+  // Effect to determine component state based on context status
   useEffect(() => {
-    const checkAndRefresh = async () => {
-      if (state == "checking") {
-        if (hasStatisticalUnits) {
+    const { isDerivingUnits, isDerivingReports, isLoading, error } = derivationStatus;
+
+    if (isLoading) {
+      setState("checking_status");
+      return;
+    }
+
+    if (error) {
+      setState("failed");
+      setErrorMessage(`Error checking derivation status: ${error}`);
+      return;
+    }
+
+    if (isDerivingUnits === true || isDerivingReports === true) {
+      setState("deriving");
+    } else {
+      // Derivation is finished according to context, now check if units exist
+      // We might need to refresh hasStatisticalUnits explicitly if it could be stale
+      // relative to the derivation finishing. Let's add a check.
+      const checkUnits = async () => {
+        const currentHasUnits = await refreshHasStatisticalUnits(); // Refresh and get latest
+        if (currentHasUnits) {
           setState("finished");
         } else {
+          // Derivation finished, but no units found
           setState("failed");
-          setErrorMessage("No statistical units available");
+          setErrorMessage("Data analysis completed, but no statistical units were found.");
         }
-      }
-    };
+      };
+      checkUnits();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+       // Depend on specific properties instead of the whole object
+       derivationStatus.isDerivingUnits,
+       derivationStatus.isDerivingReports,
+       derivationStatus.isLoading,
+       derivationStatus.error,
+       refreshHasStatisticalUnits // Keep this dependency
+     ]);
 
-    checkAndRefresh();
-  }, [state, hasStatisticalUnits, refreshHasStatisticalUnits]);
+  if (state === "checking_status") {
+    return <Spinner message="Checking status of data analysis..." />;
+  }
 
-  if (state == "checking") {
-    return <Spinner message="Checking data for Search and Reports...." />;
+  if (state === "deriving") {
+    return <Spinner message="Analysing data for Search and Reports..." />;
   }
 
   if (state == "failed") {

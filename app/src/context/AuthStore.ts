@@ -374,17 +374,19 @@ class AuthStore {
         }
 
         // --- Process Successful Refresh ---
-        const setCookieHeader = refreshResponse.headers.get('set-cookie');
-        if (!setCookieHeader) {
-           console.error("AuthStore.handleServerAuth: Refresh succeeded but no Set-Cookie header received.");
-           // Return unauthenticated status, maybe clear cookies?
+        // Use getSetCookie() to handle multiple Set-Cookie headers correctly
+        const setCookieHeaders = refreshResponse.headers.getSetCookie(); // Returns string[]
+        if (!setCookieHeaders || setCookieHeaders.length === 0) {
+           console.error("AuthStore.handleServerAuth: Refresh succeeded but no Set-Cookie headers received.");
+           // Return unauthenticated status, clear potentially stale cookies
            responseCookies.delete('statbus');
            responseCookies.delete('statbus-refresh');
            return { status: { isAuthenticated: false, user: null, tokenExpiring: false } };
         }
 
-        // Parse the Set-Cookie header using the library
-        const parsedCookies = setCookie.parse(setCookieHeader, { map: true });
+        // Parse the Set-Cookie headers using the library
+        // Pass the array of headers directly to the parser
+        const parsedCookies = setCookie.parse(setCookieHeaders, { map: true });
         const newAccessToken = parsedCookies['statbus']?.value;
         const newRefreshToken = parsedCookies['statbus-refresh']?.value;
 
@@ -422,9 +424,10 @@ class AuthStore {
           }; 
           
           console.log("AuthStore.handleServerAuth: Staging new cookies and signaling modified headers.");
-          
+
         } else {
-           console.error("AuthStore.handleServerAuth: Refresh succeeded but failed to parse new tokens from Set-Cookie:", setCookieHeader);
+           console.error("AuthStore.handleServerAuth: Refresh succeeded but failed to parse new tokens from Set-Cookie headers:", setCookieHeaders);
+           // Clear potentially invalid cookies if parsing failed
            responseCookies.delete('statbus');
            responseCookies.delete('statbus-refresh');
            currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false };

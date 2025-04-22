@@ -129,20 +129,17 @@ We'll implement a lightweight system stability indicator that shows whether the 
 
     // No initial state fetch needed as we don't have a general stability status anymore
 
-    // Initialize on server start
-    initializeListener().catch(err => {
-        console.error("Failed to initialize DB listener:", err);
-        // Handle critical startup failure
-    });
+    // The initializeDbListener() function should be called once during server startup.
+    // This is typically done in `instrumentation.ts`.
     ```
 
-2.  **Server-Sent Events API Route (`app/api/system-status/live/route.ts`):**
-    Handles client connections for real-time stability updates.
+2.  **Server-Sent Events API Route (`app/api/worker/check/route.ts`):**
+    Handles client connections for real-time status check notifications.
 
     ```typescript
-    // app/api/system-status/live/route.ts
+    // app/api/worker/check/route.ts
     import { NextResponse } from 'next/server';
-    import { addClientCallback, removeClientCallback, getSystemStabilityState } from '@/lib/db-listener'; // Adjust path
+    import { addClientCallback, removeClientCallback } from '@/lib/db-listener'; // Adjust path
 
     export const dynamic = 'force-dynamic'; // Ensure this route is not statically optimized
 
@@ -221,114 +218,63 @@ We'll implement a lightweight system stability indicator that shows whether the 
 
 ## Frontend Implementation
 
-1. Create React hook for system stability:
+1. Centralized Status Management (`app/src/app/BaseDataClient.tsx`):
+   - The `ClientBaseDataProvider` component now manages the Server-Sent Events (`EventSource`) connection to `/api/worker/check`.
+   - It listens for `check` events. When an event is received, it triggers `baseDataStore.refreshDerivationStatus()`.
+   - It subscribes to status updates within `baseDataStore` and updates its own state to reflect the latest `derivationStatus` (isDerivingUnits, isDerivingReports, isLoading, error).
+   - This `derivationStatus` is provided via the `BaseDataClientContext`.
+
    ```typescript
-   // src/hooks/useSystemStability.ts
-   import { useState, useEffect, useCallback } from 'react';
-   // Consider using a state management library (like Zustand or Jotai)
-   // for broader state sharing if these statuses are needed in many places.
-
-   export function useSystemStatusNotifications() {
-     // Connection status
-     const [connectionError, setConnectionError] = useState<string | null>(null);
-
-     // Specific status check triggers (increment to trigger effects)
-     const [importCheckTrigger, setImportCheckTrigger] = useState(0);
-     const [derivingUnitsCheckTrigger, setDerivingUnitsCheckTrigger] = useState(0);
-     const [derivingReportsCheckTrigger, setDerivingReportsCheckTrigger] = useState(0);
-
-     useEffect(() => {
-       const eventSource = new EventSource('/api/system-status/live');
-
-       eventSource.onopen = () => {
-         console.log('SSE connection opened for status checks');
-         setConnectionError(null);
-       };
-
-       // Listener for specific status check hints
-       eventSource.addEventListener('check', (event) => {
-         try {
-           const functionName = event.data; // Expects string like 'is_importing'
-           console.log('Received check hint:', functionName);
-           // Increment the relevant trigger based on the function name hint
-           if (functionName === 'is_importing') {
-             setImportCheckTrigger(prev => prev + 1);
-           } else if (functionName === 'is_deriving_statistical_units') {
-             setDerivingUnitsCheckTrigger(prev => prev + 1);
-           } else if (functionName === 'is_deriving_reports') {
-             setDerivingReportsCheckTrigger(prev => prev + 1);
-           }
-         } catch (err) {
-           console.error('Error processing check SSE message:', err);
-           setConnectionError('Error processing specific status check hint.');
-         }
-       });
-
-       eventSource.onerror = (err) => {
-         console.error('EventSource failed:', err);
-         setConnectionError('Connection error. Status updates may be unavailable.');
-         eventSource.close();
-         // Consider adding retry logic here
-       };
-
-       // Cleanup function
-       return () => {
-         console.log('Closing SSE connection for status checks');
-         eventSource.close();
-       };
-     }, []); // Empty dependency array ensures this runs once on mount
-
-     // Return only the check triggers and connection status
-     // Components needing specific status will use the triggers in their own useEffect
-     // to fetch the latest state via RPC (e.g., public.is_importing())
-     return {
-       connectionError,
-       importCheckTrigger,
-       derivingUnitsCheckTrigger,
-       derivingReportsCheckTrigger
-     };
-   }
-
-   // Example of how a component might use a trigger:
-   /*
-   import { useSystemStatusNotifications } from '../hooks/useSystemStatusNotifications'; // Updated hook name
-   import { useQuery } from '@tanstack/react-query'; // Or similar data fetching library
-   import { apiClient } from '@/lib/api-client'; // Your API client
-
-   function ImportStatusComponent() {
-     const { importCheckTrigger } = useSystemStatusNotifications(); // Use correct trigger name
-
-     const { data: isImporting, isLoading, error, refetch } = useQuery({ // Add refetch if needed
-       queryKey: ['isImportingStatus'], // Query key doesn't need the trigger directly if using refetch
-       queryFn: async () => {
-         // Replace with your actual API call to the public.is_importing RPC endpoint
-         const response = await apiClient.rpc('is_importing');
-         return response.data;
-       },
-       // Optional: configure stale time, refetch intervals etc.
-       // Keep data fresh for a short time, but rely on trigger for immediate updates
-       staleTime: 60 * 1000, // 1 minute
-       refetchOnWindowFocus: false,
+   // Simplified conceptual flow within ClientBaseDataProvider
+   useEffect(() => {
+     const eventSource = new EventSource('/api/worker/check'); // Use updated path
+     eventSource.addEventListener('check', (event) => {
+       baseDataStore.refreshDerivationStatus(); // Trigger refresh on notification
      });
+     // ... error handling, cleanup ...
 
-     // Effect to refetch when the trigger increments
-     useEffect(() => {
-       if (importCheckTrigger > 0) { // Avoid refetch on initial mount if trigger starts at 0
-         console.log("Import check trigger fired, refetching isImporting status...");
-         refetch();
-       }
-     }, [importCheckTrigger, refetch]);
+     // Subscribe to store updates
+     const unsubscribe = baseDataStore.subscribeDerivationStatus(() => {
+       setDerivationStatus(baseDataStore.getDerivationStatus()); // Update local state from store
+     });
+     return unsubscribe;
+   }, []);
 
-
-     if (isLoading) return <span>Loading import status...</span>;
-     if (error) return <span>Error loading import status</span>;
-
-     return <span>{isImporting ? "Importing..." : "Not Importing"}</span>;
-   }
-   */
+   // Context value includes the derivationStatus state
+   const contextValue = { /* ... other base data ..., */ derivationStatus };
+   return <BaseDataClientContext.Provider value={contextValue}>...</BaseDataClientContext.Provider>;
    ```
 
-2. Implement status indicator component:
+2. Consuming Status in Components:
+   - Components needing to react to derivation status changes use the `useBaseData` hook to access the `derivationStatus` object from the context.
+   - No separate notification hook or triggers are needed in individual components.
+
+   ```typescript
+   // Example: src/app/import/analyse-data-for-search-and-reports/statistical-units-refresher.tsx
+   import { useBaseData } from "@/app/BaseDataClient";
+
+   function StatisticalUnitsRefresher() {
+     const { derivationStatus, hasStatisticalUnits, refreshHasStatisticalUnits } = useBaseData();
+     const { isDerivingUnits, isDerivingReports, isLoading, error } = derivationStatus;
+
+     useEffect(() => {
+       if (isLoading) { /* Show checking spinner */ }
+       else if (error) { /* Show error */ }
+       else if (isDerivingUnits || isDerivingReports) { /* Show deriving spinner */ }
+       else {
+         // Derivation finished, check hasStatisticalUnits
+         refreshHasStatisticalUnits().then(hasUnits => {
+           if (hasUnits) { /* Show finished */ }
+           else { /* Show failed - no units found */ }
+         });
+       }
+     }, [derivationStatus, refreshHasStatisticalUnits]);
+
+     // ... render based on state ...
+   }
+   ```
+
+3. Implement status indicator component:
    ```typescript
    // src/components/SystemStatusIndicator.tsx
    import { SystemStatusModal } from './SystemStatusModal'; // Assumes this modal exists
@@ -506,21 +452,22 @@ We'll implement a lightweight system stability indicator that shows whether the 
 
 2. Backend Integration Tests (Node.js/Next.js):
    - Test the `db-listener` singleton's ability to connect, listen to the `check` channel, handle notifications (string payload), and manage reconnection.
-   - Test the SSE API route (`/api/system-status/live`): client connection/disconnection handling, and forwarding of `check` notifications with the correct event type and data format.
+   - Test the SSE API route (`/api/worker/check`): client connection/disconnection handling, and forwarding of `check` notifications with the correct event type and data format.
    - Test the details API route (`/api/system-status/details`) for correct data retrieval and error handling.
    - Test frontend logic that re-queries specific status functions (`public.is_importing`, etc.) when a `check` notification with the corresponding payload is received.
 
 3. Frontend component tests:
-   - Test `useSystemStatusNotifications` hook: connection via `EventSource`, state updates (`connectionError`), trigger increments (`importCheckTrigger`, etc.), and cleanup.
+   - Test `ClientBaseDataProvider`: Ensure `EventSource` is connected/disconnected, `baseDataStore.refreshDerivationStatus` is called on `check` events, and context value updates correctly based on store subscriptions.
    - Test `SystemStatusIndicator` rendering (it's now just the modal trigger).
    - Test `SystemStatusModal`: opening, fetching data from the details API, displaying loading/error/data states correctly.
-   - Test components using the check triggers (like the example `ImportStatusComponent`) to ensure they refetch data when the relevant trigger increments.
+   - Test components consuming `useBaseData` (like `StatisticalUnitsRefresher`) to ensure they react correctly to changes in `derivationStatus` from the context.
 
 ## Deployment Considerations
 
-1.  **Node.js Process Management:** Ensure the long-running Next.js Node process (started via `next start` in the Docker container) is monitored and restarted if it crashes (e.g., using Docker's `restart: unless-stopped` policy, which is already present).
-2.  **Database Connection Robustness:** The `db-listener` singleton needs robust error handling and automatic reconnection logic for the PostgreSQL connection. A single client is sufficient for `LISTEN`.
-3.  **Resource Usage:** Monitor the resource usage (CPU, memory) of the Next.js container, as it now handles a persistent DB connection and SSE streaming alongside regular request processing.
+1.  **Initialization:** The `initializeDbListener()` function is called from `instrumentation.ts` to ensure the listener starts when the Next.js server process boots up.
+2.  **Node.js Process Management:** Ensure the long-running Next.js Node process (started via `next start` in the Docker container) is monitored and restarted if it crashes (e.g., using Docker's `restart: unless-stopped` policy, which is already present).
+3.  **Database Connection Robustness:** The `db-listener` singleton needs robust error handling and automatic reconnection logic for the PostgreSQL connection. A single client is sufficient for `LISTEN`.
+4.  **Resource Usage:** Monitor the resource usage (CPU, memory) of the Next.js container, as it now handles a persistent DB connection and SSE streaming alongside regular request processing.
 4.  **SSE Connection Limits:** Be aware of potential limits on the number of concurrent open HTTP connections imposed by the server or infrastructure. SSE connections are long-lived.
 5.  **Caddy Configuration:** Ensure Caddy proxy timeouts are sufficient for long-lived SSE connections (usually defaults are fine, but worth checking if issues arise). No special WebSocket configuration is needed for SSE.
 6.  **Error Handling:** Implement comprehensive error handling in the listener, API routes, and frontend components. Provide informative feedback to the user when status updates are unavailable.

@@ -4,21 +4,34 @@ import React, { createContext, useContext, ReactNode, useState, useEffect, useCa
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { Database } from '@/lib/database.types';
-import { BaseData } from '@/context/BaseDataStore';
+import { BaseData, baseDataStore } from '@/context/BaseDataStore'; // Import type and store instance
 import { authStore, User } from '@/context/AuthStore';
 
-// Create a context for the base data
-const BaseDataClientContext = createContext<BaseData & { 
+// Define the shape of the context value including derivation status
+type DerivationStatus = {
+  isDerivingUnits: boolean | null;
+  isDerivingReports: boolean | null;
+  isLoading: boolean;
+  error: string | null;
+};
+
+type BaseDataContextValue = BaseData & {
   isAuthenticated: boolean;
   user: User | null;
+  derivationStatus: DerivationStatus;
   refreshHasStatisticalUnits: () => Promise<boolean>;
   refreshAllBaseData: () => Promise<void>;
   getDebugInfo: () => Record<string, any>;
   ensureAuthenticated: () => boolean;
-}>({
+};
+
+
+// Create a context for the base data
+const BaseDataClientContext = createContext<BaseDataContextValue>({
   isAuthenticated: false,
   user: null,
-  ...({} as BaseData),
+  ...({} as BaseData), // Initial empty base data
+  derivationStatus: baseDataStore.getDerivationStatus(), // Get initial status from store
   refreshHasStatisticalUnits: async () => false,
   refreshAllBaseData: async () => {},
   getDebugInfo: () => ({}),
@@ -40,11 +53,19 @@ export const ClientBaseDataProvider = ({
   initalBaseData 
 }: { 
   children: ReactNode, 
-  initalBaseData: BaseData & { isAuthenticated: boolean; user: User | null } 
+  initalBaseData: BaseData & { isAuthenticated: boolean; user: User | null }
 }) => {
+  // State for base data (passed from server)
   const [baseData, setBaseData] = useState(initalBaseData);
+  // State for derivation status (synced with store)
+  const [derivationStatus, setDerivationStatus] = useState<DerivationStatus>(baseDataStore.getDerivationStatus());
+  // State for the Postgrest client
   const [client, setClient] = useState<PostgrestClient<Database> | null>(null);
+  // State for SSE connection error
+  const [sseConnectionError, setSseConnectionError] = useState<string | null>(null);
 
+
+  // Effect to initialize the Postgrest client
   useEffect(() => {
     const initializeClient = async () => {
       try {
@@ -59,71 +80,100 @@ export const ClientBaseDataProvider = ({
     initializeClient();
   }, []);
 
+  // Effect to subscribe to BaseDataStore derivation status changes
+  useEffect(() => {
+    const handleStatusChange = () => {
+      setDerivationStatus(baseDataStore.getDerivationStatus());
+    };
+    // Subscribe and get the unsubscribe function
+    const unsubscribe = baseDataStore.subscribeDerivationStatus(handleStatusChange);
+    // Initial sync
+    handleStatusChange();
+    // Cleanup subscription on unmount
+    return () => unsubscribe();
+  }, []); // Run only once on mount
+
+  // Effect to manage the SSE connection for 'check' notifications
+  useEffect(() => {
+    console.log("Setting up SSE listener in BaseDataClient...");
+    const eventSource = new EventSource('/api/worker/check'); // Updated route path
+    setSseConnectionError(null); // Reset error on new connection attempt
+
+    eventSource.onopen = () => {
+      console.log('SSE connection opened for status checks');
+      setSseConnectionError(null);
+    };
+
+    eventSource.addEventListener('check', (event) => {
+      try {
+        const functionName = event.data; // Expects string like 'is_importing'
+        console.log('Received check hint via SSE:', functionName);
+        // Trigger a refresh in the store when a hint is received
+        // No need to check functionName here, refreshDerivationStatus checks both relevant statuses
+        baseDataStore.refreshDerivationStatus();
+      } catch (err) {
+        console.error('Error processing check SSE message:', err);
+        setSseConnectionError('Error processing status check hint.');
+      }
+    });
+
+    eventSource.onerror = (err) => {
+      console.error('SSE EventSource failed:', err);
+      setSseConnectionError('Connection error. Status updates may be unavailable.');
+      eventSource.close();
+      // TODO: Consider adding retry logic here?
+    };
+
+    // Cleanup function: close the connection when the component unmounts
+    return () => {
+      console.log('Closing SSE connection for status checks');
+      eventSource.close();
+    };
+  }, []); // Run only once on mount
+
+  // --- Callback functions provided by context ---
+
   const refreshHasStatisticalUnits = useCallback(async () => {
     if (!client) return false;
     try {
-      // Import the baseDataStore
-      const { baseDataStore } = await import('@/context/BaseDataStore');
-      
-      // Use the BaseDataStore to refresh the hasStatisticalUnits flag
       const hasStatisticalUnits = await baseDataStore.refreshHasStatisticalUnits(client);
-      
-      // Update the local state with the new value
+      // Update the local state for baseData (which includes hasStatisticalUnits)
       setBaseData((prevBaseData) => ({
         ...prevBaseData,
         hasStatisticalUnits,
       }));
-      
       return hasStatisticalUnits;
     } catch (error) {
       console.error("Error refreshing hasStatisticalUnits:", error);
       return false;
     }
   }, [client]);
-  
+
   const refreshAllBaseData = useCallback(async () => {
     if (!client) return;
-    
     try {
-      // Import the baseDataStore
-      const { baseDataStore } = await import('@/context/BaseDataStore');
-      
-      // Use the BaseDataStore to refresh all base data
       const freshBaseData = await baseDataStore.refreshBaseData(client);
-      
-      // Update the local state with the new data
-      setBaseData(freshBaseData as BaseData & { isAuthenticated: boolean; user: User | null });
-      
-      console.log('Base data refreshed successfully', {
-        statDefinitionsCount: freshBaseData.statDefinitions.length,
-        externalIdentTypesCount: freshBaseData.externalIdentTypes.length,
-        statbusUsersCount: freshBaseData.statbusUsers.length,
-        timeContextsCount: freshBaseData.timeContexts.length,
-        hasDefaultTimeContext: !!freshBaseData.defaultTimeContext,
-        hasStatisticalUnits: freshBaseData.hasStatisticalUnits
-      });
+      // Update the local state with the new data, preserving auth state
+      setBaseData((prev) => ({
+        ...freshBaseData,
+        isAuthenticated: prev.isAuthenticated,
+        user: prev.user,
+      }));
+      console.log('Base data refreshed successfully via context');
     } catch (error) {
-      console.error("Error refreshing base data:", error);
+      console.error("Error refreshing base data via context:", error);
     }
   }, [client]);
-  
-  const getDebugInfo = useCallback(() => {
-    // Import the baseDataStore
-    try {
-      // We need to use a dynamic import here since we're in a callback
-      // This is a bit of a hack, but it works for debugging purposes
-      const baseDataStore = require('@/context/BaseDataStore').baseDataStore;
-      return baseDataStore.getDebugInfo();
-    } catch (error) {
-      console.error("Error getting base data debug info:", error);
-      return {
-        error: 'Failed to get debug info',
-        message: error instanceof Error ? error.message : String(error)
-      };
-    }
-  }, []);
 
-  // Function to check if authenticated and warn if not
+  const getDebugInfo = useCallback(() => {
+    // Add SSE connection status to debug info
+    const storeInfo = baseDataStore.getDebugInfo();
+    return {
+      ...storeInfo,
+      sseConnectionError: sseConnectionError,
+    };
+  }, [sseConnectionError]);
+
   const ensureAuthenticated = useCallback(() => {
     if (!baseData.isAuthenticated) {
       if (process.env.NODE_ENV === 'development') {
@@ -134,16 +184,26 @@ export const ClientBaseDataProvider = ({
     return true;
   }, [baseData.isAuthenticated]);
 
+  // --- Context Provider ---
+
+  // Combine base data and derivation status for the context value
+  const contextValue: BaseDataContextValue = {
+    ...baseData,
+    isAuthenticated: baseData.isAuthenticated,
+    user: baseData.user,
+    derivationStatus: { // Include the latest status from local state (synced with store)
+      ...derivationStatus,
+      // Override error if SSE connection failed
+      error: derivationStatus.error || sseConnectionError
+    },
+    refreshHasStatisticalUnits,
+    refreshAllBaseData,
+    getDebugInfo,
+    ensureAuthenticated
+  };
+
   return (
-    <BaseDataClientContext.Provider value={{ 
-      ...baseData, 
-      isAuthenticated: baseData.isAuthenticated,
-      user: baseData.user,
-      refreshHasStatisticalUnits,
-      refreshAllBaseData,
-      getDebugInfo,
-      ensureAuthenticated
-    }}>
+    <BaseDataClientContext.Provider value={contextValue}>
       {children}
     </BaseDataClientContext.Provider>
   );
