@@ -34,7 +34,7 @@ if (isDevelopment) {
     : `http://${serverApiUrl}`;
   
   nextConfig.rewrites = async () => {
-    console.log(`Development proxy for PostgREST configured: /rest/* -> ${SERVER_REST_URL}/*`);
+    console.log(`Development proxy for PostgREST configured: /rest/* -> ${SERVER_REST_URL}/rest/*`);
     return [
       // Proxy all /rest/* requests to the PostgREST server
       { source: '/rest/:path*', destination: `${SERVER_REST_URL}/rest/:path*` },
