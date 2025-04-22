@@ -160,32 +160,29 @@ BEGIN
       AND r.rolname <> 'authenticator' -- Exclude authenticator role
       AND r.rolname NOT IN ('admin_user', 'regular_user', 'restricted_user', 'external_user') -- Exclude hierarchy roles
   LOOP
-    -- For each role, revoke memberships and drop it
-    BEGIN
-      -- Revoke memberships from hierarchy roles if they exist
-      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'admin_user') THEN
-        EXECUTE format('REVOKE %I FROM admin_user', role_record.rolname);
-      END IF;
-      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'regular_user') THEN
-        EXECUTE format('REVOKE %I FROM regular_user', role_record.rolname);
-      END IF;
-      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'restricted_user') THEN
-        EXECUTE format('REVOKE %I FROM restricted_user', role_record.rolname);
-      END IF;
-      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'external_user') THEN
-        EXECUTE format('REVOKE %I FROM external_user', role_record.rolname);
-      END IF;
-      -- Revoke membership in 'authenticated'
-      EXECUTE format('REVOKE authenticated FROM %I', role_record.rolname);
-      -- Revoke role from authenticator
-      EXECUTE format('REVOKE %I FROM authenticator', role_record.rolname);
-      -- Drop the role
-      EXECUTE format('DROP ROLE IF EXISTS %I', role_record.rolname);
-      RAISE DEBUG 'Dropped user-specific role: %', role_record.rolname;
-    EXCEPTION WHEN OTHERS THEN
-      -- Ignore errors, continue with next role
-      RAISE WARNING 'Could not drop role %: %', role_record.rolname, SQLERRM;
-    END;
+    -- For each role, revoke memberships and drop it.
+    -- REVOKE and DROP ROLE IF EXISTS are idempotent, so no need for exception handling.
+
+    -- Revoke memberships from hierarchy roles if they exist
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'admin_user') THEN
+      EXECUTE format('REVOKE %I FROM admin_user', role_record.rolname);
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'regular_user') THEN
+      EXECUTE format('REVOKE %I FROM regular_user', role_record.rolname);
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'restricted_user') THEN
+      EXECUTE format('REVOKE %I FROM restricted_user', role_record.rolname);
+    END IF;
+    IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'external_user') THEN
+      EXECUTE format('REVOKE %I FROM external_user', role_record.rolname);
+    END IF;
+    -- Revoke membership in 'authenticated'
+    EXECUTE format('REVOKE authenticated FROM %I', role_record.rolname);
+    -- Revoke role from authenticator
+    EXECUTE format('REVOKE %I FROM authenticator', role_record.rolname);
+    -- Drop the role
+    EXECUTE format('DROP ROLE IF EXISTS %I', role_record.rolname);
+    RAISE DEBUG 'Dropped user-specific role: %', role_record.rolname;
   END LOOP;
 END
 $$;
@@ -196,35 +193,48 @@ SET client_min_messages TO DEBUG2;
 DO $$
 DECLARE
   role_name text;
-  view_name text;
+  r record; -- For iterating over views/tables/etc.
   hierarchy_roles text[] := ARRAY['admin_user', 'regular_user', 'restricted_user', 'external_user'];
-  problematic_views text[] := ARRAY['hypopg_list_indexes', 'hypopg_hidden_indexes', 'pg_stat_statements_info', 'pg_stat_statements', 'pg_stat_monitor'];
 BEGIN
   RAISE DEBUG 'Starting revocation of privileges from hierarchy roles: %', hierarchy_roles;
 
-  -- Iterate through each hierarchy role to revoke potentially problematic privileges
+  -- Iterate through each hierarchy role to revoke privileges
   FOREACH role_name IN ARRAY hierarchy_roles
   LOOP
     -- Check if the role actually exists before attempting revocations
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
       RAISE DEBUG 'Processing revocations for existing role: %', role_name;
 
-      -- Revoke all privileges on the public schema first
-      EXECUTE format('REVOKE ALL ON SCHEMA public FROM %I', role_name);
-      RAISE DEBUG 'Revoked ALL privileges on schema public from %', role_name;
-
-      -- Attempt to revoke ALL privileges on known problematic views
-      FOREACH view_name IN ARRAY problematic_views
+      -- Revoke privileges on all existing public views
+      RAISE DEBUG 'Revoking privileges on public views for role %', role_name;
+      -- Cannot use REVOKE ALL ON ALL VIEWS, must iterate
+      FOR r IN SELECT schemaname, viewname FROM pg_views WHERE schemaname = 'public'
       LOOP
-        BEGIN
-          EXECUTE format('REVOKE ALL ON %I.%I FROM %I', 'public', view_name, role_name);
-          RAISE DEBUG 'Revoked ALL privileges on public.% from %', view_name, role_name;
-        EXCEPTION WHEN undefined_table THEN
-          RAISE DEBUG 'View public.% not found, skipping revoke for role %.', view_name, role_name;
-        END;
-      END LOOP; -- End loop through problematic views
+        -- REVOKE is idempotent, no need for exception handling
+        EXECUTE format('REVOKE ALL PRIVILEGES ON %I.%I FROM %I', r.schemaname, r.viewname, role_name);
+        RAISE DEBUG 'Revoked ALL privileges on view %I.%I from %I', r.schemaname, r.viewname, role_name;
+      END LOOP;
 
-      -- Add more revocations here if other dependencies are discovered for this role
+      -- Revoke privileges on all existing public tables, sequences, functions
+      RAISE DEBUG 'Revoking privileges on public tables, sequences, functions for role %', role_name;
+      EXECUTE format('REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM %I', role_name);
+      EXECUTE format('REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM %I', role_name);
+      EXECUTE format('REVOKE ALL PRIVILEGES ON ALL FUNCTIONS IN SCHEMA public FROM %I', role_name);
+
+      -- Revoke default privileges granted TO this role in the public schema
+      RAISE DEBUG 'Revoking default privileges in schema public for role %', role_name;
+      EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TABLES FROM %I', role_name);
+      EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON SEQUENCES FROM %I', role_name);
+      EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON FUNCTIONS FROM %I', role_name);
+      EXECUTE format('ALTER DEFAULT PRIVILEGES IN SCHEMA public REVOKE ALL ON TYPES FROM %I', role_name);
+
+      -- Revoke usage on the public schema itself
+      RAISE DEBUG 'Revoking usage on schema public for role %', role_name;
+      EXECUTE format('REVOKE USAGE ON SCHEMA public FROM %I', role_name);
+
+      -- Attempt to reassign ownership if needed (less common for hierarchy roles, more for user roles)
+      -- Consider if objects might be owned by these hierarchy roles. If so, reassign before dropping.
+      -- EXECUTE format('REASSIGN OWNED BY %I TO postgres', role_name); -- Or another appropriate role
 
     ELSE
       RAISE DEBUG 'Hierarchy role % does not exist, skipping revocations.', role_name;
