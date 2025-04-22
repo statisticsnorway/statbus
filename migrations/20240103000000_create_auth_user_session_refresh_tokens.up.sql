@@ -89,7 +89,7 @@ GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated, anon;
 -- Create a table for refresh sessions
 CREATE TABLE IF NOT EXISTS auth.refresh_session (
   id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  jti uuid UNIQUE NOT NULL DEFAULT gen_random_uuid(),
+  jti uuid UNIQUE NOT NULL DEFAULT public.gen_random_uuid(),
   user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE CASCADE,
   refresh_version integer NOT NULL DEFAULT 0,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -176,7 +176,7 @@ GRANT INSERT, UPDATE, DELETE ON auth.user TO admin_user;
 -- Create table for API keys
 CREATE TABLE IF NOT EXISTS auth.api_key (
   id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-  jti uuid UNIQUE NOT NULL, -- Corresponds to JWT ID claim
+  jti uuid UNIQUE NOT NULL DEFAULT public.gen_random_uuid(), -- Corresponds to JWT ID claim
   user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE CASCADE,
   description text,
   created_at timestamptz NOT NULL DEFAULT now(),
@@ -322,7 +322,7 @@ BEGIN
   -- 1. Encrypt password if provided in NEW.password (plain text)
   IF NEW.password IS NOT NULL THEN
     -- Set the encrypted password for application authentication
-    NEW.encrypted_password := crypt(NEW.password, gen_salt('bf'));
+    NEW.encrypted_password := public.crypt(NEW.password, public.gen_salt('bf'));
     
     -- Set/Update the database role's password using the plain text password from NEW.password
     -- This ensures the database role password stays in sync with the application password.
@@ -1171,7 +1171,7 @@ BEGIN
   
   -- Add JTI if not in additional claims
   IF NOT p_additional_claims ? 'jti' THEN
-    v_claims := v_claims || jsonb_build_object('jti', gen_random_uuid()::text);
+    v_claims := v_claims || jsonb_build_object('jti', public.gen_random_uuid()::text);
   END IF;
   
   -- Merge additional claims
@@ -1255,7 +1255,7 @@ AS $generate_jwt$
 DECLARE
   token text;
 BEGIN
-  SELECT sign(
+  SELECT public.sign(
     claims::json,
     current_setting('app.settings.jwt_secret')
   ) INTO token;
@@ -1572,7 +1572,7 @@ AS $create_api_key$
 DECLARE
   _user_id integer;
   _expires_at timestamptz;
-  _jti uuid := gen_random_uuid();
+  _jti uuid := public.gen_random_uuid();
   _result public.api_key;
 BEGIN
   -- Get current user ID
