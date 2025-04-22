@@ -4156,6 +4156,47 @@ export type Database = {
           },
         ]
       }
+      api_key: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          expires_at: string | null
+          id: number | null
+          jti: string | null
+          revoked_at: string | null
+          token: string | null
+          user_id: number | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: number | null
+          jti?: string | null
+          revoked_at?: string | null
+          token?: string | null
+          user_id?: number | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          expires_at?: string | null
+          id?: number | null
+          jti?: string | null
+          revoked_at?: string | null
+          token?: string | null
+          user_id?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "api_key_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "user"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       contact_era: {
         Row: {
           data_source_id: number | null
@@ -7477,19 +7518,40 @@ export type Database = {
       }
       user: {
         Row: {
+          created_at: string | null
+          deleted_at: string | null
           email: string | null
+          email_confirmed_at: string | null
           id: number | null
+          last_sign_in_at: string | null
+          password: string | null
           statbus_role: Database["public"]["Enums"]["statbus_role"] | null
+          sub: string | null
+          updated_at: string | null
         }
         Insert: {
+          created_at?: string | null
+          deleted_at?: string | null
           email?: string | null
+          email_confirmed_at?: string | null
           id?: number | null
+          last_sign_in_at?: string | null
+          password?: string | null
           statbus_role?: Database["public"]["Enums"]["statbus_role"] | null
+          sub?: string | null
+          updated_at?: string | null
         }
         Update: {
+          created_at?: string | null
+          deleted_at?: string | null
           email?: string | null
+          email_confirmed_at?: string | null
           id?: number | null
+          last_sign_in_at?: string | null
+          password?: string | null
           statbus_role?: Database["public"]["Enums"]["statbus_role"] | null
+          sub?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }
@@ -7551,6 +7613,10 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_change_password: {
+        Args: { user_sub: string; new_password: string }
+        Returns: boolean
+      }
       after_to_overlaps: {
         Args: { after1: unknown; to1: unknown; after2: unknown; to2: unknown }
         Returns: boolean
@@ -7579,6 +7645,10 @@ export type Database = {
         Args: { data: string }
         Returns: string
       }
+      change_password: {
+        Args: { new_password: string }
+        Returns: boolean
+      }
       connect_legal_unit_to_enterprise: {
         Args: {
           legal_unit_id: number
@@ -7599,6 +7669,19 @@ export type Database = {
       country_used_derive: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      create_api_key: {
+        Args: { description?: string; duration?: unknown }
+        Returns: {
+          created_at: string | null
+          description: string | null
+          expires_at: string | null
+          id: number | null
+          jti: string | null
+          revoked_at: string | null
+          token: string | null
+          user_id: number | null
+        }
       }
       create_temporal_foreign_key: {
         Args: {
@@ -7946,13 +8029,6 @@ export type Database = {
           curr_stop: string
         }[]
       }
-      grant_role: {
-        Args: {
-          user_sub: string
-          new_role: Database["public"]["Enums"]["statbus_role"]
-        }
-        Returns: boolean
-      }
       gtrgm_compress: {
         Args: { "": unknown }
         Returns: unknown
@@ -8108,6 +8184,18 @@ export type Database = {
           index_statements: string[]
           errors: string[]
         }[]
+      }
+      is_deriving_reports: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_deriving_statistical_units: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_importing: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
       }
       jsonb_stats_summary_merge: {
         Args: { a: Json; b: Json }
@@ -8648,8 +8736,8 @@ export type Database = {
         }
         Returns: Json
       }
-      revoke_role: {
-        Args: { user_sub: string }
+      revoke_api_key: {
+        Args: { key_jti: string }
         Returns: boolean
       }
       revoke_session: {
@@ -8891,13 +8979,6 @@ export type Database = {
           email: string
           password: string
         }[]
-      }
-      user_update_role: {
-        Args: {
-          p_email: string
-          p_statbus_role: Database["public"]["Enums"]["statbus_role"]
-        }
-        Returns: undefined
       }
       verify: {
         Args: { token: string; secret: string; algorithm?: string }
