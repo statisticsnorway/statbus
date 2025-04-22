@@ -11,7 +11,8 @@ export async function middleware(request: NextRequest) {
     pathname === "/login" ||
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon.ico") ||
-    pathname.startsWith("/rest/") // Assuming PostgREST endpoint is proxied/exposed here
+    pathname.startsWith("/rest/") || // PostgREST endpoint is proxied/exposed here
+    pathname.startsWith("/pev2.html") // Tool for analyzing PostgreSQL execution plans (EXPLAIN ANALYZE)
   ) {
     return NextResponse.next();
   }
