@@ -52,6 +52,7 @@ DROP FUNCTION admin.import_job_cleanup();
 DROP FUNCTION admin.import_job_generate(public.import_job);
 DROP FUNCTION admin.import_job_generate();
 DROP FUNCTION admin.import_job_derive();
+DROP PROCEDURE worker.notify_check_is_importing();
 DROP FUNCTION admin.import_job_next_state(public.import_job);
 DROP FUNCTION admin.import_job_set_state(public.import_job, public.import_job_state);
 DROP FUNCTION admin.set_import_job_user_context(integer);

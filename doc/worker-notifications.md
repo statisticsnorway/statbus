@@ -28,71 +28,41 @@ We'll implement a lightweight system stability indicator that shows whether the 
 
 ## Database Implementation
 
-1. Create lightweight status function:
+1. Create lightweight status functions:
+   - **Specific Task Status:** For granular UI feedback, use these functions (accessible via `/rest/rpc/...`):
+     - `public.is_importing()`: Returns `true` if any import jobs (`import_job_process`) are pending or processing.
+     - `public.is_deriving_statistical_units()`: Returns `true` if the core statistical unit derivation (`derive_statistical_unit`) is pending or processing.
+     - `public.is_deriving_reports()`: Returns `true` if report/facet derivation (`derive_reports`) is pending or processing.
+
    ```sql
-   CREATE OR REPLACE FUNCTION public.is_system_stable()
-   RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER AS $$
-   DECLARE
-       has_active_jobs boolean;
+   -- Specific task status checks (in public schema)
+   CREATE FUNCTION public.is_importing() RETURNS boolean ...;
+   CREATE FUNCTION public.is_deriving_statistical_units() RETURNS boolean ...;
+   CREATE FUNCTION public.is_deriving_reports() RETURNS boolean ...;
+   -- (See migration 20250422155400 for full definitions)
+   ```
+
+2. Create notification mechanism:
+   - **Specific Status Check Notification:** The `worker.process_tasks` procedure calls optional `before_procedure` and `after_procedure` hooks defined in `worker.command_registry`. These hooks (e.g., `worker.notify_check_is_importing`) are responsible for sending notifications on the `check` channel when specific tasks (`import_job_process`, `derive_statistical_unit`, `derive_reports`) start processing (via `before_procedure`) and when they finish (via `after_procedure`).
+   - **Payload:** The payload sent on the `check` channel is the name of the corresponding status function (e.g., `is_importing`, `is_deriving_statistical_units`, `is_deriving_reports`). This tells the frontend to re-query that specific status function.
+
+   ```sql
+   -- Example notification procedure (called by before/after hooks)
+   CREATE PROCEDURE worker.notify_check_is_importing()
+   LANGUAGE plpgsql
+   AS $procedure$
    BEGIN
-       -- Fast check for any active jobs or tasks
-       -- This query is optimized for speed, using EXISTS instead of COUNT
-       SELECT EXISTS (
-           -- Check for active import jobs
-           SELECT 1 FROM public.import_job
-           WHERE state NOT IN ('finished', 'rejected', 'waiting_for_review', 'waiting_for_upload')
-           
-           UNION ALL
-           
-           -- Check for active analytics tasks
-           SELECT 1 FROM worker.tasks t
-           JOIN worker.command_registry cr ON t.command = cr.command
-           WHERE cr.queue = 'analytics' 
-             AND t.state IN ('pending', 'processing')
-           LIMIT 1
-       ) INTO has_active_jobs;
-       
-       -- System is stable if no active jobs exist
-       RETURN NOT has_active_jobs;
+     PERFORM pg_notify('check', 'is_importing');
    END;
-   $$;
+   $procedure$;
+
+   -- Example registration in command_registry
+   INSERT INTO worker.command_registry (..., before_procedure, after_procedure, ...)
+   VALUES (..., 'worker.notify_check_is_importing', 'worker.notify_check_is_importing', ...);
    ```
+   *Note: The `check` notification provides specific hints for re-querying `public.is_importing()`, `public.is_deriving_statistical_units()`, or `public.is_deriving_reports()`.*
 
-2. Create notification trigger for system stability changes:
-   ```sql
-   CREATE OR REPLACE FUNCTION public.notify_system_stability_change()
-   RETURNS trigger LANGUAGE plpgsql AS $$
-   DECLARE
-       is_stable boolean;
-   BEGIN
-       -- Check current system stability
-       SELECT public.is_system_stable() INTO is_stable;
-       
-       -- Send notification with minimal payload
-       PERFORM pg_notify(
-           'system_stability',
-           json_build_object('stable', is_stable)::text
-       );
-       
-       RETURN NULL;
-   END;
-   $$;
-   ```
-
-3. Add triggers to relevant tables:
-   ```sql
-   CREATE TRIGGER notify_system_stability_on_import_job_change
-   AFTER INSERT OR UPDATE OF state ON public.import_job
-   FOR EACH STATEMENT
-   EXECUTE FUNCTION public.notify_system_stability_change();
-
-   CREATE TRIGGER notify_system_stability_on_task_change
-   AFTER INSERT OR UPDATE OF state ON worker.tasks
-   FOR EACH STATEMENT
-   EXECUTE FUNCTION public.notify_system_stability_change();
-   ```
-
-4. Create function for detailed analytics tasks:
+3. Create function for detailed *analytics* tasks (already exists, shown for context):
    ```sql
    CREATE OR REPLACE FUNCTION public.get_analytics_tasks_in_progress()
    RETURNS SETOF json LANGUAGE plpgsql SECURITY DEFINER AS $$
@@ -123,7 +93,7 @@ We'll implement a lightweight system stability indicator that shows whether the 
     import { Client } from 'pg';
 
     // Stores callbacks for active SSE connections
-    const activeClientCallbacks = new Set<(payload: any) => void>();
+    const activeClientCallbacks = new Set<(payload: string) => void>();
     let pgClient: Client | null = null;
 
     async function initializeListener() {
@@ -131,13 +101,11 @@ We'll implement a lightweight system stability indicator that shows whether the 
       pgClient = new Client({ /* connection options */ });
 
       pgClient.on('notification', (msg) => {
-        if (msg.channel === 'system_stability' && msg.payload) {
-          try {
-            const payload = JSON.parse(msg.payload);
-            activeClientCallbacks.forEach(callback => callback(payload));
-          } catch (e) { console.error("Error processing notification", e); }
+        // Handle only the 'check' channel (string payload)
+        if (msg.channel === 'check' && msg.payload) {
+          // Payload for 'check' is just the function name string
+          activeClientCallbacks.forEach(callback => callback(msg.payload));
         }
-        // Handle 'import_job_progress' if needed for detailed view updates
       });
 
       pgClient.on('error', (err) => {
@@ -147,25 +115,19 @@ We'll implement a lightweight system stability indicator that shows whether the 
       });
 
       await pgClient.connect();
-      await pgClient.query('LISTEN system_stability;');
-      // LISTEN import_job_progress; // If needed
-      console.log('DB Listener active.');
+      await pgClient.query('LISTEN check;'); // Listen only to the 'check' channel
+      console.log('DB Listener active for check channel.');
     }
 
-    export function addClientCallback(callback: (payload: any) => void) {
+    export function addClientCallback(callback: (payload: string) => void) {
       activeClientCallbacks.add(callback);
     }
 
-    export function removeClientCallback(callback: (payload: any) => void) {
+    export function removeClientCallback(callback: (payload: string) => void) {
       activeClientCallbacks.delete(callback);
     }
 
-    // Function to get current state on demand (e.g., for initial SSE connection)
-    export async function getSystemStabilityState() {
-        if (!pgClient) throw new Error("Database listener not connected");
-        const { rows } = await pgClient.query('SELECT public.is_system_stable() as stable;');
-        return rows[0]?.stable ?? null;
-    }
+    // No initial state fetch needed as we don't have a general stability status anymore
 
     // Initialize on server start
     initializeListener().catch(err => {
@@ -187,19 +149,15 @@ We'll implement a lightweight system stability indicator that shows whether the 
     export async function GET(request: Request) {
       const stream = new ReadableStream({
         async start(controller) {
-          const handleNotification = (payload: any) => {
-            controller.enqueue(`data: ${JSON.stringify(payload)}\n\n`);
+          // Handle notifications from the 'check' channel
+          const handleNotification = (payload: string) => {
+            // Send event with type 'check' and the function name as data
+            controller.enqueue(`event: check\ndata: ${payload}\n\n`);
           };
 
-          // Send initial state
-          try {
-              const initialState = await getSystemStabilityState();
-              if (initialState !== null) {
-                  controller.enqueue(`data: ${JSON.stringify({ stable: initialState })}\n\n`);
-              }
-          } catch (err) { console.error("Error fetching initial state for SSE:", err); }
+          // No initial state to send
 
-          addClientCallback(handleNotification);
+          addClientCallback(handleNotification); // Add the callback that handles the 'check' channel
 
           request.signal.addEventListener('abort', () => {
             removeClientCallback(handleNotification);
@@ -266,94 +224,119 @@ We'll implement a lightweight system stability indicator that shows whether the 
 1. Create React hook for system stability:
    ```typescript
    // src/hooks/useSystemStability.ts
-   import { useState, useEffect } from 'react';
+   import { useState, useEffect, useCallback } from 'react';
+   // Consider using a state management library (like Zustand or Jotai)
+   // for broader state sharing if these statuses are needed in many places.
 
-   export function useSystemStability() {
-     const [isStable, setIsStable] = useState<boolean | null>(null);
-     const [loading, setLoading] = useState(true);
-     const [error, setError] = useState<string | null>(null);
+   export function useSystemStatusNotifications() {
+     // Connection status
+     const [connectionError, setConnectionError] = useState<string | null>(null);
+
+     // Specific status check triggers (increment to trigger effects)
+     const [importCheckTrigger, setImportCheckTrigger] = useState(0);
+     const [derivingUnitsCheckTrigger, setDerivingUnitsCheckTrigger] = useState(0);
+     const [derivingReportsCheckTrigger, setDerivingReportsCheckTrigger] = useState(0);
 
      useEffect(() => {
-       // Use relative URL for EventSource
        const eventSource = new EventSource('/api/system-status/live');
-       setLoading(true);
 
        eventSource.onopen = () => {
-         console.log('SSE connection opened for system stability');
-         setError(null);
+         console.log('SSE connection opened for status checks');
+         setConnectionError(null);
        };
 
-       eventSource.onmessage = (event) => {
+       // Listener for specific status check hints
+       eventSource.addEventListener('check', (event) => {
          try {
-           const data = JSON.parse(event.data);
-           setIsStable(data.stable);
-           setLoading(false); // Set loading false after receiving the first valid message
+           const functionName = event.data; // Expects string like 'is_importing'
+           console.log('Received check hint:', functionName);
+           // Increment the relevant trigger based on the function name hint
+           if (functionName === 'is_importing') {
+             setImportCheckTrigger(prev => prev + 1);
+           } else if (functionName === 'is_deriving_statistical_units') {
+             setDerivingUnitsCheckTrigger(prev => prev + 1);
+           } else if (functionName === 'is_deriving_reports') {
+             setDerivingReportsCheckTrigger(prev => prev + 1);
+           }
          } catch (err) {
-           console.error('Error parsing SSE message:', err);
-           setError('Error processing status update.');
-           setLoading(false);
+           console.error('Error processing check SSE message:', err);
+           setConnectionError('Error processing specific status check hint.');
          }
-       };
+       });
 
        eventSource.onerror = (err) => {
          console.error('EventSource failed:', err);
-         setError('Connection error. Status updates may be unavailable.');
-         setLoading(false);
-         setIsStable(null); // Indicate unknown state on error
+         setConnectionError('Connection error. Status updates may be unavailable.');
          eventSource.close();
          // Consider adding retry logic here
        };
 
-       // Cleanup function: close the connection when the component unmounts
+       // Cleanup function
        return () => {
-         console.log('Closing SSE connection for system stability');
+         console.log('Closing SSE connection for status checks');
          eventSource.close();
        };
      }, []); // Empty dependency array ensures this runs once on mount
 
-     return { isStable, loading, error };
+     // Return only the check triggers and connection status
+     // Components needing specific status will use the triggers in their own useEffect
+     // to fetch the latest state via RPC (e.g., public.is_importing())
+     return {
+       connectionError,
+       importCheckTrigger,
+       derivingUnitsCheckTrigger,
+       derivingReportsCheckTrigger
+     };
    }
+
+   // Example of how a component might use a trigger:
+   /*
+   import { useSystemStatusNotifications } from '../hooks/useSystemStatusNotifications'; // Updated hook name
+   import { useQuery } from '@tanstack/react-query'; // Or similar data fetching library
+   import { apiClient } from '@/lib/api-client'; // Your API client
+
+   function ImportStatusComponent() {
+     const { importCheckTrigger } = useSystemStatusNotifications(); // Use correct trigger name
+
+     const { data: isImporting, isLoading, error, refetch } = useQuery({ // Add refetch if needed
+       queryKey: ['isImportingStatus'], // Query key doesn't need the trigger directly if using refetch
+       queryFn: async () => {
+         // Replace with your actual API call to the public.is_importing RPC endpoint
+         const response = await apiClient.rpc('is_importing');
+         return response.data;
+       },
+       // Optional: configure stale time, refetch intervals etc.
+       // Keep data fresh for a short time, but rely on trigger for immediate updates
+       staleTime: 60 * 1000, // 1 minute
+       refetchOnWindowFocus: false,
+     });
+
+     // Effect to refetch when the trigger increments
+     useEffect(() => {
+       if (importCheckTrigger > 0) { // Avoid refetch on initial mount if trigger starts at 0
+         console.log("Import check trigger fired, refetching isImporting status...");
+         refetch();
+       }
+     }, [importCheckTrigger, refetch]);
+
+
+     if (isLoading) return <span>Loading import status...</span>;
+     if (error) return <span>Error loading import status</span>;
+
+     return <span>{isImporting ? "Importing..." : "Not Importing"}</span>;
+   }
+   */
    ```
 
 2. Implement status indicator component:
    ```typescript
    // src/components/SystemStatusIndicator.tsx
-   import { useSystemStability } from '../hooks/useSystemStability';
-   import { Badge } from './ui/badge';
-   import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from './ui/tooltip';
-   import { SystemStatusModal } from './SystemStatusModal';
+   import { SystemStatusModal } from './SystemStatusModal'; // Assumes this modal exists
 
+   // Simplified indicator - only shows the button to open the details modal
    export function SystemStatusIndicator() {
-     const { isStable, loading } = useSystemStability();
-     
-     if (loading) {
-       return <Badge variant="outline" className="animate-pulse">Loading...</Badge>;
-     }
-     
      return (
        <div className="flex items-center gap-2">
-         <TooltipProvider>
-           <Tooltip>
-             <TooltipTrigger asChild>
-               <Badge 
-                 variant="outline" 
-                 className={isStable 
-                   ? "bg-green-50 text-green-700 border-green-200" 
-                   : "bg-yellow-50 text-yellow-700 border-yellow-200"
-                 }
-               >
-                 {isStable ? "System Stable" : "Processing Data"}
-               </Badge>
-             </TooltipTrigger>
-             <TooltipContent>
-               {isStable 
-                 ? "All data processing is complete" 
-                 : "Data is currently being processed"
-               }
-             </TooltipContent>
-           </Tooltip>
-         </TooltipProvider>
-         
          <SystemStatusModal />
        </div>
      );
@@ -516,24 +499,28 @@ We'll implement a lightweight system stability indicator that shows whether the 
 ## Testing Plan
 
 1. Unit tests for database functions:
-   - Test `is_system_stable()` and `get_analytics_tasks_in_progress()` with various system states.
-   - Test notification triggers (`notify_system_stability_change`) with simulated state changes on `import_job` and `worker.tasks`.
+   - Test `public.is_importing()`, `public.is_deriving_statistical_units()`, `public.is_deriving_reports()`, and `public.get_analytics_tasks_in_progress()` with various system states.
+   - Test `worker.process_tasks` to ensure it correctly calls registered `before_procedure` and `after_procedure` hooks (if defined) without arguments.
+   - Test the specific hook procedures (e.g., `worker.notify_check_is_importing`) to ensure they call `pg_notify('check', 'is_importing')`.
+   - Test the registration of these hooks in `worker.command_registry` for the relevant commands.
 
 2. Backend Integration Tests (Node.js/Next.js):
-   - Test the `db-listener` singleton's ability to connect, listen, handle notifications, and manage reconnection.
-   - Test the SSE API route (`/api/system-status/live`): client connection/disconnection handling, initial state sending, and forwarding of notifications from the listener.
+   - Test the `db-listener` singleton's ability to connect, listen to the `check` channel, handle notifications (string payload), and manage reconnection.
+   - Test the SSE API route (`/api/system-status/live`): client connection/disconnection handling, and forwarding of `check` notifications with the correct event type and data format.
    - Test the details API route (`/api/system-status/details`) for correct data retrieval and error handling.
+   - Test frontend logic that re-queries specific status functions (`public.is_importing`, etc.) when a `check` notification with the corresponding payload is received.
 
 3. Frontend component tests:
-   - Test `useSystemStability` hook: connection via `EventSource`, state updates (`isStable`, `loading`, `error`), and cleanup.
-   - Test `SystemStatusIndicator` rendering based on hook state.
+   - Test `useSystemStatusNotifications` hook: connection via `EventSource`, state updates (`connectionError`), trigger increments (`importCheckTrigger`, etc.), and cleanup.
+   - Test `SystemStatusIndicator` rendering (it's now just the modal trigger).
    - Test `SystemStatusModal`: opening, fetching data from the details API, displaying loading/error/data states correctly.
+   - Test components using the check triggers (like the example `ImportStatusComponent`) to ensure they refetch data when the relevant trigger increments.
 
 ## Deployment Considerations
 
 1.  **Node.js Process Management:** Ensure the long-running Next.js Node process (started via `next start` in the Docker container) is monitored and restarted if it crashes (e.g., using Docker's `restart: unless-stopped` policy, which is already present).
-2.  **Database Connection Robustness:** The `db-listener` singleton needs robust error handling and automatic reconnection logic for the PostgreSQL connection. Consider using connection pooling (`pg-pool`) if the listener needs to perform other queries, although a single client is sufficient for `LISTEN`.
-3.  **Resource Usage:** Monitor the resource usage (CPU, memory) of the Next.js container, as it now handles persistent DB connections and SSE streaming alongside regular request processing.
+2.  **Database Connection Robustness:** The `db-listener` singleton needs robust error handling and automatic reconnection logic for the PostgreSQL connection. A single client is sufficient for `LISTEN`.
+3.  **Resource Usage:** Monitor the resource usage (CPU, memory) of the Next.js container, as it now handles a persistent DB connection and SSE streaming alongside regular request processing.
 4.  **SSE Connection Limits:** Be aware of potential limits on the number of concurrent open HTTP connections imposed by the server or infrastructure. SSE connections are long-lived.
 5.  **Caddy Configuration:** Ensure Caddy proxy timeouts are sufficient for long-lived SSE connections (usually defaults are fine, but worth checking if issues arise). No special WebSocket configuration is needed for SSE.
 6.  **Error Handling:** Implement comprehensive error handling in the listener, API routes, and frontend components. Provide informative feedback to the user when status updates are unavailable.

@@ -135,15 +135,26 @@ BEGIN
 END;
 $import_definition_validate_before$;
 
+-- Procedure to notify about import_job_process status check
+CREATE PROCEDURE worker.notify_check_is_importing()
+LANGUAGE plpgsql
+AS $procedure$
+BEGIN
+  PERFORM pg_notify('check', 'is_importing');
+END;
+$procedure$;
+
 -- Register import_job_process command in the worker system
 INSERT INTO worker.queue_registry (queue, concurrent, description)
 VALUES ('import', true, 'Concurrent queue for processing import jobs');
 
-INSERT INTO worker.command_registry (queue, command, handler_procedure, description)
+INSERT INTO worker.command_registry (queue, command, handler_procedure, before_procedure, after_procedure, description)
 VALUES
 ( 'import',
   'import_job_process',
   'admin.import_job_process',
+  'worker.notify_check_is_importing', -- Before hook
+  'worker.notify_check_is_importing', -- After hook
   'Process an import job through all stages'
 );
 

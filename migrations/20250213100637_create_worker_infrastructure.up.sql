@@ -30,6 +30,8 @@ VALUES ('analytics', false, 'Serial qeueue for analysing and deriving data')
 CREATE TABLE worker.command_registry (
   command TEXT PRIMARY KEY,
   handler_procedure TEXT NOT NULL,
+  before_procedure TEXT NULL, -- Optional procedure to call before handler_procedure
+  after_procedure TEXT NULL,  -- Optional procedure to call after handler_procedure
   description TEXT,
   queue TEXT NOT NULL REFERENCES worker.queue_registry(queue),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -186,6 +188,14 @@ BEGIN
 END;
 $derive_statistical_unit$;
 
+-- Procedure to notify about derive_statistical_unit status check
+CREATE PROCEDURE worker.notify_check_is_deriving_statistical_units()
+LANGUAGE plpgsql
+AS $procedure$
+BEGIN
+  PERFORM pg_notify('check', 'is_deriving_statistical_units');
+END;
+$procedure$;
 
 
 -- Create statistical unit refresh function (part 2: reports and facets)
@@ -222,6 +232,15 @@ BEGIN
     p_valid_after := v_valid_after,
     p_valid_to := v_valid_to
   );
+END;
+$procedure$;
+
+-- Procedure to notify about derive_reports status check
+CREATE PROCEDURE worker.notify_check_is_deriving_reports()
+LANGUAGE plpgsql
+AS $procedure$
+BEGIN
+  PERFORM pg_notify('check', 'is_deriving_reports');
 END;
 $procedure$;
 
@@ -765,7 +784,9 @@ BEGIN
   -- Process tasks in a loop until we hit time limit or run out of tasks
   LOOP
     -- Claim a task with FOR UPDATE SKIP LOCKED to prevent concurrent processing
-    SELECT t.*, cr.handler_procedure, cr.queue INTO task_record
+    -- Also fetch before/after procedures
+    SELECT t.*, cr.handler_procedure, cr.before_procedure, cr.after_procedure, cr.queue
+    INTO task_record
     FROM worker.tasks t
     JOIN worker.command_registry cr ON t.command = cr.command
     WHERE t.state = 'pending'::worker.task_state
@@ -798,6 +819,20 @@ BEGIN
     UPDATE worker.tasks AS t
     SET state = 'processing'::worker.task_state
     WHERE t.id = task_record.id;
+
+    -- Call before_procedure if defined, after the task status has changed,
+    -- since some functions look at task status.
+    IF task_record.before_procedure IS NOT NULL THEN
+      BEGIN
+        RAISE DEBUG 'Calling before_procedure: % for task % (%)', task_record.before_procedure, task_record.id, task_record.command;
+        -- Call the procedure without arguments
+        EXECUTE format('CALL %s()', task_record.before_procedure);
+      EXCEPTION WHEN OTHERS THEN
+        RAISE WARNING 'Error in before_procedure % for task %: %', task_record.before_procedure, task_record.id, SQLERRM;
+        -- Decide if this error should prevent task processing or just be logged.
+        -- For now, we log and continue.
+      END;
+    END IF;
 
     -- Commit to see state change of task. The COMMIT automatically ends the transaction,
     -- and starts a new one, there is no PL/PGSQL BEGIN to start a new transaction.
@@ -872,7 +907,19 @@ BEGIN
           error = v_error
       WHERE t.id = task_record.id;
 
-      -- Commit to see state change of task. The COMMIT automatically ends the transaction,
+      -- Call after_procedure if defined
+      IF task_record.after_procedure IS NOT NULL THEN
+        BEGIN
+          RAISE DEBUG 'Calling after_procedure: % for task % (%)', task_record.after_procedure, task_record.id, task_record.command;
+          -- Call the procedure without arguments
+          EXECUTE format('CALL %s()', task_record.after_procedure);
+        EXCEPTION WHEN OTHERS THEN
+          RAISE WARNING 'Error in after_procedure % for task %: %', task_record.after_procedure, task_record.id, SQLERRM;
+          -- Log error but don't fail the overall process
+        END;
+      END IF;
+
+      -- Commit to see state change of task and any after_procedure. The COMMIT automatically ends the transaction,
       -- and starts a new one, there is no PL/PGSQL BEGIN to start a new transaction.
       IF NOT v_inside_transaction THEN
         COMMIT;
@@ -892,14 +939,14 @@ END;
 $procedure$;
 
 
--- Register built-in commands
-INSERT INTO worker.command_registry (queue, command, handler_procedure, description)
+-- Register built-in commands, linking notification procedures
+INSERT INTO worker.command_registry (queue, command, handler_procedure, before_procedure, after_procedure, description)
 VALUES
-  ('analytics', 'check_table', 'worker.command_check_table', 'Process changes in a table since a specific transaction ID'),
-  ('analytics', 'deleted_row', 'worker.command_deleted_row', 'Handle deletion of rows from statistical unit tables'),
-  ('analytics', 'derive_statistical_unit', 'worker.derive_statistical_unit', 'Refresh core timeline tables and statistical units'),
-  ('analytics', 'derive_reports', 'worker.derive_reports', 'Refresh derived reports, facets, and history'),
-  ('maintenance', 'task_cleanup', 'worker.command_task_cleanup', 'Clean up old completed and failed tasks');
+  ('analytics', 'check_table', 'worker.command_check_table', NULL, NULL, 'Process changes in a table since a specific transaction ID'),
+  ('analytics', 'deleted_row', 'worker.command_deleted_row', NULL, NULL, 'Handle deletion of rows from statistical unit tables'),
+  ('analytics', 'derive_statistical_unit', 'worker.derive_statistical_unit', 'worker.notify_check_is_deriving_statistical_units', 'worker.notify_check_is_deriving_statistical_units', 'Refresh core timeline tables and statistical units'),
+  ('analytics', 'derive_reports', 'worker.derive_reports', 'worker.notify_check_is_deriving_reports', 'worker.notify_check_is_deriving_reports', 'Refresh derived reports, facets, and history'),
+  ('maintenance', 'task_cleanup', 'worker.command_task_cleanup', NULL, NULL, 'Clean up old completed and failed tasks');
 
 
 -- Add foreign key constraint to ensure command exists in command registry

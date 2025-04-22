@@ -1018,6 +1018,8 @@ erDiagram
 	worker_command_registry["worker.command_registry"] {
 		"text" command
 		"text" handler_procedure
+		"text" before_procedure
+		"text" after_procedure
 		"text" description
 		"text" queue
 		"timestamp with time zone" created_at
