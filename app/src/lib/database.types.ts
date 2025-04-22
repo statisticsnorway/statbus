@@ -106,7 +106,7 @@ export type Database = {
             foreignKeyName: "activity_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
         ]
@@ -230,7 +230,7 @@ export type Database = {
             foreignKeyName: "activity_category_access_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
         ]
@@ -383,7 +383,7 @@ export type Database = {
             foreignKeyName: "contact_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
         ]
@@ -520,7 +520,7 @@ export type Database = {
             foreignKeyName: "enterprise_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
         ]
@@ -619,7 +619,7 @@ export type Database = {
             foreignKeyName: "enterprise_group_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
           {
@@ -874,7 +874,7 @@ export type Database = {
             foreignKeyName: "establishment_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
           {
@@ -1005,7 +1005,7 @@ export type Database = {
             foreignKeyName: "external_ident_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
           {
@@ -1199,7 +1199,7 @@ export type Database = {
             foreignKeyName: "import_definition_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
         ]
@@ -1320,7 +1320,7 @@ export type Database = {
             foreignKeyName: "import_job_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
         ]
@@ -1651,7 +1651,7 @@ export type Database = {
             foreignKeyName: "legal_unit_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
           {
@@ -1920,7 +1920,7 @@ export type Database = {
             foreignKeyName: "location_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
           {
@@ -2224,7 +2224,7 @@ export type Database = {
             foreignKeyName: "region_access_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
         ]
@@ -3145,7 +3145,7 @@ export type Database = {
             foreignKeyName: "tag_for_unit_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
           {
@@ -3936,7 +3936,7 @@ export type Database = {
             foreignKeyName: "unit_notes_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
           {
@@ -4151,7 +4151,7 @@ export type Database = {
             foreignKeyName: "activity_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
         ]
@@ -4244,7 +4244,7 @@ export type Database = {
             foreignKeyName: "contact_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
         ]
@@ -4701,7 +4701,7 @@ export type Database = {
             foreignKeyName: "establishment_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
           {
@@ -5620,7 +5620,7 @@ export type Database = {
             foreignKeyName: "legal_unit_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
           {
@@ -5889,7 +5889,7 @@ export type Database = {
             foreignKeyName: "location_edit_by_user_id_fkey"
             columns: ["edit_by_user_id"]
             isOneToOne: false
-            referencedRelation: "user_with_role"
+            referencedRelation: "user"
             referencedColumns: ["id"]
           },
           {
@@ -7475,7 +7475,7 @@ export type Database = {
         }
         Relationships: []
       }
-      user_with_role: {
+      user: {
         Row: {
           email: string | null
           id: number | null

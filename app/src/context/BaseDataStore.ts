@@ -14,7 +14,7 @@ import { getServerRestClient, getBrowserRestClient, getRestClient } from "./Rest
 export interface BaseData {
   statDefinitions: Tables<"stat_definition_active">[];
   externalIdentTypes: Tables<"external_ident_type_active">[];
-  statbusUsers: Tables<"user_with_role">[];
+  statbusUsers: Tables<"user">[];
   timeContexts: Tables<"time_context">[];
   defaultTimeContext: Tables<"time_context"> | null;
   hasStatisticalUnits: boolean;
@@ -270,10 +270,10 @@ class BaseDataStore {
       
       const fetchStatbusUsers = async () => {
         try {
-          const result = await client.from("user_with_role").select();
+          const result = await client.from("user").select();
           return { data: result.data, error: result.error };
         } catch (error) {
-          console.error('Exception fetching user_with_role:', error);
+          console.error('Exception fetching user:', error);
           return { data: null, error };
         }
       };

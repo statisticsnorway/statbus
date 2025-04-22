@@ -1324,7 +1324,7 @@ DO UPDATE SET
 \echo "Verifying user context for import jobs"
 "Verifying user context for import jobs"
 SELECT slug,
-       (SELECT email FROM public.user_with_role WHERE id = user_id) AS user_email
+       (SELECT email FROM public.user WHERE id = user_id) AS user_email
 FROM public.import_job
 WHERE slug = 'import_lu_2015_sht';
         slug        |       user_email       

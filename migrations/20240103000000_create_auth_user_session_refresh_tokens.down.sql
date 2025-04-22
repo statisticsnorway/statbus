@@ -12,17 +12,35 @@ EXCEPTION WHEN OTHERS THEN
 END;
 $$;
 
+-- Drop the public view for API keys with security_invoker=true
+DROP VIEW IF EXISTS public.api_key;
+
+-- Drop the trigger for API key token generation
+DROP TRIGGER IF EXISTS generate_api_key_token_trigger ON auth.api_key;
+
 -- Revoke execute permissions on functions
 REVOKE EXECUTE ON FUNCTION public.logout() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION public.login FROM anon;
 REVOKE EXECUTE ON FUNCTION public.refresh FROM authenticated;
-REVOKE EXECUTE ON FUNCTION public.grant_role FROM admin_user;
-REVOKE EXECUTE ON FUNCTION public.revoke_role FROM admin_user;
 REVOKE EXECUTE ON FUNCTION public.list_active_sessions FROM authenticated;
 REVOKE EXECUTE ON FUNCTION public.revoke_session FROM authenticated;
-REVOKE EXECUTE ON FUNCTION public.auth_status FROM anon, authenticated;
-REVOKE EXECUTE ON FUNCTION public.auth_test FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.auth_status FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.auth_test FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.create_api_key(text, interval) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.change_password(text) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.admin_change_password(uuid, text) FROM admin_user;
+REVOKE EXECUTE ON FUNCTION public.revoke_api_key(uuid) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION auth.check_api_key_revocation() FROM authenticated;
 
+-- Revoke schema usage
+REVOKE USAGE ON SCHEMA auth FROM anon, authenticated;
+
+-- Revoke table permissions
+REVOKE SELECT, UPDATE (description, revoked_at), DELETE ON auth.api_key FROM authenticated;
+REVOKE USAGE ON SEQUENCE auth.api_key_id_seq FROM authenticated;
+REVOKE SELECT, UPDATE, DELETE ON auth.user FROM authenticated;
+
+-- Revoke execute permissions on auth helper functions
 REVOKE EXECUTE ON FUNCTION auth.uid FROM anon, authenticated;
 REVOKE EXECUTE ON FUNCTION auth.role FROM anon, authenticated;
 REVOKE EXECUTE ON FUNCTION auth.email FROM anon, authenticated;
@@ -35,9 +53,11 @@ REVOKE EXECUTE ON FUNCTION auth.reset_session_context FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.build_auth_response FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.set_auth_cookies FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.extract_refresh_token_from_cookies FROM authenticated;
-REVOKE EXECUTE ON FUNCTION auth.extract_access_token_from_cookies FROM anon, authenticated;
+REVOKE EXECUTE ON FUNCTION auth.extract_access_token_from_cookies FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.generate_jwt FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.clear_auth_cookies FROM authenticated;
+REVOKE EXECUTE ON FUNCTION auth.check_api_key_revocation() FROM authenticated;
+REVOKE EXECUTE ON FUNCTION auth.generate_api_key_token() FROM authenticated;
 
 -- Revoke pg_monitor from admin role
 REVOKE pg_monitor FROM admin_user;
@@ -47,37 +67,80 @@ DROP FUNCTION IF EXISTS public.auth_test();
 DROP FUNCTION IF EXISTS public.auth_status();
 DROP FUNCTION IF EXISTS public.revoke_session(uuid);
 DROP FUNCTION IF EXISTS public.list_active_sessions();
-DROP FUNCTION IF EXISTS public.revoke_role(uuid);
-DROP FUNCTION IF EXISTS public.grant_role(uuid, public.statbus_role);
 DROP FUNCTION IF EXISTS public.logout();
 DROP FUNCTION IF EXISTS public.refresh();
 DROP FUNCTION IF EXISTS public.login(text, text);
+DROP FUNCTION IF EXISTS public.create_api_key(text, interval);
+DROP FUNCTION IF EXISTS public.change_password(text);
+DROP FUNCTION IF EXISTS public.admin_change_password(uuid, text);
+DROP FUNCTION IF EXISTS public.revoke_api_key(uuid);
 
--- Drop auth functions first
+-- Drop triggers before dropping the functions they use or the table they are on
+DROP TRIGGER IF EXISTS drop_user_role_trigger ON auth.user;
+DROP TRIGGER IF EXISTS sync_user_credentials_and_roles_trigger ON auth.user;
+DROP TRIGGER IF EXISTS check_role_permission_trigger ON auth.user;
+
+-- Drop auth functions first (including trigger functions and cleanup)
+DROP FUNCTION IF EXISTS auth.cleanup_expired_sessions();
+DROP FUNCTION IF EXISTS auth.sync_user_credentials_and_roles(); -- Renamed function
+DROP FUNCTION IF EXISTS auth.check_role_permission(); -- Renamed function
+DROP FUNCTION IF EXISTS auth.drop_user_role();
 DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
 DROP FUNCTION IF EXISTS auth.extract_access_token_from_cookies();
 DROP FUNCTION IF EXISTS auth.reset_session_context();
 DROP FUNCTION IF EXISTS auth.generate_jwt(jsonb);
 DROP FUNCTION IF EXISTS auth.extract_refresh_token_from_cookies();
-DROP FUNCTION IF EXISTS auth.build_auth_response(text, text, integer, uuid, text, public.statbus_role);
+DROP FUNCTION IF EXISTS auth.check_api_key_revocation();
+DROP FUNCTION IF EXISTS auth.generate_api_key_token();
+-- Drop build_auth_response earlier as it depends on the auth.user type
+DROP FUNCTION IF EXISTS auth.build_auth_response(text, text, auth.user);
 DROP FUNCTION IF EXISTS auth.set_user_context_from_email(text);
 DROP FUNCTION IF EXISTS auth.use_jwt_claims_in_session(jsonb);
-DROP FUNCTION IF EXISTS auth.build_jwt_claims(text, uuid, public.statbus_role, timestamptz, text, jsonb);
-DROP FUNCTION IF EXISTS auth.set_auth_cookies(text, text, timestamptz, timestamptz, integer, text);
+DROP FUNCTION IF EXISTS auth.build_jwt_claims(p_email text, p_expires_at timestamptz, p_type text, p_additional_claims jsonb);
+-- Corrected signature for set_auth_cookies
+DROP FUNCTION IF EXISTS auth.set_auth_cookies(text, text, timestamptz, timestamptz);
 DROP FUNCTION IF EXISTS auth.statbus_role();
 DROP FUNCTION IF EXISTS auth.email();
 DROP FUNCTION IF EXISTS auth.role();
 DROP FUNCTION IF EXISTS auth.sub();
-DROP FUNCTION IF EXISTS auth.uid();
-DROP FUNCTION IF EXISTS auth.cleanup_expired_sessions();
 
--- Now drop types
+-- Drop RLS policies before dropping the functions they depend on (like auth.uid)
+-- Policies on auth.refresh_session
+DROP POLICY IF EXISTS admin_all_refresh_sessions ON auth.refresh_session;
+DROP POLICY IF EXISTS delete_own_refresh_sessions ON auth.refresh_session;
+DROP POLICY IF EXISTS update_own_refresh_sessions ON auth.refresh_session;
+DROP POLICY IF EXISTS insert_own_refresh_sessions ON auth.refresh_session;
+DROP POLICY IF EXISTS select_own_refresh_sessions ON auth.refresh_session;
+
+-- No need to drop policies on public.api_key view as they're automatically dropped with the view
+
+-- Policies on auth.api_key
+DROP POLICY IF EXISTS delete_own_api_keys ON auth.api_key;
+DROP POLICY IF EXISTS revoke_own_api_keys ON auth.api_key;
+DROP POLICY IF EXISTS select_own_api_keys ON auth.api_key;
+DROP POLICY IF EXISTS insert_own_api_keys ON auth.api_key;
+
+-- Policies on auth.user (depend on pg_has_role, not auth.uid/sub)
+DROP POLICY IF EXISTS admin_all_access ON auth.user;
+DROP POLICY IF EXISTS update_own_user ON auth.user;
+DROP POLICY IF EXISTS select_own_user ON auth.user;
+
+-- Now it's safe to drop auth.uid()
+DROP FUNCTION IF EXISTS auth.uid();
+
+-- Drop tables in reverse order of dependency (api_key -> user, refresh_session -> user)
+DROP TABLE IF EXISTS auth.api_key;
+DROP TABLE IF EXISTS auth.refresh_session;
+DROP TABLE IF EXISTS auth.user; -- Drop user table last among auth tables
+
+-- Now drop types (auth.user type is implicitly dropped with the table)
 DROP TYPE IF EXISTS auth.auth_test_response;
 DROP TYPE IF EXISTS auth.token_info;
+-- Duplicate DROP TYPE removed
 DROP TYPE IF EXISTS auth.auth_status_response;
 DROP TYPE IF EXISTS auth.session_info;
 DROP TYPE IF EXISTS auth.logout_response;
-DROP TYPE IF EXISTS auth.auth_response;
+DROP TYPE IF EXISTS auth.auth_response; -- This type uses auth.user, ensure it's dropped after the function using it
 
 -- Find and drop all user-specific roles created by the system
 DO $$
@@ -108,22 +171,6 @@ BEGIN
   END LOOP;
 END
 $$;
-
--- Drop the trigger that drops user roles
-DROP TRIGGER IF EXISTS drop_user_role_trigger ON auth.user;
-
--- Drop the function that drops user roles
-DROP FUNCTION IF EXISTS auth.drop_user_role();
-
--- Drop the trigger that creates user roles
-DROP TRIGGER IF EXISTS create_user_role_trigger ON auth.user;
-
--- Drop the function that creates user roles
-DROP FUNCTION IF EXISTS auth.create_user_role();
-
--- Drop tables in reverse order to handle dependencies
-DROP TABLE IF EXISTS auth.refresh_session;
-DROP TABLE IF EXISTS auth.user;
 
 -- Handle role dependencies with a simpler approach
 DO $$

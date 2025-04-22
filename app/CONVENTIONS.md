@@ -52,3 +52,10 @@ When calling functions with multiple arguments (3+), use named arguments for cla
 ### SQL Testing
 Is done with pg_regress with test/ as base.
 Run with `./devops/manage-statbus.sh test [all|xx_the_test_name]`.
+
+### SQL Naming conventions
+Column name
+* `x_id` is a foreign key to table `x`
+* `x_ident` is an external identifier, not originating from the database
+* `x_at` is a TIMESTAMPTZ (with timezone)
+* `x_on` is a DATE

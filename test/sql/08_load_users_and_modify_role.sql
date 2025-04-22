@@ -13,7 +13,7 @@ DECLARE
     v_count integer;
 BEGIN
     SELECT COUNT(*) INTO v_count
-    FROM user_with_role
+    FROM public.user
     WHERE email LIKE '%@example.com';
 
     IF v_count = 3 THEN
@@ -28,7 +28,7 @@ DECLARE
     v_statbus_role statbus_role;
 BEGIN
     SELECT statbus_role INTO v_statbus_role
-    FROM user_with_role
+    FROM public.user
     WHERE email = 'test.admin@example.com';
 
     IF v_statbus_role = 'admin_user' THEN
@@ -41,9 +41,10 @@ END $$;
 -- Test role update functionality with super user
 SAVEPOINT before_admin_user_test;
 CALL test.set_user_from_email('test.admin@example.com');
+SELECT current_user;
 
 -- Should succeed: super user updating another user's role
-UPDATE user_with_role
+UPDATE public.user
 SET statbus_role = 'regular_user'
 WHERE email = 'test.restricted@example.com';
 
@@ -53,7 +54,7 @@ DECLARE
     v_statbus_role statbus_role;
 BEGIN
     SELECT statbus_role INTO v_statbus_role
-    FROM user_with_role
+    FROM public.user
     WHERE email = 'test.restricted@example.com';
 
     IF v_statbus_role = 'regular_user' THEN
@@ -67,19 +68,23 @@ ROLLBACK TO SAVEPOINT before_admin_user_test;
 
 -- Test permission checks with regular user
 SAVEPOINT before_regular_user_test;
+SELECT current_user;
 CALL test.set_user_from_email('test.regular@example.com');
+SELECT current_user;
 
 -- Should fail: non-super user trying to update roles
 DO $$
 BEGIN
     BEGIN
-        UPDATE user_with_role
-        SET statbus_role = 'restricted_user'
+        UPDATE public.user
+        SET statbus_role = 'admin_user' -- User tries to upgrade his own role!
         WHERE email = 'test.regular@example.com';
-        RAISE EXCEPTION 'Should not reach this point';
+        IF FOUND THEN
+          RAISE EXCEPTION 'User upgraded his own role!';
+        END IF;
     EXCEPTION
         WHEN OTHERS THEN
-            IF SQLERRM LIKE '%Only admin users or system accounts can perform this action%' THEN
+            IF SQLERRM LIKE '%Permission denied: Cannot assign role admin_user.%' THEN
                 RAISE NOTICE '✓ Permission check working: %', SQLERRM;
             ELSE
                 RAISE EXCEPTION 'Unexpected error: %', SQLERRM;

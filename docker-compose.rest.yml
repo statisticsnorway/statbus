@@ -27,6 +27,8 @@ services:
       PGRST_OPENAPI_SERVER_PROXY_URI: ${SITE_URL:?SITE_URL must be set in the generated .env}/postgrest
       # Pass deployment slot code to database for cookie naming
       PGRST_DB_CONFIG: app.settings.deployment_slot_code=${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
+      # Add pre-request function for API key revocation check
+      PGRST_DB_PRE_REQUEST: auth.check_api_key_revocation
     ports:
       - "${REST_BIND_ADDRESS:?REST_BIND_ADDRESS must be set in the generated .env}:3000"
     profiles:

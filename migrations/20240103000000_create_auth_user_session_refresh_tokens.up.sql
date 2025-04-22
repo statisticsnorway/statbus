@@ -42,6 +42,7 @@ BEGIN
 END
 $$;
 
+
 -- Create auth tables
 CREATE TABLE IF NOT EXISTS auth.user (
   id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -56,6 +57,34 @@ CREATE TABLE IF NOT EXISTS auth.user (
   email_confirmed_at timestamptz,
   deleted_at timestamptz
 );
+
+
+-- Function to get current user's UUID based on the session role
+CREATE OR REPLACE FUNCTION auth.sub()
+RETURNS UUID
+LANGUAGE SQL STABLE
+SECURITY INVOKER
+AS
+$$
+  -- Find the user UUID based on the current database role (email)
+  SELECT sub FROM auth.user WHERE email = current_user;
+$$;
+
+-- Function to get current user's ID (integer) based on the session role
+CREATE OR REPLACE FUNCTION auth.uid()
+RETURNS INTEGER
+LANGUAGE SQL STABLE -- Ensures it reads the setting for the current query context
+SECURITY INVOKER
+AS
+$$
+  -- Find the user ID based on the current database role, which should match the email
+  SELECT id FROM auth.user WHERE email = current_user;
+$$;
+
+-- Grant execute on helper functions needed by RLS policies and other functions
+GRANT EXECUTE ON FUNCTION auth.sub() TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated, anon;
+
 
 -- Create a table for refresh sessions
 CREATE TABLE IF NOT EXISTS auth.refresh_session (
@@ -74,57 +103,195 @@ CREATE TABLE IF NOT EXISTS auth.refresh_session (
 CREATE INDEX ON auth.refresh_session (user_id);
 CREATE INDEX ON auth.refresh_session (expires_at);
 
--- No replacement - removing the restricted_role table and related functions/triggers
+GRANT SELECT, UPDATE, DELETE ON auth.refresh_session TO authenticated;
+
+-- Enable Row-Level Security for the refresh_session table
+ALTER TABLE auth.refresh_session ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policy: Users can see their own refresh sessions
+CREATE POLICY select_own_refresh_sessions ON auth.refresh_session
+  FOR SELECT
+  USING (user_id = auth.uid()); -- Use helper function to get current user ID
+
+-- RLS Policy: Users can insert their own refresh sessions
+CREATE POLICY insert_own_refresh_sessions ON auth.refresh_session
+  FOR INSERT
+  WITH CHECK (user_id = auth.uid()); -- Ensure they can only insert sessions for themselves
+
+-- RLS Policy: Users can update their own refresh sessions
+CREATE POLICY update_own_refresh_sessions ON auth.refresh_session
+  FOR UPDATE
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid()); -- Ensure they can't change user_id
+
+-- RLS Policy: Users can delete their own refresh sessions
+CREATE POLICY delete_own_refresh_sessions ON auth.refresh_session
+  FOR DELETE
+  USING (user_id = auth.uid());
+
+-- RLS Policy: Admin users have full access to all refresh sessions
+CREATE POLICY admin_all_refresh_sessions ON auth.refresh_session
+  FOR ALL -- Covers SELECT, INSERT, UPDATE, DELETE
+  USING (pg_has_role(current_user, 'admin_user', 'MEMBER'))
+  WITH CHECK (pg_has_role(current_user, 'admin_user', 'MEMBER'));
 
 -- Cleanup function for expired sessions
 CREATE OR REPLACE FUNCTION auth.cleanup_expired_sessions()
 RETURNS void
 LANGUAGE sql
-SECURITY DEFINER
+SECURITY DEFINER -- Any user can remove expired refresh sessions; it's an amortized cleanup.
 AS $$
   DELETE FROM auth.refresh_session WHERE expires_at < now();
 $$;
 
 -- Grant permissions
-GRANT SELECT ON auth.user TO authenticated;
+GRANT SELECT, UPDATE, DELETE ON auth.user TO authenticated;
+
+-- Enable Row-Level Security for the user table
+ALTER TABLE auth.user ENABLE ROW LEVEL SECURITY;
+
+-- RLS Policy: Users can see and update their own user record
+CREATE POLICY select_own_user ON auth.user
+  FOR SELECT
+  USING (email = current_user);
+
+-- RLS Policy: Users can update their own user record
+CREATE POLICY update_own_user ON auth.user
+  FOR UPDATE
+  USING (email = current_user)
+  WITH CHECK (email = current_user);
+
+-- RLS Policy: Admin users have full access to all user records
+-- This checks if the current PostgreSQL user has the 'admin_user' role granted (directly or indirectly)
+CREATE POLICY admin_all_access ON auth.user
+  FOR ALL -- Covers SELECT, INSERT, UPDATE, DELETE
+  USING (pg_has_role(current_user, 'admin_user', 'MEMBER'))
+  WITH CHECK (pg_has_role(current_user, 'admin_user', 'MEMBER'));
+
+-- Grant necessary permissions for the admin RLS policy
+GRANT INSERT, UPDATE, DELETE ON auth.user TO admin_user;
+-- Note: SELECT permission is already granted via the 'authenticated' role
 
 
--- Create a function to create a role for each user
--- This function enables direct database access for users with their application credentials
-CREATE OR REPLACE FUNCTION auth.create_user_role()
+-- Create table for API keys
+CREATE TABLE IF NOT EXISTS auth.api_key (
+  id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  jti uuid UNIQUE NOT NULL, -- Corresponds to JWT ID claim
+  user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE CASCADE,
+  description text,
+  created_at timestamptz NOT NULL DEFAULT now(),
+  expires_at timestamptz NOT NULL, -- Copied from JWT for reference
+  -- last_used_on removed as it cannot be reliably updated in read-only transactions
+  revoked_at timestamptz, -- NULL if active
+  token text -- Stores the generated JWT token
+);
+
+-- Index for user lookup
+CREATE INDEX ON auth.api_key (user_id);
+
+GRANT SELECT, UPDATE, DELETE ON auth.api_key TO authenticated;
+
+-- Enable Row-Level Security
+ALTER TABLE auth.api_key ENABLE ROW LEVEL SECURITY;
+
+
+-- RLS Policy: Users can see their own API keys
+CREATE POLICY select_own_api_keys ON auth.api_key
+  FOR SELECT
+  USING (user_id = auth.uid()); -- Use helper function to get current user ID
+
+-- RLS Policy: Users can insert their own API keys
+CREATE POLICY insert_own_api_keys ON auth.api_key
+  FOR INSERT
+  WITH CHECK (user_id = auth.uid()); -- Ensure they can only insert keys for themselves
+
+-- RLS Policy: Users can revoke (update revoked_at) their own API keys
+CREATE POLICY revoke_own_api_keys ON auth.api_key
+  FOR UPDATE
+  USING (user_id = auth.uid())
+  WITH CHECK (user_id = auth.uid()); -- Ensure they can't change user_id
+
+-- RLS Policy: Users can delete their own API keys
+CREATE POLICY delete_own_api_keys ON auth.api_key
+  FOR DELETE
+  USING (user_id = auth.uid());
+
+-- Grant table permissions to authenticated users (RLS handles row access)
+GRANT SELECT, UPDATE (description, revoked_at), DELETE ON auth.api_key TO authenticated;
+GRANT USAGE ON SEQUENCE auth.api_key_id_seq TO authenticated;
+
+
+-- SECURITY INVOKER trigger function to check role assignment permissions.
+-- This runs BEFORE the SECURITY DEFINER trigger that syncs credentials and roles.
+CREATE OR REPLACE FUNCTION auth.check_role_permission()
 RETURNS TRIGGER
 LANGUAGE plpgsql
-SECURITY DEFINER
-AS $$
+SECURITY INVOKER -- Run as the user performing the INSERT/UPDATE
+AS $check_role_permission$
+BEGIN
+  -- Check role assignment permission
+  -- This check only applies if a role is being assigned (INSERT) or changed (UPDATE)
+  IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND OLD.statbus_role IS DISTINCT FROM NEW.statbus_role) THEN
+    -- Check if the current user (invoker) is a member of the role they are trying to assign.
+    -- This prevents users from assigning roles they don't possess themselves.
+    -- Note: Role hierarchy (e.g., admin_user GRANTed regular_user) means admins can assign lower roles.
+    IF NOT pg_has_role(current_user, NEW.statbus_role::text, 'MEMBER') THEN
+      RAISE EXCEPTION 'Permission denied: Cannot assign role %.', NEW.statbus_role
+        USING HINT = 'The current user (' || current_user || ') must be a member of the target role.';
+    END IF;
+  END IF;
+
+  -- Return NEW to allow the operation to proceed to the next trigger
+  RETURN NEW;
+END;
+$check_role_permission$;
+
+-- Trigger to run the permission check first
+DROP TRIGGER IF EXISTS check_role_permission_trigger ON auth.user;
+CREATE TRIGGER check_role_permission_trigger
+BEFORE INSERT OR UPDATE ON auth.user
+FOR EACH ROW
+EXECUTE FUNCTION auth.check_role_permission();
+
+-- SECURITY DEFINER function to encrypt password and synchronize database role.
+-- Handles password encryption, role creation/rename, role grants, and DB role password sync.
+-- Runs AFTER the check_role_permission trigger.
+CREATE OR REPLACE FUNCTION auth.sync_user_credentials_and_roles()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER -- Needs elevated privileges to manage roles and encrypt password securely
+AS $sync_user_credentials_and_roles$
 DECLARE
   role_name text;
   old_role_name text;
+  db_password text;
 BEGIN
   -- Use the email as the role name for the PostgreSQL role
-  -- This allows users to connect to the database using their email as username
-  -- When PostgREST receives a JWT with 'role': email, it will execute SET LOCAL ROLE email
   role_name := NEW.email;
 
-  -- Always encrypt the password if provided, regardless of whether this is an INSERT or UPDATE
-  IF NEW.password IS NOT NULL THEN
-    -- Set the encrypted password for application authentication
-    NEW.encrypted_password := crypt(NEW.password, gen_salt('bf'));
-  END IF;
-
-  -- For UPDATE operations where email has changed, rename the role
-  IF TG_OP = 'UPDATE' AND OLD.email != NEW.email THEN
+  -- For UPDATE operations where email has changed, rename the corresponding database role
+  IF TG_OP = 'UPDATE' AND OLD.email IS DISTINCT FROM NEW.email THEN
     old_role_name := OLD.email;
     
     -- Check if the old role exists
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = old_role_name) THEN
-      -- Rename the role to match the new email
-      EXECUTE format('ALTER ROLE %I RENAME TO %I', old_role_name, role_name);
-      
-      -- No need to recreate the role or regrant permissions since we're just renaming
-    END IF;
+      -- Check if the old role exists before trying to rename
+      IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = old_role_name) THEN
+        -- Rename the role to match the new email
+        EXECUTE format('ALTER ROLE %I RENAME TO %I', old_role_name, role_name);
+        -- Role permissions (membership in authenticated, statbus_role) are retained after rename.
+      ELSE
+        -- If the old role doesn't exist, we might need to create the new one.
+        -- This case handles scenarios where the role might have been manually dropped
+        -- or if the email change happens before the role was initially created.
+        -- The logic below will handle the creation if needed.
+        RAISE DEBUG 'Old role % not found for renaming to %, will ensure new role exists.', old_role_name, role_name;
+      END IF;
+    -- If email didn't change, role_name is the same as OLD.email
+    END IF; -- The old role didn't exists, mabye we are in a transaction with delayed triggers?
   END IF;
 
-  -- For new users or if the role doesn't exist yet
+  -- Ensure the database role exists for the NEW.email
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = role_name) THEN
     -- Create the role with INHERIT (default) to ensure permissions flow through
     -- INHERIT is ESSENTIAL for the role hierarchy to work properly
@@ -143,44 +310,49 @@ BEGIN
     -- This determines the user's permission level (admin, regular, restricted, external)
     -- The user inherits all permissions from their statbus_role through role inheritance
     EXECUTE format('GRANT %I TO %I', NEW.statbus_role::text, role_name);
-  ELSIF TG_OP = 'UPDATE' AND OLD.statbus_role != NEW.statbus_role THEN
-    -- If the statbus_role has changed, update the role grants
-    EXECUTE format('REVOKE %I FROM %I', OLD.statbus_role::text, role_name);
+  -- If the role already exists, ensure its statbus_role membership is correct
+  ELSIF TG_OP = 'UPDATE' AND OLD.statbus_role IS DISTINCT FROM NEW.statbus_role THEN
+    -- If the statbus_role has changed, update the role grants for the database role
+    IF OLD.statbus_role IS NOT NULL THEN
+      EXECUTE format('REVOKE %I FROM %I', OLD.statbus_role::text, role_name);
+    END IF;
     EXECUTE format('GRANT %I TO %I', NEW.statbus_role::text, role_name);
   END IF;
-  
-  -- Set password for database access if provided
-  IF NEW.password IS NOT NULL OR (TG_OP = 'UPDATE' AND NEW.encrypted_password != OLD.encrypted_password) THEN
-    -- Set the database role password for direct database access
-    -- This allows psql and other PostgreSQL clients to connect using this user
-    -- For security, we use a random password if none is provided (shouldn't happen with our checks above)
-    EXECUTE format('ALTER ROLE %I WITH PASSWORD %L', 
-                  role_name, 
-                  COALESCE(NEW.password, 'INVALID_PASSWORD_' || gen_random_uuid()));
+
+  -- 1. Encrypt password if provided in NEW.password (plain text)
+  IF NEW.password IS NOT NULL THEN
+    -- Set the encrypted password for application authentication
+    NEW.encrypted_password := crypt(NEW.password, gen_salt('bf'));
     
-    -- Clear the plain text password for security after encryption and setting the role password
-    IF NEW.password IS NOT NULL THEN
-      NEW.password := NULL;
+    -- Set/Update the database role's password using the plain text password from NEW.password
+    -- This ensures the database role password stays in sync with the application password.
+    -- This needs to happen *before* we clear NEW.password.
+    IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND OLD.encrypted_password IS DISTINCT FROM NEW.encrypted_password) THEN
+      EXECUTE format('ALTER ROLE %I WITH PASSWORD %L', role_name, NEW.password);
+      RAISE DEBUG 'Set database role password for %', role_name;
     END IF;
+
+    -- Clear the plain text password immediately after encryption and potential DB role update
+    NEW.password := NULL;
   END IF;
 
   RETURN NEW;
 END;
-$$;
+$sync_user_credentials_and_roles$;
 
--- Create a trigger to create/update a role for each user
-DROP TRIGGER IF EXISTS create_user_role_trigger ON auth.user;
-CREATE TRIGGER create_user_role_trigger
+-- Trigger to synchronize credentials and the database role after the permission check
+DROP TRIGGER IF EXISTS sync_user_credentials_and_roles_trigger ON auth.user;
+CREATE TRIGGER sync_user_credentials_and_roles_trigger
 BEFORE INSERT OR UPDATE ON auth.user
 FOR EACH ROW
-EXECUTE FUNCTION auth.create_user_role();
+EXECUTE FUNCTION auth.sync_user_credentials_and_roles();
 
 -- Create a function to drop user role when user is deleted
 CREATE OR REPLACE FUNCTION auth.drop_user_role()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
-AS $$
+AS $drop_user_role$
 BEGIN
   -- Only drop the role if it exists and matches the user's email
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = OLD.email) THEN
@@ -189,7 +361,7 @@ BEGIN
 
   RETURN OLD;
 END;
-$$;
+$drop_user_role$;
 
 -- Create a trigger to drop the role when a user is deleted
 DROP TRIGGER IF EXISTS drop_user_role_trigger ON auth.user;
@@ -203,9 +375,7 @@ CREATE OR REPLACE FUNCTION auth.set_auth_cookies(
   access_jwt text,
   refresh_jwt text,
   access_expires timestamptz,
-  refresh_expires timestamptz,
-  user_id integer,
-  user_email text
+  refresh_expires timestamptz
 ) RETURNS void
 LANGUAGE plpgsql
 AS $set_auth_cookies$
@@ -215,7 +385,7 @@ DECLARE
   new_headers jsonb;
 BEGIN
   -- Check if the request is using HTTPS by examining the X-Forwarded-Proto header
-  IF current_setting('request.headers', true)::json->>'x-forwarded-proto' = 'https' THEN
+  IF nullif(current_setting('request.headers', true), '')::json->>'x-forwarded-proto' IS NOT DISTINCT FROM 'https' THEN
     secure := true;
   ELSE
     secure := false;
@@ -340,12 +510,12 @@ BEGIN
   END IF;
 
   -- Set expiration times
-  access_expires := now() + (coalesce(current_setting('app.settings.access_jwt_exp', true)::int, 3600) || ' seconds')::interval;
-  refresh_expires := now() + (coalesce(current_setting('app.settings.refresh_jwt_exp', true)::int, 2592000) || ' seconds')::interval;
+  access_expires := clock_timestamp() + (coalesce(nullif(current_setting('app.settings.access_jwt_exp', true),'')::int, 3600) || ' seconds')::interval;
+  refresh_expires := clock_timestamp() + (coalesce(nullif(current_setting('app.settings.refresh_jwt_exp', true),'')::int, 2592000) || ' seconds')::interval;
   
   -- Get client information
-  user_ip := inet(split_part(current_setting('request.headers', true)::json->>'x-forwarded-for', ',', 1));
-  user_agent := current_setting('request.headers', true)::json->>'user-agent';
+  user_ip := inet(split_part(nullif(current_setting('request.headers', true),'')::json->>'x-forwarded-for', ',', 1));
+  user_agent := nullif(current_setting('request.headers', true),'')::json->>'user-agent';
 
   -- Create a new refresh session
   INSERT INTO auth.refresh_session (
@@ -363,8 +533,6 @@ BEGIN
   -- Generate access token claims using the shared function
   access_claims := auth.build_jwt_claims(
     p_email => _user.email,
-    p_sub => NULL, 
-    p_statbus_role => NULL, 
     p_expires_at => access_expires, 
     p_type => 'access'
   );
@@ -372,8 +540,6 @@ BEGIN
   -- Generate refresh token claims using the shared function
   refresh_claims := auth.build_jwt_claims(
     p_email => _user.email,
-    p_sub => NULL,
-    p_statbus_role => NULL,
     p_expires_at => refresh_expires,
     p_type => 'refresh',
     p_additional_claims => jsonb_build_object(
@@ -389,28 +555,23 @@ BEGIN
 
   -- Update last sign in
   UPDATE auth.user
-  SET last_sign_in_at = now(),
-      updated_at = now()
+  SET last_sign_in_at = clock_timestamp(),
+      updated_at = clock_timestamp()
   WHERE id = _user.id;
 
   -- Set cookies in response headers
   PERFORM auth.set_auth_cookies(
-    access_jwt,
-    refresh_jwt,
-    access_expires,
-    refresh_expires,
-    _user.id,
-    _user.email
+    access_jwt => access_jwt,
+    refresh_jwt => refresh_jwt,
+    access_expires => access_expires,
+    refresh_expires => refresh_expires
   );
 
   -- Return tokens in response body
   RETURN auth.build_auth_response(
     access_jwt,
     refresh_jwt,
-    _user.id,
-    _user.sub,
-    _user.email,
-    _user.statbus_role
+    _user
   );
 END;
 $login$;
@@ -469,9 +630,9 @@ BEGIN
   token_version := (claims->>'version')::integer;
   refresh_session_jti := (claims->>'jti')::uuid;
   
-  -- Get current client information
-  current_ip := inet(split_part(current_setting('request.headers', true)::json->>'x-forwarded-for', ',', 1));
-  current_ua := current_setting('request.headers', true)::json->>'user-agent';
+  -- Get current client information safely
+  current_ip := inet(split_part(nullif(current_setting('request.headers', true),'')::json->>'x-forwarded-for', ',', 1));
+  current_ua := nullif(current_setting('request.headers', true),'')::json->>'user-agent';
   
   -- Get the user
   SELECT u.* INTO _user
@@ -513,8 +674,6 @@ BEGIN
   -- Generate access token claims using the shared function
   access_claims := auth.build_jwt_claims(
     p_email => _user.email, 
-    p_sub => NULL, 
-    p_statbus_role => NULL, 
     p_expires_at => access_expires, 
     p_type => 'access'
   );
@@ -522,8 +681,6 @@ BEGIN
   -- Generate refresh token claims using the shared function
   refresh_claims := auth.build_jwt_claims(
     p_email => _user.email,
-    p_sub => NULL,
-    p_statbus_role => NULL,
     p_expires_at => refresh_expires,
     p_type => 'refresh',
     p_additional_claims => jsonb_build_object(
@@ -542,19 +699,14 @@ BEGIN
     access_jwt,
     refresh_jwt,
     access_expires,
-    refresh_expires,
-    _user.id,
-    _user.email
+    refresh_expires
   );
 
   -- Return new tokens
   RETURN auth.build_auth_response(
     access_jwt,
     refresh_jwt,
-    _user.id,
-    _user.sub,
-    _user.email,
-    _user.statbus_role
+    _user
   );
 END;
 $refresh$;
@@ -600,17 +752,6 @@ BEGIN
         WHERE jti = refresh_session_jti AND user_id = (SELECT id FROM auth.user WHERE sub = user_sub);
       END IF;
     END IF;
-  ELSE
-    -- Fall back to current JWT claims if no refresh token
-    claims := current_setting('request.jwt.claims', true)::json;
-    user_sub := nullif(claims->>'sub', '')::uuid;
-    
-    -- For access tokens, we can't identify the specific session
-    IF user_sub IS NOT NULL THEN
-      -- Delete all sessions for this user (aggressive but secure)
-      DELETE FROM auth.refresh_session
-      WHERE user_id = (SELECT id FROM auth.user WHERE sub = user_sub);
-    END IF;
   END IF;
 
   -- Set cookies in response headers to clear them
@@ -621,87 +762,6 @@ BEGIN
   RETURN result;
 END;
 $logout$;
-
-
--- Create function to grant a statbus role to a user
-CREATE OR REPLACE FUNCTION public.grant_role(user_sub uuid, new_role public.statbus_role)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $grant_role$
-DECLARE
-  _user auth.user;
-  _is_admin boolean;
-BEGIN
-  -- Check if current user is admin or superuser
-  _is_admin := (current_setting('request.jwt.claims', true)::json->>'statbus_role')::public.statbus_role = 'admin_user' OR 
-               (SELECT usesuper FROM pg_user WHERE usename = current_user);
-               
-  IF NOT _is_admin THEN
-    RAISE EXCEPTION 'Only admin users can grant roles';
-  END IF;
-  
-  -- Get the target user
-  SELECT * INTO _user FROM auth.user WHERE sub = user_sub;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'User not found';
-  END IF;
-  
-  -- Debug information
-  RAISE DEBUG 'grant_role: Granting role % to user % (current role: %)', 
-    new_role, _user.email, _user.statbus_role;
-  
-  -- Update the user record - the trigger will handle the PostgreSQL role changes
-  UPDATE auth.user SET 
-    statbus_role = new_role,
-    updated_at = now()
-  WHERE sub = user_sub;
-  
-  RETURN true;
-END;
-$grant_role$;
-
--- Create function to revoke a statbus role from a user
-CREATE OR REPLACE FUNCTION public.revoke_role(user_sub uuid)
-RETURNS boolean
-LANGUAGE plpgsql
-SECURITY DEFINER
-AS $revoke_role$
-DECLARE
-  _user auth.user;
-  _current_user_role public.statbus_role;
-  _is_admin boolean;
-BEGIN
-  -- Get the current user's role from JWT claims
-  _current_user_role := (current_setting('request.jwt.claims', true)::json->>'statbus_role')::public.statbus_role;
-  
-  -- Check if current user is admin or superuser
-  _is_admin := _current_user_role = 'admin_user' OR 
-               (SELECT usesuper FROM pg_user WHERE usename = current_user);
-               
-  IF NOT _is_admin THEN
-    RAISE EXCEPTION 'Only admin users can revoke roles';
-  END IF;
-  
-  -- Get the target user
-  SELECT * INTO _user FROM auth.user WHERE sub = user_sub;
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'User not found';
-  END IF;
-  
-  -- Debug information
-  RAISE DEBUG 'revoke_role: Revoking current role % from user % and setting to regular_user', 
-    _user.statbus_role, _user.email;
-  
-  -- Update the user record - the trigger will handle the PostgreSQL role changes
-  UPDATE auth.user SET 
-    statbus_role = 'regular_user',
-    updated_at = now()
-  WHERE sub = user_sub;
-  
-  RETURN true;
-END;
-$revoke_role$;
 
 -- Create session info type
 CREATE TYPE auth.session_info AS (
@@ -762,50 +822,34 @@ BEGIN
 END;
 $$;
 
--- Function to get current user's UUID from JWT
-CREATE OR REPLACE FUNCTION auth.sub()
-RETURNS UUID
-LANGUAGE SQL
-AS
-$$
-  SELECT (nullif(current_setting('request.jwt.claims', true), '')::json->>'sub')::uuid;
-$$;
-
--- Function to get current user's ID (integer) from UUID
-CREATE OR REPLACE FUNCTION auth.uid()
-RETURNS INTEGER
-LANGUAGE SQL
-SECURITY DEFINER
-AS
-$$
-  SELECT id FROM auth.user WHERE sub = auth.sub();
-$$;
-
--- Gets the User role from the request JWT
-CREATE OR REPLACE FUNCTION auth.role() 
-RETURNS text 
-LANGUAGE sql 
+-- Gets the User role (which is their email and the current_user)
+CREATE OR REPLACE FUNCTION auth.role()
+RETURNS text
+LANGUAGE sql
 STABLE
+SECURITY INVOKER
 AS $$
-  SELECT nullif(current_setting('request.jwt.claims', true), '')::json->>'role';
+  SELECT current_user;
 $$ ;
 
--- Gets the User email from the request JWT
-CREATE OR REPLACE FUNCTION auth.email() 
-RETURNS text 
-LANGUAGE sql 
+-- Gets the User email (which is their email and the current_user)
+CREATE OR REPLACE FUNCTION auth.email()
+RETURNS text
+LANGUAGE sql
 STABLE
+SECURITY INVOKER
 AS $$
-  SELECT nullif(current_setting('request.jwt.claims', true), '')::json->>'email';
+  SELECT current_user;
 $$ ;
 
--- Gets the User's statbus_role from the request JWT
-CREATE OR REPLACE FUNCTION auth.statbus_role() 
-RETURNS public.statbus_role 
-LANGUAGE sql 
+-- Gets the User's statbus_role from the auth.user table based on current_user
+CREATE OR REPLACE FUNCTION auth.statbus_role()
+RETURNS public.statbus_role
+LANGUAGE sql
 STABLE
+SECURITY INVOKER
 AS $$
-  SELECT (nullif(current_setting('request.jwt.claims', true), '')::json->>'statbus_role')::public.statbus_role;
+  SELECT statbus_role FROM auth.user WHERE email = current_user;
 $$ ;
 
 
@@ -1060,83 +1104,66 @@ END;
 $auth_test$;
 
 -- Grant execute to both anonymous and authenticated users
-GRANT EXECUTE ON FUNCTION public.auth_test TO anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.auth_test TO authenticated; -- Removed anon
 
--- Grant execute to both anonymous and authenticated users
-GRANT EXECUTE ON FUNCTION public.auth_status TO anon, authenticated;
+-- Grant execute to authenticated users only (relies on auth helpers now)
+GRANT EXECUTE ON FUNCTION public.auth_status TO authenticated; -- Removed anon
 
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION public.logout TO authenticated;
 GRANT EXECUTE ON FUNCTION public.login TO anon;
 GRANT EXECUTE ON FUNCTION public.refresh TO authenticated;
-GRANT EXECUTE ON FUNCTION public.grant_role TO admin_user;
-GRANT EXECUTE ON FUNCTION public.revoke_role TO admin_user;
 GRANT EXECUTE ON FUNCTION public.list_active_sessions TO authenticated;
 GRANT EXECUTE ON FUNCTION public.revoke_session TO authenticated;
 
--- Grant usage on auth functions to API roles
-GRANT USAGE ON SCHEMA auth TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION auth.uid TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION auth.role TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION auth.email TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION auth.statbus_role TO anon, authenticated;
-GRANT EXECUTE ON FUNCTION auth.sub TO anon, authenticated;
+-- Grant usage on auth functions to API roles to authenticated and anon users for RLS checks.
+GRANT USAGE ON SCHEMA auth TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION auth.uid TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION auth.role TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION auth.email TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION auth.statbus_role TO authenticated, anon;
+GRANT EXECUTE ON FUNCTION auth.sub TO authenticated, anon;
 
 -- Grant monitoring capabilities to admin role
 GRANT pg_monitor TO admin_user;
 
--- Function to build a JWT claims object for a user
+-- Function to build a JWT claims object for a user based on their email
 CREATE OR REPLACE FUNCTION auth.build_jwt_claims(
-  p_email text,
-  p_sub uuid DEFAULT NULL,
-  p_statbus_role public.statbus_role DEFAULT NULL,
-  p_expires_at timestamptz DEFAULT NULL,
-  p_type text DEFAULT 'access',
-  p_additional_claims jsonb DEFAULT '{}'::jsonb
+  p_email text, -- User's email address (required)
+  p_expires_at timestamptz DEFAULT NULL, -- Optional expiration time override
+  p_type text DEFAULT 'access', -- Type of token ('access', 'refresh', 'api_key')
+  p_additional_claims jsonb DEFAULT '{}'::jsonb -- Optional additional claims to merge
 )
 RETURNS jsonb
 LANGUAGE plpgsql
 AS $$
 DECLARE
   v_user auth.user;
-  v_sub uuid;
-  v_statbus_role public.statbus_role;
   v_expires_at timestamptz;
   v_claims jsonb;
 BEGIN
-  -- Find user by email if provided
-  IF p_email IS NOT NULL THEN
-    SELECT * INTO v_user
-    FROM auth.user
-    WHERE email = p_email AND deleted_at IS NULL;
-      
-    IF NOT FOUND THEN
-      RAISE EXCEPTION 'User with email % not found', p_email;
-    END IF;
+  -- Find user by email (required)
+  SELECT * INTO v_user
+  FROM auth.user
+  WHERE email = p_email AND deleted_at IS NULL;
     
-    v_sub := COALESCE(p_sub, v_user.sub);
-    v_statbus_role := COALESCE(p_statbus_role, v_user.statbus_role);
-  ELSE
-    v_sub := p_sub;
-    v_statbus_role := p_statbus_role;
-    
-    IF v_sub IS NULL THEN
-      RAISE EXCEPTION 'Either email or sub must be provided';
-    END IF;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'User with email % not found', p_email;
   END IF;
   
-  -- Set expiration time
+  -- Set expiration time using provided value or default based on type
   v_expires_at := COALESCE(
     p_expires_at,
     clock_timestamp() + (coalesce(current_setting('app.settings.access_jwt_exp', true)::int, 3600) || ' seconds')::interval
   );
   
-  -- Build claims with PostgREST compatible structure
+  -- Build claims with PostgREST compatible structure, deriving sub and role from user record
   v_claims := jsonb_build_object(
-    'role', p_email, -- PostgREST does a 'SET LOCAL ROLE $role' to ensure security for all of the API
-    'statbus_role', v_statbus_role::text,
-    'sub', v_sub::text,
-    'email', p_email,
+    'role', v_user.email, -- PostgREST does a 'SET LOCAL ROLE $role' to ensure security for all of the API
+    'statbus_role', v_user.statbus_role::text,
+    'sub', v_user.sub::text,
+    'uid', v_user.id, -- Add the integer user ID
+    'email', v_user.email,
     'type', p_type,
     'iat', extract(epoch from clock_timestamp())::integer,
     'exp', extract(epoch from v_expires_at)::integer
@@ -1185,10 +1212,7 @@ $extract_refresh_token_from_cookies$;
 CREATE OR REPLACE FUNCTION auth.build_auth_response(
   access_jwt text,
   refresh_jwt text,
-  user_id integer,
-  user_sub uuid,
-  user_email text,
-  user_statbus_role public.statbus_role
+  user_record auth.user
 ) RETURNS auth.auth_response
 LANGUAGE plpgsql
 AS $build_auth_response$
@@ -1197,11 +1221,11 @@ DECLARE
 BEGIN
   result.access_jwt := access_jwt;
   result.refresh_jwt := refresh_jwt;
-  result.uid := user_id;
-  result.sub := user_sub;
-  result.email := user_email;
-  result.role := user_email;
-  result.statbus_role := user_statbus_role;
+  result.uid := user_record.id;
+  result.sub := user_record.sub;
+  result.email := user_record.email;
+  result.role := user_record.email;
+  result.statbus_role := user_record.statbus_role;
   
   RETURN result;
 END;
@@ -1269,8 +1293,8 @@ BEGIN
 END;
 $extract_access_token_from_cookies$;
 
--- Grant execute to both anonymous and authenticated users
-GRANT EXECUTE ON FUNCTION auth.extract_access_token_from_cookies TO anon, authenticated;
+-- Grant execute to authenticated users (though likely only used internally by SECURITY DEFINER functions)
+GRANT EXECUTE ON FUNCTION auth.extract_access_token_from_cookies TO authenticated; -- Removed anon
 
 -- Grant execute permissions
 GRANT EXECUTE ON FUNCTION auth.build_jwt_claims TO authenticated;
@@ -1292,5 +1316,333 @@ EXCEPTION WHEN OTHERS THEN
   -- pg_cron not available, that's fine
 END;
 $$;
+
+-- Create a trigger function to generate JWT token for API keys
+CREATE OR REPLACE FUNCTION auth.generate_api_key_token()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER -- Needs access to JWT secret
+AS $generate_api_key_token$
+DECLARE
+  _user auth.user;
+  _claims jsonb;
+  _api_key_jwt text;
+BEGIN
+  -- Get the user for this API key
+  SELECT * INTO _user
+  FROM auth.user
+  WHERE id = NEW.user_id
+    AND deleted_at IS NULL;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'User not found for API key creation';
+  END IF;
+
+  -- Build claims for the API key JWT
+  _claims := auth.build_jwt_claims(
+    p_email => _user.email,
+    p_expires_at => NEW.expires_at,
+    p_type => 'api_key',
+    p_additional_claims => jsonb_build_object(
+      'description', NEW.description,
+      'jti', NEW.jti::text
+    )
+  );
+
+  -- Generate the signed JWT
+  SELECT auth.generate_jwt(_claims) INTO _api_key_jwt;
+  
+  -- Store the token in the record
+  NEW.token := _api_key_jwt;
+  
+  RETURN NEW;
+END;
+$generate_api_key_token$;
+
+-- Create the trigger to automatically generate the token
+DROP TRIGGER IF EXISTS generate_api_key_token_trigger ON auth.api_key;
+CREATE TRIGGER generate_api_key_token_trigger
+BEFORE INSERT ON auth.api_key
+FOR EACH ROW
+EXECUTE FUNCTION auth.generate_api_key_token();
+
+-- Create a public view for API keys with SECURITY INVOKER
+CREATE OR REPLACE VIEW public.api_key
+WITH (security_invoker=true) AS
+SELECT 
+  id,
+  jti,
+  user_id,
+  description,
+  created_at,
+  expires_at,
+  revoked_at,
+  token
+FROM auth.api_key;
+
+-- Grant access to the view
+GRANT SELECT, INSERT, UPDATE (description, revoked_at), DELETE ON public.api_key TO authenticated;
+
+-- Note: Explicit RLS on the view is not needed with security_invoker=true
+-- as the view already inherits the security context of the calling user
+-- and the underlying table's RLS policies will be applied.
+
+-- Grant direct access to the auth.api_key table (for the view to work)
+GRANT SELECT, INSERT, UPDATE (description, revoked_at), DELETE ON auth.api_key TO authenticated;
+
+
+-- Function for a user to change their own password
+CREATE OR REPLACE FUNCTION public.change_password(
+    new_password text
+)
+RETURNS boolean -- Returns true on success
+LANGUAGE plpgsql
+SECURITY INVOKER -- The user must have the rights to update their own password
+AS $change_password$
+DECLARE
+  _user auth.user;
+  _claims jsonb;
+BEGIN
+  -- Get claims from the current JWT
+  _claims := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
+
+  -- Ensure this function is called with an 'access' token, not refresh or api_key
+  IF _claims IS NOT NULL AND _claims->>'type' IS DISTINCT FROM 'access' THEN
+    RAISE EXCEPTION 'Password change requires a valid access token.';
+  END IF;
+
+  -- Get the current user based on the JWT's sub claim
+  SELECT * INTO _user
+  FROM auth.user
+  WHERE email = current_user;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'User not found.'; -- Should not happen if JWT is valid
+  END IF;
+
+  -- Check new password strength/requirements if needed (add logic here)
+  IF length(new_password) < 8 THEN -- Example minimum length check
+     RAISE EXCEPTION 'New password is too short (minimum 8 characters).';
+  END IF;
+
+  -- Update the user's password
+  -- The sync_user_credentials_and_roles_trigger will handle password hashing
+  -- and updating the DB role password.
+  UPDATE auth.user
+  SET
+    password = new_password,
+    updated_at = clock_timestamp()
+  WHERE id = _user.id;
+  
+  -- Invalidate all existing refresh sessions for this user
+  DELETE FROM auth.refresh_session
+  WHERE user_id = _user.id;
+  
+  -- Clear auth cookies
+  PERFORM auth.clear_auth_cookies();
+
+  RAISE DEBUG 'Password changed successfully for user % (%)', _user.email, _user.sub;
+
+  RETURN true;
+END;
+$change_password$;
+
+-- Grant execute permission to authenticated users for changing their own password
+GRANT EXECUTE ON FUNCTION public.change_password(text) TO authenticated;
+
+
+-- Function for an admin to change any user's password
+CREATE OR REPLACE FUNCTION public.admin_change_password(
+    user_sub uuid,
+    new_password text
+)
+RETURNS boolean -- Returns true on success
+LANGUAGE plpgsql
+SECURITY INVOKER -- BY RLS admin can call this.
+AS $admin_change_password$
+DECLARE
+  _target_user auth.user;
+BEGIN
+  -- Check if the caller is an admin
+  IF NOT pg_has_role(current_user, 'admin_user', 'MEMBER') THEN
+     RAISE EXCEPTION 'Permission denied: Only admin users can change other users passwords.';
+  END IF;
+
+  -- Get the target user
+  SELECT * INTO _target_user
+  FROM auth.user
+  WHERE sub = user_sub
+    AND deleted_at IS NULL;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'Target user not found.';
+  END IF;
+
+  -- Check new password strength/requirements if needed
+  IF length(new_password) < 8 THEN
+     RAISE EXCEPTION 'New password is too short (minimum 8 characters).';
+  END IF;
+
+  -- Update the target user's password
+  -- The sync_user_credentials_and_roles_trigger will handle password hashing
+  -- and updating the DB role password.
+  UPDATE auth.user
+  SET
+    password = new_password,
+    updated_at = clock_timestamp()
+  WHERE id = _target_user.id;
+
+  -- Invalidate all existing refresh sessions for the target user
+  DELETE FROM auth.refresh_session
+  WHERE user_id = _target_user.id;
+  
+  RAISE DEBUG 'Password changed successfully for user % (%) by %',
+    _target_user.email, _target_user.sub, current_user;
+
+  RETURN true;
+END;
+$admin_change_password$;
+
+-- Grant execute permission only to admin users
+GRANT EXECUTE ON FUNCTION public.admin_change_password(uuid, text) TO admin_user;
+
+-- Pre-request function to check API key revocation
+CREATE OR REPLACE FUNCTION auth.check_api_key_revocation()
+RETURNS void
+LANGUAGE plpgsql
+SECURITY DEFINER -- Check happens after role switch, but define as SECURITY DEFINER for safety
+AS $check_api_key_revocation$
+DECLARE
+  _claims jsonb;
+  _token_type text;
+  _jti uuid;
+  _revoked_at timestamptz; -- Store only the revocation timestamp
+  _current_date date := current_date; -- Get date once
+BEGIN
+  -- Get claims from the current JWT
+  _claims := current_setting('request.jwt.claims', true)::jsonb;
+  _token_type := _claims->>'type';
+
+  -- Only perform checks for API keys
+  IF _token_type = 'api_key' THEN
+    _jti := (_claims->>'jti')::uuid;
+
+    IF _jti IS NULL THEN
+      RAISE EXCEPTION 'Invalid API Key: Missing JTI claim.' USING ERRCODE = 'P0001';
+    END IF;
+
+    -- Check if the key exists and is revoked
+    SELECT revoked_at INTO _revoked_at
+    FROM auth.api_key
+    WHERE jti = _jti;
+
+    IF NOT FOUND THEN
+      -- Key might have been deleted or never existed
+      RAISE EXCEPTION 'Invalid API Key: Key not found.' USING ERRCODE = 'P0001';
+    END IF;
+
+    IF _revoked_at IS NOT NULL THEN
+      RAISE EXCEPTION 'API Key has been revoked.' USING ERRCODE = 'P0001';
+    END IF;
+
+    -- last_used_on update removed due to issues with read-only transactions
+
+  END IF;
+
+  -- If not an API key or if key is valid and not revoked, proceed
+  RETURN;
+END;
+$check_api_key_revocation$;
+
+-- Grant execute permission to authenticated role (covers all user roles)
+GRANT EXECUTE ON FUNCTION auth.check_api_key_revocation() TO authenticated;
+
+
+
+
+-- Helper function to create an API key through the public view
+CREATE OR REPLACE FUNCTION public.create_api_key(
+    description text DEFAULT 'Default API Key',
+    duration interval DEFAULT '1 year'
+)
+RETURNS public.api_key
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $create_api_key$
+DECLARE
+  _user_id integer;
+  _expires_at timestamptz;
+  _jti uuid := gen_random_uuid();
+  _result public.api_key;
+BEGIN
+  -- Get current user ID
+  _user_id := auth.uid();
+  
+  -- Calculate expiration time
+  _expires_at := clock_timestamp() + duration;
+  
+  -- Insert the new API key
+  INSERT INTO public.api_key (
+    jti, 
+    user_id, 
+    description, 
+    expires_at
+  ) 
+  VALUES (
+    _jti, 
+    _user_id, 
+    description, 
+    _expires_at
+  )
+  RETURNING * INTO _result;
+  
+  RETURN _result;
+END;
+$create_api_key$;
+
+-- Grant execute permission
+GRANT EXECUTE ON FUNCTION public.create_api_key(text, interval) TO authenticated;
+
+-- Function for users to revoke their own API key
+CREATE OR REPLACE FUNCTION public.revoke_api_key(
+    key_jti uuid
+)
+RETURNS boolean -- Returns true on success
+LANGUAGE plpgsql
+SECURITY INVOKER -- Run as the calling user (RLS handles access)
+AS $revoke_api_key$
+DECLARE
+  _api_key_record public.api_key;
+  _affected_rows integer;
+BEGIN
+  -- RLS policy ensures user can only update their own keys
+  UPDATE public.api_key
+  SET revoked_at = clock_timestamp()
+  WHERE jti = key_jti
+    -- RLS implicitly adds AND user_id = auth.uid()
+    AND revoked_at IS NULL; -- Only revoke if not already revoked
+
+  GET DIAGNOSTICS _affected_rows = ROW_COUNT;
+
+  IF _affected_rows = 0 THEN
+     -- Check if key exists at all (and belongs to user due to RLS)
+     SELECT * INTO _api_key_record FROM public.api_key WHERE jti = key_jti;
+     IF NOT FOUND THEN
+        RAISE EXCEPTION 'API Key not found or permission denied.';
+     ELSE
+        -- Key exists but was already revoked or update failed
+        RAISE WARNING 'API Key was already revoked or update failed.';
+        RETURN false;
+     END IF;
+  END IF;
+
+  RAISE DEBUG 'API Key revoked: %', key_jti;
+  RETURN true;
+END;
+$revoke_api_key$;
+
+-- Grant execute permission
+GRANT EXECUTE ON FUNCTION public.revoke_api_key(uuid) TO authenticated;
+
 
 COMMIT;

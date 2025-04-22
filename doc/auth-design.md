@@ -78,10 +78,10 @@ The application is containerized using Docker Compose, orchestrating several ser
         *   All other requests are proxied to the `app` service (Next.js).
     *   Handles authentication cookie management:
         *   **Login (`/postgrest/rpc/login`):** Proxies to PostgREST. Forwards `Set-Cookie` headers from the PostgREST response (set by the `public.login` function) to the client.
-        *   **Logout (`/postgrest/rpc/logout`):** Proxies to PostgREST (adding `Authorization` header). On response, explicitly sends headers to clear auth cookies.
-        *   **Refresh (`/postgrest/rpc/refresh`):** Proxies to PostgREST, uses cookies to analyse refresh token, and ignore possible expired access token. Can be called by anonymous.
-        *   **AuthStatus (`/postgrest/rpc/auth_status`):** Proxies to PostgREST, uses cookies to determine auth status and return user information if authenticated. Can be called by anonymous.
-        *   **Other API calls (`/postgrest/*`):** Extracts the JWT from the `statbus-<slot>` cookie and adds it as an `Authorization: Bearer <token>` header before proxying to PostgREST.
+        *   **Logout (`/postgrest/rpc/logout`):** Proxies to PostgREST. Forwards `Set-Cookie` headers from the PostgREST response (set by the `public.logout` function) to the client to clear cookies.
+        *   **Refresh (`/postgrest/rpc/refresh`):** Proxies to PostgREST. This endpoint is called directly by the Next.js middleware (server-side) or the browser (client-side) during token refresh attempts. Caddy simply proxies the request.
+        *   **AuthStatus (`/postgrest/rpc/auth_status`):** Proxies to PostgREST. Called by the Next.js app (server or client) to check current status.
+        *   **Other API calls (`/postgrest/*`):** Proxies requests to PostgREST. For requests originating *from the browser*, Caddy doesn't need to modify headers as cookies are sent automatically. For requests originating *from the Next.js server*, the `getServerRestClient` function (used by server components/actions) reads the `statbus` cookie and sets the `Authorization: Bearer <token>` header itself before making the request through the proxy.
 
 4.  **`app` (Frontend/Backend - Next.js)**
     *   Defined in `docker-compose.app.yml`.
@@ -116,6 +116,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
             *   `role`: Set to the user's email (matches PostgreSQL role name)
             *   `statbus_role`: User's application role (admin_user, regular_user, etc.) as text
             *   `sub`: User's UUID as text
+            *   `uid`: User's integer ID (from `auth.user.id`)
             *   `email`: User's email address
             *   `type`: "access"
             *   `iat`: Issued at timestamp
@@ -130,22 +131,29 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     *   The browser stores the cookies automatically.
 
 2.  **Authenticated Requests:**
-    *   Browser automatically includes the `statbus-<slot>` cookie with requests to the API (`/postgrest/*`).
-    *   For client-side requests, the `fetchWithAuth` utility is used, which:
-        *   Automatically includes credentials (cookies)
-        *   Handles 401 errors by attempting to refresh the token
-        *   Retries the original request with the new token
-    *   For server-side requests, the middleware:
-        *   Extracts the token from cookies
-        *   Verifies the token
-        *   Refreshes the token if needed
-        *   Forwards the token to PostgREST
-    *   PostgREST validates the JWT. If valid, it:
-        *   Reads the `role` claim (user's email)
-        *   Executes `SET LOCAL ROLE <email>` for the PostgreSQL transaction
+    *   **Client-Side Requests (Browser):**
+        *   The browser automatically includes `statbus-<slot>` and `statbus-<slot>-refresh` cookies with requests to the API origin (`/postgrest/*`) due to `credentials: 'include'`.
+        *   The `fetchWithAuthRefresh` utility (used by `getBrowserRestClient`) wraps `fetch`:
+            *   It relies on the browser sending cookies automatically.
+            *   If a 401 response is received, it calls `AuthStore.refreshTokenIfNeeded()` (which calls `/rpc/refresh`).
+            *   If refresh is successful, it retries the original request.
+    *   **Server-Side Requests (Next.js Server Components/Actions/Middleware):**
+        *   The Next.js middleware (`app/src/middleware.ts`) runs first:
+            *   It calls `AuthStore.handleServerAuth()` to check the status using the incoming request cookies.
+            *   If the access token is invalid/missing but a refresh token exists, `handleServerAuth` attempts to refresh by calling `/rpc/refresh` directly.
+            *   If refresh is successful, the middleware updates the request headers (specifically the `cookie` header) for subsequent handlers within the *same request* and sets `Set-Cookie` headers on the outgoing response to update the browser's cookies.
+            *   If authentication (initial or after refresh) fails, the middleware redirects to login.
+        *   When code later calls `getServerRestClient()`:
+            *   It reads the (potentially updated by middleware) `statbus` cookie from the current request context via `next/headers`.
+            *   It sets the `Authorization: Bearer <token>` header on the outgoing request to PostgREST.
+    *   **PostgREST Processing:**
+        *   PostgREST receives the request (either with cookies from the browser or an `Authorization` header from the Next.js server).
+        *   It validates the JWT (from header primarily, or potentially cookies if configured, though header is standard). If valid, it:
+            *   Reads the `role` claim (user's email).
+            *   Executes `SET LOCAL ROLE <email>` for the PostgreSQL transaction.
         *   Makes the JWT claims available via `current_setting('request.jwt.claims')`
     *   The database operation proceeds with the permissions of the assigned role.
-    *   Functions like `auth.uid()`, `auth.email()`, and `auth.statbus_role()` can access JWT claims.
+    *   Functions like `auth.uid()` (reads `uid` claim), `auth.sub()` (reads `sub` claim), `auth.email()` (reads `email` claim), and `auth.statbus_role()` (reads `statbus_role` claim) can access JWT claims directly.
 
 3.  **Logout:**
     *   App directly calls `/postgrest/rpc/logout` using the `auth.logout()` function.
@@ -158,22 +166,34 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     *   The browser clears the cookies automatically.
 
 4.  **Token Refresh:**
-    *   Token refresh happens in three ways:
-        *   **Proactive refresh**: The `DirectAuthContext` checks token expiration and refreshes proactively
-        *   **Reactive refresh**: The `fetchWithAuth` utility detects 401 errors and refreshes the token
-        *   **Middleware refresh**: The Next.js middleware detects expired tokens and refreshes them
-    *   The refresh process:
-        *   Client directly calls `/postgrest/rpc/refresh` with the refresh token cookie
-        *   PostgREST validates the refresh token JWT and executes `public.refresh()`
-        *   `public.refresh`:
-            *   Extracts the refresh token from cookies using `auth.extract_refresh_token_from_cookies()`.
-            *   Validates the token and extracts claims.
-            *   Verifies the session exists in `auth.refresh_session` with matching user ID and version.
-            *   Verifies the user agent hash matches.
-            *   Increments the session version and updates last used time and expiry.
-            *   Generates a *new* access token JWT and a *new* refresh token JWT with updated version.
-            *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the *new* tokens.
+    *   Token refresh is handled differently on client and server:
+        *   **Client-Side (Browser - Reactive):**
+            *   Triggered when `fetchWithAuthRefresh` (used by `getBrowserRestClient`) receives a 401 Unauthorized response.
+            *   `fetchWithAuthRefresh` calls `AuthStore.refreshTokenIfNeeded()`.
+            *   `AuthStore.refreshTokenIfNeeded()` calls the `/rpc/refresh` endpoint. The browser automatically sends the `statbus-<slot>-refresh` cookie.
+            *   PostgREST executes `public.refresh()`.
+            *   If successful, PostgREST responds with `Set-Cookie` headers for the new tokens. The browser automatically updates its cookies.
+            *   `fetchWithAuthRefresh` retries the original request.
+        *   **Server-Side (Middleware - Proactive/Reactive within Request):**
+            *   Triggered within `app/src/middleware.ts` when `AuthStore.handleServerAuth()` is called and finds an invalid/missing access token but a valid refresh token cookie exists in the incoming request.
+            *   `AuthStore.handleServerAuth()` directly `fetch`es the `/rpc/refresh` endpoint, manually adding the `Cookie: statbus-<slot>-refresh=...` header.
+            *   PostgREST executes `public.refresh()`.
+            *   If successful, PostgREST responds with `Set-Cookie` headers.
+            *   `AuthStore.handleServerAuth()` parses these headers and uses the `response.cookies.set()` method (provided by the middleware) to stage the new cookies for the outgoing response to the browser.
+            *   The middleware updates the *current request's* headers to reflect the new access token for subsequent processing within the same request lifecycle.
+        *   **Proactive Refresh (Client-Side - Optional):** A mechanism like a timer in a React context (`DirectAuthContext` mentioned, but not shown) could periodically check token expiry (`authStatus.tokenExpiring`) and call `AuthStore.refreshTokenIfNeeded()` before the token actually expires.
+    *   The `public.refresh` PostgreSQL function:
+        *   Extracts the refresh token:
+            *   **Server-Side Call:** Relies on the `Cookie: statbus-<slot>-refresh=...` header being manually set by the caller (`AuthStore.handleServerAuth`). It uses `auth.extract_refresh_token_from_cookies` which reads `current_setting('request.cookies', true)`. This works because the manual `Cookie` header *is* passed into this setting for the duration of the function call initiated by `fetch`.
+            *   **Client-Side Call:** Relies on the browser automatically sending the cookie. PostgREST likely needs configuration (e.g., `PGRST_DB_PRE_REQUEST`) to make this cookie available via `request.cookies` for the `auth.extract_refresh_token_from_cookies` function to work in this scenario, *or* the function needs modification to accept the token as an argument passed from a pre-request function. *Current implementation might implicitly work if PostgREST passes cookies for anonymous calls to `/rpc/refresh`.*
+        *   Validates the token and extracts claims.
+        *   Verifies the session exists in `auth.refresh_session` with matching user ID and version.
+        *   Verifies the user agent hash matches.
+        *   Increments the session version and updates last used time and expiry.
+        *   Generates a *new* access token JWT and a *new* refresh token JWT with updated version.
+        *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the *new* tokens.
         *   The browser updates the cookies automatically.
+        *   **Password Change Invalidation:** If the user's password has been changed via `public.change_password` or `public.admin_change_password`, all their existing refresh sessions are deleted from `auth.refresh_session`, causing subsequent refresh attempts with old tokens to fail (session not found).
 
 ## Key Configuration Points
 
@@ -204,9 +224,35 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     * `POSTGRES_APP_USER`: Database user for application access
     * `POSTGRES_APP_PASSWORD`: Database password for application access
 
-## Direct Database Access
+## Views with SECURITY INVOKER
 
-The authentication system is designed to allow users direct database access via psql or other PostgreSQL clients, in addition to API access through the application. This provides several benefits:
+When creating views that need to respect row-level security policies, we use the `security_invoker=true` option:
+
+```sql
+CREATE OR REPLACE VIEW public.some_view
+WITH (security_invoker=true) AS
+SELECT * FROM private_schema.some_table;
+```
+
+This ensures that the view runs with the permissions of the calling user rather than the view owner. Without this option, row-level security policies on the underlying tables would not be applied correctly, as the view would run with the permissions of its owner (typically a privileged user).
+
+The `security_invoker=true` option is particularly important for views that:
+1. Expose data from schemas with restricted access
+2. Need to respect row-level security policies
+3. Are used for data access control where the user's identity matters
+
+## Direct Database Access (Core Design Feature)
+
+**A fundamental design principle of this system is that every application user (`auth.user`) also has a corresponding PostgreSQL role, allowing them direct database access (e.g., via `psql` or other clients) using their application credentials.** This is intentional and provides several benefits, while security is maintained through multiple layers:
+
+1.  **Individual Roles:** Each user gets a unique PostgreSQL role named after their email.
+2.  **Role Inheritance:** User roles `INHERIT` permissions from the base `authenticated` role and their specific `statbus_role` (e.g., `admin_user`, `regular_user`), ensuring a consistent permission model across API and direct access.
+3.  **Row-Level Security (RLS):** Sensitive tables (like `auth.user`, `auth.api_key`) have RLS policies enforced (`FORCE ROW LEVEL SECURITY`). These policies restrict data visibility based on the user's identity (typically checked via `auth.uid()` which relies on `current_user`), ensuring users can only see or modify data they are explicitly allowed to, even with direct table access.
+4.  **Standard Grants:** Access to schemas, tables, functions, and specific columns is controlled via standard PostgreSQL `GRANT` statements applied to the `authenticated` and `statbus_role` roles.
+
+This layered approach ensures that even with direct database connections, users operate within the same security boundaries enforced by the API.
+
+**Benefits of Direct Access:**
 
 1. **Advanced Data Analysis**: Power users can run complex SQL queries directly against the database.
 2. **Debugging and Support**: Administrators can troubleshoot issues by examining data directly.
@@ -242,3 +288,44 @@ The authentication system is designed to allow users direct database access via 
 5. If a user is deleted, a trigger (`auth.drop_user_role_trigger`) removes their database role.
 
 This approach maintains a single source of truth for authentication while providing flexibility in how users interact with the system.
+
+## API Keys for Scripting
+
+For scenarios requiring non-interactive access (e.g., scripts, external services), long-lived API keys can be generated. These keys are JWTs, similar to access tokens, but with a much longer expiration time and potentially different claims.
+
+1.  **Generation:**
+    *   Authenticated users can call the `public.create_api_key(description text, duration interval)` function via the API (e.g., `POST /rest/rpc/create_api_key`).
+    *   The function takes an optional description and duration (defaults to 1 year).
+    *   It generates a JWT with `type: 'api_key'` and the specified expiration.
+    *   The function returns the generated JWT string.
+    *   A record is created in the `auth.api_key` table to track the key (identified by its `jti` claim), user, description, expiration, and revocation status.
+
+2.  **Usage:**
+    *   The generated API key (JWT string) should be used directly in the `Authorization: Bearer <api_key_jwt>` header for requests to the `/rest/*` API endpoints.
+    *   PostgREST validates the JWT and sets the user context based on its claims (`role`, `sub`, etc.) just like a regular access token.
+    *   **Revocation Check:** Before executing the main API query, PostgREST calls the `auth.check_api_key_revocation` function (configured via `PGRST_DB_PRE_REQUEST`). This function checks if the token type is `api_key` and if the corresponding record in `auth.api_key` (matched by `jti`) has been marked as revoked (`revoked_at IS NOT NULL`). If revoked, the function raises an error, blocking the request.
+
+3.  **Management:**
+    *   Users can list their own keys using `public.list_api_key()`.
+    *   Users can revoke their own keys using `public.revoke_api_key(key_jti uuid)`. This sets the `revoked_at` timestamp in the `auth.api_key` table, immediately invalidating the key for future requests.
+    *   Row-Level Security policies on `auth.api_key` ensure users can only manage their own keys.
+
+4.  **Security:**
+    *   API keys grant the same permissions as the user who created them.
+    *   Due to their long lifespan, they should be stored securely and treated as sensitive credentials.
+    *   Consider using shorter durations if possible and generating new keys periodically.
+    *   Access to the `create_api_key` function can be restricted further by modifying the `GRANT EXECUTE` statement in the migration if needed (e.g., grant only to `admin_user`).
+    *   Changing a user's password does *not* invalidate their existing API keys.
+    *   **Restricted Privileges:** API keys are designed for programmatic access. They cannot be used to perform sensitive account management actions like changing the user's password or generating additional API keys. This is enforced by checks within the relevant PostgreSQL functions (`public.change_password`, `public.create_api_key`) which require a standard 'access' token type.
+
+## Password Management
+
+*   **User Changing Own Password:** Authenticated users can change their own password by calling `public.change_password(new_password text)`.
+    *   This function requires a valid `access` token (not a refresh or API key), confirming the user is already logged in.
+    *   It updates the `encrypted_password` in the `auth.user` table.
+    *   Crucially, it deletes *all* existing refresh sessions for the user from `auth.refresh_session`, effectively logging them out of all other active sessions.
+*   **Admin Changing User Password:** Administrators (`admin_user` role) can change any user's password by calling `public.admin_change_password(user_sub uuid, new_password text)`.
+    *   This function requires the caller to have the `admin_user` role.
+    *   It updates the target user's `encrypted_password`.
+    *   It also deletes *all* existing refresh sessions for the target user.
+*   **Password Reset (Future):** A typical password reset flow (request token via email, verify token, set new password) would need to be implemented separately. These functions would likely operate as the `anon` role initially.

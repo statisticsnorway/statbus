@@ -237,6 +237,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
         
         debug_info(f"Response status code: {response.status_code}")
         debug_info(f"Response headers: {dict(response.headers)}")
+        debug_info(f"Cookies after login: {session.cookies}")
         
         # Check if response is not successful
         if response.status_code != 200:
@@ -288,6 +289,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
             def print_login_failure_details():
                 print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
                 print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/login{NC}")
+                print(f"{RED}Expected role: {expected_role}, Got: {data.get('statbus_role')}{NC}")
             
             log_error(f"API login failed for {email}.", print_login_failure_details)
             return None
@@ -494,11 +496,10 @@ def test_token_refresh(session: Session, email: str, password: str) -> None:
 def test_auth_status(session: Session, expected_auth: bool) -> None:
     """Test auth status"""
     log_info(f"Testing auth status (expected authenticated: {expected_auth})...")
-    
-    debug_info(f"Session cookies: {session.cookies}")
-    
+        
     # Make auth status request
     try:
+        debug_info(f"Session cookies before request: {session.cookies}")
         response = session.get(
             f"{CADDY_BASE_URL}/rest/rpc/auth_status",
             headers={"Content-Type": "application/json"}
@@ -639,7 +640,401 @@ def test_bearer_token_auth(email: str, password: str) -> None:
     except json.JSONDecodeError as e:
         log_error(f"Invalid JSON response: {e}")
 
-# CORS test functions removed as they're no longer needed with the simplified architecture
+
+def test_api_key_management(session: Session, email: str, password: str) -> None:
+    """Test API key creation, listing, usage, and revocation"""
+    log_info(f"Testing API Key Management for {email}...")
+
+    # 1. Login to get access token/cookies
+    user_id = test_api_login(session, email, password, "regular_user") # Assuming regular user can create keys
+    if not user_id:
+        log_error("Login failed, cannot proceed with API key tests")
+        return
+
+    # 2. Create API Key
+    log_info("Creating API key...")
+    key_description = "Test Script Key"
+    key_duration = "1 day" # Use a short duration for testing
+    api_key_jwt = None
+    key_jti = None
+    try:
+        response = session.post(
+            f"{CADDY_BASE_URL}/rest/rpc/create_api_key",
+            json={"description": key_description, "duration": key_duration},
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            response_data = response.json()
+            api_key_jwt = response_data['token']
+            key_jti = response_data['jti']  # Get JTI directly from response
+            log_success("API key created successfully")
+            debug_info(f"API key JWT: {api_key_jwt[:20]}...")
+            debug_info(f"API key JTI: {key_jti}")
+        else:
+            log_error(f"Failed to create API key. Status: {response.status_code}, Body: {response.text}")
+            return
+    except requests.RequestException as e:
+        log_error(f"API request failed during key creation: {e}")
+        return
+    except json.JSONDecodeError:
+         log_error(f"Invalid JSON response during key creation: {response.text}")
+         return
+
+    # 3. Create a second API Key with different description
+    log_info("Creating a second API key with different description...")
+    second_key_description = "Second Test Key"
+    second_api_key_jwt = None
+    try:
+        response = session.post(
+            f"{CADDY_BASE_URL}/rest/rpc/create_api_key",
+            json={"description": second_key_description, "duration": key_duration},
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            response_data = response.json()
+            second_api_key_jwt = response_data['token']
+            log_success("Second API key created successfully")
+            debug_info(f"Second API key JWT: {second_api_key_jwt[:20]}...")
+        else:
+            log_warning(f"Failed to create second API key. Status: {response.status_code}, Body: {response.text}")
+    except Exception as e:
+        log_warning(f"Error creating second API key: {e}")
+    
+    # 4. List API Keys and find the new ones
+    log_info("Listing API keys...")
+    listed_keys = []
+    try:
+        # Query the api_key table directly instead of using a function
+        response = session.get(
+            f"{CADDY_BASE_URL}/rest/api_key",
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            listed_keys = response.json()
+            debug_info(f"Found {len(listed_keys)} API keys")
+            
+            # Find our test keys
+            found_key = None
+            second_key = None
+            for key in listed_keys:
+                if key.get("description") == key_description:
+                    found_key = key
+                    key_jti = key.get("jti")
+                elif key.get("description") == second_key_description:
+                    second_key = key
+            
+            if found_key and key_jti:
+                log_success(f"Found newly created API key in list (JTI: {key_jti})")
+                debug_info(f"Key details: {found_key}")
+            else:
+                log_error(f"Newly created API key not found in list. Keys: {listed_keys}")
+                return
+                
+            if second_key:
+                log_success(f"Found second API key in list (JTI: {second_key.get('jti')})")
+                debug_info(f"Second key details: {second_key}")
+            elif second_api_key_jwt:  # Only warn if we actually created a second key
+                log_warning(f"Second API key not found in list")
+        else:
+            log_error(f"Failed to list API keys. Status: {response.status_code}, Body: {response.text}")
+            return
+    except requests.RequestException as e:
+        log_error(f"API request failed during key listing: {e}")
+        return
+    except json.JSONDecodeError:
+         log_error(f"Invalid JSON response during key listing: {response.text}")
+         return
+
+    # 5. Verify RLS: Log in as another user and check they cannot see the key
+    log_info("Verifying RLS: Checking if another user can see the key...")
+    test_api_logout(session) # Log out the current user (regular)
+    other_session = requests.Session()
+    other_user_email = RESTRICTED_EMAIL # Use restricted user for this check
+    other_user_password = RESTRICTED_PASSWORD
+    other_user_id = test_api_login(other_session, other_user_email, other_user_password, "restricted_user")
+    if not other_user_id:
+        log_error(f"Login failed for {other_user_email}, cannot proceed with RLS check")
+        # Log back in as original user before returning
+        test_api_login(session, email, password, "regular_user")
+        return
+
+    try:
+        response = other_session.get(
+            f"{CADDY_BASE_URL}/rest/api_key",
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            other_keys = response.json()
+            found_other_key = False
+            for key in other_keys:
+                if key.get("jti") == key_jti:
+                    found_other_key = True
+                    break
+            if not found_other_key:
+                log_success(f"RLS check passed: User {other_user_email} cannot see key {key_jti}")
+            else:
+                log_error(f"RLS check failed: User {other_user_email} could see key {key_jti}. Keys: {other_keys}")
+        else:
+            log_error(f"Failed to list API keys for {other_user_email}. Status: {response.status_code}, Body: {response.text}")
+    except requests.RequestException as e:
+        log_error(f"API request failed during RLS check key listing: {e}")
+    except json.JSONDecodeError:
+         log_error(f"Invalid JSON response during RLS check key listing: {response.text}")
+    finally:
+        # Log out the other user and log back in the original user
+        test_api_logout(other_session)
+        test_api_login(session, email, password, "regular_user") # Re-login original user
+
+    # 6. Use API Key for Data Access
+    log_info("Testing data access using the API key...")
+    try:
+        bearer_response = requests.get(
+            f"{CADDY_BASE_URL}/rest/country?limit=1", # Use a simple endpoint
+            headers={
+                "Authorization": f"Bearer {api_key_jwt}",
+                "Accept": "application/json" # Ensure correct accept header
+            }
+        )
+        if bearer_response.status_code == 200:
+            try:
+                data = bearer_response.json()
+                if isinstance(data, list):
+                     log_success("API key successfully used for data access")
+                else:
+                     log_warning(f"API key access returned unexpected data format: {data}")
+            except json.JSONDecodeError:
+                 log_error(f"Invalid JSON response when using API key: {bearer_response.text}")
+        else:
+            log_error(f"API key access failed. Status: {bearer_response.status_code}, Body: {bearer_response.text}")
+    except requests.RequestException as e:
+        log_error(f"API request failed when using API key: {e}")
+
+    # 7. Revoke API Key
+    log_info(f"Revoking API key (JTI: {key_jti})...")
+    try:
+        response = session.post(
+            f"{CADDY_BASE_URL}/rest/rpc/revoke_api_key",
+            json={"key_jti": key_jti},
+            headers={"Content-Type": "application/json"}
+        )
+        # revoke_api_key returns boolean true/false in the body
+        if response.status_code == 200 and response.json() is True:
+            log_success("API key revoked successfully")
+        else:
+            log_error(f"Failed to revoke API key. Status: {response.status_code}, Body: {response.text}")
+            # Don't return here, try accessing with revoked key anyway
+    except requests.RequestException as e:
+        log_error(f"API request failed during key revocation: {e}")
+    except json.JSONDecodeError:
+         log_error(f"Invalid JSON response during key revocation: {response.text}")
+
+    # 8. Verify key is marked as revoked in listing
+    log_info("Verifying key is marked as revoked in listing...")
+    try:
+        response = session.get(
+            f"{CADDY_BASE_URL}/rest/api_key",
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200:
+            listed_keys = response.json()
+            revoked_key = None
+            for key in listed_keys:
+                if key.get("jti") == key_jti:
+                    revoked_key = key
+                    break
+            
+            if revoked_key and revoked_key.get("revoked_at") is not None:
+                log_success(f"API key correctly shows as revoked in listing")
+                debug_info(f"Revoked key details: {revoked_key}")
+            else:
+                log_error(f"API key does not show as revoked in listing: {revoked_key}")
+        else:
+            log_error(f"Failed to list API keys after revocation. Status: {response.status_code}")
+    except Exception as e:
+        log_error(f"Error checking revoked key status: {e}")
+
+    # 9. Attempt to Use Revoked API Key
+    log_info("Attempting data access with revoked API key...")
+    try:
+        bearer_response = requests.get(
+            f"{CADDY_BASE_URL}/rest/country?limit=1",
+            headers={
+                "Authorization": f"Bearer {api_key_jwt}",
+                "Accept": "application/json"
+            }
+        )
+        # API returns 400 with "API Key has been revoked" message
+        if bearer_response.status_code == 400 and 'API Key has been revoked' in bearer_response.text:
+            log_success(f"Access correctly denied for revoked API key (Status: 400, Error: Revoked)")
+            debug_info(f"Response body: {bearer_response.text}")
+        else:
+            log_error(f"Access with revoked API key returned unexpected status: {bearer_response.status_code}, Body: {bearer_response.text}")
+    except requests.RequestException as e:
+        log_error(f"API request failed when using revoked API key: {e}")
+
+    # 10. Test API key with invalid JTI
+    if second_api_key_jwt:
+        log_info("Testing API key with non-existent JTI...")
+        # Create a modified JWT with a non-existent JTI
+        # This is a simplified approach - in a real test we'd properly decode/modify/re-encode
+        # For now, just use the second key but modify the Authorization header
+        try:
+            tampered_response = requests.get(
+                f"{CADDY_BASE_URL}/rest/country?limit=1",
+                headers={
+                    "Authorization": f"Bearer {second_api_key_jwt.replace('.', '.INVALID.')}",
+                    "Accept": "application/json"
+                }
+            )
+            if tampered_response.status_code in (401, 403, 500):
+                log_success(f"Access correctly denied for tampered API key (Status: {tampered_response.status_code})")
+                debug_info(f"Response body: {tampered_response.text}")
+            else:
+                log_error(f"Access with tampered API key returned unexpected status: {tampered_response.status_code}")
+        except Exception as e:
+            log_error(f"Error testing tampered API key: {e}")
+
+    log_info(f"API Key Management test for {email} completed.")
+
+
+def test_password_change(admin_session: Session, user_session: Session, user_email: str, initial_password: str) -> None:
+    """Test user and admin password changes and session invalidation"""
+    log_info(f"Testing Password Change for {user_email}...")
+    new_password = initial_password + "_new"
+
+    # 0. Ensure admin is logged in for later use
+    admin_id = test_api_login(admin_session, ADMIN_EMAIL, ADMIN_PASSWORD, "admin_user")
+    if not admin_id:
+        log_error("Admin login failed, cannot proceed with password change tests")
+        return
+
+    # 1. Login user to establish a session
+    expected_role = "restricted_user" if user_email == RESTRICTED_EMAIL else "regular_user"
+    user_id = test_api_login(user_session, user_email, initial_password, expected_role)
+    if not user_id:
+        log_error("Initial login failed, cannot proceed with password change tests")
+        return
+    # Store the refresh token cookie value (requests session handles cookies automatically)
+    initial_refresh_cookie = user_session.cookies.get("statbus-refresh")
+    if not initial_refresh_cookie:
+         log_warning("Could not get refresh token cookie after initial login")
+
+    # 2. User changes their own password
+    log_info("User changing their own password...")
+    try:
+        response = user_session.post(
+            f"{CADDY_BASE_URL}/rest/rpc/change_password",
+            json={"new_password": new_password},
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200 and response.json() is True:
+            log_success("User password change successful")
+        else:
+            log_error(f"User password change failed. Status: {response.status_code}, Body: {response.text}")
+            return # Stop if this fails
+    except requests.RequestException as e:
+        log_error(f"API request failed during user password change: {e}")
+        return
+    except json.JSONDecodeError:
+         log_error(f"Invalid JSON response during user password change: {response.text}")
+         return
+
+    # 3. Verify old password fails
+    log_info("Verifying login with old password fails...")
+    temp_session_old = requests.Session()
+    try:
+        response = temp_session_old.post(
+            f"{CADDY_BASE_URL}/rest/rpc/login",
+            json={"email": user_email, "password": initial_password},
+            headers={"Content-Type": "application/json"}
+        )
+        
+        data = response.json()
+        # Check if login failed as expected (null values in response)
+        if data.get("uid") is None and data.get("access_jwt") is None:
+            log_success(f"Login correctly failed with old password after change")
+        else:
+            log_error(f"Login unexpectedly succeeded with old password after change")
+    except requests.RequestException as e:
+        log_error(f"API request failed during old password check: {e}")
+
+    # 4. Verify new password works
+    log_info("Verifying login with new password works...")
+    temp_session_new = requests.Session()
+    expected_role = "restricted_user" if user_email == RESTRICTED_EMAIL else "regular_user"
+    test_api_login(temp_session_new, user_email, new_password, expected_role) # Expect success
+
+    # 5. Verify old session refresh fails
+    log_info("Verifying refresh with old session token fails...")
+    if initial_refresh_cookie:
+        # Manually set the old cookie in a new session to test refresh
+        old_session = requests.Session()
+        old_session.cookies.set("statbus-refresh", initial_refresh_cookie)
+        try:
+            response = old_session.post(
+                f"{CADDY_BASE_URL}/rest/rpc/refresh",
+                headers={"Content-Type": "application/json"}
+            )
+            # Expecting 401, 400 or similar error because the session was deleted
+            if (response.status_code == 401 or 
+                response.status_code == 400 or 
+                (response.status_code == 500 and 'Invalid session' in response.text) or
+                'Invalid session' in response.text or
+                'token has been superseded' in response.text):
+                log_success(f"Refresh correctly failed for invalidated session (Status: {response.status_code})")
+            else:
+                log_error(f"Refresh with invalidated session returned unexpected status: {response.status_code}, Body: {response.text}")
+        except requests.RequestException as e:
+            log_error(f"API request failed during invalidated refresh check: {e}")
+    else:
+        log_warning("Skipping old session refresh check as initial refresh cookie was not found.")
+
+    # 6. Admin changes user's password back
+    log_info("Admin changing user password back...")
+    # Ensure admin session is still valid (or re-login)
+    test_auth_status(admin_session, True)
+    # Get user sub
+    user_sub = None
+    try:
+        # Use psql to get sub reliably
+        user_sub_str = run_psql_command(f"SELECT sub FROM auth.user WHERE email = '{user_email}';", ADMIN_EMAIL, ADMIN_PASSWORD)
+        if user_sub_str and 'ERROR' not in user_sub_str:
+            user_sub = user_sub_str.strip()
+            debug_info(f"Got user sub for admin change: {user_sub}")
+        else:
+            log_error(f"Could not get user sub via psql: {user_sub_str}")
+            return
+    except Exception as e:
+        log_error(f"Error getting user sub: {e}")
+        return
+
+    if not user_sub:
+        log_error("Failed to retrieve user sub for admin password change.")
+        return
+
+    try:
+        response = admin_session.post(
+            f"{CADDY_BASE_URL}/rest/rpc/admin_change_password",
+            json={"user_sub": user_sub, "new_password": initial_password},
+            headers={"Content-Type": "application/json"}
+        )
+        if response.status_code == 200 and response.json() is True:
+            log_success("Admin password change successful")
+        else:
+            log_error(f"Admin password change failed. Status: {response.status_code}, Body: {response.text}")
+    except requests.RequestException as e:
+        log_error(f"API request failed during admin password change: {e}")
+    except json.JSONDecodeError:
+         log_error(f"Invalid JSON response during admin password change: {response.text}")
+
+    # 7. Verify user can log in with original password again
+    log_info("Verifying login with original password works again...")
+    final_session = requests.Session()
+    expected_role = "restricted_user" if user_email == RESTRICTED_EMAIL else "regular_user"
+    test_api_login(final_session, user_email, initial_password, expected_role) # Expect success
+
+    log_info(f"Password Change test for {user_email} completed.")
+
 
 def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
     """Test the auth_test endpoint to get detailed debug information"""
@@ -709,6 +1104,7 @@ def main() -> None:
     print(f"\n{BLUE}=== Test 2: Admin User Direct Database Access ==={NC}")
     test_db_access(ADMIN_EMAIL, ADMIN_PASSWORD, "SELECT statbus_role FROM auth.user WHERE email = current_user;", "admin_user")
     test_db_access(ADMIN_EMAIL, ADMIN_PASSWORD, "SELECT COUNT(*) FROM auth.user;", "[0-9]+")
+    test_db_access(ADMIN_EMAIL, ADMIN_PASSWORD, "SELECT auth.sub()::text;", "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}") # Check auth.sub() returns a UUID
     
     # Create a session for regular user
     regular_session = requests.Session()
@@ -724,6 +1120,7 @@ def main() -> None:
     print(f"\n{BLUE}=== Test 4: Regular User Direct Database Access ==={NC}")
     test_db_access(REGULAR_EMAIL, REGULAR_PASSWORD, "SELECT statbus_role FROM auth.user WHERE email = current_user;", "regular_user")
     test_db_access(REGULAR_EMAIL, REGULAR_PASSWORD, "SELECT COUNT(*) FROM public.region;", "[0-9]+")
+    test_db_access(REGULAR_EMAIL, REGULAR_PASSWORD, "SELECT auth.sub()::text;", "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}") # Check auth.sub() returns a UUID
     
     # Create a session for restricted user
     restricted_session = requests.Session()
@@ -739,6 +1136,7 @@ def main() -> None:
     print(f"\n{BLUE}=== Test 6: Restricted User Direct Database Access ==={NC}")
     test_db_access(RESTRICTED_EMAIL, RESTRICTED_PASSWORD, "SELECT statbus_role FROM auth.user WHERE email = current_user;", "restricted_user")
     test_db_access(RESTRICTED_EMAIL, RESTRICTED_PASSWORD, "SELECT COUNT(*) FROM public.region;", "[0-9]+")
+    test_db_access(RESTRICTED_EMAIL, RESTRICTED_PASSWORD, "SELECT auth.sub()::text;", "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}") # Check auth.sub() returns a UUID
     
     # Create a new session for token refresh test
     refresh_session = requests.Session()
@@ -796,7 +1194,190 @@ def main() -> None:
     test_bearer_token_auth(ADMIN_EMAIL, ADMIN_PASSWORD)
     
     # CORS tests removed as they're no longer needed with the simplified architecture
+
+    # Test 12: API Key Management
+    print(f"\n{BLUE}=== Test 12: API Key Management ==={NC}")
+    # Use regular user session for API key tests
+    # Ensure the regular user is logged in before running this test
+    test_api_login(regular_session, REGULAR_EMAIL, REGULAR_PASSWORD, "regular_user")
+    test_api_key_management(regular_session, REGULAR_EMAIL, REGULAR_PASSWORD)
+
+    # Test 13: Role Switching with SET LOCAL ROLE
+    print(f"\n{BLUE}=== Test 13: Role Switching with SET LOCAL ROLE ==={NC}")
+    log_info("Testing role switching with SET LOCAL ROLE...")
     
+    # Test with admin user
+    admin_role_test = """
+    BEGIN;
+    -- Verify we can see all users as admin
+    SET LOCAL ROLE "%s";
+    SELECT COUNT(*) FROM auth.user;
+    -- Try to access a sensitive function
+    SELECT COUNT(*) FROM auth.refresh_session;
+    END;
+    """ % ADMIN_EMAIL
+    
+    admin_result = run_psql_command(admin_role_test, ADMIN_EMAIL, ADMIN_PASSWORD)
+    if "ERROR" not in admin_result:
+        log_success("Admin role switching test passed - can access sensitive data")
+        debug_info(f"Admin role test result: {admin_result}")
+    else:
+        log_error(f"Admin role switching test failed: {admin_result}")
+    
+    # Test with regular user
+    regular_role_test = """
+    BEGIN;
+    -- Switch to regular user role
+    SET LOCAL ROLE "%s";
+    -- Should be able to see public data
+    SELECT COUNT(*) FROM public.region;
+    -- Try to access sensitive data (should fail or be limited by RLS)
+    SELECT COUNT(*) FROM auth.user WHERE email = current_user;
+    END;
+    """ % REGULAR_EMAIL
+    
+    regular_result = run_psql_command(regular_role_test, REGULAR_EMAIL, REGULAR_PASSWORD)
+    if "ERROR" not in regular_result or "permission denied" in regular_result:
+        log_success("Regular user role switching test passed - limited access as expected")
+        debug_info(f"Regular user role test result: {regular_result}")
+    else:
+        log_warning(f"Regular user role test had unexpected result: {regular_result}")
+    
+    # Test with restricted user
+    restricted_role_test = """
+    BEGIN;
+    -- Switch to restricted user role
+    SET LOCAL ROLE "%s";
+    -- Should be able to see public data
+    SELECT COUNT(*) FROM public.region;
+    -- Try to access sensitive data (should fail)
+    BEGIN;
+        SELECT COUNT(*) FROM auth.user;
+        RAISE EXCEPTION 'Should not be able to access auth.user';
+    EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Correctly denied access to auth.user';
+    END;
+    END;
+    """ % RESTRICTED_EMAIL
+    
+    restricted_result = run_psql_command(restricted_role_test, RESTRICTED_EMAIL, RESTRICTED_PASSWORD)
+    if "ERROR" not in restricted_result or "permission denied" in restricted_result:
+        log_success("Restricted user role switching test passed - properly limited access")
+        debug_info(f"Restricted user role test result: {restricted_result}")
+    else:
+        log_warning(f"Restricted user role test had unexpected result: {restricted_result}")
+    
+    # Test 14: Role Switching with SET LOCAL ROLE
+    print(f"\n{BLUE}=== Test 14: Role Switching with SET LOCAL ROLE ==={NC}")
+    log_info("Testing role switching with SET LOCAL ROLE...")
+    
+    # Test with admin user
+    admin_role_test = """
+    BEGIN;
+    -- Verify we can see all users as admin
+    SET LOCAL ROLE "%s";
+    SELECT COUNT(*) FROM auth.user;
+    -- Try to access a sensitive function
+    SELECT COUNT(*) FROM auth.refresh_session;
+    END;
+    """ % ADMIN_EMAIL
+    
+    admin_result = run_psql_command(admin_role_test, ADMIN_EMAIL, ADMIN_PASSWORD)
+    if "ERROR" not in admin_result:
+        log_success("Admin role switching test passed - can access sensitive data")
+        debug_info(f"Admin role test result: {admin_result}")
+    else:
+        log_error(f"Admin role switching test failed: {admin_result}")
+    
+    # Test with regular user
+    regular_role_test = """
+    BEGIN;
+    -- Switch to regular user role
+    SET LOCAL ROLE "%s";
+    -- Should be able to see public data
+    SELECT COUNT(*) FROM public.region;
+    -- Try to access sensitive data (should fail or be limited by RLS)
+    SELECT COUNT(*) FROM auth.user WHERE email = current_user;
+    END;
+    """ % REGULAR_EMAIL
+    
+    regular_result = run_psql_command(regular_role_test, REGULAR_EMAIL, REGULAR_PASSWORD)
+    if "ERROR" not in regular_result or "permission denied" in regular_result:
+        log_success("Regular user role switching test passed - limited access as expected")
+        debug_info(f"Regular user role test result: {regular_result}")
+    else:
+        log_warning(f"Regular user role test had unexpected result: {regular_result}")
+    
+    # Test with restricted user
+    restricted_role_test = """
+    BEGIN;
+    -- Switch to restricted user role
+    SET LOCAL ROLE "%s";
+    -- Should be able to see public data
+    SELECT COUNT(*) FROM public.region;
+    -- Try to access sensitive data (should fail)
+    BEGIN;
+        SELECT COUNT(*) FROM auth.user;
+        RAISE EXCEPTION 'Should not be able to access auth.user';
+    EXCEPTION WHEN insufficient_privilege THEN
+        RAISE NOTICE 'Correctly denied access to auth.user';
+    END;
+    END;
+    """ % RESTRICTED_EMAIL
+    
+    restricted_result = run_psql_command(restricted_role_test, RESTRICTED_EMAIL, RESTRICTED_PASSWORD)
+    if "ERROR" not in restricted_result or "permission denied" in restricted_result:
+        log_success("Restricted user role switching test passed - properly limited access")
+        debug_info(f"Restricted user role test result: {restricted_result}")
+    else:
+        log_warning(f"Restricted user role test had unexpected result: {restricted_result}")
+    
+    # Test password change with SET LOCAL ROLE
+    log_info("Testing password change with SET LOCAL ROLE...")
+    password_change_role_test = """
+    -- First verify current role and switch to regular user role
+    SET LOCAL ROLE "%s";
+    
+    -- Verify role switch worked
+    SELECT current_role, current_user;
+    
+    -- Change password using the role
+    SELECT public.change_password('TempPass123');
+    """ % REGULAR_EMAIL
+    
+    # Execute the password change with role
+    password_role_result = run_psql_command(password_change_role_test, REGULAR_EMAIL, REGULAR_PASSWORD)
+    debug_info(f"Password change with role result: {password_role_result}")
+    
+    # Now try to login with the new password
+    temp_session = requests.Session()
+    if test_api_login(temp_session, REGULAR_EMAIL, "TempPass123", "regular_user"):
+        log_success("Password change with SET LOCAL ROLE worked - can login with new password")
+        
+        # Change password back for subsequent tests
+        password_reset_test = """
+        -- Switch to regular user role with new password
+        SET LOCAL ROLE "%s";
+        SELECT public.change_password('%s');
+        """ % (REGULAR_EMAIL, REGULAR_PASSWORD)
+        
+        reset_result = run_psql_command(password_reset_test, REGULAR_EMAIL, "TempPass123")
+        debug_info(f"Password reset result: {reset_result}")
+        
+        # Verify password was reset
+        if test_api_login(temp_session, REGULAR_EMAIL, REGULAR_PASSWORD, "regular_user"):
+            log_success("Password successfully reset back to original")
+        else:
+            log_error("Failed to reset password back to original")
+    else:
+        log_error("Password change with SET LOCAL ROLE failed - cannot login with new password")
+    
+    # Test 15: Password Change and Session Invalidation
+    print(f"\n{BLUE}=== Test 15: Password Change and Session Invalidation ==={NC}")
+    # Need admin session for admin part, and a fresh session for the user being changed
+    password_change_user_session = requests.Session()
+    test_password_change(admin_session, password_change_user_session, RESTRICTED_EMAIL, RESTRICTED_PASSWORD)
+
     # Print summary of test results
     print(f"\n{GREEN}=== All Authentication Tests Completed Successfully ==={NC}\n")
 

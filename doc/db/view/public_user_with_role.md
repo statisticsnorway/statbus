@@ -1,5 +1,5 @@
 ```sql
-                 View "public.user_with_role"
+                 View "public.user"
     Column    |     Type     | Collation | Nullable | Default 
 --------------+--------------+-----------+----------+---------
  id           | integer      |           |          | 

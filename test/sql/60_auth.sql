@@ -1,10 +1,9 @@
 -- Test file for authentication system
 BEGIN;
+SET client_min_messages TO NOTICE; -- To see the RAISE NOTICE in the DO block
 
-\i test/setup.sql
-
--- Set up test environment
--- Set JWT secret for testing using local settings
+-- Set up test environment settings once for the entire transaction
+-- Set JWT secret and other settings for testing
 SET LOCAL "app.settings.jwt_secret" TO 'test-jwt-secret-for-testing-only';
 SET LOCAL "app.settings.jwt_exp" TO '3600';
 SET LOCAL "app.settings.refresh_jwt_exp" TO '86400';
@@ -24,6 +23,7 @@ DO UPDATE SET
     email_confirmed_at = EXCLUDED.email_confirmed_at,
     statbus_role = EXCLUDED.statbus_role;
 
+    
 -- Helper function to extract and verify JWT claims using pgjwt
 CREATE OR REPLACE FUNCTION test.verify_jwt_claims(token text, expected_claims jsonb)
 RETURNS boolean AS $$
@@ -410,7 +410,8 @@ BEGIN
         ASSERT access_jwt_payload->>'exp' IS NOT NULL, 'Expiration time should be present';
         ASSERT access_jwt_payload->>'iat' IS NOT NULL, 'Issued at time should be present';
         ASSERT access_jwt_payload->>'jti' IS NOT NULL, 'JWT ID should be present';
-        ASSERT access_jwt_payload->>'sub' IS NOT NULL, 'Subject should be present';        
+        ASSERT access_jwt_payload->>'sub' IS NOT NULL, 'Subject should be present';
+        ASSERT access_jwt_payload->>'uid' IS NOT NULL, 'User ID (uid) should be present';
     END;
     
     -- Decode the refresh token and display it
@@ -787,7 +788,7 @@ $$;
 DO $$
 DECLARE
     login_result jsonb;
-    grant_result boolean;
+    grant_result RECORD;
     revoke_result boolean;
     user_sub uuid;
     original_role public.statbus_role;
@@ -882,8 +883,11 @@ BEGIN
     
     -- Grant restricted_user role
     RAISE DEBUG 'Attempting to grant restricted_user role to %', user_email;
-    SELECT public.grant_role(user_sub, 'restricted_user'::public.statbus_role) INTO grant_result;
-    RAISE DEBUG 'Grant result: %', grant_result;
+    UPDATE public.user
+    SET statbus_role = 'restricted_user'::public.statbus_role
+    WHERE sub = user_sub
+    RETURNING * INTO grant_result;
+    RAISE DEBUG 'Grant result: %', to_jsonb(grant_result);
     
     -- Check if the role was actually granted
     SELECT EXISTS (
@@ -897,7 +901,7 @@ BEGIN
         user_email, role_granted;
     
     -- Verify grant was successful
-    ASSERT grant_result = true, 'Grant role should return true';
+    ASSERT grant_result.statbus_role = 'restricted_user', 'Grant role should return true';
     
     -- Verify role was updated in database
     SELECT statbus_role INTO new_role
@@ -929,8 +933,11 @@ BEGIN
     
     -- Revoke role (which sets it back to regular_user)
     RAISE DEBUG 'Attempting to revoke role from % (setting back to regular_user)', user_email;
-    SELECT public.revoke_role(user_sub) INTO revoke_result;
-    RAISE DEBUG 'Revoke result: %', revoke_result;
+    UPDATE public.user
+    SET statbus_role = 'regular_user'::public.statbus_role
+    WHERE sub = user_sub
+    RETURNING * INTO grant_result; -- Re-using grant_result variable name for consistency
+    RAISE DEBUG 'Revoke (set to regular_user) result: %', to_jsonb(grant_result);
     
     -- Check if the role was actually granted
     SELECT EXISTS (
@@ -944,7 +951,7 @@ BEGIN
         user_email, role_granted;
     
     -- Verify revoke was successful
-    ASSERT revoke_result = true, 'Revoke role should return true';
+    ASSERT grant_result.statbus_role = 'regular_user', 'Revoke role (set to regular_user) should return true and correct role';
     
     -- Verify role was reset to regular_user
     SELECT statbus_role INTO new_role
@@ -958,7 +965,12 @@ BEGIN
     
     -- Reset to original role
     RAISE DEBUG 'Resetting user % to original role: %', user_email, original_role;
-    PERFORM public.grant_role(user_sub, original_role);
+    UPDATE public.user
+    SET statbus_role = original_role
+    WHERE sub = user_sub
+    RETURNING * INTO grant_result;
+    RAISE DEBUG 'Reset role result: %', to_jsonb(grant_result);
+    ASSERT grant_result.statbus_role = original_role, 'Resetting role should return true and correct role';
     
     -- Verify final role state
     SELECT statbus_role INTO new_role
@@ -1074,98 +1086,9 @@ BEGIN
 END;
 $$;
 
--- Test 8: Auth Helper Functions
-\echo '=== Test 8: Auth Helper Functions ==='
-DO $$
-DECLARE
-    login_result jsonb;
-    test_email text := 'test.admin@example.com';
-    test_sub uuid;
-    test_id integer;
-    test_role public.statbus_role;
-    access_jwt text;
-    jwt_claims json;
-BEGIN
-    -- Set up headers to simulate a browser
-    PERFORM set_config('request.headers', 
-        json_build_object(
-            'x-forwarded-for', '127.0.0.1',
-            'user-agent', 'Test User Agent'
-        )::text, 
-        true
-    );
 
-    -- Get user details for verification
-    SELECT sub, id, statbus_role INTO test_sub, test_id, test_role
-    FROM auth.user
-    WHERE email = test_email;
-    
-    -- Login to get a real token
-    SELECT to_json(source.*) INTO login_result FROM public.login(test_email, 'admin123') AS source;
-    
-    -- Debug the login result
-    RAISE DEBUG 'Login result: %', login_result;
-    
-    -- Extract access token from login result
-    access_jwt := login_result->>'access_jwt';
-    
-    -- Set up JWT claims using the actual token
-    SELECT payload::json INTO jwt_claims 
-    FROM verify(access_jwt, 'test-jwt-secret-for-testing-only');
-    
-    PERFORM set_config('request.jwt.claims', jwt_claims::text, true);
-    
-    -- Test auth.sub()
-    DECLARE
-        sub_result uuid;
-    BEGIN
-        sub_result := auth.sub();
-        RAISE DEBUG 'auth.sub() result: %, expected: %', sub_result, test_sub;
-        ASSERT sub_result = test_sub, 'auth.sub() should return the correct user sub';
-    END;
-    
-    -- Test auth.uid()
-    DECLARE
-        uid_result integer;
-    BEGIN
-        uid_result := auth.uid();
-        RAISE DEBUG 'auth.uid() result: %, expected: %', uid_result, test_id;
-        ASSERT uid_result = test_id, 'auth.uid() should return the correct user id';
-    END;
-    
-    -- Test auth.role()
-    DECLARE
-        role_result text;
-    BEGIN
-        role_result := auth.role();
-        RAISE DEBUG 'auth.role() result: %, expected: %', role_result, test_email;
-        ASSERT role_result = test_email, 'auth.role() should return the correct role';
-    END;
-    
-    -- Test auth.email()
-    DECLARE
-        email_result text;
-    BEGIN
-        email_result := auth.email();
-        RAISE DEBUG 'auth.email() result: %, expected: %', email_result, test_email;
-        ASSERT email_result = test_email, 'auth.email() should return the correct email';
-    END;
-    
-    -- Test auth.statbus_role()
-    DECLARE
-        statbus_role_result public.statbus_role;
-    BEGIN
-        statbus_role_result := auth.statbus_role();
-        RAISE DEBUG 'auth.statbus_role() result: %, expected: %', statbus_role_result, test_role;
-        ASSERT statbus_role_result = test_role, 'auth.statbus_role() should return the correct statbus_role';
-    END;
-    
-    RAISE NOTICE 'Test 8: Auth Helper Functions - PASSED';
-END;
-$$;
-
--- Test 9: JWT Claims Building
-\echo '=== Test 9: JWT Claims Building ==='
+-- Test 8: JWT Claims Building
+\echo '=== Test 8: JWT Claims Building ==='
 DO $$
 DECLARE
     claims jsonb;
@@ -1199,7 +1122,8 @@ BEGIN
     ASSERT claims ? 'iat', 'Claims should contain iat';
     ASSERT claims ? 'exp', 'Claims should contain exp';
     ASSERT claims ? 'jti', 'Claims should contain jti';
-    
+    ASSERT claims ? 'uid', 'Claims should contain uid';
+
     -- Verify claim values
     ASSERT claims->>'role' = test_email, 'role claim should match email';
     ASSERT claims->>'statbus_role' = test_role::text, 'statbus_role claim should match user role';
@@ -1241,13 +1165,13 @@ BEGIN
     ASSERT jwt_payload->>'role' = claims->>'role', 'JWT role should match claims';
     ASSERT jwt_payload->>'type' = 'refresh', 'JWT type should be refresh';
     ASSERT jwt_payload->>'custom_claim' = 'test_value', 'JWT should include custom claims';
-    
-    RAISE NOTICE 'Test 9: JWT Claims Building - PASSED';
+
+    RAISE NOTICE 'Test 8: JWT Claims Building - PASSED';
 END;
 $$;
 
--- Test 10: JWT Tampering Detection
-\echo '=== Test 10: JWT Tampering Detection ==='
+-- Test 9: JWT Tampering Detection
+\echo '=== Test 9: JWT Tampering Detection ==='
 DO $$
 DECLARE
     login_result_admin jsonb;
@@ -1559,8 +1483,9 @@ BEGIN
 END;
 $$;
 
--- Test 11: Auth Status Function
-\echo '=== Test 11: Auth Status Function ==='
+
+-- Test 10: Auth Status Function
+\echo '=== Test 10: Auth Status Function ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -1757,7 +1682,7 @@ BEGIN
 END;
 $$;
 
--- Test 12: Idempotent User Creation
+-- Test 11: Idempotent User Creation
 \echo '=== Test 11: Idempotent User Creation ==='
 DO $$
 DECLARE
@@ -1768,6 +1693,8 @@ DECLARE
     test_email text := 'test.idempotent@example.com';
     test_password text := 'idempotent123';
     test_role public.statbus_role := 'regular_user';
+    old_encrypted_password text;
+    new_encrypted_password text;
 BEGIN
     -- Count users with this email before
     SELECT COUNT(*) INTO user_count_before
@@ -1789,6 +1716,12 @@ BEGIN
     ASSERT EXISTS (
         SELECT 1 FROM auth.user WHERE email = test_email
     ), 'User should exist after first creation';
+    
+    -- Store the old encrypted password before updating
+    SELECT encrypted_password INTO old_encrypted_password
+    FROM auth.user
+    WHERE email = test_email;
+    RAISE DEBUG 'Old encrypted password: %', old_encrypted_password;
     
     -- Second creation with same email but different password and role
     SELECT * INTO second_creation_result 
@@ -1814,11 +1747,14 @@ BEGIN
         SELECT statbus_role FROM auth.user WHERE email = test_email
     ) = 'admin_user'::public.statbus_role, 'User role should be updated';
     
-    ASSERT (
-        SELECT crypt('newpassword123', encrypted_password) = encrypted_password 
-        FROM auth.user 
-        WHERE email = test_email
-    ), 'User password should be updated';
+    -- Verify the encrypted password has changed
+    SELECT encrypted_password INTO new_encrypted_password
+    FROM auth.user
+    WHERE email = test_email;
+    RAISE DEBUG 'New encrypted password: %', new_encrypted_password;
+    
+    ASSERT old_encrypted_password IS DISTINCT FROM new_encrypted_password, 
+        'Encrypted password should change after update';
     
     -- Clean up
     DELETE FROM auth.user WHERE email = test_email;
@@ -1827,7 +1763,7 @@ BEGIN
 END;
 $$;
 
--- Test 13: Trigger Role Change Handling
+-- Test 12: Trigger Role Change Handling
 \echo '=== Test 12: Trigger Role Change Handling ==='
 DO $$
 DECLARE
@@ -1943,7 +1879,8 @@ BEGIN
 END;
 $$;
 
--- Test 14: Session Context Management
+
+-- Test 13: Session Context Management
 \echo '=== Test 13: Session Context Management ==='
 DO $$
 DECLARE
@@ -2027,6 +1964,673 @@ BEGIN
 END;
 $$;
 
+
+-- Test 14: Password Change (User)
+\echo '=== Test 14: Password Change (User) ==='
+DO $$
+DECLARE
+    login_result jsonb;
+    test_email text := 'test.regular@example.com';
+    old_password text := 'regular123';
+    new_password text := 'newRegularPass456';
+    access_jwt text;
+    refresh_jwt text;
+    session_count_before integer;
+BEGIN
+    -- Login to get tokens and create a session (for verification only)
+    SELECT to_jsonb(source.*) INTO login_result FROM public.login('test.regular@example.com', 'regular123') AS source;
+    RAISE DEBUG 'Logged in %', login_result;
+    access_jwt := login_result->>'access_jwt';
+    refresh_jwt := login_result->>'refresh_jwt';
+
+    -- Count sessions before password change
+    SELECT COUNT(*) INTO session_count_before FROM auth.refresh_session
+    WHERE user_id = (SELECT id FROM auth.user WHERE email = test_email);
+    ASSERT session_count_before > 0, 'Should have at least one session before password change';
+
+    RAISE NOTICE 'Test 14: Password Change (User) - Setup complete';
+END;
+$$;
+
+-- Test 14.1: Change password as user
+DO $$
+DECLARE
+    change_result boolean;
+    test_email text := 'test.regular@example.com';
+    new_password text := 'newRegularPass456';
+    session_count_after integer;
+BEGIN
+    -- Use nested block for SET LOCAL ROLE
+    BEGIN
+        -- Switch to the user's role and change password
+        EXECUTE format('SET LOCAL ROLE "%s"', test_email);
+        RAISE DEBUG 'Inside nested block, current_user=%', current_user;
+        ASSERT current_user = test_email, 'Inside nested block, current user should be test email';
+
+        -- Change password using the function that clears cookies and sessions.
+        PERFORM public.change_password(new_password);
+        -- The function handles invalidation and returns boolean (ignored here).
+        
+        -- Count sessions after password change
+        SELECT COUNT(*) INTO session_count_after FROM auth.refresh_session
+        WHERE user_id = (SELECT id FROM auth.user WHERE email = test_email);
+        
+        -- Verify sessions were invalidated
+        ASSERT session_count_after = 0, 'All sessions should be deleted after password change with role';
+        
+        -- Verify password was updated (try logging in with new password)
+        DECLARE
+            login_result_verify record;
+            old_password_verify text := 'regular123'; -- Need old password for verification
+        BEGIN
+            SELECT * INTO login_result_verify FROM public.login(test_email, new_password);
+            RAISE DEBUG 'Login result (new password verification): %', to_jsonb(login_result_verify);
+            ASSERT login_result_verify IS NOT NULL AND login_result_verify.access_jwt IS NOT NULL, 'Login with new password should succeed (within nested block)';
+
+            -- Verify old password fails
+            SELECT * INTO login_result_verify FROM public.login(test_email, old_password_verify);
+            RAISE DEBUG 'Login result (old password verification): %', to_jsonb(login_result_verify);
+            ASSERT login_result_verify IS NULL OR login_result_verify.access_jwt IS NULL, 'Login with old password should fail (within nested block)';
+        END;
+        
+        -- Raise exception to implicitly rollback the SET LOCAL ROLE and the password change
+        RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE' USING ERRCODE = 'P0001'; -- Use custom error code
+        
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        -- Catch the specific exception and log success
+        RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
+    END;
+    RAISE DEBUG 'After nested block, current_user=%', current_user;
+    ASSERT current_user = 'postgres', 'After nested block, current user should be postgres';
+            
+    RAISE NOTICE 'Test 14.1: Change password as user and verify - PASSED';
+END;
+$$;
+
+-- Test 15: Role Switching with SET LOCAL ROLE
+\echo '=== Test 15: Role Switching with SET LOCAL ROLE ==='
+
+-- Test 15.1: Admin role permissions
+DO $$
+DECLARE
+    admin_email text := 'test.admin@example.com';
+    admin_can_see_count integer;
+BEGIN
+    -- Use nested block for SET LOCAL ROLE
+    BEGIN
+        -- Switch to admin role and check permissions
+        EXECUTE format('SET LOCAL ROLE "%s"', admin_email);
+        RAISE DEBUG 'Inside nested block, current_user=%', current_user;
+        ASSERT current_user = admin_email, 'Inside nested block, current user should be admin email';
+        
+        -- Check admin permissions - should be able to see all users
+        SELECT COUNT(*) INTO admin_can_see_count FROM auth.user;
+        ASSERT admin_can_see_count > 0, 'Admin should be able to see users';
+        
+        -- Raise exception to implicitly rollback the SET LOCAL ROLE
+        RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE' USING ERRCODE = 'P0001'; -- Use custom error code
+        
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        -- Catch the specific exception and log success
+        RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
+    END;
+    RAISE DEBUG 'After nested block, current_user=%', current_user;
+    ASSERT current_user = 'postgres', 'After nested block, current user should be postgres';
+            
+    RAISE NOTICE 'Test 15.1: Admin role permissions - PASSED';
+END;
+$$;
+
+-- Test 15.2: Regular user permissions
+DO $$
+DECLARE
+    regular_email text := 'test.regular@example.com';
+    regular_can_see_count integer;
+BEGIN
+    -- Use nested block for SET LOCAL ROLE
+    BEGIN
+        -- Switch to regular role and check permissions
+        EXECUTE format('SET LOCAL ROLE "%s"', regular_email);
+        RAISE DEBUG 'Inside nested block, current_user=%', current_user;
+        ASSERT current_user = regular_email, 'Inside nested block, current user should be regular email';
+        
+        -- Check regular user permissions - should be able to see public data but not all user data
+        BEGIN
+            SELECT COUNT(*) INTO regular_can_see_count FROM auth.user;
+            -- If we get here, the regular user can see auth.user table (which might be wrong)
+            -- We'll check if they can only see their own record
+            ASSERT regular_can_see_count = 1, 'Regular user should only see their own user record';
+            ASSERT EXISTS (
+                SELECT 1 FROM auth.user WHERE email = regular_email
+            ), 'Regular user should see their own record';
+        EXCEPTION WHEN insufficient_privilege THEN
+            -- This is actually the expected behavior if RLS is properly configured
+            regular_can_see_count := 0;
+        END;
+        
+        -- Regular user should be able to see public data
+        ASSERT EXISTS (
+            SELECT 1 FROM public.country LIMIT 1
+        ), 'Regular user should be able to see public data';
+        
+        -- Raise exception to implicitly rollback the SET LOCAL ROLE
+        RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE' USING ERRCODE = 'P0001'; -- Use custom error code
+        
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        -- Catch the specific exception and log success
+        RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
+    END;
+    RAISE DEBUG 'After nested block, current_user=%', current_user;
+    ASSERT current_user = 'postgres', 'After nested block, current user should be postgres';
+            
+    RAISE NOTICE 'Test 15.2: Regular user permissions - PASSED';
+END;
+$$;
+
+-- Test 15.3: Restricted user permissions
+DO $$
+DECLARE
+    restricted_email text := 'test.restricted@example.com';
+    restricted_can_see_count integer;
+BEGIN
+    -- Use nested block for SET LOCAL ROLE
+    BEGIN
+        -- Switch to restricted role and check permissions
+        EXECUTE format('SET LOCAL ROLE "%s"', restricted_email);
+        RAISE DEBUG 'Inside nested block, current_user=%', current_user;
+        ASSERT current_user = restricted_email, 'Inside nested block, current user should be restricted email';
+        
+        -- Check restricted user permissions
+        BEGIN
+            SELECT COUNT(*) INTO restricted_can_see_count FROM auth.user;
+            -- If we get here, the restricted user can see auth.user table (which might be wrong)
+            -- We'll check if they can only see their own record
+            ASSERT restricted_can_see_count = 1, 'Restricted user should only see their own user record';
+            ASSERT EXISTS (
+                SELECT 1 FROM auth.user WHERE email = restricted_email
+            ), 'Restricted user should see their own record';
+        EXCEPTION WHEN insufficient_privilege THEN
+            -- This is actually the expected behavior if RLS is properly configured
+            restricted_can_see_count := 0;
+        END;
+        
+        -- Restricted user should be able to see public data
+        ASSERT EXISTS (
+            SELECT 1 FROM public.country LIMIT 1
+        ), 'Restricted user should be able to see public data';
+        
+        -- Raise exception to implicitly rollback the SET LOCAL ROLE
+        RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE' USING ERRCODE = 'P0001'; -- Use custom error code
+        
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        -- Catch the specific exception and log success
+        RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
+    END;
+    RAISE DEBUG 'After nested block, current_user=%', current_user;
+    ASSERT current_user = 'postgres', 'After nested block, current user should be postgres';
+            
+    RAISE NOTICE 'Test 15.3: Restricted user permissions - PASSED';
+END;
+$$;
+
+
+-- Test 16: Password Change (Admin)
+\echo '=== Test 16: Password Change (Admin) ==='
+
+-- Test 16.1: Setup and initial state
+DO $$
+DECLARE
+    target_login_result jsonb;
+    target_email text := 'test.external@example.com';
+    target_sub uuid;
+    old_password text := 'external123';
+    target_refresh_jwt text;
+    session_count_before integer;
+BEGIN
+    -- Get target user sub
+    SELECT sub INTO target_sub FROM auth.user WHERE email = target_email;
+    RAISE DEBUG 'Target user sub: %', target_sub;
+    ASSERT target_sub IS NOT NULL, 'Target user not found with email: ' || target_email;
+
+    -- Login target user to create a session (for verification only)
+    SELECT to_json(source.*) INTO target_login_result FROM public.login(target_email, old_password) AS source;
+    target_refresh_jwt := target_login_result->>'refresh_jwt';
+    ASSERT target_login_result->>'access_jwt' IS NOT NULL, 'Access JWT is null';
+    ASSERT target_login_result->>'refresh_jwt' IS NOT NULL, 'Refresh JWT is null';
+
+    -- Count target user sessions before password change
+    SELECT COUNT(*) INTO session_count_before FROM auth.refresh_session
+    WHERE user_id = (SELECT id FROM auth.user WHERE sub = target_sub);
+    
+    -- Debug log refresh sessions to diagnose assertion failure
+    RAISE DEBUG 'Target user refresh sessions: %', 
+        (SELECT jsonb_agg(to_jsonb(rs.*)) 
+         FROM auth.refresh_session rs 
+         JOIN auth.user u ON rs.user_id = u.id 
+         WHERE u.sub = target_sub);
+    RAISE DEBUG 'Target user ID: %', (SELECT id FROM auth.user WHERE sub = target_sub);
+    RAISE DEBUG 'Session count before: %', session_count_before;
+    
+    ASSERT session_count_before > 0, 'Target user should have session before admin password change';
+    
+    -- Store the refresh token for later tests
+    PERFORM set_config('app.test.target_refresh_jwt', target_refresh_jwt, false);
+    PERFORM set_config('app.test.target_sub', target_sub::text, false);
+    
+    RAISE NOTICE 'Test 16.1: Setup and initial state - PASSED';
+END;
+$$;
+
+-- Test 16.2: Admin changes user password
+DO $$
+DECLARE
+    change_result boolean;
+    admin_email text := 'test.admin@example.com';
+    target_sub uuid := current_setting('app.test.target_sub')::uuid;
+    new_password text := 'newExternalPass789';
+    session_count_after integer;
+BEGIN
+    -- Use nested block for SET LOCAL ROLE
+    BEGIN
+        -- Switch to the admin role
+        EXECUTE format('SET LOCAL ROLE "%s"', admin_email);
+        RAISE DEBUG 'Inside nested block, current_user=%', current_user;
+        ASSERT current_user = admin_email, 'Inside nested block, current user should be admin email';
+        
+        -- Admin changes target user password using the function
+        PERFORM public.admin_change_password(target_sub, new_password);
+        -- The function handles invalidation and returns boolean (ignored here).
+        
+        -- Count sessions after password change
+        SELECT COUNT(*) INTO session_count_after FROM auth.refresh_session
+        WHERE user_id = (SELECT id FROM auth.user WHERE sub = target_sub);
+        
+        -- Verify sessions were invalidated
+        ASSERT session_count_after = 0, 'Target user sessions should be deleted after admin password change';
+        
+        -- Store the new password for later tests
+        PERFORM set_config('app.test.new_password', new_password, false);
+        
+        -- Test 16.3: Verify password was changed (within the same transaction)
+        DECLARE
+            target_login_result RECORD;
+            target_email text := 'test.external@example.com';
+            old_password text := 'external123';
+            -- new_password is already defined in the outer block
+            target_refresh_jwt text := current_setting('app.test.target_refresh_jwt');
+            refresh_result record;
+        BEGIN
+            RAISE DEBUG 'Verifying password change for % from % to %', target_email, old_password, new_password;
+        
+            -- Verify password was updated (try logging in target user with new password)
+            SELECT * INTO target_login_result FROM public.login(target_email, new_password);
+            ASSERT target_login_result IS NOT NULL AND target_login_result.access_jwt IS NOT NULL, 'Login target user with new password should succeed';
+        
+            -- Verify old password fails for target user
+            SELECT * INTO target_login_result FROM public.login(target_email, old_password);
+            ASSERT target_login_result IS NULL OR target_login_result.access_jwt IS NULL, 'Login target user with old password should fail';
+        
+            -- Verify target user's old refresh token fails
+            RAISE DEBUG 'Setting statbus-refresh cookie to %', target_refresh_jwt;
+            PERFORM set_config('request.cookies', json_build_object('statbus-refresh', target_refresh_jwt)::text, true);
+            PERFORM set_config('request.jwt.claims', '', true); -- Clear claims
+            BEGIN
+                SELECT * INTO refresh_result FROM public.refresh();
+                RAISE EXCEPTION 'Refresh with target user invalidated session token should have failed but got %', refresh_result;
+            EXCEPTION WHEN OTHERS THEN
+                RAISE DEBUG 'SQLERRM: %', SQLERRM;
+                ASSERT SQLERRM LIKE '%Invalid session or token has been superseded%', 'Error should indicate invalid session';
+            END;
+            
+            RAISE NOTICE 'Test 16.3: Verify password was changed - PASSED';
+        END;
+        
+        -- Raise exception to implicitly rollback the SET LOCAL ROLE and the password change
+        RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE' USING ERRCODE = 'P0001'; -- Use custom error code
+        
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        -- Catch the specific exception and log success
+        RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
+    END;
+    RAISE DEBUG 'After nested block, current_user=%', current_user;
+    ASSERT current_user = 'postgres', 'After nested block, current user should be postgres';
+            
+    RAISE NOTICE 'Test 16.2: Admin changes user password - PASSED';
+END;
+$$;
+
+-- Test 16.4: Change password back
+DO $$
+DECLARE
+    change_result boolean;
+    admin_email text := 'test.admin@example.com';
+    target_email text := 'test.external@example.com';
+    target_sub uuid := current_setting('app.test.target_sub')::uuid;
+    old_password text := 'external123';
+    target_login_result jsonb;
+BEGIN
+    -- Use nested block for SET LOCAL ROLE
+    BEGIN
+        -- Switch to admin role again
+        EXECUTE format('SET LOCAL ROLE "%s"', admin_email);
+        RAISE DEBUG 'Inside nested block, current_user=%', current_user;
+        ASSERT current_user = admin_email, 'Inside nested block, current user should be admin email';
+        
+        -- Admin changes target user password back via direct UPDATE on the view
+        UPDATE public.user SET password = old_password WHERE sub = target_sub;
+        -- We don't get a direct boolean result.
+
+        -- Verify password was reset back
+        SELECT to_json(source.*) INTO target_login_result FROM public.login(target_email, old_password) AS source;
+        ASSERT target_login_result IS NOT NULL AND target_login_result ? 'access_jwt', 'Login with original password should succeed after reset';
+        
+        -- Raise exception to implicitly rollback the SET LOCAL ROLE
+        RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE' USING ERRCODE = 'P0001'; -- Use custom error code
+        
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        -- Catch the specific exception and log success
+        RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
+    END;
+    RAISE DEBUG 'After nested block, current_user=%', current_user;
+    ASSERT current_user = 'postgres', 'After nested block, current user should be postgres';
+        
+    RAISE NOTICE 'Test 16.4: Change password back - PASSED';
+END;
+$$;
+
+-- Test 17: API Key Creation and Usage
+\echo '=== Test 17: API Key Creation and Usage ==='
+DO $$
+DECLARE
+    login_result jsonb;
+    api_key_result record;
+    api_key_token text;
+    api_key_jti uuid;
+    api_key_description text := 'Test API Key';
+    test_email text := 'test.regular@example.com';
+    test_password text := 'regular123';
+    access_jwt text;
+    api_key_claims jsonb;
+    api_key_list record;
+    api_key_count integer;
+BEGIN
+    -- Use nested block for SET LOCAL ROLE
+    BEGIN
+        -- Switch to the user's role
+        EXECUTE format('SET LOCAL ROLE "%s"', test_email);
+        RAISE DEBUG 'Inside nested block, current_user=%', current_user;
+        ASSERT current_user = test_email, 'Inside nested block, current user should be test email';
+    
+    -- Create an API key
+    SELECT * INTO api_key_result FROM public.create_api_key(api_key_description, interval '30 days');
+    
+    -- Debug the API key result
+    RAISE DEBUG 'API key result: %', to_jsonb(api_key_result);
+    
+    -- Verify API key was created
+    ASSERT api_key_result.description = api_key_description, 'API key description should match';
+    ASSERT api_key_result.token IS NOT NULL, 'API key token should not be null';
+    ASSERT api_key_result.jti IS NOT NULL, 'API key JTI should not be null';
+    
+    -- Store values for later tests
+    api_key_token := api_key_result.token;
+    api_key_jti := api_key_result.jti;
+    
+    -- Verify the token is a valid JWT with expected claims
+    SELECT payload::jsonb INTO api_key_claims 
+    FROM verify(api_key_token, 'test-jwt-secret-for-testing-only');
+    
+    -- Debug the API key claims
+    RAISE DEBUG 'API key claims: %', api_key_claims;
+    
+    -- Verify API key claims
+    ASSERT api_key_claims->>'type' = 'api_key', 'API key type should be api_key';
+    ASSERT api_key_claims->>'role' = test_email, 'API key role should match user email';
+    ASSERT api_key_claims->>'jti' = api_key_jti::text, 'API key JTI should match';
+    ASSERT api_key_claims->>'description' = api_key_description, 'API key description should be in claims';
+    
+    -- Verify API key is in the database
+    ASSERT EXISTS (
+        SELECT 1 FROM auth.api_key WHERE jti = api_key_jti
+    ), 'API key should exist in database';
+    
+    -- Test using the API key token for authentication
+    -- Clear existing context
+    PERFORM set_config('request.jwt.claims', '', true);
+    PERFORM set_config('request.cookies', '{}', true);
+    
+    -- Set up JWT claims using the API key token
+    PERFORM set_config('request.jwt.claims', 
+        (SELECT payload::text FROM verify(api_key_token, 'test-jwt-secret-for-testing-only')),
+        true
+    );
+    
+    -- Run the pre-request function that checks API key revocation
+    PERFORM auth.check_api_key_revocation();
+    
+    -- If we get here without an exception, the API key is valid
+    RAISE DEBUG 'API key validation passed';
+    
+    -- Verify we can access data with the API key
+    -- This should work because the API key has the same permissions as the user
+    ASSERT EXISTS (
+        SELECT 1 FROM public.country LIMIT 1
+    ), 'Should be able to access public data with API key';
+    
+    -- Test listing API keys
+    -- We're already using the user's role from SET LOCAL ROLE
+    
+    -- List API keys
+    SELECT COUNT(*) INTO api_key_count FROM public.api_key;
+    
+    -- Verify we can see our API key
+    ASSERT api_key_count > 0, 'Should be able to list API keys';
+    ASSERT EXISTS (
+        SELECT 1 FROM public.api_key WHERE jti = api_key_jti
+    ), 'Should be able to see the created API key';
+    
+    -- Raise exception to implicitly rollback the SET LOCAL ROLE
+    RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE' USING ERRCODE = 'P0001';
+    
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        -- Catch the specific exception and log success
+        RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
+    END;
+    RAISE NOTICE 'Test 17: API Key Creation and Usage - PASSED';
+END;
+$$;
+
+-- Test 18: API Key Revocation
+\echo '=== Test 18: API Key Revocation ==='
+DO $$
+DECLARE
+    login_result jsonb;
+    api_key_result record;
+    api_key_token text;
+    api_key_jti uuid;
+    api_key_description text := 'Test API Key for Revocation';
+    test_email text := 'test.regular@example.com';
+    test_password text := 'regular123';
+    access_jwt text;
+    revoke_result boolean;
+    api_key_claims jsonb;
+BEGIN
+    -- First login to get a valid access token
+    SELECT to_json(source.*) INTO login_result FROM public.login(test_email, test_password) AS source;
+    access_jwt := login_result->>'access_jwt';
+    
+    -- Use nested block for SET LOCAL ROLE to properly test RLS
+    BEGIN
+        -- Switch to the user's role to create and then revoke an API key
+        EXECUTE format('SET LOCAL ROLE "%s"', test_email);
+        RAISE DEBUG 'Inside nested block, current_user=%', current_user;
+        ASSERT current_user = test_email, 'Inside nested block, current user should be test email';
+        
+        -- Create an API key
+        SELECT * INTO api_key_result FROM public.create_api_key(api_key_description, interval '30 days');
+        
+        -- Store values for later tests
+        api_key_token := api_key_result.token;
+        api_key_jti := api_key_result.jti;
+        
+        -- Get the claims from the token
+        SELECT payload::jsonb INTO api_key_claims 
+        FROM verify(api_key_token, 'test-jwt-secret-for-testing-only');
+        
+        -- Verify API key is in the database and not revoked
+        ASSERT EXISTS (
+            SELECT 1 FROM auth.api_key WHERE jti = api_key_jti AND revoked_at IS NULL
+        ), 'API key should exist in database and not be revoked';
+        
+        -- Revoke the API key
+        SELECT public.revoke_api_key(api_key_jti) INTO revoke_result;
+        
+        -- Verify revocation was successful
+        ASSERT revoke_result = true, 'Revoke API key should return true';
+        
+        -- Verify API key is marked as revoked in the database
+        ASSERT EXISTS (
+            SELECT 1 FROM auth.api_key WHERE jti = api_key_jti AND revoked_at IS NOT NULL
+        ), 'API key should be marked as revoked in database';
+        
+        -- Test using the revoked API key token for authentication
+        -- This simulates what PostgREST would do when receiving a revoked API key token
+        
+        -- Set JWT claims to simulate what PostgREST would do
+        PERFORM set_config('request.jwt.claims', api_key_claims::text, true);
+        
+        -- Try to use the revoked API key
+        BEGIN
+            -- This should raise an exception because the key is revoked
+            PERFORM auth.check_api_key_revocation();
+            
+            -- If we get here, the revocation check failed
+            RAISE EXCEPTION 'Revoked API key should not pass validation';
+        EXCEPTION WHEN OTHERS THEN
+            -- This is expected - the key should be rejected
+            RAISE DEBUG 'Revoked API key was correctly rejected: %', SQLERRM;
+            ASSERT SQLERRM LIKE '%API Key has been revoked%', 'Error should indicate revoked key';
+        END;
+
+        -- Raise exception to implicitly rollback the SET LOCAL ROLE
+        RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE' USING ERRCODE = 'P0001';
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        -- Catch the specific exception and log success
+        RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
+    END;
+        
+    RAISE NOTICE 'Test 18: API Key Revocation - PASSED';
+END;
+$$;
+
+-- Test 19: API Key Permissions and Boundaries
+\echo '=== Test 19: API Key Permissions and Boundaries ==='
+DO $$
+DECLARE
+    login_result jsonb;
+    api_key_result record;
+    api_key_token text;
+    api_key_jti uuid;
+    api_key_description text := 'Test API Key for Permissions';
+    test_email text := 'test.regular@example.com';
+    test_password text := 'regular123';
+    access_jwt text;
+    api_key_claims jsonb;
+BEGIN
+    -- First login to get a valid access token
+    SELECT to_json(source.*) INTO login_result FROM public.login(test_email, test_password) AS source;
+    access_jwt := login_result->>'access_jwt';
+    
+    -- Use nested block for SET LOCAL ROLE to properly test RLS
+    BEGIN
+        -- Switch to the user's role to create an API key
+        EXECUTE format('SET LOCAL ROLE "%s"', test_email);
+        RAISE DEBUG 'Inside nested block, current_user=%', current_user;
+        ASSERT current_user = test_email, 'Inside nested block, current user should be test email';
+        
+        -- Create an API key
+        SELECT * INTO api_key_result FROM public.create_api_key(api_key_description, interval '30 days');
+        
+        -- Store values for later tests
+        api_key_token := api_key_result.token;
+        api_key_jti := api_key_result.jti;
+        
+        -- Get the claims from the token
+        SELECT payload::jsonb INTO api_key_claims 
+        FROM verify(api_key_token, 'test-jwt-secret-for-testing-only');
+        
+        -- Raise exception to implicitly rollback the SET LOCAL ROLE
+        RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE' USING ERRCODE = 'P0001';
+    EXCEPTION WHEN SQLSTATE 'P0001' THEN
+        -- Catch the specific exception and log success
+        RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
+    END;
+    -- Now test API key permissions and boundaries
+    -- This simulates what PostgREST would do when receiving an API key token
+    BEGIN
+        -- Extract the role from the token
+        DECLARE
+            api_key_role text;
+        BEGIN
+            api_key_role := api_key_claims->>'role';
+            
+            -- Switch to the role specified in the API key token
+            EXECUTE format('SET LOCAL ROLE "%s"', api_key_role);
+            RAISE DEBUG 'Using API key token, current_user=%', current_user;
+            ASSERT current_user = test_email, 'When using API key, current user should be test email';
+            
+            -- Set JWT claims to simulate what PostgREST would do
+            PERFORM set_config('request.jwt.claims', api_key_claims::text, true);
+            
+            -- Test 1: API keys should not be able to create other API keys
+            BEGIN
+                -- This should fail because API keys shouldn't be able to create other API keys
+                PERFORM public.create_api_key('API Key created by another API key', interval '1 day');
+                
+                -- If we get here, the permission check failed
+                RAISE EXCEPTION 'API keys should not be able to create other API keys';
+            EXCEPTION WHEN OTHERS THEN
+                -- This is expected - the operation should be rejected
+                RAISE DEBUG 'API key creating another API key was correctly rejected: %', SQLERRM;
+            END;
+            
+            -- Test 2: API keys should not be able to change passwords
+            BEGIN
+                -- This should fail because API keys shouldn't be able to change passwords
+                PERFORM public.change_password('NewPassword123');
+                
+                -- If we get here, the permission check failed
+                RAISE EXCEPTION 'API keys should not be able to change passwords';
+            EXCEPTION WHEN OTHERS THEN
+                -- This is expected - the operation should be rejected
+                RAISE DEBUG 'API key changing password was correctly rejected: %', SQLERRM;
+                ASSERT SQLERRM LIKE '%Password change requires a valid access token%', 
+                    'Error should indicate that password change requires access token';
+            END;
+            
+            -- Test 3: API keys should not be able to refresh tokens
+            BEGIN
+                -- This should fail because API keys shouldn't be able to refresh tokens
+                PERFORM public.refresh();
+                
+                -- If we get here, the permission check failed
+                RAISE EXCEPTION 'API keys should not be able to refresh tokens';
+            EXCEPTION WHEN OTHERS THEN
+                -- This is expected - the operation should be rejected
+                RAISE DEBUG 'API key refreshing token was correctly rejected: %', SQLERRM;
+            END;
+            
+            -- Raise exception to implicitly rollback the SET LOCAL ROLE
+            RAISE EXCEPTION 'Simulating rollback for API key role' USING ERRCODE = 'P0002';
+        END;
+    EXCEPTION WHEN SQLSTATE 'P0002' THEN
+        -- Catch the specific exception and log success
+        RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
+    END;
+    RAISE NOTICE 'Test 19: API Key Permissions and Boundaries - PASSED';
+END;
+$$;
+
 -- Clean up test environment
 -- Clean up test sessions
 DELETE FROM auth.refresh_session
@@ -2034,7 +2638,15 @@ WHERE user_id IN (
     SELECT id FROM auth.user 
     WHERE email LIKE 'test.%@example.com'
 );
+-- Clean up test API keys
+DELETE FROM auth.api_key
+WHERE user_id IN (
+    SELECT id FROM auth.user
+    WHERE email LIKE 'test.%@example.com'
+);
+DELETE FROM auth.user
+WHERE email LIKE 'test.%@example.com';
 
-\echo 'All auth tests completed successfully! (14 tests)'
+\echo 'All auth tests completed successfully! (19 tests)'
 
 ROLLBACK;

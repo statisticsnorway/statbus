@@ -11,9 +11,10 @@
  * 4. Requests for clients are deduplicated
  */
 
+import { cache } from 'react';
 import { Database } from "@/lib/database.types";
 import { PostgrestClient } from "@supabase/postgrest-js";
- 
+
 type ClientType = 'server' | 'browser';
 type ClientStatus = 'idle' | 'initializing' | 'ready' | 'error';
 
@@ -57,21 +58,17 @@ class RestClientStore {
    */
   public async getRestClient(type: ClientType): Promise<PostgrestClient<Database>> {
     if (type === 'server') {
-      // Server client: Always create a new instance, no caching.
-      // Initialization reads current request headers via next/headers.
-      // We don't store the promise or client globally for 'server'
+      // Server client: Directly initialize. Caching is handled by the exported getServerRestClient.
       try {
         const client = await this.initializeClient('server');
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Server PostgREST client initialized for request`, { url: client.url });
-        }
+        // Log moved back to initializeClient to see raw initialization calls
         return client;
       } catch (error) {
         console.error(`Failed to initialize server client for request:`, error);
         throw error;
       }
     } else {
-      // Browser client: Use caching and promise deduplication
+      // Browser client: Use caching and promise deduplication (existing logic)
       const now = Date.now();
       const clientInfo = this.clients.browser;
 
@@ -203,13 +200,7 @@ class RestClientStore {
             
             if (token) {
               // Add the token as an Authorization header
-              headers['Authorization'] = `Bearer ${token.value}`;
-              
-              if (process.env.NODE_ENV === 'development') {
-                console.log('Server client initialized with auth token');
-              }
-            } else {
-              console.log('No auth token found in cookies for server client');
+              headers['Authorization'] = `Bearer ${token.value}`;              
             }
           } catch (error) {
             console.error('Error getting cookies for server client:', error);
@@ -218,11 +209,15 @@ class RestClientStore {
           return new PostgrestClient<Database>(apiUrl, { headers });
         };
         
-        // Race the client creation against the timeout
-        return await Promise.race([
+        const client = await Promise.race([
           createClient(),
           timeoutPromise
         ]);
+        // Log initialization attempt for server client
+        if (process.env.NODE_ENV === 'development') {
+          console.log(`Server PostgREST client initialized`, { url: client.url });
+        }
+        return client;
       } else {
         // Create browser client
         const apiBaseUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL;
@@ -330,8 +325,9 @@ class RestClientStore {
       headers
     });
     
-    // If we get a 401 Unauthorized, try to refresh the token
-    if (response.status === 401) {
+    // If we get a 401 Unauthorized, try to refresh the token *only on the browser*
+    // Server-side 401s should typically be handled by initial auth checks or middleware
+    if (response.status === 401 && typeof window !== 'undefined') {
       try {
         // Import the AuthStore dynamically to avoid circular dependencies
         const { authStore } = await import('@/context/AuthStore');
@@ -382,9 +378,10 @@ class RestClientStore {
 export const clientStore = RestClientStore.getInstance();
 
 // Export convenience methods for accessing PostgREST clients
-export async function getServerRestClient(): Promise<PostgrestClient<Database>> {
+// Use React.cache on the exported function to memoize per request
+export const getServerRestClient = cache(async (): Promise<PostgrestClient<Database>> => {
   return clientStore.getRestClient('server');
-}
+});
 
 export async function getBrowserRestClient(): Promise<PostgrestClient<Database>> {
   return clientStore.getRestClient('browser');
@@ -403,7 +400,8 @@ export async function fetchWithAuth(
  * based on the current environment
  */
 export async function getRestClient(): Promise<PostgrestClient<Database>> {
+  // Use the cached getServerRestClient on the server side
   return typeof window === 'undefined'
-    ? await clientStore.getRestClient('server')
+    ? await getServerRestClient()
     : await clientStore.getRestClient('browser');
 }
