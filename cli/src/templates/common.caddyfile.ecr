@@ -77,7 +77,11 @@
         # Has NO auth header
         header !Authorization
     }
-    handle /rest/* {
+    @rest {
+      path /rest
+      path /rest/*
+    }
+    handle @rest {
         uri strip_prefix /rest
         
         reverse_proxy @has_auth_cookie_and_no_auth_header {args[0]} {
