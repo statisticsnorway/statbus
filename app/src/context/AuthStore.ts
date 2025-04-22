@@ -10,6 +10,7 @@
 
 import { getRestClient, getServerRestClient } from "@/context/RestClientStore";
 import type { NextRequest, NextResponse } from 'next/server';
+import * as setCookie from 'set-cookie-parser';
 
 /**
  * User type definition for authentication
@@ -359,7 +360,13 @@ class AuthStore {
         });
 
         if (!refreshResponse.ok) {
-          console.error(`AuthStore.handleServerAuth: Refresh fetch failed: ${refreshResponse.status} ${refreshResponse.statusText}`);
+          let errorBody = 'Could not read error body';
+          try {
+            errorBody = await refreshResponse.text();
+          } catch (readError) {
+            console.error("AuthStore.handleServerAuth: Failed to read error response body:", readError);
+          }
+          console.error(`AuthStore.handleServerAuth: Refresh fetch failed: ${refreshResponse.status} ${refreshResponse.statusText}. Body: ${errorBody}`);
           // Clear potentially invalid cookies on the response
           responseCookies.delete('statbus');
           responseCookies.delete('statbus-refresh');
@@ -376,19 +383,11 @@ class AuthStore {
            return { status: { isAuthenticated: false, user: null, tokenExpiring: false } };
         }
 
-        // Parse new tokens (basic parsing, needs improvement for production)
-        let newAccessToken: string | null = null;
-        let newRefreshToken: string | null = null;
-        const cookies = setCookieHeader.split(', '); 
-        cookies.forEach(cookieStr => {
-           const parts = cookieStr.split(';')[0].split('=');
-           if (parts.length === 2) {
-             const name = parts[0].trim();
-             const value = parts[1].trim();
-             if (name === 'statbus') newAccessToken = value;
-             else if (name === 'statbus-refresh') newRefreshToken = value;
-           }
-        });
+        // Parse the Set-Cookie header using the library
+        const parsedCookies = setCookie.parse(setCookieHeader, { map: true });
+        const newAccessToken = parsedCookies['statbus']?.value;
+        const newRefreshToken = parsedCookies['statbus-refresh']?.value;
+
 
         if (newAccessToken && newRefreshToken) {
           console.log("AuthStore.handleServerAuth: Refresh successful.");
