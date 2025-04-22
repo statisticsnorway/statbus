@@ -1,6 +1,5 @@
 This is a PostgreSQL(17+) + PostgREST(12+) + Next.js project.
 Next.js files are in the app/ directory with TypeScript.
-Legacy code is in legacy/ for reference only.
 The app runs server-side and client-side with SSR, using Next.js 14 in app/src/{app,api,...} directories.
 Deployed on custom servers behind Caddy with HTTPS.
 
@@ -59,3 +58,7 @@ Column name
 * `x_ident` is an external identifier, not originating from the database
 * `x_at` is a TIMESTAMPTZ (with timezone)
 * `x_on` is a DATE
+
+## Migrations
+Placed in `migrations/YYYYMMDDHHmmSS_snake_case_description.up.sql` and `migrations/YYYYMMDDHHmm_snake_case_description.down.sql`.
+Run with `./cli/bin/statbus migrate up -v`
