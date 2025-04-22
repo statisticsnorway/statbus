@@ -349,7 +349,7 @@ class AuthStore {
 
       // --- Attempt Refresh ---
       try {
-        const refreshUrl = `${process.env.SERVER_REST_URL}/rpc/refresh`; 
+        const refreshUrl = `${process.env.SERVER_REST_URL}/rest/rpc/refresh`;
         console.log(`AuthStore.handleServerAuth: Attempting token refresh via: ${refreshUrl}`);
 
         const refreshResponse = await fetch(refreshUrl, {
