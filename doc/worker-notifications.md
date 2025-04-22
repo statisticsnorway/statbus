@@ -100,7 +100,7 @@ We'll implement a lightweight system stability indicator that shows whether the 
      RETURN QUERY
      SELECT json_build_object(
        'id', t.id,
-       'command', t.command,
+       'command', t.command, -- e.g., 'derive_statistical_unit', 'derive_reports'
        'state', t.state,
        'created_at', t.created_at,
        'duration_ms', t.duration_ms

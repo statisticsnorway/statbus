@@ -85,15 +85,21 @@ WHERE command = 'deleted_row' AND state = 'pending'::worker.task_state;
 -- For derive: only one pending task at a time
 CREATE UNIQUE INDEX idx_tasks_derive_dedup
 ON worker.tasks (command)
-WHERE command = 'derive_data' AND state = 'pending'::worker.task_state;
+WHERE command = 'derive_statistical_unit' AND state = 'pending'::worker.task_state;
 
 -- For task_cleanup: only one pending task at a time
 CREATE UNIQUE INDEX idx_tasks_task_cleanup_dedup
 ON worker.tasks (command)
 WHERE command = 'task_cleanup' AND state = 'pending'::worker.task_state;
 
--- Create statistical unit refresh function
-CREATE FUNCTION worker.derive_data(
+-- For derive_reports: only one pending task at a time
+CREATE UNIQUE INDEX idx_tasks_derive_reports_dedup
+ON worker.tasks (command)
+WHERE command = 'derive_reports' AND state = 'pending'::worker.task_state;
+
+
+-- Create statistical unit refresh function (part 1: core units)
+CREATE FUNCTION worker.derive_statistical_unit(
   p_establishment_ids int[] DEFAULT NULL,
   p_legal_unit_ids int[] DEFAULT NULL,
   p_enterprise_ids int[] DEFAULT NULL,
@@ -102,7 +108,7 @@ CREATE FUNCTION worker.derive_data(
 )
 RETURNS void
 LANGUAGE plpgsql
-AS $derive_data$
+AS $derive_statistical_unit$
 DECLARE
   v_affected_count int;
 BEGIN
@@ -120,28 +126,24 @@ BEGIN
     p_valid_to => p_valid_to
   );
 
-  -- Refresh derived data
+  -- Refresh derived data (used flags) - needed for statistical_unit filtering
   PERFORM public.activity_category_used_derive();
   PERFORM public.region_used_derive();
   PERFORM public.sector_used_derive();
   PERFORM public.data_source_used_derive();
   PERFORM public.legal_form_used_derive();
   PERFORM public.country_used_derive();
-
-  PERFORM public.statistical_unit_facet_derive(valid_after => p_valid_after,valid_to => p_valid_to);
-  PERFORM public.statistical_history_derive(valid_after => p_valid_after,valid_to => p_valid_to);
-  PERFORM public.statistical_history_facet_derive(valid_after => p_valid_after,valid_to => p_valid_to);
 END;
-$derive_data$;
+$derive_statistical_unit$;
 
--- Create command handler for derive_data
--- Refreshes statistical units based on provided IDs and date range
-CREATE PROCEDURE worker.derive_data(
+-- Create command handler for derive_statistical_unit
+-- Refreshes core statistical units based on provided IDs and date range
+CREATE PROCEDURE worker.derive_statistical_unit(
     payload JSONB
 )
 SECURITY DEFINER
 LANGUAGE plpgsql
-AS $procedure$
+AS $derive_statistical_unit$
 DECLARE
     v_establishment_ids int[] = CASE
         WHEN jsonb_typeof(payload->'establishment_ids') = 'array' THEN
@@ -174,7 +176,7 @@ DECLARE
     v_valid_to date = (payload->>'valid_to')::date;
 BEGIN
   -- Call the statistical unit refresh function with the extracted parameters
-  PERFORM worker.derive_data(
+  PERFORM worker.derive_statistical_unit(
     p_establishment_ids := v_establishment_ids,
     p_legal_unit_ids := v_legal_unit_ids,
     p_enterprise_ids := v_enterprise_ids,
@@ -182,7 +184,47 @@ BEGIN
     p_valid_to := v_valid_to
   );
 END;
+$derive_statistical_unit$;
+
+
+
+-- Create statistical unit refresh function (part 2: reports and facets)
+CREATE FUNCTION worker.derive_reports(
+  p_valid_after date DEFAULT NULL,
+  p_valid_to date DEFAULT NULL
+)
+RETURNS void
+LANGUAGE plpgsql
+AS $derive_reports$
+BEGIN
+  -- Refresh derived data (facets and history)
+  PERFORM public.statistical_history_derive(valid_after => p_valid_after,valid_to => p_valid_to);
+  PERFORM public.statistical_unit_facet_derive(valid_after => p_valid_after,valid_to => p_valid_to);
+  PERFORM public.statistical_history_facet_derive(valid_after => p_valid_after,valid_to => p_valid_to);
+END;
+$derive_reports$;
+
+
+-- Create command handler for derive_reports
+-- Refreshes reports and facets based on date range
+CREATE PROCEDURE worker.derive_reports(
+    payload JSONB
+)
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $procedure$
+DECLARE
+    v_valid_after date = (payload->>'valid_after')::date;
+    v_valid_to date = (payload->>'valid_to')::date;
+BEGIN
+  -- Call the reports refresh function with the extracted parameters
+  PERFORM worker.derive_reports(
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+END;
 $procedure$;
+
 
 -- Command handler for check_table
 -- Processes changes in a table since a specific transaction ID
@@ -264,11 +306,16 @@ BEGIN
      array_length(v_legal_unit_ids, 1) > 0 OR
      array_length(v_enterprise_ids, 1) > 0
   THEN
-    -- Schedule derive_data which will handle all refresh steps
-    PERFORM worker.enqueue_derive_data(
+    -- Schedule statistical unit refresh
+    PERFORM worker.enqueue_derive_statistical_unit(
       p_establishment_ids := v_establishment_ids,
       p_legal_unit_ids := v_legal_unit_ids,
       p_enterprise_ids := v_enterprise_ids,
+      p_valid_after := v_valid_after,
+      p_valid_to := v_valid_to
+    );
+    -- Schedule report refresh
+    PERFORM worker.enqueue_derive_reports(
       p_valid_after := v_valid_after,
       p_valid_to := v_valid_to
     );
@@ -323,11 +370,17 @@ DECLARE
     v_valid_after date = (payload->>'valid_after')::date;
     v_valid_to date = (payload->>'valid_to')::date;
 BEGIN
-  -- Schedule derive_data
-  PERFORM worker.enqueue_derive_data(
+  -- Schedule statistical unit refresh
+  PERFORM worker.enqueue_derive_statistical_unit(
     p_establishment_ids := v_establishment_ids,
     p_legal_unit_ids := v_legal_unit_ids,
     p_enterprise_ids := v_enterprise_ids,
+    p_valid_after := v_valid_after,
+    p_valid_to := v_valid_to
+  );
+
+  -- Schedule report refresh
+  PERFORM worker.enqueue_derive_reports(
     p_valid_after := v_valid_after,
     p_valid_to := v_valid_to
   );
@@ -526,8 +579,8 @@ END;
 $function$;
 
 
--- For derive_data command
-CREATE FUNCTION worker.enqueue_derive_data(
+-- For derive_statistical_unit command
+CREATE FUNCTION worker.enqueue_derive_statistical_unit(
   p_establishment_ids int[] DEFAULT NULL,
   p_legal_unit_ids int[] DEFAULT NULL,
   p_enterprise_ids int[] DEFAULT NULL,
@@ -547,7 +600,7 @@ DECLARE
 BEGIN
   -- Create payload with arrays
   v_payload := jsonb_build_object(
-    'command', 'derive_data',
+    'command', 'derive_statistical_unit',
     'establishment_ids', to_jsonb(v_establishment_ids),
     'legal_unit_ids', to_jsonb(v_legal_unit_ids),
     'enterprise_ids', to_jsonb(v_enterprise_ids),
@@ -555,16 +608,15 @@ BEGIN
     'valid_to', v_valid_to
   );
 
-  -- Create a unique index on a combination of all ID arrays and date range
-  -- This ensures we only have one pending task for the same set of IDs and date range
+  -- Use the unique index on command for deduplication
   INSERT INTO worker.tasks AS t (
     command, payload
-  ) VALUES ('derive_data', v_payload)
+  ) VALUES ('derive_statistical_unit', v_payload)
   ON CONFLICT (command)
-  WHERE command = 'derive_data' AND state = 'pending'::worker.task_state
+  WHERE command = 'derive_statistical_unit' AND state = 'pending'::worker.task_state
   DO UPDATE SET
     payload = jsonb_build_object(
-      'command', 'derive_data',
+      'command', 'derive_statistical_unit',
       -- Merge and deduplicate establishment IDs
       'establishment_ids', to_jsonb(
         ARRAY(
@@ -607,6 +659,58 @@ BEGIN
           ORDER BY 1
         )
       ),
+      -- Expand date ranges
+      'valid_after', LEAST(
+        (t.payload->>'valid_after')::date,
+        (EXCLUDED.payload->>'valid_after')::date
+      ),
+      'valid_to', GREATEST(
+        (t.payload->>'valid_to')::date,
+        (EXCLUDED.payload->>'valid_to')::date
+      )
+    ),
+    state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,  -- Use the new priority to push queue position
+    processed_at = NULL,
+    error = NULL
+  RETURNING id INTO v_task_id;
+
+  PERFORM pg_notify('worker_tasks', 'analytics');
+
+  RETURN v_task_id;
+END;
+$function$;
+
+
+-- For derive_reports command
+CREATE FUNCTION worker.enqueue_derive_reports(
+  p_valid_after date DEFAULT NULL,
+  p_valid_to date DEFAULT NULL
+) RETURNS BIGINT
+LANGUAGE plpgsql
+AS $function$
+DECLARE
+  v_task_id BIGINT;
+  v_payload JSONB;
+  v_valid_after DATE := COALESCE(p_valid_after, '-infinity'::DATE);
+  v_valid_to DATE := COALESCE(p_valid_to, 'infinity'::DATE);
+BEGIN
+  -- Create payload
+  v_payload := jsonb_build_object(
+    'command', 'derive_reports',
+    'valid_after', v_valid_after,
+    'valid_to', v_valid_to
+  );
+
+  -- Use the unique index on command for deduplication
+  INSERT INTO worker.tasks AS t (
+    command, payload
+  ) VALUES ('derive_reports', v_payload)
+  ON CONFLICT (command)
+  WHERE command = 'derive_reports' AND state = 'pending'::worker.task_state
+  DO UPDATE SET
+    payload = jsonb_build_object(
+      'command', 'derive_reports',
       -- Expand date ranges
       'valid_after', LEAST(
         (t.payload->>'valid_after')::date,
@@ -793,7 +897,8 @@ INSERT INTO worker.command_registry (queue, command, handler_procedure, descript
 VALUES
   ('analytics', 'check_table', 'worker.command_check_table', 'Process changes in a table since a specific transaction ID'),
   ('analytics', 'deleted_row', 'worker.command_deleted_row', 'Handle deletion of rows from statistical unit tables'),
-  ('analytics', 'derive_data', 'worker.derive_data', 'Refresh all timeline tables, statistical units and reports in a single transaction'),
+  ('analytics', 'derive_statistical_unit', 'worker.derive_statistical_unit', 'Refresh core timeline tables and statistical units'),
+  ('analytics', 'derive_reports', 'worker.derive_reports', 'Refresh derived reports, facets, and history'),
   ('maintenance', 'task_cleanup', 'worker.command_task_cleanup', 'Clean up old completed and failed tasks');
 
 
@@ -852,18 +957,25 @@ BEGIN
             p_valid_to := (v_task.payload->>'valid_to')::date
           ) INTO v_new_task_id;
 
-        WHEN 'derive_data' THEN
-          -- For derive_data, use the enqueue_derive_data function
-          SELECT worker.enqueue_derive_data(
+        WHEN 'derive_statistical_unit' THEN
+          -- For derive_statistical_unit, use the enqueue_derive_statistical_unit function
+          SELECT worker.enqueue_derive_statistical_unit(
             p_establishment_ids := CASE WHEN jsonb_typeof(v_task.payload->'establishment_ids') = 'array'
-                                   THEN ARRAY(SELECT jsonb_array_elements_text(v_task.payload->'establishment_ids')::int)
-                                   ELSE NULL END,
+                                  THEN ARRAY(SELECT jsonb_array_elements_text(v_task.payload->'establishment_ids')::int)
+                                  ELSE NULL END,
             p_legal_unit_ids := CASE WHEN jsonb_typeof(v_task.payload->'legal_unit_ids') = 'array'
                                THEN ARRAY(SELECT jsonb_array_elements_text(v_task.payload->'legal_unit_ids')::int)
                                ELSE NULL END,
             p_enterprise_ids := CASE WHEN jsonb_typeof(v_task.payload->'enterprise_ids') = 'array'
                                THEN ARRAY(SELECT jsonb_array_elements_text(v_task.payload->'enterprise_ids')::int)
                                ELSE NULL END,
+            p_valid_after := (v_task.payload->>'valid_after')::date,
+            p_valid_to := (v_task.payload->>'valid_to')::date
+          ) INTO v_new_task_id;
+
+        WHEN 'derive_reports' THEN
+          -- For derive_reports, use the enqueue_derive_reports function
+          SELECT worker.enqueue_derive_reports(
             p_valid_after := (v_task.payload->>'valid_after')::date,
             p_valid_to := (v_task.payload->>'valid_to')::date
           ) INTO v_new_task_id;
