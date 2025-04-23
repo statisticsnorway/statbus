@@ -11,6 +11,7 @@ import TimeContextSelector from "@/components/time-context-selector";
 import { useAuth } from "@/hooks/useAuth";
 import { useBaseData } from "@/app/BaseDataClient";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation"; // Import usePathname
 
 export function NavbarSkeleton() {
   return (
@@ -25,6 +26,7 @@ export function NavbarSkeleton() {
 export default function Navbar() {
   const { isAuthenticated } = useAuth();
   const { hasStatisticalUnits } = useBaseData();
+  const pathname = usePathname(); // Get current pathname
 
   const [isClient, setIsClient] = useState(false);
 
@@ -55,7 +57,9 @@ export default function Navbar() {
                 href="/import"
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "sm" }),
-                  "space-x-2 hidden lg:flex"
+                  "space-x-2 hidden lg:flex",
+                  // Add active state class
+                  pathname.startsWith("/import") && "border-1 border-white" 
                 )}
               >
                 <Upload size={16} />
@@ -66,7 +70,9 @@ export default function Navbar() {
                 href="/search"
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "sm" }),
-                  "space-x-2 hidden lg:flex"
+                  "space-x-2 hidden lg:flex",
+                  // Add active state class
+                  pathname.startsWith("/search") && "border-1 border-white"
                 )}
               >
                 <Search size={16} />
@@ -77,7 +83,9 @@ export default function Navbar() {
                 href="/reports"
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "sm" }),
-                  "space-x-2 hidden lg:flex"
+                  "space-x-2 hidden lg:flex",
+                  // Add active state class
+                  pathname.startsWith("/reports") && "border-1 border-white"
                 )}
               >
                 <BarChartHorizontal size={16} />
