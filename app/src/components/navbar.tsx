@@ -3,7 +3,7 @@ import ProfileAvatar from "@/components/profile-avatar";
 import Image from "next/image";
 import logo from "@/../public/statbus-logo.png";
 import Link from "next/link";
-import { BarChartHorizontal, Search } from "lucide-react";
+import { BarChartHorizontal, Search, Upload } from "lucide-react"; // Import Upload icon
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
@@ -49,16 +49,18 @@ export default function Navbar() {
           {isAuthenticated && hasStatisticalUnits && (
             <>
               <TimeContextSelector />
+              {/* Import Link */}
               <Link
-                href="/reports"
+                href="/import"
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "sm" }),
                   "space-x-2 hidden lg:flex"
                 )}
               >
-                <BarChartHorizontal size={16} />
-                <span>Reports</span>
+                <Upload size={16} />
+                <span>Import</span>
               </Link>
+              {/* Search Link */}
               <Link
                 href="/search"
                 className={cn(
@@ -68,6 +70,17 @@ export default function Navbar() {
               >
                 <Search size={16} />
                 <span>Statistical Units</span>
+              </Link>
+              {/* Reports Link */}
+              <Link
+                href="/reports"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "sm" }),
+                  "space-x-2 hidden lg:flex"
+                )}
+              >
+                <BarChartHorizontal size={16} />
+                <span>Reports</span>
               </Link>
             </>
           )}
