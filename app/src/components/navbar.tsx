@@ -45,10 +45,11 @@ export default function Navbar() {
         >
           <Image src={logo} alt="Statbus Logo" className="h-9 w-9" />
         </Link>
-        <div className="flex-1 space-x-3 flex items-center justify-end">
+
+        {/* Center: Main Navigation Links */}
+        <div className="flex flex-1 justify-center space-x-3">
           {isAuthenticated && hasStatisticalUnits && (
             <>
-              <TimeContextSelector />
               {/* Import Link */}
               <Link
                 href="/import"
@@ -83,6 +84,13 @@ export default function Navbar() {
                 <span>Reports</span>
               </Link>
             </>
+          )}
+        </div>
+
+        {/* Right: Context/Profile/Mobile */}
+        <div className="flex items-center space-x-3">
+          {isAuthenticated && hasStatisticalUnits && (
+            <TimeContextSelector />
           )}
           {isAuthenticated && (
             <>
