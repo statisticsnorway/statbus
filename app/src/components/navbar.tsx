@@ -48,10 +48,13 @@ export default function Navbar() {
           <Image src={logo} alt="Statbus Logo" className="h-9 w-9" />
         </Link>
 
-        {/* Center: Main Navigation Links */}
+        {/* Center: Main Navigation Links / Mobile Menu Trigger */}
         <div className="flex flex-1 justify-center space-x-3">
           {isAuthenticated && hasStatisticalUnits && (
             <>
+              {/* Mobile Menu Trigger (Hamburger) */}
+              <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
+
               {/* Import Link */}
               <Link
                 href="/import"
@@ -103,7 +106,7 @@ export default function Navbar() {
           {isAuthenticated && (
             <>
               <ProfileAvatar className="w-8 h-8 text-ssb-dark hidden lg:flex" />
-              <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
+              {/* Mobile menu button moved to the center section */}
             </>
           )}
         </div>

@@ -85,18 +85,38 @@ export function CommandPalette() {
         <CommandInput placeholder="Type a command or search..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Pages">
+          <CommandGroup heading="Main Pages">
             <CommandItem onSelect={() => navigate("/")} value="Start page">
               <Home className="mr-2 h-4 w-4" />
               <span>Start page</span>
             </CommandItem>
             <CommandItem
+              onSelect={() => navigate("/import")}
+              value="Import"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              <span>Import</span>
+            </CommandItem>
+            <CommandItem
               onSelect={() => navigate("/search")}
-              value="Search find statistical units"
+              value="Find statistical units"
             >
               <Search className="mr-2 h-4 w-4" />
               <span>Find statistical units</span>
             </CommandItem>
+            <CommandItem
+              onSelect={() => navigate("/reports")}
+              value="Reports"
+            >
+              <BarChartHorizontal className="mr-2 h-4 w-4" />
+              <span>Reports</span>
+            </CommandItem>
+            <CommandItem onSelect={() => navigate("/profile")} value="Profile">
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </CommandItem>
+          </CommandGroup>
+          <CommandGroup heading="Other Pages">
             <CommandItem
               onSelect={() => navigate("/getting-started")}
               value="Getting started"
@@ -148,13 +168,6 @@ export function CommandPalette() {
               <span>Upload Custom Activity Category Standards</span>
             </CommandItem>
             <CommandItem
-              onSelect={() => navigate("/import")}
-              value="Import Data"
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              <span>Import Data</span>
-            </CommandItem>
-            <CommandItem
               onSelect={() => navigate("/import/legal-units")}
               value="Upload Legal Units"
             >
@@ -176,17 +189,6 @@ export function CommandPalette() {
             >
               <Upload className="mr-2 h-4 w-4" />
               <span>Upload Establishments Without Legal Unit</span>
-            </CommandItem>
-            <CommandItem onSelect={() => navigate("/profile")} value="Profile">
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </CommandItem>
-            <CommandItem
-              onSelect={() => navigate("/reports")}
-              value="Reports drill drilldown"
-            >
-              <BarChartHorizontal className="mr-2 h-4 w-4" />
-              <span>Reports</span>
             </CommandItem>
           </CommandGroup>
           <CommandSeparator />
