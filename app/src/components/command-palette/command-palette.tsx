@@ -148,6 +148,13 @@ export function CommandPalette() {
               <span>Upload Custom Activity Category Standards</span>
             </CommandItem>
             <CommandItem
+              onSelect={() => navigate("/import")}
+              value="Import Data"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              <span>Import Data</span>
+            </CommandItem>
+            <CommandItem
               onSelect={() => navigate("/import/legal-units")}
               value="Upload Legal Units"
             >
