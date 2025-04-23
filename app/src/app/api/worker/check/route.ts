@@ -1,19 +1,23 @@
-import { addClientCallback, removeClientCallback } from '@/lib/db-listener'; // Adjust path if needed
+import { addClientCallback, removeClientCallback, initializeDbListener } from '@/lib/db-listener'; // Adjust path if needed
 
 export const dynamic = 'force-dynamic'; // Ensure this route is not statically optimized
 
 export async function GET(request: Request) {
+  // Ensure DB listener is initialized when this route is hit
+  const status = await initializeDbListener();
+  
+  // Create a unique ID for this connection
+  const connectionId = Math.random().toString(36).substring(2, 10);
+  
   const stream = new ReadableStream({
-    async start(controller) {
-      // Handle notifications from the 'check' channel
-      const handleNotification = (payload: string) => {
-        // Send event with type 'check' and the function name as data
+    start(controller) {
+      // Define the callback function
+      const handleNotification = function notificationHandler(payload: string) {
         try {
-          controller.enqueue(`event: check\ndata: ${payload}\n\n`);
-          console.log(`SSE sent: check - ${payload}`);
+          const message = `event: check\ndata: ${payload}\n\n`;
+          controller.enqueue(new TextEncoder().encode(message));
         } catch (e) {
-          console.error("Error sending SSE data:", e);
-          // Attempt to close the stream nicely on error
+          console.error(`SSE Route: Error sending data:`, e);
           try { controller.close(); } catch {}
           removeClientCallback(handleNotification);
         }
@@ -22,23 +26,30 @@ export async function GET(request: Request) {
       // No initial state is sent via SSE. The client fetches initial state via BaseDataStore.
       // The SSE stream only sends 'check' hints when the status *might* have changed.
 
-      // Add the callback for this specific client connection.
-      // The db-listener singleton manages the list of all active client callbacks.
+      // Add the callback for this specific client connection
       addClientCallback(handleNotification);
-      console.log("SSE client connected, added callback.");
+      console.log(`SSE: Client ${connectionId} connected (total clients: ${status.activeCallbacks + 1})`);
 
-      // Handle client disconnection
+      // Send an initial ping to confirm connection is working
+      try {
+        controller.enqueue(new TextEncoder().encode(`event: connected\ndata: true\n\n`));
+      } catch (e) {
+        console.error(`SSE Route: Error sending initial ping:`, e);
+      }
+
+      // Handle client disconnection (e.g., browser tab closed)
       request.signal.addEventListener('abort', () => {
-        console.log("SSE client disconnected, removing callback.");
         removeClientCallback(handleNotification);
-        try { controller.close(); } catch {} // Close the stream on abort
+        try {
+          controller.close();
+        } catch (e) {
+          // Ignore errors closing an already closed controller
+        }
       });
     },
-    cancel(reason) {
-      console.log("SSE stream cancelled.", reason);
-      // Note: The 'abort' event listener above should handle cleanup,
-      // but this cancel function is here for completeness.
-      // We might need to ensure handleNotification is removed here too if abort isn't always triggered.
+    cancel() {
+      // This might be called if the stream is cancelled programmatically
+      // We'll rely on the abort signal for cleanup
     },
   });
 

@@ -11,15 +11,13 @@
 // Ensure this function is exported from the file
 export async function register() {
   // Check if we're running in the server environment before initializing
-  // The register function can run in edge environments too in some configurations.
   if (process.env.NEXT_RUNTIME === 'nodejs') {
-    console.log("Instrumentation: Registering server-side components...");
-    // Dynamically import the listener to avoid issues if it's not needed
-    // in edge runtimes or during build steps where the DB might not be available.
+    // Dynamically import the listener to avoid issues in edge runtimes
     const { initializeDbListener } = await import('@/lib/db-listener');
-    await initializeDbListener();
-    console.log("Instrumentation: DB Listener initialization initiated.");
-  } else {
-    console.log("Instrumentation: Skipping server-side initialization (runtime:", process.env.NEXT_RUNTIME, ")");
+    try {
+      await initializeDbListener();
+    } catch (error) {
+      console.error("Instrumentation: DB Listener initialization failed:", error);
+    }
   }
 }

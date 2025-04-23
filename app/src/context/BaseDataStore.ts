@@ -126,13 +126,16 @@ class BaseDataStore {
   }
 
   /**
-   * Refresh the worker status (is_importing, is_deriving_units, is_deriving_reports)
+   * Refresh a specific worker status function
    */
-  public async refreshWorkerStatus(client?: PostgrestClient<Database>): Promise<{ isImporting: boolean | null, isDerivingUnits: boolean | null, isDerivingReports: boolean | null }> {
+  public async refreshWorkerStatus(
+    functionName: string,
+    client?: PostgrestClient<Database>
+  ): Promise<{ isImporting: boolean | null, isDerivingUnits: boolean | null, isDerivingReports: boolean | null }> {
     const now = Date.now();
     // Basic throttling/caching
     if (this.workerStatusLoading && now - this.lastWorkerStatusFetchTime < 5000) { // Avoid rapid refires
-        console.log("Worker status refresh already in progress or recently completed.");
+        console.log(`Worker status refresh for ${functionName} already in progress or recently completed.`);
         return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
     }
 
@@ -149,7 +152,7 @@ class BaseDataStore {
         console.error('Failed to get client for worker status refresh:', error);
         this.workerStatusError = "Failed to get API client";
         this.workerStatusLoading = false;
-        return { isImporting: null, isDerivingUnits: null, isDerivingReports: null };
+        return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
       }
     }
 
@@ -157,32 +160,44 @@ class BaseDataStore {
       console.error('Invalid client provided to refreshWorkerStatus');
       this.workerStatusError = "Invalid API client";
       this.workerStatusLoading = false;
-      return { isImporting: null, isDerivingUnits: null, isDerivingReports: null };
+      return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
     }
 
     try {
-      const [importResult, unitsResult, reportsResult] = await Promise.all([
-        currentClient.rpc("is_importing"),
-        currentClient.rpc("is_deriving_statistical_units"),
-        currentClient.rpc("is_deriving_reports")
-      ]);
-
-      if (importResult.error) throw new Error(`Import status error: ${importResult.error.message}`);
-      if (unitsResult.error) throw new Error(`Units status error: ${unitsResult.error.message}`);
-      if (reportsResult.error) throw new Error(`Reports status error: ${reportsResult.error.message}`);
-
-      this.isImporting = importResult.data ?? null;
-      this.isDerivingUnits = unitsResult.data ?? null;
-      this.isDerivingReports = reportsResult.data ?? null;
-      console.log(`Worker status refreshed: Import=${this.isImporting}, Units=${this.isDerivingUnits}, Reports=${this.isDerivingReports}`);
-      return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
+      // Only check the specific function that was notified
+      if (functionName === 'is_importing') {
+        const importResult = await currentClient.rpc("is_importing");
+        if (importResult.error) throw new Error(`Import status error: ${importResult.error.message}`);
+        this.isImporting = importResult.data ?? null;
+        console.log(`Worker status refreshed: Import=${this.isImporting}`);
+      } 
+      else if (functionName === 'is_deriving_statistical_units') {
+        const unitsResult = await currentClient.rpc("is_deriving_statistical_units");
+        if (unitsResult.error) throw new Error(`Units status error: ${unitsResult.error.message}`);
+        this.isDerivingUnits = unitsResult.data ?? null;
+        console.log(`Worker status refreshed: Units=${this.isDerivingUnits}`);
+      }
+      else if (functionName === 'is_deriving_reports') {
+        const reportsResult = await currentClient.rpc("is_deriving_reports");
+        if (reportsResult.error) throw new Error(`Reports status error: ${reportsResult.error.message}`);
+        this.isDerivingReports = reportsResult.data ?? null;
+        console.log(`Worker status refreshed: Reports=${this.isDerivingReports}`);
+      }
+      
+      return { 
+        isImporting: this.isImporting, 
+        isDerivingUnits: this.isDerivingUnits, 
+        isDerivingReports: this.isDerivingReports 
+      };
 
     } catch (error: any) {
-      console.error('Failed to refresh worker status:', error);
+      console.error(`Failed to refresh worker status for ${functionName}:`, error);
       this.workerStatusError = error.message || "Unknown error fetching worker status";
-      this.isImporting = null; // Invalidate on error
-      this.isDerivingUnits = null;
-      this.isDerivingReports = null;
+      // Only invalidate the specific status that failed
+      if (functionName === 'is_importing') this.isImporting = null;
+      else if (functionName === 'is_deriving_statistical_units') this.isDerivingUnits = null;
+      else if (functionName === 'is_deriving_reports') this.isDerivingReports = null;
+      
       // Notify listeners about the change
       this.notifyWorkerStatusListeners();
       return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
@@ -193,6 +208,7 @@ class BaseDataStore {
       this.notifyWorkerStatusListeners();
     }
   }
+
 
   // Method to notify listeners
   private notifyWorkerStatusListeners() {

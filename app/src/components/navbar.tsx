@@ -25,7 +25,8 @@ export function NavbarSkeleton() {
 
 export default function Navbar() {
   const { isAuthenticated } = useAuth();
-  const { hasStatisticalUnits } = useBaseData();
+  const { hasStatisticalUnits, workerStatus } = useBaseData();
+  const { isImporting, isDerivingUnits, isDerivingReports } = workerStatus;
   const pathname = usePathname(); // Get current pathname
 
   const [isClient, setIsClient] = useState(false);
@@ -62,7 +63,9 @@ export default function Navbar() {
                   buttonVariants({ variant: "ghost", size: "sm" }),
                   "space-x-2 hidden lg:flex",
                   // Add active state class
-                  pathname.startsWith("/import") && "border-1 border-white" 
+                  "border-1", // Base border class
+                  isImporting ? "border-yellow-400" : // Processing state overrides active state
+                  pathname.startsWith("/import") ? "border-white" : "border-transparent" // Active/Inactive state
                 )}
               >
                 <Upload size={16} />
@@ -75,7 +78,9 @@ export default function Navbar() {
                   buttonVariants({ variant: "ghost", size: "sm" }),
                   "space-x-2 hidden lg:flex",
                   // Add active state class
-                  pathname.startsWith("/search") && "border-1 border-white"
+                  "border-1", // Base border class
+                  isDerivingUnits ? "border-yellow-400" : // Processing state overrides active state
+                  pathname.startsWith("/search") ? "border-white" : "border-transparent" // Active/Inactive state
                 )}
               >
                 <Search size={16} />
@@ -88,7 +93,9 @@ export default function Navbar() {
                   buttonVariants({ variant: "ghost", size: "sm" }),
                   "space-x-2 hidden lg:flex",
                   // Add active state class
-                  pathname.startsWith("/reports") && "border-1 border-white"
+                  "border-1", // Base border class
+                  isDerivingReports ? "border-yellow-400" : // Processing state overrides active state
+                  pathname.startsWith("/reports") ? "border-white" : "border-transparent" // Active/Inactive state
                 )}
               >
                 <BarChartHorizontal size={16} />
