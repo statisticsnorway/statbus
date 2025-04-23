@@ -37,16 +37,17 @@ class BaseDataStore {
   private lastFetchTime: number = 0;
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
-  // Derivation Status State
+  // Worker Status State (Importing, Deriving Units, Deriving Reports)
+  private isImporting: boolean | null = null;
   private isDerivingUnits: boolean | null = null;
   private isDerivingReports: boolean | null = null;
-  private derivationStatusLoading: boolean = false;
-  private derivationStatusError: string | null = null;
-  private lastDerivationStatusFetchTime: number = 0;
-  private readonly DERIVATION_STATUS_CACHE_TTL = 10 * 1000; // 10 seconds cache for status
+  private workerStatusLoading: boolean = false;
+  private workerStatusError: string | null = null;
+  private lastWorkerStatusFetchTime: number = 0;
+  private readonly WORKER_STATUS_CACHE_TTL = 10 * 1000; // 10 seconds cache for status
 
-  // Listener callback registry for derivation status changes
-  private derivationStatusListeners: Set<() => void> = new Set();
+  // Listener callback registry for worker status changes
+  private workerStatusListeners: Set<() => void> = new Set();
 
   private constructor() {
     // Private constructor to enforce singleton pattern
@@ -125,19 +126,19 @@ class BaseDataStore {
   }
 
   /**
-   * Refresh the derivation status (is_deriving_units, is_deriving_reports)
+   * Refresh the worker status (is_importing, is_deriving_units, is_deriving_reports)
    */
-  public async refreshDerivationStatus(client?: PostgrestClient<Database>): Promise<{ isDerivingUnits: boolean | null, isDerivingReports: boolean | null }> {
+  public async refreshWorkerStatus(client?: PostgrestClient<Database>): Promise<{ isImporting: boolean | null, isDerivingUnits: boolean | null, isDerivingReports: boolean | null }> {
     const now = Date.now();
     // Basic throttling/caching
-    if (this.derivationStatusLoading && now - this.lastDerivationStatusFetchTime < 5000) { // Avoid rapid refires
-        console.log("Derivation status refresh already in progress or recently completed.");
-        return { isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
+    if (this.workerStatusLoading && now - this.lastWorkerStatusFetchTime < 5000) { // Avoid rapid refires
+        console.log("Worker status refresh already in progress or recently completed.");
+        return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
     }
 
-    this.derivationStatusLoading = true;
-    this.derivationStatusError = null;
-    this.lastDerivationStatusFetchTime = now;
+    this.workerStatusLoading = true;
+    this.workerStatusError = null;
+    this.lastWorkerStatusFetchTime = now;
 
     // Get client if not provided
     let currentClient = client;
@@ -145,79 +146,84 @@ class BaseDataStore {
       try {
         currentClient = await getRestClient();
       } catch (error) {
-        console.error('Failed to get client for derivation status refresh:', error);
-        this.derivationStatusError = "Failed to get API client";
-        this.derivationStatusLoading = false;
-        return { isDerivingUnits: null, isDerivingReports: null };
+        console.error('Failed to get client for worker status refresh:', error);
+        this.workerStatusError = "Failed to get API client";
+        this.workerStatusLoading = false;
+        return { isImporting: null, isDerivingUnits: null, isDerivingReports: null };
       }
     }
 
     if (!currentClient || typeof currentClient.rpc !== 'function') {
-      console.error('Invalid client provided to refreshDerivationStatus');
-      this.derivationStatusError = "Invalid API client";
-      this.derivationStatusLoading = false;
-      return { isDerivingUnits: null, isDerivingReports: null };
+      console.error('Invalid client provided to refreshWorkerStatus');
+      this.workerStatusError = "Invalid API client";
+      this.workerStatusLoading = false;
+      return { isImporting: null, isDerivingUnits: null, isDerivingReports: null };
     }
 
     try {
-      const [unitsResult, reportsResult] = await Promise.all([
+      const [importResult, unitsResult, reportsResult] = await Promise.all([
+        currentClient.rpc("is_importing"),
         currentClient.rpc("is_deriving_statistical_units"),
         currentClient.rpc("is_deriving_reports")
       ]);
 
+      if (importResult.error) throw new Error(`Import status error: ${importResult.error.message}`);
       if (unitsResult.error) throw new Error(`Units status error: ${unitsResult.error.message}`);
       if (reportsResult.error) throw new Error(`Reports status error: ${reportsResult.error.message}`);
 
+      this.isImporting = importResult.data ?? null;
       this.isDerivingUnits = unitsResult.data ?? null;
       this.isDerivingReports = reportsResult.data ?? null;
-      console.log(`Derivation status refreshed: Units=${this.isDerivingUnits}, Reports=${this.isDerivingReports}`);
-      return { isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
+      console.log(`Worker status refreshed: Import=${this.isImporting}, Units=${this.isDerivingUnits}, Reports=${this.isDerivingReports}`);
+      return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
 
     } catch (error: any) {
-      console.error('Failed to refresh derivation status:', error);
-      this.derivationStatusError = error.message || "Unknown error fetching derivation status";
-      this.isDerivingUnits = null; // Invalidate on error
+      console.error('Failed to refresh worker status:', error);
+      this.workerStatusError = error.message || "Unknown error fetching worker status";
+      this.isImporting = null; // Invalidate on error
+      this.isDerivingUnits = null;
       this.isDerivingReports = null;
       // Notify listeners about the change
-      this.notifyDerivationStatusListeners();
-      return { isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
+      this.notifyWorkerStatusListeners();
+      return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
 
     } finally {
-      this.derivationStatusLoading = false;
+      this.workerStatusLoading = false;
       // Notify listeners that loading finished (even if error occurred)
-      this.notifyDerivationStatusListeners();
+      this.notifyWorkerStatusListeners();
     }
   }
 
   // Method to notify listeners
-  private notifyDerivationStatusListeners() {
-    this.derivationStatusListeners.forEach(listener => listener());
+  private notifyWorkerStatusListeners() {
+    this.workerStatusListeners.forEach(listener => listener());
   }
 
   // Method for components to subscribe
-  public subscribeDerivationStatus(listener: () => void): () => void {
-    this.derivationStatusListeners.add(listener);
+  public subscribeWorkerStatus(listener: () => void): () => void {
+    this.workerStatusListeners.add(listener);
     // Return an unsubscribe function
     return () => {
-      this.derivationStatusListeners.delete(listener);
+      this.workerStatusListeners.delete(listener);
     };
   }
 
   /**
-   * Get the current cached derivation status
+   * Get the current cached worker status
    */
-  public getDerivationStatus(): { isDerivingUnits: boolean | null, isDerivingReports: boolean | null, isLoading: boolean, error: string | null } {
+  public getWorkerStatus(): { isImporting: boolean | null, isDerivingUnits: boolean | null, isDerivingReports: boolean | null, isLoading: boolean, error: string | null } {
     // Check cache validity - might force a refresh if stale, but keep it simple for now
     // const now = Date.now();
-    // if (now - this.lastDerivationStatusFetchTime > this.DERIVATION_STATUS_CACHE_TTL && !this.derivationStatusLoading) {
-    //   console.log("Derivation status cache stale, triggering background refresh.");
-    //   this.refreshDerivationStatus(); // Trigger refresh in background
+    // if (now - this.lastWorkerStatusFetchTime > this.WORKER_STATUS_CACHE_TTL && !this.workerStatusLoading) {
+    //   console.log("Worker status cache stale, triggering background refresh.");
+    //   this.refreshWorkerStatus(); // Trigger refresh in background
     // }
     return {
+      isImporting: this.isImporting,
       isDerivingUnits: this.isDerivingUnits,
       isDerivingReports: this.isDerivingReports,
-      isLoading: this.derivationStatusLoading,
-      error: this.derivationStatusError
+      isLoading: this.workerStatusLoading,
+      error: this.workerStatusError
     };
   }
 
@@ -330,9 +336,9 @@ class BaseDataStore {
       hasDefaultTimeContext: !!this.data.defaultTimeContext,
       hasStatisticalUnits: this.data.hasStatisticalUnits,
       cacheTTL: this.CACHE_TTL / 1000 + 's',
-      derivationStatus: this.getDerivationStatus(),
-      lastDerivationStatusFetchTime: this.lastDerivationStatusFetchTime,
-      derivationStatusCacheAge: this.lastDerivationStatusFetchTime ? Math.round((Date.now() - this.lastDerivationStatusFetchTime) / 1000) + 's' : 'never',
+      workerStatus: this.getWorkerStatus(),
+      lastWorkerStatusFetchTime: this.lastWorkerStatusFetchTime,
+      workerStatusCacheAge: this.lastWorkerStatusFetchTime ? Math.round((Date.now() - this.lastWorkerStatusFetchTime) / 1000) + 's' : 'never',
       environment: typeof window !== 'undefined' ? 'browser' : 'server'
     };
   }

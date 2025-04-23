@@ -7,8 +7,9 @@ import { Database } from '@/lib/database.types';
 import { BaseData, baseDataStore } from '@/context/BaseDataStore'; // Import type and store instance
 import { authStore, User } from '@/context/AuthStore';
 
-// Define the shape of the context value including derivation status
-type DerivationStatus = {
+// Define the shape of the context value including worker status
+type WorkerStatus = {
+  isImporting: boolean | null;
   isDerivingUnits: boolean | null;
   isDerivingReports: boolean | null;
   isLoading: boolean;
@@ -18,7 +19,7 @@ type DerivationStatus = {
 type BaseDataContextValue = BaseData & {
   isAuthenticated: boolean;
   user: User | null;
-  derivationStatus: DerivationStatus;
+  workerStatus: WorkerStatus;
   refreshHasStatisticalUnits: () => Promise<boolean>;
   refreshAllBaseData: () => Promise<void>;
   getDebugInfo: () => Record<string, any>;
@@ -31,7 +32,7 @@ const BaseDataClientContext = createContext<BaseDataContextValue>({
   isAuthenticated: false,
   user: null,
   ...({} as BaseData), // Initial empty base data
-  derivationStatus: baseDataStore.getDerivationStatus(), // Get initial status from store
+  workerStatus: baseDataStore.getWorkerStatus(), // Get initial status from store
   refreshHasStatisticalUnits: async () => false,
   refreshAllBaseData: async () => {},
   getDebugInfo: () => ({}),
@@ -57,8 +58,8 @@ export const ClientBaseDataProvider = ({
 }) => {
   // State for base data (passed from server)
   const [baseData, setBaseData] = useState(initalBaseData);
-  // State for derivation status (synced with store)
-  const [derivationStatus, setDerivationStatus] = useState<DerivationStatus>(baseDataStore.getDerivationStatus());
+  // State for worker status (synced with store)
+  const [workerStatus, setWorkerStatus] = useState<WorkerStatus>(baseDataStore.getWorkerStatus());
   // State for the Postgrest client
   const [client, setClient] = useState<PostgrestClient<Database> | null>(null);
   // State for SSE connection error
@@ -80,13 +81,13 @@ export const ClientBaseDataProvider = ({
     initializeClient();
   }, []);
 
-  // Effect to subscribe to BaseDataStore derivation status changes
+  // Effect to subscribe to BaseDataStore worker status changes
   useEffect(() => {
     const handleStatusChange = () => {
-      setDerivationStatus(baseDataStore.getDerivationStatus());
+      setWorkerStatus(baseDataStore.getWorkerStatus());
     };
     // Subscribe and get the unsubscribe function
-    const unsubscribe = baseDataStore.subscribeDerivationStatus(handleStatusChange);
+    const unsubscribe = baseDataStore.subscribeWorkerStatus(handleStatusChange);
     // Initial sync
     handleStatusChange();
     // Cleanup subscription on unmount
@@ -109,8 +110,8 @@ export const ClientBaseDataProvider = ({
         const functionName = event.data; // Expects string like 'is_importing'
         console.log('Received check hint via SSE:', functionName);
         // Trigger a refresh in the store when a hint is received
-        // No need to check functionName here, refreshDerivationStatus checks both relevant statuses
-        baseDataStore.refreshDerivationStatus();
+        // No need to check functionName here, refreshWorkerStatus checks all relevant statuses
+        baseDataStore.refreshWorkerStatus();
       } catch (err) {
         console.error('Error processing check SSE message:', err);
         setSseConnectionError('Error processing status check hint.');
@@ -186,15 +187,15 @@ export const ClientBaseDataProvider = ({
 
   // --- Context Provider ---
 
-  // Combine base data and derivation status for the context value
+  // Combine base data and worker status for the context value
   const contextValue: BaseDataContextValue = {
     ...baseData,
     isAuthenticated: baseData.isAuthenticated,
     user: baseData.user,
-    derivationStatus: { // Include the latest status from local state (synced with store)
-      ...derivationStatus,
+    workerStatus: { // Include the latest status from local state (synced with store)
+      ...workerStatus,
       // Override error if SSE connection failed
-      error: derivationStatus.error || sseConnectionError
+      error: workerStatus.error || sseConnectionError
     },
     refreshHasStatisticalUnits,
     refreshAllBaseData,

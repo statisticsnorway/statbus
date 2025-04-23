@@ -15,11 +15,11 @@ export function StatisticalUnitsRefresher({
   const [state, setState] = useState<AnalysisState>("checking_status");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // Get status and refresh function directly from context
-  const { derivationStatus, hasStatisticalUnits, refreshHasStatisticalUnits } = useBaseData();
+  const { workerStatus, hasStatisticalUnits, refreshHasStatisticalUnits } = useBaseData();
 
   // Effect to determine component state based on context status
   useEffect(() => {
-    const { isDerivingUnits, isDerivingReports, isLoading, error } = derivationStatus;
+    const { isImporting, isDerivingUnits, isDerivingReports, isLoading, error } = workerStatus;
 
     if (isLoading) {
       setState("checking_status");
@@ -32,10 +32,10 @@ export function StatisticalUnitsRefresher({
       return;
     }
 
-    if (isDerivingUnits === true || isDerivingReports === true) {
+    if (isImporting === true || isDerivingUnits === true || isDerivingReports === true) {
       setState("deriving");
     } else {
-      // Derivation is finished according to context, now check if units exist
+      // Import and Derivation are finished according to context, now check if units exist
       // We might need to refresh hasStatisticalUnits explicitly if it could be stale
       // relative to the derivation finishing. Let's add a check.
       const checkUnits = async () => {
@@ -53,10 +53,11 @@ export function StatisticalUnitsRefresher({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
        // Depend on specific properties instead of the whole object
-       derivationStatus.isDerivingUnits,
-       derivationStatus.isDerivingReports,
-       derivationStatus.isLoading,
-       derivationStatus.error,
+       workerStatus.isImporting,
+       workerStatus.isDerivingUnits,
+       workerStatus.isDerivingReports,
+       workerStatus.isLoading,
+       workerStatus.error,
        refreshHasStatisticalUnits // Keep this dependency
      ]);
 
