@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getServerRestClient } from "@/context/RestClientStore";
-import { Pool } from 'pg';
+import { Pool, Client as PgClient } from 'pg'; // Import Client as PgClient to avoid name clash
 import { from as copyFrom } from 'pg-copy-streams';
 import { Readable } from 'stream';
 import { createServerLogger } from "@/lib/server-logger";
@@ -12,7 +12,7 @@ const getDbConfig = () => {
   const { dbHost, dbPort, dbName } = getDbHostPort();
   return {
     host: dbHost,
-    port: parseInt(dbPort),
+    port: dbPort,
     database: dbName,
     user: process.env.POSTGRES_AUTHENTICATOR_USER,
     password: process.env.POSTGRES_AUTHENTICATOR_PASSWORD,
@@ -54,14 +54,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Update job state to uploading
+    // NOTE: Job state starts as 'waiting_for_upload' by default when created.
+    // We don't set it to 'uploading' here. The UI can reflect this based on the upload start.
+    // Record the upload start time instead.
     await client
       .from("import_job")
-      .update({ 
-        state: "uploading",
-        import_completed_pct: 0
+      .update({
+        upload_start_at: new Date().toISOString(),
+        import_completed_pct: 0 // Reset progress
       })
       .eq("id", job.id);
+
 
     // Read file content
     const fileBuffer = await file.arrayBuffer();
@@ -141,7 +144,7 @@ export async function POST(request: NextRequest) {
           copyStream.end();
         });
 
-        copyStream.on('error', (err) => {
+        copyStream.on('error', (err: Error) => { // Add type annotation for err
           reject(err);
         });
 
@@ -153,23 +156,11 @@ export async function POST(request: NextRequest) {
       // Commit transaction
       await pgClient.query('COMMIT');
 
-      // Update job state to processing
-      const { error: updateError } = await client
-        .from("import_job")
-        .update({ 
-          state: "processing",
-          import_completed_pct: 100
-        })
-        .eq("id", job.id);
+      // After the upload is done the import_job will change automatically,
+      // due to triggers, and the worker runs automatically,
+      // due to NOTIFY by triggers.
 
-      if (updateError) {
-        return NextResponse.json(
-          { message: `Error updating job state: ${updateError.message}` },
-          { status: 500 }
-        );
-      }
-
-      return NextResponse.json({ 
+      return NextResponse.json({
         message: "File uploaded successfully",
         jobId: job.id,
         jobSlug: job.slug

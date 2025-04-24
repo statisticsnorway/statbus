@@ -8,6 +8,19 @@
 
 import { Client } from 'pg';
 
+// Extend the global NodeJS namespace to declare our custom properties
+// This helps persist state across hot module reloads in development
+declare global {
+  // eslint-disable-next-line no-var
+  var __dbListenerCallbacks: Set<NotificationCallback> | undefined;
+  // eslint-disable-next-line no-var
+  var __dbListenerClient: Client | null | undefined;
+  // eslint-disable-next-line no-var
+  var __dbListenerConnecting: boolean | undefined;
+  // eslint-disable-next-line no-var
+  var __dbListenerReconnectTimeout: NodeJS.Timeout | null | undefined;
+}
+
 /**
  * Helper function to get a required environment variable or throw an error.
  * @param varName The name of the environment variable.
@@ -86,37 +99,32 @@ export type NotificationData =
 // Type for the callback function provided by SSE route handlers
 export type NotificationCallback = (data: NotificationData) => void;
 
-// Store callbacks in a global registry to persist across module reloads
-// @ts-ignore - intentionally using global to persist across hot reloads in development
-const activeClientCallbacks = global.__dbListenerCallbacks || new Set<NotificationCallback>();
-// @ts-ignore - store in global scope to persist across module reloads
-if (typeof global !== 'undefined') {
-  global.__dbListenerCallbacks = activeClientCallbacks;
+// Use globalThis for broader compatibility and type safety with declared globals
+const activeClientCallbacks = globalThis.__dbListenerCallbacks || new Set<NotificationCallback>();
+if (typeof globalThis !== 'undefined') {
+  globalThis.__dbListenerCallbacks = activeClientCallbacks;
 }
 
-// @ts-ignore - store client in global scope to persist across module reloads
-const pgClient: Client | null = global.__dbListenerClient || null;
-// @ts-ignore - store connection state in global scope
-const isConnecting: boolean = global.__dbListenerConnecting || false;
-// @ts-ignore - store reconnect timeout in global scope
-const reconnectTimeout: NodeJS.Timeout | null = global.__dbListenerReconnectTimeout || null;
+let pgClient: Client | null = globalThis.__dbListenerClient || null;
+let isConnecting: boolean = globalThis.__dbListenerConnecting || false;
+let reconnectTimeout: NodeJS.Timeout | null = globalThis.__dbListenerReconnectTimeout || null;
 
 // Update global references when these variables change
 function updateGlobalClient(client: Client | null) {
-  // @ts-ignore
-  global.__dbListenerClient = client;
+  globalThis.__dbListenerClient = client;
+  pgClient = client; // Update local variable as well
   return client;
 }
 
 function updateGlobalConnecting(connecting: boolean) {
-  // @ts-ignore
-  global.__dbListenerConnecting = connecting;
+  globalThis.__dbListenerConnecting = connecting;
+  isConnecting = connecting; // Update local variable
   return connecting;
 }
 
 function updateGlobalReconnectTimeout(timeout: NodeJS.Timeout | null) {
-  // @ts-ignore
-  global.__dbListenerReconnectTimeout = timeout;
+  globalThis.__dbListenerReconnectTimeout = timeout;
+  reconnectTimeout = timeout; // Update local variable
   return timeout;
 }
 
@@ -124,26 +132,21 @@ const RECONNECT_DELAY_MS = 5000; // Delay before attempting reconnection
 
 
 async function connectAndListen() {
-  // @ts-ignore - check global client first
-  const currentClient = global.__dbListenerClient;
-  // @ts-ignore - check global connecting state
-  const currentlyConnecting = global.__dbListenerConnecting;
-  
-  if (currentClient && currentClient.connectionParameters) {
-    return;
-  }
-  
-  if (currentlyConnecting) {
-    return;
+  // Use local variables which are synced with globalThis
+  // Check if the client object exists and is potentially connected/connecting
+  if (pgClient) {
+    return; // Already connected or connection attempt in progress
   }
 
-  updateGlobalConnecting(true);
+  if (isConnecting) {
+    return; // Connection attempt already in progress
+  }
+
+  updateGlobalConnecting(true); // Set connecting flag
 
   // Clear any pending reconnect timeout
-  // @ts-ignore - check global timeout
-  const currentTimeout = global.__dbListenerReconnectTimeout;
-  if (currentTimeout) {
-    clearTimeout(currentTimeout);
+  if (reconnectTimeout) {
+    clearTimeout(reconnectTimeout);
     updateGlobalReconnectTimeout(null);
   }
 
@@ -170,42 +173,33 @@ async function connectAndListen() {
       
       if (msg.channel === 'check') {
         // Handle 'check' channel (string payload)
-        // In development mode, log a single line about the notification
+        callbacksToNotify.forEach(callback => {
+            callback({
+              channel: 'check',
+              payload: msg.payload as string
+            });
+        });
         if (process.env.NODE_ENV === 'development') {
           console.log(`DB Listener: Notification '${msg.payload}' sent to ${callbacksToNotify.size} clients`);
         }
-        
-        callbacksToNotify.forEach(callback => {
-          try {
-            callback({
-              channel: 'check',
-              payload: msg.payload
-            });
-          } catch (e) {
-            console.error({ error: e }, "DB Listener: Error executing notification callback");
-          }
-        });
       } else if (msg.channel === 'import_job') {
         // Handle 'import_job' channel (JSON payload with verb and id)
+        // The outer check `if (!msg.payload) return;` ensures payload is defined here.
         try {
           const data = JSON.parse(msg.payload) as ImportJobNotificationPayload;
-          
+          callbacksToNotify.forEach(callback => {
+            callback({
+              channel: 'import_job',
+              payload: data
+            });
+          });
+
           if (process.env.NODE_ENV === 'development') {
             console.log(`DB Listener: Import job notification - ${data.verb} for job ${data.id}`);
           }
-          
-          callbacksToNotify.forEach(callback => {
-            try {
-              callback({
-                channel: 'import_job',
-                payload: data
-              });
-            } catch (e) {
-              console.error({ error: e }, "DB Listener: Error executing notification callback");
-            }
-          });
         } catch (e) {
           console.error({ error: e, payload: msg.payload }, "DB Listener: Error parsing import_job notification");
+          throw e;
         }
       }
     });
@@ -237,13 +231,11 @@ async function connectAndListen() {
 }
 
 function scheduleReconnect() {
-  // @ts-ignore - check global timeout
-  const currentTimeout = global.__dbListenerReconnectTimeout;
-  
-  if (!currentTimeout) {
+  // Use local variable synced with globalThis
+  if (!reconnectTimeout) {
     const timeout = setTimeout(() => {
       updateGlobalReconnectTimeout(null); // Clear the timeout ID before attempting connection
-      connectAndListen();
+      connectAndListen(); // Attempt to reconnect
     }, RECONNECT_DELAY_MS);
     
     updateGlobalReconnectTimeout(timeout);
@@ -252,11 +244,9 @@ function scheduleReconnect() {
 }
 
 function closeConnectionAndScheduleReconnect() {
-  // @ts-ignore - check global client
-  const currentClient = global.__dbListenerClient;
-  
-  if (currentClient) {
-    currentClient.end().catch(err => console.error({ error: err }, 'DB Listener: Error during connection end'));
+  // Use local variable synced with globalThis
+  if (pgClient) {
+    pgClient.end().catch((err: Error) => console.error({ error: err }, 'DB Listener: Error during connection end')); // Add type annotation
     updateGlobalClient(null);
     console.log('DB Listener: Connection closed, scheduling reconnect');
   }
@@ -292,13 +282,11 @@ export async function initializeDbListener() {
   
   // Check if the connection is actually working
   let connectionStatus = 'unknown';
-  // @ts-ignore - check global client
-  const currentClient = global.__dbListenerClient;
-  
-  if (currentClient) {
+  // Use local variable synced with globalThis
+  if (pgClient) {
     try {
       // Try a simple query to verify the connection is working
-      await currentClient.query('SELECT 1');
+      await pgClient.query('SELECT 1');
       connectionStatus = 'connected';
     } catch (e) {
       connectionStatus = 'error';
@@ -307,11 +295,11 @@ export async function initializeDbListener() {
       closeConnectionAndScheduleReconnect();
     }
   } else {
-    // @ts-ignore - check global connecting state
-    connectionStatus = global.__dbListenerConnecting ? 'connecting' : 'disconnected';
+    // Use local variable synced with globalThis
+    connectionStatus = isConnecting ? 'connecting' : 'disconnected';
   }
-  
-  return { 
+
+  return {
     activeCallbacks: activeClientCallbacks.size,
     isConnected: connectionStatus === 'connected',
     status: connectionStatus
