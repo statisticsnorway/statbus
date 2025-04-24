@@ -13,7 +13,7 @@ export function setupGlobalErrorHandler() {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
       
       // If this is a request to our API, ensure credentials are included
-      if (url.includes('/postgrest/')) {
+      if (url.includes('/rest/')) {
         init = {
           ...init,
           credentials: 'include',

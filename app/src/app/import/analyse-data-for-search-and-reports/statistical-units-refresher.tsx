@@ -64,9 +64,10 @@ export function StatisticalUnitsRefresher({
 
   const { isImporting, isDerivingUnits, isDerivingReports } = workerStatus;
 
+  // Double-check: Ensure isActive strictly expects boolean
   const renderStatusItem = (
-    label: string, 
-    isActive: boolean | null, 
+    label: string,
+    isActive: boolean,
     isDone: boolean
   ) => {
     return (
@@ -91,18 +92,19 @@ export function StatisticalUnitsRefresher({
 
   if (state === "in_progress" || state === "finished") {
     // Determine which steps are done based on current state
-    const importDone = state === "finished" || (!isImporting && (isDerivingUnits || isDerivingReports));
-    const unitsDone = state === "finished" || (!isDerivingUnits && isDerivingReports);
-    const reportsDone = state === "finished";
+    // Ensure results are boolean, handling potential nulls from workerStatus
+    const importDone = !!(state === "finished" || (!isImporting && (isDerivingUnits || isDerivingReports)));
+    const unitsDone = !!(state === "finished" || (!isDerivingUnits && isDerivingReports));
+    const reportsDone = state === "finished"; // This is already boolean
 
     return (
       <div className="space-y-6">
         <div className="bg-white rounded-lg border p-4 shadow-sm">
           <h3 className="text-lg font-medium mb-4">Analysis Progress</h3>
           
-          {renderStatusItem("Importing Data", isImporting, importDone)}
-          {renderStatusItem("Deriving Statistical Units", isDerivingUnits, unitsDone)}
-          {renderStatusItem("Generating Reports", isDerivingReports, reportsDone)}
+          {renderStatusItem("Importing Data", isImporting ?? false, importDone)}
+          {renderStatusItem("Deriving Statistical Units", isDerivingUnits ?? false, unitsDone)}
+          {renderStatusItem("Generating Reports", isDerivingReports ?? false, reportsDone)}
           
           {state === "finished" && (
             <div className="mt-4 pt-4 border-t border-gray-200 text-center">

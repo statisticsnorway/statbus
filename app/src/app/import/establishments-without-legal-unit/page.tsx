@@ -8,14 +8,13 @@ import {
 } from "@/components/ui/accordion";
 import React from "react";
 import { InfoBox } from "@/components/info-box";
-import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import { useImportUnits } from "../import-units-context";
+import { TimeContextSelector } from "../components/time-context-selector";
+import { ImportJobCreator } from "../components/import-job-creator";
 
 export default function UploadEstablishmentsWithoutLegalUnitPage() {
-  const {
-    numberOfEstablishmentsWithoutLegalUnit,
-    refreshNumberOfEstablishmentsWithoutLegalUnit,
-  } = useImportUnits();
+  const { counts: { establishmentsWithoutLegalUnit } } = useImportUnits();
+  
   return (
     <section className="space-y-8">
       <h1 className="text-center text-2xl">
@@ -26,20 +25,22 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
         analysis.
       </p>
 
-      {!!numberOfEstablishmentsWithoutLegalUnit &&
-        numberOfEstablishmentsWithoutLegalUnit > 0 && (
+      {!!establishmentsWithoutLegalUnit &&
+        establishmentsWithoutLegalUnit > 0 && (
           <InfoBox>
             <p>
-              There are already {numberOfEstablishmentsWithoutLegalUnit}{" "}
+              There are already {establishmentsWithoutLegalUnit}{" "}
               informal establishments defined
             </p>
           </InfoBox>
         )}
 
-      <UploadCSVForm
-        uploadView="import_establishment_current_without_legal_unit"
-        nextPage="/import/analyse-data-for-search-and-reports"
-        refreshRelevantCounts={refreshNumberOfEstablishmentsWithoutLegalUnit}
+      <TimeContextSelector unitType="establishments-without-legal-unit" />
+      
+      <ImportJobCreator 
+        definitionSlug="establishment_without_lu_current_year"
+        uploadPath="/import/establishments-without-legal-unit/upload"
+        unitType="Establishments Without Legal Unit"
       />
 
       <Accordion type="single" collapsible>

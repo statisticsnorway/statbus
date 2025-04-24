@@ -8,11 +8,12 @@ import {
 } from "@/components/ui/accordion";
 import React from "react";
 import { InfoBox } from "@/components/info-box";
-import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import { useImportUnits } from "../import-units-context";
+import { TimeContextSelector } from "../components/time-context-selector";
+import { ImportJobCreator } from "../components/import-job-creator";
 
 export default function UploadLegalUnitsPage() {
-  const { numberOfLegalUnits, refreshNumberOfLegalUnits } = useImportUnits();
+  const { counts: { legalUnits } } = useImportUnits();
 
   return (
     <section className="space-y-8">
@@ -22,16 +23,18 @@ export default function UploadLegalUnitsPage() {
         analysis.
       </p>
 
-      {!!numberOfLegalUnits && numberOfLegalUnits > 0 && (
+      {!!legalUnits && legalUnits > 0 && (
         <InfoBox>
-          <p>There are already {numberOfLegalUnits} legal units defined</p>
+          <p>There are already {legalUnits} legal units defined</p>
         </InfoBox>
       )}
 
-      <UploadCSVForm
-        uploadView="import_legal_unit_current"
-        nextPage="/import/establishments"
-        refreshRelevantCounts={refreshNumberOfLegalUnits}
+      <TimeContextSelector unitType="legal-units" />
+      
+      <ImportJobCreator 
+        definitionSlug="legal_unit_current_year"
+        uploadPath="/import/legal-units/upload"
+        unitType="Legal Units"
       />
 
       <Accordion type="single" collapsible>

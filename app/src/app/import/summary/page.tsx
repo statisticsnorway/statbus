@@ -8,9 +8,11 @@ import { useImportUnits } from "../import-units-context";
 
 export default function ImportCompletedPage() {
   const {
-    numberOfLegalUnits,
-    numberOfEstablishmentsWithLegalUnit,
-    numberOfEstablishmentsWithoutLegalUnit,
+    counts: {
+      legalUnits,
+      establishmentsWithLegalUnit,
+      establishmentsWithoutLegalUnit
+    }
   } = useImportUnits();
   const { hasStatisticalUnits } = useBaseData();
   return (
@@ -25,20 +27,20 @@ export default function ImportCompletedPage() {
 
       <div className="space-y-6">
         <SummaryBlock
-          success={!!numberOfLegalUnits}
-          successText={`You have uploaded ${numberOfLegalUnits} legal units.`}
+          success={!!legalUnits}
+          successText={`You have uploaded ${legalUnits} legal units.`}
           failureText="You have not uploaded any legal units"
           failureLink={"/import/legal-units"}
         />
         <SummaryBlock
-          success={!!numberOfEstablishmentsWithLegalUnit}
-          successText={`You have uploaded ${numberOfEstablishmentsWithLegalUnit} establishments with legal units.`}
+          success={!!establishmentsWithLegalUnit}
+          successText={`You have uploaded ${establishmentsWithLegalUnit} establishments with legal units.`}
           failureText="You have not uploaded any establishments with legal units"
           failureLink={"/import/establishments"}
         />
         <SummaryBlock
-          success={!!numberOfEstablishmentsWithoutLegalUnit}
-          successText={`You have uploaded ${numberOfEstablishmentsWithoutLegalUnit} establishments without legal units.`}
+          success={!!establishmentsWithoutLegalUnit}
+          successText={`You have uploaded ${establishmentsWithoutLegalUnit} establishments without legal units.`}
           failureText="You have not uploaded any establishments without legal units"
           failureLink={"/import/establishments-without-legal-unit"}
         />

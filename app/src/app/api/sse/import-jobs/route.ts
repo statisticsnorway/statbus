@@ -39,22 +39,13 @@ export async function GET(request: NextRequest) {
       const encoder = new TextEncoder();
       const client = await getServerRestClient();
 
-      // Send initial data for all jobs
       try {
-        const { data: jobs, error } = await client
-          .from("import_job")
-          .select("*")
-          .in("id", jobIds);
-
-        if (error) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ error: "Failed to fetch jobs" })}\n\n`));
+        // Send a connection established message instead of initial data
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "connection_established", jobIds })}\n\n`));
+        
+        if (request.signal.aborted) {
           controller.close();
           return;
-        }
-
-        // Send initial state for each job
-        for (const job of jobs) {
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(job)}\n\n`));
         }
 
         // Set up a callback to listen for import_job notifications
@@ -64,39 +55,72 @@ export async function GET(request: NextRequest) {
           
             // Only process updates for jobs we're tracking
             if (jobIds.includes(id) && verb === 'UPDATE') {
-              // Fetch the updated job data
-              const { data: updatedJob, error } = await client
-                .from("import_job")
-                .select("*")
-                .eq("id", id)
-                .single();
-            
-              if (error) {
-                console.error("Error fetching updated job:", error);
+              // Check if the request is still active before proceeding
+              if (request.signal.aborted) {
                 return;
               }
-            
-              // Send the updated job data to the client
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify(updatedJob)}\n\n`));
-            
-              // If this job is completed or errored, check if all jobs are done
-              if (["completed", "error"].includes(updatedJob.state)) {
-                // Check if all jobs are done
-                const { data } = await client
+              
+              try {
+                // Fetch the updated job data
+                const { data, error } = await client
                   .from("import_job")
-                  .select("state")
-                  .in("id", jobIds);
+                  .select("*")
+                  .eq("id", id)
+                  .single();
               
-                const allDone = data?.every(job => 
-                  ["completed", "error"].includes(job.state)
-                );
-              
-                if (allDone) {
-                  setTimeout(() => {
-                    removeClientCallback(handleNotification);
-                    controller.close();
-                  }, 2000); // Give client time to process the final updates
+                if (error) {
+                  console.error("Error fetching updated job:", error);
+                  return;
                 }
+              
+                // Check again if the request is still active
+                if (request.signal.aborted) {
+                  return;
+                }
+                
+                // Handle case where data is an array (which seems to be happening)
+                const updatedJob = data;
+                
+                if (!updatedJob) {
+                  console.error("No job data returned for ID:", id);
+                  return;
+                }
+                
+                // Send the updated job data to the client
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(updatedJob)}\n\n`));
+              
+                // If this job is completed or errored, check if all jobs are done
+                if (["completed", "error"].includes(updatedJob.state)) {
+                  try {
+                    // Check if all jobs are done
+                    const { data } = await client
+                      .from("import_job")
+                      .select("state")
+                      .in("id", jobIds);
+                      
+                    // Handle case where data is null or undefined
+                    if (!data || data.length === 0) {
+                      console.warn("No job data returned when checking completion status");
+                      return;
+                    }
+                      
+                    const allDone = data.every(job => 
+                      ["completed", "error"].includes(job.state)
+                    );
+                      
+                    if (allDone) {
+                      console.log("All jobs completed or errored, closing SSE connection");
+                      setTimeout(() => {
+                        removeClientCallback(handleNotification);
+                        controller.close();
+                      }, 2000); // Give client time to process the final updates
+                    }
+                  } catch (err) {
+                    console.error("Error checking job completion status:", err);
+                  }
+                }
+              } catch (error) {
+                console.error("Error processing job update:", error);
               }
             }
           }
@@ -107,7 +131,16 @@ export async function GET(request: NextRequest) {
 
         // Keep connection alive with heartbeat
         const heartbeat = setInterval(() => {
-          controller.enqueue(encoder.encode(": heartbeat\n\n"));
+          try {
+            if (!request.signal.aborted) {
+              controller.enqueue(encoder.encode(": heartbeat\n\n"));
+            } else {
+              clearInterval(heartbeat);
+            }
+          } catch (err) {
+            console.error("Heartbeat failed, controller may be closed:", err);
+            clearInterval(heartbeat);
+          }
         }, 30000);
 
         // Clean up on client disconnect

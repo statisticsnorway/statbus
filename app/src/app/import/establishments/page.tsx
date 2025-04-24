@@ -8,14 +8,12 @@ import {
 } from "@/components/ui/accordion";
 import React from "react";
 import { InfoBox } from "@/components/info-box";
-import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import { useImportUnits } from "../import-units-context";
+import { TimeContextSelector } from "../components/time-context-selector";
+import { ImportJobCreator } from "../components/import-job-creator";
 
 export default function UploadEstablishmentsPage() {
-  const {
-    numberOfEstablishmentsWithLegalUnit,
-    refreshNumberOfEstablishmentsWithLegalUnit,
-  } = useImportUnits();
+  const { counts: { establishmentsWithLegalUnit } } = useImportUnits();
 
   return (
     <section className="space-y-8">
@@ -25,20 +23,22 @@ export default function UploadEstablishmentsPage() {
         analysis.
       </p>
 
-      {!!numberOfEstablishmentsWithLegalUnit &&
-        numberOfEstablishmentsWithLegalUnit > 0 && (
+      {!!establishmentsWithLegalUnit &&
+        establishmentsWithLegalUnit > 0 && (
           <InfoBox>
             <p>
-              There are already {numberOfEstablishmentsWithLegalUnit} formal
+              There are already {establishmentsWithLegalUnit} formal
               establishments defined
             </p>
           </InfoBox>
         )}
 
-      <UploadCSVForm
-        uploadView="import_establishment_current_for_legal_unit"
-        nextPage="/import/establishments-without-legal-unit"
-        refreshRelevantCounts={refreshNumberOfEstablishmentsWithLegalUnit}
+      <TimeContextSelector unitType="establishments" />
+      
+      <ImportJobCreator 
+        definitionSlug="establishment_for_lu_current_year"
+        uploadPath="/import/establishments/upload"
+        unitType="Establishments"
       />
 
       <Accordion type="single" collapsible>

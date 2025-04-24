@@ -15,6 +15,7 @@ import {
   Upload,
   User,
   Database,
+  FileSpreadsheet,
 } from "lucide-react";
 
 import {
@@ -189,6 +190,13 @@ export function CommandPalette() {
             >
               <Upload className="mr-2 h-4 w-4" />
               <span>Upload Establishments Without Legal Unit</span>
+            </CommandItem>
+            <CommandItem
+              onSelect={() => navigate("/import/jobs")}
+              value="Import Jobs"
+            >
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              <span>Import Jobs</span>
             </CommandItem>
           </CommandGroup>
           <CommandSeparator />

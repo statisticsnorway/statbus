@@ -1,6 +1,7 @@
-This is a PostgreSQL(17+) + PostgREST(12+) + Next.js project.
+This is a PostgreSQL(17+) + PostgREST(12+) + Next.js (15) project.
 Next.js files are in the app/ directory with TypeScript.
-The app runs server-side and client-side with SSR, using Next.js 14 in app/src/{app,api,...} directories.
+The app runs server-side and client-side with SSR, using Next.js 15 in app/src/{app,api,...} directories.
+The new Next.js promise pattern is used for params.
 Deployed on custom servers behind Caddy with HTTPS.
 
  • Use named exports for HTTP methods.
@@ -20,6 +21,9 @@ Deployed on custom servers behind Caddy with HTTPS.
  • Use a Fail Fast Approach for functionality that is supposed to work.
  • Have a single source of truth in the codebase - avoid duplicate stores for the same data.
  • When refactoring, complete the full migration without compatibility layers.
+ • Fail fast and provide error or debug information to fix, don't mask or workaround issues.
+ • Think from first principles.
+ 
 ## Routing System
 This project uses **App Routing** with the `app/` directory structure. Do not use the Pages Router.
 
