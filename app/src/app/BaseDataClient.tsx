@@ -96,8 +96,8 @@ export const ClientBaseDataProvider = ({
 
   // Effect to manage the SSE connection for 'check' notifications
   useEffect(() => {
-    console.log("[SSE] BaseDataClient: Setting up EventSource listener for /api/worker/check");
-    const eventSource = new EventSource('/api/worker/check'); // Updated route path
+    console.log("[SSE] BaseDataClient: Setting up EventSource listener for /api/sse/worker-check");
+    const eventSource = new EventSource('/api/sse/worker-check'); // Updated route path
     setSseConnectionError(null); // Reset error on new connection attempt
 
     eventSource.onopen = () => {
