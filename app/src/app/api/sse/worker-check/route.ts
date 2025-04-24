@@ -1,4 +1,4 @@
-import { addClientCallback, removeClientCallback, initializeDbListener } from '@/lib/db-listener'; // Adjust path if needed
+import { addClientCallback, removeClientCallback, initializeDbListener, NotificationData } from '@/lib/db-listener';
 
 export const dynamic = 'force-dynamic'; // Ensure this route is not statically optimized
 
@@ -12,10 +12,12 @@ export async function GET(request: Request) {
   const stream = new ReadableStream({
     start(controller) {
       // Define the callback function
-      const handleNotification = function notificationHandler(payload: string) {
+      const handleNotification = function notificationHandler(data: NotificationData) {
         try {
-          const message = `event: check\ndata: ${payload}\n\n`;
-          controller.enqueue(new TextEncoder().encode(message));
+          if (data.channel === 'check') {
+            const message = `event: check\ndata: ${data.payload}\n\n`;
+            controller.enqueue(new TextEncoder().encode(message));
+          }
         } catch (e) {
           console.error(`SSE Route: Error sending data:`, e);
           try { controller.close(); } catch {}

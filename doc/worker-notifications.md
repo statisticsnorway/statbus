@@ -133,11 +133,11 @@ We'll implement a lightweight system stability indicator that shows whether the 
     // This is typically done in `instrumentation.ts`.
     ```
 
-2.  **Server-Sent Events API Route (`app/api/worker/check/route.ts`):**
+2.  **Server-Sent Events API Route (`app/api/sse/worker-check/route.ts`):**
     Handles client connections for real-time status check notifications.
 
     ```typescript
-    // app/api/worker/check/route.ts
+    // app/api/sse/worker-check/route.ts
     import { NextResponse } from 'next/server';
     import { addClientCallback, removeClientCallback } from '@/lib/db-listener'; // Adjust path
 
@@ -219,7 +219,7 @@ We'll implement a lightweight system stability indicator that shows whether the 
 ## Frontend Implementation
 
 1. Centralized Status Management (`app/src/app/BaseDataClient.tsx`):
-   - The `ClientBaseDataProvider` component now manages the Server-Sent Events (`EventSource`) connection to `/api/worker/check`.
+   - The `ClientBaseDataProvider` component now manages the Server-Sent Events (`EventSource`) connection to `/api/sse/worker-check`.
    - It listens for `check` events. When an event is received, it triggers `baseDataStore.refreshDerivationStatus()`.
    - It subscribes to status updates within `baseDataStore` and updates its own state to reflect the latest `derivationStatus` (isDerivingUnits, isDerivingReports, isLoading, error).
    - This `derivationStatus` is provided via the `BaseDataClientContext`.
@@ -227,7 +227,7 @@ We'll implement a lightweight system stability indicator that shows whether the 
    ```typescript
    // Simplified conceptual flow within ClientBaseDataProvider
    useEffect(() => {
-     const eventSource = new EventSource('/api/worker/check'); // Use updated path
+     const eventSource = new EventSource('/api/sse/worker-check'); // Use updated path
      eventSource.addEventListener('check', (event) => {
        baseDataStore.refreshDerivationStatus(); // Trigger refresh on notification
      });
@@ -452,7 +452,7 @@ We'll implement a lightweight system stability indicator that shows whether the 
 
 2. Backend Integration Tests (Node.js/Next.js):
    - Test the `db-listener` singleton's ability to connect, listen to the `check` channel, handle notifications (string payload), and manage reconnection.
-   - Test the SSE API route (`/api/worker/check`): client connection/disconnection handling, and forwarding of `check` notifications with the correct event type and data format.
+   - Test the SSE API route (`/api/sse/worker-check`): client connection/disconnection handling, and forwarding of `check` notifications with the correct event type and data format.
    - Test the details API route (`/api/system-status/details`) for correct data retrieval and error handling.
    - Test frontend logic that re-queries specific status functions (`public.is_importing`, etc.) when a `check` notification with the corresponding payload is received.
 

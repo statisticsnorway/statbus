@@ -8,8 +8,21 @@
 
 import { Client } from 'pg';
 
+// Define specific payload types for each channel
+export type CheckNotificationPayload = string;
+
+export type ImportJobNotificationPayload = {
+  verb: string;
+  id: number;
+};
+
+// Create a discriminated union based on the channel
+export type NotificationData = 
+  | { channel: 'check'; payload: CheckNotificationPayload }
+  | { channel: 'import_job'; payload: ImportJobNotificationPayload };
+
 // Type for the callback function provided by SSE route handlers
-type NotificationCallback = (payload: string) => void;
+export type NotificationCallback = (data: NotificationData) => void;
 
 // Store callbacks in a global registry to persist across module reloads
 // @ts-ignore - intentionally using global to persist across hot reloads in development
@@ -108,11 +121,13 @@ async function connectAndListen() {
     updateGlobalClient(newClient);
 
     newClient.on('notification', (msg) => {
-      // Handle only the 'check' channel (string payload)
-      if (msg.channel === 'check' && msg.payload) {
-        // Use a copy of the set to avoid issues if callbacks modify the set during iteration
-        const callbacksToNotify = new Set(activeClientCallbacks);
-        
+      if (!msg.payload) return;
+      
+      // Use a copy of the set to avoid issues if callbacks modify the set during iteration
+      const callbacksToNotify = new Set(activeClientCallbacks);
+      
+      if (msg.channel === 'check') {
+        // Handle 'check' channel (string payload)
         // In development mode, log a single line about the notification
         if (process.env.NODE_ENV === 'development') {
           console.log(`DB Listener: Notification '${msg.payload}' sent to ${callbacksToNotify.size} clients`);
@@ -120,11 +135,36 @@ async function connectAndListen() {
         
         callbacksToNotify.forEach(callback => {
           try {
-            callback(msg.payload as string);
+            callback({
+              channel: 'check',
+              payload: msg.payload
+            });
           } catch (e) {
             console.error({ error: e }, "DB Listener: Error executing notification callback");
           }
         });
+      } else if (msg.channel === 'import_job') {
+        // Handle 'import_job' channel (JSON payload with verb and id)
+        try {
+          const data = JSON.parse(msg.payload) as ImportJobNotificationPayload;
+          
+          if (process.env.NODE_ENV === 'development') {
+            console.log(`DB Listener: Import job notification - ${data.verb} for job ${data.id}`);
+          }
+          
+          callbacksToNotify.forEach(callback => {
+            try {
+              callback({
+                channel: 'import_job',
+                payload: data
+              });
+            } catch (e) {
+              console.error({ error: e }, "DB Listener: Error executing notification callback");
+            }
+          });
+        } catch (e) {
+          console.error({ error: e, payload: msg.payload }, "DB Listener: Error parsing import_job notification");
+        }
       }
     });
 
@@ -141,9 +181,10 @@ async function connectAndListen() {
     });
 
     await newClient.connect();
-    await newClient.query('LISTEN "check";'); // Listen only to the "check" channel (quoted identifier)
+    await newClient.query('LISTEN "check";'); // Listen to the "check" channel
+    await newClient.query('LISTEN "import_job";'); // Listen to the "import_job" channel
     updateGlobalConnecting(false);
-    console.log(`DB Listener: Connected to ${dbHost}:${dbPort}/${dbName} as ${dbUser} and listening on "check" channel`);
+    console.log(`DB Listener: Connected to ${dbHost}:${dbPort}/${dbName} as ${dbUser} and listening on "check" and "import_job" channels`);
 
   } catch (error) {
     updateGlobalConnecting(false);

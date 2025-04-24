@@ -57,7 +57,7 @@ Create a new page /import/jobs "Import Jobs" and put it in the Command Palette.
 On this page load the import_jobs table with relevant information for the user,
 along with registering for updates to keep it up to date.
 
-Before we used `api/worker/check` for the SSE endpoint,
+Before we used `api/sse/worker-check` for the SSE endpoint,
 but now you made `api/sse/import-job/[id]`, think we should have `api/sse/worker/check` and `api/sse/import/check`
 that takes an `import_job_ids` argument, so that only one sse is used even if multiple import_jobs are displayed
 and live updated.
