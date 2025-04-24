@@ -1210,6 +1210,7 @@ export type Database = {
           analysis_stop_at: string | null
           changes_approved_at: string | null
           changes_rejected_at: string | null
+          created_at: string
           data_table_name: string
           default_data_source_code: string | null
           default_valid_from: string | null
@@ -1234,6 +1235,7 @@ export type Database = {
           target_schema_name: string
           target_table_name: string
           total_rows: number | null
+          updated_at: string
           upload_table_name: string
           user_id: number | null
         }
@@ -1242,6 +1244,7 @@ export type Database = {
           analysis_stop_at?: string | null
           changes_approved_at?: string | null
           changes_rejected_at?: string | null
+          created_at?: string
           data_table_name: string
           default_data_source_code?: string | null
           default_valid_from?: string | null
@@ -1266,6 +1269,7 @@ export type Database = {
           target_schema_name: string
           target_table_name: string
           total_rows?: number | null
+          updated_at?: string
           upload_table_name: string
           user_id?: number | null
         }
@@ -1274,6 +1278,7 @@ export type Database = {
           analysis_stop_at?: string | null
           changes_approved_at?: string | null
           changes_rejected_at?: string | null
+          created_at?: string
           data_table_name?: string
           default_data_source_code?: string | null
           default_valid_from?: string | null
@@ -1298,6 +1303,7 @@ export type Database = {
           target_schema_name?: string
           target_table_name?: string
           total_rows?: number | null
+          updated_at?: string
           upload_table_name?: string
           user_id?: number | null
         }

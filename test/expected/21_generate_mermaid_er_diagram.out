@@ -283,6 +283,8 @@ erDiagram
 		"text" slug
 		"text" description
 		"text" note
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
 		"date" default_valid_from
 		"date" default_valid_to
 		"text" default_data_source_code

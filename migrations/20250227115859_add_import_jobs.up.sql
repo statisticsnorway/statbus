@@ -332,6 +332,8 @@ CREATE TABLE public.import_job (
     slug text UNIQUE NOT NULL,
     description text,
     note text,
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
     default_valid_from DATE,
     default_valid_to DATE,
     default_data_source_code text,
