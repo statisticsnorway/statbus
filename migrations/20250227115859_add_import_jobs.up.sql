@@ -491,6 +491,25 @@ CREATE TRIGGER import_job_generate
     FOR EACH ROW
     EXECUTE FUNCTION admin.import_job_generate();
 
+-- Create trigger to notify on import job changes
+CREATE FUNCTION admin.import_job_notify()
+RETURNS TRIGGER LANGUAGE plpgsql AS $import_job_notify$
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        PERFORM pg_notify('import_job', json_build_object('verb', TG_OP, 'id', OLD.id)::text);
+        RETURN OLD;
+    ELSE
+        PERFORM pg_notify('import_job', json_build_object('verb', TG_OP, 'id', NEW.id)::text);
+        RETURN NEW;
+    END IF;
+END;
+$import_job_notify$;
+
+CREATE TRIGGER import_job_notify_trigger
+    AFTER INSERT OR UPDATE OR DELETE ON public.import_job
+    FOR EACH ROW
+    EXECUTE FUNCTION admin.import_job_notify();
+    
 -- Function to clean up job objects
 CREATE FUNCTION admin.import_job_cleanup()
 RETURNS TRIGGER SECURITY DEFINER LANGUAGE plpgsql AS $import_job_cleanup$
