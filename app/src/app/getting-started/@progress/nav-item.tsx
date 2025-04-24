@@ -1,6 +1,6 @@
 "use client";
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { cn } from "@/lib/utils";
 
@@ -9,11 +9,13 @@ export const NavItem = ({
   href,
   done,
   subtitle,
+  processing,
 }: {
   readonly title: string;
   readonly subtitle?: string;
   readonly href: string;
   readonly done?: boolean;
+  readonly processing?: boolean;
 }) => {
   const pathname = usePathname();
   const active = pathname === href;
@@ -27,9 +29,13 @@ export const NavItem = ({
         >
           {title}
         </Link>
-        {done && <Check className="w-5 h-5" />}
+        {processing ? (
+          <Loader2 className="w-5 h-5 text-yellow-500 animate-spin" />
+        ) : (
+          done && <Check className="w-5 h-5" />
+        )}
       </div>
-      {done && subtitle && (
+      {(done || processing) && subtitle && (
         <span className="text-xs text-gray-700">{subtitle}</span>
       )}
     </>
