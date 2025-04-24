@@ -8,6 +8,68 @@
 
 import { Client } from 'pg';
 
+/**
+ * Helper function to get a required environment variable or throw an error.
+ * @param varName The name of the environment variable.
+ * @returns The value of the environment variable.
+ * @throws Error if the environment variable is not set or is empty.
+ */
+function getRequiredEnvVar(varName: string): string {
+  const value = process.env[varName];
+  if (!value) {
+    throw new Error(`Missing required environment variable: ${varName}`);
+  }
+  return value;
+}
+
+/**
+ * Gets database connection parameters, handling both Docker and local development environments.
+ * Ensures required environment variables are set.
+ */
+export function getDbHostPort() {
+  // Use helper for required variables to ensure they exist and narrow types
+  const dbName = getRequiredEnvVar('POSTGRES_APP_DB'); // Use the app-specific DB
+  const dbUser = getRequiredEnvVar('POSTGRES_APP_USER');
+  // Password might be optional in some environments (e.g., local dev with trust auth)
+  const dbPassword = process.env.POSTGRES_APP_PASSWORD || ''; // Default to empty string if not set
+
+  let dbHost: string;
+  let dbPort: number; // Changed type to number
+
+  // Helper to parse port string to number
+  const parsePort = (portStr: string | undefined, varName: string): number => {
+    if (!portStr) {
+      throw new Error(`Missing required environment variable: ${varName}`);
+    }
+    const portNum = parseInt(portStr, 10);
+    if (isNaN(portNum) || portNum <= 0 || portNum > 65535) {
+      throw new Error(`Invalid port number configured for ${varName}: ${portStr}`);
+    }
+    return portNum;
+  };
+
+  // Check if DB_PUBLIC_LOCALHOST_PORT is set for local development override
+  const localPortStr = process.env.DB_PUBLIC_LOCALHOST_PORT;
+  if (localPortStr) {
+    // Validate localPortStr format before parsing
+    if (!/^\d+$/.test(localPortStr)) {
+       throw new Error(`Invalid format for environment variable DB_PUBLIC_LOCALHOST_PORT: ${localPortStr}. Must be a number.`);
+    }
+    dbHost = 'localhost';
+    dbPort = parsePort(localPortStr, 'DB_PUBLIC_LOCALHOST_PORT');
+  } else {
+    // Default to Docker internal host/port, use helper to ensure they exist
+    dbHost = getRequiredEnvVar('POSTGRES_HOST');
+    const portStr = getRequiredEnvVar('POSTGRES_PORT');
+    dbPort = parsePort(portStr, 'POSTGRES_PORT');
+  }
+
+  // The checks for dbName and dbUser are now handled by getRequiredEnvVar above.
+  // The check for dbPassword remains lenient.
+
+  return { dbName, dbUser, dbPassword, dbHost, dbPort };
+}
+
 // Define specific payload types for each channel
 export type CheckNotificationPayload = string;
 
@@ -86,28 +148,8 @@ async function connectAndListen() {
   }
 
   try {
-    // Construct connection string from individual environment variables
-    const dbName = process.env.POSTGRES_APP_DB; // Use the app-specific DB
-    const dbUser = process.env.POSTGRES_APP_USER;
-    const dbPassword = process.env.POSTGRES_APP_PASSWORD;
-
-    let dbHost: string | undefined;
-    let dbPort: string | undefined;
-
-    // Check if DB_PUBLIC_LOCALHOST_PORT is set for local development override
-    const localPort = process.env.DB_PUBLIC_LOCALHOST_PORT;
-    if (localPort && /^\d+$/.test(localPort)) {
-      dbHost = 'localhost';
-      dbPort = localPort;
-    } else {
-      // Default to Docker internal host/port
-      dbHost = process.env.POSTGRES_HOST;
-      dbPort = process.env.POSTGRES_PORT;
-    }
-
-    if (!dbUser || !dbPassword || !dbHost || !dbPort || !dbName) {
-      throw new Error('Missing required PostgreSQL connection environment variables (check POSTGRES_APP_*, POSTGRES_HOST, POSTGRES_PORT, DB_PUBLIC_LOCALHOST_PORT)');
-    }
+    // Get database connection details
+    const { dbName, dbUser, dbPassword, dbHost, dbPort } = getDbHostPort();
 
     const connectionString = `postgresql://${encodeURIComponent(dbUser)}:${encodeURIComponent(dbPassword)}@${dbHost}:${dbPort}/${encodeURIComponent(dbName)}`;
     // We'll skip this log and only show the connected message
