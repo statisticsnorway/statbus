@@ -10,9 +10,9 @@ BEGIN
         ('today'                      , 'Today'                              , 'From today and onwards'         , 'input_and_query' , false)   ,
         --
         ('year_curr'                  , 'Current Year'                       , 'Current year and onwards'       , 'input_and_query' , true)   ,
-        ('year_prev'                  , 'Previous Year'                      , 'From previous year and onwards' , 'input_and_query' , true)   ,
+        ('year_prev'                  , 'Previous Year'                      , 'From previous year and onwards' , 'input_and_query' , false)   ,
         ('year_curr_only'             , NULL                                 , 'Current year only'              , 'input'           , false)   ,
-        ('year_prev_only'             , NULL                                 , 'Previous year only'             , 'input'           , false)   ,
+        ('year_prev_only'             , NULL                                 , 'Previous year only'             , 'input'           , true)   ,
         --
         ('start_of_week_curr'         , 'Start of Current Week'              , NULL                             , 'query'           , false)  ,
         ('stop_of_week_prev'          , 'End of Previous Week'               , NULL                             , 'query'           , false)  ,
