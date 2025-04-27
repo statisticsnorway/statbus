@@ -44,6 +44,38 @@ services:
       - postgres
       - -c
       - config_file=/etc/postgresql/postgresql.conf
+      - -c
+      - log_min_messages=fatal # prevents Realtime polling queries from appearing in logs
+      - -c # Redirect logs to stdout for Docker to capture
+      - logging_collector=off
+      - -c # Log to stderr which Docker redirects to stdout
+      - log_destination=stderr
+      - -c # Disable synchronous_commit to avoid waiting for WAL flush to disk, increasing performance at the cost of durability.
+      - synchronous_commit=off
+      - -c # Delay WAL writes to disk by 500ms to batch more transactions and reduce disk I/O pressure.
+      - wal_writer_delay=500ms
+      - -c # Increase the time between checkpoints to 15 minutes, reducing I/O spikes by having fewer checkpoints.
+      - checkpoint_timeout=15min
+      - -c # Allow checkpoints to be spread over 90% of the time between checkpoints, reducing their performance impact.
+      - checkpoint_completion_target=0.9
+      - -c # Allocate 1GB of shared memory buffers for PostgreSQL to cache more data in RAM, reducing the need for disk reads.
+      - shared_buffers=1GB
+      - -c # Set the work memory to 1GB, allowing larger operations (e.g., sorts, joins) to use more memory and avoid temporary disk usage.
+      - work_mem=1GB
+      - -c # Allocate 1GB for maintenance operations such as VACUUM and CREATE INDEX, improving the performance of these operations.
+      - maintenance_work_mem=1GB
+      - -c # Set WAL buffers to 64MB, allowing more WAL data to be stored in memory before being written to disk, reducing write frequency.
+      - wal_buffers=64MB
+      - -c # Allocate memory for temporary tables operations
+      - temp_buffers=256MB
+      - -c # Increase stack depth for complex recursive queries (7MB is below the 7680kB limit)
+      - max_stack_depth=7MB
+      - -c # Help query planner make better decisions
+      - effective_cache_size=3GB
+      - -c # Allow hash-based operations to use more memory
+      - hash_mem_multiplier=2.0
+      - -c # Log slow queries for debugging
+      - log_min_duration_statement=1000
 
 volumes:
   # Named volumes are kept for backward compatibility
