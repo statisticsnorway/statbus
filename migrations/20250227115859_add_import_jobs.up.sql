@@ -523,6 +523,8 @@ BEGIN
     EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.upload_table_name);
     EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.data_table_name);
 
+    -- Ensure the new tables are removed from PostgREST
+    NOTIFY pgrst, 'reload schema';
 
     RETURN OLD;
 END;
@@ -945,6 +947,8 @@ BEGIN
   PERFORM admin.add_rls_regular_user_can_edit(job.upload_table_name::regclass);
   PERFORM admin.add_rls_regular_user_can_edit(job.data_table_name::regclass);
 
+  -- Ensure the new tables are available through PostgREST
+  NOTIFY pgrst, 'reload schema';
 END;
 $import_job_generate$;
 
