@@ -1,9 +1,17 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react"; // Add useCallback
+import React, { useEffect, useState, useCallback, useRef } from "react"; // Add useRef
 import useSWR, { useSWRConfig } from 'swr'; // Import useSWR and useSWRConfig for mutate
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { 
   Table, 
   TableBody, 
@@ -15,6 +23,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
+import { AlertCircle } from "lucide-react"; // Import AlertCircle
 import { Database, Tables } from '@/lib/database.types';
 
 // Use the generated type for ImportJob
@@ -56,11 +65,14 @@ export default function ImportJobsPage() {
     }
   );
   const { mutate } = useSWRConfig(); // Get mutate function from config
+  
+  // State to manage the error message displayed in the dialog
+  const [errorToShow, setErrorToShow] = useState<string | null>(null);
 
   // Use a ref to hold the EventSource instance to avoid re-render cycles
-  const eventSourceRef = React.useRef<EventSource | null>(null);
+  const eventSourceRef = useRef<EventSource | null>(null);
   // Use a ref to track if an SSE connection attempt is in progress or established
-  const sseStatusRef = React.useRef<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+  const sseStatusRef = useRef<'idle' | 'connecting' | 'connected' | 'error'>('idle');
 
   // Store job IDs in a ref to avoid dependency cycles
   const jobIdsRef = React.useRef<number[]>([]);
@@ -331,18 +343,45 @@ export default function ImportJobsPage() {
                 <TableHead>Description</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Progress</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Last Updated</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {jobs.map((job) => (
+              {jobs.map((job) => {
+                return (
                 <TableRow key={job.id}>
                   <TableCell className="font-medium">{job.description}</TableCell>
-                  <TableCell>{getStateBadge(job.state)}</TableCell>
+                  <TableCell>
+                    <div className="flex flex-col space-y-1">
+                      <div className="flex items-center space-x-2">
+                        {getStateBadge(job.state)}
+                        {/* Error Trigger */}
+                        {job.error && (
+                          <Dialog>
+                            <DialogTrigger asChild>
+                              <button 
+                                onClick={() => setErrorToShow(job.error)} 
+                                className="text-red-500 hover:text-red-700"
+                                title="Show error details"
+                              >
+                                <AlertCircle className="h-4 w-4" />
+                              </button>
+                            </DialogTrigger>
+                            {/* DialogContent is rendered outside the table later */}
+                          </Dialog>
+                        )}
+                      </div>
+                      {/* Timestamps */}
+                      <div className="text-xs text-gray-500">
+                        Created: {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        Updated: {formatDistanceToNow(new Date(job.updated_at), { addSuffix: true })}
+                      </div>
+                    </div>
+                  </TableCell>
                   <TableCell>
                     {/* Show progress for states that have it */}
-                    {job.state && ["uploading", "processing", "analyzing"].includes(job.state) && job.import_completed_pct !== null ? (
+                    {job.state && ["uploading", "processing", "analyzing", "preparing_data", "analysing_data", "importing_data"].includes(job.state) && job.import_completed_pct !== null ? (
                       <div className="w-32">
                         <Progress value={job.import_completed_pct ?? 0} className="h-2" />
                         <span className="text-xs text-gray-500">{Math.round(job.import_completed_pct ?? 0)}%</span>
@@ -354,18 +393,27 @@ export default function ImportJobsPage() {
                       <span className="text-xs text-gray-400">-</span>
                     )}
                   </TableCell>
-                  <TableCell className="text-sm text-gray-500">
-                    {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
-                  </TableCell>
-                  <TableCell className="text-sm text-gray-500">
-                    {formatDistanceToNow(new Date(job.updated_at), { addSuffix: true })}
-                  </TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </div>
       )}
+      
+      {/* Error Dialog */}
+      <Dialog open={!!errorToShow} onOpenChange={(open) => !open && setErrorToShow(null)}>
+        <DialogContent className="sm:max-w-[600px]">
+          <DialogHeader>
+            <DialogTitle>Import Job Error</DialogTitle>
+            <DialogDescription>
+              The following error occurred during the import process.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-md text-sm text-red-800 overflow-auto max-h-[60vh]">
+            <pre className="whitespace-pre-wrap break-words">{errorToShow}</pre>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
