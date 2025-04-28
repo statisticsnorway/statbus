@@ -106,34 +106,87 @@ export const ImportUnitsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   }, [baseTimeContexts, baseDefaultTimeContext]);
 
+  // Store the current job ID in a ref to avoid dependency cycles
+  const currentJobIdRef = React.useRef<number | null>(null);
+  
   // Set up SSE for job updates
   useEffect(() => {
     const jobId = job.currentJob?.id;
-    if (!jobId) return;
+     
+    // Update the ref
+    currentJobIdRef.current = jobId ?? null; // Convert undefined to null
+     
+    // Skip if no job ID
+    if (!jobId) {
+      return;
+    }
 
+    // Don't recreate if we already have a connection for this job
+    if (eventSource && eventSource.url.includes(`?ids=${jobId}`)) {
+      return;
+    }
+    
     // Clean up existing connection
     if (eventSource) {
       eventSource.close();
+      setEventSource(null);
     }
 
     // Create new connection
+    console.log(`Creating SSE connection for job ${jobId}`);
     const newEventSource = new EventSource(`/api/sse/import-jobs?ids=${jobId}`);
+    
+    // Add specific handler for heartbeat events
+    newEventSource.addEventListener("heartbeat", (event) => {
+      // Just log heartbeat at debug level if needed
+      // console.debug("Heartbeat received:", event.data);
+    });
     
     newEventSource.onmessage = (event) => {
       try {
         if (event.data.trim() === '') return;
         
+        // Update last message time
         setJob(prev => ({ ...prev, lastMessageTime: Date.now() }));
+        
+        // Parse the payload
         const ssePayload = JSON.parse(event.data);
         
+        // Skip connection established messages
         if (ssePayload.type === "connection_established") return;
         
-        if (ssePayload && typeof ssePayload === 'object' && ssePayload.id === jobId) {
+        // Skip heartbeat messages (these should be handled by the heartbeat event listener)
+        if (ssePayload.type === "heartbeat") return;
+        
+        // Get the current job ID from the ref to avoid closure issues
+        const currentId = currentJobIdRef.current;
+        
+        // Skip if no current job ID
+        if (!currentId) return;
+        
+        // Handle DELETE verb
+        if (ssePayload.verb === "DELETE" && ssePayload.id === currentId) {
+          console.log("Job was deleted:", currentId);
+          setJob(prev => ({
+            ...prev,
+            currentJob: null,
+            currentDefinition: null
+          }));
+          return;
+        }
+        
+        // Handle UPDATE/INSERT verbs
+        if (ssePayload && typeof ssePayload === 'object' && ssePayload.id === currentId) {
+          console.log(`Received ${ssePayload.verb || 'UNKNOWN'} event for job ${currentId}`);
+          
+          // Create a clean job object without the verb property
+          const { verb, ...cleanJobData } = ssePayload;
+          
           setJob(prev => ({
             ...prev,
             currentJob: prev.currentJob ? {
               ...prev.currentJob,
-              ...ssePayload
+              ...cleanJobData
             } : null
           }));
         }
@@ -142,10 +195,57 @@ export const ImportUnitsProvider: React.FC<{ children: React.ReactNode }> = ({ c
       }
     };
 
+    // Add error handling with exponential backoff
+    let reconnectAttempt = 0;
+    const maxReconnectDelay = 30000; // 30 seconds max
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    
+    newEventSource.onerror = (error) => {
+      console.error("SSE connection error in import context:", error);
+      
+      // Only close if not already closed
+      if (newEventSource.readyState !== 2) { // 2 = CLOSED
+        newEventSource.close();
+      }
+      
+      // Don't reconnect if the component is unmounting or the job ID has changed
+      if (currentJobIdRef.current !== jobId) {
+        console.log("Job ID changed, not reconnecting");
+        return;
+      }
+      
+      // Calculate backoff delay with exponential increase and jitter
+      reconnectAttempt++;
+      const baseDelay = Math.min(1000 * Math.pow(1.5, reconnectAttempt), maxReconnectDelay);
+      const jitter = Math.random() * 0.3 * baseDelay; // Add up to 30% jitter
+      const reconnectDelay = Math.floor(baseDelay + jitter);
+      
+      console.log(`Attempting to reconnect import context SSE in ${reconnectDelay}ms (attempt ${reconnectAttempt})`);
+      
+      // Clear any existing timeout
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+      
+      // Attempt to reconnect after calculated delay
+      reconnectTimeout = setTimeout(() => {
+        console.log("Reconnecting import context SSE now...");
+        reconnectTimeout = null;
+        setEventSource(null);
+      }, reconnectDelay);
+    };
+
     setEventSource(newEventSource);
 
     return () => {
+      console.log(`Closing SSE connection for job ${jobId}`);
       newEventSource.close();
+      setEventSource(null);
+      
+      // Clear any pending reconnect timeout
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
     };
   }, [job.currentJob?.id]);
 

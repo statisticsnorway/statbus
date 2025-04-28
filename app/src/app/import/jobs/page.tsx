@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react"; // Add useCallback
+import useSWR, { useSWRConfig } from 'swr'; // Import useSWR and useSWRConfig for mutate
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
 import { 
@@ -14,93 +15,275 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
-import { Database, Tables } from '@/lib/database.types'; // Import Tables
+import { Database, Tables } from '@/lib/database.types';
 
 // Use the generated type for ImportJob
 type ImportJob = Tables<"import_job">;
 
+// --- SWR Key Definitions ---
+// Key for the list of all import jobs
+const SWR_KEY_IMPORT_JOBS = "/api/import-jobs"; 
+// Function to generate a key for a single import job
+const getJobSWRKey = (id: number | string) => `/api/import-jobs/${id}`;
+
+// --- Fetcher Function (assuming one exists or define it) ---
+// Example fetcher using the browser client
+const fetcher = async (key: string) => {
+  const client = await getBrowserRestClient();
+  if (!client) throw new Error("REST client not available");
+  
+  // Basic fetcher example, adjust based on actual API structure if needed
+  // This example assumes the key directly maps to the resource path
+  const { data, error } = await client.from("import_job").select("*"); // Adjust query as needed
+  
+  if (error) {
+    console.error("SWR Fetcher error:", error);
+    throw error;
+  }
+  return data as ImportJob[]; // Adjust type assertion if needed
+};
+// --- Component ---
 export default function ImportJobsPage() {
-  const [jobs, setJobs] = useState<ImportJob[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [eventSource, setEventSource] = useState<EventSource | null>(null);
+  // Use SWR for data fetching, loading, and error state
+  const { data: jobs = [], error: swrError, isLoading } = useSWR<ImportJob[], Error>(
+    SWR_KEY_IMPORT_JOBS,
+    fetcher,
+    {
+      // Optional: Configure SWR options like refreshInterval, revalidateOnFocus, etc.
+      // refreshInterval: 5000, // Example: Refresh every 5 seconds (use cautiously)
+      // refreshInterval: 30000, // Example: Refresh every 30 seconds
+      revalidateOnFocus: false, // Optional: Disable revalidation on window focus
+    }
+  );
+  const { mutate } = useSWRConfig(); // Get mutate function from config
 
+  // Use a ref to hold the EventSource instance to avoid re-render cycles
+  const eventSourceRef = React.useRef<EventSource | null>(null);
+  // Use a ref to track if an SSE connection attempt is in progress or established
+  const sseStatusRef = React.useRef<'idle' | 'connecting' | 'connected' | 'error'>('idle');
+
+  // Store job IDs in a ref to avoid dependency cycles
+  const jobIdsRef = React.useRef<number[]>([]);
+ 
+  // Update job IDs ref when jobs change
   useEffect(() => {
-    const fetchJobs = async () => {
-      try {
-        setLoading(true);
-        const client = await getBrowserRestClient();
-        // Select all columns from import_job table
-        const { data: fetchedData, error } = await client
-          .from("import_job")
-          .select("*")
-          .order("created_at", { ascending: false });
-
-        if (error || !fetchedData) { // Check for error or null data
-           throw new Error(error?.message || "Failed to fetch jobs: No data returned");
-        }
-
-        // Data is confirmed to be an array of objects here
-        // Type assertion might be needed if TS still complains
-        const jobsData: ImportJob[] = fetchedData;
-        setJobs(jobsData);
-      } catch (err) {
-        setError(`Failed to load import jobs: ${err instanceof Error ? err.message : String(err)}`);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchJobs();
-  }, []);
-
+    // Get all job IDs for tracking
+    const allJobIds = (jobs ?? []) // Handle initial undefined state from SWR
+      .filter(job => job.id) // Ensure job.id is not null/undefined
+      .map(job => job.id)
+      .sort((a, b) => a - b); // Sort numerically
+   
+    // Update the ref with the new value if it changed
+    if (jobIdsRef.current.join(',') !== allJobIds.join(',')) {
+      jobIdsRef.current = allJobIds;
+    }
+  }, [jobs]); // Only depend on jobs
+ 
+  // Manage SSE connection lifecycle
   useEffect(() => {
-    if (jobs.length === 0) return;
+    // Only run this effect once loading is complete
+    if (isLoading) { // Use SWR's isLoading state
+      return;
+    }
 
-    // Get active job IDs (those not in completed or error state)
-    const activeJobIds = jobs
-      .filter(job => !["completed", "error"].includes(job.state))
-      .map(job => job.id);
+    // Only attempt connection if idle or in error state
+    if (sseStatusRef.current !== 'idle' && sseStatusRef.current !== 'error') {
+      console.log(`SSE connection attempt skipped, status: ${sseStatusRef.current}`);
+      return;
+    }
 
-    if (activeJobIds.length === 0) return;
+    sseStatusRef.current = 'connecting';
+    console.log("Attempting to establish SSE connection...");
 
-    // Create SSE connection for active jobs
-    const source = new EventSource(`/api/sse/import-jobs?ids=${activeJobIds.join(',')}`);
+    // --- SSE Connection Setup ---
+    // We connect without specific IDs now, relying on the server to send relevant updates.
+    // The server-side logic might need adjustment if it strictly filters by initial IDs.
+    // Alternatively, keep the ID logic if the server MUST know which jobs the client initially loaded.
+    // Construct the URL with the initially loaded job IDs
+    const initialJobIds = jobIdsRef.current.join(',');
+    const sseUrl = initialJobIds 
+      ? `/api/sse/import-jobs?ids=${initialJobIds}` 
+      : `/api/sse/import-jobs`; // Fallback if no initial jobs
+      
+    console.log(`Creating new SSE connection: ${sseUrl}`);
+    const source = new EventSource(sseUrl);
+
+    // Add specific handler for heartbeat events
+    source.addEventListener("heartbeat", (event) => {
+      // Just log heartbeat at debug level if needed
+      // console.debug("Heartbeat received:", event.data);
+    });
 
     source.onmessage = (event) => {
       try {
-        // Assuming SSE payload contains partial updates matching ImportJob fields
+        // Skip empty messages
+        if (event.data.trim() === '') {
+          return;
+        }
+        
+        // Parse and validate SSE payload
         const ssePayload = JSON.parse(event.data);
-        const updatedJobData = ssePayload as Partial<ImportJob> & { id: number };
+        
+        // Skip connection_established messages
+        if (ssePayload.type === "connection_established") {
+          console.log("SSE connection established:", ssePayload);
+          return;
+        }
+        
+        // Skip heartbeat messages
+        if (event.type === "heartbeat") {
+          return;
+        }
+        
+        console.log("SSE message received:", ssePayload);
+        
+        // Handle different notification types based on verb
+        if (ssePayload.verb === "DELETE") {
+          // For DELETE operations, we only need the ID to remove the job from the list
+          if (!ssePayload.id || typeof ssePayload.id !== 'number') {
+            console.error("Invalid DELETE notification received:", ssePayload);
+            return;
+          }
+          const deletedJobId = ssePayload.id;
+          console.log("Processing DELETE for job via SWR mutate:", deletedJobId);
 
-        setJobs(prevJobs =>
-          prevJobs.map(job =>
-            job.id === updatedJobData.id
-              ? // Safer merge + Explicit Cast: Ensure all original fields are kept unless explicitly updated by SSE
-                ({
-                  ...job, // Start with the original job
-                  ...updatedJobData, // Overwrite with fields present in the SSE data
-                } as ImportJob) // Cast the result back to ImportJob
-              : job
-          )
-        );
+          // Mutate the list: Remove the job
+          mutate(SWR_KEY_IMPORT_JOBS, (currentData: ImportJob[] | undefined): ImportJob[] => {
+            return (currentData ?? []).filter(job => job.id !== deletedJobId);
+          }, { revalidate: false }); // Optimistic update for the list
+
+          // Mutate the individual job: Set data to undefined (or null) to indicate deletion
+          mutate(getJobSWRKey(deletedJobId), undefined, { revalidate: false });
+
+          return; // Exit after handling delete
+        }
+
+        // For INSERT/UPDATE operations, validate required fields
+        // Ensure verb is also present for INSERT/UPDATE
+        if (!ssePayload.id || typeof ssePayload.id !== 'number' || !ssePayload.verb) { 
+          console.error("Invalid job update received (missing id or verb):", ssePayload);
+          return;
+        }
+        
+        // We expect the full job data from the SSE payload for INSERT/UPDATE now
+        // The server-side route.ts fetches the full job data.
+        const updatedJobData = ssePayload as ImportJob & { verb: 'INSERT' | 'UPDATE' }; // Assert verb is present
+        const jobId = updatedJobData.id;
+        const verb = updatedJobData.verb; // Use the explicit verb from payload
+
+        console.log(`Processing ${verb} for job ${jobId}`, updatedJobData);
+
+        // --- Mutate Individual Job Cache ---
+        // Update the specific job's cache first. Pass the full new data.
+        // Remove the 'verb' property before caching.
+        const { verb: _verb, ...jobDataForCache } = updatedJobData;
+        mutate(getJobSWRKey(jobId), jobDataForCache, { revalidate: false });
+
+        // --- Mutate List Cache ---
+        mutate(SWR_KEY_IMPORT_JOBS, (currentData: ImportJob[] | undefined): ImportJob[] => {
+          const currentJobs = currentData ?? [];
+          const jobIndex = currentJobs.findIndex(job => job.id === jobId);
+
+          if (verb === 'UPDATE') {
+            if (jobIndex !== -1) {
+              // Update existing job in the list
+              const updatedList = [...currentJobs];
+              updatedList[jobIndex] = jobDataForCache; // Use the clean data
+              return updatedList;
+            } else {
+              // Job wasn't in the list, maybe it was created just now? Add it.
+              console.warn(`Received UPDATE for job ${jobId} not found in list, adding.`);
+              return [jobDataForCache, ...currentJobs]; // Add to beginning
+            }
+          } else { // INSERT
+            if (jobIndex === -1) {
+              // Add the new job to the list (e.g., at the beginning)
+              return [jobDataForCache, ...currentJobs];
+            } else {
+              // Job already exists? This shouldn't happen for INSERT, maybe log or just update.
+              console.warn(`Received INSERT for job ${jobId} that already exists in list, updating.`);
+              const updatedList = [...currentJobs];
+              updatedList[jobIndex] = jobDataForCache;
+              return updatedList;
+            }
+          }
+        }, { revalidate: false }); // Don't re-fetch immediately after optimistic update
+
       } catch (error) {
-        console.error("Error parsing SSE message:", error);
+        console.error("Error processing SSE message:", error);
       }
     };
 
-    source.onerror = () => {
-      source.close();
+    // Add error handling with exponential backoff
+    let reconnectAttempt = 0;
+    const maxReconnectDelay = 30000; // 30 seconds max
+    
+    let reconnectTimeout: NodeJS.Timeout | null = null;
+    
+    source.onerror = (error) => {
+      console.error("SSE connection error:", error);
+        
+      // Only close if not already closed
+      if (source.readyState !== 2) { // 2 = CLOSED
+        source.close();
+      }
+      
+      // Calculate backoff delay with exponential increase and jitter
+      reconnectAttempt++;
+      const baseDelay = Math.min(1000 * Math.pow(1.5, reconnectAttempt), maxReconnectDelay);
+      const jitter = Math.random() * 0.3 * baseDelay; // Add up to 30% jitter
+      const reconnectDelay = Math.floor(baseDelay + jitter);
+      
+      console.log(`Attempting to reconnect SSE in ${reconnectDelay}ms (attempt ${reconnectAttempt})`);
+
+      // Clear any existing timeout
+      if (reconnectTimeout) {
+        clearTimeout(reconnectTimeout);
+      }
+
+      // Attempt to reconnect after calculated delay
+      reconnectTimeout = setTimeout(() => {
+        console.log("Attempting to reconnect SSE now...");
+        reconnectTimeout = null;
+        // Set status back to idle to allow the effect to try connecting again
+        sseStatusRef.current = 'idle';
+        // Force a re-render if needed, or rely on other state changes.
+        // A simple way is to have a dummy state update, but often not necessary.
+        // For now, we assume the effect will re-run due to other state changes or manually trigger.
+        // If reconnection doesn't happen, we might need a state variable to force re-run.
+      }, reconnectDelay);
     };
 
-    setEventSource(source);
+    // Store the source in the ref
+    eventSourceRef.current = source;
+    sseStatusRef.current = 'connected'; // Mark as connected
+    console.log("SSE connection established and stored in ref.");
 
+    // Cleanup function
     return () => {
-      source.close();
-    };
-  }, [jobs]);
+      console.log("Cleaning up SSE connection effect...");
+      if (eventSourceRef.current) {
+        console.log("Closing existing SSE connection.");
+        eventSourceRef.current.close();
+        eventSourceRef.current = null;
+      }
+      sseStatusRef.current = 'idle'; // Reset status on cleanup
 
-  const getStateBadge = (state: string) => {
+      // Clear any pending reconnect timeout
+      if (reconnectTimeout) {
+        console.log("Clearing pending reconnect timeout.");
+        clearTimeout(reconnectTimeout);
+      }
+    };
+  // This effect should run primarily when loading finishes.
+  // It manages the connection lifecycle internally using refs.
+  }, [isLoading]); // Only depend on isLoading
+
+  const getStateBadge = (state: string | null | undefined) => { // Allow null/undefined state
+    // Handle null or undefined state gracefully
+    if (!state) {
+      return <Badge variant="outline">Unknown</Badge>;
+    }
     switch (state) {
       case "waiting_for_upload":
         return <Badge variant="outline">Waiting</Badge>;
@@ -118,15 +301,15 @@ export default function ImportJobsPage() {
         return <Badge>{state}</Badge>;
     }
   };
-
-  if (loading) {
+ 
+  if (isLoading) { // Use SWR's isLoading
     return <Spinner message="Loading import jobs..." />;
   }
-
-  if (error) {
+ 
+  if (swrError) { // Use SWR's error
     return (
       <div className="p-4 bg-red-50 border border-red-200 rounded-md text-red-700">
-        {error}
+        Failed to load import jobs: {swrError.message}
       </div>
     );
   }
@@ -134,8 +317,8 @@ export default function ImportJobsPage() {
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-semibold">Import Jobs</h1>
-      
-      {jobs.length === 0 ? (
+       
+      {!jobs || jobs.length === 0 ? ( // Handle initial undefined state from SWR
         <p className="text-gray-500">No import jobs found.</p>
       ) : (
         <div className="border rounded-md">
@@ -155,16 +338,18 @@ export default function ImportJobsPage() {
                   <TableCell className="font-medium">{job.description}</TableCell>
                   <TableCell>{getStateBadge(job.state)}</TableCell>
                   <TableCell>
-                    {/* Use correct states that indicate progress */}
-                    {["upload_completed", "preparing_data", "analysing_data", "importing_data"].includes(job.state) ? (
+                    {/* Show progress for states that have it */}
+                    {job.state && ["uploading", "processing", "analyzing"].includes(job.state) && job.import_completed_pct !== null ? (
                       <div className="w-32">
-                         {/* Provide default 0 for value and Math.round */}
                         <Progress value={job.import_completed_pct ?? 0} className="h-2" />
                         <span className="text-xs text-gray-500">{Math.round(job.import_completed_pct ?? 0)}%</span>
                       </div>
-                    ) : job.state === "finished" ? ( // Use correct state 'finished'
+                    ) : job.state === "completed" ? ( // Use 'completed' state
                       <span className="text-xs text-green-600">100%</span>
-                    ) : null}
+                    ) : (
+                      // Show dash or empty for states without progress
+                      <span className="text-xs text-gray-400">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-gray-500">
                     {formatDistanceToNow(new Date(job.created_at), { addSuffix: true })}
