@@ -281,6 +281,7 @@ CREATE TRIGGER prevent_non_draft_source_column_changes
 CREATE TYPE public.import_source_expression AS ENUM ('now', 'default');
 
 CREATE TABLE public.import_mapping(
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     definition_id int NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
     source_column_id int REFERENCES public.import_source_column(id) ON DELETE CASCADE,
     CONSTRAINT unique_source_column_mapping UNIQUE (definition_id, source_column_id),
