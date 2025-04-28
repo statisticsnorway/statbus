@@ -759,7 +759,48 @@ SELECT admin.add_rls_regular_user_can_read('public.import_target_column'::regcla
 SELECT admin.add_rls_regular_user_can_read('public.import_definition'::regclass);
 SELECT admin.add_rls_regular_user_can_read('public.import_source_column'::regclass);
 SELECT admin.add_rls_regular_user_can_read('public.import_mapping'::regclass);
-SELECT admin.add_rls_regular_user_can_edit('public.import_job'::regclass);
+
+-- Apply custom RLS policies for import_job
+ALTER TABLE public.import_job ENABLE ROW LEVEL SECURITY;
+
+-- Grant base permissions
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.import_job TO regular_user;
+GRANT SELECT, INSERT, UPDATE, DELETE ON public.import_job TO admin_user;
+GRANT SELECT ON public.import_job TO authenticated; -- Grant SELECT for authenticated users
+
+-- Policies for import_job
+-- Admin user has full access
+CREATE POLICY import_job_admin_user_manage ON public.import_job
+    FOR ALL
+    TO admin_user
+    USING (true)
+    WITH CHECK (true);
+
+-- Authenticated users can select their own jobs
+CREATE POLICY import_job_authenticated_select_own ON public.import_job
+    FOR SELECT
+    TO authenticated
+    USING (user_id = auth.uid());
+
+-- Regular users can insert jobs only for themselves
+CREATE POLICY import_job_regular_user_insert_own ON public.import_job
+    FOR INSERT
+    TO regular_user
+    WITH CHECK (user_id = auth.uid());
+
+-- Regular users can update their own jobs
+CREATE POLICY import_job_regular_user_update_own ON public.import_job
+    FOR UPDATE
+    TO regular_user
+    USING (user_id = auth.uid())
+    WITH CHECK (user_id = auth.uid()); -- Ensure they can't change the owner
+
+-- Regular users can delete their own jobs
+CREATE POLICY import_job_regular_user_delete_own ON public.import_job
+    FOR DELETE
+    TO regular_user
+    USING (user_id = auth.uid());
+
 
 CREATE VIEW public.import_information WITH (security_barrier = true) AS
     SELECT ij.id AS job_id
