@@ -37,7 +37,7 @@ VALUES
     , ('antallAnsatte', NULL, 'employees')
     , ('registreringsdatoAntallAnsatteEnhetsregisteret', NULL, NULL)
     , ('registreringsdatoantallansatteNAVAaregisteret', NULL, NULL)
-    , ('hjemmeside', NULL, 'website')
+    , ('hjemmeside', NULL, 'web_address')
     , ('epostadresse', NULL, NULL)
     , ('telefon', NULL, NULL)
     , ('mobil', NULL, NULL)

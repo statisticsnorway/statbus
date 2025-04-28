@@ -35,7 +35,7 @@ VALUES
     , ('hjelpeenhetskode.beskrivelse', NULL, NULL)
     , ('harRegistrertAntallAnsatte', NULL, NULL)
     , ('antallAnsatte', NULL, 'employees')
-    , ('hjemmeside', NULL, 'website')
+    , ('hjemmeside', NULL, 'web_address')
     , ('postadresse.adresse', NULL, 'postal_address_part1')
     , ('postadresse.poststed', NULL, 'postal_postplace')
     , ('postadresse.postnummer', NULL, 'postal_postcode')
