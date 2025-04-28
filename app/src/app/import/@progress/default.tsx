@@ -26,16 +26,6 @@ export default function ImportStatus() {
       <h2 className="text-2xl font-normal mb-12 text-center">
         Import
       </h2>
-      
-      {isImporting && (
-        <div className="bg-yellow-50 border border-yellow-200 p-3 rounded-md mb-6 flex items-center">
-          <Spinner className="h-4 w-4 mr-2" />
-          <span className="text-sm text-yellow-800">
-            Import in progress...
-          </span>
-        </div>
-      )}
-      
       <ul className="text-sm">
         <h3 className="mb-4">Formal</h3>
         <ul className="text-sm ml-2">
@@ -88,7 +78,7 @@ export default function ImportStatus() {
               href="/import/jobs"
               subtitle="Monitor ongoing imports"
               icon={<FileText className="w-4 h-4" />}
-              processing={false}
+              processing={workerStatus.isImporting ?? false}
             />
           </li>
           <li className="mb-6">
