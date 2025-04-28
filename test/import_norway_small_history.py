@@ -17,6 +17,7 @@ import requests
 import tempfile
 import threading
 import argparse
+import subprocess
 from queue import Queue, Empty
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any, Union
@@ -1836,6 +1837,61 @@ def delete_imported_data(session: requests.Session) -> bool:
     
     return True
 
+def create_test_users() -> bool:
+    """Create test users using the setup.sql script"""
+    log_info("Creating test users if they don't exist...")
+    
+    setup_sql_path = WORKSPACE / "test" / "setup.sql"
+    manage_script_path = WORKSPACE / "devops" / "manage-statbus.sh"
+    
+    if not setup_sql_path.exists():
+        log_error(f"Setup SQL file not found: {setup_sql_path}")
+        return False
+        
+    if not manage_script_path.exists():
+        log_error(f"Manage script not found: {manage_script_path}")
+        return False
+        
+    try:
+        # Read the SQL content
+        with open(setup_sql_path, 'r') as f:
+            sql_content = f.read()
+            
+        # Execute the manage script with psql command and pass SQL via stdin
+        process = subprocess.run(
+            [str(manage_script_path), "psql"],
+            input=sql_content,
+            text=True,
+            capture_output=True,
+            check=False # Don't raise exception on non-zero exit code
+        )
+        
+        # Log output for debugging
+        debug_info(f"psql command stdout:\n{process.stdout}")
+        debug_info(f"psql command stderr:\n{process.stderr}")
+        
+        # Check exit code - psql might return non-zero if users already exist, which is okay
+        if process.returncode != 0:
+            # Check stderr for common "already exists" errors, ignore them
+            if "already exists" in process.stderr.lower():
+                log_success("Test users already exist or were created successfully (ignored 'already exists' errors)")
+                return True
+            else:
+                log_warning(f"psql command failed with exit code {process.returncode}")
+                log_warning(f"stderr: {process.stderr}")
+                # Don't fail the whole script, just warn
+                return False
+        
+        log_success("Test users created successfully")
+        return True
+        
+    except FileNotFoundError:
+        log_error(f"Command not found: {manage_script_path}")
+        return False
+    except Exception as e:
+        log_error(f"Error running setup.sql: {e}")
+        return False
+
 def parse_args():
     """Parse command line arguments"""
     parser = argparse.ArgumentParser(description='Import or delete Norway small history data')
@@ -1876,6 +1932,11 @@ def main():
         return
     
     if action == "create":
+        # Create test users first (only for 'create' action)
+        if not create_test_users():
+            log_warning("Failed to create test users, proceeding anyway...")
+            # Don't exit, maybe they already exist
+            
         # Run Norway setup if needed
         log_info("Setting up Statbus for Norway...")
         try:
