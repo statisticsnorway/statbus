@@ -1059,12 +1059,12 @@ def wait_for_worker_processing_of_import_jobs(session: requests.Session) -> bool
         log_success("All jobs are already completed, no need to monitor")
         return True
     
-    # Function to check if all jobs are completed
+    # Function to check if all jobs are completed (including deleted)
     def check_all_completed():
-        completed_count = sum(1 for state in job_status.values() if state in ['finished', 'rejected'])
-        log_info(f"Job completion status: {completed_count}/{len(jobs)} jobs completed or finished")
+        completed_count = sum(1 for state in job_status.values() if state in ['finished', 'rejected', 'deleted'])
+        log_info(f"Job completion status: {completed_count}/{len(jobs)} jobs completed, rejected, or deleted")
         return completed_count == len(jobs)
-    
+
     # Get job IDs for monitoring
     job_ids = [job['id'] for job in jobs]
     job_id_str = ",".join(str(job_id) for job_id in job_ids)
@@ -1097,31 +1097,60 @@ def wait_for_worker_processing_of_import_jobs(session: requests.Session) -> bool
                 }))
                 return
             
-            event_queue.put(("info", "SSE connection established"))
-            
-            # Process SSE events
-            for line in sse_response.iter_lines():
+            event_queue.put(("info", "SSE connection established (HTTP 200 OK)"))
+
+            # Process SSE events line by line
+            buffer = ""
+            event_type = None
+            for line_bytes in sse_response.iter_lines():
                 if stop_event.is_set():
+                    log_info("SSE thread: Stop event received, breaking loop.")
                     break
-                
-                if not line:
+
+                line = line_bytes.decode('utf-8')
+                event_queue.put(("raw_line", line)) # Log raw lines for debugging
+
+                if not line: # Empty line signifies end of an event
+                    if buffer and event_type:
+                        event_queue.put(("debug", f"Processing event: type={event_type}, data={buffer}"))
+                        if event_type == "message": # Default event type if none specified
+                            try:
+                                data = json.loads(buffer)
+                                event_queue.put(("data", data))
+                            except json.JSONDecodeError:
+                                event_queue.put(("warning", f"Failed to parse SSE data: {buffer}"))
+                        elif event_type == "heartbeat":
+                            try:
+                                data = json.loads(buffer)
+                                event_queue.put(("heartbeat", data))
+                            except json.JSONDecodeError:
+                                event_queue.put(("warning", f"Failed to parse heartbeat data: {buffer}"))
+                        else:
+                             event_queue.put(("warning", f"Received unknown event type: {event_type}"))
+                    # Reset for next event
+                    buffer = ""
+                    event_type = None
                     continue
-                
-                # SSE format: lines starting with "data: " contain the event data
-                if line.startswith(b'data: '):
-                    try:
-                        # Parse the SSE data
-                        data = json.loads(line[6:].decode('utf-8'))
-                        event_queue.put(("data", data))
-                    except json.JSONDecodeError:
-                        event_queue.put(("warning", f"Failed to parse SSE data: {line[6:].decode('utf-8')}"))
-                
-                # Handle heartbeat messages
-                elif line.startswith(b': heartbeat'):
-                    event_queue.put(("heartbeat", None))
-            
-            # Close the SSE connection
-            sse_response.close()
+
+                if line.startswith("event:"):
+                    event_type = line[6:].strip()
+                elif line.startswith("data:"):
+                    buffer += line[5:].strip() # Append data, removing "data:" prefix
+                elif line.startswith("retry:"):
+                    event_queue.put(("info", f"Received retry directive: {line}"))
+                elif line.startswith(":"): # Comment line, often used for heartbeats without data
+                    event_queue.put(("debug", f"Received comment line: {line}"))
+                    # Treat simple comments as potential heartbeats if no event type is set
+                    if not event_type:
+                         event_type = "heartbeat" # Assume simple comment is heartbeat
+                         buffer = "{}" # Provide empty JSON object for heartbeat handler
+                else:
+                    event_queue.put(("warning", f"Received unexpected SSE line: {line}"))
+
+            log_info("SSE thread: iter_lines loop finished.")
+            # Close the SSE connection if not already closed
+            if sse_response:
+                sse_response.close()
             event_queue.put(("info", "SSE connection closed"))
             
         except Exception as e:
@@ -1231,37 +1260,65 @@ def wait_for_worker_processing_of_import_jobs(session: requests.Session) -> bool
                     if isinstance(event_data, dict) and event_data.get('type') == 'connection_established':
                         log_info(f"SSE connection established for job IDs: {event_data.get('jobIds', [])}")
                     
-                    # Handle job updates
-                    elif isinstance(event_data, dict) and 'id' in event_data and 'state' in event_data:
-                        job_id = event_data['id']
-                        new_state = event_data['state']
-                        old_state = job_status.get(job_id)
-                    
-                        if old_state != new_state:
-                            log_info(f"Job {event_data.get('slug', job_id)} state changed (SSE): {old_state} -> {new_state}")
-                            job_status[job_id] = new_state
-                        
-                            # Log additional details if available
-                            if 'message' in event_data:
-                                log_info(f"Job message: {event_data['message']}")
-                            if 'progress' in event_data:
-                                log_info(f"Job progress: {event_data['progress']}%")
-                    
+                    # Handle structured job updates { verb: '...', import_job: { ... } }
+                    elif isinstance(event_data, dict) and 'verb' in event_data and 'import_job' in event_data:
+                        verb = event_data['verb']
+                        job_data = event_data['import_job'] # Use 'import_job' key
+
+                        if verb == 'DELETE':
+                            job_id = job_data.get('id')
+                            if job_id in job_status:
+                                log_info(f"Job {job_id} deleted (SSE)")
+                                job_status[job_id] = 'deleted' # Mark as deleted
+                        elif verb in ['INSERT', 'UPDATE']:
+                            job_id = job_data.get('id')
+                            new_state = job_data.get('state')
+                            old_state = job_status.get(job_id)
+
+                            if job_id in job_status and old_state != new_state:
+                                log_info(f"Job {job_data.get('slug', job_id)} state changed (SSE): {old_state} -> {new_state} (verb: {verb})")
+                                job_status[job_id] = new_state
+
+                                # Log additional details if available
+                                if 'message' in job_data:
+                                    log_info(f"Job message: {job_data['message']}")
+                                if 'import_completed_pct' in job_data:
+                                    log_info(f"Job progress: {job_data['import_completed_pct']}%")
+                        else:
+                            log_warning(f"Received unknown verb in job update: {verb}")
+
                         # Check if all jobs are completed after each state change
+                        # Include 'deleted' as a completed state for this check
                         if check_all_completed():
-                            log_success("All jobs completed (detected by SSE)")
+                            log_success("All jobs completed or deleted (detected by SSE)")
                             all_completed = True
                             break
-                
+                    else:
+                        # Log unexpected data format
+                        log_warning(f"Received unexpected data format: {event_data}")
+
                 elif event_type == "heartbeat":
-                    # Only log every 5th heartbeat to reduce noise
                     heartbeat_count += 1
                     last_heartbeat = time.time()
-                    if heartbeat_count % 5 == 0:
-                        log_info(f"Received SSE heartbeat ({heartbeat_count})")
-                
+                    # Log first few and then periodically
+                    if heartbeat_count <= 5 or heartbeat_count % 10 == 0:
+                        log_info(f"Received SSE heartbeat ({heartbeat_count}): {event_data}")
+
+                elif event_type == "raw_line":
+                    # Log raw lines only if DEBUG is enabled
+                    debug_info(f"SSE Raw: {event_data}")
+
+                elif event_type == "debug":
+                    debug_info(f"SSE Debug: {event_data}")
+
+                elif event_type == "warning":
+                    log_warning(f"SSE Warning: {event_data}")
+
+                elif event_type == "info":
+                    log_info(f"SSE Info: {event_data}")
+
                 event_queue.task_done()
-            
+
             except Empty:
                 # No events in the queue, check if we need to trigger processing
                 if not any(state in ['processing', 'validating'] for state in job_status.values()):

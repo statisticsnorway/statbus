@@ -158,15 +158,24 @@ export const ImportUnitsProvider: React.FC<{ children: React.ReactNode }> = ({ c
         // Skip heartbeat messages (these should be handled by the heartbeat event listener)
         if (ssePayload.type === "heartbeat") return;
         
+        // Validate the basic structure { verb: '...', import_job: { ... } }
+        if (!ssePayload || typeof ssePayload !== 'object' || !ssePayload.verb || !ssePayload.import_job) {
+          console.error("Invalid SSE payload structure in context (expected import_job key):", ssePayload);
+          return;
+        }
+
+        const verb = ssePayload.verb as 'INSERT' | 'UPDATE' | 'DELETE';
+        const jobData = ssePayload.import_job; // Use the 'import_job' key
+
         // Get the current job ID from the ref to avoid closure issues
         const currentId = currentJobIdRef.current;
-        
+
         // Skip if no current job ID
         if (!currentId) return;
-        
+
         // Handle DELETE verb
-        if (ssePayload.verb === "DELETE" && ssePayload.id === currentId) {
-          console.log("Job was deleted:", currentId);
+        if (verb === "DELETE" && jobData.id === currentId) {
+          console.log("Job was deleted (context):", currentId);
           setJob(prev => ({
             ...prev,
             currentJob: null,
@@ -174,20 +183,20 @@ export const ImportUnitsProvider: React.FC<{ children: React.ReactNode }> = ({ c
           }));
           return;
         }
-        
-        // Handle UPDATE/INSERT verbs
-        if (ssePayload && typeof ssePayload === 'object' && ssePayload.id === currentId) {
-          console.log(`Received ${ssePayload.verb || 'UNKNOWN'} event for job ${currentId}`);
-          
-          // Create a clean job object without the verb property
-          const { verb, ...cleanJobData } = ssePayload;
-          
+
+        // Handle UPDATE/INSERT verbs - jobData should be the ImportJob object
+        if ((verb === 'UPDATE' || verb === 'INSERT') && jobData.id === currentId) {
+          console.log(`Received ${verb} event for job ${currentId} (context)`);
+
+          // jobData is the clean job data already
+          const updatedJobData = jobData as ImportJob;
+
           setJob(prev => ({
             ...prev,
             currentJob: prev.currentJob ? {
-              ...prev.currentJob,
-              ...cleanJobData
-            } : null
+              ...prev.currentJob, // Keep existing fields
+              ...updatedJobData   // Overwrite with new data
+            } : null // Should not happen if currentId is set, but handle defensively
           }));
         }
       } catch (error) {

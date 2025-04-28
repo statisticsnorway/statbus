@@ -37,9 +37,6 @@ export async function GET(request: NextRequest) {
     }
   }
   
-  // If no valid IDs provided, we'll still continue but only listen for INSERTs
-  const listenMode = jobIds.length === 0 ? "insert_only" : "track_jobs";
-
   // Set up SSE headers
   const headers = new Headers({
     "Content-Type": "text/event-stream",
@@ -55,10 +52,9 @@ export async function GET(request: NextRequest) {
 
       try {
         // Send a connection established message with timestamp and more details
-        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ 
-          type: "connection_established", 
-          jobIds,
-          listenMode,
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          type: "connection_established",
+          jobIds, // Still useful to know which jobs the client initially requested
           timestamp: new Date().toISOString(),
           connectionId: Math.random().toString(36).substring(2, 10), // Simple connection ID for debugging
           serverInfo: {
@@ -80,36 +76,37 @@ export async function GET(request: NextRequest) {
           if (notification.channel === 'import_job') {
             const { id, verb } = notification.payload;
             
-            logger.info({ id, verb }, `Received import_job notification: ${verb} for job ${id}`);
-          
-            // Process notifications based on listen mode
-            // In insert_only mode, we only care about INSERT notifications
-            // In track_jobs mode, we care about INSERT, UPDATE, and DELETE for tracked jobs
-            if (verb === 'INSERT' || (listenMode === "track_jobs" && jobIds.includes(id) && (verb === 'UPDATE' || verb === 'DELETE'))) {
-              // Check if the request is still active before proceeding
-              if (request.signal.aborted) {
-                return;
-              }
-              
+            logger.info({ id, verb, jobIds }, `Received import_job notification: ${verb} for job ${id}. Client tracking: ${jobIds.join(',') || 'all'}`);
+
+            // Always process INSERT, UPDATE, DELETE notifications.
+            // Clients are responsible for filtering/handling based on their needs.
+            // Check if the request is still active before proceeding
+            if (request.signal.aborted) {
+              return;
+            }
+
+            // Process the notification regardless of the initial jobIds list
+            // (Removed the outer if condition based on listenMode)
+            try {
               // For DELETE operations, we don't need to fetch the job data
               if (verb === 'DELETE') {
-                // Remove this job from our tracking list
-                jobIds = jobIds.filter(jobId => jobId !== id);
-                logger.info(`Removed deleted job (ID: ${id}) from tracking list`);
-                
-                // Send a deletion notification to the client with the verb explicitly included
+                // Remove this job from our *local* tracking list if present (for logging/debugging)
+                if (jobIds.includes(id)) {
+                  jobIds = jobIds.filter(jobId => jobId !== id);
+                  logger.info(`Removed deleted job (ID: ${id}) from local tracking list`);
+                }
+
+                // Send a deletion notification using the 'import_job' key
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify({
-                  id,
                   verb: 'DELETE',
-                  message: 'Job was deleted',
+                  import_job: { // Use 'import_job' key
+                    id,
+                    message: 'Job was deleted'
+                  },
                   timestamp: new Date().toISOString()
                 })}\n\n`));
-                
-                return;
-              }
-              
-              try {
-                // Fetch the updated job data for INSERT/UPDATE operations
+              } else { // Handle INSERT and UPDATE
+                // Fetch the updated job data
                 const { data, error } = await client
                   .from("import_job")
                   .select("*")
@@ -130,30 +127,25 @@ export async function GET(request: NextRequest) {
                   logger.error(`No job data returned for ID: ${id}`);
                   return;
                 }
-                
-                // Add the verb to the job data before sending
-                const jobWithVerb = {
-                  ...data,
-                  verb // Explicitly include the verb in the payload
+
+                // Structure the message with verb and import_job
+                const messagePayload = {
+                  verb, // Keep verb at the top level
+                  import_job: data, // Use 'import_job' key for the job data object
+                  timestamp: new Date().toISOString()
                 };
-                
-                // Send the updated job data to the client
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(jobWithVerb)}\n\n`));
+
+                // Send the structured data to the client
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(messagePayload)}\n\n`));
                 logger.info(`Sent ${verb} notification for job ${id}`);
-              
-                // For INSERT notifications in track_jobs mode, check if this is a job we should track
-                if (listenMode === "track_jobs" && verb === 'INSERT' && !jobIds.includes(id)) {
-                  // Check if the job slug matches our pattern
-                  if (data.slug && data.slug.startsWith('import_')) {
-                    // Add this job to our tracking list
-                    jobIds.push(id);
-                    logger.info(`Added new job ${data.slug} (ID: ${id}) to tracking list`);
-                  }
-                }
-                
-                // If this job is finished or rejected, check if all jobs are done
-                if (["finished", "rejected"].includes(data.state)) {
+
+                // If this job is finished or rejected, and it was one we were initially tracking,
+                // check if *all* initially tracked jobs are done.
+                // Note: This check might be less relevant now that we send all updates,
+                // but kept for potential future use or specific client needs.
+                if (jobIds.includes(id) && ["finished", "rejected"].includes(data.state)) {
                   try {
+                    // Check status only for the initially requested job IDs
                     // Check if all jobs are done
                     const { data: jobsData } = await client
                       .from("import_job")
@@ -165,25 +157,24 @@ export async function GET(request: NextRequest) {
                       logger.warn("No job data returned when checking completion status");
                       return;
                     }
-                      
-                    const allDone = jobsData.every(job => 
+                    const allTrackedDone = jobsData.every(job =>
                       ["finished", "rejected"].includes(job.state)
                     );
-                      
-                    if (allDone) {
-                      logger.info("All jobs completed or rejected, but keeping SSE connection open for new jobs");
-                      // Don't close the connection - keep listening for new jobs
+
+                    if (allTrackedDone && jobIds.length > 0) {
+                      logger.info(`All initially tracked jobs (${jobIds.join(',')}) completed or rejected. Keeping SSE connection open.`);
+                      // Don't close the connection - client might still be interested in new jobs.
                     }
                   } catch (err) {
-                    logger.error(err, "Error checking job completion status");
+                    logger.error(err, "Error checking completion status for initially tracked jobs");
                   }
                 }
-              } catch (error) {
-                logger.error(error, `Error processing job update for ID: ${id}`);
-              }
+              } // End of INSERT/UPDATE block
+            } catch (error) {
+              logger.error(error, `Error processing job notification for ID: ${id}`);
             }
-          }
-        };
+          } // End of channel check
+        }; // End of handleNotification
       
         // Register the callback
         addClientCallback(handleNotification);

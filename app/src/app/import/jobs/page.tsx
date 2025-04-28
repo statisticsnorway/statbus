@@ -135,16 +135,24 @@ export default function ImportJobsPage() {
           return;
         }
         
-        console.log("SSE message received:", ssePayload);
-        
-        // Handle different notification types based on verb
-        if (ssePayload.verb === "DELETE") {
-          // For DELETE operations, we only need the ID to remove the job from the list
-          if (!ssePayload.id || typeof ssePayload.id !== 'number') {
-            console.error("Invalid DELETE notification received:", ssePayload);
+        console.log("SSE message received (import_job format):", ssePayload);
+
+        // Validate the basic structure { verb: '...', import_job: { ... } }
+        if (!ssePayload || typeof ssePayload !== 'object' || !ssePayload.verb || !ssePayload.import_job) {
+          console.error("Invalid SSE payload structure (expected import_job key):", ssePayload);
+          return;
+        }
+
+        const verb = ssePayload.verb as 'INSERT' | 'UPDATE' | 'DELETE';
+        const jobData = ssePayload.import_job; // Use the 'import_job' key
+
+        // Handle DELETE
+        if (verb === "DELETE") {
+          if (!jobData.id || typeof jobData.id !== 'number') {
+            console.error("Invalid DELETE notification data:", jobData);
             return;
           }
-          const deletedJobId = ssePayload.id;
+          const deletedJobId = jobData.id;
           console.log("Processing DELETE for job via SWR mutate:", deletedJobId);
 
           // Mutate the list: Remove the job
@@ -152,32 +160,27 @@ export default function ImportJobsPage() {
             return (currentData ?? []).filter(job => job.id !== deletedJobId);
           }, { revalidate: false }); // Optimistic update for the list
 
-          // Mutate the individual job: Set data to undefined (or null) to indicate deletion
+          // Mutate the individual job: Set data to undefined to indicate deletion
           mutate(getJobSWRKey(deletedJobId), undefined, { revalidate: false });
 
           return; // Exit after handling delete
         }
 
-        // For INSERT/UPDATE operations, validate required fields
-        // Ensure verb is also present for INSERT/UPDATE
-        if (!ssePayload.id || typeof ssePayload.id !== 'number' || !ssePayload.verb) { 
-          console.error("Invalid job update received (missing id or verb):", ssePayload);
+        // Handle INSERT/UPDATE - jobData should be the full ImportJob object
+        const updatedJobData = jobData as ImportJob; // Cast import_job part to ImportJob
+
+        // Validate required fields in the job data
+        if (!updatedJobData.id || typeof updatedJobData.id !== 'number') {
+          console.error("Invalid job data received (missing id):", updatedJobData);
           return;
         }
-        
-        // We expect the full job data from the SSE payload for INSERT/UPDATE now
-        // The server-side route.ts fetches the full job data.
-        const updatedJobData = ssePayload as ImportJob & { verb: 'INSERT' | 'UPDATE' }; // Assert verb is present
-        const jobId = updatedJobData.id;
-        const verb = updatedJobData.verb; // Use the explicit verb from payload
 
+        const jobId = updatedJobData.id;
         console.log(`Processing ${verb} for job ${jobId}`, updatedJobData);
 
         // --- Mutate Individual Job Cache ---
         // Update the specific job's cache first. Pass the full new data.
-        // Remove the 'verb' property before caching.
-        const { verb: _verb, ...jobDataForCache } = updatedJobData;
-        mutate(getJobSWRKey(jobId), jobDataForCache, { revalidate: false });
+        mutate(getJobSWRKey(jobId), updatedJobData, { revalidate: false });
 
         // --- Mutate List Cache ---
         mutate(SWR_KEY_IMPORT_JOBS, (currentData: ImportJob[] | undefined): ImportJob[] => {
@@ -188,22 +191,22 @@ export default function ImportJobsPage() {
             if (jobIndex !== -1) {
               // Update existing job in the list
               const updatedList = [...currentJobs];
-              updatedList[jobIndex] = jobDataForCache; // Use the clean data
+              updatedList[jobIndex] = updatedJobData; // Use the job data directly
               return updatedList;
             } else {
               // Job wasn't in the list, maybe it was created just now? Add it.
               console.warn(`Received UPDATE for job ${jobId} not found in list, adding.`);
-              return [jobDataForCache, ...currentJobs]; // Add to beginning
+              return [updatedJobData, ...currentJobs]; // Add to beginning
             }
           } else { // INSERT
             if (jobIndex === -1) {
               // Add the new job to the list (e.g., at the beginning)
-              return [jobDataForCache, ...currentJobs];
+              return [updatedJobData, ...currentJobs];
             } else {
               // Job already exists? This shouldn't happen for INSERT, maybe log or just update.
               console.warn(`Received INSERT for job ${jobId} that already exists in list, updating.`);
               const updatedList = [...currentJobs];
-              updatedList[jobIndex] = jobDataForCache;
+              updatedList[jobIndex] = updatedJobData;
               return updatedList;
             }
           }
