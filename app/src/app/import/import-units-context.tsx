@@ -328,10 +328,9 @@ export const ImportUnitsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const { data: definitionData, error: definitionError } = await client
       .from("import_definition")
       .select("id")
-      .eq("slug", definitionSlug)
-      .single();
+      .eq("slug", definitionSlug);
       
-    if (definitionError || !definitionData) {
+    if (definitionError || !definitionData || definitionData.length != 1) {
       throw new Error(`Error fetching import definition: ${definitionError?.message || "Definition not found"}`);
     }
     
@@ -339,7 +338,7 @@ export const ImportUnitsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const insertData: any = {
       slug: jobSlug,
       description: `Import job for ${definitionSlug}`,
-      definition_id: definitionData.id
+      definition_id: definitionData[0].id
     };
 
     if (!timeContext.useExplicitDates && timeContext.selectedContext) {
@@ -350,14 +349,13 @@ export const ImportUnitsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const { data, error } = await client
       .from("import_job")
       .insert(insertData)
-      .select("*")
-      .single();
+      .select("*");
 
-    if (error || !data) {
+    if (error || !data || data.length != 1) {
       throw new Error(`Error creating import job: ${error?.message || "No data returned"}`);
     }
 
-    const newJob: ImportJob = data;
+    const newJob: ImportJob = data[0];
     setJob(prev => ({ ...prev, currentJob: newJob }));
     return newJob;
   }, [client, timeContext.selectedContext, timeContext.useExplicitDates]);
