@@ -986,7 +986,25 @@ BEGIN
   RAISE DEBUG '%', create_data_indices_stmt;
   EXECUTE create_data_indices_stmt;
 
-  PERFORM admin.add_rls_regular_user_can_edit(job.upload_table_name::regclass);
+  -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
+  -- RLS is not enabled on this table.
+  DECLARE
+    job_user_role_name TEXT;
+  BEGIN
+    SELECT u.email INTO job_user_role_name
+    FROM auth.user u
+    WHERE u.id = job.user_id;
+
+    IF job_user_role_name IS NOT NULL THEN
+        EXECUTE format('GRANT ALL ON TABLE public.%I TO %I', job.upload_table_name, job_user_role_name);
+        RAISE DEBUG 'Granted ALL on % to role %', job.upload_table_name, job_user_role_name;
+    ELSE
+        RAISE WARNING 'Could not find user role for job_id % (user_id %), cannot grant permissions on %',
+                      job.id, job.user_id, job.upload_table_name;
+    END IF;
+  END;
+
+  -- Apply standard RLS to the data table
   PERFORM admin.add_rls_regular_user_can_edit(job.data_table_name::regclass);
 
   -- Ensure the new tables are available through PostgREST
