@@ -583,7 +583,7 @@ GRANT EXECUTE ON FUNCTION public.login TO anon;
 CREATE OR REPLACE FUNCTION auth.switch_role_from_jwt(access_jwt text)
 RETURNS void
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER
 AS $switch_role_from_jwt$
 DECLARE
   _claims json;
@@ -616,7 +616,7 @@ BEGIN
   ) INTO _role_exists;
 
   -- Ensure this function is called within a transaction, as SET ROLE is transaction-scoped.
-  IF pg_current_xact_id_if_assigned() IS NULL THEN
+  IF transaction_timestamp() = statement_timestamp() THEN
     RAISE EXCEPTION 'SET ROLE must be called within a transaction block (BEGIN...COMMIT/ROLLBACK).';
   END IF;
 
