@@ -776,7 +776,7 @@ DECLARE
   v_result_row RECORD;
 BEGIN
   -- Check if we're inside a transaction
-  SELECT txid_current_if_assigned() IS NOT NULL INTO v_inside_transaction;
+  SELECT pg_current_xact_id_if_assigned() IS NOT NULL INTO v_inside_transaction;
   RAISE DEBUG 'Running worker.process_tasks inside transaction: %', v_inside_transaction;
 
   batch_start_time := clock_timestamp();

@@ -616,7 +616,7 @@ BEGIN
   ) INTO _role_exists;
 
   -- Ensure this function is called within a transaction, as SET ROLE is transaction-scoped.
-  IF txid_current_if_assigned() IS NULL THEN
+  IF pg_current_xact_id_if_assigned() IS NULL THEN
     RAISE EXCEPTION 'SET ROLE must be called within a transaction block (BEGIN...COMMIT/ROLLBACK).';
   END IF;
 
