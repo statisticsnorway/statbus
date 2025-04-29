@@ -1,42 +1,52 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useImportUnits } from "../import-units-context";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { useRouter } from "next/navigation";
 import { AlertCircle, CheckCircle, Database, Upload } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { Tables } from "@/lib/database.types"; // Import Tables type
+
+// Define types locally or import if available globally
+type ImportJob = Tables<"import_job">;
 
 interface ImportJobUploadProps {
   jobSlug: string;
   nextPage: string;
   refreshRelevantCounts: () => Promise<void>;
+  job: ImportJob | null; // Receive job as prop, can be null initially
+  // Definition might not be strictly needed here, but could be useful for format info
+  // definition: Tables<"import_definition"> | null; 
 }
 
-export function ImportJobUpload({ jobSlug, nextPage, refreshRelevantCounts }: ImportJobUploadProps) {
+export function ImportJobUpload({ 
+  jobSlug, 
+  nextPage, 
+  refreshRelevantCounts, 
+  job // Receive job state directly
+}: ImportJobUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [uploadComplete, setUploadComplete] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const { getImportJobBySlug, job, refreshImportJob } = useImportUnits();
+  // No context needed here anymore
   const router = useRouter();
 
+  // Parent page is responsible for loading the job.
+  // The parent page (e.g., LegalUnitsUploadPage) is responsible
+  // for ensuring the job is loaded into the context.
+
+  // Effect to navigate when the job (passed as prop) finishes successfully
   useEffect(() => {
-    const loadJob = async () => {
-      await getImportJobBySlug(jobSlug);
-    };
-    
-    loadJob();
-    
-    // Set up polling for job status
-    const interval = setInterval(() => {
-      refreshImportJob();
-    }, 2000);
-    
-    return () => clearInterval(interval);
-  }, [jobSlug, getImportJobBySlug, refreshImportJob]);
+    // Use the job prop
+    if (job?.state === "finished") { 
+      console.log(`Job ${job.slug} finished, navigating to ${nextPage}`);
+      router.push(nextPage);
+    }
+    // Add dependency on job state and router instance
+  }, [job?.state, router, nextPage, job?.slug]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -45,8 +55,9 @@ export function ImportJobUpload({ jobSlug, nextPage, refreshRelevantCounts }: Im
     }
   };
 
-  const handleUpload = async () => {
-    if (!file || !job.currentJob) return;
+  const handleUpload = useCallback(async () => {
+    // Use the job prop
+    if (!file || !job) return; 
 
     setIsUploading(true);
     setError(null);
@@ -95,35 +106,31 @@ export function ImportJobUpload({ jobSlug, nextPage, refreshRelevantCounts }: Im
       // Wait for upload to complete
       await uploadPromise;
 
-      setUploadComplete(true);
-      await refreshRelevantCounts();
+      setUploadComplete(true); // Indicate upload finished, processing starts
+      await refreshRelevantCounts(); // Refresh counts immediately after upload
       
-      // Wait for processing to complete
-      const checkInterval = setInterval(async () => {
-        await refreshImportJob();
+      // No need for setInterval polling here. 
+      // The ImportUnitsContext handles job status updates via SSE.
+      // We will use the useEffect above to react to the 'finished' state.
 
-        // Use correct states: 'finished' and 'rejected'
-        if (job.currentJob?.state === "finished" ||
-            job.currentJob?.state === "rejected") {
-          clearInterval(checkInterval);
-
-          if (job.currentJob.state === "finished") {
-            router.push(nextPage);
-          }
-        }
-      }, 2000);
-      
     } catch (err) {
-      setError(`Error uploading file: ${err instanceof Error ? err.message : String(err)}`);
-      setIsUploading(false);
+      // Ensure isUploading is reset on error
+      setError(
+        `Error uploading file: ${err instanceof Error ? err.message : String(err)}`
+      );
+      setIsUploading(false); // Reset upload state on error
+      setUploadComplete(false); // Ensure upload complete flag is reset
+      setUploadProgress(0); // Reset progress
     }
-  };
+    // Don't set isUploading false here on success, wait for job state change
+  }, [file, job, jobSlug, refreshRelevantCounts]); // Add dependencies
 
   const getJobStatusDisplay = () => {
-    if (!job.currentJob) return null;
-    
-    const { state, import_completed_pct } = job.currentJob;
-    
+    // Use the job prop
+    if (!job) return null; 
+
+    const { state, import_completed_pct } = job;
+
     // Use correct states from Tables<"import_job">["state"]
     switch (state) {
       case "waiting_for_upload":
@@ -204,9 +211,14 @@ export function ImportJobUpload({ jobSlug, nextPage, refreshRelevantCounts }: Im
     }
   };
 
-  if (!job.currentJob) {
-    return <Spinner message="Loading import job..." />;
+  // Use job prop for loading state check
+  if (!job) { 
+    // Parent component should handle loading state, but provide a fallback
+    return <Spinner message="Waiting for import job data..." />; 
   }
+
+  // Determine if upload should be allowed based on job state
+  const allowUpload = job.state === "waiting_for_upload";
 
   return (
     <div className="space-y-6">
@@ -215,16 +227,21 @@ export function ImportJobUpload({ jobSlug, nextPage, refreshRelevantCounts }: Im
         {getJobStatusDisplay()}
       </div>
 
-      {job.currentJob.state === "waiting_for_upload" && (
+      {/* Only show upload section if job state allows */}
+      {allowUpload && (
         <div className="space-y-4">
           {/* File format info based on job type */}
+          {/* TODO: Consider passing definition prop if needed for more specific format info */}
           <div className="bg-blue-50 border border-blue-200 rounded-md p-4 text-sm">
-            <h4 className="font-medium text-blue-800 mb-2">Expected File Format</h4>
+            <h4 className="font-medium text-blue-800 mb-2">
+              Expected File Format
+            </h4>
             <p className="text-blue-700 mb-2">
               Your CSV file should include the following required columns:
             </p>
             <ul className="list-disc pl-5 text-blue-700 mb-2">
-              {job.currentJob.slug.includes("legal_unit") && (
+              {/* Use job prop */}
+              {job.slug?.includes("legal_unit") && ( 
                 <>
                   <li>id (unique identifier)</li>
                   <li>name (legal unit name)</li>
@@ -233,7 +250,8 @@ export function ImportJobUpload({ jobSlug, nextPage, refreshRelevantCounts }: Im
                   <li>activity_category_code (primary activity code)</li>
                 </>
               )}
-              {job.currentJob.slug.includes("establishment_for_lu") && (
+              {/* Use job prop */}
+              {job.slug?.includes("establishment_for_lu") && ( 
                 <>
                   <li>id (unique identifier)</li>
                   <li>name (establishment name)</li>
@@ -242,7 +260,8 @@ export function ImportJobUpload({ jobSlug, nextPage, refreshRelevantCounts }: Im
                   <li>activity_category_code (primary activity code)</li>
                 </>
               )}
-              {job.currentJob.slug.includes("establishment_without_lu") && (
+              {/* Use job prop */}
+              {job.slug?.includes("establishment_without_lu") && ( 
                 <>
                   <li>id (unique identifier)</li>
                   <li>name (establishment name)</li>
@@ -251,9 +270,11 @@ export function ImportJobUpload({ jobSlug, nextPage, refreshRelevantCounts }: Im
                 </>
               )}
             </ul>
-            {job.currentJob.slug.includes("explicit_dates") && (
+            {/* Use job prop */}
+            {job.slug?.includes("explicit_dates") && ( 
               <p className="text-blue-700 font-medium">
-                This import requires valid_from and valid_to date columns in ISO format (YYYY-MM-DD).
+                This import requires valid_from and valid_to date columns in ISO
+                format (YYYY-MM-DD).
               </p>
             )}
           </div>
@@ -283,13 +304,11 @@ export function ImportJobUpload({ jobSlug, nextPage, refreshRelevantCounts }: Im
           {file && (
             <div className="bg-gray-50 p-3 rounded-md flex justify-between items-center">
               <span className="text-sm truncate max-w-[70%]">{file.name}</span>
-              <Button
-                onClick={handleUpload}
-                disabled={isUploading}
-                size="sm"
-              >
-                {isUploading ? <Spinner className="mr-2 h-4 w-4" /> : null}
-                Upload
+              <Button onClick={handleUpload} disabled={isUploading || !file} size="sm">
+                {isUploading && !uploadComplete ? ( // Show spinner only during actual XHR upload
+                  <Spinner className="mr-2 h-4 w-4" />
+                ) : null}
+                {isUploading && !uploadComplete ? "Uploading..." : "Upload"}
               </Button>
             </div>
           )}
@@ -318,9 +337,10 @@ export function ImportJobUpload({ jobSlug, nextPage, refreshRelevantCounts }: Im
         </div>
       )}
 
-      {/* Use correct state 'finished' */}
-      {job.currentJob.state === "finished" && (
-        <Button onClick={() => router.push(nextPage)} className="w-full">
+      {/* Show continue button only when job is finished */}
+      {/* Use job prop */}
+      {job.state === "finished" && ( 
+        <Button onClick={() => router.push(nextPage)} className="w-full mt-4">
           Continue to Next Step
         </Button>
       )}

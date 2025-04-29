@@ -10,16 +10,16 @@ export default function ImportStatus() {
     counts: {
       legalUnits,
       establishmentsWithLegalUnit,
-      establishmentsWithoutLegalUnit
+      establishmentsWithoutLegalUnit,
     },
-    job: { currentJob }
+    // No longer need importState here
   } = useImportUnits();
   const { hasStatisticalUnits, workerStatus } = useBaseData();
-  
-  // Determine if any import process is active
-  const isImporting = workerStatus.isImporting || 
-                     (currentJob && 
-                      ["processing", "analyzing", "uploading"].includes(currentJob.state));
+
+  // Determine if any import process is active using workerStatus only
+  const isImporting = workerStatus.isImporting ?? false;
+  const isDeriving =
+    (workerStatus.isDerivingUnits || workerStatus.isDerivingReports) ?? false;
 
   return (
     <nav>
@@ -36,9 +36,11 @@ export default function ImportStatus() {
               href="/import/legal-units"
               subtitle={`${legalUnits || 0} legal units uploaded`}
               icon={<Building2 className="w-4 h-4" />}
-              // Use correct states: analysing_data or importing_data likely indicate processing
-              processing={(["analysing_data", "importing_data"].includes(currentJob?.state ?? "") &&
-                         currentJob?.slug.includes("legal_unit")) ?? false}
+              // Simplified processing indicator - maybe just use general isImporting?
+              // Or remove processing indicator from individual steps?
+              // Let's remove it for now for simplicity, as we can't easily tell *which* type is importing.
+              // processing={isImporting} // Option 1: General flag
+              processing={false} // Option 2: Remove specific indicator
             />
           </li>
           <li className="mb-6">
@@ -46,11 +48,12 @@ export default function ImportStatus() {
               done={!!establishmentsWithLegalUnit}
               title="Upload Establishments (optional)"
               href="/import/establishments"
-              subtitle={`${establishmentsWithLegalUnit || 0} formal establishments uploaded`}
+              subtitle={`${
+                establishmentsWithLegalUnit || 0
+              } formal establishments uploaded`}
               icon={<Store className="w-4 h-4" />}
-              // Use correct states
-              processing={(["analysing_data", "importing_data"].includes(currentJob?.state ?? "") &&
-                         currentJob?.slug.includes("establishment_for_lu")) ?? false}
+              // Remove specific indicator
+              processing={false}
             />
           </li>
         </ul>
@@ -61,11 +64,12 @@ export default function ImportStatus() {
               done={!!establishmentsWithoutLegalUnit}
               title="Upload Establishments Without Legal Units"
               href="/import/establishments-without-legal-unit"
-              subtitle={`${establishmentsWithoutLegalUnit || 0} informal establishments uploaded`}
+              subtitle={`${
+                establishmentsWithoutLegalUnit || 0
+              } informal establishments uploaded`}
               icon={<Building className="w-4 h-4" />}
-              // Use correct states
-              processing={(["analysing_data", "importing_data"].includes(currentJob?.state ?? "") &&
-                         currentJob?.slug.includes("establishment_without_lu")) ?? false}
+              // Remove specific indicator
+              processing={false}
             />
           </li>
         </ul>
@@ -78,7 +82,8 @@ export default function ImportStatus() {
               href="/import/jobs"
               subtitle="Monitor ongoing imports"
               icon={<FileText className="w-4 h-4" />}
-              processing={workerStatus.isImporting ?? false}
+              // Use the general isImporting flag here
+              processing={isImporting}
             />
           </li>
           <li className="mb-6">
@@ -88,7 +93,8 @@ export default function ImportStatus() {
               href="/import/analyse-data-for-search-and-reports"
               subtitle="Prepare for search and reports"
               icon={<BarChart2 className="w-4 h-4" />}
-              processing={(workerStatus.isDerivingUnits || workerStatus.isDerivingReports) ?? false}
+              // Use the combined isDeriving flag
+              processing={isDeriving}
             />
           </li>
         </ul>

@@ -1,19 +1,66 @@
 "use client";
 
+import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { useImportUnits } from "../import-units-context";
+import { ImportJobCreator } from "../components/import-job-creator";
+import { TimeContextSelector } from "../components/time-context-selector";
+import { Spinner } from "@/components/ui/spinner";
+import { Button } from "@/components/ui/button";
+import { getBrowserRestClient } from "@/context/RestClientStore";
+import { Tables } from "@/lib/database.types";
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import React from "react";
 import { InfoBox } from "@/components/info-box";
-import { useImportUnits } from "../import-units-context";
-import { TimeContextSelector } from "../components/time-context-selector";
-import { ImportJobCreator } from "../components/import-job-creator";
 
-export default function UploadLegalUnitsPage() {
-  const { counts: { legalUnits } } = useImportUnits();
+export default function LegalUnitsPage() {
+  const router = useRouter();
+  // No longer need importState here
+  const { counts } = useImportUnits(); 
+  const [isLoading, setIsLoading] = useState(true);
+  const [pendingJobs, setPendingJobs] = useState<Tables<"import_job">[]>([]);
+
+  // Check for existing jobs
+  useEffect(() => {
+    const checkExistingJobs = async () => {
+      // Removed redirection based on importState.currentJob
+      
+      try {
+        // Check for any pending legal unit import jobs (state = 'waiting_for_upload')
+        const client = await getBrowserRestClient();
+        if (!client) throw new Error("Failed to get browser REST client");
+        
+        const { data, error } = await client
+          .from("import_job")
+          .select("*, import_definition!inner(*)")
+          .eq("state", "waiting_for_upload")
+          .like("import_definition.slug", "%legal_unit%")
+          .order("created_at", { ascending: false });
+        
+        if (error) throw error;
+        
+        // Use the filtered data directly from the query
+        const legalUnitJobs = data || [];
+        
+        setPendingJobs(legalUnitJobs);
+      } catch (error) {
+        console.error("Error checking for existing import jobs:", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    checkExistingJobs();
+    // Removed importState.currentJob from dependencies
+  }, [router]); 
+
+  if (isLoading) {
+    return <Spinner message="Checking for existing import jobs..." />;
+  }
 
   return (
     <section className="space-y-8">
@@ -23,10 +70,36 @@ export default function UploadLegalUnitsPage() {
         analysis.
       </p>
 
-      {!!legalUnits && legalUnits > 0 && (
+      {!!counts.legalUnits && counts.legalUnits > 0 && (
         <InfoBox>
-          <p>There are already {legalUnits} legal units defined</p>
+          <p>There are already {counts.legalUnits} legal units defined</p>
         </InfoBox>
+      )}
+
+      {pendingJobs.length > 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
+          <h3 className="font-medium mb-2">Pending Import Jobs</h3>
+          <p className="text-sm mb-4">
+            You have {pendingJobs.length} pending legal unit import {pendingJobs.length === 1 ? 'job' : 'jobs'} waiting for upload.
+            Would you like to continue with one of these?
+          </p>
+          <div className="space-y-2">
+            {pendingJobs.map(job => (
+              <div key={job.id} className="flex justify-between items-center bg-white p-3 rounded border">
+                <div>
+                  <p className="font-medium">{job.description || "Legal Unit Import"}</p>
+                  <p className="text-xs text-gray-500">Created: {new Date(job.created_at).toLocaleString()}</p>
+                </div>
+                <Button 
+                  size="sm"
+                  onClick={() => router.push(`/import/legal-units/upload/${job.slug}`)}
+                >
+                  Continue
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
 
       <TimeContextSelector unitType="legal-units" />

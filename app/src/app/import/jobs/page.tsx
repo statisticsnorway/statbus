@@ -43,7 +43,7 @@ const fetcher = async (key: string) => {
   
   // Basic fetcher example, adjust based on actual API structure if needed
   // This example assumes the key directly maps to the resource path
-  const { data, error } = await client.from("import_job").select("*"); // Adjust query as needed
+  const { data, error } = await client.from("import_job").select("*").order("priority"); // Adjust query as needed
   
   if (error) {
     console.error("SWR Fetcher error:", error);
@@ -110,12 +110,9 @@ export default function ImportJobsPage() {
     // --- SSE Connection Setup ---
     // We connect without specific IDs now, relying on the server to send relevant updates.
     // The server-side logic might need adjustment if it strictly filters by initial IDs.
-    // Alternatively, keep the ID logic if the server MUST know which jobs the client initially loaded.
-    // Construct the URL with the initially loaded job IDs
-    const initialJobIds = jobIdsRef.current.join(',');
-    const sseUrl = initialJobIds 
-      ? `/api/sse/import-jobs?ids=${initialJobIds}` 
-      : `/api/sse/import-jobs`; // Fallback if no initial jobs
+    // Connect to the general import jobs SSE endpoint.
+    // Assumes the backend will broadcast relevant job updates to all connected clients.
+    const sseUrl = `/api/sse/import-jobs`;
       
     console.log(`Creating new SSE connection: ${sseUrl}`);
     const source = new EventSource(sseUrl);
@@ -212,8 +209,8 @@ export default function ImportJobsPage() {
             }
           } else { // INSERT
             if (jobIndex === -1) {
-              // Add the new job to the list (e.g., at the beginning)
-              return [updatedJobData, ...currentJobs];
+              // Add the new job to the list at the end
+              return [...currentJobs, updatedJobData];
             } else {
               // Job already exists? This shouldn't happen for INSERT, maybe log or just update.
               console.warn(`Received INSERT for job ${jobId} that already exists in list, updating.`);
@@ -294,26 +291,35 @@ export default function ImportJobsPage() {
   // It manages the connection lifecycle internally using refs.
   }, [isLoading]); // Only depend on isLoading
 
-  const getStateBadge = (state: string | null | undefined) => { // Allow null/undefined state
+  // Use the actual type for state from the database schema
+  const getStateBadge = (state: Tables<"import_job">["state"] | null | undefined) => {
     // Handle null or undefined state gracefully
     if (!state) {
       return <Badge variant="outline">Unknown</Badge>;
     }
+    // Align with states used in ImportJobUpload and likely schema
     switch (state) {
       case "waiting_for_upload":
-        return <Badge variant="outline">Waiting</Badge>;
-      case "uploading":
-        return <Badge variant="secondary">Uploading</Badge>;
-      case "processing":
-        return <Badge variant="secondary">Processing</Badge>;
-      case "analyzing":
+        return <Badge variant="outline">Waiting for Upload</Badge>;
+      // Add states corresponding to upload/processing phases if needed, matching ImportJobUpload
+      case "upload_completed":
+      case "preparing_data":
+        return <Badge variant="secondary">Preparing</Badge>;
+      case "analysing_data": // Use schema spelling
         return <Badge variant="secondary">Analyzing</Badge>;
-      case "completed":
-        return <Badge className="bg-green-500 text-white">Completed</Badge>;
-      case "error":
-        return <Badge variant="destructive">Error</Badge>;
+      case "importing_data":
+        return <Badge variant="secondary">Importing</Badge>;
+      case "waiting_for_review":
+        return <Badge variant="secondary">Review</Badge>;
+      case "approved":
+         return <Badge variant="secondary">Approved</Badge>;
+      case "finished": // Use 'finished' from schema/ImportJobUpload
+        return <Badge className="bg-green-600 text-white">Finished</Badge>;
+      case "rejected": // Use 'rejected' from schema/ImportJobUpload
+        return <Badge variant="destructive">Rejected</Badge>;
       default:
-        return <Badge>{state}</Badge>;
+        // Display any other unexpected state directly
+        return <Badge variant="outline">{state}</Badge>;
     }
   };
  
@@ -380,16 +386,16 @@ export default function ImportJobsPage() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    {/* Show progress for states that have it */}
-                    {job.state && ["uploading", "processing", "analyzing", "preparing_data", "analysing_data", "importing_data"].includes(job.state) && job.import_completed_pct !== null ? (
+                    {/* Show progress for states that have it - align with schema/ImportJobUpload */}
+                    {job.state && ["preparing_data", "analysing_data", "importing_data"].includes(job.state) && job.import_completed_pct !== null ? (
                       <div className="w-32">
                         <Progress value={job.import_completed_pct ?? 0} className="h-2" />
                         <span className="text-xs text-gray-500">{Math.round(job.import_completed_pct ?? 0)}%</span>
                       </div>
-                    ) : job.state === "completed" ? ( // Use 'completed' state
+                    ) : job.state === "finished" ? ( // Use 'finished' state
                       <span className="text-xs text-green-600">100%</span>
                     ) : (
-                      // Show dash or empty for states without progress
+                      // Show dash or empty for states without progress (e.g., waiting, rejected)
                       <span className="text-xs text-gray-400">-</span>
                     )}
                   </TableCell>

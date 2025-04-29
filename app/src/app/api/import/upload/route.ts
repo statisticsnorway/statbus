@@ -14,7 +14,7 @@ const getDbConfig = () => {
     host: dbHost,
     port: dbPort,
     database: dbName,
-    user: process.env.POSTGRES_AUTHENTICATOR_USER,
+    user: "authenticator",
     password: process.env.POSTGRES_AUTHENTICATOR_PASSWORD,
   };
 };
@@ -41,12 +41,12 @@ export async function POST(request: NextRequest) {
 
     // Get the import job details
     const client = await getServerRestClient();
-    const { data: job, error: jobError } = await client
+    const { data: jobs, error: jobError } = await client
       .from("import_job")
       .select("*")
-      .eq("slug", jobSlug)
-      .single();
+      .eq("slug", jobSlug);
 
+    const job = jobs[0];
     if (jobError || !job) {
       return NextResponse.json(
         { message: `Import job not found: ${jobError?.message || "Unknown error"}` },
@@ -54,26 +54,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // NOTE: Job state starts as 'waiting_for_upload' by default when created.
-    // We don't set it to 'uploading' here. The UI can reflect this based on the upload start.
-    // Record the upload start time instead.
-    await client
-      .from("import_job")
-      .update({
-        upload_start_at: new Date().toISOString(),
-        import_completed_pct: 0 // Reset progress
-      })
-      .eq("id", job.id);
-
-
-    // Read file content
-    const fileBuffer = await file.arrayBuffer();
-    const fileContent = new TextDecoder().decode(fileBuffer);
-
-    // Create a readable stream from the file content
-    const fileStream = Readable.from([fileContent]);
-
-    // Get the access token from cookies
+    // Get the access token from cookies first, fail early if not present
     const accessToken = request.cookies.get('statbus')?.value;
     if (!accessToken) {
       return NextResponse.json(
@@ -85,7 +66,9 @@ export async function POST(request: NextRequest) {
     const logger = await createServerLogger();
     
     // Connect directly to PostgreSQL for efficient COPY using authenticator role
-    const pool = new Pool(getDbConfig());
+    const dbConfig = getDbConfig();
+    console.debug("dbConfig", dbConfig);
+    const pool = new Pool(dbConfig);
     const pgClient = await pool.connect();
 
     try {
@@ -104,47 +87,98 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // --- Header Extraction ---
+      // Read just enough to get the header line without loading the whole file
+      const reader = file.stream().getReader();
+      let headerLine = '';
+      let chunkResult = await reader.read();
+      let decoder = new TextDecoder();
+      let buffer = '';
+
+      while (!chunkResult.done) {
+        buffer += decoder.decode(chunkResult.value, { stream: true });
+        const newlineIndex = buffer.indexOf('\n');
+        if (newlineIndex !== -1) {
+          headerLine = buffer.substring(0, newlineIndex).trim(); // Get the first line
+          // Release the lock so the stream can be used again later
+          reader.releaseLock(); 
+          break; // Stop reading chunks
+        }
+        // If buffer gets too large without finding a newline, assume error or single-line file
+        if (buffer.length > 1024 * 10) { // e.g., 10KB limit for header line
+           reader.releaseLock();
+           throw new Error("Could not find header row within the first 10KB.");
+        }
+        chunkResult = await reader.read();
+      }
+      // Handle case where file ends before newline (single line file)
+      if (!headerLine && buffer.length > 0 && chunkResult.done) {
+        headerLine = buffer.trim();
+        // No need to release lock here as stream is done
+      }
+      
+      if (!headerLine) {
+        throw new Error("CSV file appears to be empty or header row could not be read.");
+      }
+
+      // Parse header line
+      const headers = headerLine.split(',')
+        .map(h => h.trim())
+        .filter(h => h.length > 0)
+        .map(h => `"${h.replace(/"/g, '""')}"`); // Quote headers
+
+      if (headers.length === 0) {
+        throw new Error("CSV header row is empty or invalid.");
+      }
+      
+      const columns = headers.join(', ');
+      const copyCommand = `COPY ${job.upload_table_name} (${columns}) FROM STDIN WITH (FORMAT csv, HEADER true, DELIMITER ',')`;
+      logger.info({ jobId: job.id, jobSlug: job.slug, command: copyCommand }, `Executing COPY command`);
+
+      // --- Data Streaming ---
       // Use COPY FROM STDIN for efficient data loading
-      const copyStream = pgClient.query(
-        copyFrom(`COPY ${job.upload_table_name} FROM STDIN WITH (FORMAT csv, HEADER true, DELIMITER ',')`)
-      );
+      const copyStream = pgClient.query(copyFrom(copyCommand));
+      
+      // Get a *new* stream for the entire file content
+      const fileStream = file.stream(); 
 
-      // Set up progress tracking
-      let totalBytes = fileContent.length;
-      let bytesSent = 0;
-      let lastProgressUpdate = 0;
-
-      // Pipe the file content to the copy stream with progress tracking
+      // Pipe the *entire* file stream directly to the copy stream
       await new Promise<void>((resolve, reject) => {
-        fileStream.on('data', async (chunk) => {
-          bytesSent += chunk.length;
-          
-          // Update progress every 5%
-          const progress = Math.floor((bytesSent / totalBytes) * 100);
-          if (progress >= lastProgressUpdate + 5) {
-            lastProgressUpdate = progress;
-            
-            // Update job progress
-            await client
-              .from("import_job")
-              .update({ import_completed_pct: progress })
-              .eq("id", job.id);
+        fileStream.pipeTo(new WritableStream({
+          write(chunk) {
+            return new Promise((resolveWrite, rejectWrite) => {
+              if (!copyStream.write(chunk)) {
+                copyStream.once('drain', resolveWrite);
+              } else {
+                resolveWrite();
+              }
+            });
+          },
+          close() {
+            copyStream.end();
+          },
+          abort(err) {
+            copyStream.destroy(err); // Ensure copyStream is properly terminated on abort
+            reject(err);
           }
-          
-          if (!copyStream.write(chunk)) {
-            fileStream.pause();
-          }
+        })).then(() => {
+           // fileStream piping finished successfully
+           // Now wait for the copyStream to finish processing in PG
+           copyStream.on('finish', resolve);
+           copyStream.on('error', reject); // Handle errors during PG processing
+        }).catch(err => {
+           // Error during fileStream piping
+           logger.error({ error: err, jobId: job.id, jobSlug: job.slug }, `File stream piping error: ${err.message}`);
+           // Ensure copyStream is terminated if piping fails
+           if (!copyStream.destroyed) {
+             copyStream.destroy(err);
+           }
+           reject(err);
         });
 
-        copyStream.on('drain', () => {
-          fileStream.resume();
-        });
-
-        fileStream.on('end', () => {
-          copyStream.end();
-        });
-
-        copyStream.on('error', (err: Error) => { // Add type annotation for err
+        // Also handle errors directly on the copyStream (e.g., PG connection issues)
+        copyStream.on('error', (err: Error) => {
+          logger.error({ error: err, jobId: job.id, jobSlug: job.slug }, `COPY FROM stream error: ${err.message}`);
           reject(err);
         });
 
@@ -168,7 +202,8 @@ export async function POST(request: NextRequest) {
     } catch (error) {
       // Rollback transaction on error
       await pgClient.query('ROLLBACK');
-      throw error;
+      logger.error({ error, jobId: job?.id, jobSlug: job?.slug }, `Error during COPY FROM transaction: ${error instanceof Error ? error.message : String(error)}`);
+      throw error; // Re-throw after logging and rollback
     } finally {
       // Release the client back to the pool
       pgClient.release();
