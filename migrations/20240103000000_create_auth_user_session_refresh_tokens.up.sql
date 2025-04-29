@@ -631,6 +631,8 @@ $switch_role_from_jwt$;
 
 -- Grant execute to authenticator role
 GRANT EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) TO authenticator;
+-- Grant schema usage to authenticator role so it can access the function
+GRANT USAGE ON SCHEMA auth TO authenticator;
 
 
 -- Create refresh function that returns a new JWT token
