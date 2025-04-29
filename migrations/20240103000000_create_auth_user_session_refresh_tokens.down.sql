@@ -30,41 +30,37 @@ REVOKE EXECUTE ON FUNCTION public.logout() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION public.refresh() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION public.login(text, text) FROM anon;
 
--- Revoke execute permissions on auth functions
+-- 3. Revoke auth function grants
 REVOKE EXECUTE ON FUNCTION auth.check_api_key_revocation() FROM authenticated;
-REVOKE EXECUTE ON FUNCTION auth.generate_api_key_token() FROM authenticated; -- Trigger function, likely no direct grants needed, but revoke for safety
 REVOKE EXECUTE ON FUNCTION auth.extract_access_token_from_cookies() FROM authenticated;
-REVOKE EXECUTE ON FUNCTION auth.reset_session_context() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.generate_jwt(jsonb) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION auth.reset_session_context() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.set_user_context_from_email(text) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.build_auth_response(text, text, auth.user) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.extract_refresh_token_from_cookies() FROM authenticated;
+REVOKE EXECUTE ON FUNCTION auth.set_auth_cookies(text, text, timestamptz, timestamptz) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.use_jwt_claims_in_session(jsonb) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.build_jwt_claims(text, timestamptz, text, jsonb) FROM authenticated;
-REVOKE EXECUTE ON FUNCTION auth.clear_auth_cookies() FROM authenticated;
-REVOKE EXECUTE ON FUNCTION auth.set_auth_cookies(text, text, timestamptz, timestamptz) FROM authenticated;
--- REVOKE EXECUTE ON FUNCTION auth.drop_user_role() FROM ...; -- SECURITY DEFINER, no direct grants expected
--- REVOKE EXECUTE ON FUNCTION auth.sync_user_credentials_and_roles() FROM ...; -- SECURITY DEFINER, no direct grants expected
--- REVOKE EXECUTE ON FUNCTION auth.check_role_permission() FROM ...; -- SECURITY INVOKER, no direct grants expected
--- REVOKE EXECUTE ON FUNCTION auth.cleanup_expired_sessions() FROM ...; -- SECURITY DEFINER, no direct grants expected
-REVOKE EXECUTE ON FUNCTION auth.uid() FROM authenticated, anon;
-REVOKE EXECUTE ON FUNCTION auth.sub() FROM authenticated, anon;
+REVOKE EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) FROM authenticator; -- Added
 REVOKE EXECUTE ON FUNCTION auth.statbus_role() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.email() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.role() FROM authenticated, anon;
+REVOKE EXECUTE ON FUNCTION auth.uid() FROM authenticated, anon;
+REVOKE EXECUTE ON FUNCTION auth.sub() FROM authenticated, anon;
 
--- Revoke table/view/sequence permissions
+-- 4. Revoke table/view/sequence grants
 REVOKE SELECT, INSERT, UPDATE (description, revoked_at), DELETE ON public.api_key FROM authenticated;
-REVOKE SELECT, UPDATE (description, revoked_at), DELETE ON auth.api_key FROM authenticated; -- Revoke direct access if granted
 REVOKE USAGE ON SEQUENCE auth.api_key_id_seq FROM authenticated;
-REVOKE SELECT, UPDATE, DELETE ON auth.refresh_session FROM authenticated;
+REVOKE SELECT, INSERT, UPDATE (description, revoked_at), DELETE ON auth.api_key FROM authenticated; -- Corrected/Consolidated
+REVOKE INSERT, UPDATE, DELETE ON auth.user FROM admin_user;
 REVOKE SELECT, UPDATE, DELETE ON auth.user FROM authenticated;
-REVOKE INSERT, UPDATE, DELETE ON auth.user FROM admin_user; -- Revoked from admin role
+REVOKE SELECT, UPDATE, DELETE ON auth.refresh_session FROM authenticated;
 
--- Revoke schema usage
+-- 5. Revoke schema usage grants
+REVOKE USAGE ON SCHEMA auth FROM authenticator; -- Added
 REVOKE USAGE ON SCHEMA auth FROM authenticated, anon;
 
--- Revoke role memberships
+-- 6. Revoke role membership grants
 REVOKE pg_monitor FROM admin_user;
 
 -- Now drop objects in reverse order of creation
@@ -82,61 +78,72 @@ DROP FUNCTION IF EXISTS public.logout();
 DROP FUNCTION IF EXISTS public.refresh();
 DROP FUNCTION IF EXISTS public.login(text, text);
 
--- Drop public view
+-- 8. Drop public view
 DROP VIEW IF EXISTS public.api_key;
 
--- Drop triggers (before functions they use or tables they are on)
+-- 9. Drop triggers
 DROP TRIGGER IF EXISTS generate_api_key_token_trigger ON auth.api_key;
 DROP TRIGGER IF EXISTS drop_user_role_trigger ON auth.user;
 DROP TRIGGER IF EXISTS sync_user_credentials_and_roles_trigger ON auth.user;
 DROP TRIGGER IF EXISTS check_role_permission_trigger ON auth.user;
 
--- Drop RLS policies (before functions like auth.uid they might use)
--- Policies on auth.api_key (depend on auth.uid)
+-- 10. Drop RLS policies
+-- Policies on auth.api_key
 DROP POLICY IF EXISTS delete_own_api_keys ON auth.api_key;
 DROP POLICY IF EXISTS revoke_own_api_keys ON auth.api_key;
-DROP POLICY IF EXISTS select_own_api_keys ON auth.api_key;
 DROP POLICY IF EXISTS insert_own_api_keys ON auth.api_key;
--- Policies on auth.user (depend on pg_has_role, current_user)
+DROP POLICY IF EXISTS select_own_api_keys ON auth.api_key;
+-- Policies on auth.user
 DROP POLICY IF EXISTS admin_all_access ON auth.user;
 DROP POLICY IF EXISTS update_own_user ON auth.user;
 DROP POLICY IF EXISTS select_own_user ON auth.user;
--- Policies on auth.refresh_session (depend on auth.uid, pg_has_role)
+-- Policies on auth.refresh_session
 DROP POLICY IF EXISTS admin_all_refresh_sessions ON auth.refresh_session;
 DROP POLICY IF EXISTS delete_own_refresh_sessions ON auth.refresh_session;
 DROP POLICY IF EXISTS update_own_refresh_sessions ON auth.refresh_session;
 DROP POLICY IF EXISTS insert_own_refresh_sessions ON auth.refresh_session;
 DROP POLICY IF EXISTS select_own_refresh_sessions ON auth.refresh_session;
 
--- Drop auth functions (reverse order of creation/dependency)
+-- 11. Disable RLS
+ALTER TABLE auth.api_key DISABLE ROW LEVEL SECURITY; -- Added
+ALTER TABLE auth.user DISABLE ROW LEVEL SECURITY; -- Added
+ALTER TABLE auth.refresh_session DISABLE ROW LEVEL SECURITY; -- Added
+
+-- 12. Drop auth functions (reverse order)
 DROP FUNCTION IF EXISTS auth.check_api_key_revocation();
 DROP FUNCTION IF EXISTS auth.generate_api_key_token();
 DROP FUNCTION IF EXISTS auth.extract_access_token_from_cookies();
 DROP FUNCTION IF EXISTS auth.reset_session_context();
 DROP FUNCTION IF EXISTS auth.generate_jwt(jsonb);
 DROP FUNCTION IF EXISTS auth.set_user_context_from_email(text);
-DROP FUNCTION IF EXISTS auth.build_auth_response(text, text, auth.user); -- Depends on auth.user type
+DROP FUNCTION IF EXISTS auth.build_auth_response(text, text, auth.user);
 DROP FUNCTION IF EXISTS auth.extract_refresh_token_from_cookies();
 DROP FUNCTION IF EXISTS auth.use_jwt_claims_in_session(jsonb);
 DROP FUNCTION IF EXISTS auth.build_jwt_claims(text, timestamptz, text, jsonb);
+DROP FUNCTION IF EXISTS auth.switch_role_from_jwt(text); -- Added
 DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
 DROP FUNCTION IF EXISTS auth.set_auth_cookies(text, text, timestamptz, timestamptz);
 DROP FUNCTION IF EXISTS auth.drop_user_role();
 DROP FUNCTION IF EXISTS auth.sync_user_credentials_and_roles();
 DROP FUNCTION IF EXISTS auth.check_role_permission();
 DROP FUNCTION IF EXISTS auth.cleanup_expired_sessions();
-DROP FUNCTION IF EXISTS auth.uid(); -- Drop after policies that use it
-DROP FUNCTION IF EXISTS auth.sub(); -- Drop after policies/functions that use it
 DROP FUNCTION IF EXISTS auth.statbus_role();
 DROP FUNCTION IF EXISTS auth.email();
 DROP FUNCTION IF EXISTS auth.role();
+DROP FUNCTION IF EXISTS auth.uid();
+DROP FUNCTION IF EXISTS auth.sub();
 
--- Drop tables (reverse order of dependency)
+-- 13. Drop indexes
+DROP INDEX IF EXISTS auth.api_key_user_id_idx; -- Added
+DROP INDEX IF EXISTS auth.refresh_session_expires_at_idx; -- Added
+DROP INDEX IF EXISTS auth.refresh_session_user_id_idx; -- Added
+
+-- 14. Drop tables
 DROP TABLE IF EXISTS auth.api_key;
 DROP TABLE IF EXISTS auth.refresh_session;
 DROP TABLE IF EXISTS auth.user; -- Drops auth.user type implicitly
 
--- Drop auth types (reverse order of creation/dependency)
+-- 15. Drop auth types
 DROP TYPE IF EXISTS auth.auth_test_response;
 DROP TYPE IF EXISTS auth.token_info;
 DROP TYPE IF EXISTS auth.auth_status_response;
@@ -187,9 +194,8 @@ BEGIN
 END
 $$;
 
-
+-- 17. Drop hierarchy roles
 SET client_min_messages TO DEBUG2;
--- Revoke hierarchy grants and drop hierarchy roles
 DO $$
 DECLARE
   role_name text;
@@ -271,13 +277,13 @@ BEGIN
 END -- End of DO block
 $$;
 
--- Drop public type
+-- 18. Drop public type
 DROP TYPE IF EXISTS public.statbus_role;
 
--- Drop the domain type
+-- 19. Drop domain
 DROP DOMAIN IF EXISTS "application/json";
 
--- Drop auth schema
+-- 20. Drop schema
 DROP SCHEMA IF EXISTS auth;
 
 COMMIT;
