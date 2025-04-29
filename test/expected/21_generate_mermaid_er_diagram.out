@@ -313,6 +313,7 @@ erDiagram
 		"integer" user_id
 	}
 	import_mapping["import_mapping"] {
+		"integer" id
 		"integer" definition_id
 		"integer" source_column_id
 		"text" source_value

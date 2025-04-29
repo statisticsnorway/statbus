@@ -396,7 +396,7 @@ VALUES
     , ('hjelpeenhetskode.beskrivelse', NULL, NULL)
     , ('harRegistrertAntallAnsatte', NULL, NULL)
     , ('antallAnsatte', NULL, 'employees')
-    , ('hjemmeside', NULL, 'website')
+    , ('hjemmeside', NULL, 'web_address')
     , ('postadresse.adresse', NULL, 'postal_address_part1')
     , ('postadresse.poststed', NULL, 'postal_postplace')
     , ('postadresse.postnummer', NULL, 'postal_postcode')
@@ -500,7 +500,7 @@ ORDER BY source_column_priority, target_column;
  brreg_hovedenhet_2024 | hjelpeenhetskode.beskrivelse              |              |                   |                     14 | 
  brreg_hovedenhet_2024 | harRegistrertAntallAnsatte                |              |                   |                     15 | 
  brreg_hovedenhet_2024 | antallAnsatte                             |              |                   |                     16 | employees
- brreg_hovedenhet_2024 | hjemmeside                                |              |                   |                     17 | 
+ brreg_hovedenhet_2024 | hjemmeside                                |              |                   |                     17 | web_address
  brreg_hovedenhet_2024 | postadresse.adresse                       |              |                   |                     18 | postal_address_part1
  brreg_hovedenhet_2024 | postadresse.poststed                      |              |                   |                     19 | postal_postplace
  brreg_hovedenhet_2024 | postadresse.postnummer                    |              |                   |                     20 | postal_postcode
@@ -603,7 +603,7 @@ VALUES
     , ('hjelpeenhetskode.beskrivelse', NULL, NULL)
     , ('harRegistrertAntallAnsatte', NULL, NULL)
     , ('antallAnsatte', NULL, 'employees')
-    , ('hjemmeside', NULL, 'website')
+    , ('hjemmeside', NULL, 'web_address')
     , ('postadresse.adresse', NULL, 'postal_address_part1')
     , ('postadresse.poststed', NULL, 'postal_postplace')
     , ('postadresse.postnummer', NULL, 'postal_postcode')
@@ -689,7 +689,7 @@ ORDER BY source_column_priority, target_column;
  brreg_underenhet_2024 | hjelpeenhetskode.beskrivelse       |              |                   |                     14 | 
  brreg_underenhet_2024 | harRegistrertAntallAnsatte         |              |                   |                     15 | 
  brreg_underenhet_2024 | antallAnsatte                      |              |                   |                     16 | employees
- brreg_underenhet_2024 | hjemmeside                         |              |                   |                     17 | 
+ brreg_underenhet_2024 | hjemmeside                         |              |                   |                     17 | web_address
  brreg_underenhet_2024 | postadresse.adresse                |              |                   |                     18 | postal_address_part1
  brreg_underenhet_2024 | postadresse.poststed               |              |                   |                     19 | postal_postplace
  brreg_underenhet_2024 | postadresse.postnummer             |              |                   |                     20 | postal_postcode
@@ -943,18 +943,6 @@ Verify the concrete tables of one import job
  vedtektsdato                              | text |           |          | 
  vedtektsfestetFormaal                     | text |           |          | 
  aktivitet                                 | text |           |          | 
-Policies:
-    POLICY "import_lu_2015_sht_upload_admin_user_manage"
-      TO admin_user
-      USING (true)
-      WITH CHECK (true)
-    POLICY "import_lu_2015_sht_upload_authenticated_read" FOR SELECT
-      TO authenticated
-      USING (true)
-    POLICY "import_lu_2015_sht_upload_regular_user_manage"
-      TO regular_user
-      USING (true)
-      WITH CHECK (true)
 Triggers:
     import_lu_2015_sht_upload_check_state_before_insert BEFORE INSERT ON import_lu_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.check_import_job_state_for_insert('import_lu_2015_sht')
     import_lu_2015_sht_upload_update_state_after_insert AFTER INSERT ON import_lu_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_lu_2015_sht')
@@ -969,6 +957,7 @@ Triggers:
  primary_activity_category_code   | text              |           |          | 
  secondary_activity_category_code | text              |           |          | 
  employees                        | text              |           |          | 
+ web_address                      | text              |           |          | 
  postal_address_part1             | text              |           |          | 
  postal_postplace                 | text              |           |          | 
  postal_postcode                  | text              |           |          | 
@@ -1074,18 +1063,6 @@ Policies:
  datoEierskifte                     | text |           |          | 
  overordnetEnhet                    | text |           |          | 
  nedleggelsesdato                   | text |           |          | 
-Policies:
-    POLICY "import_es_2015_sht_upload_admin_user_manage"
-      TO admin_user
-      USING (true)
-      WITH CHECK (true)
-    POLICY "import_es_2015_sht_upload_authenticated_read" FOR SELECT
-      TO authenticated
-      USING (true)
-    POLICY "import_es_2015_sht_upload_regular_user_manage"
-      TO regular_user
-      USING (true)
-      WITH CHECK (true)
 Triggers:
     import_es_2015_sht_upload_check_state_before_insert BEFORE INSERT ON import_es_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.check_import_job_state_for_insert('import_es_2015_sht')
     import_es_2015_sht_upload_update_state_after_insert AFTER INSERT ON import_es_2015_sht_upload FOR EACH STATEMENT EXECUTE FUNCTION admin.update_import_job_state_after_insert('import_es_2015_sht')
@@ -1099,6 +1076,7 @@ Triggers:
  primary_activity_category_code   | text              |           |          | 
  secondary_activity_category_code | text              |           |          | 
  employees                        | text              |           |          | 
+ web_address                      | text              |           |          | 
  postal_address_part1             | text              |           |          | 
  postal_postplace                 | text              |           |          | 
  postal_postcode                  | text              |           |          | 
@@ -1183,7 +1161,7 @@ FROM public.import_lu_2015_sht_import_information;
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjelpeenhetskode.beskrivelse              |              |                   |                                  |             |                      |                     14
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | harRegistrertAntallAnsatte                |              |                   |                                  |             |                      |                     15
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | antallAnsatte                             |              |                   | employees                        | text        | f                    |                     16
- import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjemmeside                                |              |                   |                                  |             |                      |                     17
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjemmeside                                |              |                   | web_address                      | text        | f                    |                     17
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.adresse                       |              |                   | postal_address_part1             | text        | f                    |                     18
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.poststed                      |              |                   | postal_postplace                 | text        | f                    |                     19
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.postnummer                    |              |                   | postal_postcode                  | text        | f                    |                     20
@@ -1248,7 +1226,7 @@ WHERE import_job_slug = 'import_lu_2015_sht';
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjelpeenhetskode.beskrivelse              |              |                   |                                  |             |                      |                     14
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | harRegistrertAntallAnsatte                |              |                   |                                  |             |                      |                     15
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | antallAnsatte                             |              |                   | employees                        | text        | f                    |                     16
- import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjemmeside                                |              |                   |                                  |             |                      |                     17
+ import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | hjemmeside                                |              |                   | web_address                      | text        | f                    |                     17
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.adresse                       |              |                   | postal_address_part1             | text        | f                    |                     18
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.poststed                      |              |                   | postal_postplace                 | text        | f                    |                     19
  import_lu_2015_sht | brreg_hovedenhet_2024  | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | public             | import_lu_2015_sht_upload | import_lu_2015_sht_data | postadresse.postnummer                    |              |                   | postal_postcode                  | text        | f                    |                     20
