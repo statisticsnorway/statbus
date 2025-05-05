@@ -52,6 +52,15 @@ $$;
 
 When calling functions with multiple arguments (3+), use named arguments for clarity, arg1 => val1, arg2 => val2, etc.
 
+PostgreSQL 17 supports the new MERGE syntax for efficient batch handling.
+
+When creating large string for format, use $$ to allow inline ' in comments, so
+```plpgsql
+format($$
+  ... -- A comment with a '
+$$, arg1, arg2, ...)
+```
+
 ### SQL Testing
 Is done with pg_regress with test/ as base.
 Run with `./devops/manage-statbus.sh test [all|xx_the_test_name]`.
