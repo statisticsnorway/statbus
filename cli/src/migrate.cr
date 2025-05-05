@@ -53,6 +53,14 @@ module Statbus
         migrations = migration_filenames.map { |path| MigrationFile.parse(Path[path]) }
         sorted_migrations = migrations.sort_by { |m| m.version }
 
+        # Check for duplicate migration versions (Fail Fast)
+        seen_versions = Set(Int64).new
+        sorted_migrations.each do |migration|
+          unless seen_versions.add?(migration.version)
+            raise "Duplicate migration version found: #{migration.version} in file #{migration.path.basename}"
+          end
+        end
+
         if sorted_migrations.empty?
           puts "No up migrations found in #{migration_paths}"
           return
