@@ -9,20 +9,20 @@
 ARG postgresql_major=17
 
 # Set extension versions
-ARG pgtap_release=1.2.0
-ARG plpgsql_check_release=master
-ARG pg_safeupdate_release=master
-ARG wal2json_release=master
+ARG pgtap_release=v1.3.3
+ARG plpgsql_check_release=v2.8.1
+ARG pg_safeupdate_release=0317a2d
+ARG wal2json_release=wal2json_2_6
 ARG pg_hashids_release=cd0e1b31d52b394a0df64079406a14a4f7387cd6
-ARG pgsql_http_release=master
+ARG pgsql_http_release=v1.6.3
 ARG pg_trgm_release=1.6
 ARG sql_saga_release=master
-ARG pg_stat_monitor_release=main
+ARG pg_stat_monitor_release=2.1.1
 ARG pg_repack_release=ver_1.5.2
-ARG hypopg_release=REL1_STABLE
-ARG index_advisor_release=main
-ARG pgjwt_release=master
-ARG pg_graphql_release=master
+ARG hypopg_release=1.4.1
+ARG index_advisor_release=v0.2.0
+ARG pgjwt_release=f3d82fd
+ARG pg_graphql_release=v1.5.11
 
 ####################
 # Setup Postgres PPA
@@ -108,7 +108,7 @@ ARG pgtap_release
 WORKDIR /tmp
 RUN git clone https://github.com/theory/pgtap.git && \
   cd pgtap && \
-  git checkout v${pgtap_release} && \
+  git checkout ${pgtap_release} && \
   make && \
   make DESTDIR=/tmp/pgtap-dist install
 
