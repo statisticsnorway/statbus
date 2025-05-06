@@ -1,139 +1,110 @@
 -- Migration 20250227115859: add import jobs
 BEGIN;
 
-CREATE TABLE public.import_target(
+-- Represents a logical component or processing stage within an import definition.
+-- Steps are ordered by priority to manage dependencies.
+CREATE TABLE public.import_step(
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    schema_name text NOT NULL,
-    table_name text,
-    name text UNIQUE NOT NULL,
-    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    UNIQUE (schema_name, table_name)
-);
-INSERT INTO public.import_target (schema_name,table_name, name)
-VALUES
-    ('public','import_legal_unit_era', 'Legal Unit')
-    ,('public','import_establishment_era_for_legal_unit', 'Formal Establishment for Legal Unit')
-    ,('public','import_establishment_era_without_legal_unit', 'Informal Establishment without Legal Unit')
-   ;
-
-CREATE TABLE public.import_target_column(
-    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    target_id int REFERENCES public.import_target(id) ON DELETE CASCADE,
-    column_name text NOT NULL,
-    column_type text NOT NULL,
-    uniquely_identifying boolean NOT NULL,
+    code text UNIQUE NOT NULL, -- Unique code identifier for the step (snake_case)
+    name text NOT NULL,        -- Human-readable name for UI
+    priority integer NOT NULL,
+    analyse_procedure regproc, -- Procedure for analysis phase (optional)
+    process_procedure regproc, -- Procedure for the final operation (insert/update/upsert) phase (optional)
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
 );
-WITH cols AS (
-     SELECT it.id AS target_id
-          , column_name
-          , data_type AS column_type
-          , is_nullable
-          , EXISTS (SELECT * FROM public.external_ident_type WHERE code = column_name) AS uniquely_identifying
-          , ROW_NUMBER() OVER (PARTITION BY it.id ORDER BY ordinal_position) AS priority
-      FROM information_schema.columns AS c
-      JOIN public.import_target AS it
-        ON c.table_schema = it.schema_name
-        AND c.table_name = it.table_name
-      ORDER BY target_id, ordinal_position
-) INSERT INTO public.import_target_column(target_id, column_name, column_type, uniquely_identifying)
-  SELECT target_id, column_name, column_type, uniquely_identifying
-  FROM cols
-  ;
+COMMENT ON TABLE public.import_step IS 'Logical processing step within an import definition (e.g., external_ident, legal_unit, physical_location). Ordered by priority.';
+COMMENT ON COLUMN public.import_step.code IS 'Unique code identifier for the step (snake_case).';
+COMMENT ON COLUMN public.import_step.name IS 'Human-readable name for UI display.';
+COMMENT ON COLUMN public.import_step.priority IS 'Execution order for the step (lower runs first).';
+COMMENT ON COLUMN public.import_step.analyse_procedure IS 'Optional procedure to run during the analysis phase for this step.';
+COMMENT ON COLUMN public.import_step.process_procedure IS 'Optional procedure to run during the final operation (insert/update/upsert) phase for this step. Must respect import_definition.strategy.';
 
-SELECT it.schema_name || '.' || it.table_name AS target_table_name
-     , itc.column_name
-     , itc.column_type
-     , itc.uniquely_identifying
-FROM public.import_target_column itc
-JOIN public.import_target it ON it.id = itc.target_id
-ORDER BY it.id, it.table_name, itc.column_name;
+-- Enum to control the final insertion behavior
+CREATE TYPE public.import_strategy AS ENUM ('upsert', 'insert_only', 'update_only');
+COMMENT ON TYPE public.import_strategy IS
+'Defines the strategy when inserting data into the final target table(s):
+- upsert: Insert new rows, update existing rows based on unique constraints.
+- insert_only: Only insert new rows, skip or error on existing rows (behavior depends on insert_procedure).
+- update_only: Only update existing rows, skip rows that do not already exist.';
 
 CREATE TABLE public.import_definition(
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     slug text UNIQUE NOT NULL,
     name text UNIQUE NOT NULL,
-    target_id int REFERENCES public.import_target(id) ON DELETE CASCADE,
     note text,
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
-    time_context_ident TEXT, -- For lookup in public.time_context(ident) to get computed valid_from/valid_to
+    time_context_ident TEXT, -- Optional: For default valid_from/valid_to lookup
+    strategy public.import_strategy NOT NULL DEFAULT 'upsert'::public.import_strategy,
     user_id integer REFERENCES auth.user(id) ON DELETE SET NULL,
-    draft boolean NOT NULL DEFAULT true,
-    valid boolean NOT NULL DEFAULT false,
-    validation_error text,
+    valid boolean NOT NULL DEFAULT false, -- Indicates if the definition passes validation checks
+    validation_error text,                -- Stores validation error messages if not valid
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    CONSTRAINT draft_valid_error_states CHECK (
-        CASE WHEN draft THEN NOT valid
-            WHEN NOT draft THEN valid AND validation_error IS NULL
-            ELSE false                             -- All other combinations forbidden
-        END
-    )
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+    -- Removed draft column and draft_valid_error_states constraint
 );
 CREATE INDEX ix_import_user_id ON public.import_definition USING btree (user_id);
 CREATE INDEX ix_import_data_source_id ON public.import_definition USING btree (data_source_id);
 
+COMMENT ON COLUMN public.import_definition.strategy IS 'Defines the strategy (upsert, insert_only, update_only) for the final insertion step.';
+COMMENT ON COLUMN public.import_definition.valid IS 'Indicates if the definition passes validation checks.';
+COMMENT ON COLUMN public.import_definition.validation_error IS 'Stores validation error messages if not valid.';
 
-CREATE FUNCTION admin.import_definition_validate_before()
-RETURNS TRIGGER LANGUAGE plpgsql AS $import_definition_validate_before$
-DECLARE
-    target_has_temporal boolean;
-    missing_temporal text[];
-BEGIN
-    -- Skip validation if in draft mode
-    IF NEW.draft THEN
-        RETURN NEW;
-    END IF;
+-- Removed import_definition_validate_before function and trigger
+-- Validation logic should be consolidated or handled differently if needed beyond job creation check.
 
-    -- Check if target table has temporal columns
-    SELECT EXISTS (
-        SELECT 1 FROM public.import_target_column
-        WHERE target_id = NEW.target_id
-        AND column_name IN ('valid_from', 'valid_to')
-    ) INTO target_has_temporal;
+-- Enum defining the purpose of a column in the intermediate _data table
+CREATE TYPE public.import_data_column_purpose AS ENUM (
+    'source_input',      -- Raw data mapped directly from the source file
+    'internal',          -- Result of lookups/calculations during analysis phase
+    'pk_id',             -- ID of the record inserted into a final table by this target
+    'metadata'           -- Internal status/error tracking columns (state, error, last_completed_priority)
+);
+COMMENT ON TYPE public.import_data_column_purpose IS
+'Defines the role of a column within the job-specific _data table:
+- source_input: Raw data mapped directly from the source file (always TEXT).
+- internal: Intermediate results from analysis (lookups, type casting, calculations).
+- pk_id: Primary key of the record inserted/updated in a final Statbus table by a process step.
+- metadata: Internal columns for tracking row state and errors.';
 
-    IF NOT target_has_temporal THEN
-        -- No temporal columns needed, validation passes
-        NEW.valid := true;
-        NEW.validation_error := NULL;
-        RETURN NEW;
-    END IF;
+-- Defines the data columns required or produced by a specific import step.
+-- The schema of a job's _data table is derived from the columns associated with the steps linked to its definition.
+CREATE TABLE public.import_data_column (
+    id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    -- definition_id removed - columns are now defined per step
+    step_id int NOT NULL REFERENCES public.import_step(id) ON DELETE CASCADE, -- Step this column belongs to (NULL for global metadata like state, error)
+    priority int, -- Defines column order within a step or for metadata columns. Metadata columns (step_id IS NULL) use this. Step columns order by step.priority then this. Can be NULL for step columns.
+    column_name text NOT NULL,
+    column_type text NOT NULL,
+    purpose public.import_data_column_purpose NOT NULL,
+    is_nullable boolean NOT NULL DEFAULT true,
+    default_value text, -- Default value expression (e.g., 'now()', '0')
+    is_uniquely_identifying boolean NOT NULL DEFAULT false, -- Used for ON CONFLICT in prepare step
+    created_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    UNIQUE (step_id, column_name), -- Unique column name within a step (or globally if step_id is NULL)
+    UNIQUE (id, purpose), -- Added for FK constraint from import_mapping
+    CONSTRAINT unique_identifying_only_for_source_input CHECK (NOT is_uniquely_identifying OR purpose = 'source_input')
+);
+COMMENT ON TABLE public.import_data_column IS 'Defines data columns required or produced by import steps. The schema of a job''s _data table is derived from these based on the steps linked to the job''s definition.';
+COMMENT ON COLUMN public.import_data_column.step_id IS 'The import step this column is associated with (NULL for global metadata columns like state, error).';
+COMMENT ON COLUMN public.import_data_column.purpose IS 'Role of the column in the _data table (source_input, internal, pk_id, metadata).';
+COMMENT ON COLUMN public.import_data_column.is_nullable IS 'Whether the column in the _data table can be NULL.';
+COMMENT ON COLUMN public.import_data_column.default_value IS 'SQL default value expression for the column in the _data table.';
+COMMENT ON COLUMN public.import_data_column.is_uniquely_identifying IS 'Indicates if this data column (must have purpose=source_input) contributes to the unique identification of a row for UPSERT logic during the prepare step.';
 
-    -- Check which temporal columns are missing mappings
-    SELECT array_agg(column_name)
-    FROM public.import_target_column itc
-    WHERE itc.target_id = NEW.target_id
-    AND itc.column_name IN ('valid_from', 'valid_to')
-    AND NOT EXISTS (
-        SELECT 1 FROM public.import_mapping im
-        WHERE im.target_column_id = itc.id
-        AND im.definition_id = NEW.id
-        AND (
-            im.source_column_id IS NOT NULL OR
-            im.source_expression = 'default'::public.import_source_expression OR
-            im.source_value IS NOT NULL
-        )
-    ) INTO missing_temporal;
+-- Removed admin.prevent_changes_to_non_draft_definition function and related triggers
+-- Changes are now allowed regardless of the 'valid' status. Validation occurs at job creation.
 
-    -- Set validation results on NEW record
-    NEW.valid := (missing_temporal IS NULL);
-    NEW.validation_error := CASE
-        WHEN missing_temporal IS NULL THEN NULL
-        ELSE format(
-            'Missing required mappings for temporal columns: %s. Either map source columns or use ''default'' expression',
-            array_to_string(missing_temporal, ', ')
-        )
-    END;
-    NEW.draft := CASE
-        WHEN missing_temporal IS NULL THEN false
-        ELSE true
-    END;
+-- Linking table between import definitions and the steps they include.
+CREATE TABLE public.import_definition_step (
+    definition_id INT NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
+    step_id INT NOT NULL REFERENCES public.import_step(id) ON DELETE CASCADE,
+    PRIMARY KEY (definition_id, step_id)
+);
+COMMENT ON TABLE public.import_definition_step IS 'Connects an import definition to the specific import steps it utilizes.';
 
-    RETURN NEW;
-END;
-$import_definition_validate_before$;
+-- Removed trigger prevent_non_draft_definition_step_changes
 
 -- Procedure to notify about import_job_process status check
 CREATE PROCEDURE worker.notify_check_is_importing()
@@ -202,81 +173,22 @@ BEGIN
 END;
 $function$;
 
-
-CREATE FUNCTION admin.validate_time_context_ident()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-BEGIN
-    IF NEW.time_context_ident IS NOT NULL
-    AND NOT EXISTS (SELECT 1 FROM public.time_context WHERE ident = NEW.time_context_ident) THEN
-        RAISE EXCEPTION 'Invalid time_context_ident: %', NEW.time_context_ident;
-    END IF;
-    RETURN NEW;
-END;
-$$;
-
-
-CREATE TRIGGER validate_time_context_ident_trigger
-    BEFORE INSERT OR UPDATE OF time_context_ident ON public.import_definition
-    FOR EACH ROW
-    EXECUTE FUNCTION admin.validate_time_context_ident();
-
-CREATE TRIGGER validate_on_draft_change
-    BEFORE UPDATE OF draft ON public.import_definition
-    FOR EACH ROW
-    WHEN (OLD.draft = true AND NEW.draft = false)
-    EXECUTE FUNCTION admin.import_definition_validate_before();
-
-CREATE FUNCTION admin.prevent_changes_to_non_draft_definition()
-RETURNS TRIGGER LANGUAGE plpgsql AS $$
-DECLARE
-    def public.import_definition;
-BEGIN
-    IF TG_TABLE_NAME = 'import_definition' THEN
-        -- For direct changes to import_definition
-        IF NOT NEW.draft AND OLD.draft = NEW.draft THEN
-            RAISE EXCEPTION 'Can only modify import definition % when in draft mode', OLD.id;
-        END IF;
-    ELSE
-        -- For changes to related tables (mapping, source_column)
-        SELECT * INTO def FROM public.import_definition WHERE id =
-            CASE TG_TABLE_NAME
-                WHEN 'import_mapping' THEN
-                    CASE TG_OP
-                        WHEN 'DELETE' THEN OLD.definition_id
-                        ELSE NEW.definition_id
-                    END
-                WHEN 'import_source_column' THEN NEW.definition_id
-            END;
-
-        IF NOT def.draft THEN
-            RAISE EXCEPTION 'Can only modify % for import definition % when in draft mode',
-                TG_TABLE_NAME, def.id;
-        END IF;
-    END IF;
-    RETURN CASE TG_OP WHEN 'DELETE' THEN OLD ELSE NEW END;
-END;
-$$;
-
-CREATE TRIGGER prevent_non_draft_changes
-    BEFORE UPDATE ON public.import_definition
-    FOR EACH ROW
-    EXECUTE FUNCTION admin.prevent_changes_to_non_draft_definition();
+-- Removed validate_time_context_ident function and trigger prevent_non_draft_changes_and_validate
+-- Time context validation can happen within admin.import_job_derive if needed, or a separate validation function.
 
 CREATE TABLE public.import_source_column(
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    definition_id int REFERENCES public.import_definition(id) ON DELETE CASCADE,
+    definition_id int NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE, -- Made NOT NULL
     column_name text NOT NULL,
     priority int NOT NULL,
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
-    updated_at timestamp with time zone NOT NULL DEFAULT NOW()
+    updated_at timestamp with time zone NOT NULL DEFAULT NOW(),
+    UNIQUE (definition_id, column_name),
+    UNIQUE (definition_id, priority)
 );
-COMMENT ON COLUMN public.import_source_column.priority IS 'The ordering of the columns in the CSV file.';
+COMMENT ON COLUMN public.import_source_column.priority IS 'The 1-based ordering of the columns in the source file.';
 
-CREATE TRIGGER prevent_non_draft_source_column_changes
-    BEFORE INSERT OR UPDATE OR DELETE ON public.import_source_column
-    FOR EACH ROW
-    EXECUTE FUNCTION admin.prevent_changes_to_non_draft_definition();
-
+-- Removed trigger prevent_non_draft_source_column_changes
 
 CREATE TYPE public.import_source_expression AS ENUM ('now', 'default');
 
@@ -284,47 +196,47 @@ CREATE TABLE public.import_mapping(
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     definition_id int NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
     source_column_id int REFERENCES public.import_source_column(id) ON DELETE CASCADE,
-    CONSTRAINT unique_source_column_mapping UNIQUE (definition_id, source_column_id),
+    -- Removed unique constraint unique_source_column_mapping as it might be too strict if multiple sources map to one target initially? Revisit if needed.
     source_value TEXT,
     source_expression public.import_source_expression,
-    target_column_id int REFERENCES public.import_target_column(id) ON DELETE CASCADE,
-    CONSTRAINT unique_target_column_mapping UNIQUE (definition_id, target_column_id),
+    target_data_column_id int REFERENCES public.import_data_column(id) ON DELETE CASCADE, -- FK to import_data_column
+    CONSTRAINT unique_target_data_column_mapping UNIQUE (definition_id, target_data_column_id), -- Ensure target data column mapped only once
     CONSTRAINT "only_one_source_can_be_defined"
     CHECK( source_column_id IS NOT NULL AND source_value IS     NULL AND source_expression IS     NULL
         OR source_column_id IS     NULL AND source_value IS NOT NULL AND source_expression IS     NULL
         OR source_column_id IS     NULL AND source_value IS     NULL AND source_expression IS NOT NULL
         ),
-    CONSTRAINT "at_least_one_column_must_be_defined" CHECK(
-      source_column_id IS NOT NULL OR target_column_id IS NOT NULL
-    ),
+    CONSTRAINT "target_data_column_must_be_defined" CHECK(target_data_column_id IS NOT NULL),
+    target_data_column_purpose public.import_data_column_purpose NOT NULL DEFAULT 'source_input'::public.import_data_column_purpose,
+    CONSTRAINT "target_data_column_purpose_must_be_source_input" CHECK (target_data_column_purpose = 'source_input'),
+    FOREIGN KEY (target_data_column_id, target_data_column_purpose) REFERENCES public.import_data_column(id, purpose),
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
 );
+COMMENT ON COLUMN public.import_mapping.target_data_column_id IS 'The target column in the _data table.';
+COMMENT ON COLUMN public.import_mapping.target_data_column_purpose IS 'The required purpose of the target data column (must be ''source_input'').';
 
-CREATE TRIGGER prevent_non_draft_mapping_changes
-    BEFORE INSERT OR UPDATE OR DELETE ON public.import_mapping
-    FOR EACH ROW
-    EXECUTE FUNCTION admin.prevent_changes_to_non_draft_definition();
+-- Removed trigger prevent_non_draft_mapping_changes
 
 CREATE TYPE public.import_job_state AS ENUM (
     'waiting_for_upload',  -- Initial state: User must upload data into table, then change state to upload_completed
-    'upload_completed',    -- Triggers worker notification to begin processing
+    'upload_completed',    -- Triggers worker notification to begin processing (and sets total_rows)
     'preparing_data',      -- Moving from custom names in upload table to standard names in data table
     'analysing_data',      -- Worker is analyzing the uploaded data
     'waiting_for_review',  -- Analysis complete, waiting for user to approve or reject
     'approved',            -- User approved changes, triggers worker to continue processing
     'rejected',            -- User rejected changes, no further processing
-    'importing_data',      -- Worker is importing data into target table
+    'processing_data',      -- Worker is importing data into target table
     'finished'             -- Import process completed.
 );
 
 -- Create enum type for row-level import state tracking
 CREATE TYPE public.import_data_state AS ENUM (
     'pending',     -- Initial state.
---    'analysing',   -- Row is currently being analysed
---    'analysed',    -- Row has been analysed
-    'importing',   -- Row is currently being imported
-    'imported',    -- Row has been successfully imported
+    'analysing',   -- Row is currently being analysed
+    'analysed',    -- Row has been analysed
+    'processing',   -- Row is currently being imported
+    'processed',    -- Row has been successfully imported
     'error'        -- Error occurred
 );
 
@@ -338,19 +250,17 @@ CREATE TABLE public.import_job (
     default_valid_from DATE,
     default_valid_to DATE,
     default_data_source_code text,
-    upload_table_name text NOT NULL,
-    data_table_name text NOT NULL,
-    target_table_name text NOT NULL,
-    target_schema_name text NOT NULL,
-    priority integer,
-    import_information_snapshot_table_name text NOT NULL,
-    analysis_start_at timestamp with time zone,
-    analysis_stop_at timestamp with time zone,
+    upload_table_name text NOT NULL, -- Name of the table holding raw uploaded data
+    data_table_name text NOT NULL,   -- Name of the table holding processed/intermediate data
+    priority integer,                -- Priority for worker queue processing
+    definition_snapshot JSONB,       -- Snapshot of definition metadata at job creation time
     preparing_data_at timestamp with time zone,
+    analysis_start_at timestamp with time zone, -- Timestamp analysis phase started
+    analysis_stop_at timestamp with time zone,  -- Timestamp analysis phase finished
     changes_approved_at timestamp with time zone,
     changes_rejected_at timestamp with time zone,
-    import_start_at timestamp with time zone,
-    import_stop_at timestamp with time zone,
+    processing_start_at timestamp with time zone,
+    processing_stop_at timestamp with time zone,
     total_rows integer,
     imported_rows integer DEFAULT 0,
     import_completed_pct numeric(5,2) DEFAULT 0,
@@ -427,9 +337,16 @@ BEGIN
     FROM public.import_definition
     WHERE id = NEW.definition_id;
 
-    IF NOT definition.valid THEN
-        RAISE EXCEPTION 'Cannot create import job for invalid import_definition % (%): %',
-            definition.id, definition.name, COALESCE(definition.validation_error,'Is still draft');
+    -- Check if definition exists and is marked as valid
+    IF NOT FOUND OR NOT definition.valid THEN
+        RAISE EXCEPTION 'Cannot create import job: Import definition % (%) is not valid. Error: %',
+            NEW.definition_id, COALESCE(definition.name, 'N/A'), COALESCE(definition.validation_error, 'Definition not found or not marked valid');
+    END IF;
+
+    -- Validate time_context_ident if provided in the definition
+    IF definition.time_context_ident IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.time_context WHERE ident = definition.time_context_ident) THEN
+         RAISE EXCEPTION 'Cannot create import job: Invalid time_context_ident % specified in import definition %',
+            definition.time_context_ident, definition.id;
     END IF;
 
     IF NEW.slug IS NULL THEN
@@ -438,30 +355,52 @@ BEGIN
 
     NEW.upload_table_name := format('%s_upload', NEW.slug);
     NEW.data_table_name := format('%s_data', NEW.slug);
-    NEW.import_information_snapshot_table_name := format('%s_import_information', NEW.slug);
 
-    -- Set target table name and schema from import definition
-    SELECT it.table_name, it.schema_name
-    INTO NEW.target_table_name, NEW.target_schema_name
-    FROM public.import_definition id
-    JOIN public.import_target it ON it.id = id.target_id
-    WHERE id.id = NEW.definition_id;
+    -- Populate the definition_snapshot JSONB with explicit keys matching table names
+    SELECT jsonb_build_object(
+        'import_definition', (SELECT row_to_json(d) FROM public.import_definition d WHERE d.id = NEW.definition_id),
+        'import_step_list', (SELECT jsonb_agg(row_to_json(s) ORDER BY s.priority) FROM public.import_step s JOIN public.import_definition_step ds_link ON s.id = ds_link.step_id WHERE ds_link.definition_id = NEW.definition_id),
+        'import_data_column_list', (
+            SELECT jsonb_agg(row_to_json(dc) ORDER BY dc.id)
+            FROM public.import_data_column dc
+            JOIN public.import_step s_link ON dc.step_id = s_link.id
+            JOIN public.import_definition_step ds_link ON s_link.id = ds_link.step_id
+            WHERE ds_link.definition_id = NEW.definition_id
+        ),
+        'import_source_column_list', (SELECT jsonb_agg(row_to_json(sc_list) ORDER BY sc_list.priority) FROM public.import_source_column sc_list WHERE sc_list.definition_id = NEW.definition_id),
+        'import_mapping_list', (
+            SELECT jsonb_agg(
+                jsonb_build_object(
+                    'mapping', row_to_json(m_map),
+                    'source_column', row_to_json(sc_map),
+                    'target_data_column', row_to_json(dc_map)
+                ) ORDER BY m_map.id
+            )
+            FROM public.import_mapping m_map
+            LEFT JOIN public.import_source_column sc_map ON m_map.source_column_id = sc_map.id AND sc_map.definition_id = m_map.definition_id -- Ensure source_column is for the same definition
+            JOIN public.import_data_column dc_map ON m_map.target_data_column_id = dc_map.id
+            JOIN public.import_definition_step ds_map_link ON dc_map.step_id = ds_map_link.step_id AND ds_map_link.definition_id = m_map.definition_id -- Ensure data_column's step is linked to this definition
+            WHERE m_map.definition_id = NEW.definition_id
+        )
+    ) INTO NEW.definition_snapshot;
 
-    -- Set default validity dates from time context if available and not already set
-    IF NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL THEN
-        SELECT tc.valid_from, tc.valid_to
-        INTO NEW.default_valid_from, NEW.default_valid_to
-        FROM public.import_definition id
-        LEFT JOIN public.time_context tc ON tc.ident = id.time_context_ident
-        WHERE id.id = NEW.definition_id;
+    IF NEW.definition_snapshot IS NULL OR NEW.definition_snapshot = '{}'::jsonb OR NEW.definition_snapshot->'import_mapping_list' IS NULL THEN
+         RAISE EXCEPTION 'Failed to generate a complete definition snapshot for definition_id %. Ensure mappings, source columns, and data columns are correctly defined and linked. Specifically, import_mapping_list might be missing or null.', NEW.definition_id;
     END IF;
 
-    IF NEW.default_data_source_code IS NULL THEN
+    -- Set default validity dates from time context if available and not already set
+    IF (NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL) AND definition.time_context_ident IS NOT NULL THEN
+        SELECT tc.valid_from, tc.valid_to
+        INTO NEW.default_valid_from, NEW.default_valid_to
+        FROM public.time_context tc
+        WHERE tc.ident = definition.time_context_ident;
+    END IF;
+
+    IF NEW.default_data_source_code IS NULL AND definition.data_source_id IS NOT NULL THEN
         SELECT ds.code
         INTO NEW.default_data_source_code
-        FROM public.import_definition id
-        JOIN public.data_source ds ON ds.id = id.data_source_id
-        WHERE id.id = NEW.definition_id;
+        FROM public.data_source ds
+        WHERE ds.id = definition.data_source_id;
     END IF;
 
     -- Set the user_id from the current authenticated user
@@ -517,15 +456,16 @@ CREATE TRIGGER import_job_notify_trigger
 CREATE FUNCTION admin.import_job_cleanup()
 RETURNS TRIGGER SECURITY DEFINER LANGUAGE plpgsql AS $import_job_cleanup$
 BEGIN
-    -- Drop the snapshot table
-    EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.import_information_snapshot_table_name);
+    RAISE DEBUG '[Job %] Cleaning up tables: %, %', OLD.id, OLD.upload_table_name, OLD.data_table_name;
+    -- Snapshot table is removed automatically when the job row is deleted or updated
 
     -- Drop the upload and data tables
-    EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.upload_table_name);
-    EXECUTE format('DROP TABLE IF EXISTS public.%I', OLD.data_table_name);
+    EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', OLD.upload_table_name);
+    EXECUTE format('DROP TABLE IF EXISTS public.%I CASCADE', OLD.data_table_name);
 
     -- Ensure the new tables are removed from PostgREST
     NOTIFY pgrst, 'reload schema';
+    RAISE DEBUG '[Job %] Cleanup complete, notified PostgREST', OLD.id;
 
     RETURN OLD;
 END;
@@ -549,18 +489,24 @@ DECLARE
     v_row_count INTEGER;
 BEGIN
     -- Record timestamps for state changes if not already recorded
-    IF NEW.state = 'analysing_data' AND NEW.analysis_start_at IS NULL THEN
-        NEW.analysis_start_at := v_timestamp;
-    END IF;
-
     IF NEW.state = 'preparing_data' AND NEW.preparing_data_at IS NULL THEN
         NEW.preparing_data_at := v_timestamp;
     END IF;
 
-    IF NEW.state = 'waiting_for_review' AND NEW.analysis_stop_at IS NULL THEN
+    IF NEW.state = 'analysing_data' AND NEW.analysis_start_at IS NULL THEN
+        NEW.analysis_start_at := v_timestamp;
+    END IF;
+
+    -- Set stop timestamps when transitioning *out* of a processing state
+    IF OLD.state = 'analysing_data' AND NEW.state != OLD.state AND NEW.analysis_stop_at IS NULL THEN
         NEW.analysis_stop_at := v_timestamp;
     END IF;
 
+    IF OLD.state = 'processing_data' AND NEW.state != OLD.state AND NEW.processing_stop_at IS NULL THEN
+        NEW.processing_stop_at := v_timestamp;
+    END IF;
+
+    -- Record timestamps for approval/rejection states
     IF NEW.state = 'approved' AND NEW.changes_approved_at IS NULL THEN
         NEW.changes_approved_at := v_timestamp;
     END IF;
@@ -569,15 +515,12 @@ BEGIN
         NEW.changes_rejected_at := v_timestamp;
     END IF;
 
-    IF NEW.state = 'importing_data' AND NEW.import_start_at IS NULL THEN
-        NEW.import_start_at := v_timestamp;
+    -- Record start timestamp for processing_data state
+    IF NEW.state = 'processing_data' AND NEW.processing_start_at IS NULL THEN
+        NEW.processing_start_at := v_timestamp;
     END IF;
 
-    IF NEW.state = 'finished' AND NEW.import_stop_at IS NULL THEN
-        NEW.import_stop_at := v_timestamp;
-    END IF;
-
-    -- Derive total_rows when state changes to upload_completed
+    -- Derive total_rows when state changes from waiting_for_upload to upload_completed
     IF OLD.state = 'waiting_for_upload' AND NEW.state = 'upload_completed' THEN
         -- Count rows in the upload table
         EXECUTE format('SELECT COUNT(*) FROM public.%I', NEW.upload_table_name) INTO v_row_count;
@@ -666,17 +609,17 @@ BEGIN
     END IF;
 
     -- Calculate import_rows_per_sec
-    IF NEW.imported_rows = 0 OR NEW.import_start_at IS NULL THEN
+    IF NEW.imported_rows = 0 OR NEW.processing_start_at IS NULL THEN
         NEW.import_rows_per_sec := 0;
-    ELSIF NEW.state = 'finished' AND NEW.import_stop_at IS NOT NULL THEN
+    ELSIF NEW.state = 'finished' AND NEW.processing_stop_at IS NOT NULL THEN
         NEW.import_rows_per_sec := CASE
-            WHEN EXTRACT(EPOCH FROM (NEW.import_stop_at - NEW.import_start_at)) <= 0 THEN 0
-            ELSE ROUND((NEW.imported_rows::numeric / EXTRACT(EPOCH FROM (NEW.import_stop_at - NEW.import_start_at))), 2)
+            WHEN EXTRACT(EPOCH FROM (NEW.processing_stop_at - NEW.processing_start_at)) <= 0 THEN 0
+            ELSE ROUND((NEW.imported_rows::numeric / EXTRACT(EPOCH FROM (NEW.processing_stop_at - NEW.processing_start_at))), 2)
         END;
     ELSE
         NEW.import_rows_per_sec := CASE
-            WHEN EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.import_start_at)) <= 0 THEN 0
-            ELSE ROUND((NEW.imported_rows::numeric / EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.import_start_at))), 2)
+            WHEN EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.processing_start_at)) <= 0 THEN 0
+            ELSE ROUND((NEW.imported_rows::numeric / EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.processing_start_at))), 2)
         END;
     END IF;
 
@@ -727,12 +670,14 @@ BEGIN
         RETURN json_build_object('error', format('Import job %s not found', job_id));
     END IF;
 
-    -- Get row state counts
+    -- Get row state counts including analysis states
     EXECUTE format(
         'SELECT json_build_object(
             ''pending'', COUNT(*) FILTER (WHERE state = ''pending''),
-            ''importing'', COUNT(*) FILTER (WHERE state = ''importing''),
-            ''imported'', COUNT(*) FILTER (WHERE state = ''imported''),
+            ''analysing'', COUNT(*) FILTER (WHERE state = ''analysing''),
+            ''analysed'', COUNT(*) FILTER (WHERE state = ''analysed''),
+            ''processing'', COUNT(*) FILTER (WHERE state = ''processing''),
+            ''processed'', COUNT(*) FILTER (WHERE state = ''processed''),
             ''error'', COUNT(*) FILTER (WHERE state = ''error'')
         ) FROM public.%I',
         job.data_table_name
@@ -754,11 +699,12 @@ $get_import_job_progress$;
 
 GRANT EXECUTE ON FUNCTION public.get_import_job_progress TO authenticated;
 
-SELECT admin.add_rls_regular_user_can_read('public.import_target'::regclass);
-SELECT admin.add_rls_regular_user_can_read('public.import_target_column'::regclass);
+SELECT admin.add_rls_regular_user_can_read('public.import_step'::regclass);
+SELECT admin.add_rls_regular_user_can_read('public.import_data_column'::regclass);
 SELECT admin.add_rls_regular_user_can_read('public.import_definition'::regclass);
 SELECT admin.add_rls_regular_user_can_read('public.import_source_column'::regclass);
 SELECT admin.add_rls_regular_user_can_read('public.import_mapping'::regclass);
+SELECT admin.add_rls_regular_user_can_read('public.import_definition_step'::regclass); -- Allow read for regular users
 
 -- Apply custom RLS policies for import_job
 ALTER TABLE public.import_job ENABLE ROW LEVEL SECURITY;
@@ -801,214 +747,121 @@ CREATE POLICY import_job_regular_user_delete_own ON public.import_job
     TO regular_user
     USING (user_id = auth.uid());
 
-
-CREATE VIEW public.import_information WITH (security_barrier = true) AS
-    SELECT ij.id AS job_id
-    , id.id AS definition_id
-    , ij.slug AS import_job_slug
-    , id.slug AS import_definition_slug
-    , id.name AS import_name
-    , id.note AS import_note
-    , it.schema_name AS target_schema_name
-    , ij.upload_table_name AS upload_table_name
-    , ij.data_table_name AS data_table_name
-    , isc.column_name AS source_column
-    , im.source_value AS source_value
-    , im.source_expression AS source_expression
-    , itc.column_name AS target_column
-    , itc.column_type AS target_type
-    , itc.uniquely_identifying AS uniquely_identifying
-    , isc.priority AS source_column_priority
-    FROM public.import_job ij
-    JOIN public.import_definition id ON ij.definition_id = id.id
-    JOIN public.import_target it ON id.target_id = it.id
-    JOIN public.import_mapping im ON id.id = im.definition_id
-    LEFT OUTER JOIN public.import_source_column isc ON im.source_column_id = isc.id
-    LEFT OUTER JOIN public.import_target_column itc ON im.target_column_id = itc.id
-    ORDER BY id.id ASC
-           , ij.id ASC
-           , isc.priority ASC NULLS LAST
-           , isc.id ASC
-           , itc.id ASC
-;
-
--- Grant SELECT on the view to authenticated
-GRANT SELECT ON public.import_information TO authenticated;
-
 /*
-Each import operates on it's on table.
-There is a view that maps from the columns names of the upload to the column names of the table.
+Each import job operates on its own set of tables:
+- _upload: Holds raw data from the uploaded file.
+- _data: Holds processed/intermediate data, structured according to import_data_column.
+- _snapshot: Holds a snapshot of the relevant import definition metadata at job creation time.
 */
 CREATE FUNCTION admin.import_job_generate(job public.import_job)
 RETURNS void SECURITY DEFINER LANGUAGE plpgsql AS $import_job_generate$
 DECLARE
     create_upload_table_stmt text;
     create_data_table_stmt text;
-    create_data_indices_stmt text;
-    create_snapshot_table_stmt text;
+    -- snapshot table variables removed
     add_separator BOOLEAN := FALSE;
-    info RECORD;
+    col_rec RECORD;
+    source_col_rec RECORD;
 BEGIN
-  RAISE DEBUG 'Creating snapshot table %', job.import_information_snapshot_table_name;
-  -- Create a snapshot of import_information for this job
-  create_snapshot_table_stmt := format(
-    'CREATE TABLE public.%I AS
-     SELECT * FROM public.import_information
-     WHERE job_id = %L',
-    job.import_information_snapshot_table_name, job.id
-  );
+  -- Snapshot table creation/population is now handled in import_job_derive trigger
+  RAISE DEBUG '[Job %] Generating tables: %, %', job.id, job.upload_table_name, job.data_table_name;
 
-  EXECUTE create_snapshot_table_stmt;
-
-  -- Add indexes to the snapshot table for better performance
-  EXECUTE format(
-    'CREATE INDEX ON public.%I (source_column_priority)',
-    job.import_information_snapshot_table_name
-  );
-
-  -- Apply RLS to the snapshot table
-  PERFORM admin.add_rls_regular_user_can_read(job.import_information_snapshot_table_name::regclass);
-
-  RAISE DEBUG 'Generating %', job.upload_table_name;
-  -- Build the sql to create a table for this import job with target columns
+  -- 1. Create Upload Table
+  RAISE DEBUG '[Job %] Generating upload table %', job.id, job.upload_table_name;
   create_upload_table_stmt := format('CREATE TABLE public.%I (', job.upload_table_name);
-
-  -- Add columns from target table definition
-  FOR info IN
-      EXECUTE format($$
-        SELECT *
-        FROM public.%I AS ii
-        WHERE source_column IS NOT NULL
-      $$, job.import_information_snapshot_table_name)
+  add_separator := FALSE;
+  FOR source_col_rec IN
+      SELECT column_name FROM public.import_source_column
+      WHERE definition_id = job.definition_id
+      ORDER BY priority
   LOOP
-    IF NOT add_separator THEN
-        add_separator := true;
-    ELSE
-      -- Adds a comma after every line but the first.
-        create_upload_table_stmt := create_upload_table_stmt || ',';
+    IF add_separator THEN
+        create_upload_table_stmt := create_upload_table_stmt || ', ';
     END IF;
-
-    create_upload_table_stmt := create_upload_table_stmt || format($format$
-  %I TEXT$format$, info.source_column);
+    create_upload_table_stmt := create_upload_table_stmt || format('%I TEXT', source_col_rec.column_name);
+    add_separator := TRUE;
   END LOOP;
-  create_upload_table_stmt := create_upload_table_stmt ||$EOS$
-  );$EOS$;
+  create_upload_table_stmt := create_upload_table_stmt || ');';
 
-  RAISE DEBUG '%', create_upload_table_stmt;
+  RAISE DEBUG '[Job %] Upload table DDL: %', job.id, create_upload_table_stmt;
   EXECUTE create_upload_table_stmt;
 
-  -- Create a trigger to check state before INSERT
-  -- Using job.slug instead of job.id ensures trigger names are stable across test runs
-  -- since slugs are deterministic while job IDs may vary between test runs
-  EXECUTE format('
+  -- Add triggers to upload table
+  EXECUTE format($$
       CREATE TRIGGER %I_check_state_before_insert
-      BEFORE INSERT ON public.%I
-      FOR EACH STATEMENT
-      EXECUTE FUNCTION admin.check_import_job_state_for_insert(%L);
-  ',
-  job.upload_table_name, job.upload_table_name, job.slug);
-
-  -- Create a trigger to update state after INSERT
-  -- Using job.slug instead of job.id ensures trigger names are stable across test runs
-  -- since slugs are deterministic while job IDs may vary between test runs
-  EXECUTE format('
+      BEFORE INSERT ON public.%I FOR EACH STATEMENT
+      EXECUTE FUNCTION admin.check_import_job_state_for_insert(%L);$$,
+      job.upload_table_name, job.upload_table_name, job.slug);
+  EXECUTE format($$
       CREATE TRIGGER %I_update_state_after_insert
-      AFTER INSERT ON public.%I
-      FOR EACH STATEMENT
-      EXECUTE FUNCTION admin.update_import_job_state_after_insert(%L);
-  ',
-  job.upload_table_name, job.upload_table_name, job.slug);
+      AFTER INSERT ON public.%I FOR EACH STATEMENT
+      EXECUTE FUNCTION admin.update_import_job_state_after_insert(%L);$$,
+      job.upload_table_name, job.upload_table_name, job.slug);
+  RAISE DEBUG '[Job %] Added triggers to upload table %', job.id, job.upload_table_name;
 
-  RAISE DEBUG 'Generating %', job.data_table_name;
-  -- Build the sql to create a table for this import job with target columns
+  -- 2. Create Data Table
+  RAISE DEBUG '[Job %] Generating data table %', job.id, job.data_table_name;
   create_data_table_stmt := format('CREATE TABLE public.%I (', job.data_table_name);
+  add_separator := FALSE;
 
-  -- Add columns from target table definition
-  add_separator := false;
-  FOR info IN
-      EXECUTE format($$
-        SELECT *
-        FROM public.%I AS ii
-        WHERE target_column IS NOT NULL
-      $$, job.import_information_snapshot_table_name)
+  -- Add columns based on import_data_column records associated with the steps linked to this job's definition
+  FOR col_rec IN
+      SELECT dc.column_name, dc.column_type, dc.is_nullable, dc.default_value
+      FROM public.import_definition_step ds
+      JOIN public.import_step s ON ds.step_id = s.id
+      JOIN public.import_data_column dc ON dc.step_id = s.id -- Join data columns via step_id
+      WHERE ds.definition_id = job.definition_id
+      ORDER BY s.priority, dc.priority, dc.column_name
   LOOP
-    IF NOT add_separator THEN
-        add_separator := true;
-    ELSE
-      -- Adds a comma after every line but the first.
-        create_data_table_stmt := create_data_table_stmt || ',';
+    IF add_separator THEN
+        create_data_table_stmt := create_data_table_stmt || ', ';
     END IF;
-
-    create_data_table_stmt := create_data_table_stmt || format($format$
-  %I %I$format$, info.target_column, info.target_type);
+    create_data_table_stmt := create_data_table_stmt || format('%I %s', col_rec.column_name, col_rec.column_type);
+    IF NOT col_rec.is_nullable THEN
+        create_data_table_stmt := create_data_table_stmt || ' NOT NULL';
+    END IF;
+    IF col_rec.default_value IS NOT NULL THEN
+        create_data_table_stmt := create_data_table_stmt || format(' DEFAULT %s', col_rec.default_value);
+    END IF;
+    add_separator := TRUE;
   END LOOP;
 
-  -- Add import state tracking column
-  create_data_table_stmt := create_data_table_stmt || format($format$,
-  state public.import_data_state NOT NULL DEFAULT 'pending'$format$);
+  -- Metadata columns (state, last_completed_priority, error) are now added declaratively
+  -- through the 'metadata' import_step and its associated import_data_column entries,
+  -- which are included in the loop above if 'metadata' step is part of the definition.
+  create_data_table_stmt := create_data_table_stmt || ');';
 
-  create_data_table_stmt := create_data_table_stmt ||$EOS$
-  );$EOS$;
-
-  RAISE DEBUG '%', create_data_table_stmt;
+  RAISE DEBUG '[Job %] Data table DDL: %', job.id, create_data_table_stmt;
   EXECUTE create_data_table_stmt;
 
-  -- Create index on state for efficient filtering
-  EXECUTE format('CREATE INDEX ON public.%I (state)', job.data_table_name);
-
-  -- Add unique constraint on uniquely identifying columns
-  create_data_indices_stmt := format('ALTER TABLE public.%I ADD CONSTRAINT %I_unique_key UNIQUE (',
-    job.data_table_name,
-    job.data_table_name
-  );
-
-  -- Add columns to unique constraint
-  add_separator := false;
-  FOR info IN
-      EXECUTE format($$
-        SELECT *
-        FROM public.%I AS ii
-        WHERE uniquely_identifying = TRUE
-          AND target_column IS NOT NULL
-      $$, job.import_information_snapshot_table_name)
-  LOOP
-    IF NOT add_separator THEN
-        add_separator := true;
-    ELSE
-        create_data_indices_stmt := create_data_indices_stmt || ', ';
-    END IF;
-
-    create_data_indices_stmt := create_data_indices_stmt || format('%I', info.target_column);
-  END LOOP;
-
-  create_data_indices_stmt := create_data_indices_stmt || ');';
-
-  RAISE DEBUG '%', create_data_indices_stmt;
-  EXECUTE create_data_indices_stmt;
+  -- Create index on state and priority for efficient processing
+  EXECUTE format($$CREATE INDEX ON public.%I (state, last_completed_priority)$$, job.data_table_name);
+  RAISE DEBUG '[Job %] Added index to data table %', job.id, job.data_table_name;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
-  -- RLS is not enabled on this table.
   DECLARE
-    job_user_role_name TEXT;
+      job_user_role_name TEXT;
   BEGIN
-    SELECT u.email INTO job_user_role_name
-    FROM auth.user u
-    WHERE u.id = job.user_id;
+      SELECT u.email INTO job_user_role_name
+      FROM auth.user u
+      WHERE u.id = job.user_id;
 
-    IF job_user_role_name IS NOT NULL THEN
-        EXECUTE format('GRANT ALL ON TABLE public.%I TO %I', job.upload_table_name, job_user_role_name);
-        RAISE DEBUG 'Granted ALL on % to role %', job.upload_table_name, job_user_role_name;
-    ELSE
-        RAISE WARNING 'Could not find user role for job_id % (user_id %), cannot grant permissions on %',
-                      job.id, job.user_id, job.upload_table_name;
-    END IF;
+      IF job_user_role_name IS NOT NULL THEN
+          EXECUTE format($$GRANT ALL ON TABLE public.%I TO %I$$, job.upload_table_name, job_user_role_name);
+          RAISE DEBUG '[Job %] Granted ALL on % to role %', job.id, job.upload_table_name, job_user_role_name;
+      ELSE
+          RAISE WARNING '[Job %] Could not find user role for user_id %, cannot grant permissions on %',
+                        job.id, job.user_id, job.upload_table_name;
+      END IF;
   END;
 
   -- Apply standard RLS to the data table
   PERFORM admin.add_rls_regular_user_can_edit(job.data_table_name::regclass);
+  RAISE DEBUG '[Job %] Applied RLS to data table %', job.id, job.data_table_name;
 
   -- Ensure the new tables are available through PostgREST
   NOTIFY pgrst, 'reload schema';
+  RAISE DEBUG '[Job %] Notified PostgREST to reload schema', job.id;
 END;
 $import_job_generate$;
 
@@ -1044,7 +897,7 @@ BEGIN
   SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
 
   -- Only reschedule if the job is in a state that requires further processing
-  IF v_job.state IN ('upload_completed', 'preparing_data', 'analysing_data', 'approved', 'importing_data') THEN
+  IF v_job.state IN ('upload_completed', 'preparing_data', 'analysing_data', 'approved', 'processing_data') THEN
     -- Create payload
     v_payload := jsonb_build_object('job_id', p_job_id);
 
@@ -1105,25 +958,21 @@ BEGIN
             RETURN 'preparing_data';
 
         WHEN 'preparing_data' THEN
-            RETURN 'analysing_data';
+            RETURN job.state; -- Transition done by batch job as it completes.
 
         WHEN 'analysing_data' THEN
-            IF job.review THEN
-                RETURN 'waiting_for_review';
-            ELSE
-                RETURN 'importing_data';
-            END IF;
+            RETURN job.state; -- Transition done by batch job as it completes.
 
         WHEN 'waiting_for_review' THEN
           RETURN job.state; -- No automatic transition, requires user action
 
         WHEN 'approved' THEN
-            RETURN 'importing_data';
+            RETURN 'processing_data';
 
         WHEN 'rejected' THEN
             RETURN 'finished';
 
-        WHEN 'importing_data' THEN
+        WHEN 'processing_data' THEN
             RETURN job.state; -- Transition done by batch job as it completes.
 
         WHEN 'finished' THEN
@@ -1196,12 +1045,44 @@ $reset_import_job_user_context$;
 GRANT EXECUTE ON FUNCTION admin.set_import_job_user_context TO authenticated;
 GRANT EXECUTE ON FUNCTION admin.reset_import_job_user_context TO authenticated;
 
+-- Helper function to safely cast text to ltree, returning NULL on error
+CREATE OR REPLACE FUNCTION admin.safe_cast_to_ltree(p_text_ltree TEXT)
+RETURNS public.LTREE LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN
+    IF p_text_ltree IS NULL OR p_text_ltree = '' THEN
+        RETURN NULL;
+    END IF;
+    RETURN p_text_ltree::public.LTREE;
+EXCEPTION WHEN invalid_text_representation THEN
+    RAISE DEBUG 'Invalid ltree format: "%". Returning NULL.', p_text_ltree;
+    RETURN NULL;
+END;
+$$;
+
+-- Helper function to check if text is valid ltree syntax
+CREATE OR REPLACE FUNCTION admin.is_valid_ltree(p_text_ltree TEXT)
+RETURNS BOOLEAN LANGUAGE plpgsql IMMUTABLE AS $$
+DECLARE
+    v_ltree public.LTREE;
+BEGIN
+    IF p_text_ltree IS NULL OR p_text_ltree = '' THEN
+        RETURN true; -- Or false depending on whether NULL/empty is considered valid input
+    END IF;
+    v_ltree := p_text_ltree::public.LTREE;
+    RETURN true;
+EXCEPTION WHEN invalid_text_representation THEN
+    RETURN false;
+END;
+$$;
+
+
 CREATE PROCEDURE admin.import_job_process(job_id integer)
 LANGUAGE plpgsql AS $import_job_process$
 DECLARE
     job public.import_job;
     next_state public.import_job_state;
     should_reschedule BOOLEAN := FALSE;
+    v_processed_count INTEGER; -- Moved declaration here
 BEGIN
     -- Get the job details
     SELECT * INTO job FROM public.import_job WHERE id = job_id;
@@ -1209,644 +1090,389 @@ BEGIN
         RAISE EXCEPTION 'Import job % not found', job_id;
     END IF;
 
-    -- Set the user context to the job creator, for recording edit_by_user_id
+    -- Set the user context to the job creator
     PERFORM admin.set_import_job_user_context(job_id);
 
-    -- Process the job based on its current state
-    -- We'll only process one state transition per transaction to ensure visibility
+    RAISE DEBUG '[Job %] Processing job in state: %', job_id, job.state;
 
-    -- Perform the appropriate action for the current state
+    -- Process based on current state
     CASE job.state
-    WHEN 'waiting_for_upload' THEN
-        RAISE DEBUG 'Import job % is waiting for upload', job_id;
-        should_reschedule := FALSE;
+        WHEN 'waiting_for_upload' THEN
+            RAISE DEBUG '[Job %] Waiting for upload.', job_id;
+            should_reschedule := FALSE;
 
-    WHEN 'upload_completed' THEN
-        RAISE DEBUG 'Import job % is ready for preparing data', job_id;
-        should_reschedule := TRUE;
+        WHEN 'upload_completed' THEN
+            RAISE DEBUG '[Job %] Transitioning to preparing_data.', job_id;
+            job := admin.import_job_set_state(job, 'preparing_data');
+            should_reschedule := TRUE; -- Reschedule immediately to start prepare
 
-    WHEN 'preparing_data' THEN
-        PERFORM admin.import_job_prepare(job);
-        should_reschedule := TRUE;
+        WHEN 'preparing_data' THEN
+            RAISE DEBUG '[Job %] Calling import_job_prepare.', job_id;
+            PERFORM admin.import_job_prepare(job);
+            -- Transition rows in _data table from 'pending' to 'analysing'
+            RAISE DEBUG '[Job %] Updating data rows from pending to analysing in table %', job_id, job.data_table_name;
+            EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
+            job := admin.import_job_set_state(job, 'analysing_data');
+            should_reschedule := TRUE; -- Reschedule immediately to start analysis
 
-    WHEN 'analysing_data' THEN
-        PERFORM admin.import_job_analyse(job);
-        should_reschedule := TRUE;
+        WHEN 'analysing_data' THEN
+            RAISE DEBUG '[Job %] Starting analysis phase.', job_id;
+            should_reschedule := admin.import_job_process_phase(job, 'analyse'::public.import_step_phase);
+            
+            -- Refresh job record to see if an error was set by the phase
+            SELECT * INTO job FROM public.import_job WHERE id = job_id;
 
-    WHEN 'waiting_for_review' THEN
-        RAISE DEBUG 'Import job % is waiting for review', job_id;
-        should_reschedule := FALSE;
+            IF job.error IS NOT NULL THEN
+                RAISE WARNING '[Job %] Error detected during analysis phase: %. Transitioning to finished.', job_id, job.error;
+                job := admin.import_job_set_state(job, 'finished');
+                should_reschedule := FALSE;
+            ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
+                IF job.review THEN
+                    -- Transition rows from 'analysing' to 'analysed' if review is required
+                    RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
+                    EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
+                    job := admin.import_job_set_state(job, 'waiting_for_review');
+                    RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
+                    -- should_reschedule remains FALSE as it's waiting for user action
+                ELSE
+                    -- Transition rows from 'analysing' to 'processing' if no review
+                    RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
+                    EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+                    job := admin.import_job_set_state(job, 'processing_data');
+                    RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
+                    should_reschedule := TRUE; -- Reschedule to start processing
+                END IF;
+            END IF;
+            -- If should_reschedule is TRUE from the phase function (and no error), it will be rescheduled.
 
-    WHEN 'approved' THEN
-        RAISE DEBUG 'Import job % is approved for importing', job_id;
-        should_reschedule := TRUE;
+        WHEN 'waiting_for_review' THEN
+            RAISE DEBUG '[Job %] Waiting for user review.', job_id;
+            should_reschedule := FALSE;
 
-    WHEN 'rejected' THEN
-        RAISE DEBUG 'Import job % was rejected', job_id;
-        should_reschedule := FALSE;
+        WHEN 'approved' THEN
+            RAISE DEBUG '[Job %] Approved, transitioning to processing_data.', job_id;
+            -- Transition rows in _data table from 'analysed' to 'processing' and reset LCP
+            RAISE DEBUG '[Job %] Updating data rows from analysed to processing and resetting LCP in table % after approval', job_id, job.data_table_name;
+            EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+            job := admin.import_job_set_state(job, 'processing_data');
+            should_reschedule := TRUE; -- Reschedule immediately to start import
 
-    WHEN 'importing_data' THEN
-        -- For importing, we'll handle batches in the import_job_insert function
-        PERFORM admin.import_job_insert(job);
+        WHEN 'rejected' THEN
+            RAISE DEBUG '[Job %] Rejected, transitioning to finished.', job_id;
+            job := admin.import_job_set_state(job, 'finished');
+            should_reschedule := FALSE;
 
-        -- Check if we need to reschedule (not finished yet)
-        SELECT state = 'importing_data' INTO should_reschedule
-        FROM public.import_job WHERE id = job_id;
+        WHEN 'processing_data' THEN
+            RAISE DEBUG '[Job %] Starting process phase.', job_id;
+            should_reschedule := admin.import_job_process_phase(job, 'process'::public.import_step_phase);
 
-    WHEN 'finished' THEN
-        RAISE DEBUG 'Import job % completed successfully', job_id;
-        should_reschedule := FALSE;
+            -- Refresh job record to see if an error was set by the phase
+            SELECT * INTO job FROM public.import_job WHERE id = job_id;
 
-    ELSE
-        RAISE WARNING 'Unknown import job state: %', job.state;
-        should_reschedule := FALSE;
+            IF job.error IS NOT NULL THEN
+                RAISE WARNING '[Job %] Error detected during processing phase: %. Transitioning to finished.', job_id, job.error;
+                job := admin.import_job_set_state(job, 'finished');
+                should_reschedule := FALSE;
+            ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
+                -- Update data rows to 'processed'
+                RAISE DEBUG '[Job %] Finalizing processed rows in table %', job_id, job.data_table_name;
+                EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processed'::public.import_data_state, 'processing'::public.import_data_state);
+
+                -- Update imported_rows count on the job
+                -- DECLARE v_processed_count INTEGER; -- Declaration moved to the top of the procedure
+                EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = %L$$, job.data_table_name, 'processed'::public.import_data_state) INTO v_processed_count;
+                UPDATE public.import_job SET imported_rows = v_processed_count WHERE id = job.id;
+                RAISE DEBUG '[Job %] Updated imported_rows to %', job_id, v_processed_count;
+
+                job := admin.import_job_set_state(job, 'finished');
+                RAISE DEBUG '[Job %] Processing complete, transitioning to finished.', job_id;
+                -- should_reschedule remains FALSE
+            END IF;
+            -- If should_reschedule is TRUE from the phase function (and no error), it will be rescheduled.
+
+        WHEN 'finished' THEN
+            RAISE DEBUG '[Job %] Already finished.', job_id;
+            should_reschedule := FALSE;
+
+        ELSE
+            RAISE WARNING '[Job %] Unknown state: %', job_id, job.state;
+            should_reschedule := FALSE;
     END CASE;
 
-    -- After processing the current state, calculate and set the next state
-    -- Only transition if the job is still in the same state (it might have changed during processing)
-    SELECT * INTO job FROM public.import_job WHERE id = job_id;
-    next_state := admin.import_job_next_state(job);
-
-    IF next_state <> job.state THEN
-        -- Update the job state for the next run
-        job := admin.import_job_set_state(job, next_state);
-        RAISE DEBUG 'Updated import job % state from % to %', job_id, job.state, next_state;
-
-        -- Always reschedule after a state change
-        should_reschedule := TRUE;
-    END IF;
-
-    -- Reset the user context when done
+    -- Reset the user context
     PERFORM admin.reset_import_job_user_context();
 
-    -- Reschedule if needed
+    -- Reschedule if work remains for the current phase or if transitioned to a processing state
     IF should_reschedule THEN
         PERFORM admin.reschedule_import_job_process(job_id);
-        RAISE DEBUG 'Rescheduled import job % for further processing', job_id;
+        RAISE DEBUG '[Job %] Rescheduled for further processing.', job_id;
     END IF;
+
+EXCEPTION WHEN OTHERS THEN
+    -- Ensure context is reset even on error
+    PERFORM admin.reset_import_job_user_context();
+    RAISE; -- Re-raise the original error
 END;
 $import_job_process$;
+
+
+-- Enum defining the processing phase for import steps
+CREATE TYPE public.import_step_phase AS ENUM ('analyse', 'process');
+COMMENT ON TYPE public.import_step_phase IS 'Defines the processing phase for import steps: analyse (validation, lookups) or process (final database operation).';
+
+-- Helper function to process a phase (analyse or process) in batches
+CREATE FUNCTION admin.import_job_process_phase(
+    job public.import_job,
+    phase public.import_step_phase -- Use the new enum type
+) RETURNS BOOLEAN -- Returns TRUE if more work remains for this phase
+LANGUAGE plpgsql AS $import_job_process_phase$
+DECLARE
+    batch_size INTEGER := 1000; -- Process up to 1000 rows per target step in one transaction
+    targets JSONB;
+    target_rec RECORD;
+    proc_to_call REGPROC;
+    rows_processed_in_tx INTEGER := 0;
+    work_still_exists_for_phase BOOLEAN := FALSE; -- Indicates if rows for this phase still exist after processing
+    batch_ctids TID[];
+    error_message TEXT;
+    current_phase_data_state public.import_data_state;
+    v_sql TEXT; -- Added declaration for v_sql
+BEGIN
+    RAISE DEBUG '[Job %] Processing phase: %', job.id, phase;
+
+    -- Determine the data state corresponding to the current phase
+    IF phase = 'analyse'::public.import_step_phase THEN
+        current_phase_data_state := 'analysing'::public.import_data_state;
+    ELSIF phase = 'process'::public.import_step_phase THEN
+        current_phase_data_state := 'processing'::public.import_data_state;
+    ELSE
+        RAISE EXCEPTION '[Job %] Invalid phase specified: %', job.id, phase;
+    END IF;
+
+    -- Load steps from the job's snapshot
+    targets := job.definition_snapshot->'import_step_list';
+    IF targets IS NULL OR jsonb_typeof(targets) != 'array' THEN
+        RAISE EXCEPTION '[Job %] Failed to load valid import_step_list array from definition_snapshot', job.id;
+    END IF;
+
+    -- Loop through steps (targets) in priority order
+    FOR target_rec IN SELECT * FROM jsonb_to_recordset(targets) AS x(
+                            id int, code text, name text, priority int, analyse_procedure regproc, process_procedure regproc) -- Added 'code'
+                      ORDER BY priority
+    LOOP
+        -- Determine which procedure to call for this phase
+        IF phase = 'analyse'::public.import_step_phase THEN
+            proc_to_call := target_rec.analyse_procedure;
+        ELSE -- 'process' phase
+            proc_to_call := target_rec.process_procedure;
+        END IF;
+
+        -- Skip if no procedure defined for this target/phase
+        IF proc_to_call IS NULL THEN
+            RAISE DEBUG '[Job %] Skipping target % (priority %) for phase % - no procedure defined.', job.id, target_rec.name, target_rec.priority, phase;
+            CONTINUE;
+        END IF;
+
+        RAISE DEBUG '[Job %] Checking target % (priority %) for phase % using procedure %', job.id, target_rec.name, target_rec.priority, phase, proc_to_call;
+
+        -- Find one batch of rows ready for this target's phase
+        EXECUTE format(
+            $$SELECT array_agg(ctid) FROM (
+                SELECT ctid FROM public.%I
+                WHERE state = %L AND last_completed_priority < %L
+                ORDER BY ctid -- Ensure consistent batching
+                LIMIT %L
+                FOR UPDATE SKIP LOCKED -- Avoid waiting for locked rows
+             ) AS batch$$,
+            job.data_table_name,
+            current_phase_data_state,
+            target_rec.priority,
+            batch_size
+        ) INTO batch_ctids;
+
+        -- If no rows found for this target, move to the next target
+        IF batch_ctids IS NULL OR array_length(batch_ctids, 1) = 0 THEN
+            RAISE DEBUG '[Job %] No rows found for target % (priority %) in state % with priority < %.',
+                        job.id, target_rec.name, target_rec.priority,
+                        current_phase_data_state, target_rec.priority;
+            CONTINUE; -- Move to the next target in the FOR loop
+        END IF;
+
+        RAISE DEBUG '[Job %] Found batch of % rows for target % (priority %), calling %',
+                    job.id, array_length(batch_ctids, 1), target_rec.name, target_rec.priority, proc_to_call;
+
+        -- Call the target-specific procedure
+        BEGIN
+            -- Always pass the step_code as the third argument
+            EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_ctids, target_rec.code;
+            rows_processed_in_tx := rows_processed_in_tx + array_length(batch_ctids, 1);
+        EXCEPTION WHEN OTHERS THEN
+            GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+            RAISE WARNING '[Job %] Error calling procedure % for target % (code: %): %', job.id, proc_to_call, target_rec.name, target_rec.code, error_message;
+            -- Mark batch rows as error
+            EXECUTE format($$UPDATE public.%I SET state = %L, error = %L WHERE ctid = ANY(%L)$$,
+                           job.data_table_name, 'error'::public.import_data_state, jsonb_build_object('target_step_error', format('Target %s (code: %s, proc: %s): %s', target_rec.name, target_rec.code, proc_to_call::text, error_message)), batch_ctids);
+            -- Log the job error
+            UPDATE public.import_job SET error = jsonb_build_object('phase_target_error', format('Error during %s phase, target %s (code: %s, proc: %s): %s', phase, target_rec.name, target_rec.code, proc_to_call::text, error_message))
+            WHERE id = job.id;
+            -- If a step fails, stop processing this phase for this job and signal no reschedule for this phase.
+            RETURN FALSE;
+        END;
+        -- After processing one batch for a target, continue to the next target.
+        -- The function will determine if overall work remains for the phase at the end.
+    END LOOP; -- End target loop
+
+    -- After attempting to process one batch for all applicable targets,
+    -- check if there are still any rows in the current phase's state that can be processed by any step in this phase.
+    -- This determines if the calling procedure should reschedule.
+    v_sql := 'SELECT EXISTS (SELECT 1 FROM public.%I dt JOIN jsonb_to_recordset(%L::JSONB) AS s(id int, code text, name text, priority int, analyse_procedure regproc, process_procedure regproc) ON TRUE WHERE dt.state = %L AND dt.last_completed_priority < s.priority AND CASE %L::public.import_step_phase WHEN ''analyse'' THEN s.analyse_procedure IS NOT NULL WHEN ''process'' THEN s.process_procedure IS NOT NULL ELSE FALSE END)';
+    EXECUTE format(v_sql, job.data_table_name, job.definition_snapshot->'import_step_list', current_phase_data_state, phase)
+    INTO work_still_exists_for_phase;
+
+    RAISE DEBUG '[Job %] Phase % processing pass complete for this transaction. Rows processed in tx: %. Work still exists for phase (final check): %',
+                job.id, phase, rows_processed_in_tx, work_still_exists_for_phase;
+
+    RETURN work_still_exists_for_phase;
+END;
+$import_job_process_phase$;
 
 
 -- Function to prepare import job by moving data from upload table to data table
 CREATE FUNCTION admin.import_job_prepare(job public.import_job)
 RETURNS void LANGUAGE plpgsql AS $import_job_prepare$
 DECLARE
-    merge_stmt text;
-    add_separator BOOLEAN := FALSE;
-    info RECORD;
-    v_timestamp TIMESTAMPTZ;
+    upsert_stmt TEXT;
+    insert_columns_list TEXT[] := ARRAY[]::TEXT[];
+    select_expressions_list TEXT[] := ARRAY[]::TEXT[];
+    conflict_key_columns_list TEXT[] := ARRAY[]::TEXT[];
+    update_set_expressions_list TEXT[] := ARRAY[]::TEXT[];
+
+    insert_columns TEXT;
+    select_clause TEXT;
+    conflict_columns_text TEXT;
+    update_set_clause TEXT;
+
+    item_rec RECORD; -- Will hold {mapping, source_column, target_data_column}
+    current_mapping JSONB;
+    current_source_column JSONB;
+    current_target_data_column JSONB;
+    
     error_message TEXT;
+    snapshot JSONB := job.definition_snapshot;
 BEGIN
-    -- This function will move data from the upload table to the data table
-    -- with appropriate transformations based on the import definition
-    RAISE DEBUG 'Preparing import job % by moving data from % to %',
-                 job.id, job.upload_table_name, job.data_table_name;
+    RAISE DEBUG '[Job %] Preparing data: Moving from % to %', job.id, job.upload_table_name, job.data_table_name;
 
-    /*
-    -- Example of generated merge statement:
-    INSERT INTO public.import_job_123_data_table (
-      tax_ident, name, legal_form_code, primary_activity_category_code
-    ) SELECT
-      tax_ident, name, legal_form_code, primary_activity_category_code
-    FROM public.import_job_123_upload_table
-    ON CONFLICT (tax_ident) DO UPDATE SET
-      name = EXCLUDED.name,
-      legal_form_code = EXCLUDED.legal_form_code,
-      primary_activity_category_code = EXCLUDED.primary_activity_category_code;
-    */
+    IF snapshot IS NULL OR snapshot->'import_mapping_list' IS NULL THEN
+        RAISE EXCEPTION '[Job %] Invalid or missing import_mapping_list in definition_snapshot', job.id;
+    END IF;
 
-    -- Build dynamic INSERT statement with ON CONFLICT handling
-    merge_stmt := format('INSERT INTO public.%I (', job.data_table_name);
-
-    -- Add target columns
-    add_separator := FALSE;
-    FOR info IN
-        SELECT * FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND target_column IS NOT NULL
+    -- Iterate through mappings to build INSERT columns and SELECT expressions in a consistent order
+    FOR item_rec IN 
+        SELECT * 
+        FROM jsonb_to_recordset(COALESCE(snapshot->'import_mapping_list', '[]'::jsonb)) 
+            AS item(mapping JSONB, source_column JSONB, target_data_column JSONB)
+        ORDER BY (item.mapping->>'id')::integer -- Order by mapping ID for consistency
     LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
-        ELSE
-            merge_stmt := merge_stmt || ', ';
+        current_mapping := item_rec.mapping;
+        current_source_column := item_rec.source_column;
+        current_target_data_column := item_rec.target_data_column;
+
+        IF current_target_data_column IS NULL OR current_target_data_column = 'null'::jsonb THEN
+            RAISE EXCEPTION '[Job %] Mapping ID % refers to non-existent target_data_column.', job.id, current_mapping->>'id';
         END IF;
 
-        merge_stmt := merge_stmt || format('%I', info.target_column);
-    END LOOP;
-
-    merge_stmt := merge_stmt || format(') SELECT ');
-
-    -- Add source columns, values and expressions
-    add_separator := FALSE;
-    FOR info IN
-        SELECT *
-        FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND target_column IS NOT NULL
-          AND (source_column IS NOT NULL
-              OR source_value IS NOT NULL
-              OR source_expression IS NOT NULL)
-    LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
-        ELSE
-            merge_stmt := merge_stmt || ', ';
+        -- Only process mappings that target 'source_input' columns for the prepare step
+        IF current_target_data_column->>'purpose' != 'source_input' THEN
+            RAISE DEBUG '[Job %] Skipping mapping ID % because target data column % (ID: %) is not for ''source_input''. Purpose: %', 
+                        job.id, current_mapping->>'id', current_target_data_column->>'column_name', current_target_data_column->>'id', current_target_data_column->>'purpose';
+            CONTINUE;
         END IF;
 
-        CASE
-            WHEN info.source_value IS NOT NULL THEN
-                merge_stmt := merge_stmt || quote_literal(info.source_value);
-            WHEN info.source_expression IS NOT NULL THEN
-                merge_stmt := merge_stmt || CASE info.source_expression
+        insert_columns_list := array_append(insert_columns_list, format('%I', current_target_data_column->>'column_name'));
+
+        -- Generate SELECT expression based on mapping type
+        IF current_mapping->>'source_value' IS NOT NULL THEN
+            select_expressions_list := array_append(select_expressions_list, format('%L', current_mapping->>'source_value'));
+        ELSIF current_mapping->>'source_expression' IS NOT NULL THEN
+            select_expressions_list := array_append(select_expressions_list,
+                CASE current_mapping->>'source_expression'
                     WHEN 'now' THEN 'statement_timestamp()'
                     WHEN 'default' THEN
-                        CASE info.target_column
-                            WHEN 'valid_from' THEN quote_literal(job.default_valid_from)
-                            WHEN 'valid_to' THEN quote_literal(job.default_valid_to)
-                            WHEN 'data_source_code' THEN quote_literal(job.default_data_source_code)
-                            ELSE 'NULL'
+                        CASE current_target_data_column->>'column_name'
+                            WHEN 'valid_from' THEN format('%L', job.default_valid_from)
+                            WHEN 'valid_to' THEN format('%L', job.default_valid_to)
+                            WHEN 'data_source_code' THEN format('%L', job.default_data_source_code)
+                            ELSE 'NULL' 
                         END
                     ELSE 'NULL'
-                    END;
-            WHEN info.source_column IS NOT NULL THEN
-                merge_stmt := merge_stmt || CASE info.target_column
-                    WHEN 'valid_from' THEN format('COALESCE(NULLIF(%I,%L), %L)', info.source_column, '', job.default_valid_from)
-                    WHEN 'valid_to' THEN format('COALESCE(NULLIF(%I,%L), %L)', info.source_column, '', job.default_valid_to)
-                    ELSE format('NULLIF(%I,%L)', info.source_column, '')
-                    END;
-            ELSE
-                RAISE EXCEPTION 'No valid source (column/value/expression) found for job %', job_id;
-        END CASE;
-    END LOOP;
-
-    merge_stmt := merge_stmt || format(' FROM public.%I ', job.upload_table_name);
-
-    -- Add ON CONFLICT clause using uniquely identifying columns
-    merge_stmt := merge_stmt || ' ON CONFLICT (';
-
-    add_separator := FALSE;
-    FOR info IN
-        SELECT *
-        FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND uniquely_identifying = TRUE
-          AND target_column IS NOT NULL
-    LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
+                END
+            );
+        ELSIF current_mapping->>'source_column_id' IS NOT NULL THEN
+            IF current_source_column IS NULL OR current_source_column = 'null'::jsonb THEN
+                 RAISE EXCEPTION '[Job %] Could not find source column details for source_column_id % in mapping ID %.', job.id, current_mapping->>'source_column_id', current_mapping->>'id';
+            END IF;
+            select_expressions_list := array_append(select_expressions_list, format($$NULLIF(%I, '')$$, current_source_column->>'column_name'));
         ELSE
-            merge_stmt := merge_stmt || ', ';
+            -- This case should be prevented by the CHECK constraint on import_mapping table
+            RAISE EXCEPTION '[Job %] Mapping ID % for target data column % (ID: %) has no valid source (column/value/expression). This should not happen.', job.id, current_mapping->>'id', current_target_data_column->>'column_name', current_target_data_column->>'id';
         END IF;
-
-        merge_stmt := merge_stmt || format('%I', info.target_column);
+        
+        -- If this target data column is part of the unique key, add it to conflict_key_columns_list
+        IF (current_target_data_column->>'is_uniquely_identifying')::boolean THEN
+            conflict_key_columns_list := array_append(conflict_key_columns_list, format('%I', current_target_data_column->>'column_name'));
+        END IF;
     END LOOP;
 
-    merge_stmt := merge_stmt || ') DO UPDATE SET ';
+    IF array_length(insert_columns_list, 1) = 0 THEN
+        RAISE DEBUG '[Job %] No mapped source_input columns found to insert. Skipping prepare.', job.id;
+        RETURN; 
+    END IF;
 
-    -- Add update assignments
-    add_separator := FALSE;
-    FOR info IN
-        SELECT *
-        FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND source_column IS NOT NULL
-          AND target_column IS NOT NULL
-          AND NOT uniquely_identifying
-    LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
-        ELSE
-            merge_stmt := merge_stmt || ', ';
+    insert_columns := array_to_string(insert_columns_list, ', ');
+    select_clause := array_to_string(select_expressions_list, ', ');
+    conflict_columns_text := array_to_string(conflict_key_columns_list, ', ');
+
+    -- Build UPDATE SET clause: update all inserted columns that are NOT part of the conflict key
+    FOR i IN 1 .. array_length(insert_columns_list, 1) LOOP
+        IF NOT (insert_columns_list[i] = ANY(conflict_key_columns_list)) THEN
+            update_set_expressions_list := array_append(update_set_expressions_list, format('%s = EXCLUDED.%s', insert_columns_list[i], insert_columns_list[i]));
         END IF;
-
-        merge_stmt := merge_stmt || format('%I = EXCLUDED.%I',
-                                        info.target_column,
-                                        info.target_column);
     END LOOP;
+    update_set_clause := array_to_string(update_set_expressions_list, ', ');
 
-    -- Execute the insert
+    -- Assemble the final UPSERT statement
+    IF conflict_columns_text = '' OR update_set_clause = '' THEN
+        -- If no conflict columns defined for the mapped columns, or no columns to update, just do INSERT
+        upsert_stmt := format($$INSERT INTO public.%I (%s) SELECT %s FROM public.%I$$,
+                              job.data_table_name, insert_columns, select_clause, job.upload_table_name);
+    ELSE
+        upsert_stmt := format($$INSERT INTO public.%I (%s) SELECT %s FROM public.%I ON CONFLICT (%s) DO UPDATE SET %s$$,
+                              job.data_table_name, insert_columns, select_clause, job.upload_table_name, conflict_columns_text, update_set_clause);
+    END IF;
+
     BEGIN
-        RAISE DEBUG 'Executing upsert: %', merge_stmt;
-        EXECUTE merge_stmt;
+        RAISE DEBUG '[Job %] Executing prepare upsert: %', job.id, upsert_stmt;
+        EXECUTE upsert_stmt;
 
-        DECLARE
-          data_table_count INT;
+        DECLARE data_table_count INT;
         BEGIN
-          EXECUTE format('SELECT count(*) FROM public.%I', job.data_table_name) INTO data_table_count;
-          RAISE DEBUG 'There are % rows in %', data_table_count, job.data_table_name;
+            EXECUTE format($$SELECT count(*) FROM public.%I$$, job.data_table_name) INTO data_table_count;
+            RAISE DEBUG '[Job %] Rows in data table % after prepare: %', job.id, job.data_table_name, data_table_count;
         END;
     EXCEPTION
         WHEN OTHERS THEN
-            error_message := SQLERRM;
-            RAISE DEBUG 'Error in import_job_prepare: %', error_message;
-
-            -- Update the job with the error
-            UPDATE public.import_job
-            SET error = format('Error preparing data: %s', error_message)
-            WHERE id = job.id;
-
-            RAISE EXCEPTION 'Error preparing data: %', error_message;
+            GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+            RAISE WARNING '[Job %] Error preparing data: %', job.id, error_message;
+            UPDATE public.import_job SET error = jsonb_build_object('prepare_error', error_message), state = 'finished' WHERE id = job.id;
+            RAISE; -- Re-raise the exception
     END;
+
+    -- Set initial state for all rows in data table (redundant if table is new, safe if resuming)
+    EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state IS NULL OR state != %L$$,
+                   job.data_table_name, 'pending', 'error');
+
 END;
 $import_job_prepare$;
-
--- Function to analyze import data before actual import
-CREATE FUNCTION admin.import_job_analyse(job public.import_job)
-RETURNS void LANGUAGE plpgsql AS $import_job_analyse$
-BEGIN
-    -- This function will analyze the data in the data table
-    -- to identify potential issues before importing
-    RAISE DEBUG 'Analyzing data for import job %', job.id;
-    -- Validate the data table using the standardised column names
-    -- Placeholder for implementation (NOOP for now)
-    NULL;
-END;
-$import_job_analyse$;
-
--- Function to insert data from the data table to the target table
-CREATE FUNCTION admin.import_job_insert(job public.import_job)
-RETURNS void LANGUAGE plpgsql AS $import_job_insert$
-DECLARE
-    target_columns TEXT;
-    batch_size INTEGER := 1000; -- Process 1000 rows at a time
-    pending_count INTEGER;
-    imported_count INTEGER := 0;
-    error_count INTEGER := 0;
-    batch_insert_stmt TEXT;
-    batch_count INTEGER;
-    uniquely_identifying_columns TEXT;
-    should_continue BOOLEAN := TRUE;
-    max_batches_per_transaction INTEGER := 1; -- Only process one batch per transaction
-    current_batch INTEGER := 0;
-BEGIN
-    -- This function will copy data from the data table to the target table
-    RAISE DEBUG 'IMPORT_JOB_INSERT: Starting import from % to %.%',
-                 job.data_table_name, job.target_schema_name, job.target_table_name;
-
-    -- Get target columns from the snapshot table (excluding state)
-    EXECUTE format(
-        'SELECT string_agg(quote_ident(target_column), '','')
-        FROM public.%I
-        WHERE target_column IS NOT NULL',
-        job.import_information_snapshot_table_name
-    ) INTO target_columns;
-
-    RAISE DEBUG 'IMPORT_JOB_INSERT: Target columns: %', target_columns;
-
-    -- Get uniquely identifying columns for the WHERE clause in batch processing
-    EXECUTE format(
-        'SELECT string_agg(quote_ident(target_column), '','')
-        FROM public.%I
-        WHERE uniquely_identifying = TRUE
-          AND target_column IS NOT NULL',
-        job.import_information_snapshot_table_name
-    ) INTO uniquely_identifying_columns;
-
-    RAISE DEBUG 'IMPORT_JOB_INSERT: Uniquely identifying columns: %', uniquely_identifying_columns;
-
-    -- Count rows in different states
-    DECLARE
-        pending_count INTEGER;
-        importing_count INTEGER;
-        error_count INTEGER;
-    BEGIN
-        -- Get counts for all states in a single query using window functions
-        EXECUTE format('
-            WITH counts AS (
-                SELECT
-                    COUNT(*) FILTER (WHERE state = ''pending'') AS pending,
-                    COUNT(*) FILTER (WHERE state = ''importing'') AS importing,
-                    COUNT(*) FILTER (WHERE state = ''imported'') AS imported,
-                    COUNT(*) FILTER (WHERE state = ''error'') AS error
-                FROM public.%I
-            )
-            SELECT pending, importing, imported, error FROM counts',
-            job.data_table_name
-        ) INTO pending_count, importing_count, imported_count, error_count;
-
-        RAISE DEBUG 'IMPORT_JOB_INSERT: Initial state - Pending: %, Processing: %, Imported: %, Error: %',
-                    pending_count, importing_count, imported_count, error_count;
-
-        -- If there are rows stuck in processing state, mark them as pending to retry
-        IF importing_count > 0 THEN
-            EXECUTE format('UPDATE public.%I SET state = ''pending'' WHERE state = ''importing''',
-                          job.data_table_name);
-            RAISE DEBUG 'IMPORT_JOB_INSERT: Reset % rows from processing to pending state', importing_count;
-            pending_count := pending_count + importing_count;
-        END IF;
-
-        -- Update job with already imported rows (for resumability)
-        -- Note: total_rows is set once when state changes to upload_completed and never changes
-        -- import_completed_pct is now a generated column
-        -- last_progress_update is set by the trigger
-        UPDATE public.import_job
-        SET imported_rows = imported_count
-        WHERE id = job.id
-        RETURNING * INTO job;
-    END;
-
-    -- Process in batches until all pending rows are processed
-    DECLARE
-        remaining_count INTEGER;
-    BEGIN
-        -- Initialize remaining count from pending rows
-        EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE state = ''pending''',
-                      job.data_table_name) INTO remaining_count;
-
-        RAISE DEBUG 'IMPORT_JOB_INSERT: Starting batch processing with % pending rows', remaining_count;
-
-        -- Process until no pending rows remain or we've reached our batch limit
-        WHILE remaining_count > 0 AND current_batch < max_batches_per_transaction LOOP
-            -- Increment batch counter
-            current_batch := current_batch + 1;
-        BEGIN
-            RAISE DEBUG 'IMPORT_JOB_INSERT: Starting new batch, remaining rows: %', remaining_count;
-
-            -- Mark batch as processing (with row locking)
-            DECLARE
-                mark_batch_sql TEXT;
-                marked_count INTEGER;
-            BEGIN
-                mark_batch_sql := format($format$
-                    UPDATE public.%I
-                    SET state = 'importing'
-                    WHERE state = 'pending'
-                    AND ctid IN (
-                        SELECT ctid
-                        FROM public.%I
-                        WHERE state = 'pending'
-                        ORDER BY %s
-                        LIMIT %s
-                    );
-                $format$,
-                job.data_table_name,
-                job.data_table_name,
-                COALESCE(uniquely_identifying_columns, 'ctid'),
-                batch_size);
-
-                RAISE DEBUG 'IMPORT_JOB_INSERT: Marking batch SQL: %', mark_batch_sql;
-                EXECUTE mark_batch_sql;
-
-                GET DIAGNOSTICS marked_count = ROW_COUNT;
-                RAISE DEBUG 'IMPORT_JOB_INSERT: Marked % rows as processing', marked_count;
-
-                -- If no rows were marked as processing, exit the loop
-                IF marked_count = 0 THEN
-                    RAISE DEBUG 'IMPORT_JOB_INSERT: No rows marked as processing, exiting loop';
-                    EXIT;
-                ELSE
-                    batch_count := marked_count;
-                END IF;
-            END;
-
-            -- Create batch insert statement for rows marked as processing
-            batch_insert_stmt := format($format$
-                WITH batch AS (
-                    SELECT %s, ctid AS source_ctid
-                    FROM public.%I
-                    WHERE state = 'importing'
-                    ORDER BY %s
-                    FOR UPDATE
-                ),
-                inserted AS (
-                    INSERT INTO %I.%I (%s)
-                    SELECT %s FROM batch
-                    RETURNING 1 AS inserted_row
-                )
-                SELECT COUNT(*) FROM inserted;
-            $format$,
-            target_columns,
-            job.data_table_name,
-            COALESCE(uniquely_identifying_columns, 'ctid'),
-            job.target_schema_name,
-            job.target_table_name,
-            target_columns,
-            target_columns
-            );
-
-            RAISE DEBUG 'IMPORT_JOB_INSERT: Batch insert SQL: %', batch_insert_stmt;
-
-            -- Execute batch insert
-            -- Execute and capture actual inserted count
-            DECLARE
-                reported_inserted INTEGER;
-                is_view BOOLEAN;
-                v_error TEXT;
-            BEGIN
-                -- Execute with error handling
-                BEGIN
-                    EXECUTE batch_insert_stmt INTO reported_inserted;
-                EXCEPTION WHEN OTHERS THEN
-                    -- Capture the specific error for this statement with enhanced diagnostics
-                    DECLARE
-                        v_detail TEXT;
-                        v_context TEXT;
-                        v_hint TEXT;
-                        v_state TEXT;
-                        v_message TEXT;
-                        v_column_name TEXT;
-                        v_constraint_name TEXT;
-                        v_table_name TEXT;
-                        v_schema_name TEXT;
-                    BEGIN
-                        GET STACKED DIAGNOSTICS
-                            v_state = RETURNED_SQLSTATE,
-                            v_message = MESSAGE_TEXT,
-                            v_detail = PG_EXCEPTION_DETAIL,
-                            v_hint = PG_EXCEPTION_HINT,
-                            v_context = PG_EXCEPTION_CONTEXT,
-                            v_column_name = COLUMN_NAME,
-                            v_constraint_name = CONSTRAINT_NAME,
-                            v_table_name = TABLE_NAME,
-                            v_schema_name = SCHEMA_NAME;
-
-                        RAISE DEBUG 'IMPORT_JOB_INSERT: Error executing batch insert: %', v_message;
-                        RAISE DEBUG 'IMPORT_JOB_INSERT: Error details: %, Hint: %', v_detail, v_hint;
-                        RAISE DEBUG 'IMPORT_JOB_INSERT: Error state: %, Context: %', v_state, v_context;
-                        RAISE DEBUG 'IMPORT_JOB_INSERT: Related objects - Table: %.%, Column: %, Constraint: %',
-                                    v_schema_name, v_table_name, v_column_name, v_constraint_name;
-
-                        -- Format the error message while all variables are in scope
-                        v_error := format('Import failed: %s. Details: %s. Hint: %s. Related to: %s.%s%s%s',
-                                      v_message,
-                                      v_detail,
-                                      v_hint,
-                                      COALESCE(v_schema_name, ''),
-                                      COALESCE(v_table_name, ''),
-                                      CASE WHEN v_column_name IS NOT NULL THEN '.' || v_column_name ELSE '' END,
-                                      CASE WHEN v_constraint_name IS NOT NULL THEN ' (constraint: ' || v_constraint_name || ')' ELSE '' END);
-                    END;
-
-                    -- Mark rows with error - this won't be rolled back since it's outside the exception block
-                    EXECUTE format($format$
-                        UPDATE public.%I
-                        SET state = 'error'
-                        WHERE state = 'importing';
-                    $format$, job.data_table_name);
-
-                    -- Count error rows
-                    EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE state = ''error''',
-                                  job.data_table_name) INTO error_count;
-
-                    -- Log the error
-                    RAISE WARNING 'Error importing batch: %. % rows marked as error.', SQLERRM, error_count;
-
-                    -- Get the actual count of successfully imported rows
-                    DECLARE
-                        actual_imported_count INTEGER;
-                    BEGIN
-                        EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE state = ''imported''',
-                                      job.data_table_name) INTO actual_imported_count;
-
-                        -- Update the job with the error, mark as finished, and set correct imported_rows count
-                        UPDATE public.import_job
-                        SET state = 'finished',
-                            error = v_error,
-                            imported_rows = actual_imported_count
-                        WHERE id = job.id;
-
-                        RAISE DEBUG 'IMPORT_JOB_INSERT: Import job marked as finished due to error with % imported rows', actual_imported_count;
-                    END;
-
-                    -- Prevent further processing, since the job is already marked as finished.
-                    RETURN;
-                END;
-
-                -- If rows were inserted successfully, use that count
-                IF reported_inserted > 0 THEN
-                    RAISE DEBUG 'IMPORT_JOB_INSERT: Inserted % rows in this batch (reported by INSERT)', reported_inserted;
-                    batch_count := reported_inserted;
-                ELSE
-                    -- Check if the target is a view
-                    EXECUTE format(
-                        'SELECT EXISTS (
-                            SELECT 1 FROM information_schema.views
-                            WHERE table_schema = %L AND table_name = %L
-                        )',
-                        job.target_schema_name, job.target_table_name
-                    ) INTO is_view;
-
-                    IF is_view THEN
-                        -- For views, we can't rely on the INSERT returning count
-                        -- so we'll preserve the batch_count set in the marking phase.
-                        RAISE DEBUG 'IMPORT_JOB_INSERT: Target is a view, assuming all marked rows were processed successfully';
-                    ELSE
-                        -- For tables, if nothing was inserted, that's an error
-                        RAISE EXCEPTION 'Failed to insert any rows into table %.%', job.target_schema_name, job.target_table_name;
-                    END IF;
-                END IF;
-            END;
-
-            -- Mark processed rows as imported
-            DECLARE
-                mark_imported_sql TEXT;
-                marked_count INTEGER;
-            BEGIN
-                mark_imported_sql := format($format$
-                    UPDATE public.%I
-                    SET state = 'imported'
-                    WHERE state = 'importing';
-                $format$, job.data_table_name);
-
-                RAISE DEBUG 'IMPORT_JOB_INSERT: Marking as imported SQL: %', mark_imported_sql;
-                EXECUTE mark_imported_sql;
-
-                GET DIAGNOSTICS marked_count = ROW_COUNT;
-                RAISE DEBUG 'IMPORT_JOB_INSERT: Marked % rows as imported', marked_count;
-
-                -- Update the imported_rows count immediately after marking rows as imported
-                -- This ensures we don't lose track of progress between batches
-                IF marked_count > 0 THEN
-                    UPDATE public.import_job
-                    SET imported_rows = imported_rows + marked_count
-                    WHERE id = job.id;
-                    RAISE DEBUG 'IMPORT_JOB_INSERT: Updated imported_rows count by adding % rows', marked_count;
-                END IF;
-            END;
-
-            -- Update imported count
-            imported_count := imported_count + batch_count;
-
-            -- Recalculate remaining count directly from database
-            EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE state = ''pending''',
-                          job.data_table_name) INTO remaining_count;
-
-            RAISE DEBUG 'IMPORT_JOB_INSERT: Updated counts - imported: %, remaining: %', imported_count, remaining_count;
-
-            -- Update progress in job table
-            DECLARE
-                current_progress numeric(5,2);
-                imported_count INTEGER;
-            BEGIN
-                -- Get the actual count of imported rows from the data table
-                EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE state = ''imported''',
-                              job.data_table_name) INTO imported_count;
-
-                UPDATE public.import_job
-                SET imported_rows = imported_count
-                WHERE id = job.id
-                RETURNING import_completed_pct INTO current_progress;
-
-                RAISE DEBUG 'IMPORT_JOB_INSERT: Updated job progress to % complete', current_progress;
-            END;
-
-        END;
-    END LOOP;
-
-    -- Do a final count to ensure we have the correct numbers
-    EXECUTE format('
-        WITH counts AS (
-            SELECT
-                COUNT(*) FILTER (WHERE state = ''pending'') AS pending,
-                COUNT(*) FILTER (WHERE state = ''imported'') AS imported,
-                COUNT(*) FILTER (WHERE state = ''error'') AS error
-            FROM public.%I
-        )
-        SELECT pending, imported, error FROM counts',
-        job.data_table_name
-    ) INTO pending_count, imported_count, error_count;
-
-    RAISE DEBUG 'IMPORT_JOB_INSERT: Batches processed. Counts - Pending: %, Imported: %, Errors: %',
-                pending_count, imported_count, error_count;
-
-    -- Update job with current counts - ensure we use the actual count from the data table
-    -- This is critical for ensuring the final count is accurate
-    UPDATE public.import_job
-    SET imported_rows = imported_count
-    WHERE id = job.id;
-
-    RAISE DEBUG 'IMPORT_JOB_INSERT: Final update of imported_rows to %', imported_count;
-
-    -- Check if there were any errors during processing
-    IF error_count > 0 THEN
-        -- We've already marked the job as finished with an error in the exception handler
-        RAISE DEBUG 'IMPORT_JOB_INSERT: Import failed with % errors', error_count;
-    -- If there are still pending rows, we need to continue in the next transaction
-    ELSIF pending_count > 0 THEN
-        RAISE DEBUG 'IMPORT_JOB_INSERT: Still have % rows to import, will continue in next transaction', pending_count;
-    ELSE
-        -- No more pending rows and no errors, we're done successfully
-        -- Update job state to finished and ensure the imported_rows count is accurate
-        EXECUTE format('
-            WITH counts AS (
-                SELECT COUNT(*) FILTER (WHERE state = ''imported'') AS imported
-                FROM public.%I
-            )
-            UPDATE public.import_job
-            SET state = ''finished'',
-                imported_rows = (SELECT imported FROM counts)
-            WHERE id = %L',
-            job.data_table_name,
-            job.id
-        );
-
-        RAISE DEBUG 'IMPORT_JOB_INSERT: Set state to finished and ensured final imported_rows count is accurate';
-        RAISE DEBUG 'IMPORT_JOB_INSERT: Import completed successfully';
-    END IF;
-END;
-END;
-$import_job_insert$;
 
 
 END;

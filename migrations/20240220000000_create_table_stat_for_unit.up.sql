@@ -22,7 +22,13 @@ CREATE TABLE public.stat_for_unit (
         (value_int IS     NULL AND value_float IS NOT NULL AND value_string IS     NULL AND value_bool IS     NULL) OR
         (value_int IS     NULL AND value_float IS     NULL AND value_string IS NOT NULL AND value_bool IS     NULL) OR
         (value_int IS     NULL AND value_float IS     NULL AND value_string IS     NULL AND value_bool IS NOT NULL)
-    )
+    ),
+    -- Note: Audit columns (edit_by_user_id, edit_at) are populated by import procedures
+    -- using values derived during the import job prepare step.
+    created_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
+    edit_comment character varying(512),
+    edit_by_user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE RESTRICT,
+    edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp()
 );
 
 CREATE INDEX ix_stat_for_unit_stat_definition_id ON public.stat_for_unit USING btree (stat_definition_id);

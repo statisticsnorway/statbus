@@ -9,5 +9,6 @@ CREATE TABLE public.external_ident_type (
     priority integer UNIQUE,
     archived boolean NOT NULL DEFAULT false
 );
+COMMENT ON TABLE public.external_ident_type IS 'Defines the types of external identifiers used by source systems (e.g., tax_ident, stat_ident). Used to map external IDs to internal Statbus units.';
 
 END;

@@ -1,5 +1,5 @@
 BEGIN;
 
-DROP FUNCTION admin.process_enterprise_connection;
+DROP PROCEDURE admin.process_enterprise_connection;
 
 END;

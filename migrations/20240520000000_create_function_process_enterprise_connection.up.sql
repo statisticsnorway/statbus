@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE FUNCTION admin.process_enterprise_connection(
+CREATE PROCEDURE admin.process_enterprise_connection(
     IN prior_unit_id INTEGER,
     IN unit_type TEXT,
     IN new_valid_from DATE,
@@ -9,7 +9,7 @@ CREATE FUNCTION admin.process_enterprise_connection(
     OUT enterprise_id INTEGER,
     OUT legal_unit_id INTEGER,
     OUT is_primary_for_enterprise BOOLEAN
-) RETURNS RECORD LANGUAGE plpgsql AS $process_enterprise_connection$
+) LANGUAGE plpgsql AS $process_enterprise_connection$
 DECLARE
     new_center DATE;
     order_clause TEXT;

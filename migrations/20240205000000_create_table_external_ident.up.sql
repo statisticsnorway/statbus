@@ -29,4 +29,6 @@ CREATE INDEX external_ident_legal_unit_id_idx ON public.external_ident(legal_uni
 CREATE INDEX external_ident_enterprise_id_idx ON public.external_ident(enterprise_id);
 CREATE INDEX external_ident_enterprise_group_id_idx ON public.external_ident(enterprise_group_id);
 CREATE INDEX ix_external_ident_edit_by_user_id ON public.external_ident USING btree (edit_by_user_id);
+
+COMMENT ON TABLE public.external_ident IS 'Stores the actual external identifier values and links them to their type (external_ident_type). This table acts as a central lookup for resolving external IDs.';
 END;
