@@ -58,7 +58,7 @@ case "$action" in
       ;;
     'stop' )
         set_profile_arg "$@"
-        eval docker compose $compose_profile_arg down
+        eval docker compose $compose_profile_arg down --remove-orphans
       ;;
     'logs' )
         eval docker compose logs --follow
@@ -269,6 +269,10 @@ case "$action" in
                   echo "Running vimdiff for test: $test"
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
+              'pipe')
+                  echo "Running diff for test: $test"
+                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
               *)
                   echo "Error: Unknown UI option '$ui'. Please use 'gui' or 'tui'."
                   exit 1
@@ -295,15 +299,25 @@ case "$action" in
           elif [ "$input" = "s" ]; then
               continue
           fi
-          case "${2:-}" in
-              'ui')
+          ui=${1:-tui}
+          shift || true
+          case $ui in
+              'gui')
                   echo "Running opendiff for test: $test"
                   opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
                   ;;
-              'text'|*)
+              'tui')
                   echo "Running vimdiff for test: $test"
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
+              'pipe')
+                  echo "Running diff for test: $test"
+                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
+              *)
+                  echo "Error: Unknown UI option '$ui'. Please use 'gui' or 'tui'."
+                  exit 1
+              ;;
           esac
       done
     ;;
