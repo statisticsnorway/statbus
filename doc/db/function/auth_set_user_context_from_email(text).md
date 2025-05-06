@@ -2,7 +2,6 @@
 CREATE OR REPLACE FUNCTION auth.set_user_context_from_email(p_email text)
  RETURNS void
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   v_claims jsonb;

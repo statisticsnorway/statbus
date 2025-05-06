@@ -1,8 +1,7 @@
 ```sql
-CREATE OR REPLACE FUNCTION admin.process_enterprise_connection(prior_unit_id integer, unit_type text, new_valid_from date, new_valid_to date, edited_by_user_id integer, OUT enterprise_id integer, OUT legal_unit_id integer, OUT is_primary_for_enterprise boolean)
- RETURNS record
+CREATE OR REPLACE PROCEDURE admin.process_enterprise_connection(IN prior_unit_id integer, IN unit_type text, IN new_valid_from date, IN new_valid_to date, IN edited_by_user_id integer, OUT enterprise_id integer, OUT legal_unit_id integer, OUT is_primary_for_enterprise boolean)
  LANGUAGE plpgsql
-AS $function$
+AS $procedure$
 DECLARE
     new_center DATE;
     order_clause TEXT;
@@ -98,5 +97,5 @@ BEGIN
 
     RETURN;
 END;
-$function$
+$procedure$
 ```

@@ -2,12 +2,11 @@
 CREATE OR REPLACE FUNCTION auth.generate_jwt(claims jsonb)
  RETURNS text
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
   token text;
 BEGIN
-  SELECT sign(
+  SELECT public.sign(
     claims::json,
     current_setting('app.settings.jwt_secret')
   ) INTO token;

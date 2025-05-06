@@ -12,25 +12,21 @@ BEGIN
             RETURN 'preparing_data';
 
         WHEN 'preparing_data' THEN
-            RETURN 'analysing_data';
+            RETURN job.state; -- Transition done by batch job as it completes.
 
         WHEN 'analysing_data' THEN
-            IF job.review THEN
-                RETURN 'waiting_for_review';
-            ELSE
-                RETURN 'importing_data';
-            END IF;
+            RETURN job.state; -- Transition done by batch job as it completes.
 
         WHEN 'waiting_for_review' THEN
           RETURN job.state; -- No automatic transition, requires user action
 
         WHEN 'approved' THEN
-            RETURN 'importing_data';
+            RETURN 'processing_data';
 
         WHEN 'rejected' THEN
             RETURN 'finished';
 
-        WHEN 'importing_data' THEN
+        WHEN 'processing_data' THEN
             RETURN job.state; -- Transition done by batch job as it completes.
 
         WHEN 'finished' THEN

@@ -12,7 +12,7 @@ BEGIN
   SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
 
   -- Only reschedule if the job is in a state that requires further processing
-  IF v_job.state IN ('upload_completed', 'preparing_data', 'analysing_data', 'approved', 'importing_data') THEN
+  IF v_job.state IN ('upload_completed', 'preparing_data', 'analysing_data', 'approved', 'processing_data') THEN
     -- Create payload
     v_payload := jsonb_build_object('job_id', p_job_id);
 

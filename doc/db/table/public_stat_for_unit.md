@@ -1,19 +1,23 @@
 ```sql
-                                                 Table "public.stat_for_unit"
-       Column       |       Type        | Collation | Nullable |                            Default                            
---------------------+-------------------+-----------+----------+---------------------------------------------------------------
- id                 | integer           |           | not null | nextval('stat_for_unit_id_seq'::regclass)
- stat_definition_id | integer           |           | not null | 
- valid_after        | date              |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
- valid_from         | date              |           | not null | CURRENT_DATE
- valid_to           | date              |           | not null | 'infinity'::date
- data_source_id     | integer           |           |          | 
- establishment_id   | integer           |           |          | 
- legal_unit_id      | integer           |           |          | 
- value_int          | integer           |           |          | 
- value_float        | double precision  |           |          | 
- value_string       | character varying |           |          | 
- value_bool         | boolean           |           |          | 
+                                                     Table "public.stat_for_unit"
+       Column       |           Type           | Collation | Nullable |                            Default                            
+--------------------+--------------------------+-----------+----------+---------------------------------------------------------------
+ id                 | integer                  |           | not null | nextval('stat_for_unit_id_seq'::regclass)
+ stat_definition_id | integer                  |           | not null | 
+ valid_after        | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
+ valid_from         | date                     |           | not null | CURRENT_DATE
+ valid_to           | date                     |           | not null | 'infinity'::date
+ data_source_id     | integer                  |           |          | 
+ establishment_id   | integer                  |           |          | 
+ legal_unit_id      | integer                  |           |          | 
+ value_int          | integer                  |           |          | 
+ value_float        | double precision         |           |          | 
+ value_string       | character varying        |           |          | 
+ value_bool         | boolean                  |           |          | 
+ created_at         | timestamp with time zone |           | not null | statement_timestamp()
+ edit_comment       | character varying(512)   |           |          | 
+ edit_by_user_id    | integer                  |           | not null | 
+ edit_at            | timestamp with time zone |           | not null | statement_timestamp()
 Indexes:
     "ix_stat_for_unit_data_source_id" btree (data_source_id)
     "ix_stat_for_unit_establishment_id" btree (establishment_id)
@@ -29,6 +33,7 @@ Check constraints:
     "stat_for_unit_valid_check" CHECK (valid_after < valid_to)
 Foreign-key constraints:
     "stat_for_unit_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL
+    "stat_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     "stat_for_unit_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE RESTRICT
 Policies:
     POLICY "stat_for_unit_admin_user_manage"

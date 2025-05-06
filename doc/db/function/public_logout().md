@@ -1,6 +1,6 @@
 ```sql
 CREATE OR REPLACE FUNCTION public.logout()
- RETURNS json
+ RETURNS auth.logout_response
  LANGUAGE plpgsql
  SECURITY DEFINER
 AS $function$
@@ -9,6 +9,7 @@ DECLARE
   user_sub uuid;
   refresh_session_jti uuid;
   refresh_token text;
+  result auth.logout_response;
 BEGIN
   -- Extract the refresh token from the cookie
   refresh_token := auth.extract_refresh_token_from_cookies();
@@ -29,24 +30,14 @@ BEGIN
         WHERE jti = refresh_session_jti AND user_id = (SELECT id FROM auth.user WHERE sub = user_sub);
       END IF;
     END IF;
-  ELSE
-    -- Fall back to current JWT claims if no refresh token
-    claims := current_setting('request.jwt.claims', true)::json;
-    user_sub := nullif(claims->>'sub', '')::uuid;
-    
-    -- For access tokens, we can't identify the specific session
-    IF user_sub IS NOT NULL THEN
-      -- Delete all sessions for this user (aggressive but secure)
-      DELETE FROM auth.refresh_session
-      WHERE user_id = (SELECT id FROM auth.user WHERE sub = user_sub);
-    END IF;
   END IF;
 
   -- Set cookies in response headers to clear them
   PERFORM auth.clear_auth_cookies();
 
   -- Return success
-  RETURN json_build_object('success', true);
+  result.success := true;
+  RETURN result;
 END;
 $function$
 ```

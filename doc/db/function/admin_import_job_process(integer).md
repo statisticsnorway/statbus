@@ -13,81 +13,115 @@ BEGIN
         RAISE EXCEPTION 'Import job % not found', job_id;
     END IF;
 
-    -- Set the user context to the job creator, for recording edit_by_user_id
+    -- Set the user context to the job creator
     PERFORM admin.set_import_job_user_context(job_id);
 
-    -- Process the job based on its current state
-    -- We'll only process one state transition per transaction to ensure visibility
+    RAISE DEBUG '[Job %] Processing job in state: %', job_id, job.state;
 
-    -- Perform the appropriate action for the current state
+    -- Process based on current state
     CASE job.state
-    WHEN 'waiting_for_upload' THEN
-        RAISE DEBUG 'Import job % is waiting for upload', job_id;
-        should_reschedule := FALSE;
+        WHEN 'waiting_for_upload' THEN
+            RAISE DEBUG '[Job %] Waiting for upload.', job_id;
+            should_reschedule := FALSE;
 
-    WHEN 'upload_completed' THEN
-        RAISE DEBUG 'Import job % is ready for preparing data', job_id;
-        should_reschedule := TRUE;
+        WHEN 'upload_completed' THEN
+            RAISE DEBUG '[Job %] Transitioning to preparing_data.', job_id;
+            job := admin.import_job_set_state(job, 'preparing_data');
+            should_reschedule := TRUE; -- Reschedule immediately to start prepare
 
-    WHEN 'preparing_data' THEN
-        PERFORM admin.import_job_prepare(job);
-        should_reschedule := TRUE;
+        WHEN 'preparing_data' THEN
+            RAISE DEBUG '[Job %] Calling import_job_prepare.', job_id;
+            PERFORM admin.import_job_prepare(job);
+            -- Transition rows in _data table from 'pending' to 'analysing'
+            RAISE DEBUG '[Job %] Updating data rows from pending to analysing in table %', job_id, job.data_table_name;
+            EXECUTE format('UPDATE public.%I SET state = %L WHERE state = %L', job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
+            job := admin.import_job_set_state(job, 'analysing_data');
+            should_reschedule := TRUE; -- Reschedule immediately to start analysis
 
-    WHEN 'analysing_data' THEN
-        PERFORM admin.import_job_analyse(job);
-        should_reschedule := TRUE;
+        WHEN 'analysing_data' THEN
+            RAISE DEBUG '[Job %] Starting analysis phase.', job_id;
+            should_reschedule := admin.import_job_process_phase(job, 'analyse'::public.import_step_phase);
+            
+            -- Refresh job record to see if an error was set by the phase
+            SELECT * INTO job FROM public.import_job WHERE id = job_id;
 
-    WHEN 'waiting_for_review' THEN
-        RAISE DEBUG 'Import job % is waiting for review', job_id;
-        should_reschedule := FALSE;
+            IF job.error IS NOT NULL THEN
+                RAISE WARNING '[Job %] Error detected during analysis phase: %. Transitioning to finished.', job_id, job.error;
+                job := admin.import_job_set_state(job, 'finished');
+                should_reschedule := FALSE;
+            ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
+                IF job.review THEN
+                    job := admin.import_job_set_state(job, 'waiting_for_review');
+                    RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
+                    -- should_reschedule remains FALSE as it's waiting for user action
+                ELSE
+                    -- Transition rows in _data table from 'analysed' to 'processing'
+                    RAISE DEBUG '[Job %] Updating data rows from analysed to processing in table %', job_id, job.data_table_name;
+                    EXECUTE format('UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL', job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+                    job := admin.import_job_set_state(job, 'processing_data');
+                    RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
+                    should_reschedule := TRUE; -- Reschedule to start processing
+                END IF;
+            END IF;
+            -- If should_reschedule is TRUE from the phase function (and no error), it will be rescheduled.
 
-    WHEN 'approved' THEN
-        RAISE DEBUG 'Import job % is approved for importing', job_id;
-        should_reschedule := TRUE;
+        WHEN 'waiting_for_review' THEN
+            RAISE DEBUG '[Job %] Waiting for user review.', job_id;
+            should_reschedule := FALSE;
 
-    WHEN 'rejected' THEN
-        RAISE DEBUG 'Import job % was rejected', job_id;
-        should_reschedule := FALSE;
+        WHEN 'approved' THEN
+            RAISE DEBUG '[Job %] Approved, transitioning to processing_data.', job_id;
+            -- Transition rows in _data table from 'analysed' (or 'pending' if review was skipped but set) to 'processing'
+            RAISE DEBUG '[Job %] Updating data rows from analysed/pending to processing in table % after approval', job_id, job.data_table_name;
+            EXECUTE format('UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL', job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+            job := admin.import_job_set_state(job, 'processing_data');
+            should_reschedule := TRUE; -- Reschedule immediately to start import
 
-    WHEN 'importing_data' THEN
-        -- For importing, we'll handle batches in the import_job_insert function
-        PERFORM admin.import_job_insert(job);
+        WHEN 'rejected' THEN
+            RAISE DEBUG '[Job %] Rejected, transitioning to finished.', job_id;
+            job := admin.import_job_set_state(job, 'finished');
+            should_reschedule := FALSE;
 
-        -- Check if we need to reschedule (not finished yet)
-        SELECT state = 'importing_data' INTO should_reschedule
-        FROM public.import_job WHERE id = job_id;
+        WHEN 'processing_data' THEN
+            RAISE DEBUG '[Job %] Starting process phase.', job_id;
+            should_reschedule := admin.import_job_process_phase(job, 'process'::public.import_step_phase);
 
-    WHEN 'finished' THEN
-        RAISE DEBUG 'Import job % completed successfully', job_id;
-        should_reschedule := FALSE;
+            -- Refresh job record to see if an error was set by the phase
+            SELECT * INTO job FROM public.import_job WHERE id = job_id;
 
-    ELSE
-        RAISE WARNING 'Unknown import job state: %', job.state;
-        should_reschedule := FALSE;
+            IF job.error IS NOT NULL THEN
+                RAISE WARNING '[Job %] Error detected during processing phase: %. Transitioning to finished.', job_id, job.error;
+                job := admin.import_job_set_state(job, 'finished');
+                should_reschedule := FALSE;
+            ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
+                job := admin.import_job_set_state(job, 'finished');
+                RAISE DEBUG '[Job %] Processing complete, transitioning to finished.', job_id;
+                -- should_reschedule remains FALSE
+            END IF;
+            -- If should_reschedule is TRUE from the phase function (and no error), it will be rescheduled.
+
+        WHEN 'finished' THEN
+            RAISE DEBUG '[Job %] Already finished.', job_id;
+            should_reschedule := FALSE;
+
+        ELSE
+            RAISE WARNING '[Job %] Unknown state: %', job_id, job.state;
+            should_reschedule := FALSE;
     END CASE;
 
-    -- After processing the current state, calculate and set the next state
-    -- Only transition if the job is still in the same state (it might have changed during processing)
-    SELECT * INTO job FROM public.import_job WHERE id = job_id;
-    next_state := admin.import_job_next_state(job);
-
-    IF next_state <> job.state THEN
-        -- Update the job state for the next run
-        job := admin.import_job_set_state(job, next_state);
-        RAISE DEBUG 'Updated import job % state from % to %', job_id, job.state, next_state;
-
-        -- Always reschedule after a state change
-        should_reschedule := TRUE;
-    END IF;
-
-    -- Reset the user context when done
+    -- Reset the user context
     PERFORM admin.reset_import_job_user_context();
 
-    -- Reschedule if needed
+    -- Reschedule if work remains for the current phase or if transitioned to a processing state
     IF should_reschedule THEN
         PERFORM admin.reschedule_import_job_process(job_id);
-        RAISE DEBUG 'Rescheduled import job % for further processing', job_id;
+        RAISE DEBUG '[Job %] Rescheduled for further processing.', job_id;
     END IF;
+
+EXCEPTION WHEN OTHERS THEN
+    -- Ensure context is reset even on error
+    PERFORM admin.reset_import_job_user_context();
+    RAISE; -- Re-raise the original error
 END;
 $procedure$
 ```

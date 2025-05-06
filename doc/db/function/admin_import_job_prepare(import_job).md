@@ -4,162 +4,136 @@ CREATE OR REPLACE FUNCTION admin.import_job_prepare(job import_job)
  LANGUAGE plpgsql
 AS $function$
 DECLARE
-    merge_stmt text;
-    add_separator BOOLEAN := FALSE;
-    info RECORD;
-    v_timestamp TIMESTAMPTZ;
+    upsert_stmt TEXT;
+    insert_columns_list TEXT[] := ARRAY[]::TEXT[];
+    select_expressions_list TEXT[] := ARRAY[]::TEXT[];
+    conflict_key_columns_list TEXT[] := ARRAY[]::TEXT[];
+    update_set_expressions_list TEXT[] := ARRAY[]::TEXT[];
+
+    insert_columns TEXT;
+    select_clause TEXT;
+    conflict_columns_text TEXT;
+    update_set_clause TEXT;
+
+    item_rec RECORD; -- Will hold {mapping, source_column, target_data_column}
+    current_mapping JSONB;
+    current_source_column JSONB;
+    current_target_data_column JSONB;
+    
     error_message TEXT;
+    snapshot JSONB := job.definition_snapshot;
 BEGIN
-    -- This function will move data from the upload table to the data table
-    -- with appropriate transformations based on the import definition
-    RAISE DEBUG 'Preparing import job % by moving data from % to %',
-                 job.id, job.upload_table_name, job.data_table_name;
+    RAISE DEBUG '[Job %] Preparing data: Moving from % to %', job.id, job.upload_table_name, job.data_table_name;
 
-    /*
-    -- Example of generated merge statement:
-    INSERT INTO public.import_job_123_data_table (
-      tax_ident, name, legal_form_code, primary_activity_category_code
-    ) SELECT
-      tax_ident, name, legal_form_code, primary_activity_category_code
-    FROM public.import_job_123_upload_table
-    ON CONFLICT (tax_ident) DO UPDATE SET
-      name = EXCLUDED.name,
-      legal_form_code = EXCLUDED.legal_form_code,
-      primary_activity_category_code = EXCLUDED.primary_activity_category_code;
-    */
+    IF snapshot IS NULL OR snapshot->'import_mapping_list' IS NULL THEN
+        RAISE EXCEPTION '[Job %] Invalid or missing import_mapping_list in definition_snapshot', job.id;
+    END IF;
 
-    -- Build dynamic INSERT statement with ON CONFLICT handling
-    merge_stmt := format('INSERT INTO public.%I (', job.data_table_name);
-
-    -- Add target columns
-    add_separator := FALSE;
-    FOR info IN
-        SELECT * FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND target_column IS NOT NULL
+    -- Iterate through mappings to build INSERT columns and SELECT expressions in a consistent order
+    FOR item_rec IN 
+        SELECT * 
+        FROM jsonb_to_recordset(COALESCE(snapshot->'import_mapping_list', '[]'::jsonb)) 
+            AS item(mapping JSONB, source_column JSONB, target_data_column JSONB)
+        ORDER BY (item.mapping->>'id')::integer -- Order by mapping ID for consistency
     LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
-        ELSE
-            merge_stmt := merge_stmt || ', ';
+        current_mapping := item_rec.mapping;
+        current_source_column := item_rec.source_column;
+        current_target_data_column := item_rec.target_data_column;
+
+        IF current_target_data_column IS NULL OR current_target_data_column = 'null'::jsonb THEN
+            RAISE EXCEPTION '[Job %] Mapping ID % refers to non-existent target_data_column.', job.id, current_mapping->>'id';
         END IF;
 
-        merge_stmt := merge_stmt || format('%I', info.target_column);
-    END LOOP;
-
-    merge_stmt := merge_stmt || format(') SELECT ');
-
-    -- Add source columns, values and expressions
-    add_separator := FALSE;
-    FOR info IN
-        SELECT *
-        FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND target_column IS NOT NULL
-          AND (source_column IS NOT NULL
-              OR source_value IS NOT NULL
-              OR source_expression IS NOT NULL)
-    LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
-        ELSE
-            merge_stmt := merge_stmt || ', ';
+        -- Only process mappings that target 'source_input' columns for the prepare step
+        IF current_target_data_column->>'purpose' != 'source_input' THEN
+            RAISE DEBUG '[Job %] Skipping mapping ID % because target data column % (ID: %) is not for ''source_input''. Purpose: %', 
+                        job.id, current_mapping->>'id', current_target_data_column->>'column_name', current_target_data_column->>'id', current_target_data_column->>'purpose';
+            CONTINUE;
         END IF;
 
-        CASE
-            WHEN info.source_value IS NOT NULL THEN
-                merge_stmt := merge_stmt || quote_literal(info.source_value);
-            WHEN info.source_expression IS NOT NULL THEN
-                merge_stmt := merge_stmt || CASE info.source_expression
+        insert_columns_list := array_append(insert_columns_list, format('%I', current_target_data_column->>'column_name'));
+
+        -- Generate SELECT expression based on mapping type
+        IF current_mapping->>'source_value' IS NOT NULL THEN
+            select_expressions_list := array_append(select_expressions_list, format('%L', current_mapping->>'source_value'));
+        ELSIF current_mapping->>'source_expression' IS NOT NULL THEN
+            select_expressions_list := array_append(select_expressions_list,
+                CASE current_mapping->>'source_expression'
                     WHEN 'now' THEN 'statement_timestamp()'
                     WHEN 'default' THEN
-                        CASE info.target_column
-                            WHEN 'valid_from' THEN quote_literal(job.default_valid_from)
-                            WHEN 'valid_to' THEN quote_literal(job.default_valid_to)
-                            WHEN 'data_source_code' THEN quote_literal(job.default_data_source_code)
-                            ELSE 'NULL'
+                        CASE current_target_data_column->>'column_name'
+                            WHEN 'valid_from' THEN format('%L', job.default_valid_from)
+                            WHEN 'valid_to' THEN format('%L', job.default_valid_to)
+                            WHEN 'data_source_code' THEN format('%L', job.default_data_source_code)
+                            ELSE 'NULL' 
                         END
                     ELSE 'NULL'
-                    END;
-            WHEN info.source_column IS NOT NULL THEN
-                merge_stmt := merge_stmt || CASE info.target_column
-                    WHEN 'valid_from' THEN format('COALESCE(NULLIF(%I,%L), %L)', info.source_column, '', job.default_valid_from)
-                    WHEN 'valid_to' THEN format('COALESCE(NULLIF(%I,%L), %L)', info.source_column, '', job.default_valid_to)
-                    ELSE format('NULLIF(%I,%L)', info.source_column, '')
-                    END;
-            ELSE
-                RAISE EXCEPTION 'No valid source (column/value/expression) found for job %', job_id;
-        END CASE;
-    END LOOP;
-
-    merge_stmt := merge_stmt || format(' FROM public.%I ', job.upload_table_name);
-
-    -- Add ON CONFLICT clause using uniquely identifying columns
-    merge_stmt := merge_stmt || ' ON CONFLICT (';
-
-    add_separator := FALSE;
-    FOR info IN
-        SELECT *
-        FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND uniquely_identifying = TRUE
-          AND target_column IS NOT NULL
-    LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
+                END
+            );
+        ELSIF current_mapping->>'source_column_id' IS NOT NULL THEN
+            IF current_source_column IS NULL OR current_source_column = 'null'::jsonb THEN
+                 RAISE EXCEPTION '[Job %] Could not find source column details for source_column_id % in mapping ID %.', job.id, current_mapping->>'source_column_id', current_mapping->>'id';
+            END IF;
+            select_expressions_list := array_append(select_expressions_list, format('NULLIF(%I, '''')', current_source_column->>'column_name'));
         ELSE
-            merge_stmt := merge_stmt || ', ';
+            -- This case should be prevented by the CHECK constraint on import_mapping table
+            RAISE EXCEPTION '[Job %] Mapping ID % for target data column % (ID: %) has no valid source (column/value/expression). This should not happen.', job.id, current_mapping->>'id', current_target_data_column->>'column_name', current_target_data_column->>'id';
         END IF;
-
-        merge_stmt := merge_stmt || format('%I', info.target_column);
+        
+        -- If this target data column is part of the unique key, add it to conflict_key_columns_list
+        IF (current_target_data_column->>'is_uniquely_identifying')::boolean THEN
+            conflict_key_columns_list := array_append(conflict_key_columns_list, format('%I', current_target_data_column->>'column_name'));
+        END IF;
     END LOOP;
 
-    merge_stmt := merge_stmt || ') DO UPDATE SET ';
+    IF array_length(insert_columns_list, 1) = 0 THEN
+        RAISE DEBUG '[Job %] No mapped source_input columns found to insert. Skipping prepare.', job.id;
+        RETURN; 
+    END IF;
 
-    -- Add update assignments
-    add_separator := FALSE;
-    FOR info IN
-        SELECT *
-        FROM public.import_information AS ii
-        WHERE ii.job_id = job.id
-          AND source_column IS NOT NULL
-          AND target_column IS NOT NULL
-          AND NOT uniquely_identifying
-    LOOP
-        IF NOT add_separator THEN
-            add_separator := true;
-        ELSE
-            merge_stmt := merge_stmt || ', ';
+    insert_columns := array_to_string(insert_columns_list, ', ');
+    select_clause := array_to_string(select_expressions_list, ', ');
+    conflict_columns_text := array_to_string(conflict_key_columns_list, ', ');
+
+    -- Build UPDATE SET clause: update all inserted columns that are NOT part of the conflict key
+    FOR i IN 1 .. array_length(insert_columns_list, 1) LOOP
+        IF NOT (insert_columns_list[i] = ANY(conflict_key_columns_list)) THEN
+            update_set_expressions_list := array_append(update_set_expressions_list, format('%s = EXCLUDED.%s', insert_columns_list[i], insert_columns_list[i]));
         END IF;
-
-        merge_stmt := merge_stmt || format('%I = EXCLUDED.%I',
-                                        info.target_column,
-                                        info.target_column);
     END LOOP;
+    update_set_clause := array_to_string(update_set_expressions_list, ', ');
 
-    -- Execute the insert
+    -- Assemble the final UPSERT statement
+    IF conflict_columns_text = '' OR update_set_clause = '' THEN
+        -- If no conflict columns defined for the mapped columns, or no columns to update, just do INSERT
+        upsert_stmt := format('INSERT INTO public.%I (%s) SELECT %s FROM public.%I',
+                              job.data_table_name, insert_columns, select_clause, job.upload_table_name);
+    ELSE
+        upsert_stmt := format('INSERT INTO public.%I (%s) SELECT %s FROM public.%I ON CONFLICT (%s) DO UPDATE SET %s',
+                              job.data_table_name, insert_columns, select_clause, job.upload_table_name, conflict_columns_text, update_set_clause);
+    END IF;
+
     BEGIN
-        RAISE DEBUG 'Executing upsert: %', merge_stmt;
-        EXECUTE merge_stmt;
+        RAISE DEBUG '[Job %] Executing prepare upsert: %', job.id, upsert_stmt;
+        EXECUTE upsert_stmt;
 
-        DECLARE
-          data_table_count INT;
+        DECLARE data_table_count INT;
         BEGIN
-          EXECUTE format('SELECT count(*) FROM public.%I', job.data_table_name) INTO data_table_count;
-          RAISE DEBUG 'There are % rows in %', data_table_count, job.data_table_name;
+            EXECUTE format('SELECT count(*) FROM public.%I', job.data_table_name) INTO data_table_count;
+            RAISE DEBUG '[Job %] Rows in data table % after prepare: %', job.id, job.data_table_name, data_table_count;
         END;
     EXCEPTION
         WHEN OTHERS THEN
-            error_message := SQLERRM;
-            RAISE DEBUG 'Error in import_job_prepare: %', error_message;
-
-            -- Update the job with the error
-            UPDATE public.import_job
-            SET error = format('Error preparing data: %s', error_message)
-            WHERE id = job.id;
-
-            RAISE EXCEPTION 'Error preparing data: %', error_message;
+            GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+            RAISE WARNING '[Job %] Error preparing data: %', job.id, error_message;
+            UPDATE public.import_job SET error = jsonb_build_object('prepare_error', error_message), state = 'finished' WHERE id = job.id;
+            RAISE; -- Re-raise the exception
     END;
+
+    -- Set initial state for all rows in data table (redundant if table is new, safe if resuming)
+    EXECUTE format('UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state IS NULL OR state != %L',
+                   job.data_table_name, 'pending', 'error');
+
 END;
 $function$
 ```

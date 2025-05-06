@@ -17,17 +17,17 @@ BEGIN
     END IF;
 
     -- Calculate import_rows_per_sec
-    IF NEW.imported_rows = 0 OR NEW.import_start_at IS NULL THEN
+    IF NEW.imported_rows = 0 OR NEW.processing_start_at IS NULL THEN
         NEW.import_rows_per_sec := 0;
-    ELSIF NEW.state = 'finished' AND NEW.import_stop_at IS NOT NULL THEN
+    ELSIF NEW.state = 'finished' AND NEW.processing_stop_at IS NOT NULL THEN
         NEW.import_rows_per_sec := CASE
-            WHEN EXTRACT(EPOCH FROM (NEW.import_stop_at - NEW.import_start_at)) <= 0 THEN 0
-            ELSE ROUND((NEW.imported_rows::numeric / EXTRACT(EPOCH FROM (NEW.import_stop_at - NEW.import_start_at))), 2)
+            WHEN EXTRACT(EPOCH FROM (NEW.processing_stop_at - NEW.processing_start_at)) <= 0 THEN 0
+            ELSE ROUND((NEW.imported_rows::numeric / EXTRACT(EPOCH FROM (NEW.processing_stop_at - NEW.processing_start_at))), 2)
         END;
     ELSE
         NEW.import_rows_per_sec := CASE
-            WHEN EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.import_start_at)) <= 0 THEN 0
-            ELSE ROUND((NEW.imported_rows::numeric / EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.import_start_at))), 2)
+            WHEN EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.processing_start_at)) <= 0 THEN 0
+            ELSE ROUND((NEW.imported_rows::numeric / EXTRACT(EPOCH FROM (COALESCE(NEW.last_progress_update, clock_timestamp()) - NEW.processing_start_at))), 2)
         END;
     END IF;
 

@@ -1,28 +1,28 @@
 ```sql
-                                                                                 Table "public.location"
-      Column      |           Type           | Collation | Nullable |                            Default                            | Storage  | Compression | Stats target | Description 
-------------------+--------------------------+-----------+----------+---------------------------------------------------------------+----------+-------------+--------------+-------------
- id               | integer                  |           | not null | nextval('location_id_seq'::regclass)                          | plain    |             |              | 
- valid_after      | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored | plain    |             |              | 
- valid_from       | date                     |           | not null | CURRENT_DATE                                                  | plain    |             |              | 
- valid_to         | date                     |           | not null | 'infinity'::date                                              | plain    |             |              | 
- type             | location_type            |           | not null |                                                               | plain    |             |              | 
- address_part1    | character varying(200)   |           |          |                                                               | extended |             |              | 
- address_part2    | character varying(200)   |           |          |                                                               | extended |             |              | 
- address_part3    | character varying(200)   |           |          |                                                               | extended |             |              | 
- postcode         | character varying(200)   |           |          |                                                               | extended |             |              | 
- postplace        | character varying(200)   |           |          |                                                               | extended |             |              | 
- region_id        | integer                  |           |          |                                                               | plain    |             |              | 
- country_id       | integer                  |           | not null |                                                               | plain    |             |              | 
- latitude         | numeric(9,6)             |           |          |                                                               | main     |             |              | 
- longitude        | numeric(9,6)             |           |          |                                                               | main     |             |              | 
- altitude         | numeric(6,1)             |           |          |                                                               | main     |             |              | 
- establishment_id | integer                  |           |          |                                                               | plain    |             |              | 
- legal_unit_id    | integer                  |           |          |                                                               | plain    |             |              | 
- data_source_id   | integer                  |           |          |                                                               | plain    |             |              | 
- edit_comment     | character varying(512)   |           |          |                                                               | extended |             |              | 
- edit_by_user_id  | integer                  |           | not null |                                                               | plain    |             |              | 
- edit_at          | timestamp with time zone |           | not null | statement_timestamp()                                         | plain    |             |              | 
+                                                                                                                        Table "public.location"
+      Column      |           Type           | Collation | Nullable |                            Default                            | Storage  | Compression | Stats target |                                        Description                                        
+------------------+--------------------------+-----------+----------+---------------------------------------------------------------+----------+-------------+--------------+-------------------------------------------------------------------------------------------
+ id               | integer                  |           | not null | nextval('location_id_seq'::regclass)                          | plain    |             |              | Primary key for the location record (not the temporal era).
+ valid_after      | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored | plain    |             |              | Generated column: The day before valid_from.
+ valid_from       | date                     |           | not null | CURRENT_DATE                                                  | plain    |             |              | Start date of the validity period for this location era.
+ valid_to         | date                     |           | not null | 'infinity'::date                                              | plain    |             |              | End date (exclusive) of the validity period for this location era.
+ type             | location_type            |           | not null |                                                               | plain    |             |              | Type of location: 'physical' or 'postal'.
+ address_part1    | character varying(200)   |           |          |                                                               | extended |             |              | First line of the address.
+ address_part2    | character varying(200)   |           |          |                                                               | extended |             |              | Second line of the address.
+ address_part3    | character varying(200)   |           |          |                                                               | extended |             |              | Third line of the address.
+ postcode         | character varying(200)   |           |          |                                                               | extended |             |              | Postal code.
+ postplace        | character varying(200)   |           |          |                                                               | extended |             |              | Postal place (city/town).
+ region_id        | integer                  |           |          |                                                               | plain    |             |              | Foreign key to the region table.
+ country_id       | integer                  |           | not null |                                                               | plain    |             |              | Foreign key to the country table.
+ latitude         | numeric(9,6)             |           |          |                                                               | main     |             |              | Latitude coordinate (decimal degrees). Only applicable for physical locations.
+ longitude        | numeric(9,6)             |           |          |                                                               | main     |             |              | Longitude coordinate (decimal degrees). Only applicable for physical locations.
+ altitude         | numeric(6,1)             |           |          |                                                               | main     |             |              | Altitude coordinate (meters). Only applicable for physical locations.
+ establishment_id | integer                  |           |          |                                                               | plain    |             |              | Foreign key to the establishment this location belongs to (NULL if linked to legal_unit).
+ legal_unit_id    | integer                  |           |          |                                                               | plain    |             |              | Foreign key to the legal unit this location belongs to (NULL if linked to establishment).
+ data_source_id   | integer                  |           |          |                                                               | plain    |             |              | Foreign key to the data source providing this information.
+ edit_comment     | character varying(512)   |           |          |                                                               | extended |             |              | Comment added during manual edit.
+ edit_by_user_id  | integer                  |           | not null |                                                               | plain    |             |              | User who last edited this record.
+ edit_at          | timestamp with time zone |           | not null | statement_timestamp()                                         | plain    |             |              | Timestamp of the last edit.
 Indexes:
     "ix_location_edit_by_user_id" btree (edit_by_user_id)
     "ix_location_establishment_id" btree (establishment_id)
@@ -46,6 +46,11 @@ END)
     "latitude_must_be_from_minus_90_to_90_degrees" CHECK (latitude >= '-90'::integer::numeric AND latitude <= 90::numeric)
     "location_valid_check" CHECK (valid_after < valid_to)
     "longitude_must_be_from_minus_180_to_180_degrees" CHECK (longitude >= '-180'::integer::numeric AND longitude <= 180::numeric)
+    "postal_locations_cannot_have_coordinates" CHECK (
+CASE type
+    WHEN 'postal'::location_type THEN latitude IS NULL AND longitude IS NULL AND altitude IS NULL
+    ELSE true
+END)
 Foreign-key constraints:
     "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     "location_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL

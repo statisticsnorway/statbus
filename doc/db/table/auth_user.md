@@ -20,6 +20,7 @@ Indexes:
 Referenced by:
     TABLE "activity_category_access" CONSTRAINT "activity_category_access_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE CASCADE
     TABLE "activity" CONSTRAINT "activity_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
+    TABLE "auth.api_key" CONSTRAINT "api_key_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE CASCADE
     TABLE "contact" CONSTRAINT "contact_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     TABLE "enterprise" CONSTRAINT "enterprise_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     TABLE "enterprise_group" CONSTRAINT "enterprise_group_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
@@ -31,10 +32,21 @@ Referenced by:
     TABLE "location" CONSTRAINT "location_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     TABLE "auth.refresh_session" CONSTRAINT "refresh_session_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE CASCADE
     TABLE "region_access" CONSTRAINT "region_access_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE CASCADE
+    TABLE "stat_for_unit" CONSTRAINT "stat_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     TABLE "tag_for_unit" CONSTRAINT "tag_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     TABLE "unit_notes" CONSTRAINT "unit_notes_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
+Policies:
+    POLICY "admin_all_access"
+      USING (pg_has_role(CURRENT_USER, 'admin_user'::name, 'MEMBER'::text))
+      WITH CHECK (pg_has_role(CURRENT_USER, 'admin_user'::name, 'MEMBER'::text))
+    POLICY "select_own_user" FOR SELECT
+      USING ((email = CURRENT_USER))
+    POLICY "update_own_user" FOR UPDATE
+      USING ((email = CURRENT_USER))
+      WITH CHECK ((email = CURRENT_USER))
 Triggers:
-    create_user_role_trigger BEFORE INSERT ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.create_user_role()
+    check_role_permission_trigger BEFORE INSERT OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.check_role_permission()
     drop_user_role_trigger AFTER DELETE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.drop_user_role()
+    sync_user_credentials_and_roles_trigger BEFORE INSERT OR UPDATE ON auth."user" FOR EACH ROW EXECUTE FUNCTION auth.sync_user_credentials_and_roles()
 
 ```

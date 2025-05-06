@@ -4,6 +4,6 @@ CREATE OR REPLACE FUNCTION auth.email()
  LANGUAGE sql
  STABLE
 AS $function$
-  SELECT nullif(current_setting('request.jwt.claims', true), '')::json->>'email';
+  SELECT current_user;
 $function$
 ```

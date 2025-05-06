@@ -1,19 +1,23 @@
 ```sql
-                                                                            Table "public.stat_for_unit"
-       Column       |       Type        | Collation | Nullable |                            Default                            | Storage  | Compression | Stats target | Description 
---------------------+-------------------+-----------+----------+---------------------------------------------------------------+----------+-------------+--------------+-------------
- id                 | integer           |           | not null | nextval('stat_for_unit_id_seq'::regclass)                     | plain    |             |              | 
- stat_definition_id | integer           |           | not null |                                                               | plain    |             |              | 
- valid_after        | date              |           | not null | generated always as ((valid_from - '1 day'::interval)) stored | plain    |             |              | 
- valid_from         | date              |           | not null | CURRENT_DATE                                                  | plain    |             |              | 
- valid_to           | date              |           | not null | 'infinity'::date                                              | plain    |             |              | 
- data_source_id     | integer           |           |          |                                                               | plain    |             |              | 
- establishment_id   | integer           |           |          |                                                               | plain    |             |              | 
- legal_unit_id      | integer           |           |          |                                                               | plain    |             |              | 
- value_int          | integer           |           |          |                                                               | plain    |             |              | 
- value_float        | double precision  |           |          |                                                               | plain    |             |              | 
- value_string       | character varying |           |          |                                                               | extended |             |              | 
- value_bool         | boolean           |           |          |                                                               | plain    |             |              | 
+                                                                                Table "public.stat_for_unit"
+       Column       |           Type           | Collation | Nullable |                            Default                            | Storage  | Compression | Stats target | Description 
+--------------------+--------------------------+-----------+----------+---------------------------------------------------------------+----------+-------------+--------------+-------------
+ id                 | integer                  |           | not null | nextval('stat_for_unit_id_seq'::regclass)                     | plain    |             |              | 
+ stat_definition_id | integer                  |           | not null |                                                               | plain    |             |              | 
+ valid_after        | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored | plain    |             |              | 
+ valid_from         | date                     |           | not null | CURRENT_DATE                                                  | plain    |             |              | 
+ valid_to           | date                     |           | not null | 'infinity'::date                                              | plain    |             |              | 
+ data_source_id     | integer                  |           |          |                                                               | plain    |             |              | 
+ establishment_id   | integer                  |           |          |                                                               | plain    |             |              | 
+ legal_unit_id      | integer                  |           |          |                                                               | plain    |             |              | 
+ value_int          | integer                  |           |          |                                                               | plain    |             |              | 
+ value_float        | double precision         |           |          |                                                               | plain    |             |              | 
+ value_string       | character varying        |           |          |                                                               | extended |             |              | 
+ value_bool         | boolean                  |           |          |                                                               | plain    |             |              | 
+ created_at         | timestamp with time zone |           | not null | statement_timestamp()                                         | plain    |             |              | 
+ edit_comment       | character varying(512)   |           |          |                                                               | extended |             |              | 
+ edit_by_user_id    | integer                  |           | not null |                                                               | plain    |             |              | 
+ edit_at            | timestamp with time zone |           | not null | statement_timestamp()                                         | plain    |             |              | 
 Indexes:
     "ix_stat_for_unit_data_source_id" btree (data_source_id)
     "ix_stat_for_unit_establishment_id" btree (establishment_id)
@@ -29,6 +33,7 @@ Check constraints:
     "stat_for_unit_valid_check" CHECK (valid_after < valid_to)
 Foreign-key constraints:
     "stat_for_unit_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL
+    "stat_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     "stat_for_unit_stat_definition_id_fkey" FOREIGN KEY (stat_definition_id) REFERENCES stat_definition(id) ON DELETE RESTRICT
 Policies:
     POLICY "stat_for_unit_admin_user_manage"

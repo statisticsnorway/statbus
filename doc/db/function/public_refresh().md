@@ -1,6 +1,6 @@
 ```sql
 CREATE OR REPLACE FUNCTION public.refresh()
- RETURNS json
+ RETURNS auth.auth_response
  LANGUAGE plpgsql
  SECURITY DEFINER
 AS $function$
@@ -12,7 +12,6 @@ DECLARE
   refresh_session_jti uuid;
   current_ip inet;
   current_ua text;
-  ua_hash text;
   access_jwt text;
   refresh_jwt text;
   access_expires timestamptz;
@@ -31,7 +30,7 @@ BEGIN
     IF refresh_token IS NULL THEN
       -- No valid refresh token found in cookies
       PERFORM auth.clear_auth_cookies();
-      RETURN json_build_object('error', 'No valid refresh token found in cookies');
+      RAISE EXCEPTION 'No valid refresh token found in cookies';
     END IF;
     
     -- Decode the JWT to get the claims
@@ -42,17 +41,16 @@ BEGIN
   -- Verify this is actually a refresh token
   IF claims->>'type' != 'refresh' THEN
     PERFORM auth.clear_auth_cookies();
-    RETURN json_build_object('error', 'Invalid token type');
+    RAISE EXCEPTION 'Invalid token type';
   END IF;
   
   -- Extract claims
   token_version := (claims->>'version')::integer;
   refresh_session_jti := (claims->>'jti')::uuid;
   
-  -- Get current client information
-  current_ip := inet(split_part(current_setting('request.headers', true)::json->>'x-forwarded-for', ',', 1));
-  current_ua := current_setting('request.headers', true)::json->>'user-agent';
-  ua_hash := encode(digest(current_ua, 'sha256'), 'hex');
+  -- Get current client information safely
+  current_ip := inet(split_part(nullif(current_setting('request.headers', true),'')::json->>'x-forwarded-for', ',', 1));
+  current_ua := nullif(current_setting('request.headers', true),'')::json->>'user-agent';
   
   -- Get the user
   SELECT u.* INTO _user
@@ -62,7 +60,7 @@ BEGIN
     
   IF NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
-    RETURN json_build_object('error', 'User not found');
+    RAISE EXCEPTION 'User not found';
   END IF;
   
   -- Get the session
@@ -74,14 +72,9 @@ BEGIN
 
   IF NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
-    RETURN json_build_object('error', 'Invalid session or token has been superseded');
+    RAISE EXCEPTION 'Invalid session or token has been superseded';
   END IF;
   
-  -- Verify user agent (with some flexibility)
-  IF claims->>'ua_hash' != ua_hash THEN
-    PERFORM auth.clear_auth_cookies();
-    RETURN json_build_object('error', 'Session appears to be used from a different browser');
-  END IF;
   
   -- Set expiration times, and use clock_timestamp() to have progress within the same transaction when testing.
   access_expires := clock_timestamp() + (coalesce(current_setting('app.settings.access_jwt_exp', true)::int, 3600) || ' seconds')::interval;
@@ -99,8 +92,6 @@ BEGIN
   -- Generate access token claims using the shared function
   access_claims := auth.build_jwt_claims(
     p_email => _user.email, 
-    p_sub => NULL, 
-    p_statbus_role => NULL, 
     p_expires_at => access_expires, 
     p_type => 'access'
   );
@@ -108,15 +99,12 @@ BEGIN
   -- Generate refresh token claims using the shared function
   refresh_claims := auth.build_jwt_claims(
     p_email => _user.email,
-    p_sub => NULL,
-    p_statbus_role => NULL,
     p_expires_at => refresh_expires,
     p_type => 'refresh',
     p_additional_claims => jsonb_build_object(
       'jti', _session.jti::text,
       'version', new_version,
-      'ip', current_ip::text,
-      'ua_hash', ua_hash
+      'ip', current_ip::text
     )
   );
 
@@ -129,18 +117,14 @@ BEGIN
     access_jwt,
     refresh_jwt,
     access_expires,
-    refresh_expires,
-    _user.id,
-    _user.email
+    refresh_expires
   );
 
   -- Return new tokens
   RETURN auth.build_auth_response(
     access_jwt,
     refresh_jwt,
-    _user.id,
-    _user.email,
-    _user.statbus_role
+    _user
   );
 END;
 $function$

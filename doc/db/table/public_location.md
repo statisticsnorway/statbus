@@ -46,6 +46,11 @@ END)
     "latitude_must_be_from_minus_90_to_90_degrees" CHECK (latitude >= '-90'::integer::numeric AND latitude <= 90::numeric)
     "location_valid_check" CHECK (valid_after < valid_to)
     "longitude_must_be_from_minus_180_to_180_degrees" CHECK (longitude >= '-180'::integer::numeric AND longitude <= 180::numeric)
+    "postal_locations_cannot_have_coordinates" CHECK (
+CASE type
+    WHEN 'postal'::location_type THEN latitude IS NULL AND longitude IS NULL AND altitude IS NULL
+    ELSE true
+END)
 Foreign-key constraints:
     "location_country_id_fkey" FOREIGN KEY (country_id) REFERENCES country(id) ON DELETE RESTRICT
     "location_data_source_id_fkey" FOREIGN KEY (data_source_id) REFERENCES data_source(id) ON DELETE SET NULL

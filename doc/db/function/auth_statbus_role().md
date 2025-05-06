@@ -4,6 +4,6 @@ CREATE OR REPLACE FUNCTION auth.statbus_role()
  LANGUAGE sql
  STABLE
 AS $function$
-  SELECT (nullif(current_setting('request.jwt.claims', true), '')::json->>'statbus_role')::public.statbus_role;
+  SELECT statbus_role FROM auth.user WHERE email = current_user;
 $function$
 ```
