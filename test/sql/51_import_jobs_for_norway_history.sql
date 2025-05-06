@@ -1,155 +1,69 @@
 BEGIN;
 
--- Create a function to disable RLS on import tables to support the \copy command.
--- and that requires privileges, make it a security definer, such that it can be
--- called by the user the tests run as.
-CREATE PROCEDURE public.disable_rls_on_table(schema_name text, table_name text) LANGUAGE plpgsql SECURITY DEFINER AS $disable_rls_on_table$
-BEGIN
-  EXECUTE format('ALTER TABLE %I DISABLE ROW LEVEL SECURITY', table_name);
-END;
-$disable_rls_on_table$;
-
--- Grant execute permission to authenticated users
-GRANT EXECUTE ON PROCEDURE public.disable_rls_on_table TO authenticated;
-
-
 \i test/setup.sql
-
--- Display all import definitions with their mappings
-SELECT
-    id.slug AS import_definition_slug,
-    id.name AS import_name,
-    it.schema_name AS target_schema_name,
-    it.table_name AS data_table_name,
-    id.note AS import_note,
-    isc.column_name AS source_column,
-    itc.column_name AS target_column,
-    im.source_expression,
-    im.source_value,
-    isc.priority AS source_column_priority
-FROM public.import_definition id
-JOIN public.import_target it ON id.target_id = it.id
-LEFT JOIN public.import_mapping im ON id.id = im.definition_id
-LEFT JOIN public.import_source_column isc ON im.source_column_id = isc.id
-LEFT JOIN public.import_target_column itc ON im.target_column_id = itc.id
-ORDER BY id.slug, isc.priority NULLS LAST;
 
 CALL test.set_user_from_email('test.admin@statbus.org');
 
 \i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 \i samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
-SELECT d.slug,
-       d.name,
-       t.table_name as target_table,
-       d.note,
-       ds.code as data_source,
-       d.time_context_ident,
-       d.draft,
-       d.valid,
-       d.validation_error
-FROM public.import_definition d
-JOIN public.import_target t ON t.id = d.target_id
-LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
-WHERE d.slug = 'brreg_hovedenhet_2024';
-
-SELECT d.slug,
-       d.name,
-       t.table_name as target_table,
-       d.note,
-       ds.code as data_source,
-       d.time_context_ident,
-       d.draft,
-       d.valid,
-       d.validation_error
-FROM public.import_definition d
-JOIN public.import_target t ON t.id = d.target_id
-LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
-WHERE d.slug = 'brreg_underenhet_2024';
+-- Display summary of created definitions
+SELECT slug, name, note, time_context_ident, strategy, valid, validation_error
+FROM public.import_definition
+WHERE slug LIKE 'brreg_%_2024'
+ORDER BY slug;
 
 -- Per year jobs for hovedenhet
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_lu_2015_h', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2015 History', 'This job handles the import of BRREG Hovedenhet history data for 2015.'
-FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_lu_2016_h', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2016 History', 'This job handles the import of BRREG Hovedenhet history data for 2016.'
-FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_lu_2017_h', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2017 History', 'This job handles the import of BRREG Hovedenhet history data for 2017.'
-FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_lu_2018_h', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2018 History', 'This job handles the import of BRREG Hovedenhet history data for 2018.'
-FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 -- Per year jobs for underenhet
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_es_2015_h', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2015 History', 'This job handles the import of BRREG Underenhet history data for 2015.'
-FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_es_2016_h', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2016 History', 'This job handles the import of BRREG Underenhet history data for 2016.'
-FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_es_2017_h', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2017 History', 'This job handles the import of BRREG Underenhet history data for 2017.'
-FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
 SELECT  def.id, 'import_es_2018_h', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2018 History', 'This job handles the import of BRREG Underenhet history data for 2018.'
-FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, import_information_snapshot_table_name, state;
-
--- Verify that snapshot tables were created
-SELECT slug, import_information_snapshot_table_name
-FROM public.import_job
-ORDER BY id;
-
--- Verify that the snapshot tables exist in the database
-SELECT ij.slug, ij.import_information_snapshot_table_name,
-       CASE WHEN EXISTS (
-           SELECT 1 FROM pg_tables
-           WHERE schemaname = 'public' AND tablename = ij.import_information_snapshot_table_name
-       ) THEN 'exists' ELSE 'missing' END AS table_status
-FROM public.import_job ij
-ORDER BY ij.id;
+FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 \echo Verify the concrete tables of one import job
 \d public.import_lu_2015_h_upload
 \d public.import_lu_2015_h_data
-\d public.import_lu_2015_h_import_information
 
 \d public.import_es_2015_h_upload
 \d public.import_es_2015_h_data
-\d public.import_es_2015_h_import_information
 
-SELECT import_job_slug, import_definition_slug, import_name, import_note, target_schema_name, upload_table_name, data_table_name, source_column, source_value, source_expression, target_column, target_type, uniquely_identifying, source_column_priority
-FROM public.import_lu_2015_h_import_information;
-
-\echo Review public.import_information for ensure it matches import_lu_2015_h_import_information_snapshot
-SELECT import_job_slug, import_definition_slug, import_name, import_note, target_schema_name, upload_table_name, data_table_name, source_column, source_value, source_expression, target_column, target_type, uniquely_identifying, source_column_priority
-FROM public.import_information
-WHERE import_job_slug = 'import_lu_2015_h';
-
--- Disable RLS on import tables to support \copy
-CALL public.disable_rls_on_table('public','import_lu_2015_h_upload');
-CALL public.disable_rls_on_table('public','import_lu_2016_h_upload');
-CALL public.disable_rls_on_table('public','import_lu_2017_h_upload');
-CALL public.disable_rls_on_table('public','import_lu_2018_h_upload');
---
-CALL public.disable_rls_on_table('public','import_es_2015_h_upload');
-CALL public.disable_rls_on_table('public','import_es_2016_h_upload');
-CALL public.disable_rls_on_table('public','import_es_2017_h_upload');
-CALL public.disable_rls_on_table('public','import_es_2018_h_upload');
+-- Display the definition snapshot for one job (optional, can be large)
+-- SELECT slug, definition_snapshot FROM public.import_job WHERE slug = 'import_lu_2015_h';
 
 \echo "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
@@ -175,10 +89,10 @@ WHERE slug = 'import_lu_2015_h';
 \echo Check import job state before import
 SELECT state, count(*) FROM import_job GROUP BY state;
 
-\echo Check data row state before import
+\echo Check data row state before import (should be empty as worker hasn't run prepare)
 SELECT state, count(*) FROM public.import_lu_2015_h_data GROUP BY state;
 
-\echo Check data row state before import
+\echo Check data row state before import (should be empty as worker hasn't run prepare)
 SELECT state, count(*) FROM public.import_es_2015_h_data GROUP BY state;
 
 \echo Run worker processing to run import jobs and generate computed data
@@ -193,7 +107,7 @@ select slug, state, error is not null as failed,total_rows,imported_rows, import
 \echo Check import job state after import
 SELECT state, count(*) FROM import_job GROUP BY state;
 
-\echo Check data row state after import
+\echo Check data row state after import (should be 'processed' or 'error')
 SELECT state, count(*) FROM public.import_lu_2015_h_data GROUP BY state;
 SELECT state, count(*) FROM public.import_lu_2016_h_data GROUP BY state;
 SELECT state, count(*) FROM public.import_lu_2017_h_data GROUP BY state;
@@ -227,19 +141,5 @@ SELECT valid_from
      , unit_type
  FROM public.statistical_unit
  ORDER BY valid_from, valid_to, name, external_idents ->> 'tax_ident', unit_type, unit_id;
-
-\o tmp/51_import_jobs_for_norway_history-timepoints.log
-EXPLAIN ANALYZE SELECT * FROM public.timepoints;
-\o tmp/51_import_jobs_for_norway_history-timesegments_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timesegments_def;
-\o tmp/51_import_jobs_for_norway_history-timeline_establishment_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment_def;
-\o tmp/51_import_jobs_for_norway_history-timeline_legal_unit_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit_def;
-\o tmp/51_import_jobs_for_norway_history-timeline_enterprise_def.log
-EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise_def;
-\o tmp/51_import_jobs_for_norway_history-statistical_unit_def.log
-EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
-\o
 
 ROLLBACK;
