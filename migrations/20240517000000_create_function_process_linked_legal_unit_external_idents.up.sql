@@ -6,7 +6,9 @@ CREATE FUNCTION admin.process_linked_legal_unit_external_idents(
     new_jsonb JSONB,
     OUT legal_unit_id INTEGER,
     OUT linked_ident_specified BOOL
-) RETURNS RECORD AS $process_linked_legal_unit_external_ident$
+)
+RETURNS RECORD
+LANGUAGE plpgsql AS $process_linked_legal_unit_external_ident$
 DECLARE
     unit_type TEXT := 'legal_unit';
     unit_fk_field TEXT;
@@ -15,7 +17,6 @@ DECLARE
     ident_value TEXT;
     ident_row public.external_ident;
     ident_type_row public.external_ident_type;
-    ident_codes TEXT[] := '{}';
     -- Helpers to provide error messages to the user, with the ident_type_code
     -- that would otherwise be lost.
     ident_jsonb JSONB;
@@ -31,7 +32,6 @@ BEGIN
         (SELECT * FROM public.external_ident_type)
     LOOP
         ident_code := unit_type || '_' || ident_type_row.code;
-        ident_codes := array_append(ident_codes, ident_code);
 
         IF new_jsonb ? ident_code THEN
             ident_value := new_jsonb ->> ident_code;
@@ -68,6 +68,6 @@ BEGIN
         END IF; -- ident_type.code in import
     END LOOP; -- public.external_ident_type
 END; -- Process external identifiers
-$process_linked_legal_unit_external_ident$ LANGUAGE plpgsql;
+$process_linked_legal_unit_external_ident$;
 
 END;

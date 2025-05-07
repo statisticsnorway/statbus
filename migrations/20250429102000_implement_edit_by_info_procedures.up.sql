@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse edit info (populate user and timestamp) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE admin.analyse_edit_info(p_job_id INT, p_batch_ctids TID[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE admin.analyse_edit_info(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_edit_info$
 DECLARE
     v_job public.import_job;
@@ -13,7 +13,7 @@ DECLARE
     v_sql TEXT;
     v_update_count INT := 0;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_edit_info (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_ctids, 1);
+    RAISE DEBUG '[Job %] analyse_edit_info (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     -- Get job details (specifically user_id)
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -34,8 +34,8 @@ BEGIN
             last_completed_priority = %L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
-        WHERE dt.ctid = ANY(%L);
-    $$, v_data_table_name, v_job.user_id, v_step.priority, 'analysing', p_batch_ctids);
+        WHERE dt.row_id = ANY(%L);
+    $$, v_data_table_name, v_job.user_id, v_step.priority, 'analysing', p_batch_row_ids);
     RAISE DEBUG '[Job %] analyse_edit_info: Updating edit columns: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;

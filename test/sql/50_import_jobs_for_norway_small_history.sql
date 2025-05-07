@@ -186,7 +186,8 @@ BEGIN
                 WHERE table_schema = 'public' AND table_name = v_data_table_name AND column_name = 'establishment_id'
             ) INTO v_has_est_col;
 
-            v_select_list := 'ctid, state, last_completed_priority, error, tax_ident, name';
+            -- Select row_id instead of ctid
+            v_select_list := 'row_id, state, last_completed_priority, error, tax_ident, name';
             IF v_has_lu_col THEN
                 v_select_list := v_select_list || ', legal_unit_id';
             ELSE
@@ -200,12 +201,12 @@ BEGIN
             END IF;
 
             FOR data_row IN EXECUTE format(
-                'SELECT %s FROM public.%I LIMIT %s',
+                'SELECT %s FROM public.%I ORDER BY row_id LIMIT %s', -- Order by row_id
                  v_select_list, v_data_table_name, max_rows_to_display
             )
             LOOP
-                RAISE NOTICE '  Row %: ctid=%, state=%, lcp=%, error=%, tax_ident=%, name=%, lu_id=%, est_id=%',
-                             row_display_count, data_row.ctid, data_row.state, data_row.last_completed_priority,
+                RAISE NOTICE '  Row %: row_id=%, state=%, lcp=%, error=%, tax_ident=%, name=%, lu_id=%, est_id=%', -- Changed ctid to row_id
+                             row_display_count, data_row.row_id, data_row.state, data_row.last_completed_priority,
                              data_row.error, data_row.tax_ident, data_row.name, data_row.legal_unit_id, data_row.establishment_id;
                 row_display_count := row_display_count + 1;
             END LOOP;

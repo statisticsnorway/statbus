@@ -6,7 +6,7 @@ BEGIN;
 -- Procedure to analyse the link between establishment and legal unit (Batch Oriented)
 -- This procedure dynamically reads legal_unit_* identifier columns based on the snapshot
 -- and attempts to resolve them to a single legal_unit_id.
-CREATE OR REPLACE PROCEDURE admin.analyse_link_establishment_to_legal_unit(p_job_id INT, p_batch_ctids TID[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE admin.analyse_link_establishment_to_legal_unit(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_link_establishment_to_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -20,9 +20,9 @@ DECLARE
     v_error_count INT := 0;
     v_unpivot_sql TEXT := ''; -- Moved declaration to main block
     v_add_separator BOOLEAN := FALSE; -- Moved declaration to main block
-    v_error_ctids TID[] := ARRAY[]::TID[]; -- Moved declaration to main block
+    v_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
 BEGIN
-    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_ctids, 1);
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -46,14 +46,14 @@ BEGIN
 
     IF v_link_data_cols IS NULL OR jsonb_array_length(v_link_data_cols) = 0 THEN
          RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: No legal_unit_* source_input data columns found in snapshot for step %. Skipping analysis.', p_job_id, v_step.id;
-         EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE ctid = ANY(%L)$$,
-                        v_data_table_name, v_step.priority, p_batch_ctids);
+         EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L)$$,
+                        v_data_table_name, v_step.priority, p_batch_row_ids);
          RETURN;
     END IF;
 
     -- Step 1: Unpivot provided identifiers and lookup legal units
     CREATE TEMP TABLE temp_unpivoted_lu_idents (
-        data_ctid TID,
+        data_row_id BIGINT,
         ident_code TEXT, -- e.g., 'legal_unit_tax_ident'
         ident_value TEXT,
         ident_type_id INT,
@@ -67,9 +67,9 @@ BEGIN
         LOOP
             IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
             v_unpivot_sql := v_unpivot_sql || format(
-                $$SELECT dt.ctid AS data_ctid, %L AS ident_code, dt.%I AS ident_value
-                 FROM public.%I dt WHERE dt.%I IS NOT NULL AND dt.ctid = ANY(%L)$$,
-                 v_col_rec.col_name, v_col_rec.col_name, v_data_table_name, v_col_rec.col_name, p_batch_ctids
+                $$SELECT dt.row_id AS data_row_id, %L AS ident_code, dt.%I AS ident_value
+                 FROM public.%I dt WHERE dt.%I IS NOT NULL AND dt.row_id = ANY(%L)$$,
+                 v_col_rec.col_name, v_col_rec.col_name, v_data_table_name, v_col_rec.col_name, p_batch_row_ids
             );
             v_add_separator := TRUE;
         END LOOP;
@@ -83,8 +83,8 @@ BEGIN
                 state = %L,
                 error = jsonb_build_object('link_establishment_to_legal_unit', 'No legal unit identifier provided'),
                 last_completed_priority = %L
-            WHERE dt.ctid = ANY(%L);
-        $$, v_data_table_name, 'error', v_step.priority - 1, p_batch_ctids);
+            WHERE dt.row_id = ANY(%L);
+        $$, v_data_table_name, 'error', v_step.priority - 1, p_batch_row_ids);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers)', p_job_id, v_error_count;
@@ -92,9 +92,9 @@ BEGIN
     END IF;
 
     v_sql := format($$
-        INSERT INTO temp_unpivoted_lu_idents (data_ctid, ident_code, ident_value, ident_type_id, resolved_lu_id)
+        INSERT INTO temp_unpivoted_lu_idents (data_row_id, ident_code, ident_value, ident_type_id, resolved_lu_id)
         SELECT
-            up.data_ctid, up.ident_code, up.ident_value, xit.id, xi.legal_unit_id -- Select legal_unit_id directly from xi
+            up.data_row_id, up.ident_code, up.ident_value, xit.id, xi.legal_unit_id -- Select legal_unit_id directly from xi
         FROM ( %s ) up
         JOIN public.external_ident_type xit ON xit.code = substring(up.ident_code from 'legal_unit_(.*)') -- Extract type code
         LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = up.ident_value AND xi.legal_unit_id IS NOT NULL; -- Only match LU links and get id from xi
@@ -103,23 +103,23 @@ BEGIN
     EXECUTE v_sql;
 
     -- Step 2: Identify and Aggregate Errors
-    CREATE TEMP TABLE temp_batch_errors (data_ctid TID PRIMARY KEY, error_jsonb JSONB) ON COMMIT DROP;
+    CREATE TEMP TABLE temp_batch_errors (data_row_id BIGINT PRIMARY KEY, error_jsonb JSONB) ON COMMIT DROP;
 
     -- Check for rows missing any identifier, inconsistencies (multiple LUs found), or not found
     v_sql := format($$
         WITH RowChecks AS (
             SELECT
-                orig.data_ctid,
-                COUNT(tui.data_ctid) AS num_idents_provided,
+                orig.data_row_id,
+                COUNT(tui.data_row_id) AS num_idents_provided,
                 COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL) AS distinct_lu_ids,
                 MAX(CASE WHEN tui.resolved_lu_id IS NOT NULL THEN 1 ELSE 0 END) AS found_lu
-            FROM (SELECT unnest(%L::TID[]) as data_ctid) orig -- Ensure all original data_ctids are checked
-            LEFT JOIN temp_unpivoted_lu_idents tui ON orig.data_ctid = tui.data_ctid -- Corrected: tui.ctid to tui.data_ctid
-            GROUP BY orig.data_ctid
+            FROM (SELECT unnest(%L::BIGINT[]) as data_row_id) orig -- Ensure all original data_row_ids are checked.
+            LEFT JOIN temp_unpivoted_lu_idents tui ON orig.data_row_id = tui.data_row_id
+            GROUP BY orig.data_row_id
         )
-        INSERT INTO temp_batch_errors (data_ctid, error_jsonb) -- Corrected: ctid to data_ctid
+        INSERT INTO temp_batch_errors (data_row_id, error_jsonb)
         SELECT
-            data_ctid,
+            data_row_id,
             jsonb_strip_nulls(jsonb_build_object(
                 'missing_identifier', CASE WHEN num_idents_provided = 0 THEN true ELSE NULL END,
                 'not_found', CASE WHEN num_idents_provided > 0 AND found_lu = 0 THEN true ELSE NULL END,
@@ -127,13 +127,13 @@ BEGIN
             ))
         FROM RowChecks
         WHERE num_idents_provided = 0 OR (num_idents_provided > 0 AND found_lu = 0) OR distinct_lu_ids > 1;
-    $$, p_batch_ctids);
+    $$, p_batch_row_ids);
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Identifying errors post-lookup: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     -- Step 3: Batch Update Error Rows
-    -- DECLARE -- v_error_ctids moved to main block
-    --     v_error_ctids TID[];
+    -- DECLARE -- v_error_row_ids moved to main block
+    --     v_error_row_ids BIGINT[];
     BEGIN
         v_sql := format($$
             UPDATE public.%I dt SET
@@ -141,20 +141,20 @@ BEGIN
                 error = COALESCE(dt.error, %L) || jsonb_build_object('link_establishment_to_legal_unit', err.error_jsonb),
                 last_completed_priority = %L
             FROM temp_batch_errors err
-            WHERE dt.ctid = err.data_ctid; -- Corrected: err.ctid to err.data_ctid
+            WHERE dt.row_id = err.data_row_id;
         $$, v_data_table_name, 'error', '{}'::jsonb, v_step.priority - 1);
         RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating error rows: %', p_job_id, v_sql;
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
         v_error_count := v_update_count;
-        SELECT array_agg(data_ctid) INTO v_error_ctids FROM temp_batch_errors;
+        SELECT array_agg(data_row_id) INTO v_error_row_ids FROM temp_batch_errors;
         RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Marked % rows as error.', p_job_id, v_update_count;
     END;
 
     -- Step 4: Batch Update Success Rows with resolved legal_unit_id
     v_sql := format($$
         WITH resolved_lu AS (
-            SELECT DISTINCT ON (data_ctid) data_ctid, resolved_lu_id
+            SELECT DISTINCT ON (data_row_id) data_row_id, resolved_lu_id
             FROM temp_unpivoted_lu_idents
             WHERE resolved_lu_id IS NOT NULL
         )
@@ -164,9 +164,9 @@ BEGIN
             error = CASE WHEN (dt.error - 'link_establishment_to_legal_unit') = '{}'::jsonb THEN NULL ELSE (dt.error - 'link_establishment_to_legal_unit') END, -- Clear only this step's error key
             state = %L
         FROM resolved_lu rlu
-        WHERE dt.ctid = rlu.data_ctid -- Corrected: rlu.ctid to rlu.data_ctid
-          AND dt.ctid = ANY(%L) AND dt.ctid != ALL(%L); -- Update only non-error rows from the original batch
-    $$, v_data_table_name, v_step.priority, 'analysing', p_batch_ctids, COALESCE(v_error_ctids, ARRAY[]::TID[]));
+        WHERE dt.row_id = rlu.data_row_id
+          AND dt.row_id = ANY(%L) AND dt.row_id != ALL(%L); -- Update only non-error rows from the original batch
+    $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids, COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]));
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating success rows with resolved IDs: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;

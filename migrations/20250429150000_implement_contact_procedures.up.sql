@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse contact data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE admin.analyse_contact(p_job_id INT, p_batch_ctids TID[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE admin.analyse_contact(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_contact$ -- Function name remains the same, step name changed
 DECLARE
     v_job public.import_job;
@@ -13,7 +13,7 @@ DECLARE
     v_sql TEXT;
     v_update_count INT := 0;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_contact (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_ctids, 1);
+    RAISE DEBUG '[Job %] analyse_contact (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -32,8 +32,8 @@ BEGIN
             last_completed_priority = %L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
-        WHERE dt.ctid = ANY(%L);
-    $$, v_data_table_name, v_step.priority, 'analysing', p_batch_ctids);
+        WHERE dt.row_id = ANY(%L);
+    $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids);
     RAISE DEBUG '[Job %] analyse_contact: Updating success rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -45,7 +45,7 @@ $analyse_contact$;
 
 
 -- Procedure to operate (insert/update/upsert) contact data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE admin.process_contact(p_job_id INT, p_batch_ctids TID[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE admin.process_contact(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_contact$ -- Function name remains the same, step name changed
 DECLARE
     v_job public.import_job;
@@ -62,7 +62,7 @@ DECLARE
     statbus_constraints_already_deferred BOOLEAN;
     error_message TEXT;
 BEGIN
-    RAISE DEBUG '[Job %] process_contact (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_ctids, 1);
+    RAISE DEBUG '[Job %] process_contact (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -91,7 +91,7 @@ BEGIN
 
     -- Step 1: Unpivot and Fetch batch data into a temporary table
     CREATE TEMP TABLE temp_batch_data (
-        ctid TID,
+        row_id BIGINT,
         legal_unit_id INT,
         establishment_id INT,
         valid_from DATE,
@@ -100,15 +100,15 @@ BEGIN
         contact_type public.contact_info_type,
         contact_value TEXT,
         existing_contact_id INT,
-        PRIMARY KEY (ctid, contact_type) -- Ensure uniqueness per row/type
+        PRIMARY KEY (row_id, contact_type) -- Ensure uniqueness per row/type
     ) ON COMMIT DROP;
 
     v_sql := format($$
         INSERT INTO temp_batch_data (
-            ctid, legal_unit_id, establishment_id, valid_from, valid_to, data_source_id, contact_type, contact_value
+            row_id, legal_unit_id, establishment_id, valid_from, valid_to, data_source_id, contact_type, contact_value
         )
         SELECT
-            ctid, legal_unit_id, establishment_id,
+            row_id, legal_unit_id, establishment_id,
             COALESCE(typed_valid_from, computed_valid_from),
             COALESCE(typed_valid_to, computed_valid_to),
             data_source_id,
@@ -122,20 +122,24 @@ BEGIN
             ('mobile', dt.mobile_number),
             ('fax', dt.fax_number)
         ) AS unnested(type, value)
-        WHERE dt.ctid = ANY(%L) AND unnested.value IS NOT NULL;
-    $$, v_data_table_name, p_batch_ctids);
+        WHERE dt.row_id = ANY(%L) AND unnested.value IS NOT NULL;
+    $$, v_data_table_name, p_batch_row_ids);
     RAISE DEBUG '[Job %] process_contact: Fetching and unpivoting batch data: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     -- Step 2: Determine existing contact IDs
+    -- This step needs to join back to the main data table to get the unit IDs associated with each row_id
+    -- and then find existing contacts based on those unit IDs.
+    -- The previous logic was flawed as it joined temp_batch_data to contact directly without considering the unit link per row_id.
+    -- We need to find the existing contact_id for the unit linked to the row_id in temp_batch_data.
     v_sql := format($$
         UPDATE temp_batch_data tbd SET
             existing_contact_id = ci.id
-        FROM public.contact ci -- Use contact table
-        WHERE ci.legal_unit_id IS NOT DISTINCT FROM tbd.legal_unit_id
-          AND ci.establishment_id IS NOT DISTINCT FROM tbd.establishment_id;
-          -- Assuming only one contact record per unit (enforced by contact table constraints?)
-    $$);
+        FROM public.%I dt -- Join back to the main data table
+        JOIN public.contact ci ON (ci.legal_unit_id = dt.legal_unit_id AND dt.legal_unit_id IS NOT NULL)
+                               OR (ci.establishment_id = dt.establishment_id AND dt.establishment_id IS NOT NULL)
+        WHERE tbd.row_id = dt.row_id; -- Join on row_id
+    $$, v_data_table_name);
     RAISE DEBUG '[Job %] process_contact: Determining existing IDs: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
@@ -146,14 +150,14 @@ BEGIN
         v_sql := format($$
             WITH unpivoted_data AS (
                 SELECT
-                    tbd.ctid,
+                    tbd.row_id,
                     tbd.existing_contact_id,
                     tbd.legal_unit_id,
                     tbd.establishment_id,
                     tbd.data_source_id,
                     jsonb_object_agg(tbd.contact_type, tbd.contact_value) as contact_details
                 FROM temp_batch_data tbd
-                GROUP BY tbd.ctid, tbd.existing_contact_id, tbd.legal_unit_id, tbd.establishment_id, tbd.data_source_id
+                GROUP BY tbd.row_id, tbd.existing_contact_id, tbd.legal_unit_id, tbd.establishment_id, tbd.data_source_id
             )
             INSERT INTO public.contact (
                 id, legal_unit_id, establishment_id, data_source_id,
@@ -166,7 +170,7 @@ BEGIN
                 up.contact_details->>'landline', up.contact_details->>'mobile', up.contact_details->>'fax',
                 dt.edit_by_user_id, dt.edit_at -- Read from _data table via temp table join
             FROM unpivoted_data up
-            JOIN public.%I dt ON up.ctid = dt.ctid -- Join to get audit info
+            JOIN public.%I dt ON up.row_id = dt.row_id -- Join on row_id to get audit info
             WHERE
                 CASE %L::public.import_strategy
                     WHEN 'insert_only' THEN up.existing_contact_id IS NULL
@@ -190,7 +194,7 @@ BEGIN
         v_sql := format($$
             WITH upserted_contacts AS ( %s ),
             link_lookup AS (
-                 SELECT DISTINCT ON (ctid) tbd.ctid, uc.id as contact_id
+                 SELECT DISTINCT ON (row_id) tbd.row_id, uc.id as contact_id
                  FROM temp_batch_data tbd
                  JOIN upserted_contacts uc ON uc.legal_unit_id IS NOT DISTINCT FROM tbd.legal_unit_id
                                           AND uc.establishment_id IS NOT DISTINCT FROM tbd.establishment_id
@@ -206,8 +210,8 @@ BEGIN
                 error = NULL,
                 state = %L
             FROM link_lookup ll
-            WHERE dt.ctid = ll.ctid AND dt.state != %L;
-        $$, v_sql, v_strategy, v_data_table_name, v_step.priority, 'processing', 'error'); -- Changed 'importing' to 'processing'
+            WHERE dt.row_id = ll.row_id AND dt.state != %L;
+        $$, v_sql, v_strategy, v_data_table_name, v_step.priority, 'processing', 'error');
 
         RAISE DEBUG '[Job %] process_contact: Executing UPSERT and updating _data table: %', p_job_id, v_sql;
         EXECUTE v_sql;
@@ -217,8 +221,8 @@ BEGIN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_contact: Error during batch operation: %', p_job_id, error_message;
         -- Mark the entire batch as error in _data table
-        v_sql := format('UPDATE public.%I SET state = %L, error = %L, last_completed_priority = %L WHERE ctid = ANY(%L)',
-                       v_data_table_name, 'error', jsonb_build_object('batch_error', error_message), v_step.priority - 1, p_batch_ctids);
+        v_sql := format('UPDATE public.%I SET state = %L, error = %L, last_completed_priority = %L WHERE row_id = ANY(%L)',
+                       v_data_table_name, 'error', jsonb_build_object('batch_error', error_message), v_step.priority - 1, p_batch_row_ids);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         -- Update job error
@@ -229,10 +233,10 @@ BEGIN
      v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L
-        WHERE dt.ctid = ANY(%L) AND dt.state != %L
+        WHERE dt.row_id = ANY(%L) AND dt.state != %L
           AND web_address IS NULL AND email_address IS NULL AND phone_number IS NULL
           AND landline IS NULL AND mobile_number IS NULL AND fax_number IS NULL;
-    $$, v_data_table_name, v_step.priority, p_batch_ctids, 'error');
+    $$, v_data_table_name, v_step.priority, p_batch_row_ids, 'error');
     EXECUTE v_sql;
 
     -- Reset constraints if they were deferred by this function
@@ -240,7 +244,7 @@ BEGIN
         SET CONSTRAINTS ALL IMMEDIATE;
     END IF;
 
-    RAISE DEBUG '[Job %] process_contact (Batch): Finished operation for batch. Initial batch size: %. Errors (estimated): %', p_job_id, array_length(p_batch_ctids, 1), v_error_count;
+    RAISE DEBUG '[Job %] process_contact (Batch): Finished operation for batch. Initial batch size: %. Errors (estimated): %', p_job_id, array_length(p_batch_row_ids, 1), v_error_count;
 
     DROP TABLE IF EXISTS temp_batch_data;
 END;

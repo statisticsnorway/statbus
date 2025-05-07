@@ -5,19 +5,19 @@
 BEGIN;
 
 -- Procedure to analyse activity data (handles both primary and secondary) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE admin.analyse_activity(p_job_id INT, p_batch_ctids TID[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE admin.analyse_activity(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_activity$
 DECLARE
     v_job public.import_job;
     v_step RECORD;
     v_data_table_name TEXT;
-    v_error_ctids TID[] := ARRAY[]::TID[];
+    v_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
     v_error_count INT := 0;
     v_update_count INT := 0;
     v_sql TEXT;
     -- v_current_target_priority INT; -- Removed
 BEGIN
-    RAISE DEBUG '[Job %] analyse_activity (Batch) for step_code %: Starting analysis for % rows', p_job_id, p_step_code, array_length(p_batch_ctids, 1);
+    RAISE DEBUG '[Job %] analyse_activity (Batch) for step_code %: Starting analysis for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -39,32 +39,32 @@ BEGIN
             secondary_activity_category_id = src.new_secondary_activity_category_id
         FROM (
             SELECT
-                dt_sub.ctid AS ctid_for_join,
+                dt_sub.row_id AS row_id_for_join,
                 pac.id as new_primary_activity_category_id,
                 sac.id as new_secondary_activity_category_id
             FROM public.%I dt_sub
             LEFT JOIN public.activity_category pac ON dt_sub.primary_activity_category_code IS NOT NULL AND pac.code = dt_sub.primary_activity_category_code
             LEFT JOIN public.activity_category sac ON dt_sub.secondary_activity_category_code IS NOT NULL AND sac.code = dt_sub.secondary_activity_category_code
-            WHERE dt_sub.ctid = ANY(%L) -- Filter for the current batch
+            WHERE dt_sub.row_id = ANY(%L) -- Filter for the current batch
         ) AS src
-        WHERE dt.ctid = src.ctid_for_join;
-    $$, v_data_table_name, v_data_table_name, p_batch_ctids);
+        WHERE dt.row_id = src.row_id_for_join;
+    $$, v_data_table_name, v_data_table_name, p_batch_row_ids);
     RAISE DEBUG '[Job %] analyse_activity: Batch updating lookups: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     -- Step 2: Identify and Aggregate Errors Post-Batch
-    CREATE TEMP TABLE temp_batch_errors (data_ctid TID PRIMARY KEY, error_jsonb JSONB) ON COMMIT DROP;
+    CREATE TEMP TABLE temp_batch_errors (data_row_id BIGINT PRIMARY KEY, error_jsonb JSONB) ON COMMIT DROP;
     v_sql := format($$
-        INSERT INTO temp_batch_errors (data_ctid, error_jsonb)
+        INSERT INTO temp_batch_errors (data_row_id, error_jsonb)
         SELECT
-            ctid,
+            row_id,
             jsonb_strip_nulls(
                 jsonb_build_object('primary_activity_category_code', CASE WHEN primary_activity_category_code IS NOT NULL AND primary_activity_category_id IS NULL THEN 'Not found' ELSE NULL END) ||
                 jsonb_build_object('secondary_activity_category_code', CASE WHEN secondary_activity_category_code IS NOT NULL AND secondary_activity_category_id IS NULL THEN 'Not found' ELSE NULL END)
             ) AS error_jsonb
         FROM public.%I
-        WHERE ctid = ANY(%L)
-    $$, v_data_table_name, p_batch_ctids);
+        WHERE row_id = ANY(%L)
+    $$, v_data_table_name, p_batch_row_ids);
      RAISE DEBUG '[Job %] analyse_activity: Identifying errors post-batch: %', p_job_id, v_sql;
      EXECUTE v_sql;
 
@@ -75,13 +75,13 @@ BEGIN
             error = COALESCE(dt.error, %L) || err.error_jsonb,
             last_completed_priority = %L
         FROM temp_batch_errors err
-        WHERE dt.ctid = err.data_ctid AND err.error_jsonb != %L;
+        WHERE dt.row_id = err.data_row_id AND err.error_jsonb != %L;
     $$, v_data_table_name, 'error', '{}'::jsonb, v_step.priority - 1, '{}'::jsonb);
     RAISE DEBUG '[Job %] analyse_activity: Updating error rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
     v_error_count := v_update_count;
-    SELECT array_agg(data_ctid) INTO v_error_ctids FROM temp_batch_errors WHERE error_jsonb != '{}'::jsonb;
+    SELECT array_agg(data_row_id) INTO v_error_row_ids FROM temp_batch_errors WHERE error_jsonb != '{}'::jsonb;
     RAISE DEBUG '[Job %] analyse_activity: Marked % rows as error.', p_job_id, v_update_count;
 
     -- Step 4: Batch Update Success Rows
@@ -90,8 +90,8 @@ BEGIN
             last_completed_priority = %L,
             error = CASE WHEN (dt.error - 'primary_activity_category_code' - 'secondary_activity_category_code') = '{}'::jsonb THEN NULL ELSE (dt.error - 'primary_activity_category_code' - 'secondary_activity_category_code') END, -- Clear only this step's error keys
             state = %L
-        WHERE dt.ctid = ANY(%L) AND dt.ctid != ALL(%L); -- Update only non-error rows from the original batch
-    $$, v_data_table_name, v_step.priority, 'analysing', p_batch_ctids, COALESCE(v_error_ctids, ARRAY[]::TID[]));
+        WHERE dt.row_id = ANY(%L) AND dt.row_id != ALL(%L); -- Update only non-error rows from the original batch
+    $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids, COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]));
     RAISE DEBUG '[Job %] analyse_activity: Updating success rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -105,7 +105,7 @@ $analyse_activity$;
 
 
 -- Procedure to operate (insert/update/upsert) activity data (handles both primary and secondary) (Batch Oriented)
-CREATE OR REPLACE PROCEDURE admin.process_activity(p_job_id INT, p_batch_ctids TID[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE admin.process_activity(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_activity$
 DECLARE
     v_job public.import_job;
@@ -126,7 +126,7 @@ DECLARE
     v_category_id_col TEXT;
     v_final_id_col TEXT;
 BEGIN
-    RAISE DEBUG '[Job %] process_activity (Batch) for step_code %: Starting operation for % rows', p_job_id, p_step_code, array_length(p_batch_ctids, 1);
+    RAISE DEBUG '[Job %] process_activity (Batch) for step_code %: Starting operation for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -170,7 +170,7 @@ BEGIN
 
     -- Step 1: Fetch batch data into a temporary table
     CREATE TEMP TABLE temp_batch_data (
-        data_ctid TID PRIMARY KEY,
+        data_row_id BIGINT PRIMARY KEY,
         legal_unit_id INT,
         establishment_id INT,
         valid_from DATE,
@@ -182,16 +182,16 @@ BEGIN
 
     v_sql := format($$
         INSERT INTO temp_batch_data (
-            data_ctid, legal_unit_id, establishment_id, valid_from, valid_to, data_source_id, category_id
+            data_row_id, legal_unit_id, establishment_id, valid_from, valid_to, data_source_id, category_id
         )
         SELECT
-            ctid, legal_unit_id, establishment_id,
+            row_id, legal_unit_id, establishment_id,
             derived_valid_from, -- Changed to derived_valid_from
             derived_valid_to,   -- Changed to derived_valid_to
             data_source_id,
             %I -- Select the correct category ID column based on target
-         FROM public.%I WHERE ctid = ANY(%L) AND %I IS NOT NULL; -- Only process rows with a category ID for this type
-    $$, v_category_id_col, v_data_table_name, p_batch_ctids, v_category_id_col);
+         FROM public.%I WHERE row_id = ANY(%L) AND %I IS NOT NULL; -- Only process rows with a category ID for this type
+    $$, v_category_id_col, v_data_table_name, p_batch_row_ids, v_category_id_col);
     RAISE DEBUG '[Job %] process_activity: Fetching batch data for type %: %', p_job_id, v_activity_type, v_sql;
     EXECUTE v_sql;
 
@@ -219,7 +219,7 @@ BEGIN
                 tbd.existing_act_id, tbd.legal_unit_id, tbd.establishment_id, %L, tbd.category_id, tbd.valid_from, tbd.valid_to,
                 tbd.data_source_id, dt.edit_by_user_id, dt.edit_at -- Read from _data table via temp table join
             FROM temp_batch_data tbd
-            JOIN public.%I dt ON tbd.data_ctid = dt.ctid -- Join to get audit info
+            JOIN public.%I dt ON tbd.data_row_id = dt.row_id -- Join to get audit info
             WHERE
                 CASE %L::public.import_strategy
                     WHEN 'insert_only' THEN tbd.existing_act_id IS NULL
@@ -250,7 +250,7 @@ BEGIN
             JOIN act_lookup act ON act.category_id = tbd.category_id
                                AND act.legal_unit_id IS NOT DISTINCT FROM tbd.legal_unit_id
                                AND act.establishment_id IS NOT DISTINCT FROM tbd.establishment_id
-            WHERE dt.ctid = tbd.data_ctid
+            WHERE dt.row_id = tbd.data_row_id
               AND dt.state != %L
               AND CASE %L::public.import_strategy
                     WHEN ''insert_only'' THEN tbd.existing_act_id IS NULL
@@ -265,8 +265,8 @@ BEGIN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_activity: Error during batch operation for type %: %', p_job_id, v_activity_type, error_message;
         -- Mark the entire batch as error in _data table
-        v_sql := format('UPDATE public.%I SET state = %L, error = %L, last_completed_priority = %L WHERE ctid = ANY(%L)',
-                       v_data_table_name, 'error', jsonb_build_object('batch_error', error_message), v_step.priority - 1, p_batch_ctids);
+        v_sql := format('UPDATE public.%I SET state = %L, error = %L, last_completed_priority = %L WHERE row_id = ANY(%L)',
+                       v_data_table_name, 'error', jsonb_build_object('batch_error', error_message), v_step.priority - 1, p_batch_row_ids);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         -- Update job error
@@ -277,8 +277,8 @@ BEGIN
      v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L
-        WHERE dt.ctid = ANY(%L) AND dt.state != %L AND %I IS NULL;
-    $$, v_data_table_name, v_step.priority, p_batch_ctids, 'error', v_category_id_col);
+        WHERE dt.row_id = ANY(%L) AND dt.state != %L AND %I IS NULL;
+    $$, v_data_table_name, v_step.priority, p_batch_row_ids, 'error', v_category_id_col);
     EXECUTE v_sql;
 
 
@@ -287,7 +287,7 @@ BEGIN
         SET CONSTRAINTS ALL IMMEDIATE;
     END IF;
 
-    RAISE DEBUG '[Job %] process_activity (Batch): Finished operation for batch type %. Initial batch size: %. Errors (estimated): %', p_job_id, v_activity_type, array_length(p_batch_ctids, 1), v_error_count;
+    RAISE DEBUG '[Job %] process_activity (Batch): Finished operation for batch type %. Initial batch size: %. Errors (estimated): %', p_job_id, v_activity_type, array_length(p_batch_row_ids, 1), v_error_count;
 
     DROP TABLE IF EXISTS temp_batch_data;
 END;

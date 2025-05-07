@@ -361,7 +361,7 @@ BEGIN
         'import_definition', (SELECT row_to_json(d) FROM public.import_definition d WHERE d.id = NEW.definition_id),
         'import_step_list', (SELECT jsonb_agg(row_to_json(s) ORDER BY s.priority) FROM public.import_step s JOIN public.import_definition_step ds_link ON s.id = ds_link.step_id WHERE ds_link.definition_id = NEW.definition_id),
         'import_data_column_list', (
-            SELECT jsonb_agg(row_to_json(dc) ORDER BY dc.id)
+            SELECT jsonb_agg(row_to_json(dc) ORDER BY s_link.priority, dc.priority, dc.column_name)
             FROM public.import_data_column dc
             JOIN public.import_step s_link ON dc.step_id = s_link.id
             JOIN public.import_definition_step ds_link ON s_link.id = ds_link.step_id
@@ -374,12 +374,13 @@ BEGIN
                     'mapping', row_to_json(m_map),
                     'source_column', row_to_json(sc_map),
                     'target_data_column', row_to_json(dc_map)
-                ) ORDER BY m_map.id
+                ) ORDER BY s_link.priority, dc_map.priority, dc_map.column_name, m_map.id
             )
             FROM public.import_mapping m_map
             LEFT JOIN public.import_source_column sc_map ON m_map.source_column_id = sc_map.id AND sc_map.definition_id = m_map.definition_id -- Ensure source_column is for the same definition
             JOIN public.import_data_column dc_map ON m_map.target_data_column_id = dc_map.id
-            JOIN public.import_definition_step ds_map_link ON dc_map.step_id = ds_map_link.step_id AND ds_map_link.definition_id = m_map.definition_id -- Ensure data_column's step is linked to this definition
+            JOIN public.import_step s_link ON dc_map.step_id = s_link.id
+            JOIN public.import_definition_step ds_map_link ON s_link.id = ds_map_link.step_id AND ds_map_link.definition_id = m_map.definition_id -- Ensure data_column's step is linked to this definition
             WHERE m_map.definition_id = NEW.definition_id
         )
     ) INTO NEW.definition_snapshot;
@@ -801,8 +802,9 @@ BEGIN
 
   -- 2. Create Data Table
   RAISE DEBUG '[Job %] Generating data table %', job.id, job.data_table_name;
-  create_data_table_stmt := format('CREATE TABLE public.%I (', job.data_table_name);
-  add_separator := FALSE;
+  -- Add row_id as the first column and primary key
+  create_data_table_stmt := format('CREATE TABLE public.%I (row_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, ', job.data_table_name);
+  add_separator := FALSE; -- Reset for data table columns
 
   -- Add columns based on import_data_column records associated with the steps linked to this job's definition
   FOR col_rec IN
@@ -1233,7 +1235,7 @@ DECLARE
     proc_to_call REGPROC;
     rows_processed_in_tx INTEGER := 0;
     work_still_exists_for_phase BOOLEAN := FALSE; -- Indicates if rows for this phase still exist after processing
-    batch_ctids TID[];
+    batch_row_ids BIGINT[]; -- Changed from TID[] to BIGINT[]
     error_message TEXT;
     current_phase_data_state public.import_data_state;
     v_sql TEXT; -- Added declaration for v_sql
@@ -1277,10 +1279,10 @@ BEGIN
 
         -- Find one batch of rows ready for this target's phase
         EXECUTE format(
-            $$SELECT array_agg(ctid) FROM (
-                SELECT ctid FROM public.%I
+            $$SELECT array_agg(row_id) FROM (
+                SELECT row_id FROM public.%I
                 WHERE state = %L AND last_completed_priority < %L
-                ORDER BY ctid -- Ensure consistent batching
+                ORDER BY row_id -- Ensure consistent batching using row_id
                 LIMIT %L
                 FOR UPDATE SKIP LOCKED -- Avoid waiting for locked rows
              ) AS batch$$,
@@ -1288,10 +1290,10 @@ BEGIN
             current_phase_data_state,
             target_rec.priority,
             batch_size
-        ) INTO batch_ctids;
+        ) INTO batch_row_ids;
 
         -- If no rows found for this target, move to the next target
-        IF batch_ctids IS NULL OR array_length(batch_ctids, 1) = 0 THEN
+        IF batch_row_ids IS NULL OR array_length(batch_row_ids, 1) = 0 THEN
             RAISE DEBUG '[Job %] No rows found for target % (priority %) in state % with priority < %.',
                         job.id, target_rec.name, target_rec.priority,
                         current_phase_data_state, target_rec.priority;
@@ -1299,19 +1301,19 @@ BEGIN
         END IF;
 
         RAISE DEBUG '[Job %] Found batch of % rows for target % (priority %), calling %',
-                    job.id, array_length(batch_ctids, 1), target_rec.name, target_rec.priority, proc_to_call;
+                    job.id, array_length(batch_row_ids, 1), target_rec.name, target_rec.priority, proc_to_call;
 
         -- Call the target-specific procedure
         BEGIN
             -- Always pass the step_code as the third argument
-            EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_ctids, target_rec.code;
-            rows_processed_in_tx := rows_processed_in_tx + array_length(batch_ctids, 1);
+            EXECUTE format('CALL %s($1, $2, $3)', proc_to_call) USING job.id, batch_row_ids, target_rec.code;
+            rows_processed_in_tx := rows_processed_in_tx + array_length(batch_row_ids, 1);
         EXCEPTION WHEN OTHERS THEN
             GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
             RAISE WARNING '[Job %] Error calling procedure % for target % (code: %): %', job.id, proc_to_call, target_rec.name, target_rec.code, error_message;
             -- Mark batch rows as error
-            EXECUTE format($$UPDATE public.%I SET state = %L, error = %L WHERE ctid = ANY(%L)$$,
-                           job.data_table_name, 'error'::public.import_data_state, jsonb_build_object('target_step_error', format('Target %s (code: %s, proc: %s): %s', target_rec.name, target_rec.code, proc_to_call::text, error_message)), batch_ctids);
+            EXECUTE format($$UPDATE public.%I SET state = %L, error = %L WHERE row_id = ANY(%L)$$,
+                           job.data_table_name, 'error'::public.import_data_state, jsonb_build_object('target_step_error', format('Target %s (code: %s, proc: %s): %s', target_rec.name, target_rec.code, proc_to_call::text, error_message)), batch_row_ids);
             -- Log the job error
             UPDATE public.import_job SET error = jsonb_build_object('phase_target_error', format('Error during %s phase, target %s (code: %s, proc: %s): %s', phase, target_rec.name, target_rec.code, proc_to_call::text, error_message))
             WHERE id = job.id;

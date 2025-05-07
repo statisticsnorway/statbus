@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse enterprise link for standalone establishments
-CREATE OR REPLACE PROCEDURE admin.analyse_enterprise_link_for_establishment(p_job_id INT, p_batch_ctids TID[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE admin.analyse_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_enterprise_link_for_establishment$
 DECLARE
     v_job public.import_job;
@@ -14,7 +14,7 @@ DECLARE
     v_update_count INT := 0;
     v_error_count INT := 0;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_ctids, 1);
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -25,20 +25,20 @@ BEGIN
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_establishment step not found', p_job_id; END IF;
 
     -- Step 1: Identify existing ESTs in the batch (should have establishment_id from external_idents step)
-    CREATE TEMP TABLE temp_existing_est (data_ctid TID PRIMARY KEY, establishment_id INT NOT NULL) ON COMMIT DROP;
+    CREATE TEMP TABLE temp_existing_est (data_row_id BIGINT PRIMARY KEY, establishment_id INT NOT NULL) ON COMMIT DROP;
     v_sql := format($$
-        INSERT INTO temp_existing_est (data_ctid, establishment_id)
-        SELECT ctid, establishment_id -- 'ctid' here is from public.%I (the data_table_name)
+        INSERT INTO temp_existing_est (data_row_id, establishment_id)
+        SELECT row_id, establishment_id -- 'row_id' here is from public.%I (the data_table_name)
         FROM public.%I
-        WHERE ctid = ANY(%L) AND establishment_id IS NOT NULL AND legal_unit_id IS NULL; -- Only standalone ESTs
-    $$, v_data_table_name, p_batch_ctids);
+        WHERE row_id = ANY(%L) AND establishment_id IS NOT NULL AND legal_unit_id IS NULL; -- Only standalone ESTs
+    $$, v_data_table_name, p_batch_row_ids);
     EXECUTE v_sql;
 
     -- Step 2: Look up enterprise info for existing ESTs
-    CREATE TEMP TABLE temp_enterprise_info (data_ctid TID PRIMARY KEY, enterprise_id INT) ON COMMIT DROP;
+    CREATE TEMP TABLE temp_enterprise_info (data_row_id BIGINT PRIMARY KEY, enterprise_id INT) ON COMMIT DROP;
     v_sql := format($$
-        INSERT INTO temp_enterprise_info (data_ctid, enterprise_id)
-        SELECT tee.data_ctid, est.enterprise_id
+        INSERT INTO temp_enterprise_info (data_row_id, enterprise_id)
+        SELECT tee.data_row_id, est.enterprise_id
         FROM temp_existing_est tee
         JOIN public.establishment est ON tee.establishment_id = est.id
         WHERE est.enterprise_id IS NOT NULL; -- Ensure the existing EST has an enterprise link
@@ -53,7 +53,7 @@ BEGIN
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
         FROM temp_enterprise_info tei
-        WHERE dt.ctid = tei.data_ctid; -- Use renamed column from temp_enterprise_info
+        WHERE dt.row_id = tei.data_row_id; -- Use data_row_id from temp_enterprise_info to match row_id in data table
     $$, v_data_table_name, v_step.priority, 'analysing');
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updating existing ESTs: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -65,11 +65,11 @@ BEGIN
             last_completed_priority = %L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
-        WHERE dt.ctid = ANY(%L)
+        WHERE dt.row_id = ANY(%L)
           AND dt.establishment_id IS NULL -- Only update rows identified as new ESTs
           AND dt.legal_unit_id IS NULL -- Ensure it's a standalone EST import row
           AND dt.state != %L; -- Avoid rows already in error
-    $$, v_data_table_name, v_step.priority, 'analysing', p_batch_ctids, 'error');
+    $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids, 'error');
      RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updating new ESTs (priority only): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
@@ -82,7 +82,7 @@ $analyse_enterprise_link_for_establishment$;
 
 
 -- Procedure to process enterprise link for standalone establishments (create enterprise for new ESTs)
-CREATE OR REPLACE PROCEDURE admin.process_enterprise_link_for_establishment(p_job_id INT, p_batch_ctids TID[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE admin.process_enterprise_link_for_establishment(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_enterprise_link_for_establishment$
 DECLARE
     v_job public.import_job;
@@ -94,7 +94,7 @@ DECLARE
     statbus_constraints_already_deferred BOOLEAN;
     error_message TEXT;
 BEGIN
-    RAISE DEBUG '[Job %] process_enterprise_link_for_establishment (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_ctids, 1);
+    RAISE DEBUG '[Job %] process_enterprise_link_for_establishment (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -112,23 +112,23 @@ BEGIN
 
     -- Step 1: Identify rows needing enterprise creation (new standalone ESTs)
     CREATE TEMP TABLE temp_new_est (
-        data_ctid TID PRIMARY KEY, -- Renamed ctid to data_ctid
+        data_row_id BIGINT PRIMARY KEY, -- Stores the row_id from the data table
         name TEXT, -- Needed to create enterprise (use EST name)
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ
     ) ON COMMIT DROP;
 
     v_sql := format($$
-        INSERT INTO temp_new_est (data_ctid, name, edit_by_user_id, edit_at) -- Renamed ctid to data_ctid
-        SELECT ctid, name, edit_by_user_id, edit_at -- Select ctid from source, insert into data_ctid
+        INSERT INTO temp_new_est (data_row_id, name, edit_by_user_id, edit_at) -- Store source row_id into data_row_id
+        SELECT row_id, name, edit_by_user_id, edit_at -- Select row_id from source data table
         FROM public.%I
-        WHERE ctid = ANY(%L) AND establishment_id IS NULL AND legal_unit_id IS NULL; -- Only process rows for new standalone ESTs
-    $$, v_data_table_name, p_batch_ctids);
+        WHERE row_id = ANY(%L) AND establishment_id IS NULL AND legal_unit_id IS NULL; -- Only process rows for new standalone ESTs
+    $$, v_data_table_name, p_batch_row_ids);
     EXECUTE v_sql;
 
     -- Step 2: Batch INSERT new enterprises
     CREATE TEMP TABLE temp_created_enterprises (
-        data_ctid TID PRIMARY KEY, -- Renamed ctid to data_ctid
+        data_row_id BIGINT PRIMARY KEY, -- Stores the row_id from the data table
         enterprise_id INT NOT NULL
     ) ON COMMIT DROP;
 
@@ -140,8 +140,8 @@ BEGIN
                 FROM temp_new_est tne
                 RETURNING id, short_name
             )
-            INSERT INTO temp_created_enterprises (data_ctid, enterprise_id) -- Renamed ctid to data_ctid
-            SELECT tne.data_ctid, ie.id -- Use data_ctid from temp_new_est
+            INSERT INTO temp_created_enterprises (data_row_id, enterprise_id) -- Store source data_row_id
+            SELECT tne.data_row_id, ie.id -- Use data_row_id from temp_new_est
             FROM temp_new_est tne
             JOIN inserted_enterprises ie ON SUBSTRING(tne.name FROM 1 FOR 16) = ie.short_name; -- Match on substring
         $$);
@@ -158,7 +158,7 @@ BEGIN
                 error = COALESCE(dt.error, %L) || jsonb_build_object(''enterprise_link_for_establishment'', ''Failed to create enterprise: '' || %L),
                 last_completed_priority = %L
             FROM temp_new_est tne
-            WHERE dt.ctid = tne.data_ctid; -- Use data_ctid for join
+            WHERE dt.row_id = tne.data_row_id; -- Use data_row_id for join
         $$, v_data_table_name, 'error', '{}'::jsonb, error_message, v_step.priority - 1);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
@@ -178,7 +178,7 @@ BEGIN
             error = NULL,
             state = %L
         FROM temp_created_enterprises tce
-        WHERE dt.ctid = tce.data_ctid; -- Use data_ctid for join
+        WHERE dt.row_id = tce.data_row_id; -- Use data_row_id for join
     $$, v_data_table_name, v_step.priority, 'processing');
     RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating _data for new enterprises: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -189,11 +189,11 @@ BEGIN
         UPDATE public.%I dt SET
             last_completed_priority = %L,
             state = %L
-        WHERE dt.ctid = ANY(%L)
+        WHERE dt.row_id = ANY(%L)
           AND dt.establishment_id IS NOT NULL -- Only update rows for existing ESTs
           AND dt.legal_unit_id IS NULL -- Ensure it's a standalone EST import row
           AND dt.state != %L; -- Avoid rows already in error
-    $$, v_data_table_name, v_step.priority, 'processing', p_batch_ctids, 'error');
+    $$, v_data_table_name, v_step.priority, 'processing', p_batch_row_ids, 'error');
      RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating existing ESTs (priority only): %', p_job_id, v_sql;
     EXECUTE v_sql;
 

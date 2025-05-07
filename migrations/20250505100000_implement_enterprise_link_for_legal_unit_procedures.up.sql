@@ -4,7 +4,7 @@
 BEGIN;
 
 -- Procedure to analyse enterprise link (find existing enterprise for existing LUs)
-CREATE OR REPLACE PROCEDURE admin.analyse_enterprise_link_for_legal_unit(p_job_id INT, p_batch_ctids TID[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE admin.analyse_enterprise_link_for_legal_unit(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_enterprise_link_for_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -14,7 +14,7 @@ DECLARE
     v_update_count INT := 0;
     v_error_count INT := 0;
 BEGIN
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_ctids, 1);
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -25,22 +25,22 @@ BEGIN
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link step not found', p_job_id; END IF;
 
     -- Step 1: Identify existing LUs in the batch
-    CREATE TEMP TABLE temp_existing_lu (data_ctid TID PRIMARY KEY, legal_unit_id INT NOT NULL) ON COMMIT DROP;
-    -- 'ctid' here is from public.%I (the data_table_name)
+    CREATE TEMP TABLE temp_existing_lu (data_row_id BIGINT PRIMARY KEY, legal_unit_id INT NOT NULL) ON COMMIT DROP;
+    -- 'row_id' here is from public.%I (the data_table_name)
     -- legal_unit_id resolved by external_idents step
     v_sql := format($$
-        INSERT INTO temp_existing_lu (data_ctid, legal_unit_id)
-        SELECT ctid, legal_unit_id
+        INSERT INTO temp_existing_lu (data_row_id, legal_unit_id)
+        SELECT row_id, legal_unit_id
         FROM public.%I
-        WHERE ctid = ANY(%L) AND legal_unit_id IS NOT NULL;
-    $$, v_data_table_name, p_batch_ctids);
+        WHERE row_id = ANY(%L) AND legal_unit_id IS NOT NULL;
+    $$, v_data_table_name, p_batch_row_ids);
     EXECUTE v_sql;
 
     -- Step 2: Look up enterprise info for existing LUs
-    CREATE TEMP TABLE temp_enterprise_info (data_ctid TID PRIMARY KEY, enterprise_id INT, is_primary BOOLEAN) ON COMMIT DROP;
+    CREATE TEMP TABLE temp_enterprise_info (data_row_id BIGINT PRIMARY KEY, enterprise_id INT, is_primary BOOLEAN) ON COMMIT DROP;
     v_sql := format($$
-        INSERT INTO temp_enterprise_info (data_ctid, enterprise_id, is_primary)
-        SELECT tel.data_ctid, lu.enterprise_id, lu.primary_for_enterprise
+        INSERT INTO temp_enterprise_info (data_row_id, enterprise_id, is_primary)
+        SELECT tel.data_row_id, lu.enterprise_id, lu.primary_for_enterprise
         FROM temp_existing_lu tel
         JOIN public.legal_unit lu ON tel.legal_unit_id = lu.id;
     $$);
@@ -55,7 +55,7 @@ BEGIN
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
         FROM temp_enterprise_info tei
-        WHERE dt.ctid = tei.data_ctid; -- Use renamed column from temp_enterprise_info
+        WHERE dt.row_id = tei.data_row_id; -- Use renamed column from temp_enterprise_info
     $$, v_data_table_name, v_step.priority, 'analysing');
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating existing LUs: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -67,10 +67,10 @@ BEGIN
             last_completed_priority = %L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
-        WHERE dt.ctid = ANY(%L)
+        WHERE dt.row_id = ANY(%L)
           AND dt.legal_unit_id IS NULL -- Only update rows identified as new LUs
           AND dt.state != %L; -- Avoid rows already in error
-    $$, v_data_table_name, v_step.priority, 'analysing', p_batch_ctids, 'error');
+    $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids, 'error');
      RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating new LUs (priority only): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
@@ -83,7 +83,7 @@ $analyse_enterprise_link_for_legal_unit$;
 
 
 -- Procedure to process enterprise link (create enterprise for new LUs)
-CREATE OR REPLACE PROCEDURE admin.process_enterprise_link_for_legal_unit(p_job_id INT, p_batch_ctids TID[], p_step_code TEXT)
+CREATE OR REPLACE PROCEDURE admin.process_enterprise_link_for_legal_unit(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $process_enterprise_link_for_legal_unit$
 DECLARE
     v_job public.import_job;
@@ -95,7 +95,7 @@ DECLARE
     statbus_constraints_already_deferred BOOLEAN;
     error_message TEXT;
 BEGIN
-    RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_ctids, 1);
+    RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
@@ -113,23 +113,23 @@ BEGIN
 
     -- Step 1: Identify rows needing enterprise creation (new LUs)
     CREATE TEMP TABLE temp_new_lu (
-        data_ctid TID PRIMARY KEY, -- Renamed ctid to data_ctid
+        data_row_id BIGINT PRIMARY KEY,
         name TEXT, -- Needed to create enterprise
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ
     ) ON COMMIT DROP;
 
     v_sql := format($$
-        INSERT INTO temp_new_lu (data_ctid, name, edit_by_user_id, edit_at) -- Renamed ctid to data_ctid
-        SELECT ctid, name, edit_by_user_id, edit_at -- Select ctid from source, insert into data_ctid
+        INSERT INTO temp_new_lu (data_row_id, name, edit_by_user_id, edit_at)
+        SELECT row_id, name, edit_by_user_id, edit_at -- Select row_id from source, insert into data_row_id
         FROM public.%I
-        WHERE ctid = ANY(%L) AND legal_unit_id IS NULL; -- Only process rows for new LUs
-    $$, v_data_table_name, p_batch_ctids);
+        WHERE row_id = ANY(%L) AND legal_unit_id IS NULL; -- Only process rows for new LUs
+    $$, v_data_table_name, p_batch_row_ids);
     EXECUTE v_sql;
 
     -- Step 2: Batch INSERT new enterprises
     CREATE TEMP TABLE temp_created_enterprises (
-        data_ctid TID PRIMARY KEY, -- Renamed ctid to data_ctid
+        data_row_id BIGINT PRIMARY KEY,
         enterprise_id INT NOT NULL
     ) ON COMMIT DROP;
 
@@ -141,11 +141,11 @@ BEGIN
                 FROM temp_new_lu tnl
                 RETURNING id, short_name
             )
-            INSERT INTO temp_created_enterprises (data_ctid, enterprise_id) -- Renamed ctid to data_ctid
-            SELECT tnl.data_ctid, ie.id -- Use data_ctid from temp_new_lu
+            INSERT INTO temp_created_enterprises (data_row_id, enterprise_id)
+            SELECT tnl.data_row_id, ie.id -- Use data_row_id from temp_new_lu
             FROM temp_new_lu tnl
             JOIN inserted_enterprises ie ON SUBSTRING(tnl.name FROM 1 FOR 16) = ie.short_name; -- Match on substring
-            -- A better approach might involve RETURNING ctid if possible, or a staging table.
+            -- A better approach might involve RETURNING row_id if possible, or a staging table.
         $$);
         RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Creating new enterprises: %', p_job_id, v_sql;
         EXECUTE v_sql;
@@ -160,7 +160,7 @@ BEGIN
                 error = COALESCE(dt.error, %L) || jsonb_build_object('enterprise_link_for_legal_unit', 'Failed to create enterprise: ' || %L),
                 last_completed_priority = %L
             FROM temp_new_lu tnl
-            WHERE dt.ctid = tnl.data_ctid; -- Use data_ctid for join
+            WHERE dt.row_id = tnl.data_row_id; -- Use data_row_id for join
         $$, v_data_table_name, 'error', '{}'::jsonb, error_message, v_step.priority - 1);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
@@ -181,7 +181,7 @@ BEGIN
             error = NULL,
             state = %L
         FROM temp_created_enterprises tce
-        WHERE dt.ctid = tce.data_ctid; -- Use data_ctid for join
+        WHERE dt.row_id = tce.data_row_id; -- Use data_row_id for join
     $$, v_data_table_name, v_step.priority, 'processing');
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating _data for new enterprises: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -192,10 +192,10 @@ BEGIN
         UPDATE public.%I dt SET
             last_completed_priority = %L,
             state = %L
-        WHERE dt.ctid = ANY(%L)
+        WHERE dt.row_id = ANY(%L)
           AND dt.legal_unit_id IS NOT NULL -- Only update rows for existing LUs
           AND dt.state != %L; -- Avoid rows already in error
-    $$, v_data_table_name, v_step.priority, 'processing', p_batch_ctids, 'error');
+    $$, v_data_table_name, v_step.priority, 'processing', p_batch_row_ids, 'error');
      RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating existing LUs (priority only): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
