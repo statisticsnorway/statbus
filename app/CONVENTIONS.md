@@ -23,6 +23,7 @@ Deployed on custom servers behind Caddy with HTTPS.
  • When refactoring, complete the full migration without compatibility layers.
  • Fail fast and provide error or debug information to fix, don't mask or workaround issues.
  • Think from first principles.
+ • Document by having clear code - any internal comments about your thought process should not be left in the code.
  
 ## Routing System
 This project uses **App Routing** with the `app/` directory structure. Do not use the Pages Router.
