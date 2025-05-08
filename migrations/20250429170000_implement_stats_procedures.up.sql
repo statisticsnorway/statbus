@@ -191,6 +191,9 @@ DECLARE
     error_message TEXT;
     v_unpivot_sql TEXT := '';
     v_add_separator BOOLEAN := FALSE;
+    v_batch_upsert_result RECORD;
+    v_batch_upsert_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_batch_upsert_success_row_ids BIGINT[] := ARRAY[]::BIGINT[];
 BEGIN
     RAISE DEBUG '[Job %] process_statistical_variables (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -251,6 +254,8 @@ BEGIN
         stat_definition_id INT,
         stat_value TEXT,
         existing_link_id INT,
+        edit_by_user_id INT,
+        edit_at TIMESTAMPTZ,
         PRIMARY KEY (data_row_id, stat_definition_id) -- Ensure uniqueness per row/stat
     ) ON COMMIT DROP;
 
@@ -258,14 +263,15 @@ BEGIN
         WITH unpivoted_stats AS ( %s )
         INSERT INTO temp_batch_data (
             data_row_id, legal_unit_id, establishment_id, valid_from, valid_to, data_source_id,
-            stat_definition_id, stat_value
+            stat_definition_id, stat_value, edit_by_user_id, edit_at
         )
         SELECT
             up.data_row_id, dt.legal_unit_id, dt.establishment_id,
             dt.derived_valid_from, -- Changed to derived_valid_from
             dt.derived_valid_to,   -- Changed to derived_valid_to
             dt.data_source_id,
-            sd.id, up.stat_value
+            sd.id, up.stat_value,
+            dt.edit_by_user_id, dt.edit_at
         FROM unpivoted_stats up
         JOIN public.%I dt ON up.data_row_id = dt.row_id
         JOIN public.stat_definition sd ON sd.code = up.stat_code; -- Join to get definition ID
@@ -285,70 +291,128 @@ BEGIN
     RAISE DEBUG '[Job %] process_statistical_variables: Determining existing link IDs: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
-    -- Step 3: Perform Batch INSERT into stat_for_unit_era (Leveraging Trigger)
+    -- Step 3: Perform Batch Upsert using admin.batch_upsert_generic_valid_time_table
     BEGIN
-        v_sql := format($$
-            INSERT INTO public.stat_for_unit_era (
-                id, stat_definition_id, legal_unit_id, establishment_id, value, valid_from, valid_to, -- Use stat_definition_id
-                data_source_id, edit_by_user_id, edit_at
-            )
-            SELECT
-                tbd.existing_link_id, tbd.stat_definition_id, tbd.legal_unit_id, tbd.establishment_id, tbd.stat_value, tbd.valid_from, tbd.valid_to,
-                tbd.data_source_id, dt.edit_by_user_id, dt.edit_at -- Read from _data table via temp table join
-            FROM temp_batch_data tbd
-            JOIN public.%I dt ON tbd.data_row_id = dt.row_id -- Join to get audit info
-            WHERE
-                CASE %L::public.import_strategy
-                    WHEN 'insert_only' THEN tbd.existing_link_id IS NULL
-                    WHEN 'update_only' THEN tbd.existing_link_id IS NOT NULL
-                    WHEN 'upsert' THEN TRUE
-                END;
-        $$, v_data_table_name, v_strategy);
+        -- Create temp source table for batch upsert
+        CREATE TEMP TABLE temp_stat_upsert_source (
+            row_id BIGINT, -- Link back to original _data row + stat_def_id
+            id INT, -- Target stat_for_unit ID
+            valid_from DATE NOT NULL,
+            valid_to DATE NOT NULL,
+            stat_definition_id INT,
+            legal_unit_id INT,
+            establishment_id INT,
+            value TEXT,
+            data_source_id INT,
+            edit_by_user_id INT,
+            edit_at TIMESTAMPTZ,
+            edit_comment TEXT,
+            PRIMARY KEY (row_id, stat_definition_id) -- Composite key needed
+        ) ON COMMIT DROP;
 
-        RAISE DEBUG '[Job %] process_statistical_variables: Performing batch INSERT into stat_for_unit_era: %', p_job_id, v_sql;
-        EXECUTE v_sql;
-        GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Count of rows INSERTED into _era
+        -- Populate temp source table
+        INSERT INTO temp_stat_upsert_source (
+            row_id, id, valid_from, valid_to, stat_definition_id, legal_unit_id, establishment_id, value,
+            data_source_id, edit_by_user_id, edit_at, edit_comment
+        )
+        SELECT
+            tbd.data_row_id, -- Use data_row_id from temp_batch_data
+            tbd.existing_link_id,
+            tbd.valid_from,
+            tbd.valid_to,
+            tbd.stat_definition_id,
+            tbd.legal_unit_id,
+            tbd.establishment_id,
+            tbd.stat_value,
+            tbd.data_source_id,
+            tbd.edit_by_user_id,
+            tbd.edit_at,
+            'Import Job Batch Update/Upsert'
+        FROM temp_batch_data tbd
+        WHERE
+            CASE v_strategy
+                WHEN 'insert_only' THEN tbd.existing_link_id IS NULL
+                WHEN 'update_only' THEN tbd.existing_link_id IS NOT NULL
+                WHEN 'upsert' THEN TRUE
+            END;
 
-        -- Step 3b: Update _data table with resulting stat_for_unit IDs (Post-INSERT)
-        -- This needs to update the dynamic columns like stat_for_unit_employees_id
-        DECLARE
-            v_update_sql TEXT := '';
-            v_stat_def RECORD;
-            v_pk_col_name TEXT;
-        BEGIN
-            v_update_sql := format('UPDATE public.%I dt SET last_completed_priority = %L, error = NULL, state = %L',
-                                   v_data_table_name, v_step.priority, 'processing'); -- Changed 'importing' to 'processing'
+        GET DIAGNOSTICS v_update_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] process_statistical_variables: Populated temp_stat_upsert_source with % rows for batch upsert.', p_job_id, v_update_count;
 
-            FOR v_stat_def IN SELECT id, code FROM public.stat_definition
+        IF v_update_count > 0 THEN
+            -- Call batch upsert function
+            RAISE DEBUG '[Job %] process_statistical_variables: Calling batch_upsert_generic_valid_time_table for stat_for_unit.', p_job_id;
+            FOR v_batch_upsert_result IN
+                SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+                    p_target_schema_name => 'public',
+                    p_target_table_name => 'stat_for_unit',
+                    p_source_schema_name => 'pg_temp',
+                    p_source_table_name => 'temp_stat_upsert_source',
+                    p_source_row_id_column_name => 'row_id', -- This needs careful handling as source row_id is not unique here
+                    p_unique_columns => '[]'::jsonb, -- ID is provided directly
+                    p_temporal_columns => ARRAY['valid_from', 'valid_to'],
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                    p_id_column_name => 'id'
+                )
             LOOP
-                v_pk_col_name := format('stat_for_unit_%s_id', v_stat_def.code);
-                -- Check if the dynamic pk_id column exists in the snapshot for safety
-                IF EXISTS (SELECT 1 FROM jsonb_array_elements(v_stat_data_cols) val
-                           WHERE val->>'column_name' = v_pk_col_name AND val->>'purpose' = 'pk_id' AND (val->>'definition_id')::int = v_job.definition_id) -- Check definition_id from snapshot
-                THEN
-                    v_update_sql := v_update_sql || format(
-                        ', %I = (SELECT sfu.id FROM public.stat_for_unit sfu JOIN temp_batch_data tbd ON dt.row_id = tbd.data_row_id WHERE sfu.stat_definition_id = %L AND sfu.legal_unit_id IS NOT DISTINCT FROM tbd.legal_unit_id AND sfu.establishment_id IS NOT DISTINCT FROM tbd.establishment_id LIMIT 1)', -- Use stat_definition_id
-                        v_pk_col_name, v_stat_def.id
-                    );
+                -- Need to handle the fact that source_row_id from batch result refers to data_row_id
+                -- We need to update the _data table based on this data_row_id
+                IF v_batch_upsert_result.status = 'ERROR' THEN
+                    v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                    EXECUTE format($$
+                        UPDATE public.%I SET
+                            state = %L,
+                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_upsert_stat_error', %L),
+                            last_completed_priority = %L
+                        WHERE row_id = %L;
+                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_step.priority - 1, v_batch_upsert_result.source_row_id);
+                ELSE
+                    v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
                 END IF;
             END LOOP;
 
-            v_update_sql := v_update_sql || format(' WHERE dt.row_id = ANY(%L) AND dt.state != %L', p_batch_row_ids, 'error');
+            v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
+            RAISE DEBUG '[Job %] process_statistical_variables: Batch upsert finished. Success: %, Errors: %', p_job_id, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
 
-            RAISE DEBUG '[Job %] process_statistical_variables: Updating _data table with final IDs: %', p_job_id, v_update_sql;
-            EXECUTE v_update_sql;
-        END;
+            -- Update _data table for successful rows
+            IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
+                DECLARE
+                    v_update_sql TEXT := '';
+                    v_stat_def RECORD;
+                    v_pk_col_name TEXT;
+                BEGIN
+                    v_update_sql := format('UPDATE public.%I dt SET last_completed_priority = %L, error = NULL, state = %L',
+                                           v_data_table_name, v_step.priority, 'processing'::public.import_data_state);
 
+                    FOR v_stat_def IN SELECT id, code FROM public.stat_definition
+                    LOOP
+                        v_pk_col_name := format('stat_for_unit_%s_id', v_stat_def.code);
+                        -- Check if the dynamic pk_id column exists in the snapshot for safety
+                        IF EXISTS (SELECT 1 FROM jsonb_array_elements(v_stat_data_cols) val
+                                   WHERE val->>'column_name' = v_pk_col_name AND val->>'purpose' = 'pk_id' AND (val->>'step_id')::int = v_step.id)
+                        THEN
+                            v_update_sql := v_update_sql || format(
+                                ', %I = (SELECT sfu.id FROM public.stat_for_unit sfu JOIN temp_batch_data tbd ON dt.row_id = tbd.data_row_id WHERE sfu.stat_definition_id = %L AND sfu.legal_unit_id IS NOT DISTINCT FROM tbd.legal_unit_id AND sfu.establishment_id IS NOT DISTINCT FROM tbd.establishment_id AND tbd.stat_definition_id = %L LIMIT 1)',
+                                v_pk_col_name, v_stat_def.id, v_stat_def.id -- Need stat_def_id in WHERE clause
+                            );
+                        END IF;
+                    END LOOP;
+
+                    v_update_sql := v_update_sql || format(' WHERE dt.row_id = ANY(%L)', v_batch_upsert_success_row_ids);
+
+                    RAISE DEBUG '[Job %] process_statistical_variables: Updating _data table with final IDs: %', p_job_id, v_update_sql;
+                    EXECUTE v_update_sql;
+                END;
+            END IF;
+        END IF; -- End if v_update_count > 0
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_statistical_variables: Error during batch operation: %', p_job_id, error_message;
-        -- Mark the entire batch as error in _data table
-        v_sql := format('UPDATE public.%I SET state = %L, error = %L, last_completed_priority = %L WHERE row_id = ANY(%L)',
-                       v_data_table_name, 'error', jsonb_build_object('batch_error', error_message), v_step.priority - 1, p_batch_row_ids);
+        v_sql := format($$UPDATE public.%I SET state = %L, error = COALESCE(error, '{}'::jsonb) || %L, last_completed_priority = %L WHERE row_id = ANY(%L)$$,
+                       v_data_table_name, 'error'::public.import_data_state, jsonb_build_object('batch_error_process_stats', error_message), v_step.priority - 1, p_batch_row_ids);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
-        -- Update job error
         UPDATE public.import_job SET error = jsonb_build_object('process_statistical_variables_error', error_message) WHERE id = p_job_id;
     END;
 
@@ -369,6 +433,7 @@ BEGIN
     RAISE DEBUG '[Job %] process_statistical_variables (Batch): Finished operation for batch. Initial batch size: %. Errors (estimated): %', p_job_id, array_length(p_batch_row_ids, 1), v_error_count;
 
     DROP TABLE IF EXISTS temp_batch_data;
+    DROP TABLE IF EXISTS temp_stat_upsert_source;
 END;
 $process_statistical_variables$;
 

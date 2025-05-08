@@ -109,8 +109,8 @@ BEGIN
         )
         SELECT
             row_id, legal_unit_id, establishment_id,
-            COALESCE(typed_valid_from, computed_valid_from),
-            COALESCE(typed_valid_to, computed_valid_to),
+            derived_valid_from, -- Use derived dates
+            derived_valid_to,   -- Use derived dates
             data_source_id,
             unnested.type, unnested.value
         FROM public.%I dt,
@@ -128,10 +128,6 @@ BEGIN
     EXECUTE v_sql;
 
     -- Step 2: Determine existing contact IDs
-    -- This step needs to join back to the main data table to get the unit IDs associated with each row_id
-    -- and then find existing contacts based on those unit IDs.
-    -- The previous logic was flawed as it joined temp_batch_data to contact directly without considering the unit link per row_id.
-    -- We need to find the existing contact_id for the unit linked to the row_id in temp_batch_data.
     v_sql := format($$
         UPDATE temp_batch_data tbd SET
             existing_contact_id = ci.id
@@ -143,10 +139,8 @@ BEGIN
     RAISE DEBUG '[Job %] process_contact: Determining existing IDs: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
-    -- Step 3: Perform Batch INSERT into contact_info_era (Leveraging Trigger)
+    -- Step 3: Perform Batch UPSERT into contact table
     BEGIN
-        -- Unpivot and insert/update contact details directly into contact table (non-temporal)
-        -- Use ON CONFLICT to handle upsert based on the unit link
         v_sql := format($$
             WITH unpivoted_data AS (
                 SELECT
