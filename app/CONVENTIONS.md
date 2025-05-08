@@ -1,8 +1,9 @@
-This is a PostgreSQL(17+) + PostgREST(12+) + Next.js (15) project.
+This document outlines conventions for the Next.js (15) application part of the STATBUS project.
+For general project, SQL, and infrastructure conventions, see `CONVENTIONS.md` in the project root.
+
 Next.js files are in the app/ directory with TypeScript.
 The app runs server-side and client-side with SSR, using Next.js 15 in app/src/{app,api,...} directories.
 The new Next.js promise pattern is used for params.
-Deployed on custom servers behind Caddy with HTTPS.
 
  • Use named exports for HTTP methods.
  • Use destructuring for imports.
@@ -32,47 +33,4 @@ This project uses **App Routing** with the `app/` directory structure. Do not us
 - Use hooks from `next/navigation` such as `usePathname` and `useSearchParams` for navigation and route handling.
 - Organize routes using `route.ts` files for pages and API routes.
 - Handle responses with `NextResponse`.
- • Use layout.tsx in app/ for global providers, not `_app.tsx`. 
-
-When CWD is the app dir then shell commands must remove the initial 'app/' from paths.
-
-## SQL
-When defining functions and procedures use the function name as part of the literal string quote
-for the body and specify the LANGUAGE before the body, so one knows how to parse it up front.
-Ensure that parameters are documentation friendly, and therefore always use the long form
-to avoid ambiguity.
-```
-CREATE FUNCTION public.example(email text) RETURNS void LANGUAGE plpgsql AS $example$
-BEGIN
-  ...
-  SELECT * FROM ...
-  WHERE email = example.email
-  ...
-END;
-$$;
-
-When calling functions with multiple arguments (3+), use named arguments for clarity, arg1 => val1, arg2 => val2, etc.
-
-PostgreSQL 17 supports the new MERGE syntax for efficient batch handling.
-
-When creating large string for format, use $$ to allow inline ' in comments, so
-```plpgsql
-format($$
-  ... -- A comment with a '
-$$, arg1, arg2, ...)
-```
-
-### SQL Testing
-Is done with pg_regress with test/ as base.
-Run with `./devops/manage-statbus.sh test [all|xx_the_test_name]`.
-
-### SQL Naming conventions
-Column name
-* `x_id` is a foreign key to table `x`
-* `x_ident` is an external identifier, not originating from the database
-* `x_at` is a TIMESTAMPTZ (with timezone)
-* `x_on` is a DATE
-
-## Migrations
-Placed in `migrations/YYYYMMDDHHmmSS_snake_case_description.up.sql` and `migrations/YYYYMMDDHHmm_snake_case_description.down.sql`.
-Run with `./cli/bin/statbus migrate up -v`
+ • Use layout.tsx in app/ for global providers, not `_app.tsx`.
