@@ -21,12 +21,34 @@ COMMENT ON COLUMN public.import_step.analyse_procedure IS 'Optional procedure to
 COMMENT ON COLUMN public.import_step.process_procedure IS 'Optional procedure to run during the final operation (insert/update/upsert) phase for this step. Must respect import_definition.strategy.';
 
 -- Enum to control the final insertion behavior
-CREATE TYPE public.import_strategy AS ENUM ('upsert', 'insert_only', 'update_only');
+CREATE TYPE public.import_strategy AS ENUM ('insert_or_replace', 'insert_only', 'replace_only');
 COMMENT ON TYPE public.import_strategy IS
 'Defines the strategy when inserting data into the final target table(s):
-- upsert: Insert new rows, update existing rows based on unique constraints.
-- insert_only: Only insert new rows, skip or error on existing rows (behavior depends on insert_procedure).
-- update_only: Only update existing rows, skip rows that do not already exist.';
+- insert_or_replace: Insert new rows, or replace existing rows (temporal data is handled by replacing overlapping periods).
+- insert_only: Only insert new rows, skip or error on existing rows.
+- replace_only: Only replace existing rows, skip rows that do not already exist.';
+
+CREATE TYPE public.import_row_operation_type AS ENUM (
+    'insert',  -- Row represents a new unit/record to be inserted.
+    'replace' -- Row represents an existing unit/record to be updated/replaced (using batch upsert logic).
+);
+COMMENT ON TYPE public.import_row_operation_type IS
+'Specifies the intended action for an import data row after analysis:
+- insert: Create a new record.
+- replace: Replace an existing record (temporal data is handled by replacing overlapping periods).';
+
+CREATE TYPE public.import_row_action_type AS ENUM (
+    'insert',  -- Row represents a new unit/record to be inserted.
+    'replace', -- Row represents an existing unit/record to be updated/replaced (using batch upsert logic).
+    'skip'     -- Row should be skipped due to strategy mismatch or other reasons identified during analysis.
+);
+
+COMMENT ON TYPE public.import_row_action_type IS
+'Specifies the intended action for an import data row after analysis:
+- insert: Create a new record.
+- replace: Replace an existing record (temporal data is handled by replacing overlapping periods).
+- skip: Do not process this row further due to strategy mismatch or errors.';
+
 
 CREATE TABLE public.import_definition(
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
@@ -35,7 +57,7 @@ CREATE TABLE public.import_definition(
     note text,
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
     time_context_ident TEXT, -- Optional: For default valid_from/valid_to lookup
-    strategy public.import_strategy NOT NULL DEFAULT 'upsert'::public.import_strategy,
+    strategy public.import_strategy NOT NULL DEFAULT 'insert_or_replace'::public.import_strategy,
     user_id integer REFERENCES auth.user(id) ON DELETE SET NULL,
     valid boolean NOT NULL DEFAULT false, -- Indicates if the definition passes validation checks
     validation_error text,                -- Stores validation error messages if not valid
@@ -46,7 +68,7 @@ CREATE TABLE public.import_definition(
 CREATE INDEX ix_import_user_id ON public.import_definition USING btree (user_id);
 CREATE INDEX ix_import_data_source_id ON public.import_definition USING btree (data_source_id);
 
-COMMENT ON COLUMN public.import_definition.strategy IS 'Defines the strategy (upsert, insert_only, update_only) for the final insertion step.';
+COMMENT ON COLUMN public.import_definition.strategy IS 'Defines the strategy (insert_or_replace, insert_only, replace_only) for the final insertion step.';
 COMMENT ON COLUMN public.import_definition.valid IS 'Indicates if the definition passes validation checks.';
 COMMENT ON COLUMN public.import_definition.validation_error IS 'Stores validation error messages if not valid.';
 

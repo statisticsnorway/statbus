@@ -24,13 +24,13 @@ BEGIN
     SELECT * INTO v_step FROM public.import_step WHERE code = 'enterprise_link_for_establishment';
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_establishment step not found', p_job_id; END IF;
 
-    -- Step 1: Identify existing ESTs in the batch (should have establishment_id from external_idents step)
+    -- Step 1: Identify existing ESTs in the batch (action = 'replace')
     CREATE TEMP TABLE temp_existing_est (data_row_id BIGINT PRIMARY KEY, establishment_id INT NOT NULL) ON COMMIT DROP;
     v_sql := format($$
         INSERT INTO temp_existing_est (data_row_id, establishment_id)
         SELECT row_id, establishment_id -- 'row_id' here is from public.%I (the data_table_name)
         FROM public.%I
-        WHERE row_id = ANY(%L) AND establishment_id IS NOT NULL AND legal_unit_id IS NULL; -- Only standalone ESTs
+        WHERE row_id = ANY(%L) AND action = 'replace' AND legal_unit_id IS NULL; -- Only standalone ESTs with action = 'replace'
     $$, v_data_table_name, p_batch_row_ids);
     EXECUTE v_sql;
 
@@ -45,7 +45,7 @@ BEGIN
     $$);
     EXECUTE v_sql;
 
-    -- Step 3: Update _data table for existing ESTs
+    -- Step 3: Update _data table for existing ESTs (action = 'replace')
     v_sql := format($$
         UPDATE public.%I dt SET
             enterprise_id = tei.enterprise_id,
@@ -53,25 +53,31 @@ BEGIN
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
         FROM temp_enterprise_info tei
-        WHERE dt.row_id = tei.data_row_id; -- Use data_row_id from temp_enterprise_info to match row_id in data table
+        WHERE dt.row_id = tei.data_row_id AND dt.action = 'replace'; -- Ensure we only update rows with action = 'replace'
     $$, v_data_table_name, v_step.priority, 'analysing');
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updating existing ESTs: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updating existing ESTs (action=replace): %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
-    -- Step 4: Update remaining rows (new ESTs) - just advance priority
+    -- Step 4: Update remaining rows (new ESTs, action = 'insert') - just advance priority
     v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
         WHERE dt.row_id = ANY(%L)
-          AND dt.establishment_id IS NULL -- Only update rows identified as new ESTs
+          AND dt.action = 'insert' -- Only update rows identified as new ESTs
           AND dt.legal_unit_id IS NULL -- Ensure it's a standalone EST import row
           AND dt.state != %L; -- Avoid rows already in error
     $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids, 'error');
-     RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updating new ESTs (priority only): %', p_job_id, v_sql;
+     RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updating new ESTs (action=insert, priority only): %', p_job_id, v_sql;
     EXECUTE v_sql;
+
+    -- Step 5: Update skipped rows (action = 'skip') - just advance priority
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-using v_update_count, fine for debug
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Advanced priority for % skipped rows.', p_job_id, v_update_count;
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment (Batch): Finished analysis. Updated % existing ESTs.', p_job_id, v_update_count;
 
@@ -110,7 +116,7 @@ BEGIN
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
-    -- Step 1: Identify rows needing enterprise creation (new standalone ESTs)
+    -- Step 1: Identify rows needing enterprise creation (new standalone ESTs, action = 'insert')
     CREATE TEMP TABLE temp_new_est (
         data_row_id BIGINT PRIMARY KEY, -- Stores the row_id from the data table
         name TEXT, -- Needed to create enterprise (use EST name)
@@ -122,7 +128,7 @@ BEGIN
         INSERT INTO temp_new_est (data_row_id, name, edit_by_user_id, edit_at) -- Store source row_id into data_row_id
         SELECT row_id, name, edit_by_user_id, edit_at -- Select row_id from source data table
         FROM public.%I
-        WHERE row_id = ANY(%L) AND establishment_id IS NULL AND legal_unit_id IS NULL; -- Only process rows for new standalone ESTs
+        WHERE row_id = ANY(%L) AND action = 'insert' AND legal_unit_id IS NULL; -- Only process rows for new standalone ESTs
     $$, v_data_table_name, p_batch_row_ids);
     EXECUTE v_sql;
 
@@ -170,7 +176,7 @@ BEGIN
         RETURN;
     END;
 
-    -- Step 3: Update _data table for newly created enterprises
+    -- Step 3: Update _data table for newly created enterprises (action = 'insert')
     v_sql := format($$
         UPDATE public.%I dt SET
             enterprise_id = tce.enterprise_id,
@@ -180,23 +186,28 @@ BEGIN
         FROM temp_created_enterprises tce
         WHERE dt.row_id = tce.data_row_id; -- Use data_row_id for join
     $$, v_data_table_name, v_step.priority, 'processing');
-    RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating _data for new enterprises: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating _data for new enterprises (action=insert): %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
-    -- Step 4: Update rows that were already processed by analyse step (existing ESTs) - just advance priority
+    -- Step 4: Update rows that were already processed by analyse step (existing ESTs, action = 'replace') - just advance priority
     v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L,
             state = %L
         WHERE dt.row_id = ANY(%L)
-          AND dt.establishment_id IS NOT NULL -- Only update rows for existing ESTs
+          AND dt.action = 'replace' -- Only update rows for existing ESTs
           AND dt.legal_unit_id IS NULL -- Ensure it's a standalone EST import row
           AND dt.state != %L; -- Avoid rows already in error
     $$, v_data_table_name, v_step.priority, 'processing', p_batch_row_ids, 'error');
-     RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating existing ESTs (priority only): %', p_job_id, v_sql;
+     RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating existing ESTs (action=replace, priority only): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
+    -- Step 5: Update skipped rows (action = 'skip') - just advance priority
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-using v_update_count, fine for debug
+    RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Advanced priority for % skipped rows.', p_job_id, v_update_count;
 
     -- Reset constraints if they were deferred by this function
     IF NOT statbus_constraints_already_deferred THEN

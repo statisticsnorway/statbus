@@ -78,5 +78,6 @@ DROP TYPE IF EXISTS public.import_data_state;
 DROP TYPE IF EXISTS public.import_data_column_purpose;
 DROP TYPE IF EXISTS public.import_strategy;
 DROP TYPE IF EXISTS public.import_step_phase;
+DROP TYPE IF EXISTS public.import_row_action_type;
 
 END;

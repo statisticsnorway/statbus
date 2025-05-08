@@ -25,19 +25,25 @@ BEGIN
         RAISE EXCEPTION '[Job %] contact step not found', p_job_id;
     END IF;
 
-    -- Step 1: Batch Update Success Rows (No specific analysis needed for contact fields, just advance priority)
-    -- No error checking needed for this simple step unless validation is added.
+    -- Step 1: Update non-skipped rows
     v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
-        WHERE dt.row_id = ANY(%L);
+        WHERE dt.row_id = ANY(%L) AND dt.action != 'skip';
     $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids);
-    RAISE DEBUG '[Job %] analyse_contact: Updating success rows: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_contact: Updating non-skipped rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_contact: Marked % rows as success for this target.', p_job_id, v_update_count;
+    RAISE DEBUG '[Job %] analyse_contact: Marked % non-skipped rows as success for this target.', p_job_id, v_update_count;
+
+    -- Step 2: Update skipped rows (advance priority only)
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    GET DIAGNOSTICS v_update_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_contact: Advanced priority for % skipped rows.', p_job_id, v_update_count;
+
 
     RAISE DEBUG '[Job %] analyse_contact (Batch): Finished analysis for batch.', p_job_id;
 END;
@@ -91,7 +97,7 @@ BEGIN
 
     -- Step 1: Unpivot and Fetch batch data into a temporary table
     CREATE TEMP TABLE temp_batch_data (
-        row_id BIGINT,
+        row_id BIGINT, -- This is the original row_id from the _data table
         legal_unit_id INT,
         establishment_id INT,
         valid_from DATE,
@@ -100,19 +106,21 @@ BEGIN
         contact_type public.contact_info_type,
         contact_value TEXT,
         existing_contact_id INT,
+        action public.import_row_action_type, -- Added action column
         PRIMARY KEY (row_id, contact_type) -- Ensure uniqueness per row/type
     ) ON COMMIT DROP;
 
     v_sql := format($$
         INSERT INTO temp_batch_data (
-            row_id, legal_unit_id, establishment_id, valid_from, valid_to, data_source_id, contact_type, contact_value
+            row_id, legal_unit_id, establishment_id, valid_from, valid_to, data_source_id, contact_type, contact_value, action
         )
         SELECT
-            row_id, legal_unit_id, establishment_id,
-            derived_valid_from, -- Use derived dates
-            derived_valid_to,   -- Use derived dates
-            data_source_id,
-            unnested.type, unnested.value
+            dt.row_id, dt.legal_unit_id, dt.establishment_id,
+            dt.derived_valid_from, -- Use derived dates
+            dt.derived_valid_to,   -- Use derived dates
+            dt.data_source_id,
+            unnested.type, unnested.value,
+            dt.action -- Include action from _data table
         FROM public.%I dt,
         LATERAL (VALUES
             ('web', dt.web_address),
@@ -122,22 +130,35 @@ BEGIN
             ('mobile', dt.mobile_number),
             ('fax', dt.fax_number)
         ) AS unnested(type, value)
-        WHERE dt.row_id = ANY(%L) AND unnested.value IS NOT NULL;
+        WHERE dt.row_id = ANY(%L) AND unnested.value IS NOT NULL AND dt.action != 'skip'; -- Filter out skipped rows
     $$, v_data_table_name, p_batch_row_ids);
     RAISE DEBUG '[Job %] process_contact: Fetching and unpivoting batch data: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
-    -- Step 2: Determine existing contact IDs
-    v_sql := format($$
-        UPDATE temp_batch_data tbd SET
-            existing_contact_id = ci.id
-        FROM public.%I dt -- Join back to the main data table
-        JOIN public.contact ci ON (ci.legal_unit_id = dt.legal_unit_id AND dt.legal_unit_id IS NOT NULL)
-                               OR (ci.establishment_id = dt.establishment_id AND dt.establishment_id IS NOT NULL)
-        WHERE tbd.row_id = dt.row_id; -- Join on row_id
+    -- Step 2: Determine existing contact IDs for the parent unit
+    CREATE TEMP TABLE temp_unit_contact_ids (
+        unit_row_id BIGINT PRIMARY KEY, -- This is the original row_id from _data table
+        contact_table_id INT
+    ) ON COMMIT DROP;
+
+    EXECUTE format($$
+        INSERT INTO temp_unit_contact_ids (unit_row_id, contact_table_id)
+        SELECT DISTINCT dt.row_id, ci.id
+        FROM public.%I dt
+        JOIN public.contact ci
+          ON (dt.legal_unit_id IS NOT NULL AND ci.legal_unit_id = dt.legal_unit_id)
+          OR (dt.establishment_id IS NOT NULL AND ci.establishment_id = dt.establishment_id)
+        WHERE dt.row_id = ANY (SELECT DISTINCT row_id FROM temp_batch_data);
     $$, v_data_table_name);
-    RAISE DEBUG '[Job %] process_contact: Determining existing IDs: %', p_job_id, v_sql;
-    EXECUTE v_sql;
+
+    UPDATE temp_batch_data tbd
+    SET existing_contact_id = tuci.contact_table_id
+    FROM temp_unit_contact_ids tuci
+    WHERE tbd.row_id = tuci.unit_row_id;
+
+    DROP TABLE temp_unit_contact_ids;
+    RAISE DEBUG '[Job %] process_contact: Determined existing contact IDs for unpivoted data.', p_job_id;
+
 
     -- Step 3: Perform Batch UPSERT into contact table
     BEGIN
@@ -150,7 +171,7 @@ BEGIN
                     tbd.establishment_id,
                     tbd.data_source_id,
                     jsonb_object_agg(tbd.contact_type, tbd.contact_value) as contact_details
-                FROM temp_batch_data tbd
+                FROM temp_batch_data tbd -- temp_batch_data is already filtered by action != 'skip'
                 GROUP BY tbd.row_id, tbd.existing_contact_id, tbd.legal_unit_id, tbd.establishment_id, tbd.data_source_id
             )
             INSERT INTO public.contact (
@@ -169,7 +190,7 @@ BEGIN
                 CASE %L::public.import_strategy
                     WHEN 'insert_only' THEN up.existing_contact_id IS NULL
                     WHEN 'update_only' THEN up.existing_contact_id IS NOT NULL
-                    WHEN 'upsert' THEN TRUE
+                    WHEN 'insert_or_replace' THEN TRUE -- Changed from 'upsert'
                 END
             ON CONFLICT (legal_unit_id) WHERE legal_unit_id IS NOT NULL DO UPDATE SET
                 web_address = EXCLUDED.web_address, email_address = EXCLUDED.email_address, phone_number = EXCLUDED.phone_number,
@@ -195,7 +216,7 @@ BEGIN
                  WHERE CASE %L::public.import_strategy
                          WHEN 'insert_only' THEN tbd.existing_contact_id IS NULL
                          WHEN 'update_only' THEN tbd.existing_contact_id IS NOT NULL
-                         WHEN 'upsert' THEN TRUE
+                         WHEN 'insert_or_replace' THEN TRUE -- Changed from 'upsert'
                        END
             )
             UPDATE public.%I dt SET
@@ -223,15 +244,32 @@ BEGIN
         UPDATE public.import_job SET error = jsonb_build_object('process_contact_error', error_message) WHERE id = p_job_id;
     END;
 
-     -- Update priority for rows that didn't have any contact info (were skipped)
+     -- Update priority for rows that didn't have any contact info to process and were not skipped by action
      v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L
-        WHERE dt.row_id = ANY(%L) AND dt.state != %L
-          AND web_address IS NULL AND email_address IS NULL AND phone_number IS NULL
-          AND landline IS NULL AND mobile_number IS NULL AND fax_number IS NULL;
-    $$, v_data_table_name, v_step.priority, p_batch_row_ids, 'error');
+        WHERE dt.row_id = ANY(%L)
+          AND dt.action != 'skip'      -- Not skipped by a previous step's decision
+          AND dt.state != 'error'      -- Not already in an error state
+          AND dt.contact_id IS NULL    -- And no contact_id was set by this step's main logic
+          AND ( -- Check if source columns were null, indicating no data to process for contact
+            dt.web_address IS NULL AND
+            dt.email_address IS NULL AND
+            dt.phone_number IS NULL AND
+            dt.landline IS NULL AND
+            dt.mobile_number IS NULL AND
+            dt.fax_number IS NULL
+          );
+    $$, v_data_table_name, v_step.priority, p_batch_row_ids);
+    RAISE DEBUG '[Job %] process_contact: Updating priority for non-skipped rows with no contact data: %', p_job_id, v_sql;
     EXECUTE v_sql;
+
+    -- Update priority for skipped rows
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
+    GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-using v_update_count, fine for debug
+    RAISE DEBUG '[Job %] process_contact: Advanced priority for % skipped rows.', p_job_id, v_update_count;
+
 
     -- Reset constraints if they were deferred by this function
     IF NOT statbus_constraints_already_deferred THEN

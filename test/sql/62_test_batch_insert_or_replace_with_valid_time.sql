@@ -1,7 +1,7 @@
 BEGIN;
 
 \echo '----------------------------------------------------------------------------'
-\echo 'Test: admin.batch_upsert_generic_valid_time_table'
+\echo 'Test: admin.batch_insert_or_replace_generic_valid_time_table'
 \echo '----------------------------------------------------------------------------'
 SET client_min_messages TO NOTICE; -- Changed from DEBUG1 to NOTICE
 
@@ -64,7 +64,7 @@ INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, val
 (NULL, '2024-01-01', '2024-12-31', 'A', 10, 'Initial A');
 
 -- Use SQL quotes around the variable, then cast
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -81,7 +81,7 @@ INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, v
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-07-01', '2024-12-31', 'A', 10, 'Second half'); -- Same data
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -97,7 +97,7 @@ INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, v
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-07-01', '2024-12-31', 'B', 20, 'Second half different'); -- Different data
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -113,7 +113,7 @@ INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, v
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-01-01', '2024-05-31', 'A', 10, 'New Jan-May'); -- Same data, overlaps start
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -129,7 +129,7 @@ INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, v
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-01-01', '2024-05-31', 'B', 20, 'New Jan-May Different'); -- Different data
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -145,7 +145,7 @@ INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, v
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-07-01', '2024-12-31', 'A', 10, 'New Jul-Dec'); -- Same data, overlaps end
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -161,7 +161,7 @@ INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, v
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-07-01', '2024-12-31', 'B', 20, 'New Jul-Dec Different'); -- Different data
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -177,7 +177,7 @@ INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, v
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-04-01', '2024-08-31', 'A', 10, 'New Apr-Aug'); -- Same data, inside
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -193,7 +193,7 @@ INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, v
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-04-01', '2024-08-31', 'B', 20, 'New Apr-Aug Different'); -- Different data
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -209,7 +209,7 @@ INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, v
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-01-01', '2024-12-31', 'B', 20, 'New Jan-Dec Different'); -- Different data, contains existing
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -239,7 +239,7 @@ INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, val
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (4, '2024-01-01', NULL, 'ID4-Error', 44, 'ID4 Error');
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 ) ORDER BY source_row_id;
@@ -264,7 +264,7 @@ INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, v
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
 (NULL, '2024-06-01', '2024-09-30', 'LookupMe', 55, 'Update via Lookup'); -- Overlaps, different data
 
-SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );

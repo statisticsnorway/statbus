@@ -12,7 +12,7 @@ The import system is built around several key database tables and concepts:
 
 1.  **Import Definition (`import_definition`)**:
     *   Represents a specific *type* of import (e.g., "Import Legal Units for Current Year", "Import Establishments with Explicit Dates").
-    *   Defines the overall behavior, such as the final database operation (`strategy`: 'upsert', 'insert_only', 'update_only').
+    *   Defines the overall behavior, such as the final database operation (`strategy`: `insert_or_replace`, `insert_only`, `replace_only`).
     *   Is linked to the specific `import_step` records it utilizes via the `import_definition_step` table.
     *   Links together all the necessary components for the chosen steps: source columns, data columns, and mappings.
     *   Can optionally reference a `time_context` for automatic validity period calculation.
@@ -29,37 +29,37 @@ The import system is built around several key database tables and concepts:
 4.  **Source Columns (`import_source_column`)**:
     *   Defines the expected columns and their order (`priority`) in the source file (e.g., CSV) for a given `import_definition`.
 
-4.  **Data Columns (`import_data_column`)**:
+5.  **Data Columns (`import_data_column`)**:
     *   Declaratively defines the *complete schema* of the intermediate `_data` table created specifically for each import job. This table includes a dedicated `row_id` column (e.g., `SERIAL` or `IDENTITY`) for stable row identification.
     *   Specifies which columns (with `purpose='source_input'`) uniquely identify a row (`is_uniquely_identifying`) for the `UPSERT` logic during the prepare step.
     *   Columns have a defined `purpose` (enum `public.import_data_column_purpose`):
         *   `source_input`: Holds data directly mapped from the source file - always `TEXT`.
-        *   `internal`: Stores intermediate results from analysis steps, such as looked-up foreign keys (`sector_id`), type-casted values (`typed_birth_date`), or context-derived values (`computed_valid_from`). Data type matches the intermediate value (e.g., `INTEGER`, `DATE`).
+        *   `internal`: Stores intermediate results from analysis steps, such as looked-up foreign keys (`sector_id`), type-casted values (`typed_birth_date`), context-derived values (`computed_valid_from`), or the intended row action (`operation`, `action`). Data type matches the intermediate value (e.g., `INTEGER`, `DATE`, `public.import_row_action_type`).
         *   `pk_id`: Stores the primary key(s) of the record(s) inserted/updated into a final Statbus table by a `process_procedure` (e.g., `legal_unit_id`, `physical_location_id`, `contact_info_ids`). Data type is typically `INTEGER` or `INTEGER[]`.
         *   `metadata`: Internal columns for tracking row status and errors (`state`, `error`, `last_completed_priority`).
     *   Each data column is linked to an `import_step` that primarily produces or consumes it (via `step_id`). Metadata columns have `step_id = NULL`.
 
-5.  **Mapping (`import_mapping`)**:
+6.  **Mapping (`import_mapping`)**:
     *   Connects an `import_source_column` (or a fixed value/expression) for a specific `import_definition` to an `import_data_column` (found via the steps linked to the definition) with `purpose = 'source_input'`.
     *   Defines how data flows from the uploaded file into the job's intermediate `_data` table.
 
-6.  **Processing Procedures (`analyse_procedure`, `process_procedure`)**:
+7.  **Processing Procedures (`analyse_procedure`, `process_procedure`)**:
     *   PL/pgSQL functions linked to `import_step` records.
     *   They contain the actual logic for:
-        *   **Analysis (`analyse_procedure`):** Reads `source_input` columns, performs lookups (e.g., finding `sector_id` from `sector_code`), type casting (e.g., `admin.safe_cast_to_date`), and validations. Stores results in `internal` columns (e.g., `sector_id`, `typed_birth_date`). Updates the row's `state` (to `analysing` or `error`), `error` (JSONB), and `last_completed_priority` in the `_data` table.
-        *   **Operation (`process_procedure`):** Reads `source_input` and `internal` columns. Performs the final `INSERT`, `UPDATE`, or `UPSERT` into the target Statbus tables (e.g., `legal_unit_era`, `location_era`, `activity_era`), respecting the job's `strategy`. Stores the resulting primary key(s) in the corresponding `pk_id` column (e.g., `legal_unit_id`, `location_id`, `activity_id`). Updates the row's `state` (to `processing` or `error`), `error`, and `last_completed_priority`. *Note: Some steps like `external_idents` only perform analysis and do not have a process procedure.*
+        *   **Analysis (`analyse_procedure`):** Reads `source_input` columns, performs lookups (e.g., finding `sector_id` from `sector_code`), type casting (e.g., `admin.safe_cast_to_date`), and validations. Stores results in `internal` columns (e.g., `sector_id`, `typed_birth_date`). The `external_idents` step specifically determines the potential operation (`operation`: `insert` or `replace`) based on identifier lookups, and the final `action` (`insert`, `replace`, or `skip`) based on the `operation` and the job's `strategy`, storing both in their respective `internal` columns. Updates the row's `state` (to `analysing` or `error`), `error` (JSONB), and `last_completed_priority` in the `_data` table.
+        *   **Operation (`process_procedure`):** Reads `source_input` and `internal` columns, including the `action` column. Performs the final `INSERT` (for `action='insert'`) or `REPLACE` (for `action='replace'`, typically using `admin.batch_insert_or_replace_generic_valid_time_table` for temporal data) into the target Statbus tables, respecting the job's `strategy`. Skips rows where `action='skip'`. Stores the resulting primary key(s) in the corresponding `pk_id` column (e.g., `legal_unit_id`, `location_id`, `activity_id`). Updates the row's `state` (to `processing` or `error`), `error`, and `last_completed_priority`. *Note: Some steps like `external_idents` only perform analysis and do not have a process procedure.*
     *   These procedures operate on batches of rows identified by an array of their `row_id` values (e.g., `INTEGER[]`). The `row_id` is a stable, dedicated identifier within the job-specific `_data` table, used instead of PostgreSQL's system column `ctid` because `ctid` can change during row updates or table maintenance, making it unreliable for this multi-stage process. They use `FOR UPDATE SKIP LOCKED` when selecting batches to handle concurrency.
 
-7.  **Import Job (`import_job`)**:
+8.  **Import Job (`import_job`)**:
     *   Represents a specific instance of an import, created by a user based on an `import_definition`.
     *   Tracks the overall state (`waiting_for_upload`, `upload_completed`, `preparing_data`, `analysing_data`, `processing_data`, `finished`, etc.).
     *   Manages the job-specific tables (`_upload`, `_data`).
     *   Keeps a snapshot of the import definition and related tables in the `definition_snapshot` JSONB column.
     *   Processed asynchronously by the `worker` system.
 
-8.  **Job-Specific Tables & Snapshot**:
+9.  **Job-Specific Tables & Snapshot**:
     *   `<job_slug>_upload`: Stores the raw data exactly as uploaded from the source file. Columns match `import_source_column`.
-    *   `<job_slug>_data`: The intermediate table structured according to `import_data_column`. This table includes a dedicated `row_id` column (e.g., `SERIAL` or `IDENTITY`) for stable row identification throughout the import process. It holds source data (`source_input`), analysis results (`internal`), final primary keys (`pk_id`), and row-level state (`pending`, `analysing`, `analysed`, `processing`, `processed`, `error`) and progress (`last_completed_priority`).
+    *   `<job_slug>_data`: The intermediate table structured according to `import_data_column`. This table includes a dedicated `row_id` column (e.g., `SERIAL` or `IDENTITY`) for stable row identification throughout the import process. It holds source data (`source_input`), analysis results (`internal`, including `operation` and `action`), final primary keys (`pk_id`), and row-level state (`pending`, `analysing`, `analysed`, `processing`, `processed`, `error`) and progress (`last_completed_priority`).
     *   `definition_snapshot` (column in `import_job`): Contains a JSONB snapshot of the `import_definition` and its related metadata as they existed when the job was created. This ensures the job runs consistently even if the definition is modified later.
         *   `import_definition`: The `import_definition` row.
         *   `import_step_list`: An array of `import_step` objects.
@@ -95,7 +95,7 @@ The import system is built around several key database tables and concepts:
         *   For each step with an `analyse_procedure`:
             *   Selects batches of rows from `_data` (identified by their `row_id`) where `state = 'analysing'` and `last_completed_priority < step.priority` using `FOR UPDATE SKIP LOCKED`.
             *   Calls the step's `analyse_procedure` with the batch of `row_id`s.
-            *   The procedure performs lookups/validations, updates columns with `purpose='internal'`, and sets `last_completed_priority = step.priority` or sets `state = 'error'` for each row in the batch. *Note: The `edit_info` step populates `edit_by_user_id` and `edit_at` here.*
+            *   The procedure performs lookups/validations, updates columns with `purpose='internal'` (including the `operation` and `action` columns set by `analyse_external_idents`), and sets `last_completed_priority = step.priority` or sets `state = 'error'` for each row in the batch. *Note: The `edit_info` step populates `edit_by_user_id` and `edit_at` here.*
         *   Continues processing batches across steps until `max_batches_per_transaction` is reached or no more rows are found for analysis in the current state/priority range.
         *   If work remains (either batch limit hit or rows still in `analysing` state), the job is rescheduled by the worker system.
         *   Once all analysis steps for all rows are complete (no rows left in `analysing` state), the job state moves to `processing_data` (or `waiting_for_review` if `job.review=true`). The worker is rescheduled if moving to `processing_data`.
@@ -103,9 +103,9 @@ The import system is built around several key database tables and concepts:
         *   Job state is `processing_data`.
         *   Iterates through `import_step`s (from the `definition_snapshot`'s `import_step_list`) in `priority` order.
         *   For each step with a `process_procedure`:
-            *   Selects batches of rows from `_data` (identified by their `row_id`) where `state = 'processing'` and `last_completed_priority < step.priority` using `FOR UPDATE SKIP LOCKED`.
+            *   Selects batches of rows from `_data` (identified by their `row_id`) where `state = 'processing'` and `last_completed_priority < step.priority` and `action != 'skip'` using `FOR UPDATE SKIP LOCKED`.
             *   Calls the step's `process_procedure` with the batch of `row_id`s.
-            *   The procedure reads data (including `internal` results and audit info like `edit_by_user_id`, `edit_at`), performs the final `INSERT`/`UPDATE`/`UPSERT` into Statbus tables (respecting the `strategy` from the snapshot's `import_definition`), updates `pk_id` columns, and sets `last_completed_priority = step.priority` or sets `state = 'error'`.
+            *   The procedure reads data (including `internal` results, audit info, and `action`), performs the final `INSERT` (for `action='insert'`) or `REPLACE` (for `action='replace'`, using `admin.batch_insert_or_replace_generic_valid_time_table` for temporal data), updates `pk_id` columns, and sets `last_completed_priority = step.priority` or sets `state = 'error'`.
         *   Continues processing batches across steps until `max_batches_per_transaction` is reached or no more rows are found for processing in the current state/priority range.
         *   If work remains, the job is rescheduled.
         *   Once all operation steps for all rows are complete (no rows left in `processing` state), the job state moves to `finished`.
@@ -117,19 +117,19 @@ Creating a new import type involves defining the metadata in the database:
 1.  **Define Steps (`import_step`)**: Identify the logical steps required for the import (e.g., 'legal_unit', 'physical_location', 'establishment'). Define a unique `code` (using `snake_case`) and a human-readable `name` for each. Assign priorities and specify the names of the (yet to be created) `analyse_procedure` and `process_procedure` for each step (e.g., `admin.analyse_legal_unit`, `admin.process_legal_unit`).
 2.  **Define Data Columns (`import_data_column`)**: For the new `step_id`, define *all* columns needed in the intermediate `_data` table:
     *   Columns for each piece of data coming directly from the source file (`purpose='source_input'`, `column_type='TEXT'`). Link each to the relevant `import_step` via `step_id`.
-    *   Columns to store intermediate results from analysis steps (`purpose='internal'`, `column_type` matching the expected data type, e.g., `INTEGER`, `DATE`, `NUMERIC`). Link each to the `import_step` (via `step_id`) that produces it. *Includes audit columns like `edit_by_user_id`, `edit_at` produced by the `edit_info` step.*
+    *   Columns to store intermediate results from analysis steps (`purpose='internal'`, `column_type` matching the expected data type, e.g., `INTEGER`, `DATE`, `NUMERIC`, `public.import_row_action_type`). Link each to the `import_step` (via `step_id`) that produces it. *Includes audit columns like `edit_by_user_id`, `edit_at` produced by the `edit_info` step, and the `operation` and `action` columns produced by `external_idents`.*
     *   Columns to store the final inserted/updated primary keys (`purpose='pk_id'`, `column_type` usually `INTEGER` or `INTEGER[]`). Link each to the `import_step` (via `step_id`) that performs the final database operation.
     *   Set `is_uniquely_identifying = true` for the `source_input` data columns (belonging to the relevant step) that form the unique key for the prepare step's UPSERT logic.
     *   Remember that the `_data` table will also have a system-managed `row_id` column for stable row identification during processing.
 3.  **Implement Procedures**: Create the actual PL/pgSQL functions named in the `import_step` records (`analyse_procedure`, `process_procedure`). These functions must:
-    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[])` (or the appropriate data type for an array of `row_id`s, e.g., `BIGINT[]`).
-    *   Determine the job-specific `_data` table name using `p_job_id` and `public.import_job`.
-    *   Read the `definition_snapshot` from the `import_job` record if needed (e.g., to check `strategy`).
-    *   Read from and write to the correct job-specific `_data` table using dynamic SQL (`format` + `EXECUTE`) and the provided `p_batch_row_ids` array to filter rows (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
-    *   Perform the necessary logic (lookups, validation, type casting, final database operations using data from `_data`, including audit info).
+    *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[])` (or appropriate array type for `row_id`).
+    *   Read `definition_snapshot` from `import_job` if needed (e.g., to check `strategy`).
+    *   Determine the job-specific `_data` table name.
+    *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
+    *   Perform logic (lookups, validation, casting, final DML using audit info and `action` from `_data`).
     *   Correctly update `last_completed_priority`, `state`, and `error` columns in the `_data` table for the processed `p_batch_row_ids`.
     *   Handle errors gracefully, ideally marking only affected rows within the batch as `error` and storing details in the `error` JSONB column. If a batch-wide error occurs (e.g., constraint violation during a batch DML), mark all rows identified by `p_batch_row_ids` as error.
-4.  **Create Definition (`import_definition`)**: Create a record defining the overall import (e.g., slug='legal_unit_import', name='Legal Unit Import', strategy='upsert'). Set `valid=false` initially.
+4.  **Create Definition (`import_definition`)**: Create a record defining the overall import (e.g., slug='legal_unit_import', name='Legal Unit Import', strategy='insert_or_replace'). Set `valid=false` initially.
 5.  **Link Steps to Definition (`import_definition_step`)**: Insert records into `import_definition_step` linking the new `definition_id` to the `step_id`s of the chosen `import_step` records defined in step 1.
 6.  **Define Source Columns (`import_source_column`)**: Define the expected columns in the source file and their order (`priority`) for this definition. These should cover the `source_input` data columns required by the *linked steps*.
 7.  **Define Mappings (`import_mapping`)**: Create records linking each `import_source_column` (or a fixed `source_value`/`source_expression`) for this `definition_id` to its corresponding `import_data_column` (found via the linked steps, where `purpose='source_input'`). Ensure all necessary `source_input` columns for the linked steps are mapped.
@@ -140,7 +140,7 @@ Creating a new import type involves defining the metadata in the database:
 The progress of an import job can be monitored via:
 
 *   The `public.import_job` table (overall state, row counts, timestamps).
-*   The job-specific `_data` table (row-level state, errors, `last_completed_priority`, and individual `row_id`s).
+*   The job-specific `_data` table (row-level state, errors, `last_completed_priority`, `action`, and individual `row_id`s).
 *   The `public.get_import_job_progress(job_id)` function, which provides a JSON summary including row state counts.
 *   The application UI, which uses these sources to display progress.
 
@@ -149,10 +149,10 @@ The progress of an import job can be monitored via:
 Let's illustrate how to define an import for `legal_unit` data using the system. Assume we want an import definition named `legal_unit_explicit_dates` that takes a CSV with explicit `valid_from` and `valid_to` dates.
 
 1.  **Identify Required Steps (`import_step`)**: We need steps to handle:
-    *   Populating audit info (`edit_info`, priority 5).
-    *   External identifiers (e.g., `tax_ident`) to find/create the `legal_unit` (`external_idents`, priority 10).
-    *   Linking to an enterprise (`enterprise_link`, priority 18).
-    *   Validity dates from the source file (`valid_time_from_source`, priority 15 - *Note: Priority should likely be after `external_idents` but before `legal_unit`, e.g., 19*).
+    *   Populating audit info (`edit_info`, priority 100).
+    *   External identifiers (e.g., `tax_ident`) to find/create the `legal_unit` and determine the `operation` and `action` (`external_idents`, priority 10).
+    *   Linking to an enterprise (`enterprise_link_for_legal_unit`, priority 18).
+    *   Validity dates from the source file (`valid_time_from_source`, priority 15).
     *   Core `legal_unit` data (`legal_unit`, priority 20).
     *   Physical location (`physical_location`, priority 30).
     *   Postal location (`postal_location`, priority 40).
@@ -161,6 +161,7 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
     *   Contact info (`contact`, priority 70).
     *   Statistical variables (`statistical_variables`, priority 80).
     *   Tags (`tags`, priority 90).
+    *   Metadata (`metadata`, priority 110).
 
 2.  **Define Data Columns (`import_data_column`)**: For this definition, we need columns in the `_data` table associated with the chosen steps (linked via `step_id`):
     *   **`edit_info` step:**
@@ -172,14 +173,16 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
         *   ... (other dynamic external ident columns)
         *   `legal_unit_id` (purpose: `pk_id`, type: `INTEGER`) - *Resolved internal ID*
         *   `establishment_id` (purpose: `pk_id`, type: `INTEGER`) - *Resolved internal ID*
-    *   **`enterprise_link` step:**
+        *   `operation` (purpose: `internal`, type: `public.import_row_operation_type`) - *Determined operation*
+        *   `action` (purpose: `internal`, type: `public.import_row_action_type`) - *Determined action*
+    *   **`enterprise_link_for_legal_unit` step:**
         *   `enterprise_id` (purpose: `internal`, type: `INTEGER`)
         *   `is_primary` (purpose: `internal`, type: `BOOLEAN`)
     *   **`valid_time_from_source` step:**
         *   `valid_from` (purpose: `source_input`, type: `TEXT`)
         *   `valid_to` (purpose: `source_input`, type: `TEXT`)
-        *   `typed_valid_from` (purpose: `internal`, type: `DATE`)
-        *   `typed_valid_to` (purpose: `internal`, type: `DATE`)
+        *   `derived_valid_from` (purpose: `internal`, type: `DATE`)
+        *   `derived_valid_to` (purpose: `internal`, type: `DATE`)
     *   **`legal_unit` step:**
         *   `name` (purpose: `source_input`, type: `TEXT`)
         *   `birth_date` (purpose: `source_input`, type: `TEXT`)
@@ -189,16 +192,16 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
         *   `status_code` (purpose: `source_input`, type: `TEXT`)
         *   `legal_form_code` (purpose: `source_input`, type: `TEXT`)
         *   `data_source_code` (purpose: `source_input`, type: `TEXT`)
-        *   `typed_birth_date` (purpose: `internal`, type: `DATE`)
-        *   `typed_death_date` (purpose: `internal`, type: `DATE`) -- Added
+        *   `legal_unit_id` (purpose: `pk_id`, type: `INTEGER`) - *This step performs the final insert/update.*
         *   `sector_id` (purpose: `internal`, type: `INTEGER`)
         *   `unit_size_id` (purpose: `internal`, type: `INTEGER`) -- Added
         *   `status_id` (purpose: `internal`, type: `INTEGER`)
         *   `legal_form_id` (purpose: `internal`, type: `INTEGER`)
         *   `data_source_id` (purpose: `internal`, type: `INTEGER`)
+        *   `typed_birth_date` (purpose: `internal`, type: `DATE`)
+        *   `typed_death_date` (purpose: `internal`, type: `DATE`) -- Added
         *   `enterprise_id` (purpose: `internal`, type: `INTEGER`) -- Populated by enterprise_link step
         *   `is_primary` (purpose: `internal`, type: `BOOLEAN`) -- Populated by enterprise_link step
-        *   `legal_unit_id` (purpose: `pk_id`, type: `INTEGER`) - *This step performs the final insert/update.*
     *   **`physical_location` step:**
         *   `physical_address_part1` (purpose: `source_input`, type: `TEXT`)
         *   `physical_postcode` (purpose: `source_input`, type: `TEXT`)
@@ -236,18 +239,18 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
     *   **And the `row_id` column (implicitly added):**
         *   `row_id` (e.g., `SERIAL PRIMARY KEY` or `BIGSERIAL PRIMARY KEY`)
 
-3.  **Implement Procedures**: Write the PL/pgSQL functions for each step (e.g., `admin.analyse_edit_info`, `admin.analyse_external_idents`, `admin.analyse_enterprise_link`, `admin.process_legal_unit`, etc.). These functions must:
+3.  **Implement Procedures**: Write the PL/pgSQL functions for each step (e.g., `admin.analyse_edit_info`, `admin.analyse_external_idents`, `admin.analyse_enterprise_link_for_legal_unit`, `admin.process_legal_unit`, etc.). These functions must:
     *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[])` (or appropriate array type for `row_id`).
     *   Read `definition_snapshot` from `import_job` if needed.
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
-    *   Perform logic (lookups, validation, casting, final DML using audit info from `_data`).
-    *   Update `last_completed_priority`, `state`, `error` in `_data`.
+    *   Perform logic (lookups, validation, casting, final DML using audit info and `action` from `_data`).
+    *   Correctly update `last_completed_priority`, `state`, and `error` columns in `_data`.
 
 4.  **Create Definition (`import_definition`)**:
     ```sql
     INSERT INTO public.import_definition (slug, name, note, strategy, valid)
-    VALUES ('legal_unit_explicit_dates', 'Legal Unit - Explicit Dates', 'Imports legal units with explicit dates', 'upsert', false); -- Start as invalid
+    VALUES ('legal_unit_explicit_dates', 'Legal Unit - Explicit Dates', 'Imports legal units with explicit dates', 'insert_or_replace', false); -- Start as invalid
     ```
 
 5.  **Link Steps (`import_definition_step`)**:
@@ -256,9 +259,9 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
     SELECT d.id, s.id
     FROM public.import_definition d
     JOIN public.import_step s ON s.code IN ( -- Use code here
-        'edit_info', 'external_idents', 'enterprise_link', 'valid_time_from_source', 'legal_unit',
+        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time_from_source', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
-        'contact', 'statistical_variables', 'tags'
+        'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     )
     WHERE d.slug = 'legal_unit_explicit_dates';
     ```
@@ -273,6 +276,7 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
         ('birth_date', 5), ('sector_code', 6), ('status_code', 7), ('legal_form_code', 8),
         ('data_source_code', 9), ('physical_address_part1', 10), ('physical_postcode', 11),
         ('physical_region_code', 12), ('primary_activity_category_code', 13)
+        -- Add other source columns as needed...
     ) AS v(col, pri)
     WHERE d.slug = 'legal_unit_explicit_dates';
     ```

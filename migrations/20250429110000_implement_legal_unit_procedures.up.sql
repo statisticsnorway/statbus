@@ -44,7 +44,7 @@ BEGIN
             NULLIF(unit_size_code, '''') as unit_size_code,
             NULLIF(birth_date, '''') as birth_date_str,
             NULLIF(death_date, '''') as death_date_str
-         FROM public.%I WHERE row_id = ANY(%L)
+         FROM public.%I WHERE row_id = ANY(%L) AND action != 'skip' -- Skip rows marked for skipping
         $$,
         v_job.data_table_name, p_batch_row_ids
     );
@@ -108,6 +108,10 @@ BEGIN
             RAISE WARNING '[Job %] analyse_legal_unit: Unexpected error processing row %: %', p_job_id, v_row.row_id, SQLERRM;
         END;
     END LOOP;
+
+    -- Update priority for skipped rows
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
 
     RAISE DEBUG '[Job %] analyse_legal_unit: Finished analysis for batch. Errors: %', p_job_id, v_error_count;
 
@@ -189,14 +193,15 @@ BEGIN
         enterprise_id INT,
         is_primary BOOLEAN,
         edit_by_user_id INT,
-        edit_at TIMESTAMPTZ
+        edit_at TIMESTAMPTZ,
+        action public.import_row_action_type -- Added action column
     ) ON COMMIT DROP;
 
     v_sql := format($$
         INSERT INTO temp_batch_data (
             row_id, tax_ident, name, typed_birth_date, typed_death_date, valid_from, valid_to,
             sector_id, unit_size_id, status_id, legal_form_id, data_source_id,
-            existing_lu_id, enterprise_id, is_primary, edit_by_user_id, edit_at
+            existing_lu_id, enterprise_id, is_primary, edit_by_user_id, edit_at, action -- Added action
         )
         SELECT
             dt.row_id,
@@ -213,8 +218,9 @@ BEGIN
             dt.data_source_id,
             dt.legal_unit_id, -- This is the existing_lu_id from _data table, populated by analyse_external_idents
             dt.enterprise_id, dt.is_primary,
-            dt.edit_by_user_id, dt.edit_at
-         FROM public.%I dt WHERE dt.row_id = ANY(%L);
+            dt.edit_by_user_id, dt.edit_at,
+            dt.action -- Added action
+         FROM public.%I dt WHERE dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Skip rows marked for skipping
     $$, v_data_table_name, p_batch_row_ids);
     RAISE DEBUG '[Job %] process_legal_unit: Fetching batch data: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -226,42 +232,166 @@ BEGIN
     ) ON COMMIT DROP;
 
     BEGIN
-        -- Handle INSERTs for new legal units (existing_lu_id IS NULL)
-        IF v_strategy IN ('insert_only', 'upsert') THEN
-            RAISE DEBUG '[Job %] process_legal_unit: Handling INSERTS for new LUs.', p_job_id;
+        -- Handle INSERTs for new legal units (action = 'insert')
+        RAISE DEBUG '[Job %] process_legal_unit: Handling INSERTS for new LUs.', p_job_id;
 
-            WITH rows_to_insert_lu_with_temp_key AS (
-                SELECT *, row_number() OVER () as temp_insert_key
-                FROM temp_batch_data
-                WHERE existing_lu_id IS NULL
-            ),
-            inserted_legal_units AS (
-                INSERT INTO public.legal_unit (
-                    name, birth_date, death_date,
-                    sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
-                    primary_for_enterprise, data_source_id, edit_by_user_id, edit_at, edit_comment
+        WITH rows_to_insert_lu_with_temp_key AS (
+            SELECT *, row_number() OVER () as temp_insert_key
+            FROM temp_batch_data
+            WHERE action = 'insert' -- Filter by action
+        ),
+        inserted_legal_units AS (
+            INSERT INTO public.legal_unit (
+                name, birth_date, death_date,
+                sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
+                primary_for_enterprise, data_source_id, edit_by_user_id, edit_at, edit_comment
+            )
+            SELECT
+                rti.name, rti.typed_birth_date, rti.typed_death_date,
+                rti.sector_id, rti.unit_size_id, rti.status_id, rti.legal_form_id, rti.enterprise_id,
+                rti.is_primary, rti.data_source_id, rti.edit_by_user_id, rti.edit_at, 'Import Job Batch Insert'
+            FROM rows_to_insert_lu_with_temp_key rti
+            ORDER BY rti.temp_insert_key
+            RETURNING id
+        )
+        INSERT INTO temp_created_lus (data_row_id, new_legal_unit_id)
+        SELECT rtiwtk.row_id, ilu.id
+        FROM rows_to_insert_lu_with_temp_key rtiwtk
+        JOIN (SELECT id, row_number() OVER () as rn FROM inserted_legal_units) ilu
+        ON rtiwtk.temp_insert_key = ilu.rn;
+
+        GET DIAGNOSTICS v_inserted_new_lu_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] process_legal_unit: Inserted % new legal units into temp_created_lus.', p_job_id, v_inserted_new_lu_count;
+
+        IF v_inserted_new_lu_count > 0 THEN
+            INSERT INTO public.external_ident (legal_unit_id, type_id, ident, valid_from, valid_to, data_source_id, edit_by_user_id, edit_at, edit_comment)
+            SELECT
+                tcl.new_legal_unit_id,
+                v_tax_ident_type_id,
+                tbd.tax_ident,
+                tbd.valid_from,
+                tbd.valid_to,
+                tbd.data_source_id,
+                tbd.edit_by_user_id,
+                tbd.edit_at,
+                'Import Job Batch Insert External Ident'
+            FROM temp_created_lus tcl
+            JOIN temp_batch_data tbd ON tcl.data_row_id = tbd.row_id
+            WHERE tbd.tax_ident IS NOT NULL;
+
+            RAISE DEBUG '[Job %] process_legal_unit: Inserted external idents for % new LUs.', p_job_id, v_inserted_new_lu_count;
+
+            EXECUTE format($$
+                UPDATE public.%I dt SET
+                    legal_unit_id = tcl.new_legal_unit_id,
+                    last_completed_priority = %L,
+                    error = NULL,
+                    state = %L
+                FROM temp_created_lus tcl
+                WHERE dt.row_id = tcl.data_row_id AND dt.state != 'error';
+            $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state);
+            RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % new LUs.', p_job_id, v_inserted_new_lu_count;
+        END IF;
+
+        -- Handle REPLACES for existing legal units using batch_insert_or_replace_generic_valid_time_table (action = 'replace')
+        RAISE DEBUG '[Job %] process_legal_unit: Handling REPLACES for existing LUs via batch_upsert.', p_job_id;
+
+        -- Create a temporary source table for the batch upsert function
+        CREATE TEMP TABLE temp_lu_upsert_source (
+            row_id BIGINT PRIMARY KEY, -- Link back to original _data row
+            id INT, -- Target legal_unit ID
+            valid_from DATE NOT NULL,
+            valid_to DATE NOT NULL,
+            name TEXT,
+            birth_date DATE,
+            death_date DATE,
+            active BOOLEAN,
+            sector_id INT,
+            unit_size_id INT,
+            status_id INT,
+            legal_form_id INT,
+            enterprise_id INT,
+            primary_for_enterprise BOOLEAN,
+            data_source_id INT,
+            edit_by_user_id INT,
+            edit_at TIMESTAMPTZ,
+            edit_comment TEXT
+        ) ON COMMIT DROP;
+
+        -- Populate the temporary source table
+        INSERT INTO temp_lu_upsert_source (
+            row_id, id, valid_from, valid_to, name, birth_date, death_date, active,
+            sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
+            primary_for_enterprise, data_source_id, edit_by_user_id, edit_at, edit_comment
+        )
+        SELECT
+            tbd.row_id,
+            tbd.existing_lu_id,
+            tbd.valid_from,
+            tbd.valid_to,
+            tbd.name,
+            tbd.typed_birth_date,
+            tbd.typed_death_date,
+            true, -- Assuming active if being updated/upserted
+            tbd.sector_id,
+            tbd.unit_size_id,
+            tbd.status_id,
+            tbd.legal_form_id,
+            tbd.enterprise_id,
+            tbd.is_primary,
+            tbd.data_source_id,
+            tbd.edit_by_user_id,
+            tbd.edit_at,
+            'Import Job Batch Replace' -- Changed comment
+        FROM temp_batch_data tbd
+        WHERE tbd.action = 'replace'; -- Filter by action
+
+        GET DIAGNOSTICS v_updated_existing_lu_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] process_legal_unit: Populated temp_lu_upsert_source with % rows for batch replace.', p_job_id, v_updated_existing_lu_count;
+
+        IF v_updated_existing_lu_count > 0 THEN
+            -- Call the batch upsert function
+            RAISE DEBUG '[Job %] process_legal_unit: Calling batch_insert_or_replace_generic_valid_time_table for legal_unit.', p_job_id;
+            FOR v_batch_upsert_result IN
+                SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+                    p_target_schema_name => 'public',
+                    p_target_table_name => 'legal_unit',
+                    p_source_schema_name => 'pg_temp', -- Assuming temp table is in pg_temp
+                    p_source_table_name => 'temp_lu_upsert_source',
+                    p_source_row_id_column_name => 'row_id',
+                    p_unique_columns => '[]'::jsonb, -- ID is provided directly
+                    p_temporal_columns => ARRAY['valid_from', 'valid_to'],
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                    p_id_column_name => 'id'
+                )
+            LOOP
+                IF v_batch_upsert_result.status = 'ERROR' THEN
+                    v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                    -- Update the corresponding row in the _data table with the error
+                    EXECUTE format($$
+                        UPDATE public.%I SET
+                            state = %L,
+                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_legal_unit_error', %L),
+                            last_completed_priority = %L
+                        WHERE row_id = %L;
+                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_step.priority - 1, v_batch_upsert_result.source_row_id);
+                ELSE
+                    v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                END IF;
+            END LOOP;
+
+            v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
+            RAISE DEBUG '[Job %] process_legal_unit: Batch replace finished. Success: %, Errors: %', p_job_id, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
+
+            -- Ensure external_ident for successfully replaced legal units
+            IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
+                INSERT INTO public.external_ident (
+                    legal_unit_id, type_id, ident,
+                    valid_from, valid_to, data_source_id,
+                    edit_by_user_id, edit_at, edit_comment
                 )
                 SELECT
-                    rti.name, rti.typed_birth_date, rti.typed_death_date,
-                    rti.sector_id, rti.unit_size_id, rti.status_id, rti.legal_form_id, rti.enterprise_id,
-                    rti.is_primary, rti.data_source_id, rti.edit_by_user_id, rti.edit_at, 'Import Job Batch Insert'
-                FROM rows_to_insert_lu_with_temp_key rti
-                ORDER BY rti.temp_insert_key
-                RETURNING id
-            )
-            INSERT INTO temp_created_lus (data_row_id, new_legal_unit_id)
-            SELECT rtiwtk.row_id, ilu.id
-            FROM rows_to_insert_lu_with_temp_key rtiwtk
-            JOIN (SELECT id, row_number() OVER () as rn FROM inserted_legal_units) ilu
-            ON rtiwtk.temp_insert_key = ilu.rn;
-
-            GET DIAGNOSTICS v_inserted_new_lu_count = ROW_COUNT;
-            RAISE DEBUG '[Job %] process_legal_unit: Inserted % new legal units into temp_created_lus.', p_job_id, v_inserted_new_lu_count;
-
-            IF v_inserted_new_lu_count > 0 THEN
-                INSERT INTO public.external_ident (legal_unit_id, type_id, ident, valid_from, valid_to, data_source_id, edit_by_user_id, edit_at, edit_comment)
-                SELECT
-                    tcl.new_legal_unit_id,
+                    tbd.existing_lu_id,
                     v_tax_ident_type_id,
                     tbd.tax_ident,
                     tbd.valid_from,
@@ -269,160 +399,32 @@ BEGIN
                     tbd.data_source_id,
                     tbd.edit_by_user_id,
                     tbd.edit_at,
-                    'Import Job Batch Insert External Ident'
-                FROM temp_created_lus tcl
-                JOIN temp_batch_data tbd ON tcl.data_row_id = tbd.row_id
-                WHERE tbd.tax_ident IS NOT NULL;
+                    'Import Job Batch Replace - Ensure External Ident'
+                FROM temp_batch_data tbd
+                WHERE tbd.row_id = ANY(v_batch_upsert_success_row_ids) -- Only for successful rows
+                  AND tbd.existing_lu_id IS NOT NULL
+                  AND tbd.tax_ident IS NOT NULL
+                  AND NOT EXISTS (
+                      SELECT 1
+                      FROM public.external_ident xi
+                      WHERE xi.legal_unit_id = tbd.existing_lu_id
+                        AND xi.type_id = v_tax_ident_type_id
+                        AND xi.ident = tbd.tax_ident
+                  );
+                RAISE DEBUG '[Job %] process_legal_unit: Ensured external_ident for successfully replaced LUs.', p_job_id;
 
-                RAISE DEBUG '[Job %] process_legal_unit: Inserted external idents for % new LUs.', p_job_id, v_inserted_new_lu_count;
-
+                -- Update the _data table for successfully replaced rows
                 EXECUTE format($$
                     UPDATE public.%I dt SET
-                        legal_unit_id = tcl.new_legal_unit_id,
                         last_completed_priority = %L,
-                        error = NULL,
+                        error = NULL, -- Clear previous errors for this step
                         state = %L
-                    FROM temp_created_lus tcl
-                    WHERE dt.row_id = tcl.data_row_id AND dt.state != 'error';
-                $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state);
-                RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % new LUs.', p_job_id, v_inserted_new_lu_count;
+                    WHERE dt.row_id = ANY(%L);
+                $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
+                RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % successfully replaced LUs.', p_job_id, array_length(v_batch_upsert_success_row_ids, 1);
             END IF;
-        END IF;
-
-        -- Handle UPDATEs/UPSERTs for existing legal units using batch_upsert_generic_valid_time_table
-        IF v_strategy IN ('update_only', 'upsert') THEN
-            RAISE DEBUG '[Job %] process_legal_unit: Handling UPDATES/UPSERTS for existing LUs via batch_upsert.', p_job_id;
-
-            -- Create a temporary source table for the batch upsert function
-            CREATE TEMP TABLE temp_lu_upsert_source (
-                row_id BIGINT PRIMARY KEY, -- Link back to original _data row
-                id INT, -- Target legal_unit ID
-                valid_from DATE NOT NULL,
-                valid_to DATE NOT NULL,
-                name TEXT,
-                birth_date DATE,
-                death_date DATE,
-                active BOOLEAN,
-                sector_id INT,
-                unit_size_id INT,
-                status_id INT,
-                legal_form_id INT,
-                enterprise_id INT,
-                primary_for_enterprise BOOLEAN,
-                data_source_id INT,
-                edit_by_user_id INT,
-                edit_at TIMESTAMPTZ,
-                edit_comment TEXT
-            ) ON COMMIT DROP;
-
-            -- Populate the temporary source table
-            INSERT INTO temp_lu_upsert_source (
-                row_id, id, valid_from, valid_to, name, birth_date, death_date, active,
-                sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
-                primary_for_enterprise, data_source_id, edit_by_user_id, edit_at, edit_comment
-            )
-            SELECT
-                tbd.row_id,
-                tbd.existing_lu_id,
-                tbd.valid_from,
-                tbd.valid_to,
-                tbd.name,
-                tbd.typed_birth_date,
-                tbd.typed_death_date,
-                true, -- Assuming active if being updated/upserted
-                tbd.sector_id,
-                tbd.unit_size_id,
-                tbd.status_id,
-                tbd.legal_form_id,
-                tbd.enterprise_id,
-                tbd.is_primary,
-                tbd.data_source_id,
-                tbd.edit_by_user_id,
-                tbd.edit_at,
-                'Import Job Batch Update/Upsert'
-            FROM temp_batch_data tbd
-            WHERE tbd.existing_lu_id IS NOT NULL;
-
-            GET DIAGNOSTICS v_updated_existing_lu_count = ROW_COUNT;
-            RAISE DEBUG '[Job %] process_legal_unit: Populated temp_lu_upsert_source with % rows for batch upsert.', p_job_id, v_updated_existing_lu_count;
-
-            IF v_updated_existing_lu_count > 0 THEN
-                -- Call the batch upsert function
-                RAISE DEBUG '[Job %] process_legal_unit: Calling batch_upsert_generic_valid_time_table for legal_unit.', p_job_id;
-                FOR v_batch_upsert_result IN
-                    SELECT * FROM admin.batch_upsert_generic_valid_time_table(
-                        p_target_schema_name => 'public',
-                        p_target_table_name => 'legal_unit',
-                        p_source_schema_name => 'pg_temp', -- Assuming temp table is in pg_temp
-                        p_source_table_name => 'temp_lu_upsert_source',
-                        p_source_row_id_column_name => 'row_id',
-                        p_unique_columns => '[]'::jsonb, -- ID is provided directly
-                        p_temporal_columns => ARRAY['valid_from', 'valid_to'],
-                        p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-                        p_id_column_name => 'id'
-                    )
-                LOOP
-                    IF v_batch_upsert_result.status = 'ERROR' THEN
-                        v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
-                        -- Update the corresponding row in the _data table with the error
-                        EXECUTE format($$
-                            UPDATE public.%I SET
-                                state = %L,
-                                error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_upsert_legal_unit_error', %L),
-                                last_completed_priority = %L
-                            WHERE row_id = %L;
-                        $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_step.priority - 1, v_batch_upsert_result.source_row_id);
-                    ELSE
-                        v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
-                    END IF;
-                END LOOP;
-
-                v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
-                RAISE DEBUG '[Job %] process_legal_unit: Batch upsert finished. Success: %, Errors: %', p_job_id, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
-
-                -- Ensure external_ident for successfully upserted legal units
-                IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
-                    INSERT INTO public.external_ident (
-                        legal_unit_id, type_id, ident,
-                        valid_from, valid_to, data_source_id,
-                        edit_by_user_id, edit_at, edit_comment
-                    )
-                    SELECT
-                        tbd.existing_lu_id,
-                        v_tax_ident_type_id,
-                        tbd.tax_ident,
-                        tbd.valid_from,
-                        tbd.valid_to,
-                        tbd.data_source_id,
-                        tbd.edit_by_user_id,
-                        tbd.edit_at,
-                        'Import Job Batch Update/Upsert - Ensure External Ident'
-                    FROM temp_batch_data tbd
-                    WHERE tbd.row_id = ANY(v_batch_upsert_success_row_ids) -- Only for successful rows
-                      AND tbd.existing_lu_id IS NOT NULL
-                      AND tbd.tax_ident IS NOT NULL
-                      AND NOT EXISTS (
-                          SELECT 1
-                          FROM public.external_ident xi
-                          WHERE xi.legal_unit_id = tbd.existing_lu_id
-                            AND xi.type_id = v_tax_ident_type_id
-                            AND xi.ident = tbd.tax_ident
-                      );
-                    RAISE DEBUG '[Job %] process_legal_unit: Ensured external_ident for successfully upserted LUs.', p_job_id;
-
-                    -- Update the _data table for successfully updated/upserted rows
-                    EXECUTE format($$
-                        UPDATE public.%I dt SET
-                            last_completed_priority = %L,
-                            error = NULL, -- Clear previous errors for this step
-                            state = %L
-                        WHERE dt.row_id = ANY(%L);
-                    $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
-                    RAISE DEBUG '[Job %] process_legal_unit: Updated _data table for % successfully upserted LUs.', p_job_id, array_length(v_batch_upsert_success_row_ids, 1);
-                END IF;
-            END IF; -- End if v_updated_existing_lu_count > 0
-            DROP TABLE IF EXISTS temp_lu_upsert_source;
-        END IF; -- End if strategy allows update/upsert
+        END IF; -- End if v_updated_existing_lu_count > 0
+        DROP TABLE IF EXISTS temp_lu_upsert_source;
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
@@ -434,11 +436,15 @@ BEGIN
         UPDATE public.import_job SET error = jsonb_build_object('process_legal_unit_error', error_message) WHERE id = p_job_id;
     END;
 
+    -- Update priority for skipped rows
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
+
     IF NOT statbus_constraints_already_deferred THEN
         SET CONSTRAINTS ALL IMMEDIATE;
     END IF;
 
-    RAISE DEBUG '[Job %] process_legal_unit (Batch): Finished. New LUs processed: %, Existing LUs processed (attempted): %. Rows marked as error in this step: %',
+    RAISE DEBUG '[Job %] process_legal_unit (Batch): Finished. New LUs processed: %, Existing LUs processed (attempted replace): %. Rows marked as error in this step: %',
         p_job_id, v_inserted_new_lu_count, v_updated_existing_lu_count, v_error_count;
 
     DROP TABLE IF EXISTS temp_batch_data;

@@ -40,7 +40,7 @@ BEGIN
         RAISE EXCEPTION '[Job %] valid_time_from_context target not found', p_job_id;
     END IF;
 
-    -- Step 1: Batch Update derived_valid_from/to from job defaults
+    -- Step 1: Batch Update derived_valid_from/to from job defaults for non-skipped rows
     v_sql := format($$
         UPDATE public.%I dt SET
             derived_valid_from = %L::DATE,
@@ -48,12 +48,18 @@ BEGIN
             last_completed_priority = %L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
-        WHERE dt.row_id = ANY(%L);
+        WHERE dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Only process non-skipped rows
     $$, v_data_table_name, v_job.default_valid_from, v_job.default_valid_to, v_step.priority, 'analysing', p_batch_row_ids);
-    RAISE DEBUG '[Job %] analyse_valid_time_from_context: Updating derived dates: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_valid_time_from_context: Updating derived dates for non-skipped rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_valid_time_from_context: Marked % rows as success for this target.', p_job_id, v_update_count;
+    RAISE DEBUG '[Job %] analyse_valid_time_from_context: Marked % non-skipped rows as success for this target.', p_job_id, v_update_count;
+
+    -- Update priority for skipped rows
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    GET DIAGNOSTICS v_update_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_valid_time_from_context: Advanced priority for % skipped rows.', p_job_id, v_update_count;
 
     RAISE DEBUG '[Job %] analyse_valid_time_from_context (Batch): Finished analysis for batch.', p_job_id;
 END;
@@ -84,17 +90,17 @@ BEGIN
         RAISE EXCEPTION '[Job %] valid_time_from_source target not found', p_job_id;
     END IF;
 
-    -- Step 1: Batch Update derived_valid_from/to using safe casting from source TEXT columns
+    -- Step 1: Batch Update derived_valid_from/to using safe casting from source TEXT columns for non-skipped rows
     v_sql := format($$
         UPDATE public.%I dt SET
             derived_valid_from = admin.safe_cast_to_date(dt.valid_from), -- valid_from is source TEXT
             derived_valid_to = admin.safe_cast_to_date(dt.valid_to)     -- valid_to is source TEXT
-        WHERE dt.row_id = ANY(%L);
+        WHERE dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Only process non-skipped rows
     $$, v_data_table_name, p_batch_row_ids);
-    RAISE DEBUG '[Job %] analyse_valid_time_from_source: Batch updating derived dates from source: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_valid_time_from_source: Batch updating derived dates from source for non-skipped rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
-    -- Step 2: Identify and Aggregate Errors Post-Batch
+    -- Step 2: Identify and Aggregate Errors Post-Batch for non-skipped rows
     CREATE TEMP TABLE temp_batch_errors (data_row_id BIGINT PRIMARY KEY, error_jsonb JSONB) ON COMMIT DROP;
     v_sql := format($$
         INSERT INTO temp_batch_errors (data_row_id, error_jsonb)
@@ -105,12 +111,12 @@ BEGIN
                 jsonb_build_object('valid_to_source', CASE WHEN valid_to IS NOT NULL AND derived_valid_to IS NULL THEN 'Invalid format' ELSE NULL END)       -- Check source 'valid_to' against 'derived_valid_to'
             ) AS error_jsonb
         FROM public.%I
-        WHERE row_id = ANY(%L) -- Filter by row_id from the main data table
+        WHERE row_id = ANY(%L) AND action != 'skip' -- Filter by row_id from the main data table and only non-skipped rows
      $$, v_data_table_name, p_batch_row_ids);
-     RAISE DEBUG '[Job %] analyse_valid_time_from_source: Identifying errors post-batch: %', p_job_id, v_sql;
+     RAISE DEBUG '[Job %] analyse_valid_time_from_source: Identifying errors post-batch for non-skipped rows: %', p_job_id, v_sql;
      EXECUTE v_sql;
 
-    -- Step 3: Batch Update Error Rows
+    -- Step 3: Batch Update Error Rows (these were non-skipped but had errors in this step)
     v_sql := format($$
         UPDATE public.%I dt SET
             state = %L,
@@ -126,13 +132,13 @@ BEGIN
     SELECT array_agg(data_row_id) INTO v_error_row_ids FROM temp_batch_errors WHERE error_jsonb != '{}'::jsonb; -- Corrected to data_row_id
     RAISE DEBUG '[Job %] analyse_valid_time_from_source: Marked % rows as error.', p_job_id, v_update_count;
 
-    -- Step 4: Batch Update Success Rows
+    -- Step 4: Batch Update Success Rows (these were non-skipped and had no errors in this step)
     v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L,
             error = CASE WHEN (dt.error - 'valid_from_source' - 'valid_to_source') = '{}'::jsonb THEN NULL ELSE (dt.error - 'valid_from_source' - 'valid_to_source') END, -- Clear only this step's error keys
             state = %L
-        WHERE dt.row_id = ANY(%L) AND dt.row_id != ALL(%L);
+        WHERE dt.row_id = ANY(%L) AND dt.row_id != ALL(%L) AND dt.action != 'skip'; -- Ensure it was a non-skipped row
     $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids, COALESCE(v_error_row_ids, ARRAY[]::BIGINT[])); -- Changed TID[] to BIGINT[]
     RAISE DEBUG '[Job %] analyse_valid_time_from_source: Updating success rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -140,6 +146,12 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_valid_time_from_source: Marked % rows as success for this target.', p_job_id, v_update_count;
 
     DROP TABLE IF EXISTS temp_batch_errors;
+
+    -- Update priority for skipped rows
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    GET DIAGNOSTICS v_update_count = ROW_COUNT;
+    RAISE DEBUG '[Job %] analyse_valid_time_from_source: Advanced priority for % skipped rows.', p_job_id, v_update_count;
 
     RAISE DEBUG '[Job %] analyse_valid_time_from_source (Batch): Finished analysis for batch. Total errors in batch: %', p_job_id, v_error_count;
 END;

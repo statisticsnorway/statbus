@@ -63,7 +63,7 @@ BEGIN
     v_sql := format($$
         UPDATE public.%I dt SET
             tag_id = public.tag_find_by_path(dt.tag_path) -- Changed function call
-        WHERE dt.row_id = ANY(%L);
+        WHERE dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Skip rows marked for skipping
     $$, v_data_table_name, p_batch_row_ids);
     RAISE DEBUG '[Job %] analyse_tags: Batch updating tag_id lookup: %', p_job_id, v_sql;
     BEGIN
@@ -93,7 +93,7 @@ BEGIN
                 jsonb_build_object('tag_path', CASE WHEN tag_path IS NOT NULL AND tag_id IS NULL THEN 'Tag not found or path invalid' ELSE NULL END)
             ) AS error_jsonb
         FROM public.%I
-        WHERE row_id = ANY(%L) AND (tag_path IS NOT NULL AND tag_id IS NULL) -- Only select rows with actual errors
+        WHERE row_id = ANY(%L) AND (tag_path IS NOT NULL AND tag_id IS NULL) AND action != 'skip' -- Only select rows with actual errors and not skipped
     $$, v_data_table_name, p_batch_row_ids);
     RAISE DEBUG '[Job %] analyse_tags: Identifying errors post-lookup: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -120,12 +120,16 @@ BEGIN
             last_completed_priority = %L,
             error = CASE WHEN (dt.error - 'tag_path') = '{}'::jsonb THEN NULL ELSE (dt.error - 'tag_path') END,
             state = %L
-        WHERE dt.row_id = ANY(%L) AND dt.row_id != ALL(%L); -- Update only non-error rows from the original batch
+        WHERE dt.row_id = ANY(%L) AND dt.row_id != ALL(%L) AND dt.action != 'skip'; -- Update only non-error, non-skipped rows
     $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids, COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]));
     RAISE DEBUG '[Job %] analyse_tags: Updating success rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_tags: Marked % rows as success for this target.', p_job_id, v_update_count;
+
+    -- Update priority for skipped rows
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
 
     DROP TABLE IF EXISTS temp_batch_errors; -- Ensure temp table is dropped
 
@@ -185,13 +189,14 @@ BEGIN
         legal_unit_id INT,
         establishment_id INT,
         tag_id INT,
-        existing_link_id INT
+        existing_link_id INT,
+        action public.import_row_action_type -- Added action
     ) ON COMMIT DROP;
 
     v_sql := format($$
-        INSERT INTO temp_batch_data (row_id, legal_unit_id, establishment_id, tag_id)
-        SELECT row_id, legal_unit_id, establishment_id, tag_id
-        FROM public.%I WHERE row_id = ANY(%L) AND tag_id IS NOT NULL; -- Only process rows with a tag_id
+        INSERT INTO temp_batch_data (row_id, legal_unit_id, establishment_id, tag_id, action) -- Added action
+        SELECT row_id, legal_unit_id, establishment_id, tag_id, action -- Added action
+        FROM public.%I WHERE row_id = ANY(%L) AND tag_id IS NOT NULL AND action != 'skip'; -- Only process rows with a tag_id and not skipped
     $$, v_data_table_name, p_batch_row_ids);
     RAISE DEBUG '[Job %] process_tags: Fetching batch data: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -211,28 +216,30 @@ BEGIN
     -- Step 3: Perform Batch INSERT/UPDATE/UPSERT on tag_for_unit
     -- Since tag_for_unit is NOT temporal, we handle operations directly.
     BEGIN
+        -- Filter based on action column from temp_batch_data
         IF v_strategy = 'insert_only' THEN
             v_sql := format($$
                 INSERT INTO public.tag_for_unit (tag_id, legal_unit_id, establishment_id, edit_by_user_id, edit_at)
                 SELECT tbd.tag_id, tbd.legal_unit_id, tbd.establishment_id, dt.edit_by_user_id, dt.edit_at
                 FROM temp_batch_data tbd
                 JOIN public.%I dt ON tbd.row_id = dt.row_id -- Join to get audit info
-                WHERE tbd.existing_link_id IS NULL;
+                WHERE tbd.action = 'insert'; -- Only insert if action is insert
             $$, v_data_table_name);
-        ELSIF v_strategy = 'update_only' THEN
+        ELSIF v_strategy = 'replace_only' THEN -- Changed from update_only
             v_sql := format($$
                 UPDATE public.tag_for_unit tfu SET
                     edit_by_user_id = dt.edit_by_user_id, edit_at = dt.edit_at
                 FROM temp_batch_data tbd
                 JOIN public.%I dt ON tbd.row_id = dt.row_id -- Join to get audit info
-                WHERE tfu.id = tbd.existing_link_id;
+                WHERE tfu.id = tbd.existing_link_id AND tbd.action = 'replace'; -- Only update if action is replace
             $$, v_data_table_name);
-        ELSIF v_strategy = 'upsert' THEN
+        ELSIF v_strategy = 'insert_or_replace' THEN -- Changed from upsert
              v_sql := format($$
                 INSERT INTO public.tag_for_unit (tag_id, legal_unit_id, establishment_id, edit_by_user_id, edit_at)
                 SELECT tbd.tag_id, tbd.legal_unit_id, tbd.establishment_id, dt.edit_by_user_id, dt.edit_at
                 FROM temp_batch_data tbd
                 JOIN public.%I dt ON tbd.row_id = dt.row_id -- Join to get audit info
+                WHERE tbd.action IN ('insert', 'replace') -- Process both inserts and replaces
                 ON CONFLICT (tag_id, legal_unit_id, establishment_id) DO UPDATE SET -- Use natural key constraint
                     edit_by_user_id = EXCLUDED.edit_by_user_id,
                     edit_at = EXCLUDED.edit_at;
@@ -260,12 +267,8 @@ BEGIN
                                AND ll.establishment_id IS NOT DISTINCT FROM tbd.establishment_id
             WHERE dt.row_id = tbd.row_id
               AND dt.state != %L
-              AND CASE %L::public.import_strategy
-                    WHEN 'insert_only' THEN tbd.existing_link_id IS NULL
-                    WHEN 'update_only' THEN tbd.existing_link_id IS NOT NULL
-                    WHEN 'upsert' THEN TRUE
-                  END;
-        $$, v_data_table_name, v_step.priority, 'processing', 'error', v_strategy); -- Changed 'importing' to 'processing'
+              AND tbd.action IN ('insert', 'replace'); -- Only update rows that were processed
+        $$, v_data_table_name, v_step.priority, 'processing', 'error');
         RAISE DEBUG '[Job %] process_tags: Updating _data table with final IDs: %', p_job_id, v_sql;
         EXECUTE v_sql;
 
@@ -281,13 +284,18 @@ BEGIN
         UPDATE public.import_job SET error = jsonb_build_object('process_tags_error', error_message) WHERE id = p_job_id;
     END;
 
-     -- Update priority for rows that didn't have a tag_id (were skipped)
+     -- Update priority for rows that didn't have a tag_id or were skipped
      v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L
-        WHERE dt.row_id = ANY(%L) AND dt.state != %L AND dt.tag_id IS NULL;
+        WHERE dt.row_id = ANY(%L) AND dt.state != %L
+          AND NOT EXISTS (SELECT 1 FROM temp_batch_data tbd WHERE tbd.row_id = dt.row_id AND tbd.action IN ('insert', 'replace')); -- Only update rows not processed
     $$, v_data_table_name, v_step.priority, p_batch_row_ids, 'error');
     EXECUTE v_sql;
+
+    -- Update priority for skipped rows (redundant if already done in analyse, but safe)
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
 
     -- Reset constraints if they were deferred by this function
     IF NOT statbus_constraints_already_deferred THEN

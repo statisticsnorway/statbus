@@ -46,7 +46,7 @@ BEGIN
             LEFT JOIN public.activity_category sac ON dt_sub.secondary_activity_category_code IS NOT NULL AND sac.code = dt_sub.secondary_activity_category_code
             WHERE dt_sub.row_id = ANY(%L) -- Filter for the current batch
         ) AS src
-        WHERE dt.row_id = src.row_id_for_join;
+        WHERE dt.row_id = src.row_id_for_join AND dt.action != 'skip'; -- Skip rows marked for skipping
     $$, v_data_table_name, v_data_table_name, p_batch_row_ids);
     RAISE DEBUG '[Job %] analyse_activity: Batch updating lookups: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -62,7 +62,7 @@ BEGIN
                 jsonb_build_object('secondary_activity_category_code', CASE WHEN secondary_activity_category_code IS NOT NULL AND secondary_activity_category_id IS NULL THEN 'Not found' ELSE NULL END)
             ) AS error_jsonb
         FROM public.%I
-        WHERE row_id = ANY(%L)
+        WHERE row_id = ANY(%L) AND action != 'skip' -- Skip rows marked for skipping
     $$, v_data_table_name, p_batch_row_ids);
      RAISE DEBUG '[Job %] analyse_activity: Identifying errors post-batch: %', p_job_id, v_sql;
      EXECUTE v_sql;
@@ -89,12 +89,16 @@ BEGIN
             last_completed_priority = %L,
             error = CASE WHEN (dt.error - 'primary_activity_category_code' - 'secondary_activity_category_code') = '{}'::jsonb THEN NULL ELSE (dt.error - 'primary_activity_category_code' - 'secondary_activity_category_code') END, -- Clear only this step's error keys
             state = %L
-        WHERE dt.row_id = ANY(%L) AND dt.row_id != ALL(%L); -- Update only non-error rows from the original batch
+        WHERE dt.row_id = ANY(%L) AND dt.row_id != ALL(%L) AND dt.action != 'skip'; -- Update only non-error, non-skipped rows
     $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids, COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]));
     RAISE DEBUG '[Job %] analyse_activity: Updating success rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_activity: Marked % rows as success for this target.', p_job_id, v_update_count;
+
+    -- Update priority for skipped rows
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_data_table_name, v_step.priority, p_batch_row_ids);
 
     DROP TABLE IF EXISTS temp_batch_errors;
 
@@ -117,7 +121,8 @@ DECLARE
     v_data_table_name TEXT;
     v_sql TEXT;
     v_error_count INT := 0;
-    v_update_count INT := 0;
+    v_inserted_new_act_count INT := 0;
+    v_updated_existing_act_count INT := 0;
     statbus_constraints_already_deferred BOOLEAN;
     error_message TEXT;
     v_activity_type public.activity_type;
@@ -180,21 +185,23 @@ BEGIN
         category_id INT,
         existing_act_id INT,
         edit_by_user_id INT,
-        edit_at TIMESTAMPTZ
+        edit_at TIMESTAMPTZ,
+        action public.import_row_action_type
     ) ON COMMIT DROP;
 
     v_sql := format($$
         INSERT INTO temp_batch_data (
-            data_row_id, legal_unit_id, establishment_id, valid_from, valid_to, data_source_id, category_id, edit_by_user_id, edit_at
+            data_row_id, legal_unit_id, establishment_id, valid_from, valid_to, data_source_id, category_id, edit_by_user_id, edit_at, action
         )
         SELECT
             row_id, legal_unit_id, establishment_id,
-            derived_valid_from, -- Changed to derived_valid_from
-            derived_valid_to,   -- Changed to derived_valid_to
+            derived_valid_from, 
+            derived_valid_to,   
             data_source_id,
             %I, -- Select the correct category ID column based on target
-            edit_by_user_id, edit_at
-         FROM public.%I WHERE row_id = ANY(%L) AND %I IS NOT NULL; -- Only process rows with a category ID for this type
+            edit_by_user_id, edit_at,
+            action 
+         FROM public.%I WHERE row_id = ANY(%L) AND %I IS NOT NULL AND action != 'skip'; -- Only process rows with a category ID for this type and not skipped
     $$, v_category_id_col, v_data_table_name, p_batch_row_ids, v_category_id_col);
     RAISE DEBUG '[Job %] process_activity: Fetching batch data for type %: %', p_job_id, v_activity_type, v_sql;
     EXECUTE v_sql;
@@ -212,8 +219,60 @@ BEGIN
     RAISE DEBUG '[Job %] process_activity: Determining existing IDs: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
-    -- Step 3: Perform Batch Upsert using admin.batch_upsert_generic_valid_time_table
+    -- Temp table to store newly created activity_ids and their original data_row_id
+    CREATE TEMP TABLE temp_created_acts (
+        data_row_id BIGINT PRIMARY KEY,
+        new_activity_id INT NOT NULL
+    ) ON COMMIT DROP;
+
     BEGIN
+        -- Handle INSERTs for new activities (action = 'insert')
+        RAISE DEBUG '[Job %] process_activity: Handling INSERTS for new activities (type: %).', p_job_id, v_activity_type;
+
+        WITH rows_to_insert_act_with_temp_key AS (
+            SELECT *, row_number() OVER () as temp_insert_key
+            FROM temp_batch_data
+            WHERE action = 'insert'
+            AND category_id IS NOT NULL -- Ensure category_id is present (already filtered in temp_batch_data population, but good for clarity)
+        ),
+        inserted_activities AS (
+            INSERT INTO public.activity (
+                legal_unit_id, establishment_id, type, category_id,
+                data_source_id, valid_from, valid_to,
+                edit_by_user_id, edit_at, edit_comment
+            )
+            SELECT
+                rti.legal_unit_id, rti.establishment_id, v_activity_type, rti.category_id,
+                rti.data_source_id, rti.valid_from, rti.valid_to,
+                rti.edit_by_user_id, rti.edit_at, 'Import Job Batch Insert Activity'
+            FROM rows_to_insert_act_with_temp_key rti
+            ORDER BY rti.temp_insert_key
+            RETURNING id
+        )
+        INSERT INTO temp_created_acts (data_row_id, new_activity_id)
+        SELECT rtiwtk.data_row_id, ia.id
+        FROM rows_to_insert_act_with_temp_key rtiwtk
+        JOIN (SELECT id, row_number() OVER () as rn FROM inserted_activities) ia
+        ON rtiwtk.temp_insert_key = ia.rn;
+
+        GET DIAGNOSTICS v_inserted_new_act_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] process_activity: Inserted % new activities into temp_created_acts (type: %).', p_job_id, v_inserted_new_act_count, v_activity_type;
+
+        IF v_inserted_new_act_count > 0 THEN
+            EXECUTE format($$
+                UPDATE public.%I dt SET
+                    %I = tca.new_activity_id,
+                    last_completed_priority = %L,
+                    error = NULL,
+                    state = %L
+                FROM temp_created_acts tca
+                WHERE dt.row_id = tca.data_row_id AND dt.state != 'error';
+            $$, v_data_table_name, v_final_id_col, v_step.priority, 'processing'::public.import_data_state);
+            RAISE DEBUG '[Job %] process_activity: Updated _data table for % new activities (type: %).', p_job_id, v_inserted_new_act_count, v_activity_type;
+        END IF;
+
+        -- Handle REPLACES for existing activities (action = 'replace')
+        RAISE DEBUG '[Job %] process_activity: Handling REPLACES for existing activities (type: %).', p_job_id, v_activity_type;
         -- Create temp source table for batch upsert
         CREATE TEMP TABLE temp_act_upsert_source (
             row_id BIGINT PRIMARY KEY, -- Link back to original _data row
@@ -230,7 +289,7 @@ BEGIN
             edit_comment TEXT
         ) ON COMMIT DROP;
 
-        -- Populate temp source table
+        -- Populate temp source table (only for 'replace' actions)
         INSERT INTO temp_act_upsert_source (
             row_id, id, valid_from, valid_to, legal_unit_id, establishment_id, type, category_id,
             data_source_id, edit_by_user_id, edit_at, edit_comment
@@ -247,29 +306,23 @@ BEGIN
             tbd.data_source_id,
             tbd.edit_by_user_id,
             tbd.edit_at,
-            'Import Job Batch Update/Upsert'
+            'Import Job Batch Replace Activity'
         FROM temp_batch_data tbd
-        WHERE
-            CASE v_strategy
-                WHEN 'insert_only' THEN tbd.existing_act_id IS NULL
-                WHEN 'update_only' THEN tbd.existing_act_id IS NOT NULL
-                WHEN 'upsert' THEN TRUE
-            END;
+        WHERE tbd.action = 'replace'; 
 
-        GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_activity: Populated temp_act_upsert_source with % rows for batch upsert (type: %).', p_job_id, v_update_count, v_activity_type;
+        GET DIAGNOSTICS v_updated_existing_act_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] process_activity: Populated temp_act_upsert_source with % rows for batch replace (type: %).', p_job_id, v_updated_existing_act_count, v_activity_type;
 
-        IF v_update_count > 0 THEN
-            -- Call batch upsert function
-            RAISE DEBUG '[Job %] process_activity: Calling batch_upsert_generic_valid_time_table for activity (type: %).', p_job_id, v_activity_type;
+        IF v_updated_existing_act_count > 0 THEN
+            RAISE DEBUG '[Job %] process_activity: Calling batch_insert_or_replace_generic_valid_time_table for activity (type: %).', p_job_id, v_activity_type;
             FOR v_batch_upsert_result IN
-                SELECT * FROM admin.batch_upsert_generic_valid_time_table(
+                SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
                     p_target_schema_name => 'public',
                     p_target_table_name => 'activity',
                     p_source_schema_name => 'pg_temp',
                     p_source_table_name => 'temp_act_upsert_source',
                     p_source_row_id_column_name => 'row_id',
-                    p_unique_columns => '[]'::jsonb, -- ID is provided directly
+                    p_unique_columns => '[]'::jsonb, 
                     p_temporal_columns => ARRAY['valid_from', 'valid_to'],
                     p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
                     p_id_column_name => 'id'
@@ -280,7 +333,7 @@ BEGIN
                     EXECUTE format($$
                         UPDATE public.%I SET
                             state = %L,
-                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_upsert_activity_error', %L),
+                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_activity_error', %L),
                             last_completed_priority = %L
                         WHERE row_id = %L;
                     $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_step.priority - 1, v_batch_upsert_result.source_row_id);
@@ -290,13 +343,12 @@ BEGIN
             END LOOP;
 
             v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
-            RAISE DEBUG '[Job %] process_activity: Batch upsert finished for type %. Success: %, Errors: %', p_job_id, v_activity_type, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
+            RAISE DEBUG '[Job %] process_activity: Batch replace finished for type %. Success: %, Errors: %', p_job_id, v_activity_type, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
 
-            -- Update _data table for successful rows
             IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
                 v_sql := format($$
                     UPDATE public.%I dt SET
-                        %I = tbd.existing_act_id, -- Set the correct pk_id column
+                        %I = tbd.existing_act_id, 
                         last_completed_priority = %L,
                         error = NULL,
                         state = %L
@@ -304,10 +356,11 @@ BEGIN
                     WHERE dt.row_id = tbd.data_row_id
                       AND dt.row_id = ANY(%L);
                 $$, v_data_table_name, v_final_id_col, v_step.priority, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
-                RAISE DEBUG '[Job %] process_activity: Updating _data table for successful rows (type: %): %', p_job_id, v_activity_type, v_sql;
+                RAISE DEBUG '[Job %] process_activity: Updating _data table for successful replace rows (type: %): %', p_job_id, v_activity_type, v_sql;
                 EXECUTE v_sql;
             END IF;
-        END IF; -- End if v_update_count > 0
+        END IF;
+        DROP TABLE IF EXISTS temp_act_upsert_source;
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
@@ -319,24 +372,32 @@ BEGIN
         UPDATE public.import_job SET error = jsonb_build_object('process_activity_error', format('Error for type %s: %s', v_activity_type, error_message)) WHERE id = p_job_id;
     END;
 
-    -- Update priority for rows that didn't have the relevant category ID (were skipped)
-     v_sql := format($$
+    -- Update priority for rows in the original batch that were not processed by insert or replace,
+    -- and are not in an error state from this step.
+    v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L
-        WHERE dt.row_id = ANY(%L) AND dt.state != %L AND %I IS NULL;
-    $$, v_data_table_name, v_step.priority, p_batch_row_ids, 'error', v_category_id_col);
+        WHERE dt.row_id = ANY(%L)
+          AND dt.action != 'skip'
+          AND dt.state != 'error' 
+          AND %I IS NULL; 
+    $$, v_data_table_name, v_step.priority, p_batch_row_ids, v_final_id_col);
+    RAISE DEBUG '[Job %] process_activity: Updating priority for unprocessed rows (type: %): %', p_job_id, v_activity_type, v_sql;
     EXECUTE v_sql;
 
+    -- Update priority for skipped rows
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
 
-    -- Reset constraints if they were deferred by this function
     IF NOT statbus_constraints_already_deferred THEN
         SET CONSTRAINTS ALL IMMEDIATE;
     END IF;
 
-    RAISE DEBUG '[Job %] process_activity (Batch): Finished operation for batch type %. Initial batch size: %. Errors (estimated): %', p_job_id, v_activity_type, array_length(p_batch_row_ids, 1), v_error_count;
+    RAISE DEBUG '[Job %] process_activity (Batch): Finished. New: %, Replaced: %. Errors: %',
+        p_job_id, v_inserted_new_act_count, v_updated_existing_act_count, v_error_count;
 
     DROP TABLE IF EXISTS temp_batch_data;
-    DROP TABLE IF EXISTS temp_act_upsert_source;
+    DROP TABLE IF EXISTS temp_created_acts;
 END;
 $process_activity$;
 

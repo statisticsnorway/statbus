@@ -1,6 +1,6 @@
 BEGIN;
 
-CREATE OR REPLACE FUNCTION admin.batch_upsert_generic_valid_time_table(
+CREATE OR REPLACE FUNCTION admin.batch_insert_or_replace_generic_valid_time_table(
     p_target_schema_name TEXT,
     p_target_table_name TEXT,
     p_source_schema_name TEXT,
@@ -18,7 +18,7 @@ RETURNS TABLE (
     status TEXT,
     error_message TEXT
 )
-LANGUAGE plpgsql VOLATILE AS $batch_upsert_generic_valid_time_table$
+LANGUAGE plpgsql VOLATILE AS $batch_insert_or_replace_generic_valid_time_table$
 DECLARE
     v_input_row_record RECORD; -- Holds a full row from the source table
     v_current_source_row_id BIGINT;
@@ -405,6 +405,6 @@ BEGIN
 
     RETURN;
 END;
-$batch_upsert_generic_valid_time_table$;
+$batch_insert_or_replace_generic_valid_time_table$;
 
 END;

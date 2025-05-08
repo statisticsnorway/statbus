@@ -36,6 +36,8 @@ WITH ordered_values AS (
         -- step_code, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying
         -- external_idents (pk_id columns 'legal_unit_id' and 'establishment_id' are defined by the 'legal_unit' and 'establishment' steps respectively;
         -- this step resolves and populates them. Source_input columns for external_idents are dynamic, added by lifecycle callbacks.)
+        ('external_idents', 'operation', 'public.import_row_operation_type', 'internal', true, NULL, false), -- Indicates the potential operation (insert, replace) based on existence
+        ('external_idents', 'action', 'public.import_row_action_type', 'internal', true, NULL, false), -- Indicates the final action (insert, replace, skip) based on operation and strategy
         -- enterprise_link (for LUs)
         ('enterprise_link_for_legal_unit',   'enterprise_id',               'INTEGER',   'internal', true, NULL, false),
         ('enterprise_link_for_legal_unit',   'is_primary',                  'BOOLEAN',   'internal', true, NULL, false),
@@ -299,42 +301,42 @@ BEGIN
 
     -- 1. Legal unit with time_context for current year
     INSERT INTO public.import_definition (slug, name, note, time_context_ident, strategy, valid)
-    VALUES ('legal_unit_current_year', 'Legal Unit - Current Year', 'Import legal units with validity period set to current year', 'r_year_curr', 'upsert', false) -- Start invalid
+    VALUES ('legal_unit_current_year', 'Legal Unit - Current Year', 'Import legal units with validity period set to current year', 'r_year_curr', 'insert_or_replace', false) -- Start invalid
     RETURNING id INTO def_id;
     PERFORM admin.link_steps_to_definition(def_id, lu_steps || ARRAY['valid_time_from_context']);
     PERFORM admin.create_source_and_mappings_for_definition(def_id, lu_source_cols);
 
     -- 2. Legal unit with explicit valid_from/valid_to
     INSERT INTO public.import_definition (slug, name, note, strategy, valid)
-    VALUES ('legal_unit_explicit_dates', 'Legal Unit - Explicit Dates', 'Import legal units with explicit valid_from and valid_to columns', 'upsert', false) -- Start invalid
+    VALUES ('legal_unit_explicit_dates', 'Legal Unit - Explicit Dates', 'Import legal units with explicit valid_from and valid_to columns', 'insert_or_replace', false) -- Start invalid
     RETURNING id INTO def_id;
     PERFORM admin.link_steps_to_definition(def_id, lu_steps || ARRAY['valid_time_from_source']);
     PERFORM admin.create_source_and_mappings_for_definition(def_id, lu_explicit_source_cols);
 
     -- 3. Establishment for legal unit with time_context for current year
     INSERT INTO public.import_definition (slug, name, note, time_context_ident, strategy, valid)
-    VALUES ('establishment_for_lu_current_year', 'Establishment for Legal Unit - Current Year', 'Import establishments linked to legal units with validity period set to current year', 'r_year_curr', 'upsert', false) -- Start invalid
+    VALUES ('establishment_for_lu_current_year', 'Establishment for Legal Unit - Current Year', 'Import establishments linked to legal units with validity period set to current year', 'r_year_curr', 'insert_or_replace', false) -- Start invalid
     RETURNING id INTO def_id;
     PERFORM admin.link_steps_to_definition(def_id, es_steps || ARRAY['valid_time_from_context']);
     PERFORM admin.create_source_and_mappings_for_definition(def_id, es_source_cols);
 
     -- 4. Establishment for legal unit with explicit valid_from/valid_to
     INSERT INTO public.import_definition (slug, name, note, strategy, valid)
-    VALUES ('establishment_for_lu_explicit_dates', 'Establishment for Legal Unit - Explicit Dates', 'Import establishments linked to legal units with explicit valid_from and valid_to columns', 'upsert', false) -- Start invalid
+    VALUES ('establishment_for_lu_explicit_dates', 'Establishment for Legal Unit - Explicit Dates', 'Import establishments linked to legal units with explicit valid_from and valid_to columns', 'insert_or_replace', false) -- Start invalid
     RETURNING id INTO def_id;
     PERFORM admin.link_steps_to_definition(def_id, es_steps || ARRAY['valid_time_from_source']);
     PERFORM admin.create_source_and_mappings_for_definition(def_id, es_explicit_source_cols);
 
     -- 5. Establishment without legal unit with time_context for current year
     INSERT INTO public.import_definition (slug, name, note, time_context_ident, strategy, valid)
-    VALUES ('establishment_without_lu_current_year', 'Establishment without Legal Unit - Current Year', 'Import standalone establishments with validity period set to current year', 'r_year_curr', 'upsert', false) -- Start invalid
+    VALUES ('establishment_without_lu_current_year', 'Establishment without Legal Unit - Current Year', 'Import standalone establishments with validity period set to current year', 'r_year_curr', 'insert_or_replace', false) -- Start invalid
     RETURNING id INTO def_id;
     PERFORM admin.link_steps_to_definition(def_id, es_no_lu_steps || ARRAY['valid_time_from_context']);
     PERFORM admin.create_source_and_mappings_for_definition(def_id, es_no_lu_source_cols);
 
     -- 6. Establishment without legal unit with explicit valid_from/valid_to
     INSERT INTO public.import_definition (slug, name, note, strategy, valid)
-    VALUES ('establishment_without_lu_explicit_dates', 'Establishment without Legal Unit - Explicit Dates', 'Import standalone establishments with explicit valid_from and valid_to columns', 'upsert', false) -- Start invalid
+    VALUES ('establishment_without_lu_explicit_dates', 'Establishment without Legal Unit - Explicit Dates', 'Import standalone establishments with explicit valid_from and valid_to columns', 'insert_or_replace', false) -- Start invalid
     RETURNING id INTO def_id;
     PERFORM admin.link_steps_to_definition(def_id, es_no_lu_steps || ARRAY['valid_time_from_source']);
     PERFORM admin.create_source_and_mappings_for_definition(def_id, es_no_lu_explicit_source_cols);
@@ -342,7 +344,7 @@ BEGIN
     -- 7. Unit Stats Update with time_context for current year
     -- This definition finds existing units (LU or EST) via external idents and updates their stats.
     INSERT INTO public.import_definition (slug, name, note, time_context_ident, strategy, valid)
-    VALUES ('unit_stats_update_current_year', 'Unit Stats Update - Current Year', 'Updates statistical variables for existing units, validity set to current year', 'r_year_curr', 'update_only', false) -- Start invalid
+    VALUES ('unit_stats_update_current_year', 'Unit Stats Update - Current Year', 'Updates statistical variables for existing units, validity set to current year', 'r_year_curr', 'replace_only', false) -- Start invalid
     RETURNING id INTO def_id;
     PERFORM admin.link_steps_to_definition(def_id, ARRAY['external_idents', 'valid_time_from_context', 'statistical_variables', 'edit_info', 'metadata']);
     -- Source columns are just external idents and stats (added dynamically)
@@ -351,7 +353,7 @@ BEGIN
     -- 8. Unit Stats Update with explicit valid_from/valid_to
     -- This definition finds existing units (LU or EST) via external idents and updates their stats using explicit dates.
     INSERT INTO public.import_definition (slug, name, note, strategy, valid)
-    VALUES ('unit_stats_update_explicit_dates', 'Unit Stats Update - Explicit Dates', 'Updates statistical variables for existing units using explicit valid_from/valid_to', 'update_only', false) -- Start invalid
+    VALUES ('unit_stats_update_explicit_dates', 'Unit Stats Update - Explicit Dates', 'Updates statistical variables for existing units using explicit valid_from/valid_to', 'replace_only', false) -- Start invalid
     RETURNING id INTO def_id;
     PERFORM admin.link_steps_to_definition(def_id, ARRAY['external_idents', 'valid_time_from_source', 'statistical_variables', 'edit_info', 'metadata']);
     -- Source columns are external idents, stats (dynamic), and valid_from/valid_to

@@ -24,15 +24,13 @@ BEGIN
     SELECT * INTO v_step FROM public.import_step WHERE code = 'enterprise_link_for_legal_unit';
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link step not found', p_job_id; END IF;
 
-    -- Step 1: Identify existing LUs in the batch
+    -- Step 1: Identify existing LUs in the batch (action = 'replace')
     CREATE TEMP TABLE temp_existing_lu (data_row_id BIGINT PRIMARY KEY, legal_unit_id INT NOT NULL) ON COMMIT DROP;
-    -- 'row_id' here is from public.%I (the data_table_name)
-    -- legal_unit_id resolved by external_idents step
     v_sql := format($$
         INSERT INTO temp_existing_lu (data_row_id, legal_unit_id)
         SELECT row_id, legal_unit_id
         FROM public.%I
-        WHERE row_id = ANY(%L) AND legal_unit_id IS NOT NULL;
+        WHERE row_id = ANY(%L) AND action = 'replace'; -- Filter by action = 'replace'
     $$, v_data_table_name, p_batch_row_ids);
     EXECUTE v_sql;
 
@@ -46,7 +44,7 @@ BEGIN
     $$);
     EXECUTE v_sql;
 
-    -- Step 3: Update _data table for existing LUs
+    -- Step 3: Update _data table for existing LUs (action = 'replace')
     v_sql := format($$
         UPDATE public.%I dt SET
             enterprise_id = tei.enterprise_id,
@@ -55,24 +53,30 @@ BEGIN
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
         FROM temp_enterprise_info tei
-        WHERE dt.row_id = tei.data_row_id; -- Use renamed column from temp_enterprise_info
+        WHERE dt.row_id = tei.data_row_id AND dt.action = 'replace'; -- Ensure we only update rows with action = 'replace'
     $$, v_data_table_name, v_step.priority, 'analysing');
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating existing LUs: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating existing LUs (action=replace): %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
-    -- Step 4: Update remaining rows (new LUs) - just advance priority
+    -- Step 4: Update remaining rows (new LUs, action = 'insert') - just advance priority
     v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
         WHERE dt.row_id = ANY(%L)
-          AND dt.legal_unit_id IS NULL -- Only update rows identified as new LUs
+          AND dt.action = 'insert' -- Only update rows identified as new LUs
           AND dt.state != %L; -- Avoid rows already in error
     $$, v_data_table_name, v_step.priority, 'analysing', p_batch_row_ids, 'error');
-     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating new LUs (priority only): %', p_job_id, v_sql;
+     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating new LUs (action=insert, priority only): %', p_job_id, v_sql;
     EXECUTE v_sql;
+
+    -- Step 5: Update skipped rows (action = 'skip') - just advance priority
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-using v_update_count, fine for debug
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Advanced priority for % skipped rows.', p_job_id, v_update_count;
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Finished analysis. Updated % existing LUs.', p_job_id, v_update_count;
 
@@ -111,7 +115,7 @@ BEGIN
         SET CONSTRAINTS ALL DEFERRED;
     END IF;
 
-    -- Step 1: Identify rows needing enterprise creation (new LUs)
+    -- Step 1: Identify rows needing enterprise creation (new LUs, action = 'insert')
     CREATE TEMP TABLE temp_new_lu (
         data_row_id BIGINT PRIMARY KEY,
         name TEXT, -- Needed to create enterprise
@@ -123,7 +127,7 @@ BEGIN
         INSERT INTO temp_new_lu (data_row_id, name, edit_by_user_id, edit_at)
         SELECT row_id, name, edit_by_user_id, edit_at -- Select row_id from source, insert into data_row_id
         FROM public.%I
-        WHERE row_id = ANY(%L) AND legal_unit_id IS NULL; -- Only process rows for new LUs
+        WHERE row_id = ANY(%L) AND action = 'insert'; -- Only process rows for new LUs
     $$, v_data_table_name, p_batch_row_ids);
     EXECUTE v_sql;
 
@@ -172,7 +176,7 @@ BEGIN
         RETURN;
     END;
 
-    -- Step 3: Update _data table for newly created enterprises
+    -- Step 3: Update _data table for newly created enterprises (action = 'insert')
     v_sql := format($$
         UPDATE public.%I dt SET
             enterprise_id = tce.enterprise_id,
@@ -183,22 +187,27 @@ BEGIN
         FROM temp_created_enterprises tce
         WHERE dt.row_id = tce.data_row_id; -- Use data_row_id for join
     $$, v_data_table_name, v_step.priority, 'processing');
-    RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating _data for new enterprises: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating _data for new enterprises (action=insert): %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 
-    -- Step 4: Update rows that were already processed by analyse step (existing LUs) - just advance priority
+    -- Step 4: Update rows that were already processed by analyse step (existing LUs, action = 'replace') - just advance priority
     v_sql := format($$
         UPDATE public.%I dt SET
             last_completed_priority = %L,
             state = %L
         WHERE dt.row_id = ANY(%L)
-          AND dt.legal_unit_id IS NOT NULL -- Only update rows for existing LUs
+          AND dt.action = 'replace' -- Only update rows for existing LUs
           AND dt.state != %L; -- Avoid rows already in error
     $$, v_data_table_name, v_step.priority, 'processing', p_batch_row_ids, 'error');
-     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating existing LUs (priority only): %', p_job_id, v_sql;
+     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating existing LUs (action=replace, priority only): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
+    -- Step 5: Update skipped rows (action = 'skip') - just advance priority
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_data_table_name, v_step.priority, p_batch_row_ids);
+    GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-using v_update_count, fine for debug
+    RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Advanced priority for % skipped rows.', p_job_id, v_update_count;
 
     -- Reset constraints if they were deferred by this function
     IF NOT statbus_constraints_already_deferred THEN
