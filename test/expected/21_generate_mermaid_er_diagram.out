@@ -263,20 +263,36 @@ erDiagram
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
+	import_data_column["import_data_column"] {
+		"integer" id
+		"integer" step_id
+		"integer" priority
+		"text" column_name
+		"text" column_type
+		"import_data_column_purpose" purpose
+		"boolean" is_nullable
+		"text" default_value
+		"boolean" is_uniquely_identifying
+		"timestamp with time zone" created_at
+		"timestamp with time zone" updated_at
+	}
 	import_definition["import_definition"] {
 		"integer" id
 		"text" slug
 		"text" name
-		"integer" target_id
 		"text" note
 		"integer" data_source_id
 		"text" time_context_ident
+		"import_strategy" strategy
 		"integer" user_id
-		"boolean" draft
 		"boolean" valid
 		"text" validation_error
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
+	}
+	import_definition_step["import_definition_step"] {
+		"integer" definition_id
+		"integer" step_id
 	}
 	import_job["import_job"] {
 		"integer" id
@@ -290,17 +306,15 @@ erDiagram
 		"text" default_data_source_code
 		"text" upload_table_name
 		"text" data_table_name
-		"text" target_table_name
-		"text" target_schema_name
 		"integer" priority
-		"text" import_information_snapshot_table_name
+		"jsonb" definition_snapshot
+		"timestamp with time zone" preparing_data_at
 		"timestamp with time zone" analysis_start_at
 		"timestamp with time zone" analysis_stop_at
-		"timestamp with time zone" preparing_data_at
 		"timestamp with time zone" changes_approved_at
 		"timestamp with time zone" changes_rejected_at
-		"timestamp with time zone" import_start_at
-		"timestamp with time zone" import_stop_at
+		"timestamp with time zone" processing_start_at
+		"timestamp with time zone" processing_stop_at
 		"integer" total_rows
 		"integer" imported_rows
 		"numeric(5,2)" import_completed_pct
@@ -318,7 +332,8 @@ erDiagram
 		"integer" source_column_id
 		"text" source_value
 		"import_source_expression" source_expression
-		"integer" target_column_id
+		"integer" target_data_column_id
+		"import_data_column_purpose" target_data_column_purpose
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
@@ -330,20 +345,13 @@ erDiagram
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
-	import_target["import_target"] {
+	import_step["import_step"] {
 		"integer" id
-		"text" schema_name
-		"text" table_name
+		"text" code
 		"text" name
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-	}
-	import_target_column["import_target_column"] {
-		"integer" id
-		"integer" target_id
-		"text" column_name
-		"text" column_type
-		"boolean" uniquely_identifying
+		"integer" priority
+		"regproc" analyse_procedure
+		"regproc" process_procedure
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
@@ -535,6 +543,10 @@ erDiagram
 		"double precision" value_float
 		"character varying" value_string
 		"boolean" value_bool
+		"timestamp with time zone" created_at
+		"character varying(512)" edit_comment
+		"integer" edit_by_user_id
+		"timestamp with time zone" edit_at
 	}
 	statistical_history["statistical_history"] {
 		"history_resolution" resolution
@@ -1077,16 +1089,19 @@ erDiagram
 	external_ident }o--o| enterprise : external_ident_enterprise_id_fkey
 	external_ident }o--|| external_ident_type : external_ident_type_id_fkey
 	external_ident_type }o--o| tag : external_ident_type_by_tag_id_fkey
+	import_data_column }|--|| import_step : import_data_column_step_id_fkey
 	import_definition }o--o| auth.user : import_definition_user_id_fkey
 	import_definition }o--o| data_source : import_definition_data_source_id_fkey
-	import_definition }|--o| import_target : import_definition_target_id_fkey
+	import_definition_step }|--|| import_definition : import_definition_step_definition_id_fkey
+	import_definition_step }|--|| import_step : import_definition_step_step_id_fkey
 	import_job }o--o| auth.user : import_job_user_id_fkey
 	import_job }o--|| import_definition : import_job_definition_id_fkey
+	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_fkey
+	import_mapping }o--|| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
+	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
 	import_mapping }|--|| import_definition : import_mapping_definition_id_fkey
 	import_mapping }o--o| import_source_column : import_mapping_source_column_id_fkey
-	import_mapping }o--o| import_target_column : import_mapping_target_column_id_fkey
-	import_source_column }|--o| import_definition : import_source_column_definition_id_fkey
-	import_target_column }o--o| import_target : import_target_column_target_id_fkey
+	import_source_column }|--|| import_definition : import_source_column_definition_id_fkey
 	legal_unit }o--|| auth.user : legal_unit_edit_by_user_id_fkey
 	legal_unit }o--o| data_source : legal_unit_data_source_id_fkey
 	legal_unit }o--|| enterprise : legal_unit_enterprise_id_fkey
@@ -1107,6 +1122,7 @@ erDiagram
 	region_access }|--|| auth.user : region_access_user_id_fkey
 	region_access }o--|| region : region_access_region_id_fkey
 	settings }|--|| activity_category_standard : settings_activity_category_standard_id_fkey
+	stat_for_unit }o--|| auth.user : stat_for_unit_edit_by_user_id_fkey
 	stat_for_unit }o--o| data_source : stat_for_unit_data_source_id_fkey
 	stat_for_unit }|--|| stat_definition : stat_for_unit_stat_definition_id_fkey
 	tag }o--o| tag : tag_parent_id_fkey
