@@ -12,9 +12,11 @@ update status set active=TRUE;
 --
 
 
---cleaning up external identifyers if any..
-delete from external_ident;
-delete from external_ident_type where id >2;
+
+--takes away external ids if any
+delete from external_ident_type where code in ('tax_ident','stat_ident');
+
+
 
 
 INSERT INTO external_ident_type (code, name, priority)
