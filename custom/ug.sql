@@ -2,8 +2,7 @@
 
 Select 'Runs Uganda Kampala'  "StatbusStatus", now() "AT";
 
-
-delete from external_ident_type where id >2;
+delete from external_ident_type where code in ('tax_ident','stat_ident');
 
 
 INSERT INTO external_ident_type (code, name, priority)
