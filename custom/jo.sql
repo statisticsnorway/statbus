@@ -18,7 +18,7 @@ delete from external_ident_type where id >2;
 
 
 INSERT INTO external_ident_type (code, name, priority)
-VALUES 
+VALUES
 ('national_ident', 'National_Id', 3);
 
 
@@ -28,11 +28,11 @@ set archived=TRUE where id <=2;
 
 
 --if unit size custom to be added here..
-delete from unit_size where id >4 and custom is TRUE;
+delete from unit_size where custom is TRUE;
 
 --sample
 INSERT INTO unit_size (code, name, active, custom)
-VALUES 
+VALUES
 (1, 'Tiny', TRUE, TRUE),
 (2, 'Small', TRUE, TRUE),
 (3, 'Medum', TRUE, TRUE),
@@ -45,7 +45,7 @@ delete from data_source_custom ;
 
 --adds jordan datasources code must exist in unit csv files to be uploaded later
 INSERT INTO data_source_custom (code, name)
-VALUES 
+VALUES
     ('mit1', 'MIT'),
     ('ccd2', 'CCD'),
     ('ssc3', 'SSC');
@@ -55,7 +55,7 @@ VALUES
 --code must be used in unit loads later
 delete from stat_definition where id >2;
 INSERT INTO stat_definition (code, type,frequency, name, priority)
-VALUES 
+VALUES
 ('jor', 'int', 'yearly', 'Jor', 3),
 ('nonjor', 'int', 'yearly', 'Nonjor', 4),
 ('female', 'int', 'yearly', 'Female', 5),
