@@ -11,7 +11,7 @@ VALUES
 ('hcp_ident', 'Hcp', 4),
 ('ice_ident', 'Ice', 5);
 
---not using stat_ident so hiding this identifier:
+--not using stat_ident - so lest hide this identifier from the statbus app:
 update external_ident_type set archived = TRUE where code in ('stat_ident');
 
 
