@@ -68,5 +68,4 @@ VALUES
 
 
 
-
 Select 'Done JO'  "StatbusStatus", now() "AT";
