@@ -3,7 +3,7 @@
 Select 'Runs MA'  "StatbusStatus", now() "AT";
 
 --takes away external ids if any
-delete from external_ident_type where code in ('tax_ident','stat_ident');
+delete from external_ident_type where code NOT in ('tax_ident','stat_ident');
 
 
 INSERT INTO external_ident_type (code, name, priority)
@@ -34,7 +34,7 @@ set active = TRUE;
 
 
 
-delete from stat_definition where id >2;
+delete from stat_definition where code NOT in ('employees','turnover');
 INSERT INTO stat_definition (code, type,frequency, name, priority)
 VALUES
 ('share_capital', 'float', 'yearly', 'Share_capital', 3);
@@ -49,10 +49,16 @@ delete from unit_size where id >4 and custom is TRUE;
 
 INSERT INTO unit_size (code, name, active, custom)
 VALUES
-(1, 'Tiny', TRUE, TRUE),
-(2, 'PetitSmall', TRUE, TRUE),
-(3, 'Moyen', TRUE, TRUE),
-(4, 'Grande', TRUE, TRUE);
+
+('t', 'Tiny', TRUE, TRUE),
+('p', 'PetitSmall', TRUE, TRUE),
+('m', 'Moyen', TRUE, TRUE),
+('l', 'Grande', TRUE, TRUE);
+--or like this, country to deceide
+--(1, 'Tiny', TRUE, TRUE),
+--(2, 'PetitSmall', TRUE, TRUE),
+--(3, 'Moyen', TRUE, TRUE),
+--(4, 'Grande', TRUE, TRUE);
 
 
 

@@ -14,7 +14,7 @@ update status set active=TRUE;
 
 
 --takes away external ids if any
-delete from external_ident_type where code in ('tax_ident','stat_ident');
+delete from external_ident_type where code NOT in ('tax_ident','stat_ident');
 
 
 
@@ -55,7 +55,8 @@ VALUES
 
 --cleaning up variables if any, and created the new ones
 --code must be used in unit loads later
-delete from stat_definition where id >2;
+delete from stat_definition where code NOT in ('employees','turnover');
+
 INSERT INTO stat_definition (code, type,frequency, name, priority)
 VALUES
 ('jor', 'int', 'yearly', 'Jor', 3),
