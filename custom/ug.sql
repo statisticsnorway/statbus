@@ -2,7 +2,7 @@
 
 Select 'Runs Uganda Kampala'  "StatbusStatus", now() "AT";
 
-delete from external_ident_type where code in ('tax_ident','stat_ident');
+delete from external_ident_type where code NOT in ('tax_ident','stat_ident');
 
 
 INSERT INTO external_ident_type (code, name, priority)
@@ -19,7 +19,8 @@ VALUES
 
 
 
-delete from stat_definition where id >2;
+
+delete from stat_definition where code NOT in ('employees','turnover');
 INSERT INTO stat_definition (code, type,frequency, name, priority)
 VALUES
 ('female', 'int', 'yearly', 'Female', 3),
