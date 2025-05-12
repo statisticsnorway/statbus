@@ -5,12 +5,14 @@ Select 'Runs MA'  "StatbusStatus", now() "AT";
 --takes away external ids if any
 delete from external_ident_type where code NOT in ('tax_ident','stat_ident');
 
-
 INSERT INTO external_ident_type (code, name, priority)
 VALUES
 ('cnss_ident', 'Cnss', 3),
 ('hcp_ident', 'Hcp', 4),
 ('ice_ident', 'Ice', 5);
+
+--not using stat_ident so hiding this one:
+update external_ident_type set archived = TRUE where code in ('stat_ident');
 
 
 delete from data_source_custom ;
