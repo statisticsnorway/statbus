@@ -45,5 +45,12 @@ Column name
 Migration files are placed in `migrations/YYYYMMDDHHmmSS_snake_case_description.up.sql` and `migrations/YYYYMMDDHHmm_snake_case_description.down.sql`.
 For details on running migrations, see the main `README.md` file.
 
+## General Development Principles
+- **Fail Fast**:
+  - Functionality that is expected to work should fail immediately and clearly if an unexpected state or error occurs.
+  - Do not mask or work around problems; instead, provide sufficient error or debugging information to facilitate a solution. This is crucial for maintaining system integrity and simplifying troubleshooting, especially in backend processes and SQL procedures.
+- **Dialogue Language**:
+  - All development-related dialogue, including interactions with AI assistants, should be conducted in English to ensure clarity and broad understanding.
+
 ## Development Notes
 When CWD is the app dir then shell commands must remove the initial 'app/' from paths.
