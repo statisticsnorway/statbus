@@ -1,4 +1,63 @@
 BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
 \echo '----------------------------------------------------------------------------'
 ----------------------------------------------------------------------------
 \echo 'Test: admin.batch_insert_or_replace_generic_valid_time_table'
@@ -13,19 +72,19 @@ NOTICE:  Granted USAGE on new sequence batch_test.batch_upsert_target_id_seq to 
 -- Target table for the upsert operation
 CREATE TABLE batch_test.batch_upsert_target (
     id INT NOT NULL DEFAULT nextval('batch_test.batch_upsert_target_id_seq'),
-    valid_from DATE NOT NULL,
-    valid_to DATE NOT NULL,
+    valid_after DATE NOT NULL, -- (exclusive start)
+    valid_to DATE NOT NULL,    -- (inclusive end)
     value_a TEXT,
     value_b INT,
     edit_comment TEXT, -- Ephemeral column
-    PRIMARY KEY (id, valid_from)
+    PRIMARY KEY (id, valid_after) -- PK uses valid_after
 );
 -- Source table containing data to be upserted
 CREATE TABLE batch_test.batch_upsert_source (
     row_id BIGSERIAL PRIMARY KEY, -- Source row identifier
     target_id INT, -- ID in the target table (can be null for lookup)
-    valid_from DATE NOT NULL,
-    valid_to DATE, -- Allow NULL for testing error case
+    valid_after DATE NOT NULL, -- (exclusive start)
+    valid_to DATE,             -- (inclusive end)
     value_a TEXT,
     value_b INT,
     edit_comment TEXT
@@ -38,29 +97,29 @@ CREATE TABLE batch_test.batch_upsert_source (
 \set source_row_id_col 'row_id'
 -- Define variables without outer SQL quotes
 \set unique_cols '[ "value_a" ]'
-\set temporal_cols '{valid_from, valid_to}'
+\set temporal_cols '{valid_after, valid_to}'
 \set ephemeral_cols '{edit_comment}'
 \set id_col 'id'
 -- Function to display target table contents easily
 CREATE OR REPLACE FUNCTION batch_test.show_target_table(p_filter_id INT DEFAULT NULL)
-RETURNS TABLE (id INT, valid_from DATE, valid_to DATE, value_a TEXT, value_b INT, edit_comment TEXT) AS $$
+RETURNS TABLE (id INT, valid_after DATE, valid_to DATE, value_a TEXT, value_b INT, edit_comment TEXT) AS $$
 BEGIN
     IF p_filter_id IS NULL THEN
-        RETURN QUERY SELECT tgt.id, tgt.valid_from, tgt.valid_to, tgt.value_a, tgt.value_b, tgt.edit_comment 
-                     FROM batch_test.batch_upsert_target tgt ORDER BY tgt.id, tgt.valid_from;
+        RETURN QUERY SELECT tgt.id, tgt.valid_after, tgt.valid_to, tgt.value_a, tgt.value_b, tgt.edit_comment 
+                     FROM batch_test.batch_upsert_target tgt ORDER BY tgt.id, tgt.valid_after;
     ELSE
-        RETURN QUERY SELECT tgt.id, tgt.valid_from, tgt.valid_to, tgt.value_a, tgt.value_b, tgt.edit_comment 
-                     FROM batch_test.batch_upsert_target tgt WHERE tgt.id = p_filter_id ORDER BY tgt.valid_from;
+        RETURN QUERY SELECT tgt.id, tgt.valid_after, tgt.valid_to, tgt.value_a, tgt.value_b, tgt.edit_comment 
+                     FROM batch_test.batch_upsert_target tgt WHERE tgt.id = p_filter_id ORDER BY tgt.id, tgt.valid_after;
     END IF;
 END;
 $$ LANGUAGE plpgsql;
 -- 1. Initial Insert
 \echo 'Scenario 1: Initial Insert'
 Scenario 1: Initial Insert
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(NULL, '2024-01-01', '2024-12-31', 'A', 10, 'Initial A');
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(NULL, '2023-12-31', '2024-12-31', 'A', 10, 'Initial A');
 -- Use SQL quotes around the variable, then cast
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -70,9 +129,9 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(); -- Show all, expect one row with new ID
- id | valid_from |  valid_to  | value_a | value_b | edit_comment 
-----+------------+------------+---------+---------+--------------
-  1 | 01-01-2024 | 12-31-2024 | A       |      10 | Initial A
+ id | valid_after |  valid_to  | value_a | value_b | edit_comment 
+----+-------------+------------+---------+---------+--------------
+  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Initial A
 (1 row)
 
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE;
@@ -81,11 +140,12 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 2. Adjacent Equivalent Merge
 \echo 'Scenario 2: Adjacent Equivalent Merge'
 Scenario 2: Adjacent Equivalent Merge
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-01-01', '2024-06-30', 'A', 10, 'First half');
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-07-01', '2024-12-31', 'A', 10, 'Second half'); -- Same data
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+-- SET client_min_messages TO DEBUG1; -- Scenario 2 is now passing
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-06-30', 'A', 10, 'First half');
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2024-06-30', '2024-12-31', 'A', 10, 'Second half'); -- Same data, now adjacent with (]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -95,21 +155,22 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be one merged row for ID 1
- id | valid_from |  valid_to  | value_a | value_b | edit_comment 
-----+------------+------------+---------+---------+--------------
-  1 | 01-01-2024 | 12-31-2024 | A       |      10 | Second half
+ id | valid_after |  valid_to  | value_a | value_b | edit_comment 
+----+-------------+------------+---------+---------+--------------
+  1 | 2023-12-31  | 2024-12-31 | A       |      10 | First half
 (1 row)
 
+-- SET client_min_messages TO NOTICE; -- Already NOTICE by default
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 3. Adjacent Different (No Merge)
 \echo 'Scenario 3: Adjacent Different (No Merge)'
 Scenario 3: Adjacent Different (No Merge)
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-01-01', '2024-06-30', 'A', 10, 'First half');
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-07-01', '2024-12-31', 'B', 20, 'Second half different'); -- Different data
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-06-30', 'A', 10, 'First half');
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2024-06-30', '2024-12-31', 'B', 20, 'Second half different'); -- Different data, now adjacent with (]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -119,10 +180,10 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be two separate rows for ID 1
- id | valid_from |  valid_to  | value_a | value_b |     edit_comment      
-----+------------+------------+---------+---------+-----------------------
-  1 | 01-01-2024 | 06-30-2024 | A       |      10 | First half
-  1 | 07-01-2024 | 12-31-2024 | B       |      20 | Second half different
+ id | valid_after |  valid_to  | value_a | value_b |     edit_comment      
+----+-------------+------------+---------+---------+-----------------------
+  1 | 2023-12-31  | 2024-06-30 | A       |      10 | First half
+  1 | 2024-06-30  | 2024-12-31 | B       |      20 | Second half different
 (2 rows)
 
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
@@ -130,11 +191,12 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 4. Overlap Start Equivalent
 \echo 'Scenario 4: Overlap Start Equivalent'
 Scenario 4: Overlap Start Equivalent
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-03-01', '2024-12-31', 'A', 10, 'Existing March-Dec');
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-01-01', '2024-05-31', 'A', 10, 'New Jan-May'); -- Same data, overlaps start
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+-- SET client_min_messages TO DEBUG1; -- Scenario 4 is now passing
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2024-02-29', '2024-12-31', 'A', 10, 'Existing March-Dec'); -- (Feb 29, Dec 31]
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-05-31', 'A', 10, 'New Jan-May'); -- Same data, overlaps start (Dec 31, May 31]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -144,21 +206,23 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be one row Jan-Dec for ID 1
- id | valid_from |  valid_to  | value_a | value_b | edit_comment 
-----+------------+------------+---------+---------+--------------
-  1 | 01-01-2024 | 12-31-2024 | A       |      10 | New Jan-May
+ id | valid_after |  valid_to  | value_a | value_b |    edit_comment    
+----+-------------+------------+---------+---------+--------------------
+  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Existing March-Dec
 (1 row)
 
+-- SET client_min_messages TO NOTICE; -- Already NOTICE by default
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 5. Overlap Start Different
 \echo 'Scenario 5: Overlap Start Different'
 Scenario 5: Overlap Start Different
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-03-01', '2024-12-31', 'A', 10, 'Existing March-Dec');
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-01-01', '2024-05-31', 'B', 20, 'New Jan-May Different'); -- Different data
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+-- SET client_min_messages TO DEBUG1; -- Scenario 5 is now passing
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2024-02-29', '2024-12-31', 'A', 10, 'Existing March-Dec'); -- (Feb 29, Dec 31]
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-05-31', 'B', 20, 'New Jan-May Different'); -- Different data (Dec 31, May 31]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -168,22 +232,23 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be New Jan-May (B), Existing June-Dec (A) for ID 1
- id | valid_from |  valid_to  | value_a | value_b |     edit_comment      
-----+------------+------------+---------+---------+-----------------------
-  1 | 01-01-2024 | 05-31-2024 | B       |      20 | New Jan-May Different
-  1 | 06-01-2024 | 12-31-2024 | A       |      10 | Existing March-Dec
+ id | valid_after |  valid_to  | value_a | value_b |     edit_comment      
+----+-------------+------------+---------+---------+-----------------------
+  1 | 2023-12-31  | 2024-05-31 | B       |      20 | New Jan-May Different
+  1 | 2024-05-31  | 2024-12-31 | A       |      10 | Existing March-Dec
 (2 rows)
 
+-- SET client_min_messages TO NOTICE; -- Already NOTICE by default
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 6. Overlap End Equivalent
 \echo 'Scenario 6: Overlap End Equivalent'
 Scenario 6: Overlap End Equivalent
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-01-01', '2024-09-30', 'A', 10, 'Existing Jan-Sep');
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-07-01', '2024-12-31', 'A', 10, 'New Jul-Dec'); -- Same data, overlaps end
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-09-30', 'A', 10, 'Existing Jan-Sep'); -- (Dec 31, Sep 30]
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2024-06-30', '2024-12-31', 'A', 10, 'New Jul-Dec'); -- Same data, overlaps end (June 30, Dec 31]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -193,9 +258,9 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be one row Jan-Dec for ID 1
- id | valid_from |  valid_to  | value_a | value_b | edit_comment 
-----+------------+------------+---------+---------+--------------
-  1 | 01-01-2024 | 12-31-2024 | A       |      10 | New Jul-Dec
+ id | valid_after |  valid_to  | value_a | value_b |   edit_comment   
+----+-------------+------------+---------+---------+------------------
+  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Existing Jan-Sep
 (1 row)
 
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
@@ -203,11 +268,11 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 7. Overlap End Different
 \echo 'Scenario 7: Overlap End Different'
 Scenario 7: Overlap End Different
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-01-01', '2024-09-30', 'A', 10, 'Existing Jan-Sep');
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-07-01', '2024-12-31', 'B', 20, 'New Jul-Dec Different'); -- Different data
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-09-30', 'A', 10, 'Existing Jan-Sep'); -- (Dec 31, Sep 30]
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2024-06-30', '2024-12-31', 'B', 20, 'New Jul-Dec Different'); -- Different data (June 30, Dec 31]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -217,10 +282,10 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be Existing Jan-Jun (A), New Jul-Dec (B) for ID 1
- id | valid_from |  valid_to  | value_a | value_b |     edit_comment      
-----+------------+------------+---------+---------+-----------------------
-  1 | 01-01-2024 | 06-30-2024 | A       |      10 | Existing Jan-Sep
-  1 | 07-01-2024 | 12-31-2024 | B       |      20 | New Jul-Dec Different
+ id | valid_after |  valid_to  | value_a | value_b |     edit_comment      
+----+-------------+------------+---------+---------+-----------------------
+  1 | 2023-12-31  | 2024-06-30 | A       |      10 | Existing Jan-Sep
+  1 | 2024-06-30  | 2024-12-31 | B       |      20 | New Jul-Dec Different
 (2 rows)
 
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
@@ -228,11 +293,11 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 8. Inside Equivalent
 \echo 'Scenario 8: Inside Equivalent'
 Scenario 8: Inside Equivalent
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-01-01', '2024-12-31', 'A', 10, 'Existing Jan-Dec');
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-04-01', '2024-08-31', 'A', 10, 'New Apr-Aug'); -- Same data, inside
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-12-31', 'A', 10, 'Existing Jan-Dec'); -- (Dec 31, Dec 31]
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2024-03-31', '2024-08-31', 'A', 10, 'New Apr-Aug'); -- Same data, inside (Mar 31, Aug 31]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -242,9 +307,9 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be one row Jan-Dec for ID 1
- id | valid_from |  valid_to  | value_a | value_b | edit_comment 
-----+------------+------------+---------+---------+--------------
-  1 | 01-01-2024 | 12-31-2024 | A       |      10 | New Apr-Aug
+ id | valid_after |  valid_to  | value_a | value_b |   edit_comment   
+----+-------------+------------+---------+---------+------------------
+  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Existing Jan-Dec
 (1 row)
 
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
@@ -252,11 +317,12 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 9. Inside Different (Split)
 \echo 'Scenario 9: Inside Different (Split)'
 Scenario 9: Inside Different (Split)
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-01-01', '2024-12-31', 'A', 10, 'Existing Jan-Dec');
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-04-01', '2024-08-31', 'B', 20, 'New Apr-Aug Different'); -- Different data
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+-- SET client_min_messages TO DEBUG1; -- Scenario 9 is now passing
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-12-31', 'A', 10, 'Existing Jan-Dec'); -- (Dec 31, Dec 31]
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2024-03-31', '2024-08-31', 'B', 20, 'New Apr-Aug Different'); -- Different data (Mar 31, Aug 31]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -266,23 +332,24 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be Existing Jan-Mar (A), New Apr-Aug (B), Existing Sep-Dec (A) for ID 1
- id | valid_from |  valid_to  | value_a | value_b |     edit_comment      
-----+------------+------------+---------+---------+-----------------------
-  1 | 01-01-2024 | 03-31-2024 | A       |      10 | Existing Jan-Dec
-  1 | 04-01-2024 | 08-31-2024 | B       |      20 | New Apr-Aug Different
-  1 | 09-01-2024 | 12-31-2024 | A       |      10 | Existing Jan-Dec
+ id | valid_after |  valid_to  | value_a | value_b |     edit_comment      
+----+-------------+------------+---------+---------+-----------------------
+  1 | 2023-12-31  | 2024-03-31 | A       |      10 | Existing Jan-Dec
+  1 | 2024-03-31  | 2024-08-31 | B       |      20 | New Apr-Aug Different
+  1 | 2024-08-31  | 2024-12-31 | A       |      10 | Existing Jan-Dec
 (3 rows)
 
+-- SET client_min_messages TO NOTICE; -- Already NOTICE by default
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 10. Contains Existing
 \echo 'Scenario 10: Contains Existing'
 Scenario 10: Contains Existing
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-04-01', '2024-08-31', 'A', 10, 'Existing Apr-Aug');
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(1, '2024-01-01', '2024-12-31', 'B', 20, 'New Jan-Dec Different'); -- Different data, contains existing
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2024-03-31', '2024-08-31', 'A', 10, 'Existing Apr-Aug'); -- (Mar 31, Aug 31]
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-12-31', 'B', 20, 'New Jan-Dec Different'); -- Different data, contains existing (Dec 31, Dec 31]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -292,9 +359,9 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be one row Jan-Dec with value B for ID 1
- id | valid_from |  valid_to  | value_a | value_b |     edit_comment      
-----+------------+------------+---------+---------+-----------------------
-  1 | 01-01-2024 | 12-31-2024 | B       |      20 | New Jan-Dec Different
+ id | valid_after |  valid_to  | value_a | value_b |     edit_comment      
+----+-------------+------------+---------+---------+-----------------------
+  1 | 2023-12-31  | 2024-12-31 | B       |      20 | New Jan-Dec Different
 (1 row)
 
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
@@ -303,46 +370,46 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 \echo 'Scenario 11: Batch Processing (Multiple IDs and Scenarios)'
 Scenario 11: Batch Processing (Multiple IDs and Scenarios)
 -- ID 1 (will be new, e.g. seq val 1): Initial Insert
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(NULL, '2024-01-01', '2024-12-31', 'ID1', 11, 'ID1 Initial');
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(NULL, '2023-12-31', '2024-12-31', 'ID1', 11, 'ID1 Initial'); -- (Dec 31, Dec 31]
 -- ID 2: Existing data
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(2, '2024-01-01', '2024-12-31', 'ID2-Old', 22, 'ID2 Existing');
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(2, '2023-12-31', '2024-12-31', 'ID2-Old', 22, 'ID2 Existing'); -- (Dec 31, Dec 31]
 -- ID 2: Source data to split existing ID2
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(2, '2024-05-01', '2024-08-31', 'ID2-New', 23, 'ID2 Split');
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(2, '2024-04-30', '2024-08-31', 'ID2-New', 23, 'ID2 Split'); -- (Apr 30, Aug 31]
 -- ID 3: Existing data
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(3, '2024-01-01', '2024-06-30', 'ID3', 33, 'ID3 First Half');
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(3, '2023-12-31', '2024-06-30', 'ID3', 33, 'ID3 First Half'); -- (Dec 31, June 30]
 -- ID 3: Source data adjacent equivalent to merge
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(3, '2024-07-01', '2024-12-31', 'ID3', 33, 'ID3 Second Half Merge');
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(3, '2024-06-30', '2024-12-31', 'ID3', 33, 'ID3 Second Half Merge'); -- (June 30, Dec 31]
 -- ID 4: Source data with error (null valid_to)
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(4, '2024-01-01', NULL, 'ID4-Error', 44, 'ID4 Error');
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(4, '2023-12-31', NULL, 'ID4-Error', 44, 'ID4 Error'); -- (Dec 31, NULL]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 ) ORDER BY source_row_id;
-WARNING:  [batch_upsert] Error processing source_row_id 4 ({"id": 4, "row_id": 4, "value_a": "ID4-Error", "value_b": 44, "valid_to": null, "target_id": 4, "valid_from": "2024-01-01", "edit_comment": "ID4 Error"}): Temporal columns (valid_from, valid_to) cannot be null. Error in source row with row_id = 4: {"id": 4, "row_id": 4, "value_a": "ID4-Error", "value_b": 44, "valid_to": null, "target_id": 4, "valid_from": "2024-01-01", "edit_comment": "ID4 Error"}. Context: PL/pgSQL function admin.batch_insert_or_replace_generic_valid_time_table(text,text,text,text,text,jsonb,text[],text[],text[],text) line 101 at RAISE
- source_row_id | upserted_record_id | status  |                                                                                                                     error_message                                                                                                                     
----------------+--------------------+---------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+WARNING:  [batch_replace] Error processing source_row_id 4 ({"id": 4, "row_id": 4, "value_a": "ID4-Error", "value_b": 44, "valid_to": null, "target_id": 4, "valid_after": "2023-12-31", "edit_comment": "ID4 Error"}): Temporal columns (valid_after, valid_to) cannot be null. Error in source row with row_id = 4: {"id": 4, "row_id": 4, "value_a": "ID4-Error", "value_b": 44, "valid_to": null, "target_id": 4, "valid_after": "2023-12-31", "edit_comment": "ID4 Error"}. Context: PL/pgSQL function import.batch_insert_or_replace_generic_valid_time_table(text,text,text,text,text,jsonb,text[],text[],text[],text) line 115 at RAISE
+ source_row_id | upserted_record_id | status  |                                                                                                                      error_message                                                                                                                      
+---------------+--------------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
              1 |                  1 | SUCCESS | 
              2 |                  2 | SUCCESS | 
              3 |                  3 | SUCCESS | 
-             4 |                    | ERROR   | Temporal columns (valid_from, valid_to) cannot be null. Error in source row with row_id = 4: {"id": 4, "row_id": 4, "value_a": "ID4-Error", "value_b": 44, "valid_to": null, "target_id": 4, "valid_from": "2024-01-01", "edit_comment": "ID4 Error"}
+             4 |                    | ERROR   | Temporal columns (valid_after, valid_to) cannot be null. Error in source row with row_id = 4: {"id": 4, "row_id": 4, "value_a": "ID4-Error", "value_b": 44, "valid_to": null, "target_id": 4, "valid_after": "2023-12-31", "edit_comment": "ID4 Error"}
 (4 rows)
 
 \echo 'Target table after batch:'
 Target table after batch:
 SELECT * FROM batch_test.show_target_table();
- id | valid_from |  valid_to  | value_a | value_b |     edit_comment      
-----+------------+------------+---------+---------+-----------------------
-  1 | 01-01-2024 | 12-31-2024 | ID1     |      11 | ID1 Initial
-  2 | 01-01-2024 | 04-30-2024 | ID2-Old |      22 | ID2 Existing
-  2 | 05-01-2024 | 08-31-2024 | ID2-New |      23 | ID2 Split
-  2 | 09-01-2024 | 12-31-2024 | ID2-Old |      22 | ID2 Existing
-  3 | 01-01-2024 | 12-31-2024 | ID3     |      33 | ID3 Second Half Merge
+ id | valid_after |  valid_to  | value_a | value_b |  edit_comment  
+----+-------------+------------+---------+---------+----------------
+  1 | 2023-12-31  | 2024-12-31 | ID1     |      11 | ID1 Initial
+  2 | 2023-12-31  | 2024-04-30 | ID2-Old |      22 | ID2 Existing
+  2 | 2024-04-30  | 2024-08-31 | ID2-New |      23 | ID2 Split
+  2 | 2024-08-31  | 2024-12-31 | ID2-Old |      22 | ID2 Existing
+  3 | 2023-12-31  | 2024-12-31 | ID3     |      33 | ID3 First Half
 (5 rows)
 
 -- Expected:
@@ -355,12 +422,12 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 12. ID Lookup using unique_columns
 \echo 'Scenario 12: ID Lookup'
 Scenario 12: ID Lookup
-INSERT INTO batch_test.batch_upsert_target (id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(5, '2024-01-01', '2024-12-31', 'LookupMe', 50, 'Existing Lookup');
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(5, '2023-12-31', '2024-12-31', 'LookupMe', 50, 'Existing Lookup'); -- (Dec 31, Dec 31]
 -- Source row has target_id = NULL, but value_a matches existing row
-INSERT INTO batch_test.batch_upsert_source (target_id, valid_from, valid_to, value_a, value_b, edit_comment) VALUES
-(NULL, '2024-06-01', '2024-09-30', 'LookupMe', 55, 'Update via Lookup'); -- Overlaps, different data
-SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(NULL, '2024-05-31', '2024-09-30', 'LookupMe', 55, 'Update via Lookup'); -- Overlaps, different data (May 31, Sep 30]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
@@ -370,12 +437,37 @@ SELECT * FROM admin.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(5); -- Should have split the original row for ID 5
- id | valid_from |  valid_to  | value_a  | value_b |   edit_comment    
-----+------------+------------+----------+---------+-------------------
-  5 | 01-01-2024 | 05-31-2024 | LookupMe |      50 | Existing Lookup
-  5 | 06-01-2024 | 09-30-2024 | LookupMe |      55 | Update via Lookup
-  5 | 10-01-2024 | 12-31-2024 | LookupMe |      50 | Existing Lookup
+ id | valid_after |  valid_to  | value_a  | value_b |   edit_comment    
+----+-------------+------------+----------+---------+-------------------
+  5 | 2023-12-31  | 2024-05-31 | LookupMe |      50 | Existing Lookup
+  5 | 2024-05-31  | 2024-09-30 | LookupMe |      55 | Update via Lookup
+  5 | 2024-09-30  | 2024-12-31 | LookupMe |      50 | Existing Lookup
 (3 rows)
+
+TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
+ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
+-- 13. Identical Period, Different Data, Full Replacement
+\echo 'Scenario 13: Identical Period, Different Data, Full Replacement'
+Scenario 13: Identical Period, Different Data, Full Replacement
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-12-31', 'KeyForID1', 100, 'Original Version'); -- (Dec 31, Dec 31]
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-12-31', 'KeyForID1', 200, 'Updated Version'); -- Different value_b, identical period (Dec 31, Dec 31]
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    '[]'::JSONB, -- p_unique_columns is empty as target_id is provided
+    :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+ source_row_id | upserted_record_id | status  | error_message 
+---------------+--------------------+---------+---------------
+             1 |                  1 | SUCCESS | 
+(1 row)
+
+SELECT * FROM batch_test.show_target_table(1); -- Should be one row for ID 1, with value_b = 200
+ id | valid_after |  valid_to  |  value_a  | value_b |  edit_comment   
+----+-------------+------------+-----------+---------+-----------------
+  1 | 2023-12-31  | 2024-12-31 | KeyForID1 |     200 | Updated Version
+(1 row)
 
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
