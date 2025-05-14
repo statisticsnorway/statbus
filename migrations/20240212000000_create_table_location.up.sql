@@ -4,8 +4,8 @@ CREATE TYPE public.location_type AS ENUM ('physical', 'postal');
 
 CREATE TABLE public.location (
     id SERIAL NOT NULL,
-    valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
+    valid_after date NOT NULL,
     valid_to date NOT NULL DEFAULT 'infinity',
     type public.location_type NOT NULL,
     address_part1 character varying(200),
@@ -74,5 +74,9 @@ CREATE INDEX ix_location_region_id ON public.location USING btree (region_id);
 CREATE INDEX ix_location_establishment_id ON public.location USING btree (establishment_id);
 CREATE INDEX ix_location_legal_unit_id ON public.location USING btree (legal_unit_id);
 CREATE INDEX ix_location_edit_by_user_id ON public.location USING btree (edit_by_user_id);
+
+CREATE TRIGGER trg_location_synchronize_valid_from_after
+    BEFORE INSERT OR UPDATE ON public.location
+    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
 
 END;

@@ -4,8 +4,8 @@ CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 
 CREATE TABLE public.activity (
     id SERIAL NOT NULL,
-    valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
     valid_from date NOT NULL DEFAULT current_date,
+    valid_after date NOT NULL,
     valid_to date NOT NULL DEFAULT 'infinity',
     type public.activity_type NOT NULL,
     category_id integer NOT NULL REFERENCES public.activity_category(id) ON DELETE CASCADE,
@@ -25,5 +25,9 @@ CREATE INDEX ix_activity_establishment_id ON public.activity USING btree (establ
 CREATE INDEX ix_activity_legal_unit_id ON public.activity USING btree (legal_unit_id);
 CREATE INDEX ix_activity_edit_by_user_id ON public.activity USING btree (edit_by_user_id);
 CREATE INDEX ix_activity_establishment_valid_after_valid_to ON public.activity USING btree (establishment_id, valid_after, valid_to);
+
+CREATE TRIGGER trg_activity_synchronize_valid_from_after
+    BEFORE INSERT OR UPDATE ON public.activity
+    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
 
 END;
