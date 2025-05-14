@@ -4,35 +4,27 @@ This project uses PostgreSQL (17+) and PostgREST (12+) for its backend.
 It is deployed on custom servers behind Caddy with HTTPS.
 
 ## SQL
-When defining functions and procedures use the function name as part of the literal string quote
-for the body and specify the LANGUAGE before the body, so one knows how to parse it up front.
-Ensure that parameters are documentation friendly, and therefore always use the long form
-to avoid ambiguity.
-```
-CREATE FUNCTION public.example(email text) RETURNS void LANGUAGE plpgsql AS $example$
-BEGIN
-  ...
-  SELECT * FROM ...
-  WHERE email = example.email
-  ...
-END;
-$$;
-```
-
-When calling functions with multiple arguments (3+), use named arguments for clarity, arg1 => val1, arg2 => val2, etc.
-
-PostgreSQL 17 supports the new MERGE syntax for efficient batch handling.
-
-When creating large string for format, use $$ to allow inline ' in comments, so
-```plpgsql
-format($$
-  ... -- A comment with a '
-$$, arg1, arg2, ...)
-```
+- **Function/Procedure Definitions**:
+    - Use the function/procedure name in the literal string quote for the body (e.g., `AS $my_function_name$`).
+    - Specify `LANGUAGE plpgsql` (or other) before the body.
+    - Use the long form for parameters for documentation clarity (e.g., `param_name param_type`).
+    - Example:
+      ```sql
+      CREATE FUNCTION public.example(email text) RETURNS void LANGUAGE plpgsql AS $example$
+      BEGIN
+        -- Use function_name.parameter_name for clarity if needed, e.g., example.email
+        SELECT * FROM some_table st WHERE st.email = example.email;
+      END;
+      $$;
+      ```
+- **Function Calls**: For calls with 3+ arguments, use named arguments (e.g., `arg1 => val1`).
+- **String Literals for `format()`**: Use dollar-quoting (e.g., `format($$ ... $$)`) for `format()` strings to allow unescaped single quotes within.
+- **Table Aliases**: Prefer explicit `AS` for table aliases, e.g., `FROM my_table AS mt`. For common data table aliases in import procedures, `AS dt` is preferred.
+- **Batch Operations**: Utilize PostgreSQL 17+ `MERGE` syntax for efficient batch handling where appropriate.
 
 ### SQL Testing
-Is done with pg_regress with test/ as base.
-Run with `./devops/manage-statbus.sh test [all|xx_the_test_name]`.
+- Use pg_regress with `test/` as the base directory.
+- Run tests via `./devops/manage-statbus.sh test [all|xx_the_test_name]`.
 
 ### SQL Naming conventions
 Column name
