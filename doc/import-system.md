@@ -48,7 +48,7 @@ The import system is built around several key database tables and concepts:
     *   They contain the actual logic for:
         *   **Analysis (`analyse_procedure`):** Reads `source_input` columns, performs lookups (e.g., finding `sector_id` from `sector_code`), type casting (e.g., `admin.safe_cast_to_date`), and validations. Stores results in `internal` columns (e.g., `sector_id`, `typed_birth_date`). The `external_idents` step specifically determines the potential operation (`operation`: `insert` or `replace`) based on identifier lookups, and the final `action` (`insert`, `replace`, or `skip`) based on the `operation` and the job's `strategy`, storing both in their respective `internal` columns. Updates the row's `state` (to `analysing` or `error`), `error` (JSONB), and `last_completed_priority` in the `_data` table.
         *   **Operation (`process_procedure`):** Reads `source_input` and `internal` columns, including the `action` column. Performs the final `INSERT` (for `action='insert'`) or `REPLACE` (for `action='replace'`, typically using `admin.batch_insert_or_replace_generic_valid_time_table` for temporal data) into the target Statbus tables, respecting the job's `strategy`. Skips rows where `action='skip'`. Stores the resulting primary key(s) in the corresponding `pk_id` column (e.g., `legal_unit_id`, `location_id`, `activity_id`). Updates the row's `state` (to `processing` or `error`), `error`, and `last_completed_priority`. *Note: Some steps like `external_idents` only perform analysis and do not have a process procedure.*
-    *   These procedures operate on batches of rows identified by an array of their `row_id` values (e.g., `INTEGER[]`). The `row_id` is a stable, dedicated identifier within the job-specific `_data` table, used instead of PostgreSQL's system column `ctid` because `ctid` can change during row updates or table maintenance, making it unreliable for this multi-stage process. They use `FOR UPDATE SKIP LOCKED` when selecting batches to handle concurrency.
+    *   These procedures operate on batches of rows identified by an array of their `row_id` values (e.g., `INTEGER[]`). The `row_id` is a stable, dedicated identifier within the job-specific `_data` table, used instead of PostgreSQL's system column `ctid` because `ctid` can change during row updates or table maintenance, making it unreliable for this multi-stage process. When these `row_id`s are temporarily stored (e.g., in a `TEMP TABLE` for batch processing), the column holding them in the temporary table is typically named `data_row_id` for clarity. They use `FOR UPDATE SKIP LOCKED` when selecting batches to handle concurrency.
 
 8.  **Import Job (`import_job`)**:
     *   Represents a specific instance of an import, created by a user based on an `import_definition`.
@@ -121,13 +121,14 @@ Creating a new import type involves defining the metadata in the database:
     *   Columns to store the final inserted/updated primary keys (`purpose='pk_id'`, `column_type` usually `INTEGER` or `INTEGER[]`). Link each to the `import_step` (via `step_id`) that performs the final database operation.
     *   Set `is_uniquely_identifying = true` for the `source_input` data columns (belonging to the relevant step) that form the unique key for the prepare step's UPSERT logic.
     *   Remember that the `_data` table will also have a system-managed `row_id` column for stable row identification during processing.
-3.  **Implement Procedures**: Create the actual PL/pgSQL functions named in the `import_step` records (`analyse_procedure`, `process_procedure`). These functions must:
+
+3.  **Implement Procedures**: Write the PL/pgSQL functions named in the `import_step` records (`analyse_procedure`, `process_procedure`). These functions must:
     *   Accept `(p_job_id INT, p_batch_row_ids INTEGER[])` (or appropriate array type for `row_id`).
-    *   Read `definition_snapshot` from `import_job` if needed (e.g., to check `strategy`).
+    *   Read `definition_snapshot` from `import_job` if needed.
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
     *   Perform logic (lookups, validation, casting, final DML using audit info and `action` from `_data`).
-    *   Correctly update `last_completed_priority`, `state`, and `error` columns in the `_data` table for the processed `p_batch_row_ids`.
+    *   Correctly update `last_completed_priority`, `state`, and `error` columns in `_data`.
     *   Handle errors gracefully, ideally marking only affected rows within the batch as `error` and storing details in the `error` JSONB column. If a batch-wide error occurs (e.g., constraint violation during a batch DML), mark all rows identified by `p_batch_row_ids` as error.
 4.  **Create Definition (`import_definition`)**: Create a record defining the overall import (e.g., slug='legal_unit_import', name='Legal Unit Import', strategy='insert_or_replace'). Set `valid=false` initially.
 5.  **Link Steps to Definition (`import_definition_step`)**: Insert records into `import_definition_step` linking the new `definition_id` to the `step_id`s of the chosen `import_step` records defined in step 1.
@@ -246,7 +247,7 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
     *   Perform logic (lookups, validation, casting, final DML using audit info and `action` from `_data`).
     *   Correctly update `last_completed_priority`, `state`, and `error` columns in `_data`.
-
+    *   Handle errors gracefully, ideally marking only affected rows within the batch as `error` and storing details in the `error` JSONB column. If a batch-wide error occurs (e.g., constraint violation during a batch DML), mark all rows identified by `p_batch_row_ids` as error.
 4.  **Create Definition (`import_definition`)**:
     ```sql
     INSERT INTO public.import_definition (slug, name, note, strategy, valid)
