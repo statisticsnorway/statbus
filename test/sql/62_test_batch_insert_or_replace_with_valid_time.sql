@@ -299,6 +299,41 @@ TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM ba
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 
 
+-- 14. Equals Relation, Equivalent Data (No Change Expected)
+\echo 'Scenario 14: Equals Relation, Equivalent Data'
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-12-31', 'Equivalent', 100, 'Original Comment'); -- (Dec 31, Dec 31]
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-12-31', 'Equivalent', 100, 'Source Comment, Should Not Overwrite'); -- Identical data and period
+
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    '[]'::JSONB, -- p_unique_columns is empty as target_id is provided
+    :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test.show_target_table(1); -- Expected: One row for ID 1, edit_comment = 'Original Comment'
+
+TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
+ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
+
+
+-- 15. Precedes Relation (Non-Overlapping, New record should be added)
+\echo 'Scenario 15: Precedes Relation'
+INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2024-06-30', '2024-12-31', 'Later', 200, 'Later Record'); -- Existing: (June 30, Dec 31]
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', '2024-03-31', 'Earlier', 100, 'Earlier Record'); -- Source: (Dec 31, Mar 31] (precedes existing)
+
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    '[]'::JSONB, 
+    :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test.show_target_table(1); -- Expected: Two rows for ID 1, one for earlier, one for later period
+TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
+ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
+
+
 -- Cleanup
 DROP FUNCTION batch_test.show_target_table(INT);
 DROP TABLE batch_test.batch_upsert_source;

@@ -206,6 +206,9 @@ BEGIN -- Main function body starts here
                             ELSIF _col_name_inline = ANY(p_temporal_columns) THEN
                                 _insert_cols_list_inline := array_append(_insert_cols_list_inline, quote_ident(_col_name_inline));
                                 _insert_vals_list_inline := array_append(_insert_vals_list_inline, quote_nullable(_final_data_to_insert_inline->>_col_name_inline));
+                            ELSIF _col_name_inline = 'valid_from' THEN
+                                RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _final_data_to_insert_inline;
+                                -- Skip this column
                             ELSIF _col_name_inline = ANY(v_generated_columns) THEN
                                 -- Skip other generated columns
                             ELSE
@@ -365,7 +368,11 @@ BEGIN -- Main function body starts here
                                                     IF _col_lead = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                         IF (_data_for_leading_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead)); END IF;
                                                     ELSIF _col_lead = ANY(p_temporal_columns) THEN _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead));
-                                                    ELSIF _col_lead = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead)); END IF;
+                                                    ELSIF _col_lead = 'valid_from' THEN
+                                                        RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_for_leading_part;
+                                                        -- Skip this column
+                                                    ELSIF _col_lead = ANY(v_generated_columns) THEN /*Skip*/
+                                                    ELSE _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead)); END IF;
                                                 END IF;
                                             END LOOP;
                                             IF array_length(_insert_cols_lead,1)>0 THEN
@@ -397,7 +404,11 @@ BEGIN -- Main function body starts here
                                                 IF _col_mid = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_for_middle_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid)); END IF;
                                                 ELSIF _col_mid = ANY(p_temporal_columns) THEN _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid));
-                                                ELSIF _col_mid = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid)); END IF;
+                                                ELSIF _col_mid = 'valid_from' THEN
+                                                    RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_for_middle_part;
+                                                    -- Skip this column
+                                                ELSIF _col_mid = ANY(v_generated_columns) THEN /*Skip*/
+                                                ELSE _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid)); END IF;
                                             END IF;
                                         END LOOP;
                                         IF array_length(_insert_cols_mid,1)>0 THEN
@@ -424,7 +435,11 @@ BEGIN -- Main function body starts here
                                                     IF _col_trail = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                         IF (_data_for_trailing_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail)); END IF;
                                                     ELSIF _col_trail = ANY(p_temporal_columns) THEN _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail));
-                                                    ELSIF _col_trail = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail)); END IF;
+                                                    ELSIF _col_trail = 'valid_from' THEN
+                                                        RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_for_trailing_part;
+                                                        -- Skip this column
+                                                    ELSIF _col_trail = ANY(v_generated_columns) THEN /*Skip*/
+                                                    ELSE _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail)); END IF;
                                                 END IF;
                                             END LOOP;
                                             IF array_length(_insert_cols_trail,1)>0 THEN
@@ -463,7 +478,11 @@ BEGIN -- Main function body starts here
                                                 IF _col_ls = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_leading_source->>p_id_column_name) IS NOT NULL THEN _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls)); END IF;
                                                 ELSIF _col_ls = ANY(p_temporal_columns) THEN _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls));
-                                                ELSIF _col_ls = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls)); END IF;
+                                                ELSIF _col_ls = 'valid_from' THEN
+                                                    RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_leading_source;
+                                                    -- Skip this column
+                                                ELSIF _col_ls = ANY(v_generated_columns) THEN /*Skip*/
+                                                ELSE _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls)); END IF;
                                             END IF;
                                         END LOOP;
                                         IF array_length(_insert_cols_ls,1)>0 THEN
@@ -494,7 +513,11 @@ BEGIN -- Main function body starts here
                                                 IF _col_mo = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_middle_overlap->>p_id_column_name) IS NOT NULL THEN _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo)); END IF;
                                                 ELSIF _col_mo = ANY(p_temporal_columns) THEN _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo));
-                                                ELSIF _col_mo = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo)); END IF;
+                                                ELSIF _col_mo = 'valid_from' THEN
+                                                    RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_middle_overlap;
+                                                    -- Skip this column
+                                                ELSIF _col_mo = ANY(v_generated_columns) THEN /*Skip*/
+                                                ELSE _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo)); END IF;
                                             END IF;
                                         END LOOP;
                                         IF array_length(_insert_cols_mo,1)>0 THEN
@@ -521,7 +544,11 @@ BEGIN -- Main function body starts here
                                                     IF _col_te = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                         IF (_data_trailing_existing->>p_id_column_name) IS NOT NULL THEN _insert_cols_te := array_append(_insert_cols_te, quote_ident(_col_te)); _insert_vals_te := array_append(_insert_vals_te, quote_nullable(_data_trailing_existing->>_col_te)); END IF;
                                                     ELSIF _col_te = ANY(p_temporal_columns) THEN _insert_cols_te := array_append(_insert_cols_te, quote_ident(_col_te)); _insert_vals_te := array_append(_insert_vals_te, quote_nullable(_data_trailing_existing->>_col_te));
-                                                    ELSIF _col_te = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_te := array_append(_insert_cols_te, quote_ident(_col_te)); _insert_vals_te := array_append(_insert_vals_te, quote_nullable(_data_trailing_existing->>_col_te)); END IF;
+                                                    ELSIF _col_te = 'valid_from' THEN
+                                                        RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_trailing_existing;
+                                                        -- Skip this column
+                                                    ELSIF _col_te = ANY(v_generated_columns) THEN /*Skip*/
+                                                    ELSE _insert_cols_te := array_append(_insert_cols_te, quote_ident(_col_te)); _insert_vals_te := array_append(_insert_vals_te, quote_nullable(_data_trailing_existing->>_col_te)); END IF;
                                                 END IF;
                                             END LOOP;
                                             IF array_length(_insert_cols_te,1)>0 THEN
@@ -596,7 +623,11 @@ BEGIN -- Main function body starts here
                                                 IF _col_mu = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_middle_updated->>p_id_column_name) IS NOT NULL THEN _insert_cols_mu := array_append(_insert_cols_mu, quote_ident(_col_mu)); _insert_vals_mu := array_append(_insert_vals_mu, quote_nullable(_data_middle_updated->>_col_mu)); END IF;
                                                 ELSIF _col_mu = ANY(p_temporal_columns) THEN _insert_cols_mu := array_append(_insert_cols_mu, quote_ident(_col_mu)); _insert_vals_mu := array_append(_insert_vals_mu, quote_nullable(_data_middle_updated->>_col_mu));
-                                                ELSIF _col_mu = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_mu := array_append(_insert_cols_mu, quote_ident(_col_mu)); _insert_vals_mu := array_append(_insert_vals_mu, quote_nullable(_data_middle_updated->>_col_mu)); END IF;
+                                                ELSIF _col_mu = 'valid_from' THEN
+                                                    RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_middle_updated;
+                                                    -- Skip this column
+                                                ELSIF _col_mu = ANY(v_generated_columns) THEN /*Skip*/
+                                                ELSE _insert_cols_mu := array_append(_insert_cols_mu, quote_ident(_col_mu)); _insert_vals_mu := array_append(_insert_vals_mu, quote_nullable(_data_middle_updated->>_col_mu)); END IF;
                                             END IF;
                                         END LOOP;
                                         IF array_length(_insert_cols_mu,1)>0 THEN
@@ -622,7 +653,11 @@ BEGIN -- Main function body starts here
                                                 IF _col_ts = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_trailing_source->>p_id_column_name) IS NOT NULL THEN _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts)); END IF;
                                                 ELSIF _col_ts = ANY(p_temporal_columns) THEN _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts));
-                                                ELSIF _col_ts = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts)); END IF;
+                                                ELSIF _col_ts = 'valid_from' THEN
+                                                    RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_trailing_source;
+                                                    -- Skip this column
+                                                ELSIF _col_ts = ANY(v_generated_columns) THEN /*Skip*/
+                                                ELSE _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts)); END IF;
                                             END IF;
                                         END LOOP;
                                         IF array_length(_insert_cols_ts,1)>0 THEN
@@ -668,7 +703,11 @@ BEGIN -- Main function body starts here
                                                 IF _col_up = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_updated_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up)); END IF;
                                                 ELSIF _col_up = ANY(p_temporal_columns) THEN _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up));
-                                                ELSIF _col_up = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up)); END IF;
+                                                ELSIF _col_up = 'valid_from' THEN
+                                                    RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_updated_part;
+                                                    -- Skip this column
+                                                ELSIF _col_up = ANY(v_generated_columns) THEN /*Skip*/
+                                                ELSE _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up)); END IF;
                                             END IF;
                                         END LOOP;
                                         IF array_length(_insert_cols_up,1)>0 THEN
@@ -693,7 +732,11 @@ BEGIN -- Main function body starts here
                                                 IF _col_re = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_remaining_existing->>p_id_column_name) IS NOT NULL THEN _insert_cols_re := array_append(_insert_cols_re, quote_ident(_col_re)); _insert_vals_re := array_append(_insert_vals_re, quote_nullable(_data_remaining_existing->>_col_re)); END IF;
                                                 ELSIF _col_re = ANY(p_temporal_columns) THEN _insert_cols_re := array_append(_insert_cols_re, quote_ident(_col_re)); _insert_vals_re := array_append(_insert_vals_re, quote_nullable(_data_remaining_existing->>_col_re));
-                                                ELSIF _col_re = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_re := array_append(_insert_cols_re, quote_ident(_col_re)); _insert_vals_re := array_append(_insert_vals_re, quote_nullable(_data_remaining_existing->>_col_re)); END IF;
+                                                ELSIF _col_re = 'valid_from' THEN
+                                                    RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_remaining_existing;
+                                                    -- Skip this column
+                                                ELSIF _col_re = ANY(v_generated_columns) THEN /*Skip*/
+                                                ELSE _insert_cols_re := array_append(_insert_cols_re, quote_ident(_col_re)); _insert_vals_re := array_append(_insert_vals_re, quote_nullable(_data_remaining_existing->>_col_re)); END IF;
                                             END IF;
                                         END LOOP;
                                         IF array_length(_insert_cols_re,1)>0 THEN
@@ -800,7 +843,11 @@ BEGIN -- Main function body starts here
                                                 IF _col_le = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_leading_existing->>p_id_column_name) IS NOT NULL THEN _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le)); END IF;
                                                 ELSIF _col_le = ANY(p_temporal_columns) THEN _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le));
-                                                ELSIF _col_le = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le)); END IF;
+                                                ELSIF _col_le = 'valid_from' THEN
+                                                    RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_leading_existing;
+                                                    -- Skip this column
+                                                ELSIF _col_le = ANY(v_generated_columns) THEN /*Skip*/
+                                                ELSE _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le)); END IF;
                                             END IF;
                                         END LOOP;
                                         IF array_length(_insert_cols_le,1)>0 THEN
@@ -1261,6 +1308,9 @@ BEGIN -- Main function body starts here
                                             ELSIF _col_name_inline_2 = ANY(p_temporal_columns) THEN
                                                 _insert_cols_list_inline_2 := array_append(_insert_cols_list_inline_2, quote_ident(_col_name_inline_2));
                                                 _insert_vals_list_inline_2 := array_append(_insert_vals_list_inline_2, quote_nullable(_final_data_to_insert_inline_2->>_col_name_inline_2));
+                                            ELSIF _col_name_inline_2 = 'valid_from' THEN
+                                                RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _final_data_to_insert_inline_2;
+                                                -- Skip this column
                                             ELSIF _col_name_inline_2 = ANY(v_generated_columns) THEN
                                                 -- Skip other generated columns
                                             ELSE
@@ -1410,6 +1460,9 @@ BEGIN -- Main function body starts here
                                     ELSIF _col_name_inline_3 = ANY(p_temporal_columns) THEN
                                         _insert_cols_list_inline_3 := array_append(_insert_cols_list_inline_3, quote_ident(_col_name_inline_3));
                                         _insert_vals_list_inline_3 := array_append(_insert_vals_list_inline_3, quote_nullable(_final_data_to_insert_inline_3->>_col_name_inline_3));
+                                    ELSIF _col_name_inline_3 = 'valid_from' THEN
+                                        RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _final_data_to_insert_inline_3;
+                                        -- Skip this column
                                     ELSIF _col_name_inline_3 = ANY(v_generated_columns) THEN
                                         -- Skip other generated columns
                                     ELSE
