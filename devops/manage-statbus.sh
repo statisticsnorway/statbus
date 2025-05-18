@@ -288,20 +288,24 @@ case "$action" in
           exit 1
       fi
 
+      ui_choice=${1:-tui} # Get UI choice from the first argument to diff-fail-all, default to tui
+
       grep -E '^not ok' "$WORKSPACE/test/regression.out" | while read test_line; do
           # Extract the full test name (e.g., "01_load_web_examples")
           test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
-          echo "Next test: $test"
-          echo "Press C to continue, s to skip, or b to break (default: C)"
-          read -n 1 -s input < /dev/tty
-          if [ "$input" = "b" ]; then
-              break
-          elif [ "$input" = "s" ]; then
-              continue
+          
+          if [ "$ui_choice" != "pipe" ]; then
+              echo "Next test: $test"
+              echo "Press C to continue, s to skip, or b to break (default: C)"
+              read -n 1 -s input < /dev/tty
+              if [ "$input" = "b" ]; then
+                  break
+              elif [ "$input" = "s" ]; then
+                  continue
+              fi
           fi
-          ui=${1:-tui}
-          shift || true
-          case $ui in
+          
+          case $ui_choice in
               'gui')
                   echo "Running opendiff for test: $test"
                   opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
@@ -312,10 +316,11 @@ case "$action" in
                   ;;
               'pipe')
                   echo "Running diff for test: $test"
-                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
+                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
                   ;;
               *)
-                  echo "Error: Unknown UI option '$ui'. Please use 'gui' or 'tui'."
+                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'tui', or 'pipe'."
                   exit 1
               ;;
           esac
