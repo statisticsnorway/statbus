@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE TABLE public.legal_unit (
     id SERIAL NOT NULL,
-    valid_from date NOT NULL DEFAULT current_date,
+    valid_from date NOT NULL,
     valid_after date NOT NULL,
     valid_to date NOT NULL DEFAULT 'infinity',
     active boolean NOT NULL DEFAULT true,

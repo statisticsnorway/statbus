@@ -3,7 +3,7 @@ BEGIN;
 
 CREATE TABLE public.contact (
     id SERIAL NOT NULL,
-    valid_from date NOT NULL DEFAULT current_date,
+    valid_from date NOT NULL,
     valid_after date NOT NULL,
     valid_to date NOT NULL DEFAULT 'infinity',
     web_address character varying(256),

@@ -64,11 +64,11 @@ SELECT * FROM trigger_test.show_table(); -- Should not contain 'Test 4 Fail'
 \echo 'Test 5: INSERT with neither valid_from nor valid_after - Expect error'
 DO $$
 BEGIN
-    INSERT INTO trigger_test.temporal_table (description, valid_to) VALUES ('Test 5 Fail', '2024-07-31');
+    INSERT INTO trigger_test.temporal_table (description, valid_to) VALUES ('Test 5 Defaulted But Fails Check', '2024-07-31');
 EXCEPTION WHEN others THEN
     RAISE NOTICE 'Test 5 Caught expected error: %', SQLERRM;
 END $$;
-SELECT * FROM trigger_test.show_table(); -- Should not contain 'Test 5 Fail'
+SELECT * FROM trigger_test.show_table(); -- Should not contain 'Test 5 Defaulted But Fails Check'
 
 -- Test UPDATE scenarios
 \echo '--- UPDATE Scenarios ---'

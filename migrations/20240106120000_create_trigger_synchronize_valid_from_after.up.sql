@@ -25,8 +25,10 @@ BEGIN
             IF NEW.valid_after != (NEW.valid_from - INTERVAL '1 day') THEN
                 RAISE EXCEPTION 'On INSERT, valid_from and valid_after are inconsistent. Expected valid_after = valid_from - 1 day. Got valid_from=%, valid_after=%', NEW.valid_from, NEW.valid_after;
             END IF;
-        ELSE -- Both are NULL
-            RAISE EXCEPTION 'On INSERT, either valid_from or valid_after must be provided for table %', TG_TABLE_NAME;
+        ELSE -- Both are NULL, set a default validity period starting today
+            NEW.valid_after := current_date - INTERVAL '1 day'; -- (exclusive start) yesterday
+            NEW.valid_from  := current_date;                   -- (inclusive start) today
+            RAISE DEBUG 'On INSERT for table %, both valid_from and valid_after were NULL. Defaulted: valid_from=%, valid_after=%', TG_TABLE_NAME, NEW.valid_from, NEW.valid_after;
         END IF;
 
     -- For UPDATE operations

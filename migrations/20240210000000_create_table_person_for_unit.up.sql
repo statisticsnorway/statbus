@@ -2,7 +2,7 @@ BEGIN;
 
 CREATE TABLE public.person_for_unit (
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    valid_from date NOT NULL DEFAULT current_date,
+    valid_from date NOT NULL,
     valid_after date NOT NULL,
     valid_to date NOT NULL DEFAULT 'infinity',
     person_id integer NOT NULL REFERENCES public.person(id) ON DELETE RESTRICT,

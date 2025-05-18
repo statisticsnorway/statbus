@@ -4,7 +4,7 @@ CREATE TYPE public.activity_type AS ENUM ('primary', 'secondary', 'ancilliary');
 
 CREATE TABLE public.activity (
     id SERIAL NOT NULL,
-    valid_from date NOT NULL DEFAULT current_date,
+    valid_from date NOT NULL,
     valid_after date NOT NULL,
     valid_to date NOT NULL DEFAULT 'infinity',
     type public.activity_type NOT NULL,

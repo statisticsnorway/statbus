@@ -3,7 +3,7 @@ BEGIN;
 CREATE TABLE public.stat_for_unit (
     id SERIAL NOT NULL,
     stat_definition_id integer NOT NULL REFERENCES public.stat_definition(id) ON DELETE RESTRICT,
-    valid_from date NOT NULL DEFAULT current_date,
+    valid_from date NOT NULL,
     valid_after date NOT NULL,
     valid_to date NOT NULL DEFAULT 'infinity',
     data_source_id integer REFERENCES public.data_source(id) ON DELETE SET NULL,
