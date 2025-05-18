@@ -26,18 +26,18 @@ DECLARE
     v_existing_era_record RECORD; -- To hold a full row from the target table
     v_result_id INT;
 
-    v_source_record_jsonb JSONB; -- Renamed from v_new_record_for_processing
+    v_source_record_jsonb JSONB; 
     v_existing_era_jsonb JSONB;
     
-    v_source_valid_after DATE; -- Date from source record
-    v_source_valid_to DATE;   -- Date from source record
+    v_source_valid_after DATE; 
+    v_source_valid_to DATE;   
 
-    v_adjusted_valid_from DATE; -- Used for modifying existing records (for splitting)
-    v_adjusted_valid_to DATE;   -- Used for modifying existing records (for splitting)
-    v_source_record_handled_by_merge BOOLEAN; -- Tracks if the source record is fully merged
+    -- v_adjusted_valid_from DATE; -- Not directly used in this refactor
+    -- v_adjusted_valid_to DATE;   -- Not directly used in this refactor
+    v_source_record_handled BOOLEAN; -- Renamed from v_source_record_handled_by_merge
 
-    v_equivalent_data JSONB;
-    v_equivalent_clause TEXT;
+    v_equivalent_data_cols JSONB; -- Renamed from v_equivalent_data
+    -- v_equivalent_clause TEXT; -- Not directly used in this refactor
     v_identifying_clause TEXT;
     v_existing_query TEXT;
     v_delete_existing_sql TEXT;
@@ -77,20 +77,43 @@ BEGIN
     IF p_generated_columns_override IS NOT NULL THEN
         v_generated_columns := p_generated_columns_override;
     ELSE
+        -- Determine database-generated columns.
+        -- These are columns whose values are typically supplied by the database if not explicitly
+        -- provided in an INSERT statement (e.g., SERIAL, IDENTITY, or DEFAULT nextval()).
+        --
+        -- This logic intentionally avoids broadly classifying all primary key components as "generated"
+        -- simply because they are part of a PK. For example, a temporal column like 'valid_after'
+        -- might be part of a PK, but its value is user-supplied, not database-generated.
+        -- Including such user-supplied PK components in v_generated_columns could lead to them
+        -- being incorrectly omitted from INSERT statements (especially for split/trailing parts of records),
+        -- causing "not null" violations or incorrect data.
+        --
+        -- The criteria for a column to be considered "database-generated" for the purpose of this function are:
+        -- 1. Linked to a sequence via SERIAL types or OWNED BY (pg_get_serial_sequence).
+        -- 2. Is an IDENTITY column (a.attidentity).
+        -- 3. Is a GENERATED ... AS ... column (a.attgenerated).
+        -- 4. Has a default expression that is a nextval() call (a.atthasdef and pg_get_expr).
         EXECUTE format(
             'SELECT array_agg(a.attname) '
             'FROM pg_catalog.pg_attribute AS a '
+            'LEFT JOIN pg_catalog.pg_attrdef ad ON ad.adrelid = a.attrelid AND ad.adnum = a.attnum ' || -- LEFT JOIN needed for pg_get_expr check
             'WHERE a.attrelid = ''%I.%I''::regclass '
             '  AND a.attnum > 0 AND NOT a.attisdropped '
-            '  AND (pg_catalog.pg_get_serial_sequence(a.attrelid::regclass::text, a.attname) IS NOT NULL '
-            '    OR a.attidentity <> '''' OR a.attgenerated <> '''' '
-            '    OR EXISTS (SELECT FROM pg_catalog.pg_constraint AS _c '
-            '               WHERE _c.conrelid = a.attrelid AND _c.contype = ''p'' AND _c.conkey @> ARRAY[a.attnum]))',
+            '  AND ('
+            '    pg_catalog.pg_get_serial_sequence(a.attrelid::regclass::text, a.attname) IS NOT NULL '
+            '    OR a.attidentity <> '''' '
+            '    OR a.attgenerated <> '''' '
+            '    OR (a.atthasdef AND pg_catalog.pg_get_expr(ad.adbin, ad.adrelid) LIKE ''nextval(%%::regclass)'') ' -- Note: %% for format, becomes % for LIKE
+            '  )',
             p_target_schema_name, p_target_table_name
         ) INTO v_generated_columns;
     END IF;
     v_generated_columns := COALESCE(v_generated_columns, ARRAY[]::TEXT[]);
-    RAISE DEBUG '[batch_replace] Generated columns for %.%: %', p_target_schema_name, p_target_table_name, v_generated_columns;
+    -- Systematically treat valid_from as a generated column, to be handled by the trigger
+    IF NOT ('valid_from' = ANY(v_generated_columns)) THEN
+        v_generated_columns := array_append(v_generated_columns, 'valid_from');
+    END IF;
+    RAISE DEBUG '[batch_replace] Final v_generated_columns for %.%: %', p_target_schema_name, p_target_table_name, v_generated_columns;
 
     -- Check if source table has a 'target_id' column to alias to p_id_column_name
     SELECT column_name INTO v_source_target_id_alias
@@ -126,7 +149,7 @@ BEGIN
 
             v_loop_error_message := NULL;
             v_result_id := NULL;
-            v_source_record_handled_by_merge := FALSE; -- Initialize for each source record
+            v_source_record_handled := FALSE; -- Initialize for each source record
 
             v_source_valid_after := (v_source_record_jsonb->>v_valid_after_col)::DATE;
             v_source_valid_to    := (v_source_record_jsonb->>v_valid_to_col)::DATE;
@@ -177,32 +200,24 @@ BEGIN
                 RAISE DEBUG '[batch_replace] Set %I = % in v_source_record_jsonb for source row %.', p_id_column_name, v_existing_id, v_current_source_row_id;
             END IF;
 
-            v_equivalent_data := '{}'::JSONB;
-            DECLARE k TEXT;
+            -- Determine non-ephemeral, non-temporal, non-ID columns for equivalence check
+            v_equivalent_data_cols := '{}'::JSONB;
+            DECLARE 
+                _col_equiv TEXT;
             BEGIN
-                FOR k IN SELECT * FROM jsonb_object_keys(v_source_record_jsonb) LOOP
-                    IF k = ANY(v_target_table_actual_columns) THEN
-                        IF NOT (k = ANY(p_temporal_columns)) AND
-                           NOT (k = ANY(p_ephemeral_columns)) AND
-                           NOT (k = p_id_column_name AND (p_id_column_name = ANY(v_generated_columns))) THEN
-                           v_equivalent_data := jsonb_set(v_equivalent_data, ARRAY[k], v_source_record_jsonb->k);
-                        END IF;
+                FOR _col_equiv IN 
+                    SELECT col FROM unnest(v_target_table_actual_columns) col
+                    WHERE NOT (col = ANY(p_temporal_columns))
+                      AND col != 'valid_from' 
+                      AND NOT (col = ANY(p_ephemeral_columns))
+                      AND NOT (col = p_id_column_name AND (p_id_column_name = ANY(v_generated_columns)))
+                LOOP
+                    IF v_source_record_jsonb ? _col_equiv THEN
+                        v_equivalent_data_cols := jsonb_set(v_equivalent_data_cols, ARRAY[_col_equiv], v_source_record_jsonb-> _col_equiv);
                     END IF;
                 END LOOP;
             END;
-            RAISE DEBUG '[batch_replace] Source row % Equivalence data: %', v_current_source_row_id, v_equivalent_data;
-
-            SELECT string_agg(
-                       format('tbl.%I IS NOT DISTINCT FROM %L', key, value),
-                       ' AND '
-                   )
-            INTO v_equivalent_clause
-            FROM jsonb_each_text(v_equivalent_data);
-
-            IF v_equivalent_clause IS NULL OR v_equivalent_clause = '' THEN
-                v_equivalent_clause := 'TRUE';
-            END IF;
-            RAISE DEBUG '[batch_replace] Source row % Equivalence clause: %', v_current_source_row_id, v_equivalent_clause;
+            RAISE DEBUG '[batch_replace] Source row % Equivalence data columns being considered: %', v_current_source_row_id, v_equivalent_data_cols;
 
             v_existing_query := format(
                 $$SELECT * 
@@ -230,9 +245,10 @@ BEGIN
                     v_relation public.allen_interval_relation;
                     _data_is_equivalent BOOLEAN := TRUE; -- Assume true, prove false
                     _key TEXT;
+                    _eph_update_set_clause TEXT; -- For updating ephemeral columns
                 BEGIN
-                    -- Determine if data is equivalent
-                    FOR _key IN SELECT * FROM jsonb_object_keys(v_equivalent_data) LOOP
+                    -- Determine if data is equivalent based on v_equivalent_data_cols
+                    FOR _key IN SELECT * FROM jsonb_object_keys(v_equivalent_data_cols) LOOP
                         IF (v_source_record_jsonb->>_key) IS DISTINCT FROM (v_existing_era_jsonb->>_key) THEN
                             _data_is_equivalent := FALSE;
                             RAISE DEBUG '[batch_replace] Data different for key "%": Source "%", Existing "%"', 
@@ -242,86 +258,75 @@ BEGIN
                     END LOOP;
                     IF _data_is_equivalent THEN
                         RAISE DEBUG '[batch_replace] Data is equivalent between source and existing era %', v_existing_era_jsonb;
+                        -- Build ephemeral update clause
+                        SELECT string_agg(format('%I = %L', eph_col, v_source_record_jsonb->>eph_col), ', ')
+                        INTO _eph_update_set_clause
+                        FROM unnest(p_ephemeral_columns) eph_col
+                        WHERE v_source_record_jsonb ? eph_col;
                     END IF;
 
                     v_relation := public.get_allen_relation(v_source_valid_after, v_source_valid_to, _ex_va, _ex_vt);
                     RAISE DEBUG '[batch_replace] Allen relation for source (% to %] and existing (% to %]: %', 
-                                v_source_valid_after, v_source_valid_to, _ex_va, _ex_vt, v_relation; -- Removed extraneous parenthesis
+                                v_source_valid_after, v_source_valid_to, _ex_va, _ex_vt, v_relation;
 
                     CASE v_relation
-                        WHEN 'equals' THEN -- Source X equals Existing Y
+                        WHEN 'equals' THEN
                             IF _data_is_equivalent THEN
-                                RAISE DEBUG '[batch_replace] Relation: EQUALS, data equivalent. Source is absorbed by existing. No changes to existing. Source insert skipped.';
-                                v_source_record_handled_by_merge := TRUE;
-                                v_result_id := v_existing_id; -- The existing record's ID
-                                EXIT; -- Exit the loop for this source record as it's fully handled
+                                RAISE DEBUG '[batch_replace] Relation: EQUALS, data equivalent. Updating ephemeral on existing.';
+                                IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
+                                    EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                                   p_target_schema_name, p_target_table_name, _eph_update_set_clause,
+                                                   p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                END IF;
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             ELSE
-                                RAISE DEBUG '[batch_replace] Relation: EQUALS, data different. Existing record is deleted (source will replace).';
+                                RAISE DEBUG '[batch_replace] Relation: EQUALS, data different. Deleting existing.';
                                 EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
                                                p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
                                                v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                -- v_source_record_handled_by_merge remains FALSE, source will be inserted later.
                             END IF;
                         WHEN 'during' THEN -- Source X is during Existing Y
                             IF _data_is_equivalent THEN
-                                RAISE DEBUG '[batch_replace] Relation: DURING, data equivalent. Source is absorbed by existing. No changes to existing. Source insert skipped.';
-                                v_source_record_handled_by_merge := TRUE;
-                                v_result_id := v_existing_id; -- The existing record's ID
-                                EXIT; -- Exit the loop for this source record as it's fully handled
+                                RAISE DEBUG '[batch_replace] Relation: DURING, data equivalent. Updating ephemeral on existing.';
+                                IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
+                                     EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                                   p_target_schema_name, p_target_table_name, _eph_update_set_clause,
+                                                   p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                END IF;
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             ELSE
-                                RAISE DEBUG '[batch_replace] Relation: DURING, data different. Splitting existing record.';
-                                -- 1. Truncate existing record Y to end where source X begins: Y.vt = X.va
+                                RAISE DEBUG '[batch_replace] Relation: DURING, data different. Splitting existing.';
                                 EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name,
-                                               v_valid_to_col, v_source_valid_after,
-                                               p_id_column_name, v_existing_id,
-                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                RAISE DEBUG '[batch_replace] Truncated existing part to (% to %]', _ex_va, v_source_valid_after;
-
-                                -- 2. Insert new record for the trailing part of Y: (X.vt, Y.vt_original]
-                                IF v_source_valid_to < _ex_vt THEN -- Check if there is a trailing part
-                                    DECLARE
-                                        _trailing_part_data JSONB := v_existing_era_jsonb; -- Copy original existing data
-                                        _insert_cols_list_trail TEXT[] := ARRAY[]::TEXT[];
-                                        _insert_vals_list_trail TEXT[] := ARRAY[]::TEXT[];
-                                        _col_name_trail TEXT;
-                                        _col_value_trail TEXT;
+                                               p_target_schema_name, p_target_table_name, v_valid_to_col, v_source_valid_after,
+                                               p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                IF v_source_valid_to < _ex_vt THEN
+                                    DECLARE _trailing_part_data JSONB := v_existing_era_jsonb; _insert_cols_trail TEXT[]; _insert_vals_trail TEXT[]; _col_trail TEXT;
                                     BEGIN
-                                        _trailing_part_data := jsonb_set(_trailing_part_data, ARRAY[v_valid_after_col], to_jsonb(v_source_valid_to::TEXT));
-                                        _trailing_part_data := jsonb_set(_trailing_part_data, ARRAY[v_valid_to_col], to_jsonb(_ex_vt::TEXT));
+                                        _trailing_part_data := v_existing_era_jsonb; -- Start with original existing data
+                                        _trailing_part_data := jsonb_set(_trailing_part_data, ARRAY[v_valid_after_col], to_jsonb(v_source_valid_to::TEXT)); -- Starts after source
+                                        _trailing_part_data := jsonb_set(_trailing_part_data, ARRAY[v_valid_to_col], to_jsonb(_ex_vt::TEXT)); -- Ends at original existing end
                                         _trailing_part_data := jsonb_set(_trailing_part_data, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        
-                                        FOR _col_name_trail IN SELECT * FROM jsonb_object_keys(_trailing_part_data) LOOP
-                                            IF _col_name_trail = ANY(v_target_table_actual_columns) THEN
-                                                _col_value_trail := _trailing_part_data->>_col_name_trail;
+                                        _trailing_part_data := _trailing_part_data - 'valid_from'; -- Ensure trigger handles valid_from
 
-                                                IF _col_name_trail = p_id_column_name AND (p_id_column_name = ANY(v_generated_columns)) THEN
-                                                    IF _col_value_trail IS NOT NULL THEN
-                                                        _insert_cols_list_trail := array_append(_insert_cols_list_trail, quote_ident(_col_name_trail));
-                                                        _insert_vals_list_trail := array_append(_insert_vals_list_trail, quote_nullable(_col_value_trail));
-                                                    END IF;
-                                                ELSIF _col_name_trail = ANY(p_temporal_columns) THEN 
-                                                    _insert_cols_list_trail := array_append(_insert_cols_list_trail, quote_ident(_col_name_trail));
-                                                    _insert_vals_list_trail := array_append(_insert_vals_list_trail, quote_nullable(_col_value_trail));
-                                                ELSIF _col_name_trail = 'valid_from' THEN
-                                                    RAISE DEBUG '[batch_replace] Skipping explicit insert of "valid_from" for trailing part as it should be derived by trigger. Record: %.', _trailing_part_data;
-                                                    -- Skip this column
-                                                ELSIF _col_name_trail = ANY(v_generated_columns) THEN
-                                                    -- Skip other generated columns
+                                        _insert_cols_trail := ARRAY[]::TEXT[];
+                                        _insert_vals_trail := ARRAY[]::TEXT[];
+                                        FOR _col_trail IN SELECT key FROM jsonb_each(_trailing_part_data) LOOP
+                                            IF _col_trail = ANY(v_target_table_actual_columns) AND NOT (_col_trail = ANY(v_generated_columns) AND _col_trail != p_id_column_name) THEN
+                                                IF _col_trail = p_id_column_name AND NOT (_trailing_part_data->>p_id_column_name IS NOT NULL) AND (p_id_column_name = ANY(v_generated_columns)) THEN
+                                                    -- Skip if ID is generated and NULL in data
                                                     CONTINUE;
-                                                ELSE
-                                                    _insert_cols_list_trail := array_append(_insert_cols_list_trail, quote_ident(_col_name_trail));
-                                                    _insert_vals_list_trail := array_append(_insert_vals_list_trail, quote_nullable(_col_value_trail));
                                                 END IF;
+                                                _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail));
+                                                _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_trailing_part_data->>_col_trail));
                                             END IF;
                                         END LOOP;
-
-                                        IF array_length(_insert_cols_list_trail, 1) > 0 THEN
-                                            EXECUTE format('INSERT INTO %I.%I (%s) VALUES (%s) RETURNING %I', -- Added RETURNING
+                                        
+                                        IF array_length(_insert_cols_trail, 1) > 0 THEN
+                                            EXECUTE format('INSERT INTO %I.%I (%s) VALUES (%s) RETURNING %I',
                                                            p_target_schema_name, p_target_table_name,
-                                                           array_to_string(_insert_cols_list_trail, ', '),
-                                                           array_to_string(_insert_vals_list_trail, ', '),
-                                                           p_id_column_name); -- Added RETURNING
+                                                           array_to_string(_insert_cols_trail, ', '),
+                                                           array_to_string(_insert_vals_trail, ', '),
+                                                           p_id_column_name);
                                             RAISE DEBUG '[batch_replace] Inserted trailing part of split: (% to %]', v_source_valid_to, _ex_vt;
                                         ELSE
                                             RAISE WARNING '[batch_replace] No columns to insert for trailing part of split. Data: %', _trailing_part_data;
@@ -329,153 +334,100 @@ BEGIN
                                     END;
                                 END IF;
                                 -- The source record itself will be inserted later by the main logic.
-                                -- v_source_record_handled_by_merge remains FALSE.
+                                -- v_source_record_handled remains FALSE.
                             END IF;
-                        WHEN 'contains' THEN -- Source X contains Existing Y
-                            RAISE DEBUG '[batch_replace] Relation: CONTAINS. Existing record is deleted.';
+                        WHEN 'contains' THEN 
+                            RAISE DEBUG '[batch_replace] Relation: CONTAINS. Deleting existing.';
                             EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
                                            p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
                                            v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                            -- Source record will be inserted later.
-                            -- v_source_record_handled_by_merge remains FALSE.
-                        WHEN 'overlaps' THEN -- Source X overlaps start of Existing Y
+                        WHEN 'overlaps' THEN 
                             IF _data_is_equivalent THEN
-                                RAISE DEBUG '[batch_replace] Relation: OVERLAPS, data equivalent. Extending existing Y to start at X.va.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name,
-                                               v_valid_after_col, v_source_valid_after, -- Y.va = X.va
-                                               p_id_column_name, v_existing_id,
-                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                v_source_record_handled_by_merge := TRUE;
-                                v_result_id := v_existing_id;
-                                EXIT; -- Fully handled
+                                RAISE DEBUG '[batch_replace] Relation: OVERLAPS, data equivalent. Extending existing start and updating ephemeral.';
+                                EXECUTE format('UPDATE %I.%I SET %I = %L %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                               p_target_schema_name, p_target_table_name, v_valid_after_col, v_source_valid_after,
+                                               CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
+                                               p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             ELSE
-                                RAISE DEBUG '[batch_replace] Relation: OVERLAPS, data different. Truncating existing Y to start at X.vt.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name,
-                                               v_valid_after_col, v_source_valid_to, -- Y.va = X.vt
-                                               p_id_column_name, v_existing_id,
-                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                -- Source record will be inserted later.
+                                RAISE DEBUG '[batch_replace] Relation: OVERLAPS, data different. Truncating existing start.';
+                                IF _ex_va < v_source_valid_to THEN EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, v_valid_after_col, v_source_valid_to, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
                             END IF;
-                        WHEN 'overlapped_by' THEN -- Source X is overlapped_by Existing Y (Y overlaps start of X)
+                        WHEN 'overlapped_by' THEN 
                             IF _data_is_equivalent THEN
-                                RAISE DEBUG '[batch_replace] Relation: OVERLAPPED_BY, data equivalent. Extending existing Y to end at X.vt.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name,
-                                               v_valid_to_col, v_source_valid_to, -- Y.vt = X.vt
-                                               p_id_column_name, v_existing_id,
-                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                v_source_record_handled_by_merge := TRUE;
-                                v_result_id := v_existing_id;
-                                EXIT; -- Fully handled
+                                RAISE DEBUG '[batch_replace] Relation: OVERLAPPED_BY, data equivalent. Extending existing end and updating ephemeral.';
+                                EXECUTE format('UPDATE %I.%I SET %I = %L %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                               p_target_schema_name, p_target_table_name, v_valid_to_col, v_source_valid_to,
+                                               CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
+                                               p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             ELSE
-                                RAISE DEBUG '[batch_replace] Relation: OVERLAPPED_BY, data different. Truncating existing Y to end at X.va.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name,
-                                               v_valid_to_col, v_source_valid_after, -- Y.vt = X.va
-                                               p_id_column_name, v_existing_id,
-                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                -- Source record will be inserted later.
+                                RAISE DEBUG '[batch_replace] Relation: OVERLAPPED_BY, data different. Truncating existing end.';
+                                IF _ex_vt > v_source_valid_after THEN EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, v_valid_to_col, v_source_valid_after, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
                             END IF;
-                        WHEN 'starts' THEN -- Source X starts Existing Y
+                        WHEN 'starts' THEN
                             IF _data_is_equivalent THEN
-                                RAISE DEBUG '[batch_replace] Relation: STARTS, data equivalent. Source absorbed by existing.';
-                                v_source_record_handled_by_merge := TRUE;
-                                v_result_id := v_existing_id;
-                                EXIT; -- Fully handled
+                                RAISE DEBUG '[batch_replace] Relation: STARTS, data equivalent. Updating ephemeral on existing.';
+                                IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             ELSE
-                                RAISE DEBUG '[batch_replace] Relation: STARTS, data different. Truncating existing Y to start at X.vt.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name,
-                                               v_valid_after_col, v_source_valid_to, -- Y.va = X.vt
-                                               p_id_column_name, v_existing_id,
-                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                -- Source record will be inserted later.
+                                RAISE DEBUG '[batch_replace] Relation: STARTS, data different. Truncating existing start.';
+                                IF _ex_va < v_source_valid_to THEN EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, v_valid_after_col, v_source_valid_to, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
                             END IF;
-                        WHEN 'started_by' THEN -- Existing Y starts Source X
-                            RAISE DEBUG '[batch_replace] Relation: STARTED_BY. Existing record is deleted (whether data is same or different).';
+                        WHEN 'started_by' THEN
+                            RAISE DEBUG '[batch_replace] Relation: STARTED_BY. Deleting existing.';
                             EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
                                            p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
                                            v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                            -- Source record will be inserted later, effectively replacing/extending Y.
-                            -- v_source_record_handled_by_merge remains FALSE.
-                        WHEN 'finishes' THEN -- Source X finishes Existing Y
+                        WHEN 'finishes' THEN
                             IF _data_is_equivalent THEN
-                                RAISE DEBUG '[batch_replace] Relation: FINISHES, data equivalent. Source absorbed by existing.';
-                                v_source_record_handled_by_merge := TRUE;
-                                v_result_id := v_existing_id;
-                                EXIT; -- Fully handled
+                                IF v_source_valid_to = 'infinity'::DATE AND _ex_vt = 'infinity'::DATE AND v_source_valid_after > _ex_va THEN
+                                     RAISE DEBUG '[batch_replace] Relation: FINISHES, data equivalent, existing ends at infinity. Updating ephemeral.';
+                                     IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
+                                     v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                ELSE
+                                    RAISE DEBUG '[batch_replace] Relation: FINISHES, data equivalent (non-infinity or source not later start). Updating ephemeral on existing.';
+                                    IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
+                                    v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                END IF;
                             ELSE
-                                RAISE DEBUG '[batch_replace] Relation: FINISHES, data different. Truncating existing Y to end at X.va.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name,
-                                               v_valid_to_col, v_source_valid_after, -- Y.vt = X.va
-                                               p_id_column_name, v_existing_id,
-                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                -- Source record will be inserted later.
+                                RAISE DEBUG '[batch_replace] Relation: FINISHES, data different. Truncating existing end.';
+                                IF _ex_vt > v_source_valid_after THEN EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, v_valid_to_col, v_source_valid_after, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
                             END IF;
-                        WHEN 'finished_by' THEN -- Existing Y finishes Source X
-                            RAISE DEBUG '[batch_replace] Relation: FINISHED_BY. Existing record is deleted (whether data is same or different).';
+                        WHEN 'finished_by' THEN
+                            RAISE DEBUG '[batch_replace] Relation: FINISHED_BY. Deleting existing.';
                             EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
                                            p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
                                            v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                            -- Source record will be inserted later, effectively replacing/extending Y.
-                            -- v_source_record_handled_by_merge remains FALSE.
-                        WHEN 'meets' THEN -- Source X meets Existing Y (X.vt = Y.va)
+                        WHEN 'meets' THEN
                             IF _data_is_equivalent THEN
-                                RAISE DEBUG '[batch_replace] Relation: MEETS, data equivalent. Extending existing Y to start at X.va (absorbs X).';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name,
-                                               v_valid_after_col, v_source_valid_after, -- Y.va = X.va
-                                               p_id_column_name, v_existing_id,
-                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                v_source_record_handled_by_merge := TRUE;
-                                v_result_id := v_existing_id;
-                                EXIT; -- Fully handled
-                            ELSE
-                                RAISE DEBUG '[batch_replace] Relation: MEETS, data different. No action on existing. Source will be inserted separately.';
-                                -- No action on v_existing_era_record. v_source_record_handled_by_merge remains FALSE.
-                            END IF;
-                        WHEN 'met_by' THEN -- Source X is met_by Existing Y (Y.vt = X.va)
+                                RAISE DEBUG '[batch_replace] Relation: MEETS, data equivalent. Extending existing start and updating ephemeral.';
+                                EXECUTE format('UPDATE %I.%I SET %I = %L %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                               p_target_schema_name, p_target_table_name, v_valid_after_col, v_source_valid_after,
+                                               CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
+                                               p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                            END IF; -- Data different: no action on existing, source will be inserted.
+                        WHEN 'met_by' THEN
                             IF _data_is_equivalent THEN
-                                RAISE DEBUG '[batch_replace] Relation: MET_BY, data equivalent. Extending existing Y to end at X.vt (absorbs X).';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name,
-                                               v_valid_to_col, v_source_valid_to, -- Y.vt = X.vt
-                                               p_id_column_name, v_existing_id,
-                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                v_source_record_handled_by_merge := TRUE;
-                                v_result_id := v_existing_id;
-                                EXIT; -- Fully handled
-                            ELSE
-                                RAISE DEBUG '[batch_replace] Relation: MET_BY, data different. No action on existing. Source will be inserted separately.';
-                                -- No action on v_existing_era_record. v_source_record_handled_by_merge remains FALSE.
-                            END IF;
-                        WHEN 'precedes' THEN
-                            RAISE DEBUG '[batch_replace] Relation: PRECEDES. No action on existing. Source will be inserted separately.';
-                            -- No action on v_existing_era_record. v_source_record_handled_by_merge remains FALSE.
-                        WHEN 'preceded_by' THEN
-                            RAISE DEBUG '[batch_replace] Relation: PRECEDED_BY. No action on existing. Source will be inserted separately.';
-                            -- No action on v_existing_era_record. v_source_record_handled_by_merge remains FALSE.
-                        ELSE
-                            -- This case should ideally not be reached if all Allen relations are covered.
-                            -- If it is, it implies an unexpected relation or a logic error in previous WHEN branches.
-                            -- Deleting the existing record is a fallback for unexpected overlaps,
-                            -- but might be incorrect for truly unhandled non-overlapping cases.
-                            RAISE WARNING '[batch_replace] Relation: % (Unhandled Allen Relation or unexpected scenario). Defaulting to deleting existing record.', v_relation;
-                            EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
-                                           p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
-                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                            -- v_source_record_handled_by_merge remains FALSE.
+                                RAISE DEBUG '[batch_replace] Relation: MET_BY, data equivalent. Extending existing end and updating ephemeral.';
+                                EXECUTE format('UPDATE %I.%I SET %I = %L %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                               p_target_schema_name, p_target_table_name, v_valid_to_col, v_source_valid_to,
+                                               CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
+                                               p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                            END IF; -- Data different: no action on existing, source will be inserted.
+                        ELSE -- 'precedes', 'preceded_by', or unhandled
+                            RAISE DEBUG '[batch_replace] Relation: %s. No direct overlap modification.', v_relation;
                     END CASE;
                 END;
             END LOOP; 
 
-            -- After processing all overlaps for the current v_existing_id,
-            -- insert the source record. Adjacency merges will be handled after this insertion.
-            -- v_source_record_handled_by_merge will remain FALSE at this point, so the insert always happens.
-            IF NOT v_source_record_handled_by_merge THEN
+            IF NOT v_source_record_handled THEN
                 DECLARE
                     _insert_cols_list TEXT[] := ARRAY[]::TEXT[];
                     _insert_vals_list TEXT[] := ARRAY[]::TEXT[];
@@ -486,20 +438,35 @@ BEGIN
                         IF _col_name = ANY(v_target_table_actual_columns) THEN
                             _col_value := v_source_record_jsonb->>_col_name;
 
-                            IF _col_name = p_id_column_name AND (p_id_column_name = ANY(v_generated_columns)) THEN
-                                IF _col_value IS NOT NULL THEN -- Only include generated ID if a value is provided
+                            IF _col_name = p_id_column_name THEN
+                                RAISE DEBUG '[batch_replace] Processing ID column "%". _col_value: "%", Is p_id_column_name (value: "%") = ANY(v_generated_columns (value: %))?: %', 
+                                    _col_name, _col_value, p_id_column_name, v_generated_columns, (p_id_column_name = ANY(v_generated_columns));
+                                IF p_id_column_name = ANY(v_generated_columns) THEN
+                                    -- For generated ID column:
+                                    -- Only add to INSERT list if source provides an explicit non-NULL ID.
+                                    -- If source ID is NULL, omit from list to allow DB DEFAULT to apply.
+                                    RAISE DEBUG '[batch_replace] ID column "%" IS generated. _col_value IS NOT NULL?: %', _col_name, (_col_value IS NOT NULL);
+                                    IF _col_value IS NOT NULL THEN
+                                        _insert_cols_list := array_append(_insert_cols_list, quote_ident(_col_name));
+                                        _insert_vals_list := array_append(_insert_vals_list, quote_nullable(_col_value));
+                                    ELSE
+                                        RAISE DEBUG '[batch_replace] ID column "%" IS generated and _col_value IS NULL. Skipping from INSERT list.', _col_name;
+                                    END IF;
+                                ELSE
+                                    -- For non-generated ID column, always include it.
+                                    RAISE DEBUG '[batch_replace] ID column "%" IS NOT generated. Adding to INSERT list.', _col_name;
                                     _insert_cols_list := array_append(_insert_cols_list, quote_ident(_col_name));
                                     _insert_vals_list := array_append(_insert_vals_list, quote_nullable(_col_value));
                                 END IF;
-                            ELSIF _col_name = ANY(p_temporal_columns) THEN 
-                                _insert_cols_list := array_append(_insert_cols_list, quote_ident(_col_name));
-                                _insert_vals_list := array_append(_insert_vals_list, quote_nullable(_col_value));
-                            ELSIF _col_name = 'valid_from' THEN
-                                RAISE DEBUG '[batch_replace] Skipping explicit insert of "valid_from" as it should be derived by trigger. Record: %.', v_source_record_jsonb;
-                                -- Skip this column
+                            ELSIF _col_name = 'valid_from' AND 'valid_from' = ANY(v_generated_columns) THEN
+                                -- Skip 'valid_from' if it's in v_generated_columns (implying trigger will handle it)
+                                RAISE DEBUG '[batch_replace] Skipping explicit insert of "valid_from" as it is in v_generated_columns. Record: %.', v_source_record_jsonb;
                             ELSIF _col_name = ANY(v_generated_columns) THEN
-                                CONTINUE; -- Skip other generated columns
-                            ELSE -- Non-generated, non-temporal, non-ID PK part
+                                -- Skip any other columns that are database-generated
+                                RAISE DEBUG '[batch_replace] Skipping explicit insert of generated column "%". Record: %.', _col_name, v_source_record_jsonb;
+                                CONTINUE;
+                            ELSE
+                                -- For all other columns (temporal, ephemeral, core data) that are not the ID and not generated by DB.
                                 _insert_cols_list := array_append(_insert_cols_list, quote_ident(_col_name));
                                 _insert_vals_list := array_append(_insert_vals_list, quote_nullable(_col_value));
                             END IF;
@@ -520,12 +487,12 @@ BEGIN
                     END IF;
                 END;
             ELSE
-                 RAISE DEBUG '[batch_replace] Source row % was handled by merge, final insert skipped.', v_current_source_row_id;
-                 -- v_result_id should have been set during the merge operation if applicable.
-            END IF; -- This END IF closes the "IF NOT v_source_record_handled_by_merge"
+                 RAISE DEBUG '[batch_replace] Source row % was handled by merge/update, final insert skipped.', v_current_source_row_id;
+                 -- v_result_id should have been set during the merge/update operation.
+            END IF; 
 
             source_row_id := v_current_source_row_id;
-            upserted_record_id := v_result_id; -- This will be the ID from the new insert, or from a merge if logic sets it.
+            upserted_record_id := v_result_id; 
             status := 'SUCCESS';
             error_message := NULL;
             RETURN NEXT;

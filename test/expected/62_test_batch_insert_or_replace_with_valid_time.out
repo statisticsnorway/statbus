@@ -64,7 +64,7 @@ SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user
 Test: admin.batch_insert_or_replace_generic_valid_time_table
 \echo '----------------------------------------------------------------------------'
 ----------------------------------------------------------------------------
-SET client_min_messages TO NOTICE; -- Changed from DEBUG1 to NOTICE
+SET client_min_messages TO NOTICE;
 -- Setup: Create necessary schema and tables
 CREATE SCHEMA IF NOT EXISTS batch_test; -- Use dedicated schema
 CREATE SEQUENCE IF NOT EXISTS batch_test.batch_upsert_target_id_seq;
@@ -157,7 +157,7 @@ SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
 SELECT * FROM batch_test.show_target_table(1); -- Should be one merged row for ID 1
  id | valid_after |  valid_to  | value_a | value_b | edit_comment 
 ----+-------------+------------+---------+---------+--------------
-  1 | 2023-12-31  | 2024-12-31 | A       |      10 | First half
+  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Second half
 (1 row)
 
 -- SET client_min_messages TO NOTICE; -- Already NOTICE by default
@@ -191,7 +191,7 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 4. Overlap Start Equivalent
 \echo 'Scenario 4: Overlap Start Equivalent'
 Scenario 4: Overlap Start Equivalent
--- SET client_min_messages TO DEBUG1; -- Scenario 4 is now passing
+-- SET client_min_messages TO DEBUG1;
 INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-02-29', '2024-12-31', 'A', 10, 'Existing March-Dec'); -- (Feb 29, Dec 31]
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
@@ -206,12 +206,12 @@ SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be one row Jan-Dec for ID 1
- id | valid_after |  valid_to  | value_a | value_b |    edit_comment    
-----+-------------+------------+---------+---------+--------------------
-  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Existing March-Dec
+ id | valid_after |  valid_to  | value_a | value_b | edit_comment 
+----+-------------+------------+---------+---------+--------------
+  1 | 2023-12-31  | 2024-12-31 | A       |      10 | New Jan-May
 (1 row)
 
--- SET client_min_messages TO NOTICE; -- Already NOTICE by default
+-- SET client_min_messages TO NOTICE;
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 5. Overlap Start Different
@@ -244,6 +244,7 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 6. Overlap End Equivalent
 \echo 'Scenario 6: Overlap End Equivalent'
 Scenario 6: Overlap End Equivalent
+-- SET client_min_messages TO DEBUG1;
 INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2023-12-31', '2024-09-30', 'A', 10, 'Existing Jan-Sep'); -- (Dec 31, Sep 30]
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
@@ -258,11 +259,12 @@ SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be one row Jan-Dec for ID 1
- id | valid_after |  valid_to  | value_a | value_b |   edit_comment   
-----+-------------+------------+---------+---------+------------------
-  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Existing Jan-Sep
+ id | valid_after |  valid_to  | value_a | value_b | edit_comment 
+----+-------------+------------+---------+---------+--------------
+  1 | 2023-12-31  | 2024-12-31 | A       |      10 | New Jul-Dec
 (1 row)
 
+-- SET client_min_messages TO NOTICE;
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 7. Overlap End Different
@@ -307,9 +309,9 @@ SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Should be one row Jan-Dec for ID 1
- id | valid_after |  valid_to  | value_a | value_b |   edit_comment   
-----+-------------+------------+---------+---------+------------------
-  1 | 2023-12-31  | 2024-12-31 | A       |      10 | Existing Jan-Dec
+ id | valid_after |  valid_to  | value_a | value_b | edit_comment 
+----+-------------+------------+---------+---------+--------------
+  1 | 2023-12-31  | 2024-12-31 | A       |      10 | New Apr-Aug
 (1 row)
 
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
@@ -391,7 +393,7 @@ SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 ) ORDER BY source_row_id;
-WARNING:  [batch_replace] Error processing source_row_id 4 ({"id": 4, "row_id": 4, "value_a": "ID4-Error", "value_b": 44, "valid_to": null, "target_id": 4, "valid_after": "2023-12-31", "edit_comment": "ID4 Error"}): Temporal columns (valid_after, valid_to) cannot be null. Error in source row with row_id = 4: {"id": 4, "row_id": 4, "value_a": "ID4-Error", "value_b": 44, "valid_to": null, "target_id": 4, "valid_after": "2023-12-31", "edit_comment": "ID4 Error"}. Context: PL/pgSQL function import.batch_insert_or_replace_generic_valid_time_table(text,text,text,text,text,jsonb,text[],text[],text[],text) line 115 at RAISE
+WARNING:  [batch_replace] Error processing source_row_id 4 ({"id": 4, "row_id": 4, "value_a": "ID4-Error", "value_b": 44, "valid_to": null, "target_id": 4, "valid_after": "2023-12-31", "edit_comment": "ID4 Error"}): Temporal columns (valid_after, valid_to) cannot be null. Error in source row with row_id = 4: {"id": 4, "row_id": 4, "value_a": "ID4-Error", "value_b": 44, "valid_to": null, "target_id": 4, "valid_after": "2023-12-31", "edit_comment": "ID4 Error"}. Context: PL/pgSQL function import.batch_insert_or_replace_generic_valid_time_table(text,text,text,text,text,jsonb,text[],text[],text[],text) line 138 at RAISE
  source_row_id | upserted_record_id | status  |                                                                                                                      error_message                                                                                                                      
 ---------------+--------------------+---------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
              1 |                  1 | SUCCESS | 
@@ -403,13 +405,13 @@ WARNING:  [batch_replace] Error processing source_row_id 4 ({"id": 4, "row_id": 
 \echo 'Target table after batch:'
 Target table after batch:
 SELECT * FROM batch_test.show_target_table();
- id | valid_after |  valid_to  | value_a | value_b |  edit_comment  
-----+-------------+------------+---------+---------+----------------
+ id | valid_after |  valid_to  | value_a | value_b |     edit_comment      
+----+-------------+------------+---------+---------+-----------------------
   1 | 2023-12-31  | 2024-12-31 | ID1     |      11 | ID1 Initial
   2 | 2023-12-31  | 2024-04-30 | ID2-Old |      22 | ID2 Existing
   2 | 2024-04-30  | 2024-08-31 | ID2-New |      23 | ID2 Split
   2 | 2024-08-31  | 2024-12-31 | ID2-Old |      22 | ID2 Existing
-  3 | 2023-12-31  | 2024-12-31 | ID3     |      33 | ID3 First Half
+  3 | 2023-12-31  | 2024-12-31 | ID3     |      33 | ID3 Second Half Merge
 (5 rows)
 
 -- Expected:
@@ -474,6 +476,7 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 14. Equals Relation, Equivalent Data (No Change Expected)
 \echo 'Scenario 14: Equals Relation, Equivalent Data'
 Scenario 14: Equals Relation, Equivalent Data
+-- SET client_min_messages TO DEBUG1; -- Scenario 14 is now passing
 INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2023-12-31', '2024-12-31', 'Equivalent', 100, 'Original Comment'); -- (Dec 31, Dec 31]
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
@@ -489,11 +492,12 @@ SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
 (1 row)
 
 SELECT * FROM batch_test.show_target_table(1); -- Expected: One row for ID 1, edit_comment = 'Original Comment'
- id | valid_after |  valid_to  |  value_a   | value_b |   edit_comment   
-----+-------------+------------+------------+---------+------------------
-  1 | 2023-12-31  | 2024-12-31 | Equivalent |     100 | Original Comment
+ id | valid_after |  valid_to  |  value_a   | value_b |             edit_comment             
+----+-------------+------------+------------+---------+--------------------------------------
+  1 | 2023-12-31  | 2024-12-31 | Equivalent |     100 | Source Comment, Should Not Overwrite
 (1 row)
 
+-- SET client_min_messages TO NOTICE; -- Reverted as scenario is passing
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 -- 15. Precedes Relation (Non-Overlapping, New record should be added)

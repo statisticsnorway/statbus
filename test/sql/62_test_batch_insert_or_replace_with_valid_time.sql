@@ -4,7 +4,7 @@ BEGIN;
 \echo '----------------------------------------------------------------------------'
 \echo 'Test: admin.batch_insert_or_replace_generic_valid_time_table'
 \echo '----------------------------------------------------------------------------'
-SET client_min_messages TO NOTICE; -- Changed from DEBUG1 to NOTICE
+SET client_min_messages TO NOTICE;
 
 -- Setup: Create necessary schema and tables
 CREATE SCHEMA IF NOT EXISTS batch_test; -- Use dedicated schema
@@ -111,7 +111,7 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 
 -- 4. Overlap Start Equivalent
 \echo 'Scenario 4: Overlap Start Equivalent'
--- SET client_min_messages TO DEBUG1; -- Scenario 4 is now passing
+-- SET client_min_messages TO DEBUG1;
 INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2024-02-29', '2024-12-31', 'A', 10, 'Existing March-Dec'); -- (Feb 29, Dec 31]
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
@@ -122,7 +122,7 @@ SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
 SELECT * FROM batch_test.show_target_table(1); -- Should be one row Jan-Dec for ID 1
--- SET client_min_messages TO NOTICE; -- Already NOTICE by default
+-- SET client_min_messages TO NOTICE;
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 
@@ -147,6 +147,7 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 
 -- 6. Overlap End Equivalent
 \echo 'Scenario 6: Overlap End Equivalent'
+-- SET client_min_messages TO DEBUG1;
 INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2023-12-31', '2024-09-30', 'A', 10, 'Existing Jan-Sep'); -- (Dec 31, Sep 30]
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
@@ -157,6 +158,7 @@ SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
 SELECT * FROM batch_test.show_target_table(1); -- Should be one row Jan-Dec for ID 1
+-- SET client_min_messages TO NOTICE;
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 
@@ -301,6 +303,7 @@ ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 
 -- 14. Equals Relation, Equivalent Data (No Change Expected)
 \echo 'Scenario 14: Equals Relation, Equivalent Data'
+-- SET client_min_messages TO DEBUG1; -- Scenario 14 is now passing
 INSERT INTO batch_test.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
 (1, '2023-12-31', '2024-12-31', 'Equivalent', 100, 'Original Comment'); -- (Dec 31, Dec 31]
 INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
@@ -312,7 +315,7 @@ SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
     :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
 );
 SELECT * FROM batch_test.show_target_table(1); -- Expected: One row for ID 1, edit_comment = 'Original Comment'
-
+-- SET client_min_messages TO NOTICE; -- Reverted as scenario is passing
 TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 
