@@ -74,7 +74,7 @@ BEGIN
             IF current_source_column IS NULL OR current_source_column = 'null'::jsonb THEN
                  RAISE EXCEPTION '[Job %] Could not find source column details for source_column_id % in mapping ID %.', job.id, current_mapping->>'source_column_id', current_mapping->>'id';
             END IF;
-            select_expressions_list := array_append(select_expressions_list, format('NULLIF(%I, '''')', current_source_column->>'column_name'));
+            select_expressions_list := array_append(select_expressions_list, format($$NULLIF(%I, '')$$, current_source_column->>'column_name'));
         ELSE
             -- This case should be prevented by the CHECK constraint on import_mapping table
             RAISE EXCEPTION '[Job %] Mapping ID % for target data column % (ID: %) has no valid source (column/value/expression). This should not happen.', job.id, current_mapping->>'id', current_target_data_column->>'column_name', current_target_data_column->>'id';
@@ -106,10 +106,10 @@ BEGIN
     -- Assemble the final UPSERT statement
     IF conflict_columns_text = '' OR update_set_clause = '' THEN
         -- If no conflict columns defined for the mapped columns, or no columns to update, just do INSERT
-        upsert_stmt := format('INSERT INTO public.%I (%s) SELECT %s FROM public.%I',
+        upsert_stmt := format($$INSERT INTO public.%I (%s) SELECT %s FROM public.%I$$,
                               job.data_table_name, insert_columns, select_clause, job.upload_table_name);
     ELSE
-        upsert_stmt := format('INSERT INTO public.%I (%s) SELECT %s FROM public.%I ON CONFLICT (%s) DO UPDATE SET %s',
+        upsert_stmt := format($$INSERT INTO public.%I (%s) SELECT %s FROM public.%I ON CONFLICT (%s) DO UPDATE SET %s$$,
                               job.data_table_name, insert_columns, select_clause, job.upload_table_name, conflict_columns_text, update_set_clause);
     END IF;
 
@@ -119,7 +119,7 @@ BEGIN
 
         DECLARE data_table_count INT;
         BEGIN
-            EXECUTE format('SELECT count(*) FROM public.%I', job.data_table_name) INTO data_table_count;
+            EXECUTE format($$SELECT count(*) FROM public.%I$$, job.data_table_name) INTO data_table_count;
             RAISE DEBUG '[Job %] Rows in data table % after prepare: %', job.id, job.data_table_name, data_table_count;
         END;
     EXCEPTION
@@ -131,7 +131,7 @@ BEGIN
     END;
 
     -- Set initial state for all rows in data table (redundant if table is new, safe if resuming)
-    EXECUTE format('UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state IS NULL OR state != %L',
+    EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state IS NULL OR state != %L$$,
                    job.data_table_name, 'pending', 'error');
 
 END;

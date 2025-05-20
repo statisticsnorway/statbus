@@ -1,10 +1,10 @@
 ```sql
-                                                       Table "public.contact"
-      Column      |           Type           | Collation | Nullable |                            Default                            
-------------------+--------------------------+-----------+----------+---------------------------------------------------------------
+                                          Table "public.contact"
+      Column      |           Type           | Collation | Nullable |               Default               
+------------------+--------------------------+-----------+----------+-------------------------------------
  id               | integer                  |           | not null | nextval('contact_id_seq'::regclass)
- valid_after      | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
- valid_from       | date                     |           | not null | CURRENT_DATE
+ valid_from       | date                     |           | not null | 
+ valid_after      | date                     |           | not null | 
  valid_to         | date                     |           | not null | 'infinity'::date
  web_address      | character varying(256)   |           |          | 
  email_address    | character varying(50)    |           |          | 
@@ -51,6 +51,7 @@ Triggers:
     contact_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON contact FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('contact_establishment_id_valid')
     contact_legal_unit_id_valid_fk_insert AFTER INSERT ON contact FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('contact_legal_unit_id_valid')
     contact_legal_unit_id_valid_fk_update AFTER UPDATE OF legal_unit_id, valid_after, valid_to ON contact FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('contact_legal_unit_id_valid')
+    trg_contact_synchronize_valid_from_after BEFORE INSERT OR UPDATE ON contact FOR EACH ROW EXECUTE FUNCTION synchronize_valid_from_after()
     trigger_prevent_contact_id_update BEFORE UPDATE OF id ON contact FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

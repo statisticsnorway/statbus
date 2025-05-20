@@ -1,10 +1,10 @@
 ```sql
-                                                      Table "public.activity"
-      Column      |           Type           | Collation | Nullable |                            Default                            
-------------------+--------------------------+-----------+----------+---------------------------------------------------------------
+                                          Table "public.activity"
+      Column      |           Type           | Collation | Nullable |               Default                
+------------------+--------------------------+-----------+----------+--------------------------------------
  id               | integer                  |           | not null | nextval('activity_id_seq'::regclass)
- valid_after      | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
- valid_from       | date                     |           | not null | CURRENT_DATE
+ valid_from       | date                     |           | not null | 
+ valid_after      | date                     |           | not null | 
  valid_to         | date                     |           | not null | 'infinity'::date
  type             | activity_type            |           | not null | 
  category_id      | integer                  |           | not null | 
@@ -17,10 +17,10 @@
 Indexes:
     "activity_id_daterange_excl" EXCLUDE USING gist (id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
     "activity_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (id, valid_after, valid_to) DEFERRABLE
-    "activity_type_category_id_establishment_id_daterange_excl" EXCLUDE USING gist (type WITH =, category_id WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
-    "activity_type_category_id_establishment_id_valid_after_vali_key" UNIQUE CONSTRAINT, btree (type, category_id, establishment_id, valid_after, valid_to) DEFERRABLE
-    "activity_type_category_id_legal_unit_id_daterange_excl" EXCLUDE USING gist (type WITH =, category_id WITH =, legal_unit_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
-    "activity_type_category_id_legal_unit_id_valid_after_valid_t_key" UNIQUE CONSTRAINT, btree (type, category_id, legal_unit_id, valid_after, valid_to) DEFERRABLE
+    "activity_type_establishment_id_daterange_excl" EXCLUDE USING gist (type WITH =, establishment_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
+    "activity_type_establishment_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (type, establishment_id, valid_after, valid_to) DEFERRABLE
+    "activity_type_legal_unit_id_daterange_excl" EXCLUDE USING gist (type WITH =, legal_unit_id WITH =, daterange(valid_after, valid_to, '(]'::text) WITH &&) DEFERRABLE
+    "activity_type_legal_unit_id_valid_after_valid_to_key" UNIQUE CONSTRAINT, btree (type, legal_unit_id, valid_after, valid_to) DEFERRABLE
     "ix_activity_category_id" btree (category_id)
     "ix_activity_edit_by_user_id" btree (edit_by_user_id)
     "ix_activity_establishment_id" btree (establishment_id)
@@ -68,6 +68,7 @@ Triggers:
     activity_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON activity FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('activity_establishment_id_valid')
     activity_legal_unit_id_valid_fk_insert AFTER INSERT ON activity FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('activity_legal_unit_id_valid')
     activity_legal_unit_id_valid_fk_update AFTER UPDATE OF legal_unit_id, valid_after, valid_to ON activity FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('activity_legal_unit_id_valid')
+    trg_activity_synchronize_valid_from_after BEFORE INSERT OR UPDATE ON activity FOR EACH ROW EXECUTE FUNCTION synchronize_valid_from_after()
     trigger_prevent_activity_id_update BEFORE UPDATE OF id ON activity FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

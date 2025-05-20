@@ -1,19 +1,21 @@
 ```sql
-                                  Table "public.import_definition"
-       Column       |           Type           | Collation | Nullable |           Default            
---------------------+--------------------------+-----------+----------+------------------------------
- id                 | integer                  |           | not null | generated always as identity
- slug               | text                     |           | not null | 
- name               | text                     |           | not null | 
- note               | text                     |           |          | 
- data_source_id     | integer                  |           |          | 
- time_context_ident | text                     |           |          | 
- strategy           | import_strategy          |           | not null | 'upsert'::import_strategy
- user_id            | integer                  |           |          | 
- valid              | boolean                  |           | not null | false
- validation_error   | text                     |           |          | 
- created_at         | timestamp with time zone |           | not null | now()
- updated_at         | timestamp with time zone |           | not null | now()
+                                         Table "public.import_definition"
+          Column          |           Type           | Collation | Nullable |               Default                
+--------------------------+--------------------------+-----------+----------+--------------------------------------
+ id                       | integer                  |           | not null | generated always as identity
+ slug                     | text                     |           | not null | 
+ name                     | text                     |           | not null | 
+ note                     | text                     |           |          | 
+ data_source_id           | integer                  |           |          | 
+ time_context_ident       | text                     |           |          | 
+ strategy                 | import_strategy          |           | not null | 'insert_or_replace'::import_strategy
+ mode                     | import_mode              |           |          | 
+ user_id                  | integer                  |           |          | 
+ valid                    | boolean                  |           | not null | false
+ validation_error         | text                     |           |          | 
+ default_retention_period | interval                 |           | not null | '1 year 6 mons'::interval
+ created_at               | timestamp with time zone |           | not null | now()
+ updated_at               | timestamp with time zone |           | not null | now()
 Indexes:
     "import_definition_pkey" PRIMARY KEY, btree (id)
     "import_definition_name_key" UNIQUE CONSTRAINT, btree (name)

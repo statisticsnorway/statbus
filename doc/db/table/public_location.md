@@ -1,10 +1,10 @@
 ```sql
-                                                      Table "public.location"
-      Column      |           Type           | Collation | Nullable |                            Default                            
-------------------+--------------------------+-----------+----------+---------------------------------------------------------------
+                                          Table "public.location"
+      Column      |           Type           | Collation | Nullable |               Default                
+------------------+--------------------------+-----------+----------+--------------------------------------
  id               | integer                  |           | not null | nextval('location_id_seq'::regclass)
- valid_after      | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
- valid_from       | date                     |           | not null | CURRENT_DATE
+ valid_from       | date                     |           | not null | 
+ valid_after      | date                     |           | not null | 
  valid_to         | date                     |           | not null | 'infinity'::date
  type             | location_type            |           | not null | 
  address_part1    | character varying(200)   |           |          | 
@@ -83,6 +83,7 @@ Triggers:
     location_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON location FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('location_establishment_id_valid')
     location_legal_unit_id_valid_fk_insert AFTER INSERT ON location FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('location_legal_unit_id_valid')
     location_legal_unit_id_valid_fk_update AFTER UPDATE OF legal_unit_id, valid_after, valid_to ON location FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('location_legal_unit_id_valid')
+    trg_location_synchronize_valid_from_after BEFORE INSERT OR UPDATE ON location FOR EACH ROW EXECUTE FUNCTION synchronize_valid_from_after()
     trigger_prevent_location_id_update BEFORE UPDATE OF id ON location FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

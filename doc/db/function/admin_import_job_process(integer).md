@@ -6,6 +6,7 @@ DECLARE
     job public.import_job;
     next_state public.import_job_state;
     should_reschedule BOOLEAN := FALSE;
+    v_processed_count INTEGER; -- Moved declaration here
 BEGIN
     -- Get the job details
     SELECT * INTO job FROM public.import_job WHERE id = job_id;
@@ -34,7 +35,7 @@ BEGIN
             PERFORM admin.import_job_prepare(job);
             -- Transition rows in _data table from 'pending' to 'analysing'
             RAISE DEBUG '[Job %] Updating data rows from pending to analysing in table %', job_id, job.data_table_name;
-            EXECUTE format('UPDATE public.%I SET state = %L WHERE state = %L', job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
+            EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysing'::public.import_data_state, 'pending'::public.import_data_state);
             job := admin.import_job_set_state(job, 'analysing_data');
             should_reschedule := TRUE; -- Reschedule immediately to start analysis
 
@@ -51,13 +52,16 @@ BEGIN
                 should_reschedule := FALSE;
             ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
                 IF job.review THEN
+                    -- Transition rows from 'analysing' to 'analysed' if review is required
+                    RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
+                    EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
                     job := admin.import_job_set_state(job, 'waiting_for_review');
                     RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
                     -- should_reschedule remains FALSE as it's waiting for user action
                 ELSE
-                    -- Transition rows in _data table from 'analysed' to 'processing'
-                    RAISE DEBUG '[Job %] Updating data rows from analysed to processing in table %', job_id, job.data_table_name;
-                    EXECUTE format('UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL', job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+                    -- Transition rows from 'analysing' to 'processing' if no review
+                    RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
+                    EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
                     job := admin.import_job_set_state(job, 'processing_data');
                     RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
                     should_reschedule := TRUE; -- Reschedule to start processing
@@ -71,9 +75,9 @@ BEGIN
 
         WHEN 'approved' THEN
             RAISE DEBUG '[Job %] Approved, transitioning to processing_data.', job_id;
-            -- Transition rows in _data table from 'analysed' (or 'pending' if review was skipped but set) to 'processing'
-            RAISE DEBUG '[Job %] Updating data rows from analysed/pending to processing in table % after approval', job_id, job.data_table_name;
-            EXECUTE format('UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL', job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
+            -- Transition rows in _data table from 'analysed' to 'processing' and reset LCP
+            RAISE DEBUG '[Job %] Updating data rows from analysed to processing and resetting LCP in table % after approval', job_id, job.data_table_name;
+            EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysed'::public.import_data_state);
             job := admin.import_job_set_state(job, 'processing_data');
             should_reschedule := TRUE; -- Reschedule immediately to start import
 
@@ -94,6 +98,16 @@ BEGIN
                 job := admin.import_job_set_state(job, 'finished');
                 should_reschedule := FALSE;
             ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
+                -- Update data rows to 'processed'
+                RAISE DEBUG '[Job %] Finalizing processed rows in table %', job_id, job.data_table_name;
+                EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processed'::public.import_data_state, 'processing'::public.import_data_state);
+
+                -- Update imported_rows count on the job
+                -- DECLARE v_processed_count INTEGER; -- Declaration moved to the top of the procedure
+                EXECUTE format($$SELECT count(*) FROM public.%I WHERE state = %L$$, job.data_table_name, 'processed'::public.import_data_state) INTO v_processed_count;
+                UPDATE public.import_job SET imported_rows = v_processed_count WHERE id = job.id;
+                RAISE DEBUG '[Job %] Updated imported_rows to %', job_id, v_processed_count;
+
                 job := admin.import_job_set_state(job, 'finished');
                 RAISE DEBUG '[Job %] Processing complete, transitioning to finished.', job_id;
                 -- should_reschedule remains FALSE
@@ -105,8 +119,7 @@ BEGIN
             should_reschedule := FALSE;
 
         ELSE
-            RAISE WARNING '[Job %] Unknown state: %', job_id, job.state;
-            should_reschedule := FALSE;
+            RAISE EXCEPTION '[Job %] Unknown import job state: %', job.id, job.state;
     END CASE;
 
     -- Reset the user context

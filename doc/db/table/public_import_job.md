@@ -30,12 +30,15 @@
  state                    | import_job_state         |           | not null | 'waiting_for_upload'::import_job_state
  error                    | text                     |           |          | 
  review                   | boolean                  |           | not null | false
+ edit_comment             | text                     |           |          | 
+ expires_at               | timestamp with time zone |           | not null | 
  definition_id            | integer                  |           | not null | 
  user_id                  | integer                  |           |          | 
 Indexes:
     "import_job_pkey" PRIMARY KEY, btree (id)
     "import_job_slug_key" UNIQUE CONSTRAINT, btree (slug)
     "ix_import_job_definition_id" btree (definition_id)
+    "ix_import_job_expires_at" btree (expires_at)
     "ix_import_job_user_id" btree (user_id)
 Foreign-key constraints:
     "import_job_definition_id_fkey" FOREIGN KEY (definition_id) REFERENCES import_definition(id) ON DELETE CASCADE

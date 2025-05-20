@@ -20,10 +20,10 @@ Indexes:
     "ix_tag_for_unit_establishment_id_id" btree (establishment_id)
     "ix_tag_for_unit_legal_unit_id_id" btree (legal_unit_id)
     "ix_tag_for_unit_tag_id" btree (tag_id)
-    "tag_for_unit_tag_id_enterprise_group_id_key" UNIQUE CONSTRAINT, btree (tag_id, enterprise_group_id)
-    "tag_for_unit_tag_id_enterprise_id_key" UNIQUE CONSTRAINT, btree (tag_id, enterprise_id)
-    "tag_for_unit_tag_id_establishment_id_key" UNIQUE CONSTRAINT, btree (tag_id, establishment_id)
-    "tag_for_unit_tag_id_legal_unit_id_key" UNIQUE CONSTRAINT, btree (tag_id, legal_unit_id)
+    "tag_for_unit_tag_id_enterprise_group_id_partial_key" UNIQUE, btree (tag_id, enterprise_group_id) WHERE enterprise_group_id IS NOT NULL
+    "tag_for_unit_tag_id_enterprise_id_partial_key" UNIQUE, btree (tag_id, enterprise_id) WHERE enterprise_id IS NOT NULL
+    "tag_for_unit_tag_id_establishment_id_partial_key" UNIQUE, btree (tag_id, establishment_id) WHERE establishment_id IS NOT NULL
+    "tag_for_unit_tag_id_legal_unit_id_partial_key" UNIQUE, btree (tag_id, legal_unit_id) WHERE legal_unit_id IS NOT NULL
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL AND enterprise_id IS NULL AND enterprise_group_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS NULL AND enterprise_group_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NULL AND enterprise_id IS NULL AND enterprise_group_id IS NOT NULL)
     "tag_for_unit_enterprise_group_id_check" CHECK (admin.enterprise_group_id_exists(enterprise_group_id))

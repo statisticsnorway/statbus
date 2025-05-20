@@ -1,10 +1,10 @@
 ```sql
-                                                      Table "public.enterprise_group"
-          Column          |           Type           | Collation | Nullable |                            Default                            
---------------------------+--------------------------+-----------+----------+---------------------------------------------------------------
+                                              Table "public.enterprise_group"
+          Column          |           Type           | Collation | Nullable |                   Default                    
+--------------------------+--------------------------+-----------+----------+----------------------------------------------
  id                       | integer                  |           | not null | nextval('enterprise_group_id_seq'::regclass)
- valid_after              | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
- valid_from               | date                     |           | not null | CURRENT_DATE
+ valid_from               | date                     |           | not null | 
+ valid_after              | date                     |           | not null | 
  valid_to                 | date                     |           | not null | 'infinity'::date
  active                   | boolean                  |           | not null | true
  short_name               | character varying(16)    |           |          | 
@@ -52,6 +52,7 @@ Policies:
       USING (true)
       WITH CHECK (true)
 Triggers:
+    trg_enterprise_group_synchronize_valid_from_after BEFORE INSERT OR UPDATE ON enterprise_group FOR EACH ROW EXECUTE FUNCTION synchronize_valid_from_after()
     trigger_prevent_enterprise_group_id_update BEFORE UPDATE OF id ON enterprise_group FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

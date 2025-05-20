@@ -1,10 +1,10 @@
 ```sql
-                                          Table "public.person_for_unit"
-      Column      |  Type   | Collation | Nullable |                            Default                            
-------------------+---------+-----------+----------+---------------------------------------------------------------
+                          Table "public.person_for_unit"
+      Column      |  Type   | Collation | Nullable |           Default            
+------------------+---------+-----------+----------+------------------------------
  id               | integer |           | not null | generated always as identity
- valid_after      | date    |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
- valid_from       | date    |           | not null | CURRENT_DATE
+ valid_from       | date    |           | not null | 
+ valid_after      | date    |           | not null | 
  valid_to         | date    |           | not null | 'infinity'::date
  person_id        | integer |           | not null | 
  person_role_id   | integer |           |          | 
@@ -48,6 +48,7 @@ Triggers:
     person_for_unit_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON person_for_unit FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('person_for_unit_establishment_id_valid')
     person_for_unit_legal_unit_id_valid_fk_insert AFTER INSERT ON person_for_unit FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('person_for_unit_legal_unit_id_valid')
     person_for_unit_legal_unit_id_valid_fk_update AFTER UPDATE OF legal_unit_id, valid_after, valid_to ON person_for_unit FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('person_for_unit_legal_unit_id_valid')
+    trg_person_for_unit_synchronize_valid_from_after BEFORE INSERT OR UPDATE ON person_for_unit FOR EACH ROW EXECUTE FUNCTION synchronize_valid_from_after()
     trigger_prevent_person_for_unit_id_update BEFORE UPDATE OF id ON person_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

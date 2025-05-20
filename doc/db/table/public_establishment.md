@@ -1,10 +1,10 @@
 ```sql
-                                                       Table "public.establishment"
-         Column         |           Type           | Collation | Nullable |                            Default                            
-------------------------+--------------------------+-----------+----------+---------------------------------------------------------------
+                                             Table "public.establishment"
+         Column         |           Type           | Collation | Nullable |                  Default                  
+------------------------+--------------------------+-----------+----------+-------------------------------------------
  id                     | integer                  |           | not null | nextval('establishment_id_seq'::regclass)
- valid_after            | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
- valid_from             | date                     |           | not null | CURRENT_DATE
+ valid_from             | date                     |           | not null | 
+ valid_after            | date                     |           | not null | 
  valid_to               | date                     |           | not null | 'infinity'::date
  active                 | boolean                  |           | not null | true
  short_name             | character varying(16)    |           |          | 
@@ -13,7 +13,7 @@
  death_date             | date                     |           |          | 
  free_econ_zone         | boolean                  |           |          | 
  sector_id              | integer                  |           |          | 
- status_id              | integer                  |           |          | 
+ status_id              | integer                  |           | not null | 
  edit_comment           | character varying(512)   |           |          | 
  edit_by_user_id        | integer                  |           | not null | 
  edit_at                | timestamp with time zone |           | not null | statement_timestamp()
@@ -82,6 +82,7 @@ Triggers:
     person_for_unit_establishment_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON establishment FROM person_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check('person_for_unit_establishment_id_valid')
     stat_for_unit_establishment_id_valid_uk_delete AFTER DELETE ON establishment FROM stat_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check('stat_for_unit_establishment_id_valid')
     stat_for_unit_establishment_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON establishment FROM stat_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check('stat_for_unit_establishment_id_valid')
+    trg_establishment_synchronize_valid_from_after BEFORE INSERT OR UPDATE ON establishment FOR EACH ROW EXECUTE FUNCTION synchronize_valid_from_after()
     trigger_prevent_establishment_id_update BEFORE UPDATE OF id ON establishment FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

@@ -1,19 +1,21 @@
 ```sql
-                                                                                                  Table "public.import_definition"
-       Column       |           Type           | Collation | Nullable |           Default            | Storage  | Compression | Stats target |                                      Description                                      
---------------------+--------------------------+-----------+----------+------------------------------+----------+-------------+--------------+---------------------------------------------------------------------------------------
- id                 | integer                  |           | not null | generated always as identity | plain    |             |              | 
- slug               | text                     |           | not null |                              | extended |             |              | 
- name               | text                     |           | not null |                              | extended |             |              | 
- note               | text                     |           |          |                              | extended |             |              | 
- data_source_id     | integer                  |           |          |                              | plain    |             |              | 
- time_context_ident | text                     |           |          |                              | extended |             |              | 
- strategy           | import_strategy          |           | not null | 'upsert'::import_strategy    | plain    |             |              | Defines the strategy (upsert, insert_only, update_only) for the final insertion step.
- user_id            | integer                  |           |          |                              | plain    |             |              | 
- valid              | boolean                  |           | not null | false                        | plain    |             |              | Indicates if the definition passes validation checks.
- validation_error   | text                     |           |          |                              | extended |             |              | Stores validation error messages if not valid.
- created_at         | timestamp with time zone |           | not null | now()                        | plain    |             |              | 
- updated_at         | timestamp with time zone |           | not null | now()                        | plain    |             |              | 
+                                                                                                                                       Table "public.import_definition"
+          Column          |           Type           | Collation | Nullable |               Default                | Storage  | Compression | Stats target |                                                                   Description                                                                    
+--------------------------+--------------------------+-----------+----------+--------------------------------------+----------+-------------+--------------+--------------------------------------------------------------------------------------------------------------------------------------------------
+ id                       | integer                  |           | not null | generated always as identity         | plain    |             |              | 
+ slug                     | text                     |           | not null |                                      | extended |             |              | 
+ name                     | text                     |           | not null |                                      | extended |             |              | 
+ note                     | text                     |           |          |                                      | extended |             |              | 
+ data_source_id           | integer                  |           |          |                                      | plain    |             |              | 
+ time_context_ident       | text                     |           |          |                                      | extended |             |              | 
+ strategy                 | import_strategy          |           | not null | 'insert_or_replace'::import_strategy | plain    |             |              | Defines the strategy (insert_or_replace, insert_only, replace_only, insert_or_update, update_only) for the final insertion step.
+ mode                     | import_mode              |           |          |                                      | plain    |             |              | Defines the structural mode of the import, e.g., if an establishment is linked to a legal unit (formal) or directly to an enterprise (informal).
+ user_id                  | integer                  |           |          |                                      | plain    |             |              | 
+ valid                    | boolean                  |           | not null | false                                | plain    |             |              | Indicates if the definition passes validation checks.
+ validation_error         | text                     |           |          |                                      | extended |             |              | Stores validation error messages if not valid.
+ default_retention_period | interval                 |           | not null | '1 year 6 mons'::interval            | plain    |             |              | Default period after which related job data (job record, _upload, _data tables) can be cleaned up. Calculated from job creation time.
+ created_at               | timestamp with time zone |           | not null | now()                                | plain    |             |              | 
+ updated_at               | timestamp with time zone |           | not null | now()                                | plain    |             |              | 
 Indexes:
     "import_definition_pkey" PRIMARY KEY, btree (id)
     "import_definition_name_key" UNIQUE CONSTRAINT, btree (name)

@@ -34,7 +34,7 @@ BEGIN
         'import_definition', (SELECT row_to_json(d) FROM public.import_definition d WHERE d.id = NEW.definition_id),
         'import_step_list', (SELECT jsonb_agg(row_to_json(s) ORDER BY s.priority) FROM public.import_step s JOIN public.import_definition_step ds_link ON s.id = ds_link.step_id WHERE ds_link.definition_id = NEW.definition_id),
         'import_data_column_list', (
-            SELECT jsonb_agg(row_to_json(dc) ORDER BY dc.id)
+            SELECT jsonb_agg(row_to_json(dc) ORDER BY s_link.priority, dc.priority, dc.column_name)
             FROM public.import_data_column dc
             JOIN public.import_step s_link ON dc.step_id = s_link.id
             JOIN public.import_definition_step ds_link ON s_link.id = ds_link.step_id
@@ -47,12 +47,13 @@ BEGIN
                     'mapping', row_to_json(m_map),
                     'source_column', row_to_json(sc_map),
                     'target_data_column', row_to_json(dc_map)
-                ) ORDER BY m_map.id
+                ) ORDER BY s_link.priority, dc_map.priority, dc_map.column_name, m_map.id
             )
             FROM public.import_mapping m_map
             LEFT JOIN public.import_source_column sc_map ON m_map.source_column_id = sc_map.id AND sc_map.definition_id = m_map.definition_id -- Ensure source_column is for the same definition
             JOIN public.import_data_column dc_map ON m_map.target_data_column_id = dc_map.id
-            JOIN public.import_definition_step ds_map_link ON dc_map.step_id = ds_map_link.step_id AND ds_map_link.definition_id = m_map.definition_id -- Ensure data_column's step is linked to this definition
+            JOIN public.import_step s_link ON dc_map.step_id = s_link.id
+            JOIN public.import_definition_step ds_map_link ON s_link.id = ds_map_link.step_id AND ds_map_link.definition_id = m_map.definition_id -- Ensure data_column's step is linked to this definition
             WHERE m_map.definition_id = NEW.definition_id
         )
     ) INTO NEW.definition_snapshot;
@@ -80,6 +81,10 @@ BEGIN
     IF NEW.user_id IS NULL THEN
         NEW.user_id := auth.uid();
     END IF;
+
+    -- Set expires_at based on created_at and definition's retention period
+    -- NEW.created_at is populated by its DEFAULT NOW() before this trigger runs for an INSERT.
+    NEW.expires_at := NEW.created_at + COALESCE(definition.default_retention_period, '18 months'::INTERVAL);
 
     RETURN NEW;
 END;

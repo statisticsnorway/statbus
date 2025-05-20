@@ -1,7 +1,7 @@
 ```sql
-                                                                         Table "public.import_job"
-          Column          |           Type           | Collation | Nullable |                Default                 | Storage  | Compression | Stats target | Description 
---------------------------+--------------------------+-----------+----------+----------------------------------------+----------+-------------+--------------+-------------
+                                                                                                                                                       Table "public.import_job"
+          Column          |           Type           | Collation | Nullable |                Default                 | Storage  | Compression | Stats target |                                                                               Description                                                                               
+--------------------------+--------------------------+-----------+----------+----------------------------------------+----------+-------------+--------------+-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
  id                       | integer                  |           | not null | generated always as identity           | plain    |             |              | 
  slug                     | text                     |           | not null |                                        | extended |             |              | 
  description              | text                     |           |          |                                        | extended |             |              | 
@@ -30,12 +30,15 @@
  state                    | import_job_state         |           | not null | 'waiting_for_upload'::import_job_state | plain    |             |              | 
  error                    | text                     |           |          |                                        | extended |             |              | 
  review                   | boolean                  |           | not null | false                                  | plain    |             |              | 
+ edit_comment             | text                     |           |          |                                        | extended |             |              | Default edit comment to be applied to records processed by this job.
+ expires_at               | timestamp with time zone |           | not null |                                        | plain    |             |              | Timestamp when the job and its associated data (_upload, _data tables) are eligible for cleanup. Calculated as created_at + import_definition.default_retention_period.
  definition_id            | integer                  |           | not null |                                        | plain    |             |              | 
  user_id                  | integer                  |           |          |                                        | plain    |             |              | 
 Indexes:
     "import_job_pkey" PRIMARY KEY, btree (id)
     "import_job_slug_key" UNIQUE CONSTRAINT, btree (slug)
     "ix_import_job_definition_id" btree (definition_id)
+    "ix_import_job_expires_at" btree (expires_at)
     "ix_import_job_user_id" btree (user_id)
 Foreign-key constraints:
     "import_job_definition_id_fkey" FOREIGN KEY (definition_id) REFERENCES import_definition(id) ON DELETE CASCADE

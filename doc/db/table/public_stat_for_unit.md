@@ -1,11 +1,11 @@
 ```sql
-                                                     Table "public.stat_for_unit"
-       Column       |           Type           | Collation | Nullable |                            Default                            
---------------------+--------------------------+-----------+----------+---------------------------------------------------------------
+                                           Table "public.stat_for_unit"
+       Column       |           Type           | Collation | Nullable |                  Default                  
+--------------------+--------------------------+-----------+----------+-------------------------------------------
  id                 | integer                  |           | not null | nextval('stat_for_unit_id_seq'::regclass)
  stat_definition_id | integer                  |           | not null | 
- valid_after        | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored
- valid_from         | date                     |           | not null | CURRENT_DATE
+ valid_from         | date                     |           | not null | 
+ valid_after        | date                     |           | not null | 
  valid_to           | date                     |           | not null | 'infinity'::date
  data_source_id     | integer                  |           |          | 
  establishment_id   | integer                  |           |          | 
@@ -55,6 +55,7 @@ Triggers:
     stat_for_unit_establishment_id_valid_fk_update AFTER UPDATE OF establishment_id, valid_after, valid_to ON stat_for_unit FROM establishment DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('stat_for_unit_establishment_id_valid')
     stat_for_unit_legal_unit_id_valid_fk_insert AFTER INSERT ON stat_for_unit FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_insert_check('stat_for_unit_legal_unit_id_valid')
     stat_for_unit_legal_unit_id_valid_fk_update AFTER UPDATE OF legal_unit_id, valid_after, valid_to ON stat_for_unit FROM legal_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.fk_update_check('stat_for_unit_legal_unit_id_valid')
+    trg_stat_for_unit_synchronize_valid_from_after BEFORE INSERT OR UPDATE ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION synchronize_valid_from_after()
     trigger_prevent_stat_for_unit_id_update BEFORE UPDATE OF id ON stat_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 
 ```

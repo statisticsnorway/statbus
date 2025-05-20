@@ -1,29 +1,29 @@
 ```sql
-                                                                                  Table "public.establishment"
-         Column         |           Type           | Collation | Nullable |                            Default                            | Storage  | Compression | Stats target | Description 
-------------------------+--------------------------+-----------+----------+---------------------------------------------------------------+----------+-------------+--------------+-------------
- id                     | integer                  |           | not null | nextval('establishment_id_seq'::regclass)                     | plain    |             |              | 
- valid_after            | date                     |           | not null | generated always as ((valid_from - '1 day'::interval)) stored | plain    |             |              | 
- valid_from             | date                     |           | not null | CURRENT_DATE                                                  | plain    |             |              | 
- valid_to               | date                     |           | not null | 'infinity'::date                                              | plain    |             |              | 
- active                 | boolean                  |           | not null | true                                                          | plain    |             |              | 
- short_name             | character varying(16)    |           |          |                                                               | extended |             |              | 
- name                   | character varying(256)   |           |          |                                                               | extended |             |              | 
- birth_date             | date                     |           |          |                                                               | plain    |             |              | 
- death_date             | date                     |           |          |                                                               | plain    |             |              | 
- free_econ_zone         | boolean                  |           |          |                                                               | plain    |             |              | 
- sector_id              | integer                  |           |          |                                                               | plain    |             |              | 
- status_id              | integer                  |           |          |                                                               | plain    |             |              | 
- edit_comment           | character varying(512)   |           |          |                                                               | extended |             |              | 
- edit_by_user_id        | integer                  |           | not null |                                                               | plain    |             |              | 
- edit_at                | timestamp with time zone |           | not null | statement_timestamp()                                         | plain    |             |              | 
- unit_size_id           | integer                  |           |          |                                                               | plain    |             |              | 
- data_source_id         | integer                  |           |          |                                                               | plain    |             |              | 
- enterprise_id          | integer                  |           |          |                                                               | plain    |             |              | 
- legal_unit_id          | integer                  |           |          |                                                               | plain    |             |              | 
- primary_for_legal_unit | boolean                  |           |          |                                                               | plain    |             |              | 
- primary_for_enterprise | boolean                  |           |          |                                                               | plain    |             |              | 
- invalid_codes          | jsonb                    |           |          |                                                               | extended |             |              | 
+                                                                        Table "public.establishment"
+         Column         |           Type           | Collation | Nullable |                  Default                  | Storage  | Compression | Stats target | Description 
+------------------------+--------------------------+-----------+----------+-------------------------------------------+----------+-------------+--------------+-------------
+ id                     | integer                  |           | not null | nextval('establishment_id_seq'::regclass) | plain    |             |              | 
+ valid_from             | date                     |           | not null |                                           | plain    |             |              | 
+ valid_after            | date                     |           | not null |                                           | plain    |             |              | 
+ valid_to               | date                     |           | not null | 'infinity'::date                          | plain    |             |              | 
+ active                 | boolean                  |           | not null | true                                      | plain    |             |              | 
+ short_name             | character varying(16)    |           |          |                                           | extended |             |              | 
+ name                   | character varying(256)   |           |          |                                           | extended |             |              | 
+ birth_date             | date                     |           |          |                                           | plain    |             |              | 
+ death_date             | date                     |           |          |                                           | plain    |             |              | 
+ free_econ_zone         | boolean                  |           |          |                                           | plain    |             |              | 
+ sector_id              | integer                  |           |          |                                           | plain    |             |              | 
+ status_id              | integer                  |           | not null |                                           | plain    |             |              | 
+ edit_comment           | character varying(512)   |           |          |                                           | extended |             |              | 
+ edit_by_user_id        | integer                  |           | not null |                                           | plain    |             |              | 
+ edit_at                | timestamp with time zone |           | not null | statement_timestamp()                     | plain    |             |              | 
+ unit_size_id           | integer                  |           |          |                                           | plain    |             |              | 
+ data_source_id         | integer                  |           |          |                                           | plain    |             |              | 
+ enterprise_id          | integer                  |           |          |                                           | plain    |             |              | 
+ legal_unit_id          | integer                  |           |          |                                           | plain    |             |              | 
+ primary_for_legal_unit | boolean                  |           |          |                                           | plain    |             |              | 
+ primary_for_enterprise | boolean                  |           |          |                                           | plain    |             |              | 
+ invalid_codes          | jsonb                    |           |          |                                           | extended |             |              | 
 Indexes:
     "establishment_active_idx" btree (active)
     "establishment_enterprise_id_primary_for_enterprise_idx" btree (enterprise_id, primary_for_enterprise) WHERE enterprise_id IS NOT NULL
@@ -82,6 +82,7 @@ Triggers:
     person_for_unit_establishment_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON establishment FROM person_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check('person_for_unit_establishment_id_valid')
     stat_for_unit_establishment_id_valid_uk_delete AFTER DELETE ON establishment FROM stat_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_delete_check('stat_for_unit_establishment_id_valid')
     stat_for_unit_establishment_id_valid_uk_update AFTER UPDATE OF id, valid_after, valid_to ON establishment FROM stat_for_unit DEFERRABLE INITIALLY IMMEDIATE FOR EACH ROW EXECUTE FUNCTION sql_saga.uk_update_check('stat_for_unit_establishment_id_valid')
+    trg_establishment_synchronize_valid_from_after BEFORE INSERT OR UPDATE ON establishment FOR EACH ROW EXECUTE FUNCTION synchronize_valid_from_after()
     trigger_prevent_establishment_id_update BEFORE UPDATE OF id ON establishment FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 Access method: heap
 

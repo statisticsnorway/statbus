@@ -36,22 +36,23 @@ BEGIN
   EXECUTE create_upload_table_stmt;
 
   -- Add triggers to upload table
-  EXECUTE format('
+  EXECUTE format($$
       CREATE TRIGGER %I_check_state_before_insert
       BEFORE INSERT ON public.%I FOR EACH STATEMENT
-      EXECUTE FUNCTION admin.check_import_job_state_for_insert(%L);',
+      EXECUTE FUNCTION admin.check_import_job_state_for_insert(%L);$$,
       job.upload_table_name, job.upload_table_name, job.slug);
-  EXECUTE format('
+  EXECUTE format($$
       CREATE TRIGGER %I_update_state_after_insert
       AFTER INSERT ON public.%I FOR EACH STATEMENT
-      EXECUTE FUNCTION admin.update_import_job_state_after_insert(%L);',
+      EXECUTE FUNCTION admin.update_import_job_state_after_insert(%L);$$,
       job.upload_table_name, job.upload_table_name, job.slug);
   RAISE DEBUG '[Job %] Added triggers to upload table %', job.id, job.upload_table_name;
 
   -- 2. Create Data Table
   RAISE DEBUG '[Job %] Generating data table %', job.id, job.data_table_name;
-  create_data_table_stmt := format('CREATE TABLE public.%I (', job.data_table_name);
-  add_separator := FALSE;
+  -- Add row_id as the first column and primary key
+  create_data_table_stmt := format('CREATE TABLE public.%I (row_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY, ', job.data_table_name);
+  add_separator := FALSE; -- Reset for data table columns
 
   -- Add columns based on import_data_column records associated with the steps linked to this job's definition
   FOR col_rec IN
@@ -60,7 +61,7 @@ BEGIN
       JOIN public.import_step s ON ds.step_id = s.id
       JOIN public.import_data_column dc ON dc.step_id = s.id -- Join data columns via step_id
       WHERE ds.definition_id = job.definition_id
-      ORDER BY s.priority, dc.priority
+      ORDER BY s.priority, dc.priority, dc.column_name
   LOOP
     IF add_separator THEN
         create_data_table_stmt := create_data_table_stmt || ', ';
@@ -84,7 +85,7 @@ BEGIN
   EXECUTE create_data_table_stmt;
 
   -- Create index on state and priority for efficient processing
-  EXECUTE format('CREATE INDEX ON public.%I (state, last_completed_priority)', job.data_table_name);
+  EXECUTE format($$CREATE INDEX ON public.%I (state, last_completed_priority)$$, job.data_table_name);
   RAISE DEBUG '[Job %] Added index to data table %', job.id, job.data_table_name;
 
   -- Grant direct permissions to the job owner on the upload table to allow COPY FROM
@@ -96,7 +97,7 @@ BEGIN
       WHERE u.id = job.user_id;
 
       IF job_user_role_name IS NOT NULL THEN
-          EXECUTE format('GRANT ALL ON TABLE public.%I TO %I', job.upload_table_name, job_user_role_name);
+          EXECUTE format($$GRANT ALL ON TABLE public.%I TO %I$$, job.upload_table_name, job_user_role_name);
           RAISE DEBUG '[Job %] Granted ALL on % to role %', job.id, job.upload_table_name, job_user_role_name;
       ELSE
           RAISE WARNING '[Job %] Could not find user role for user_id %, cannot grant permissions on %',
