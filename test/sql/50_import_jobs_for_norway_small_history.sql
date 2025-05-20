@@ -15,44 +15,44 @@ ORDER BY slug;
 
 -- Per year jobs for hovedenhet
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
-INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_lu_2015_sht', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2015 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2015.'
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
+SELECT  def.id, 'import_lu_2015_sht', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2015 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2015.', 'BRREG Hovedenhet 2015 (SHT)'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
-INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_lu_2016_sht', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2016 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2016.'
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
+SELECT  def.id, 'import_lu_2016_sht', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2016 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2016.', 'BRREG Hovedenhet 2016 (SHT)'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
-INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_lu_2017_sht', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2017 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2017.'
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
+SELECT  def.id, 'import_lu_2017_sht', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2017 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2017.', 'BRREG Hovedenhet 2017 (SHT)'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
-INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_lu_2018_sht', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2018 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2018.'
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
+SELECT  def.id, 'import_lu_2018_sht', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2018 Small History Test', 'This job handles the import of BRREG Hovedenhet small history test data for 2018.', 'BRREG Hovedenhet 2018 (SHT)'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 -- Per year jobs for underenhet
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
-INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_es_2015_sht', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2015 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2015.'
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
+SELECT  def.id, 'import_es_2015_sht', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2015 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2015.', 'BRREG Underenhet 2015 (SHT)'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
-INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_es_2016_sht', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2016 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2016.'
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
+SELECT  def.id, 'import_es_2016_sht', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2016 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2016.', 'BRREG Underenhet 2016 (SHT)'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
-INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_es_2017_sht', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2017 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2017.'
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
+SELECT  def.id, 'import_es_2017_sht', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2017 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2017.', 'BRREG Underenhet 2017 (SHT)'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
-INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note)
-SELECT  def.id, 'import_es_2018_sht', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2018 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2018.'
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
+SELECT  def.id, 'import_es_2018_sht', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2018 Small History Test', 'This job handles the import of BRREG Underenhet small history test data for 2018.', 'BRREG Underenhet 2018 (SHT)'
 FROM def RETURNING slug, description, note, default_valid_from, default_valid_to, upload_table_name, data_table_name, state;
 
 \echo Verify the concrete tables of one import job
@@ -101,135 +101,10 @@ SELECT state, count(*) FROM public.import_lu_2015_sht_data GROUP BY state;
 \echo Check data row state before import (should be empty as worker hasn't run prepare)
 SELECT state, count(*) FROM public.import_es_2015_sht_data GROUP BY state;
 
-\echo "Starting manual state machine drive for job import_lu_2015_sht"
-DO $$
-DECLARE
-    v_job_id INT;
-    v_job_slug TEXT := 'import_lu_2015_sht';
-    v_job_rec public.import_job;
-    v_data_table_name TEXT;
-    v_max_iterations INT := 30; -- Safety break for the loop
-    v_iteration INT := 0;
-    data_state_rec RECORD;
-BEGIN
-    SELECT * INTO v_job_rec FROM public.import_job WHERE slug = v_job_slug;
-    IF NOT FOUND THEN
-        RAISE WARNING 'Job % not found, skipping manual processing loop.', v_job_slug;
-        RETURN;
-    END IF;
-    v_job_id := v_job_rec.id;
-    v_data_table_name := v_job_rec.data_table_name;
-
-    RAISE NOTICE 'Starting manual processing for job % (ID: %)', v_job_slug, v_job_id;
-    SET client_min_messages TO DEBUG1; -- Enable DEBUG messages
-
-    LOOP
-        v_iteration := v_iteration + 1;
-        IF v_iteration > v_max_iterations THEN
-            RAISE WARNING 'Max iterations reached for job %, aborting loop.', v_job_slug;
-            EXIT;
-        END IF;
-
-        -- Refresh job record
-        SELECT * INTO v_job_rec FROM public.import_job WHERE id = v_job_id;
-        RAISE NOTICE '----------------------------------------------------------------------';
-        RAISE NOTICE 'Iteration % for Job % (ID: %)', v_iteration, v_job_slug, v_job_id;
-        RAISE NOTICE 'Current Job State: %', v_job_rec.state;
-        RAISE NOTICE 'Total Rows: %, Imported Rows: %, Error: %', v_job_rec.total_rows, v_job_rec.imported_rows, v_job_rec.error;
-
-        RAISE NOTICE 'Data table (%): states:', v_data_table_name;
-        BEGIN
-            FOR data_state_rec IN EXECUTE format('SELECT state, count(*) as count FROM public.%I GROUP BY state ORDER BY state', v_data_table_name)
-            LOOP
-                RAISE NOTICE '  Data State %: %', data_state_rec.state, data_state_rec.count;
-            END LOOP;
-        EXCEPTION WHEN undefined_table THEN
-            RAISE NOTICE '  Data table % not created yet.', v_data_table_name;
-        WHEN others THEN
-             RAISE NOTICE '  Could not query data table % states.', v_data_table_name;
-        END;
-
-        IF v_job_rec.state IN ('finished', 'rejected') THEN
-            RAISE NOTICE 'Job % reached terminal state: %', v_job_slug, v_job_rec.state;
-            EXIT;
-        END IF;
-        
-        IF v_job_rec.state = 'waiting_for_review' AND v_job_rec.review THEN
-             RAISE NOTICE 'Job % is waiting_for_review. Test would need manual/auto approval here.', v_job_slug;
-             EXIT; 
-        END IF;
-
-        RAISE NOTICE 'Calling admin.import_job_process(%) for job %', v_job_id, v_job_slug;
-        CALL admin.import_job_process(v_job_id);
-        RAISE NOTICE 'Returned from admin.import_job_process for job %', v_job_slug;
-
-        -- Display some rows from the data table for debugging
-        DECLARE
-            data_row RECORD;
-            row_display_count INT := 0;
-            max_rows_to_display INT := 5; -- Adjust as needed
-            v_has_lu_col BOOLEAN := FALSE;
-            v_has_est_col BOOLEAN := FALSE;
-            v_select_list TEXT;
-        BEGIN
-            RAISE NOTICE 'Sample data from % (max % rows):', v_data_table_name, max_rows_to_display;
-
-            -- Check if legal_unit_id column exists
-            SELECT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'public' AND table_name = v_data_table_name AND column_name = 'legal_unit_id'
-            ) INTO v_has_lu_col;
-
-            -- Check if establishment_id column exists
-            SELECT EXISTS (
-                SELECT 1 FROM information_schema.columns
-                WHERE table_schema = 'public' AND table_name = v_data_table_name AND column_name = 'establishment_id'
-            ) INTO v_has_est_col;
-
-            -- Select row_id instead of ctid
-            v_select_list := 'row_id, state, last_completed_priority, error, tax_ident, name';
-            IF v_has_lu_col THEN
-                v_select_list := v_select_list || ', legal_unit_id';
-            ELSE
-                v_select_list := v_select_list || ', NULL::INTEGER AS legal_unit_id';
-            END IF;
-
-            IF v_has_est_col THEN
-                v_select_list := v_select_list || ', establishment_id';
-            ELSE
-                v_select_list := v_select_list || ', NULL::INTEGER AS establishment_id';
-            END IF;
-
-            FOR data_row IN EXECUTE format(
-                'SELECT %s FROM public.%I ORDER BY row_id LIMIT %s', -- Order by row_id
-                 v_select_list, v_data_table_name, max_rows_to_display
-            )
-            LOOP
-                RAISE NOTICE '  Row %: row_id=%, state=%, lcp=%, error=%, tax_ident=%, name=%, lu_id=%, est_id=%', -- Changed ctid to row_id
-                             row_display_count, data_row.row_id, data_row.state, data_row.last_completed_priority,
-                             data_row.error, data_row.tax_ident, data_row.name, data_row.legal_unit_id, data_row.establishment_id;
-                row_display_count := row_display_count + 1;
-            END LOOP;
-            IF row_display_count = 0 THEN
-                RAISE NOTICE '  No rows found in % or table does not exist yet for detailed display.', v_data_table_name;
-            END IF;
-        EXCEPTION
-            WHEN undefined_table THEN
-                RAISE NOTICE '  Data table % not created yet for detailed row display.', v_data_table_name;
-            WHEN others THEN
-                RAISE NOTICE '  Could not query detailed rows from data table %: %', v_data_table_name, SQLERRM;
-        END;
-
-    END LOOP;
-    
-    SET client_min_messages TO NOTICE; -- Reset log level
-
-    -- After manually processing one job, run the worker for the rest
-    RAISE NOTICE 'Manually processed job % (ID: %). Now running worker for other jobs.', v_job_slug, v_job_id;
-    CALL worker.process_tasks(p_queue => 'import');
-
-END;
-$$;
+\echo Process import jobs
+-- SET client_min_messages TO debug1;
+SET client_min_messages TO NOTICE;
+CALL worker.process_tasks(p_queue => 'import');
 
 \echo Check the states of the import job tasks.
 select queue,t.command,state,error from worker.tasks as t join worker.command_registry as c on t.command = c.command where t.command = 'import_job_process' order by priority;
@@ -249,8 +124,79 @@ SELECT state, count(*) FROM public.import_es_2016_sht_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2017_sht_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2018_sht_data GROUP BY state;
 
+\echo "Row-level errors for import_es_2016_sht (if any):"
+SELECT row_id, state, error, tax_ident, name, legal_unit_tax_ident
+FROM public.import_es_2016_sht_data
+WHERE state = 'error' OR error IS NOT NULL
+ORDER BY row_id;
+
+\echo "Row-level errors for import_es_2017_sht (if any):"
+SELECT row_id, state, error, tax_ident, name, legal_unit_tax_ident
+FROM public.import_es_2017_sht_data
+WHERE state = 'error' OR error IS NOT NULL
+ORDER BY row_id;
+
+\echo "Row-level errors for import_es_2018_sht (if any):"
+SELECT row_id, state, error, tax_ident, name, legal_unit_tax_ident
+FROM public.import_es_2018_sht_data
+WHERE state = 'error' OR error IS NOT NULL
+ORDER BY row_id;
+
 \echo Check the state of all tasks before running analytics.
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+\echo "Explicitly refreshing timesegments before checking timeline_establishment_def"
+SELECT public.timesegments_refresh();
+
+\echo "Duplicate (unit_type, unit_id, timepoint) in public.timepoints for establishments:"
+SELECT unit_type, unit_id, timepoint, COUNT(*)
+FROM public.timepoints
+WHERE unit_type = 'establishment'
+GROUP BY unit_type, unit_id, timepoint
+HAVING COUNT(*) > 1
+ORDER BY unit_id, timepoint;
+
+\echo "Duplicate (unit_type, unit_id, valid_after) in timeline_establishment_def that would cause ON CONFLICT error:"
+SELECT unit_type, unit_id, valid_after, COUNT(*)
+FROM public.timeline_establishment_def
+GROUP BY unit_type, unit_id, valid_after
+HAVING COUNT(*) > 1
+ORDER BY unit_id, valid_after;
+
+\echo "Duplicates from timeline_establishment_def that would cause INSERT ON CONFLICT to fail"
+SELECT unit_type, unit_id, valid_after, COUNT(*)
+FROM public.timeline_establishment_def
+GROUP BY unit_type, unit_id, valid_after
+HAVING COUNT(*) > 1
+ORDER BY unit_id, valid_after;
+
+\echo "Detailed duplicate rows from timeline_establishment_def causing ON CONFLICT errors:"
+WITH DuplicatedKeys AS (
+    SELECT unit_type, unit_id, valid_after
+    FROM public.timeline_establishment_def
+    GROUP BY unit_type, unit_id, valid_after
+    HAVING COUNT(*) > 1
+)
+SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
+       ted.name,
+       ted.primary_activity_category_id, ted.primary_activity_category_code,
+       ted.secondary_activity_category_id, ted.secondary_activity_category_code,
+       array_length(ted.activity_category_paths, 1) as num_activity_paths,
+       phl.id as physical_location_id, ted.physical_address_part1, ted.physical_postcode,
+       pol.id as postal_location_id, ted.postal_address_part1, ted.postal_postcode,
+       c.id as contact_id, ted.web_address,
+       ted.last_edit_at
+FROM public.timeline_establishment_def ted
+JOIN DuplicatedKeys dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_after = dk.valid_after
+LEFT JOIN public.location phl ON phl.establishment_id = ted.unit_id AND phl.type = 'physical' AND after_to_overlaps(ted.valid_after, ted.valid_to, phl.valid_after, phl.valid_to)
+LEFT JOIN public.location pol ON pol.establishment_id = ted.unit_id AND pol.type = 'postal' AND after_to_overlaps(ted.valid_after, ted.valid_to, pol.valid_after, pol.valid_to)
+LEFT JOIN public.contact c ON c.establishment_id = ted.unit_id AND after_to_overlaps(ted.valid_after, ted.valid_to, c.valid_after, c.valid_to)
+ORDER BY ted.unit_id, ted.valid_after,
+         ted.primary_activity_category_id NULLS FIRST,
+         ted.secondary_activity_category_id NULLS FIRST,
+         phl.id NULLS FIRST,
+         pol.id NULLS FIRST,
+         c.id NULLS FIRST;
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -271,7 +217,7 @@ SELECT valid_from
      , external_idents ->> 'tax_ident' AS tax_ident
      , unit_type
  FROM public.statistical_unit
- ORDER BY valid_from, valid_to, name, external_idents ->> 'tax_ident', unit_type, unit_id;
+ ORDER BY name, unit_type, valid_from, valid_to, external_idents ->> 'tax_ident', unit_id;
 
 
 \echo Getting statistical_units after upload
@@ -300,28 +246,22 @@ SELECT valid_after
 \x
 
 
-\x
-SELECT valid_after
-     , valid_from
-     , valid_to
-     , unit_type
-     , external_idents
-     , jsonb_pretty(
-          public.remove_ephemeral_data_from_hierarchy(
-          to_jsonb(statistical_unit.*)
-          -'valid_after'
-          -'valid_from'
-          -'valid_to'
-          -'unit_type'
-          -'external_idents'
-          -'stats'
-          -'stats_summary'
-          )
-     ) AS statistical_unit_data
-     , jsonb_pretty(stats) AS stats
-     , jsonb_pretty(stats_summary) AS stats_summary
- FROM public.statistical_unit
- ORDER BY valid_from, valid_to, unit_type, external_idents ->> 'tax_ident', unit_id;
-\x
+\echo Generate traces of indices used to build the history, analysis with tools such as shipped "/pev2" aka "postgres explain visualizer pev2 query performance"
+\o tmp/50_import_jobs_for_norway_small_history-timepoints.log
+EXPLAIN ANALYZE SELECT * FROM public.timepoints;
+\o tmp/50_import_jobs_for_norway_small_history-timesegments_def.log
+EXPLAIN ANALYZE SELECT * FROM public.timesegments_def;
+\o tmp/50_import_jobs_for_norway_small_history-timeline_establishment_def.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment_def;
+\o tmp/50_import_jobs_for_norway_small_history-timeline_legal_unit_def.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit_def;
+\o tmp/50_import_jobs_for_norway_small_history-timeline_enterprise_def.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise_def;
+\o tmp/50_import_jobs_for_norway_small_history-statistical_unit_def.log
+EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
+\o
+
+
+RESET client_min_messages;
 
 ROLLBACK;

@@ -33,9 +33,9 @@ SELECT sql_saga.drop_era('public.stat_for_unit');
 
 SELECT sql_saga.drop_foreign_key('public.activity', 'activity_establishment_id_valid');
 SELECT sql_saga.drop_foreign_key('public.activity', 'activity_legal_unit_id_valid');
-SELECT sql_saga.drop_unique_key('public.activity', 'activity_type_category_id_legal_unit_id_valid');
+SELECT sql_saga.drop_unique_key('public.activity', 'activity_type_legal_unit_id_valid');
 SELECT key_name FROM sql_saga.unique_keys WHERE table_name = 'public.activity'::regclass;
-SELECT sql_saga.drop_unique_key('public.activity', 'activity_type_category_id_establishment_id_valid');
+SELECT sql_saga.drop_unique_key('public.activity', 'activity_type_establishment_id_valid');
 SELECT sql_saga.drop_unique_key('public.activity', 'activity_id_valid');
 SELECT sql_saga.drop_era('public.activity');
 

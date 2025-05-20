@@ -99,6 +99,11 @@ CREATE UNIQUE INDEX idx_tasks_derive_reports_dedup
 ON worker.tasks (command)
 WHERE command = 'derive_reports' AND state = 'pending'::worker.task_state;
 
+-- For import_job_cleanup: only one pending task at a time
+CREATE UNIQUE INDEX idx_tasks_import_job_cleanup_dedup
+ON worker.tasks (command)
+WHERE command = 'import_job_cleanup' AND state = 'pending'::worker.task_state;
+
 
 -- Create statistical unit refresh function (part 1: core units)
 CREATE FUNCTION worker.derive_statistical_unit(
@@ -762,7 +767,8 @@ $function$;
 CREATE PROCEDURE worker.process_tasks(
   p_batch_size INT DEFAULT NULL,
   p_max_runtime_ms INT DEFAULT NULL,
-  p_queue TEXT DEFAULT NULL
+  p_queue TEXT DEFAULT NULL,
+  p_max_priority BIGINT DEFAULT NULL
 )
 LANGUAGE plpgsql
 AS $procedure$
@@ -792,6 +798,7 @@ BEGIN
     WHERE t.state = 'pending'::worker.task_state
       AND (t.scheduled_at IS NULL OR t.scheduled_at <= clock_timestamp())
       AND (p_queue IS NULL OR cr.queue = p_queue)
+      AND (p_max_priority IS NULL OR t.priority <= p_max_priority)
     ORDER BY
       CASE WHEN t.scheduled_at IS NULL THEN 0 ELSE 1 END, -- Non-scheduled tasks next
       t.scheduled_at, -- Then by scheduled time (earliest first)
@@ -946,7 +953,8 @@ VALUES
   ('analytics', 'deleted_row', 'worker.command_deleted_row', NULL, NULL, 'Handle deletion of rows from statistical unit tables'),
   ('analytics', 'derive_statistical_unit', 'worker.derive_statistical_unit', 'worker.notify_check_is_deriving_statistical_units', 'worker.notify_check_is_deriving_statistical_units', 'Refresh core timeline tables and statistical units'),
   ('analytics', 'derive_reports', 'worker.derive_reports', 'worker.notify_check_is_deriving_reports', 'worker.notify_check_is_deriving_reports', 'Refresh derived reports, facets, and history'),
-  ('maintenance', 'task_cleanup', 'worker.command_task_cleanup', NULL, NULL, 'Clean up old completed and failed tasks');
+  ('maintenance', 'task_cleanup', 'worker.command_task_cleanup', NULL, NULL, 'Clean up old completed and failed tasks'),
+  ('maintenance', 'import_job_cleanup', 'worker.command_import_job_cleanup', NULL, NULL, 'Clean up expired import jobs and their associated data');
 
 
 -- Add foreign key constraint to ensure command exists in command registry
@@ -1034,6 +1042,10 @@ BEGIN
             p_failed_retention_days := (v_task.payload->>'failed_retention_days')::int
           ) INTO v_new_task_id;
 
+        WHEN 'import_job_cleanup' THEN
+          -- For import_job_cleanup, use the worker.enqueue_import_job_cleanup function
+          SELECT worker.enqueue_import_job_cleanup() INTO v_new_task_id;
+
         WHEN 'import_job_process' THEN
           -- For import_job_process, use the admin.enqueue_import_job_process function
           SELECT admin.enqueue_import_job_process(
@@ -1106,6 +1118,43 @@ BEGIN
 END;
 $procedure$;
 
+-- Create command handler for import_job_cleanup
+-- Removes expired import jobs and their associated data tables
+CREATE PROCEDURE worker.command_import_job_cleanup(
+    payload JSONB -- Payload is not used but kept for command handler consistency
+)
+SECURITY DEFINER
+LANGUAGE plpgsql
+AS $command_import_job_cleanup$
+DECLARE
+    v_job_record RECORD;
+    v_deleted_count INTEGER := 0;
+BEGIN
+    RAISE DEBUG 'Running worker.command_import_job_cleanup';
+
+    FOR v_job_record IN
+        SELECT id, slug FROM public.import_job WHERE expires_at <= now()
+    LOOP
+        RAISE DEBUG '[Job % (Slug: %)] Expired, attempting deletion.', v_job_record.id, v_job_record.slug;
+        BEGIN
+            DELETE FROM public.import_job WHERE id = v_job_record.id;
+            v_deleted_count := v_deleted_count + 1;
+            RAISE DEBUG '[Job % (Slug: %)] Successfully deleted.', v_job_record.id, v_job_record.slug;
+        EXCEPTION
+            WHEN OTHERS THEN
+                RAISE WARNING '[Job % (Slug: %)] Failed to delete expired import job: %', v_job_record.id, v_job_record.slug, SQLERRM;
+                -- Optionally, update the job with an error or take other action
+                -- For now, we just log and continue, so other jobs can be processed.
+        END;
+    END LOOP;
+
+    RAISE DEBUG 'Finished worker.command_import_job_cleanup. Deleted % expired jobs.', v_deleted_count;
+
+    -- Schedule to run again in 24 hours
+    PERFORM worker.enqueue_import_job_cleanup();
+END;
+$command_import_job_cleanup$;
+
 -- For task_cleanup command
 CREATE FUNCTION worker.enqueue_task_cleanup(
   p_completed_retention_days INT DEFAULT 7,
@@ -1147,6 +1196,41 @@ BEGIN
   RETURN v_task_id;
 END;
 $function$;
+
+-- For import_job_cleanup command
+CREATE FUNCTION worker.enqueue_import_job_cleanup()
+RETURNS BIGINT
+LANGUAGE plpgsql
+AS $enqueue_import_job_cleanup$
+DECLARE
+  v_task_id BIGINT;
+BEGIN
+  -- Insert with ON CONFLICT for this specific command type
+  INSERT INTO worker.tasks (
+    command,
+    payload,
+    scheduled_at
+  ) VALUES (
+    'import_job_cleanup',
+    '{}'::jsonb, -- No payload needed as expiry is on the job itself
+    now() + interval '24 hours'
+  )
+  ON CONFLICT (command) WHERE command = 'import_job_cleanup' AND state = 'pending'::worker.task_state
+  DO UPDATE SET
+    payload = EXCLUDED.payload,
+    scheduled_at = EXCLUDED.scheduled_at, -- Update to the new scheduled time
+    state = 'pending'::worker.task_state,
+    priority = EXCLUDED.priority,
+    processed_at = NULL,
+    error = NULL
+  RETURNING id INTO v_task_id;
+
+  -- Notify worker of new task with queue information
+  PERFORM pg_notify('worker_tasks', 'maintenance');
+
+  RETURN v_task_id;
+END;
+$enqueue_import_job_cleanup$;
 
 -- Create function to notify about queue changes
 CREATE FUNCTION worker.notify_worker_queue_change()
@@ -1294,6 +1378,8 @@ BEGIN
 
   -- Create the initial cleanup_tasks task to run daily
   PERFORM worker.enqueue_task_cleanup();
+  -- Create the initial import_job_cleanup task to run daily
+  PERFORM worker.enqueue_import_job_cleanup();
 END;
 $procedure$;
 

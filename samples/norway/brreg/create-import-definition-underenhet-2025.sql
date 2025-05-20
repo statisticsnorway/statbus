@@ -10,11 +10,15 @@ WITH it AS (
         , slug
         , name
         , note
+        , mode
+        , strategy
         )
     SELECT it.id
         , 'brreg_underenhet_2025'
         , 'Import of BRREG Underenhet using 2025 columns'
         , 'Easy upload of the CSV file found at brreg.'
+        , 'establishment_formal'::public.import_mode
+        , 'insert_or_replace'::public.import_strategy
     FROM it
     RETURNING *
 ), raw_mapping(source_column_name, source_expression, target_column_name) AS (

@@ -98,7 +98,15 @@ SELECT state, count(*) FROM public.import_es_2015_h_data GROUP BY state;
 \echo Run worker processing to run import jobs and generate computed data
 -- Notice that 'WARNING:  Could not find primary_activity_category_code' is expected due to data quality issues, but should not hinder the import process.
 -- Notice that only the import job tasks are executed, to avoid ongoing recalculation of computed data
+
+-- Set higher logging level to debug import procedures
+SET client_min_messages = DEBUG1;
+
 CALL worker.process_tasks(p_queue => 'import');
+
+-- Reset logging level
+SET client_min_messages = WARNING;
+
 
 \echo Check the states of the import job tasks.
 select queue,t.command,state,error from worker.tasks as t join worker.command_registry as c on t.command = c.command where t.command = 'import_job_process' order by priority;

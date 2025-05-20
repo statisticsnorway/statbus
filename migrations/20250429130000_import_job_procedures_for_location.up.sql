@@ -1,0 +1,553 @@
+-- Migration: import_job_procedures_for_location
+-- Implements the analyse and operation procedures for the PhysicalLocation
+-- and PostalLocation import targets using generic location handlers.
+
+BEGIN;
+
+-- Procedure to analyse location data (handles both physical and postal) (Batch Oriented)
+CREATE OR REPLACE PROCEDURE import.analyse_location(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+LANGUAGE plpgsql AS $analyse_location$
+DECLARE
+    v_job public.import_job;
+    v_step RECORD;
+    v_data_table_name TEXT;
+    v_error_count INT := 0;
+    v_update_count INT := 0;
+    v_sql TEXT;
+    v_error_json_physical TEXT;
+    v_error_json_postal TEXT;
+    v_error_keys_to_clear_arr TEXT[]; -- Changed from TEXT to TEXT[]
+    v_skipped_update_count INT;
+    error_message TEXT; -- Variable to store SQLERRM
+BEGIN
+    RAISE DEBUG '[Job %] analyse_location (Batch) for step_code %: Starting analysis for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
+
+    SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
+    v_data_table_name := v_job.data_table_name;
+
+    SELECT * INTO v_step FROM public.import_step WHERE code = p_step_code;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION '[Job %] analyse_location: Step with code % not found.', p_job_id, p_step_code;
+    END IF;
+
+    RAISE DEBUG '[Job %] analyse_location: Processing for target % (code: %, priority %)', p_job_id, v_step.name, v_step.code, v_step.priority;
+
+    -- Define error JSON construction and keys to clear based on step_code
+    -- These JSON strings will be evaluated in the context of the main UPDATE query,
+    -- where 'dt' is the table being updated and 'l' is the alias for the 'lookups' CTE.
+    IF p_step_code = 'physical_location' THEN
+        v_error_json_physical := $$
+            jsonb_build_object('physical_region_code', CASE WHEN dt.physical_region_code IS NOT NULL AND l.resolved_physical_region_id IS NULL THEN 'Not found' ELSE NULL END) ||
+            jsonb_build_object('physical_country_iso_2', CASE WHEN dt.physical_country_iso_2 IS NOT NULL AND l.resolved_physical_country_id IS NULL THEN 'Not found' ELSE NULL END) ||
+            jsonb_build_object('physical_latitude', CASE WHEN dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL THEN 'Invalid format' ELSE NULL END) ||
+            jsonb_build_object('physical_longitude', CASE WHEN dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL THEN 'Invalid format' ELSE NULL END) ||
+            jsonb_build_object('physical_altitude', CASE WHEN dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL THEN 'Invalid format' ELSE NULL END)
+        $$;
+        v_error_json_postal := $$'{}'::jsonb$$; -- Empty object for postal if only physical
+        v_error_keys_to_clear_arr := ARRAY['physical_region_code', 'physical_country_iso_2', 'physical_latitude', 'physical_longitude', 'physical_altitude'];
+    ELSIF p_step_code = 'postal_location' THEN
+        v_error_json_physical := $$'{}'::jsonb$$; -- Empty object for physical if only postal
+        v_error_json_postal := $$
+            jsonb_build_object('postal_region_code', CASE WHEN dt.postal_region_code IS NOT NULL AND l.resolved_postal_region_id IS NULL THEN 'Not found' ELSE NULL END) ||
+            jsonb_build_object('postal_country_iso_2', CASE WHEN dt.postal_country_iso_2 IS NOT NULL AND l.resolved_postal_country_id IS NULL THEN 'Not found' ELSE NULL END) ||
+            jsonb_build_object('postal_latitude', CASE WHEN dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL THEN 'Invalid format' ELSE NULL END) ||
+            jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL THEN 'Invalid format' ELSE NULL END) ||
+            jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL THEN 'Invalid format' ELSE NULL END)
+        $$;
+        v_error_keys_to_clear_arr := ARRAY['postal_region_code', 'postal_country_iso_2', 'postal_latitude', 'postal_longitude', 'postal_altitude'];
+    ELSE
+        RAISE EXCEPTION '[Job %] analyse_location: Invalid p_step_code provided: %. Expected ''physical_location'' or ''postal_location''.', p_job_id, p_step_code;
+    END IF;
+
+
+    v_sql := format($$
+        WITH lookups AS (
+            SELECT
+                dt_sub.row_id AS data_row_id,
+                pr.id as resolved_physical_region_id,
+                pc.id as resolved_physical_country_id,
+                psr.id as resolved_postal_region_id,
+                psc.id as resolved_postal_country_id,
+                import.safe_cast_to_numeric(dt_sub.physical_latitude) as resolved_typed_physical_latitude,
+                import.safe_cast_to_numeric(dt_sub.physical_longitude) as resolved_typed_physical_longitude,
+                import.safe_cast_to_numeric(dt_sub.physical_altitude) as resolved_typed_physical_altitude,
+                import.safe_cast_to_numeric(dt_sub.postal_latitude) as resolved_typed_postal_latitude,
+                import.safe_cast_to_numeric(dt_sub.postal_longitude) as resolved_typed_postal_longitude,
+                import.safe_cast_to_numeric(dt_sub.postal_altitude) as resolved_typed_postal_altitude
+            FROM public.%I dt_sub
+            LEFT JOIN public.region pr ON dt_sub.physical_region_code IS NOT NULL AND pr.code = dt_sub.physical_region_code
+            LEFT JOIN public.country pc ON dt_sub.physical_country_iso_2 IS NOT NULL AND pc.iso_2 = dt_sub.physical_country_iso_2
+            LEFT JOIN public.region psr ON dt_sub.postal_region_code IS NOT NULL AND psr.code = dt_sub.postal_region_code
+            LEFT JOIN public.country psc ON dt_sub.postal_country_iso_2 IS NOT NULL AND psc.iso_2 = dt_sub.postal_country_iso_2
+            WHERE dt_sub.row_id = ANY(%L) AND dt_sub.action != 'skip'
+        )
+        UPDATE public.%I dt SET
+            physical_region_id = l.resolved_physical_region_id,
+            physical_country_id = l.resolved_physical_country_id,
+            typed_physical_latitude = l.resolved_typed_physical_latitude,
+            typed_physical_longitude = l.resolved_typed_physical_longitude,
+            typed_physical_altitude = l.resolved_typed_physical_altitude,
+            postal_region_id = l.resolved_postal_region_id,
+            postal_country_id = l.resolved_postal_country_id,
+            typed_postal_latitude = l.resolved_typed_postal_latitude,
+            typed_postal_longitude = l.resolved_typed_postal_longitude,
+            typed_postal_altitude = l.resolved_typed_postal_altitude,
+            state = CASE
+                        WHEN jsonb_strip_nulls(%s || %s) != '{}'::jsonb THEN 'error'::public.import_data_state
+                        ELSE 'analysing'::public.import_data_state
+                    END,
+            error = CASE
+                        WHEN jsonb_strip_nulls(%s || %s) != '{}'::jsonb THEN
+                        COALESCE(dt.error, '{}'::jsonb) || jsonb_strip_nulls(%s || %s)
+                        ELSE
+                            CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
+                    END,
+            last_completed_priority = CASE
+                                        WHEN jsonb_strip_nulls(%s || %s) != '{}'::jsonb THEN %L::INTEGER -- v_step.priority - 1
+                                        ELSE %L::INTEGER -- v_step.priority
+                                      END
+        FROM lookups l
+        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L::INTEGER[]) AND dt.action != 'skip';
+    $$,
+        v_data_table_name, p_batch_row_ids, -- For lookups CTE
+        v_data_table_name, -- For main UPDATE target
+        v_error_json_physical, v_error_json_postal, -- For state CASE
+        v_error_json_physical, v_error_json_postal, -- For error CASE (add)
+        v_error_json_physical, v_error_json_postal, -- For error CASE (add)
+        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, -- For error CASE (clear), ensuring two arguments for two %L
+        v_error_json_physical, v_error_json_postal, -- For last_completed_priority CASE (error)
+        v_step.priority - 1, v_step.priority, -- For last_completed_priority CASE values
+        p_batch_row_ids -- For final WHERE clause
+    );
+
+    RAISE DEBUG '[Job %] analyse_location: Single-pass batch update for non-skipped rows for step %: %', p_job_id, p_step_code, v_sql;
+
+    BEGIN
+        EXECUTE v_sql;
+        GET DIAGNOSTICS v_update_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] analyse_location: Updated % non-skipped rows in single pass for step %.', p_job_id, v_update_count, p_step_code;
+
+        -- Update priority for skipped rows
+        EXECUTE format('
+            UPDATE public.%I dt SET
+                last_completed_priority = %L
+            WHERE dt.row_id = ANY(%L) AND dt.action = ''skip'';
+        ', v_data_table_name, v_step.priority, p_batch_row_ids);
+        GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] analyse_location: Updated last_completed_priority for % skipped rows for step %.', p_job_id, v_skipped_update_count, p_step_code;
+        
+        v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected by this step's logic
+
+        EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE row_id = ANY(%L) AND state = ''error'' AND (error ?| %L::text[])',
+                       v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr)
+        INTO v_error_count;
+        RAISE DEBUG '[Job %] analyse_location: Estimated errors in this step for batch: %', p_job_id, v_error_count;
+
+    EXCEPTION WHEN others THEN
+        error_message := SQLERRM; -- Capture SQLERRM
+        RAISE WARNING '[Job %] analyse_location: Error during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
+        -- Attempt to mark individual data rows as error (best effort)
+        BEGIN
+            v_sql := format('
+                UPDATE public.%I dt SET
+                    state = %L,
+                    error = COALESCE(dt.error, ''{}''::jsonb) || jsonb_build_object(''location_batch_error'', ''Error during update for step %s: '' || %L),
+                    last_completed_priority = %L
+                WHERE dt.row_id = ANY(%L);
+            ', v_data_table_name, 'error'::public.import_data_state, p_step_code, error_message, v_step.priority - 1, p_batch_row_ids);
+            EXECUTE v_sql;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE WARNING '[Job %] analyse_location: Could not mark individual data rows as error: %', p_job_id, SQLERRM;
+        END;
+        -- Mark the job as failed
+        UPDATE public.import_job
+        SET error = jsonb_build_object('analyse_location_error', format('Error for step %s: %s', p_step_code, error_message)),
+            state = 'finished'
+        WHERE id = p_job_id;
+        RAISE DEBUG '[Job %] analyse_location: Marked job as failed due to error for step %: %', p_job_id, p_step_code, error_message;
+        RAISE; -- Re-throw the exception
+    END;
+
+    RAISE DEBUG '[Job %] analyse_location (Batch): Finished analysis for batch for step %. Errors newly marked in this step: %', p_job_id, p_step_code, v_error_count;
+END;
+$analyse_location$;
+
+
+-- Procedure to operate (insert/update/upsert) location data (handles both physical and postal) (Batch Oriented)
+CREATE OR REPLACE PROCEDURE import.process_location(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+LANGUAGE plpgsql AS $process_location$
+DECLARE
+    v_job public.import_job;
+    v_snapshot JSONB;
+    v_definition JSONB;
+    v_step RECORD;
+    v_strategy public.import_strategy;
+    v_data_table_name TEXT;
+    v_sql TEXT;
+    v_error_count INT := 0;
+    v_inserted_new_loc_count INT := 0;
+    v_updated_existing_loc_count INT := 0;
+    error_message TEXT;
+    v_location_type public.location_type;
+    v_job_mode public.import_mode;
+    v_select_lu_id_expr TEXT;
+    v_select_est_id_expr TEXT;
+    v_batch_upsert_result RECORD;
+    v_batch_upsert_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_batch_upsert_success_row_ids BIGINT[] := ARRAY[]::BIGINT[];
+    v_final_id_col TEXT;
+    v_row RECORD; -- For debugging loop
+BEGIN
+    RAISE DEBUG '[Job %] process_location (Batch) for step_code %: Starting operation for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
+
+    SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
+    v_data_table_name := v_job.data_table_name;
+    v_definition := v_job.definition_snapshot->'import_definition';
+
+    IF v_definition IS NULL OR jsonb_typeof(v_definition) != 'object' THEN
+        RAISE EXCEPTION '[Job %] Failed to load valid import_definition object from definition_snapshot', p_job_id;
+    END IF;
+
+    SELECT * INTO v_step FROM public.import_step WHERE code = p_step_code;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION '[Job %] process_location: Step with code % not found.', p_job_id, p_step_code;
+    END IF;
+
+    RAISE DEBUG '[Job %] process_location: Processing for target % (code: %, priority %)', p_job_id, v_step.name, v_step.code, v_step.priority;
+    v_location_type := CASE v_step.code
+        WHEN 'physical_location' THEN 'physical'::public.location_type
+        WHEN 'postal_location' THEN 'postal'::public.location_type
+        ELSE NULL
+    END;
+
+    IF v_location_type IS NULL THEN
+        RAISE EXCEPTION '[Job %] process_location: Invalid step_code % provided for location processing.', p_job_id, p_step_code;
+    END IF;
+
+    v_final_id_col := CASE v_location_type WHEN 'physical' THEN 'physical_location_id' ELSE 'postal_location_id' END;
+    v_strategy := (v_definition->>'strategy')::public.import_strategy;
+
+    v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
+
+    IF v_job_mode = 'legal_unit' THEN
+        v_select_lu_id_expr := 'dt.legal_unit_id';
+        v_select_est_id_expr := 'NULL::INTEGER';
+    ELSIF v_job_mode = 'establishment_formal' THEN
+        v_select_lu_id_expr := 'dt.legal_unit_id';
+        v_select_est_id_expr := 'dt.establishment_id';
+    ELSIF v_job_mode = 'establishment_informal' THEN
+        v_select_lu_id_expr := 'NULL::INTEGER';
+        v_select_est_id_expr := 'dt.establishment_id';
+    ELSE
+        RAISE EXCEPTION '[Job %] process_location: Unhandled job mode % for unit ID selection. Expected one of (legal_unit, establishment_formal, establishment_informal).', p_job_id, v_job_mode;
+    END IF;
+    RAISE DEBUG '[Job %] process_location: Based on mode %, using lu_id_expr: %, est_id_expr: % for table %', 
+        p_job_id, v_job_mode, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name;
+
+    CREATE TEMP TABLE temp_batch_data (
+        data_row_id BIGINT PRIMARY KEY,
+        legal_unit_id INT,
+        establishment_id INT,
+        valid_after DATE, -- Added
+        valid_from DATE,
+        valid_to DATE,
+        data_source_id INT,
+        edit_by_user_id INT,
+        edit_at TIMESTAMPTZ,
+        edit_comment TEXT, -- Added
+        address_part1 TEXT, address_part2 TEXT, address_part3 TEXT,
+        postcode TEXT, postplace TEXT, region_id INT, country_id INT,
+        latitude NUMERIC, longitude NUMERIC, altitude NUMERIC,
+        existing_loc_id INT,
+        action public.import_row_action_type
+    ) ON COMMIT DROP;
+
+    v_sql := format($$
+        INSERT INTO temp_batch_data (
+            data_row_id, legal_unit_id, establishment_id, valid_after, valid_from, valid_to, data_source_id,
+            edit_by_user_id, edit_at, edit_comment, -- Added
+            address_part1, address_part2, address_part3, postcode, postplace,
+            region_id, country_id, latitude, longitude, altitude, action
+        )
+        SELECT
+            row_id, %s, %s,
+            derived_valid_after, -- Added
+            derived_valid_from,
+            derived_valid_to,
+            data_source_id,
+            edit_by_user_id, edit_at, edit_comment, -- Added
+            %I, %I, %I, %I, %I,
+            %I, %I,
+            %I, %I, %I,
+            action
+         FROM public.%I dt WHERE row_id = ANY(%L) AND action != 'skip'; -- Added alias dt
+    $$,
+        v_select_lu_id_expr,
+        v_select_est_id_expr,
+        CASE v_location_type WHEN 'physical' THEN 'physical_address_part1' ELSE 'postal_address_part1' END,
+        CASE v_location_type WHEN 'physical' THEN 'physical_address_part2' ELSE 'postal_address_part2' END,
+        CASE v_location_type WHEN 'physical' THEN 'physical_address_part3' ELSE 'postal_address_part3' END,
+        CASE v_location_type WHEN 'physical' THEN 'physical_postcode' ELSE 'postal_postcode' END,
+        CASE v_location_type WHEN 'physical' THEN 'physical_postplace' ELSE 'postal_postplace' END,
+        CASE v_location_type WHEN 'physical' THEN 'physical_region_id' ELSE 'postal_region_id' END,
+        CASE v_location_type WHEN 'physical' THEN 'physical_country_id' ELSE 'postal_country_id' END,
+        CASE v_location_type WHEN 'physical' THEN 'typed_physical_latitude' ELSE 'typed_postal_latitude' END,
+        CASE v_location_type WHEN 'physical' THEN 'typed_physical_longitude' ELSE 'typed_postal_longitude' END,
+        CASE v_location_type WHEN 'physical' THEN 'typed_physical_altitude' ELSE 'typed_postal_altitude' END,
+        v_data_table_name, p_batch_row_ids);
+    RAISE DEBUG '[Job %] process_location: Fetching batch data for type %: %', p_job_id, v_location_type, v_sql;
+    EXECUTE v_sql;
+
+    -- Debug: Log content of temp_batch_data
+    FOR v_row IN SELECT * FROM temp_batch_data LOOP
+        RAISE DEBUG '[Job %] process_location: temp_batch_data content for data_row_id %: LU_ID:%, EST_ID:%, VF:% VT:% Action:% Addr1:% Postcode:%',
+            p_job_id, v_row.data_row_id, v_row.legal_unit_id, v_row.establishment_id, v_row.valid_from, v_row.valid_to, v_row.action, v_row.address_part1, v_row.postcode;
+    END LOOP;
+
+    IF v_job_mode = 'legal_unit' THEN
+        v_sql := format($$
+            UPDATE temp_batch_data tbd SET
+                existing_loc_id = loc.id
+            FROM public.location loc
+            WHERE loc.type = %L
+              AND loc.legal_unit_id = tbd.legal_unit_id
+              AND loc.establishment_id IS NULL;
+        $$, v_location_type);
+    ELSIF v_job_mode IN ('establishment_formal', 'establishment_informal') THEN
+        v_sql := format($$
+            UPDATE temp_batch_data tbd SET
+                existing_loc_id = loc.id
+            FROM public.location loc
+            WHERE loc.type = %L
+              AND loc.establishment_id = tbd.establishment_id
+              AND loc.legal_unit_id IS NULL;
+        $$, v_location_type);
+    ELSE
+        -- This case should have been caught earlier by the job mode check, but as a safeguard:
+        RAISE EXCEPTION '[Job %] process_location: Unhandled job mode % for existing_loc_id lookup.', p_job_id, v_job_mode;
+    END IF;
+    RAISE DEBUG '[Job %] process_location: Determining existing IDs (mode: %): %', p_job_id, v_job_mode, v_sql;
+    EXECUTE v_sql;
+
+    -- Temp table to store newly created location_ids and their original data_row_id
+    CREATE TEMP TABLE temp_created_locs (
+        data_row_id BIGINT PRIMARY KEY,
+        new_location_id INT NOT NULL
+    ) ON COMMIT DROP;
+
+    BEGIN
+        -- Handle INSERTs for new locations (action = 'insert') using MERGE
+        RAISE DEBUG '[Job %] process_location: Handling INSERTS for new locations (type: %) using MERGE.', p_job_id, v_location_type;
+
+        WITH source_for_insert AS (
+            SELECT
+                tbd.data_row_id, tbd.legal_unit_id, tbd.establishment_id, tbd.valid_after, tbd.valid_from, tbd.valid_to, tbd.data_source_id, -- Added valid_after
+                tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment, -- Added edit_comment
+                tbd.address_part1, tbd.address_part2, tbd.address_part3, tbd.postcode, tbd.postplace,
+                tbd.region_id, tbd.country_id, tbd.latitude, tbd.longitude, tbd.altitude
+            FROM temp_batch_data tbd
+            WHERE tbd.action = 'insert'
+            AND (tbd.region_id IS NOT NULL OR tbd.country_id IS NOT NULL OR tbd.address_part1 IS NOT NULL OR tbd.postcode IS NOT NULL) -- Ensure some actual location data exists
+        ),
+        merged_locations AS (
+            MERGE INTO public.location loc
+            USING source_for_insert sfi
+            ON 1 = 0 -- Always false to force INSERT for all rows from sfi
+            WHEN NOT MATCHED THEN
+                INSERT (
+                    legal_unit_id, establishment_id, type,
+                    address_part1, address_part2, address_part3, postcode, postplace,
+                    region_id, country_id, latitude, longitude, altitude,
+                    data_source_id, valid_after, valid_to, -- Changed
+                    edit_by_user_id, edit_at, edit_comment
+                )
+                VALUES (
+                    CASE WHEN v_job_mode = 'legal_unit' THEN sfi.legal_unit_id ELSE NULL END,
+                    CASE WHEN v_job_mode IN ('establishment_formal', 'establishment_informal') THEN sfi.establishment_id ELSE NULL END,
+                    v_location_type,
+                    sfi.address_part1, sfi.address_part2, sfi.address_part3, sfi.postcode, sfi.postplace,
+                    sfi.region_id, sfi.country_id, sfi.latitude, sfi.longitude, sfi.altitude,
+                    sfi.data_source_id, sfi.valid_after, sfi.valid_to, -- Changed
+                    sfi.edit_by_user_id, sfi.edit_at, sfi.edit_comment -- Use sfi.edit_comment
+                )
+            RETURNING loc.id AS new_location_id, sfi.data_row_id AS data_row_id
+        )
+        INSERT INTO temp_created_locs (data_row_id, new_location_id)
+        SELECT ml.data_row_id, ml.new_location_id
+        FROM merged_locations ml;
+
+        GET DIAGNOSTICS v_inserted_new_loc_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] process_location: Inserted % new locations into temp_created_locs via MERGE (type: %).', p_job_id, v_inserted_new_loc_count, v_location_type;
+
+        IF v_inserted_new_loc_count > 0 THEN
+            EXECUTE format($$
+                UPDATE public.%I dt SET
+                    %I = tcl.new_location_id,
+                    last_completed_priority = %L,
+                    error = NULL,
+                    state = %L
+                FROM temp_created_locs tcl
+                WHERE dt.row_id = tcl.data_row_id AND dt.state != 'error';
+            $$, v_data_table_name, v_final_id_col, v_step.priority, 'processing'::public.import_data_state);
+            RAISE DEBUG '[Job %] process_location: Updated _data table for % new locations (type: %).', p_job_id, v_inserted_new_loc_count, v_location_type;
+        END IF;
+
+
+        -- Handle REPLACES for existing locations (action = 'replace')
+        RAISE DEBUG '[Job %] process_location: Handling REPLACES for existing locations (type: %).', p_job_id, v_location_type;
+        -- Create temp source table for batch upsert
+        CREATE TEMP TABLE temp_loc_upsert_source (
+            data_row_id BIGINT PRIMARY KEY,
+            id INT,
+            valid_after DATE NOT NULL, -- Changed
+            valid_to DATE NOT NULL,
+            legal_unit_id INT,
+            establishment_id INT,
+            type public.location_type,
+            address_part1 TEXT, address_part2 TEXT, address_part3 TEXT,
+            postcode TEXT, postplace TEXT, region_id INT, country_id INT,
+            latitude NUMERIC, longitude NUMERIC, altitude NUMERIC,
+            data_source_id INT,
+            edit_by_user_id INT,
+            edit_at TIMESTAMPTZ,
+            edit_comment TEXT
+        ) ON COMMIT DROP;
+
+        INSERT INTO temp_loc_upsert_source (
+            data_row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, type, -- Changed valid_from to valid_after
+            address_part1, address_part2, address_part3, postcode, postplace, region_id, country_id,
+            latitude, longitude, altitude, data_source_id, edit_by_user_id, edit_at, edit_comment
+        )
+        SELECT
+            tbd.data_row_id,
+            tbd.existing_loc_id,
+            tbd.valid_after, -- Changed
+            tbd.valid_to,
+            CASE WHEN v_job_mode = 'legal_unit' THEN tbd.legal_unit_id ELSE NULL END,
+            CASE WHEN v_job_mode IN ('establishment_formal', 'establishment_informal') THEN tbd.establishment_id ELSE NULL END,
+            v_location_type,
+            tbd.address_part1, tbd.address_part2, tbd.address_part3, tbd.postcode, tbd.postplace,
+            tbd.region_id, tbd.country_id, tbd.latitude, tbd.longitude, tbd.altitude,
+            tbd.data_source_id, tbd.edit_by_user_id, tbd.edit_at,
+            tbd.edit_comment -- Use tbd.edit_comment
+        FROM temp_batch_data tbd
+        WHERE tbd.action = 'replace'
+        AND (tbd.region_id IS NOT NULL OR tbd.country_id IS NOT NULL OR tbd.address_part1 IS NOT NULL OR tbd.postcode IS NOT NULL); -- Ensure some actual location data exists
+
+        GET DIAGNOSTICS v_updated_existing_loc_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] process_location: Populated temp_loc_upsert_source with % rows for batch replace (type: %).', p_job_id, v_updated_existing_loc_count, v_location_type;
+
+        IF v_updated_existing_loc_count > 0 THEN
+            RAISE DEBUG '[Job %] process_location: Calling batch_insert_or_replace_generic_valid_time_table for location (type: %).', p_job_id, v_location_type;
+            FOR v_batch_upsert_result IN
+                SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+                    p_target_schema_name => 'public',
+                    p_target_table_name => 'location',
+                    p_source_schema_name => 'pg_temp',
+                    p_source_table_name => 'temp_loc_upsert_source',
+                    p_source_row_id_column_name => 'data_row_id',
+                    p_unique_columns => '[]'::jsonb,
+                    p_temporal_columns => ARRAY['valid_after', 'valid_to'], -- Changed
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
+                    p_id_column_name => 'id'
+                )
+            LOOP
+                IF v_batch_upsert_result.status = 'ERROR' THEN
+                    v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
+                    EXECUTE format($$
+                        UPDATE public.%I SET
+                            state = %L,
+                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_location_error', %L),
+                            last_completed_priority = %L
+                        WHERE row_id = %L;
+                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_step.priority - 1, v_batch_upsert_result.source_row_id);
+                ELSE
+                    v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                END IF;
+            END LOOP;
+
+            v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
+            RAISE DEBUG '[Job %] process_location: Batch replace finished for type %. Success: %, Errors: %', p_job_id, v_location_type, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
+
+            IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
+                v_sql := format($$
+                    UPDATE public.%I dt SET
+                        %I = tbd.existing_loc_id,
+                        last_completed_priority = %L,
+                        error = NULL,
+                        state = %L
+                    FROM temp_batch_data tbd
+                    WHERE dt.row_id = tbd.data_row_id
+                      AND dt.row_id = ANY(%L);
+                $$, v_data_table_name, v_final_id_col, v_step.priority, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
+                RAISE DEBUG '[Job %] process_location: Updating _data table for successful replace rows (type: %): %', p_job_id, v_location_type, v_sql;
+                EXECUTE v_sql;
+            END IF;
+        END IF;
+        DROP TABLE IF EXISTS temp_loc_upsert_source;
+
+    EXCEPTION WHEN OTHERS THEN
+        GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
+        RAISE WARNING '[Job %] process_location: Error during batch operation for type %: %. SQLSTATE: %', p_job_id, v_location_type, error_message, SQLSTATE;
+        -- Attempt to mark individual data rows as error (best effort)
+        BEGIN
+            v_sql := format($$UPDATE public.%I SET state = %L, error = COALESCE(error, '{}'::jsonb) || %L, last_completed_priority = %L WHERE row_id = ANY(%L)$$,
+                           v_data_table_name, 'error'::public.import_data_state, jsonb_build_object('batch_error_process_location', error_message), v_step.priority - 1, p_batch_row_ids);
+            EXECUTE v_sql;
+        EXCEPTION WHEN OTHERS THEN
+            RAISE WARNING '[Job %] process_location: Could not mark individual data rows as error: %', p_job_id, SQLERRM;
+        END;
+        -- Mark the job as failed
+        UPDATE public.import_job
+        SET error = jsonb_build_object('process_location_error', format('Error for type %s: %s', v_location_type, error_message)),
+            state = 'finished' -- Consistently set state to 'finished' on error
+        WHERE id = p_job_id;
+        RAISE DEBUG '[Job %] process_location: Marked job as failed due to error for type %: %', p_job_id, v_location_type, error_message;
+        RAISE; -- Re-throw the exception to halt the phase
+    END;
+
+    -- Update priority for rows in the batch that were not successfully processed by insert or replace in this step,
+    -- are not in an error state from this step's operations, and are not marked for skipping.
+    -- These rows typically include those with no relevant data for this specific location type (e.g., no physical address parts).
+    v_sql := format($$
+        UPDATE public.%I dt SET
+            last_completed_priority = %L
+        WHERE dt.row_id = ANY(%L)
+          AND dt.action != 'skip'
+          AND dt.state != 'error' -- Don't advance priority for rows that errored in this step
+          AND %I IS NULL; -- If the pk_id column for this location type is still null, it means it wasn't processed by insert/replace
+    $$,
+        v_data_table_name, v_step.priority, p_batch_row_ids, v_final_id_col
+    );
+    RAISE DEBUG '[Job %] process_location: Advancing priority for rows not processed by insert/replace and not in error (type: %): %', p_job_id, v_location_type, v_sql;
+    EXECUTE v_sql;
+
+
+    -- Update priority for skipped rows
+    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                   v_job.data_table_name, v_step.priority, p_batch_row_ids);
+
+    RAISE DEBUG '[Job %] process_location (Batch): Finished. New: %, Replaced: %. Errors: %',
+        p_job_id, v_inserted_new_loc_count, v_updated_existing_loc_count, v_error_count;
+
+    DROP TABLE IF EXISTS temp_batch_data;
+    DROP TABLE IF EXISTS temp_created_locs;
+END;
+$process_location$;
+
+-- Helper function for safe numeric casting (example)
+CREATE OR REPLACE FUNCTION import.safe_cast_to_numeric(p_text_numeric TEXT)
+RETURNS NUMERIC LANGUAGE plpgsql IMMUTABLE AS $$
+BEGIN
+    IF p_text_numeric IS NULL OR p_text_numeric = '' THEN
+        RETURN NULL;
+    END IF;
+    RETURN p_text_numeric::NUMERIC;
+EXCEPTION WHEN others THEN
+    RAISE WARNING 'Invalid numeric format: "%". Returning NULL.', p_text_numeric;
+    RETURN NULL;
+END;
+$$;
+
+
+COMMIT;

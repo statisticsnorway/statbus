@@ -17,8 +17,8 @@ SELECT sql_saga.add_foreign_key('public.establishment', ARRAY['legal_unit_id'], 
 
 SELECT sql_saga.add_era('public.activity', 'valid_after', 'valid_to');
 SELECT sql_saga.add_unique_key('public.activity', ARRAY['id']);
-SELECT sql_saga.add_unique_key('public.activity', ARRAY['type', 'category_id', 'establishment_id']);
-SELECT sql_saga.add_unique_key('public.activity', ARRAY['type', 'category_id', 'legal_unit_id']);
+SELECT sql_saga.add_unique_key('public.activity', ARRAY['type', 'establishment_id']);
+SELECT sql_saga.add_unique_key('public.activity', ARRAY['type', 'legal_unit_id']);
 SELECT sql_saga.add_foreign_key('public.activity', ARRAY['establishment_id'], 'valid', 'establishment_id_valid');
 SELECT sql_saga.add_foreign_key('public.activity', ARRAY['legal_unit_id'], 'valid', 'legal_unit_id_valid');
 

@@ -337,6 +337,66 @@ TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM ba
 ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
 
 
+-- 16. A-A-B-A Sequence with yearly 'infinity' inputs (4 inputs -> 3 outputs)
+\echo 'Scenario 16: A-A-B-A Sequence with yearly ''infinity'' inputs (4 inputs -> 3 outputs)'
+TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target; ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
+
+-- Step 1: Insert A1 (CoreA, val_b=10) for 2021 (valid_to=infinity)
+\echo 'Step 16.1: Insert A1 (CoreA, val_b=10) for 2021 (valid_to=infinity)'
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(NULL, '2020-12-31', 'infinity', 'CoreA', 10, 'CommentA1_2021');
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test.show_target_table();
+-- Expected: 1 row for ID 1: (CoreA,10) valid_after='2020-12-31', valid_to='infinity', comment='CommentA1_2021'
+
+-- Step 2: Insert A2 (CoreA, val_b=10 - same core, same ephemeral for simplicity of merge test) for 2022 (valid_to=infinity)
+\echo 'Step 16.2: Insert A2 (CoreA, val_b=10) for 2022 (valid_to=infinity) - meets A1, equivalent core'
+TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE;
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2021-12-31', 'infinity', 'CoreA', 10, 'CommentA2_2022'); -- Ephemeral data updated
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test.show_target_table(1);
+-- Expected: 1 row for ID 1: (CoreA,10) valid_after='2020-12-31', valid_to='infinity', comment='CommentA2_2022' (original A1 is closed at 2021-12-31, A2 merges and extends)
+
+-- Step 3: Insert B1 (CoreB, val_b=20) for 2023 (valid_to=infinity) - different core
+\echo 'Step 16.3: Insert B1 (CoreB, val_b=20) for 2023 (valid_to=infinity) - meets A1A2, different core'
+TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE;
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2022-12-31', 'infinity', 'CoreB', 20, 'CommentB1_2023');
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test.show_target_table(1);
+-- Expected: 2 rows for ID 1:
+-- 1: (CoreA,10) valid_after='2020-12-31', valid_to='2022-12-31', comment='CommentA2_2022'
+-- 2: (CoreB,20) valid_after='2022-12-31', valid_to='infinity', comment='CommentB1_2023'
+
+-- Step 4: Insert A3 (CoreA, val_b=10) for 2024 (valid_to=infinity) - different from B1, same core as A1A2
+\echo 'Step 16.4: Insert A3 (CoreA, val_b=10) for 2024 (valid_to=infinity) - meets B1, different core from B1'
+TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE;
+INSERT INTO batch_test.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-12-31', 'infinity', 'CoreA', 10, 'CommentA3_2024');
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test.show_target_table(1);
+-- Expected: 3 rows for ID 1:
+-- 1: (CoreA,10) valid_after='2020-12-31', valid_to='2022-12-31', comment='CommentA2_2022'
+-- 2: (CoreB,20) valid_after='2022-12-31', valid_to='2023-12-31', comment='CommentB1_2023'
+-- 3: (CoreA,10) valid_after='2023-12-31', valid_to='infinity', comment='CommentA3_2024'
+
+TRUNCATE batch_test.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test.batch_upsert_target;
+ALTER SEQUENCE batch_test.batch_upsert_target_id_seq RESTART WITH 1;
+
+
 -- Cleanup
 DROP FUNCTION batch_test.show_target_table(INT);
 DROP TABLE batch_test.batch_upsert_source;

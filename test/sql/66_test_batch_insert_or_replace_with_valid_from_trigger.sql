@@ -340,6 +340,100 @@ TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE; DEL
 ALTER SEQUENCE batch_test_replace_vf.batch_upsert_target_id_seq RESTART WITH 1;
 
 
+-- 17. A-A-B-A Sequence with yearly 'infinity' inputs (4 inputs -> 3 outputs) and valid_from trigger
+\echo 'Scenario 17: A-A-B-A Sequence with yearly ''infinity'' inputs (4 inputs -> 3 outputs) and valid_from trigger'
+TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_replace_vf.batch_upsert_target; ALTER SEQUENCE batch_test_replace_vf.batch_upsert_target_id_seq RESTART WITH 1;
+
+-- Step 1: Insert A1 (CoreA, val_b=10) for 2021 (valid_to=infinity)
+\echo 'Step 17.1: Insert A1 (CoreA, val_b=10) for 2021 (valid_to=infinity)'
+INSERT INTO batch_test_replace_vf.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, updated_on, edit_comment) VALUES
+(NULL, '2020-12-31', 'infinity', 'CoreA', 10, '2021-01-10', 'CommentA1_2021');
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test_replace_vf.show_target_table();
+-- Expected: 1 row for ID 1: (CoreA,10) valid_from='2021-01-01', valid_after='2020-12-31', valid_to='infinity', updated_on='2021-01-10', comment='CommentA1_2021'
+
+-- Step 2: Insert A2 (CoreA, val_b=10) for 2022 (valid_to=infinity) - meets A1, equivalent core
+\echo 'Step 17.2: Insert A2 (CoreA, val_b=10) for 2022 (valid_to=infinity) - meets A1, equivalent core'
+TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE;
+INSERT INTO batch_test_replace_vf.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, updated_on, edit_comment) VALUES
+(1, '2021-12-31', 'infinity', 'CoreA', 10, '2022-01-10', 'CommentA2_2022');
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test_replace_vf.show_target_table(1);
+-- Expected: 1 row for ID 1: (CoreA,10) valid_from='2021-01-01', valid_after='2020-12-31', valid_to='infinity', updated_on='2022-01-10', comment='CommentA2_2022'
+
+-- Step 3: Insert B1 (CoreB, val_b=20) for 2023 (valid_to=infinity) - meets A1A2, different core
+\echo 'Step 17.3: Insert B1 (CoreB, val_b=20) for 2023 (valid_to=infinity) - meets A1A2, different core'
+TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE;
+INSERT INTO batch_test_replace_vf.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, updated_on, edit_comment) VALUES
+(1, '2022-12-31', 'infinity', 'CoreB', 20, '2023-01-10', 'CommentB1_2023');
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test_replace_vf.show_target_table(1);
+-- Expected: 2 rows for ID 1:
+-- 1: (CoreA,10) valid_from='2021-01-01', valid_after='2020-12-31', valid_to='2022-12-31', updated_on='2022-01-10', comment='CommentA2_2022'
+-- 2: (CoreB,20) valid_from='2023-01-01', valid_after='2022-12-31', valid_to='infinity', updated_on='2023-01-10', comment='CommentB1_2023'
+
+-- Step 4: Insert A3 (CoreA, val_b=10) for 2024 (valid_to=infinity) - meets B1, different core from B1
+\echo 'Step 17.4: Insert A3 (CoreA, val_b=10) for 2024 (valid_to=infinity) - meets B1, different core from B1'
+TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE;
+INSERT INTO batch_test_replace_vf.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, updated_on, edit_comment) VALUES
+(1, '2023-12-31', 'infinity', 'CoreA', 10, '2024-01-10', 'CommentA3_2024');
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test_replace_vf.show_target_table(1);
+-- Expected: 3 rows for ID 1:
+-- 1: (CoreA,10) valid_from='2021-01-01', valid_after='2020-12-31', valid_to='2022-12-31', updated_on='2022-01-10', comment='CommentA2_2022'
+-- 2: (CoreB,20) valid_from='2023-01-01', valid_after='2022-12-31', valid_to='2023-12-31', updated_on='2023-01-10', comment='CommentB1_2023'
+-- 3: (CoreA,10) valid_from='2024-01-01', valid_after='2023-12-31', valid_to='infinity', updated_on='2024-01-10', comment='CommentA3_2024'
+
+TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_replace_vf.batch_upsert_target;
+ALTER SEQUENCE batch_test_replace_vf.batch_upsert_target_id_seq RESTART WITH 1;
+
+
+-- 18. Yearly Imports with Infinity and Equivalent Data (Simulating Test 50 issue)
+\echo 'Scenario 18: Yearly Imports with Infinity and Equivalent Data'
+TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_replace_vf.batch_upsert_target; ALTER SEQUENCE batch_test_replace_vf.batch_upsert_target_id_seq RESTART WITH 1;
+
+-- Step 18.1: Insert data for Year 1 (e.g., 2024 data, valid from 2024-01-01 to infinity)
+\echo 'Step 18.1: Insert Year 1 data (valid_to=infinity)'
+INSERT INTO batch_test_replace_vf.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, updated_on, edit_comment) VALUES
+(NULL, '2023-12-31', 'infinity', 'YearlyInc', 100, '2024-01-10', 'Year 1 Data (2024)');
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test_replace_vf.show_target_table();
+-- Expected: 1 row for ID 1: (YearlyInc,100) valid_from='2024-01-01', valid_after='2023-12-31', valid_to='infinity', updated_on='2024-01-10', comment='Year 1 Data (2024)'
+
+-- Step 18.2: Insert data for Year 2 (e.g., 2025 data, valid from 2025-01-01 to infinity)
+-- Core data (value_a, value_b) is the same, ephemeral data (updated_on, edit_comment) changes.
+\echo 'Step 18.2: Insert Year 2 data (valid_to=infinity, equivalent core data)'
+TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE;
+INSERT INTO batch_test_replace_vf.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, updated_on, edit_comment) VALUES
+(1, '2024-12-31', 'infinity', 'YearlyInc', 100, '2025-01-10', 'Year 2 Data (2025)'); -- target_id is now known (1)
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
+    '[]'::JSONB, -- Use empty unique_cols as target_id is provided
+    :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+);
+SELECT * FROM batch_test_replace_vf.show_target_table(1);
+-- Expected: 1 rows for ID 1:
+-- 1: (YearlyInc,100) valid_from='2024-01-01', valid_after='2023-12-31', valid_to='infinity', updated_on='2025-01-10', comment='Year 2 Data (2024)' (new ephemeral)
+
+TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_replace_vf.batch_upsert_target;
+ALTER SEQUENCE batch_test_replace_vf.batch_upsert_target_id_seq RESTART WITH 1;
+
+
 -- Cleanup
 DROP FUNCTION batch_test_replace_vf.show_target_table(INT);
 DROP TABLE batch_test_replace_vf.batch_upsert_source;
