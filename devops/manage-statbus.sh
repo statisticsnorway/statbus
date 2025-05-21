@@ -43,18 +43,7 @@ case "$action" in
         ./devops/dotenv --file .env set VERSION=$VERSION
         set_profile_arg "$@"
 
-        # Always build the worker
-        eval docker compose build worker
-
-        # Conditionally add the --build argument if the profile is 'all' or 'all_except_app'
-        # since docker compose does not use the --profile to determine
-        # if a build is required.
-        build_arg=""
-        if [ "$profile" = "all" ] || [ "$profile" = "all_except_app" ]; then
-            build_arg="--build"
-        fi
-
-        eval docker compose $compose_profile_arg up $build_arg --detach
+        eval docker compose $compose_profile_arg up --build --detach
       ;;
     'stop' )
         set_profile_arg "$@"
