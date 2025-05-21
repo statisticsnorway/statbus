@@ -18,7 +18,11 @@ It is deployed on custom servers behind Caddy with HTTPS.
       $$;
       ```
 - **Function Calls**: For calls with 3+ arguments, use named arguments (e.g., `arg1 => val1`).
-- **String Literals for `format()`**: Use dollar-quoting (e.g., `format($$ ... $$)`) for `format()` strings to allow unescaped single quotes within.
+- **String Literals for `format()`**:
+    - Use dollar-quoting (e.g., `format($$ ... $$)`) for `format()` strings to allow unescaped single quotes within.
+    - For `format()` calls with multiple parameters, especially if parameters are repeated or the string is complex, use numbered arguments.
+      For example: `format('Testing %3$s, %2$s, %1$s', 'one' /* %1 */, 'two' /* %2 */, 'three' /* %3 */);`
+      This improves readability and maintainability.
 - **Table Aliases**: Prefer explicit `AS` for table aliases, e.g., `FROM my_table AS mt`. For common data table aliases in import procedures, `AS dt` is preferred.
 - **Batch Operations**: Utilize PostgreSQL 17+ `MERGE` syntax for efficient batch handling where appropriate.
 
