@@ -66,12 +66,10 @@ BEGIN
         RAISE EXCEPTION '[Job %] statistical_variables target not found', p_job_id;
     END IF;
 
-    SELECT jsonb_agg(value) INTO v_stat_data_cols
-    FROM jsonb_array_elements(v_stat_data_cols) value
-    WHERE (value->>'step_id')::int = v_step.id AND value->>'purpose' = 'source_input';
-
+    -- No longer filter v_stat_data_cols by step_id here.
+    -- The loop will iterate over all source_input columns and join to stat_definition_active.
     IF v_stat_data_cols IS NULL OR jsonb_array_length(v_stat_data_cols) = 0 THEN
-         RAISE DEBUG '[Job %] analyse_statistical_variables: No stat source_input data columns found in snapshot for step %. Skipping analysis.', p_job_id, v_step.id;
+         RAISE DEBUG '[Job %] analyse_statistical_variables: No data columns found in snapshot. Skipping analysis.', p_job_id;
          EXECUTE format('UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L)',
                         v_data_table_name, v_step.priority, p_batch_row_ids);
          RETURN;
@@ -80,12 +78,13 @@ BEGIN
     v_add_separator := FALSE;
     FOR v_col_rec IN
         SELECT
-            dc.value->>'column_name' as col_name,
-            sda.type 
-        FROM jsonb_array_elements(v_stat_data_cols) dc
-        JOIN public.stat_definition_active sda ON sda.code = dc.value->>'column_name'
+            idc.value->>'column_name' as col_name, -- idc for import_data_column
+            sda.type
+        FROM jsonb_array_elements(v_stat_data_cols) idc -- Iterate over all data columns from snapshot
+        JOIN public.stat_definition_active sda ON sda.code = (idc.value->>'column_name') -- Join to find actual stats
+        WHERE idc.value->>'purpose' = 'source_input' -- Consider only source_input columns
     LOOP
-        IF v_add_separator THEN 
+        IF v_add_separator THEN
             v_error_conditions_sql := v_error_conditions_sql || ' OR ';
             v_error_json_sql := v_error_json_sql || ' || ';
         END IF;
@@ -104,6 +103,7 @@ BEGIN
             CASE v_col_rec.type WHEN 'int' THEN 'integer' WHEN 'float' THEN 'numeric' WHEN 'bool' THEN 'boolean' ELSE 'text' END,
             v_col_rec.col_name
         );
+        -- Removed assignment to v_invalid_codes_json_sql as it's not declared and errors are fatal for this step.
         v_error_keys_to_clear_list := array_append(v_error_keys_to_clear_list, v_col_rec.col_name);
         v_add_separator := TRUE;
     END LOOP;
@@ -124,16 +124,16 @@ BEGIN
                         ELSE CASE WHEN (dt.error - %L) = '{}'::jsonb THEN NULL ELSE (dt.error - %L) END
                     END,
             last_completed_priority = CASE
-                                        WHEN %s THEN %L::INTEGER -- Error condition: v_step.priority - 1
-                                        ELSE %L::INTEGER -- Success: v_step.priority
+                                        WHEN %s THEN dt.last_completed_priority -- Error condition: Preserve existing LCP
+                                        ELSE %s -- Success: v_step.priority
                                       END
-        WHERE dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Exclude skipped rows
+        WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
     $$,
         v_data_table_name,
         v_error_conditions_sql, -- For state CASE
         v_error_conditions_sql, v_error_json_sql, -- For error CASE (add)
         v_error_keys_to_clear_list, v_error_keys_to_clear_list, -- For error CASE (clear)
-        v_error_conditions_sql, v_step.priority - 1, v_step.priority, -- For last_completed_priority CASE
+        v_error_conditions_sql, v_step.priority, -- For last_completed_priority CASE (success part)
         p_batch_row_ids
     );
 
@@ -207,8 +207,16 @@ DECLARE
     v_job_mode public.import_mode;
     v_select_lu_id_expr TEXT;
     v_select_est_id_expr TEXT;
+    v_employees_stat_def_exists BOOLEAN;
 BEGIN
     RAISE DEBUG '[Job %] process_statistical_variables (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+
+    -- Debug: Check if 'employees' stat definition exists
+    SELECT EXISTS (SELECT 1 FROM public.stat_definition WHERE code = 'employees') INTO v_employees_stat_def_exists;
+    RAISE DEBUG '[Job %] process_statistical_variables: Stat definition for "employees" exists: %', p_job_id, v_employees_stat_def_exists;
+    IF NOT v_employees_stat_def_exists THEN
+        RAISE WARNING '[Job %] process_statistical_variables: CRITICAL - Stat definition for "employees" NOT FOUND. This will cause 0 rows in temp_batch_data if employees is the only stat.', p_job_id;
+    END IF;
 
     -- Get job details and snapshot
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
@@ -230,13 +238,18 @@ BEGIN
     v_edit_by_user_id := v_job.user_id;
 
     v_add_separator := FALSE;
-    FOR v_col_rec IN SELECT value->>'column_name' as col_name
-                     FROM jsonb_array_elements(v_stat_data_cols) value 
-                     WHERE (value->>'step_id')::int = v_step.id AND value->>'purpose' = 'source_input' 
+    -- Iterate over all source_input columns from the snapshot and check if they are defined stats
+    FOR v_col_rec IN 
+        SELECT idc.value->>'column_name' as col_name
+        FROM jsonb_array_elements(v_stat_data_cols) idc -- Full list from snapshot
+        JOIN public.stat_definition_active sda ON sda.code = (idc.value->>'column_name') -- Check if it's a stat
+        WHERE idc.value->>'purpose' = 'source_input' -- Only consider source_input columns
     LOOP
         IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
-        v_unpivot_sql := v_unpivot_sql || format($$SELECT %L AS stat_code, dt.%I AS stat_value, dt.row_id AS data_row_id_from_source FROM public.%I dt WHERE dt.%I IS NOT NULL AND dt.row_id = ANY(%L) AND dt.action != 'skip'$$, 
-                                                 v_col_rec.col_name, v_col_rec.col_name, v_data_table_name, v_col_rec.col_name, p_batch_row_ids);
+        -- Ensure we only try to unpivot if the column actually has a non-empty, non-whitespace value.
+        -- The IS NOT NULL check is good, but char_length(trim(...)) > 0 is more robust for TEXT fields that might contain only whitespace.
+        v_unpivot_sql := v_unpivot_sql || format($$SELECT %L AS stat_code, dt.%I AS stat_value, dt.row_id AS data_row_id_from_source FROM public.%I dt WHERE dt.%I IS NOT NULL AND char_length(trim(dt.%I)) > 0 AND dt.row_id = ANY(%L) AND dt.action != 'skip'$$, 
+                                                 v_col_rec.col_name, v_col_rec.col_name, v_data_table_name, v_col_rec.col_name, v_col_rec.col_name, p_batch_row_ids);
         v_add_separator := TRUE;
     END LOOP;
 
@@ -267,6 +280,24 @@ BEGIN
     END IF;
     RAISE DEBUG '[Job %] process_statistical_variables: Based on mode %, using lu_id_expr: %, est_id_expr: % for table %', 
         p_job_id, v_job_mode, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name;
+
+    -- Debug: Count rows that should contribute to unpivoted_stats
+    DECLARE
+        v_potential_employee_rows INTEGER;
+        v_potential_turnover_rows INTEGER;
+    BEGIN
+        EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE employees IS NOT NULL AND char_length(trim(employees)) > 0 AND row_id = ANY(%L) AND action IS DISTINCT FROM ''skip''', v_data_table_name, p_batch_row_ids)
+        INTO v_potential_employee_rows;
+        RAISE DEBUG '[Job %] process_statistical_variables: Potential employee rows in batch (employees IS NOT NULL AND non-empty AND action != ''skip''): %', p_job_id, v_potential_employee_rows;
+
+        IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema = 'public' AND table_name = v_data_table_name AND column_name = 'turnover') THEN
+            EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE turnover IS NOT NULL AND char_length(trim(turnover)) > 0 AND row_id = ANY(%L) AND action != ''skip''', v_data_table_name, p_batch_row_ids)
+            INTO v_potential_turnover_rows;
+            RAISE DEBUG '[Job %] process_statistical_variables: Potential turnover rows in batch (turnover IS NOT NULL AND non-empty AND action IS DISTINCT FROM ''skip''): %', p_job_id, v_potential_turnover_rows;
+        ELSE
+            RAISE DEBUG '[Job %] process_statistical_variables: Turnover column not present in %I.', p_job_id, v_data_table_name;
+        END IF;
+    END;
 
     CREATE TEMP TABLE temp_batch_data (
         data_row_id BIGINT, 
@@ -307,8 +338,51 @@ BEGIN
         JOIN public.%I dt ON up.data_row_id_from_source = dt.row_id 
         JOIN public.stat_definition sd ON sd.code = up.stat_code; 
     $$, v_unpivot_sql, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name);
-    RAISE DEBUG '[Job %] process_statistical_variables: Fetching and unpivoting batch data: %', p_job_id, v_sql;
-    EXECUTE v_sql;
+    RAISE DEBUG '[Job %] process_statistical_variables: Fetching and unpivoting batch data (v_sql): %', p_job_id, v_sql;
+
+    -- Debug: Count rows from the full SELECT statement that would feed temp_batch_data
+    DECLARE
+        full_select_count INTEGER;
+        debug_full_select_sql TEXT;
+    BEGIN
+        debug_full_select_sql := format($$
+            WITH unpivoted_stats AS ( %s )
+            SELECT COUNT(*)
+            FROM unpivoted_stats up
+            JOIN public.%I dt ON up.data_row_id_from_source = dt.row_id 
+            JOIN public.stat_definition sd ON sd.code = up.stat_code;
+        $$, v_unpivot_sql, v_data_table_name);
+        RAISE DEBUG '[Job %] process_statistical_variables: v_unpivot_sql: %', p_job_id, v_unpivot_sql;
+        EXECUTE debug_full_select_sql INTO full_select_count;
+        RAISE DEBUG '[Job %] process_statistical_variables: Expected row count for temp_batch_data (from SELECT part of INSERT): %', p_job_id, full_select_count;
+    END;
+    
+    EXECUTE v_sql; -- This is the original INSERT INTO temp_batch_data
+
+    -- Debugging block to inspect temp_batch_data
+    DECLARE
+        action_counts JSONB;
+        sample_stat_row RECORD;
+        tbd_row_count INTEGER;
+    BEGIN
+        SELECT COUNT(*) INTO tbd_row_count FROM temp_batch_data;
+        RAISE DEBUG '[Job %] process_statistical_variables: temp_batch_data populated with % rows.', p_job_id, tbd_row_count;
+
+        SELECT jsonb_object_agg(action, count)
+        INTO action_counts
+        FROM (
+            SELECT action, COUNT(*) as count
+            FROM temp_batch_data
+            GROUP BY action
+        ) AS counts;
+        RAISE DEBUG '[Job %] process_statistical_variables: Action counts in temp_batch_data: %', p_job_id, action_counts;
+
+        FOR sample_stat_row IN SELECT * FROM temp_batch_data LIMIT 5 LOOP
+            RAISE DEBUG '[Job %] process_statistical_variables: Sample temp_batch_data row: data_row_id=%, legal_unit_id=%, establishment_id=%, stat_definition_id=%, stat_value=%, action=%, edit_comment=%',
+                         p_job_id, sample_stat_row.data_row_id, sample_stat_row.legal_unit_id, sample_stat_row.establishment_id, sample_stat_row.stat_definition_id, sample_stat_row.stat_value, sample_stat_row.action, sample_stat_row.edit_comment;
+        END LOOP;
+    END;
+    -- End Debugging block
 
     v_sql := format($$
         UPDATE temp_batch_data tbd SET
@@ -497,10 +571,10 @@ BEGIN
                     EXECUTE format($$
                         UPDATE public.%I SET
                             state = %L,
-                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_stat_error', %L),
-                            last_completed_priority = %L
+                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_stat_error', %L)
+                            -- last_completed_priority is preserved (not changed) on error
                         WHERE row_id = %L;
-                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_step.priority - 1, v_batch_upsert_result.source_row_id);
+                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
                 ELSE
                     v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
                 END IF;

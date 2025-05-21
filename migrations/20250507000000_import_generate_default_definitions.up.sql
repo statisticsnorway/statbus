@@ -26,8 +26,9 @@ DECLARE
     v_data_col_id INT;
     v_max_priority INT;
     v_debug_info TEXT;
+    v_col_rec RECORD; -- Added declaration for the loop variable
 BEGIN
-    -- Create static source columns based on input array
+    -- Create source columns based on input array (which now includes external ident codes)
     FOREACH v_col_name IN ARRAY p_source_columns
     LOOP
         v_priority := v_priority + 1;
@@ -49,7 +50,7 @@ BEGIN
             IF v_data_col_id IS NOT NULL THEN
                 INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id)
                 VALUES (p_definition_id, v_source_col_id, v_data_col_id)
-                ON CONFLICT DO NOTHING;
+                ON CONFLICT (definition_id, source_column_id, target_data_column_id) DO NOTHING;
             ELSE
                  -- Enhanced Debugging for Missing Data Column
                  SELECT string_agg(
@@ -68,20 +69,50 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- Add dynamic source columns for External Idents (these are expected to be mapped manually in definition files if used)
+    -- Add dynamic source columns for Statistical Variables
+    -- External Ident source columns are now created by the main loop as their codes are part of p_source_columns.
     SELECT COALESCE(MAX(priority), v_priority) INTO v_max_priority FROM public.import_source_column WHERE definition_id = p_definition_id;
-    INSERT INTO public.import_source_column (definition_id, column_name, priority)
-    SELECT p_definition_id, ext.code, v_max_priority + ROW_NUMBER() OVER (ORDER BY ext.priority)
-    FROM public.external_ident_type_active ext
-    ON CONFLICT (definition_id, column_name) DO NOTHING;
-
-    -- Add dynamic source columns for Statistical Variables (these are expected to be mapped manually in definition files if used)
-    SELECT COALESCE(MAX(priority), v_max_priority) INTO v_max_priority FROM public.import_source_column WHERE definition_id = p_definition_id;
     INSERT INTO public.import_source_column (definition_id, column_name, priority)
     SELECT p_definition_id, stat.code, v_max_priority + ROW_NUMBER() OVER (ORDER BY stat.priority)
     FROM public.stat_definition_active stat
     ON CONFLICT (definition_id, column_name) DO NOTHING;
 
+    -- Mapping for external identifiers is now handled by the main loop,
+    -- as their codes are included in p_source_columns and target data columns
+    -- are expected to be present from import.generate_external_ident_data_columns().
+
+    -- Create mappings for dynamically added statistical variable source columns
+    FOR v_col_rec IN
+        SELECT isc.id as source_col_id, isc.column_name as stat_code
+        FROM public.import_source_column isc
+        JOIN public.stat_definition_active sda ON isc.column_name = sda.code -- Ensure it's a known stat
+        WHERE isc.definition_id = p_definition_id
+          AND NOT EXISTS ( -- Avoid re-mapping if already handled by p_source_columns (unlikely for stats)
+              SELECT 1 FROM public.import_mapping im
+              WHERE im.definition_id = p_definition_id AND im.source_column_id = isc.id
+          )
+    LOOP
+        -- Find the target data column for this stat (should be linked to 'statistical_variables' step)
+        SELECT dc.id INTO v_data_col_id
+        FROM public.import_definition_step ds
+        JOIN public.import_step s ON ds.step_id = s.id
+        JOIN public.import_data_column dc ON ds.step_id = dc.step_id
+        WHERE ds.definition_id = p_definition_id
+          AND s.code = 'statistical_variables' -- The step that defines data columns for stats
+          AND dc.column_name = v_col_rec.stat_code
+          AND dc.purpose = 'source_input';
+
+        IF v_data_col_id IS NOT NULL THEN
+            INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose)
+            VALUES (p_definition_id, v_col_rec.source_col_id, v_data_col_id, 'source_input')
+            ON CONFLICT (definition_id, source_column_id, target_data_column_id) DO NOTHING;
+        ELSE
+            -- This should now be a fatal error if a stat_definition_active exists,
+            -- its import_source_column was created, but its import_data_column under 'statistical_variables' step was not.
+            RAISE EXCEPTION '[Definition %] No matching source_input data column found in "statistical_variables" step for dynamically added stat source column "%". Mapping cannot be created. This indicates an issue with import_data_column setup for stats.',
+                             p_definition_id, v_col_rec.stat_code;
+        END IF;
+    END LOOP;
 END;
 $$;
 
@@ -127,7 +158,24 @@ DECLARE
     ];
     es_no_lu_explicit_source_cols TEXT[] := es_no_lu_source_cols || ARRAY['valid_from', 'valid_to'];
 
+    active_ext_ident_codes TEXT[];
 BEGIN
+    -- Ensure external_ident data columns are generated (should be idempotent)
+    CALL import.generate_external_ident_data_columns();
+
+    -- Get active external identifier codes to append to source column lists
+    SELECT array_agg(code ORDER BY priority) INTO active_ext_ident_codes FROM public.external_ident_type_active;
+    IF active_ext_ident_codes IS NULL THEN
+        active_ext_ident_codes := ARRAY[]::TEXT[];
+    END IF;
+
+    lu_source_cols := lu_source_cols || active_ext_ident_codes;
+    lu_explicit_source_cols := lu_explicit_source_cols || active_ext_ident_codes;
+    es_source_cols := es_source_cols || active_ext_ident_codes;
+    es_explicit_source_cols := es_explicit_source_cols || active_ext_ident_codes;
+    es_no_lu_source_cols := es_no_lu_source_cols || active_ext_ident_codes;
+    es_no_lu_explicit_source_cols := es_no_lu_explicit_source_cols || active_ext_ident_codes;
+
     -- 1. Legal unit with time_context for current year
     INSERT INTO public.import_definition (slug, name, note, time_context_ident, strategy, mode, valid)
     VALUES ('legal_unit_current_year', 'Legal Unit - Current Year', 'Import legal units with validity period set to current year', 'r_year_curr', 'insert_or_replace', 'legal_unit', false)

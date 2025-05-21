@@ -66,24 +66,88 @@ SELECT code
 FROM public.data_source_available;
 
 \echo "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
-SET client_min_messages TO error;
 
-SELECT COUNT(DISTINCT id) FROM public.legal_unit;
-\echo "User uploads the sample legal units"
-\copy public.import_legal_unit_current(tax_ident,name,birth_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'samples/norway/legal_unit/enheter-selection-web-import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT COUNT(DISTINCT id) FROM public.legal_unit;
+-- Create Import Job for Legal Units (Web Example)
+WITH def AS (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_current_year')
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT id, 'import_lu_web_example_current',
+       'Import Legal Units - Web Example (Current Year)',
+       'Import job for legal units from samples/norway/legal_unit/enheter-selection-web-import.csv using legal_unit_current_year definition.',
+       'Test data load (01_load_web_examples.sql)'
+FROM def;
 
-SELECT COUNT(DISTINCT id) FROM public.establishment;
-\echo "User uploads the sample establishments"
-\copy public.import_establishment_current_for_legal_unit(tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees) FROM 'samples/norway/establishment/underenheter-selection-web-import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-SELECT COUNT(DISTINCT id) FROM public.establishment;
+\echo "User uploads the sample legal units (via import job: import_lu_web_example_current)"
+\copy public.import_lu_web_example_current_upload(tax_ident,name,birth_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'samples/norway/legal_unit/enheter-selection-web-import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
-\echo "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
-SET client_min_messages TO warning;
+-- Create Import Job for Establishments (Web Example)
+WITH def AS (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_current_year')
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT id, 'import_es_web_example_current',
+       'Import Establishments - Web Example (Current Year)',
+       'Import job for establishments from samples/norway/establishment/underenheter-selection-web-import.csv using establishment_for_lu_current_year definition.',
+       'Test data load (01_load_web_examples.sql)'
+FROM def;
 
+\echo "User uploads the sample establishments (via import job: import_es_web_example_current)"
+\copy public.import_es_web_example_current_upload(tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees) FROM 'samples/norway/establishment/underenheter-selection-web-import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
+-- SET client_min_messages TO DEBUG1;
 \echo Run worker processing to run import jobs and generate computed data
 CALL worker.process_tasks();
+-- SET client_min_messages TO NOTICE;
+
+\echo "Inspecting first 5 rows of legal unit import job data (import_lu_web_example_current_data)"
+SELECT row_id, state, error, tax_ident, name, birth_date, physical_address_part1, primary_activity_category_code
+FROM public.import_lu_web_example_current_data
+ORDER BY row_id
+LIMIT 5;
+
+\echo "Checking import job statuses"
+SELECT ij.slug,
+       ij.state,
+       ij.total_rows,
+       ij.imported_rows,
+       ij.error IS NOT NULL AS has_error,
+       CASE ij.slug
+           WHEN 'import_lu_web_example_current' THEN
+               (SELECT COUNT(*) FROM public.import_lu_web_example_current_data dr WHERE dr.state = 'error')
+           WHEN 'import_es_web_example_current' THEN
+               (SELECT COUNT(*) FROM public.import_es_web_example_current_data dr WHERE dr.state = 'error')
+           ELSE NULL -- Should not happen with the WHERE clause below
+       END AS error_rows
+FROM public.import_job AS ij
+WHERE ij.slug IN ('import_lu_web_example_current', 'import_es_web_example_current') ORDER BY ij.slug;
+
+\echo "Error rows in import_lu_web_example_current_data (if any):"
+SELECT row_id, state, error, tax_ident, name
+FROM public.import_lu_web_example_current_data
+WHERE error IS NOT NULL OR state = 'error'
+ORDER BY row_id;
+
+\echo "Legal unit import data with invalid_codes (if any):"
+SELECT row_id, state, error, invalid_codes, tax_ident, name
+FROM public.import_lu_web_example_current_data
+WHERE invalid_codes IS NOT NULL
+ORDER BY row_id;
+
+\echo "Error rows in import_es_web_example_current_data (if any):"
+SELECT row_id, state, error, tax_ident, legal_unit_tax_ident, name
+FROM public.import_es_web_example_current_data
+WHERE error IS NOT NULL OR state = 'error'
+ORDER BY row_id;
+
+\echo "Establishment import data with invalid_codes (if any):"
+SELECT row_id, state, error, invalid_codes, tax_ident, name
+FROM public.import_es_web_example_current_data
+WHERE invalid_codes IS NOT NULL
+ORDER BY row_id;
+
+\echo "Checking counts of imported units"
+SELECT 'legal_unit' AS unit_type, COUNT(DISTINCT id) AS count FROM public.legal_unit
+UNION ALL
+SELECT 'establishment' AS unit_type, COUNT(DISTINCT id) AS count FROM public.establishment;
+
+\echo "Worker task summary after import processing"
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 
 

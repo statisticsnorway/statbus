@@ -101,11 +101,11 @@ BEGIN
             UPDATE public.%I dt SET
                 state = %L,
                 error = jsonb_build_object('external_idents', 'No identifier provided'),
-                last_completed_priority = %L,
+                -- last_completed_priority is preserved (not changed) on error
                 operation = 'insert'::public.import_row_operation_type, -- Always set operation
                 action = %L
             WHERE dt.row_id = ANY(%L);
-        $$, v_data_table_name, 'error', v_step.priority - 1, 'skip'::public.import_row_action_type, p_batch_row_ids);
+        $$, v_data_table_name, 'error', 'skip'::public.import_row_action_type, p_batch_row_ids);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers)', p_job_id, v_error_count;
@@ -250,12 +250,12 @@ BEGIN
             UPDATE public.%I dt SET
                 state = %L,
                 error = COALESCE(dt.error, %L) || jsonb_build_object('external_idents', err.error_jsonb),
-                last_completed_priority = %L,
+                -- last_completed_priority is preserved (not changed) on error
                 operation = err.operation, -- Always set operation
                 action = err.action
             FROM temp_batch_analysis err
             WHERE dt.row_id = err.data_row_id AND err.error_jsonb != %L;
-        $$, v_data_table_name, 'error', '{}'::jsonb, v_step.priority - 1, '{}'::jsonb);
+        $$, v_data_table_name, 'error', '{}'::jsonb, '{}'::jsonb);
         RAISE DEBUG '[Job %] analyse_external_idents: Updating error rows: %', p_job_id, v_sql;
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;

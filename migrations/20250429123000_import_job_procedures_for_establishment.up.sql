@@ -13,8 +13,8 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_sql TEXT;
-    -- v_default_status_id INT; -- Removed, handled by status step
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['data_source_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date', 'status_id_missing']; -- Added status_id_missing
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['data_source_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date', 'status_id_missing'];
+    v_invalid_code_keys_arr TEXT[] := ARRAY['data_source_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date'];
 BEGIN
     RAISE DEBUG '[Job %] analyse_establishment (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -61,50 +61,39 @@ BEGIN
             typed_birth_date = l.resolved_typed_birth_date,
             typed_death_date = l.resolved_typed_death_date,
             state = CASE
-                        WHEN dt.status_id IS NULL OR -- Error if status_id is still NULL after status step
-                             (NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL) OR
-                             (NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL) OR
-                             (NULLIF(dt.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL) OR
-                             (NULLIF(dt.birth_date, '') IS NOT NULL AND l.resolved_typed_birth_date IS NULL) OR
-                             (NULLIF(dt.death_date, '') IS NOT NULL AND l.resolved_typed_death_date IS NULL)
-                        THEN 'error'::public.import_data_state
-                        ELSE 'analysing'::public.import_data_state
+                        WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state -- Fatal if status_id is missing
+                        ELSE 'analysing'::public.import_data_state -- Non-fatal for other issues
                     END,
             error = CASE
-                        WHEN dt.status_id IS NULL OR
-                             (NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL) OR
-                             (NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL) OR
-                             (NULLIF(dt.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL) OR
-                             (NULLIF(dt.birth_date, '') IS NOT NULL AND l.resolved_typed_birth_date IS NULL) OR
-                             (NULLIF(dt.death_date, '') IS NOT NULL AND l.resolved_typed_death_date IS NULL)
-                        THEN COALESCE(dt.error, '{}'::jsonb) || jsonb_strip_nulls(
-                                 jsonb_build_object('status_id_missing', CASE WHEN dt.status_id IS NULL THEN 'Status ID not resolved by prior step' ELSE NULL END) ||
-                                 jsonb_build_object('data_source_code', CASE WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN 'Not found' ELSE NULL END) ||
-                                 jsonb_build_object('sector_code', CASE WHEN NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN 'Not found' ELSE NULL END) ||
-                                 jsonb_build_object('unit_size_code', CASE WHEN NULLIF(dt.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN 'Not found' ELSE NULL END) ||
-                                 jsonb_build_object('birth_date', CASE WHEN NULLIF(dt.birth_date, '') IS NOT NULL AND l.resolved_typed_birth_date IS NULL THEN 'Invalid format' ELSE NULL END) ||
-                                 jsonb_build_object('death_date', CASE WHEN NULLIF(dt.death_date, '') IS NOT NULL AND l.resolved_typed_death_date IS NULL THEN 'Invalid format' ELSE NULL END)
-                             )
-                        ELSE CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
+                        WHEN dt.status_id IS NULL THEN
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_id_missing', 'Status ID not resolved by prior step')
+                        ELSE -- Clear specific non-fatal error keys if they were previously set
+                            CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
+            invalid_codes = CASE
+                                WHEN dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if status_id is present
+                                    jsonb_strip_nulls(
+                                     COALESCE(dt.invalid_codes, '{}'::jsonb) - %L::TEXT[] || -- Remove old keys first
+                                     jsonb_build_object('data_source_code', CASE WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code ELSE NULL END) ||
+                                     jsonb_build_object('sector_code', CASE WHEN NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN dt.sector_code ELSE NULL END) ||
+                                     jsonb_build_object('unit_size_code', CASE WHEN NULLIF(dt.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN dt.unit_size_code ELSE NULL END) ||
+                                     jsonb_build_object('birth_date', CASE WHEN NULLIF(dt.birth_date, '') IS NOT NULL AND l.resolved_typed_birth_date IS NULL THEN dt.birth_date ELSE NULL END) ||
+                                     jsonb_build_object('death_date', CASE WHEN NULLIF(dt.death_date, '') IS NOT NULL AND l.resolved_typed_death_date IS NULL THEN dt.death_date ELSE NULL END)
+                                    )
+                                ELSE dt.invalid_codes -- Keep existing invalid_codes if it's a fatal status_id error
+                            END,
             last_completed_priority = CASE
-                                        WHEN dt.status_id IS NULL OR
-                                             (NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL) OR
-                                             (NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL) OR
-                                             (NULLIF(dt.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL) OR
-                                             (NULLIF(dt.birth_date, '') IS NOT NULL AND l.resolved_typed_birth_date IS NULL) OR
-                                             (NULLIF(dt.death_date, '') IS NOT NULL AND l.resolved_typed_death_date IS NULL)
-                                        THEN %L::INTEGER -- v_step.priority - 1
-                                        ELSE %L::INTEGER -- v_step.priority
+                                        WHEN dt.status_id IS NULL THEN dt.last_completed_priority -- Fatal: Preserve existing LCP
+                                        ELSE %s -- Non-fatal or success: v_step.priority
                                       END
         FROM lookups l
         WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Ensure main update also excludes skipped
     $$,
         v_job.data_table_name, p_batch_row_ids,                     -- For lookups CTE
         v_job.data_table_name,                                      -- For main UPDATE target
-        -- Removed v_default_status_id parameters
         v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,       -- For error CASE (clear)
-        v_step.priority - 1, v_step.priority,                       -- For last_completed_priority CASE values
+        v_invalid_code_keys_arr,                                    -- For invalid_codes CASE (clear old)
+        v_step.priority,                                            -- For last_completed_priority CASE (success part)
         p_batch_row_ids                                             -- For final WHERE clause
     );
 
@@ -239,6 +228,7 @@ BEGIN
         status_id INT,
         data_source_id INT,
         existing_est_id INT,
+        invalid_codes JSONB, -- Added
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
         edit_comment TEXT, -- Added
@@ -246,7 +236,7 @@ BEGIN
     ) ON COMMIT DROP;
 
     v_select_list := format(
-        'dt.row_id, dt.tax_ident, %s AS legal_unit_id, %s AS primary_for_legal_unit, %s AS enterprise_id, %s AS primary_for_enterprise, dt.name, dt.typed_birth_date, dt.typed_death_date, dt.derived_valid_after, dt.derived_valid_from, dt.derived_valid_to, dt.sector_id, dt.unit_size_id, dt.status_id, dt.data_source_id, dt.establishment_id, dt.edit_by_user_id, dt.edit_at, dt.edit_comment, dt.action',
+        'dt.row_id, dt.tax_ident, %s AS legal_unit_id, %s AS primary_for_legal_unit, %s AS enterprise_id, %s AS primary_for_enterprise, dt.name, dt.typed_birth_date, dt.typed_death_date, dt.derived_valid_after, dt.derived_valid_from, dt.derived_valid_to, dt.sector_id, dt.unit_size_id, dt.status_id, dt.data_source_id, dt.establishment_id, dt.invalid_codes, dt.edit_by_user_id, dt.edit_at, dt.edit_comment, dt.action',
         v_select_legal_unit_id_expr,
         v_select_primary_for_legal_unit_expr,
         v_select_enterprise_id_expr,
@@ -257,12 +247,12 @@ BEGIN
         INSERT INTO temp_batch_data (
             data_row_id, tax_ident, legal_unit_id, primary_for_legal_unit, enterprise_id, primary_for_enterprise, name, typed_birth_date, typed_death_date,
             valid_after, valid_from, valid_to, sector_id, unit_size_id, status_id, data_source_id,
-            existing_est_id, edit_by_user_id, edit_at, edit_comment, action
+            existing_est_id, invalid_codes, edit_by_user_id, edit_at, edit_comment, action
         )
         SELECT %s
          FROM public.%I dt WHERE dt.row_id = ANY(%L) AND dt.action != 'skip';
     $$, v_select_list, v_data_table_name, p_batch_row_ids);
-    RAISE DEBUG '[Job %] process_establishment: Fetching batch data: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] process_establishment: Fetching batch data (including invalid_codes): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     -- Log sample data from temp_batch_data after initial population
@@ -298,7 +288,7 @@ BEGIN
             WHEN NOT MATCHED THEN
                 INSERT (
                     legal_unit_id, primary_for_legal_unit, enterprise_id, primary_for_enterprise, name, birth_date, death_date,
-                    sector_id, unit_size_id, status_id, data_source_id,
+                    sector_id, unit_size_id, status_id, data_source_id, invalid_codes, -- Added invalid_codes
                     valid_from, valid_to,
                     edit_by_user_id, edit_at, edit_comment
                 )
@@ -308,7 +298,7 @@ BEGIN
                     sfi.enterprise_id, -- Will be NULL if mode is formal
                     sfi.primary_for_enterprise, -- Will be NULL if mode is formal
                     sfi.name, sfi.typed_birth_date, sfi.typed_death_date,
-                    sfi.sector_id, sfi.unit_size_id, sfi.status_id, sfi.data_source_id,
+                    sfi.sector_id, sfi.unit_size_id, sfi.status_id, sfi.data_source_id, sfi.invalid_codes, -- Added sfi.invalid_codes
                     sfi.valid_from, sfi.valid_to,
                     sfi.edit_by_user_id, sfi.edit_at, sfi.edit_comment
                 )
@@ -388,6 +378,7 @@ BEGIN
             unit_size_id INT,
             status_id INT,
             data_source_id INT,
+            invalid_codes JSONB, -- Added
             edit_by_user_id INT,
             edit_at TIMESTAMPTZ,
             edit_comment TEXT
@@ -395,7 +386,7 @@ BEGIN
 
         INSERT INTO temp_est_upsert_source (
             data_row_id, id, valid_after, valid_to, legal_unit_id, primary_for_legal_unit, enterprise_id, primary_for_enterprise, name, birth_date, death_date, active,
-            sector_id, unit_size_id, status_id, data_source_id, edit_by_user_id, edit_at, edit_comment
+            sector_id, unit_size_id, status_id, data_source_id, invalid_codes, edit_by_user_id, edit_at, edit_comment
         )
         SELECT
             tbd.data_row_id, tbd.existing_est_id, tbd.valid_after, tbd.valid_to, -- Use tbd.valid_after directly
@@ -405,6 +396,7 @@ BEGIN
             tbd.primary_for_enterprise, -- Value from temp_batch_data
             tbd.name, tbd.typed_birth_date, tbd.typed_death_date, true,
             tbd.sector_id, tbd.unit_size_id, tbd.status_id, tbd.data_source_id,
+            tbd.invalid_codes, -- Added
             tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment
         FROM temp_batch_data tbd
         WHERE tbd.action = 'replace';
@@ -427,9 +419,10 @@ BEGIN
                 IF v_batch_upsert_result.status = 'ERROR' THEN
                     v_batch_upsert_error_row_ids := array_append(v_batch_upsert_error_row_ids, v_batch_upsert_result.source_row_id);
                     EXECUTE format($$
-                        UPDATE public.%I SET state = %L, error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_establishment_error', %L),
-                        last_completed_priority = %L WHERE row_id = %L;
-                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_step.priority - 1, v_batch_upsert_result.source_row_id);
+                        UPDATE public.%I SET state = %L, error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_establishment_error', %L)
+                        -- last_completed_priority is preserved (not changed) on error
+                        WHERE row_id = %L;
+                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
                 ELSE
                     v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
                 END IF;

@@ -14,11 +14,13 @@ DECLARE
     v_error_count INT := 0;
     v_update_count INT := 0;
     v_sql TEXT;
-    v_error_json_physical TEXT;
-    v_error_json_postal TEXT;
-    v_error_keys_to_clear_arr TEXT[]; -- Changed from TEXT to TEXT[]
+    v_error_json_expr_sql TEXT; -- For dt.error (fatal) - though this step makes them non-fatal
+    v_invalid_codes_json_expr_sql TEXT; -- For dt.invalid_codes (non-fatal)
+    v_error_keys_to_clear_arr TEXT[]; 
+    v_invalid_code_keys_to_clear_arr TEXT[];
     v_skipped_update_count INT;
-    error_message TEXT; -- Variable to store SQLERRM
+    error_message TEXT; 
+    v_error_condition_sql TEXT;
 BEGIN
     RAISE DEBUG '[Job %] analyse_location (Batch) for step_code %: Starting analysis for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
@@ -32,33 +34,43 @@ BEGIN
 
     RAISE DEBUG '[Job %] analyse_location: Processing for target % (code: %, priority %)', p_job_id, v_step.name, v_step.code, v_step.priority;
 
-    -- Define error JSON construction and keys to clear based on step_code
-    -- These JSON strings will be evaluated in the context of the main UPDATE query,
-    -- where 'dt' is the table being updated and 'l' is the alias for the 'lookups' CTE.
     IF p_step_code = 'physical_location' THEN
-        v_error_json_physical := $$
-            jsonb_build_object('physical_region_code', CASE WHEN dt.physical_region_code IS NOT NULL AND l.resolved_physical_region_id IS NULL THEN 'Not found' ELSE NULL END) ||
-            jsonb_build_object('physical_country_iso_2', CASE WHEN dt.physical_country_iso_2 IS NOT NULL AND l.resolved_physical_country_id IS NULL THEN 'Not found' ELSE NULL END) ||
-            jsonb_build_object('physical_latitude', CASE WHEN dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL THEN 'Invalid format' ELSE NULL END) ||
-            jsonb_build_object('physical_longitude', CASE WHEN dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL THEN 'Invalid format' ELSE NULL END) ||
-            jsonb_build_object('physical_altitude', CASE WHEN dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL THEN 'Invalid format' ELSE NULL END)
-        $$;
-        v_error_json_postal := $$'{}'::jsonb$$; -- Empty object for postal if only physical
         v_error_keys_to_clear_arr := ARRAY['physical_region_code', 'physical_country_iso_2', 'physical_latitude', 'physical_longitude', 'physical_altitude'];
-    ELSIF p_step_code = 'postal_location' THEN
-        v_error_json_physical := $$'{}'::jsonb$$; -- Empty object for physical if only postal
-        v_error_json_postal := $$
-            jsonb_build_object('postal_region_code', CASE WHEN dt.postal_region_code IS NOT NULL AND l.resolved_postal_region_id IS NULL THEN 'Not found' ELSE NULL END) ||
-            jsonb_build_object('postal_country_iso_2', CASE WHEN dt.postal_country_iso_2 IS NOT NULL AND l.resolved_postal_country_id IS NULL THEN 'Not found' ELSE NULL END) ||
-            jsonb_build_object('postal_latitude', CASE WHEN dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL THEN 'Invalid format' ELSE NULL END) ||
-            jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL THEN 'Invalid format' ELSE NULL END) ||
-            jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL THEN 'Invalid format' ELSE NULL END)
+        v_invalid_code_keys_to_clear_arr := v_error_keys_to_clear_arr; -- Same keys for invalid_codes
+        v_error_condition_sql := $$
+            (dt.physical_region_code IS NOT NULL AND l.resolved_physical_region_id IS NULL) OR
+            (dt.physical_country_iso_2 IS NOT NULL AND l.resolved_physical_country_id IS NULL) OR
+            (dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL) OR
+            (dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL) OR
+            (dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL)
         $$;
+        v_invalid_codes_json_expr_sql := $$
+            jsonb_build_object('physical_region_code', CASE WHEN dt.physical_region_code IS NOT NULL AND l.resolved_physical_region_id IS NULL THEN dt.physical_region_code ELSE NULL END) ||
+            jsonb_build_object('physical_country_iso_2', CASE WHEN dt.physical_country_iso_2 IS NOT NULL AND l.resolved_physical_country_id IS NULL THEN dt.physical_country_iso_2 ELSE NULL END) ||
+            jsonb_build_object('physical_latitude', CASE WHEN dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL THEN dt.physical_latitude ELSE NULL END) ||
+            jsonb_build_object('physical_longitude', CASE WHEN dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL THEN dt.physical_longitude ELSE NULL END) ||
+            jsonb_build_object('physical_altitude', CASE WHEN dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL THEN dt.physical_altitude ELSE NULL END)
+        $$;
+    ELSIF p_step_code = 'postal_location' THEN
         v_error_keys_to_clear_arr := ARRAY['postal_region_code', 'postal_country_iso_2', 'postal_latitude', 'postal_longitude', 'postal_altitude'];
+        v_invalid_code_keys_to_clear_arr := v_error_keys_to_clear_arr;
+        v_error_condition_sql := $$
+            (dt.postal_region_code IS NOT NULL AND l.resolved_postal_region_id IS NULL) OR
+            (dt.postal_country_iso_2 IS NOT NULL AND l.resolved_postal_country_id IS NULL) OR
+            (dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL) OR
+            (dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL) OR
+            (dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL)
+        $$;
+        v_invalid_codes_json_expr_sql := $$
+            jsonb_build_object('postal_region_code', CASE WHEN dt.postal_region_code IS NOT NULL AND l.resolved_postal_region_id IS NULL THEN dt.postal_region_code ELSE NULL END) ||
+            jsonb_build_object('postal_country_iso_2', CASE WHEN dt.postal_country_iso_2 IS NOT NULL AND l.resolved_postal_country_id IS NULL THEN dt.postal_country_iso_2 ELSE NULL END) ||
+            jsonb_build_object('postal_latitude', CASE WHEN dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL THEN dt.postal_latitude ELSE NULL END) ||
+            jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL THEN dt.postal_longitude ELSE NULL END) ||
+            jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL THEN dt.postal_altitude ELSE NULL END)
+        $$;
     ELSE
         RAISE EXCEPTION '[Job %] analyse_location: Invalid p_step_code provided: %. Expected ''physical_location'' or ''postal_location''.', p_job_id, p_step_code;
     END IF;
-
 
     v_sql := format($$
         WITH lookups AS (
@@ -92,32 +104,28 @@ BEGIN
             typed_postal_latitude = l.resolved_typed_postal_latitude,
             typed_postal_longitude = l.resolved_typed_postal_longitude,
             typed_postal_altitude = l.resolved_typed_postal_altitude,
-            state = CASE
-                        WHEN jsonb_strip_nulls(%s || %s) != '{}'::jsonb THEN 'error'::public.import_data_state
-                        ELSE 'analysing'::public.import_data_state
-                    END,
-            error = CASE
-                        WHEN jsonb_strip_nulls(%s || %s) != '{}'::jsonb THEN
-                        COALESCE(dt.error, '{}'::jsonb) || jsonb_strip_nulls(%s || %s)
-                        ELSE
-                            CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
-                    END,
-            last_completed_priority = CASE
-                                        WHEN jsonb_strip_nulls(%s || %s) != '{}'::jsonb THEN %L::INTEGER -- v_step.priority - 1
-                                        ELSE %L::INTEGER -- v_step.priority
-                                      END
+            state = 'analysing'::public.import_data_state, -- Location issues are non-fatal
+            error = CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END, -- Clear error keys
+            invalid_codes = 
+                CASE
+                    WHEN (%s) THEN -- Error condition for this location type
+                        jsonb_strip_nulls(COALESCE(dt.invalid_codes, '{}'::jsonb) - %L::TEXT[] || (%s))
+                    ELSE -- Success for this location type
+                        CASE WHEN (dt.invalid_codes - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.invalid_codes - %L::TEXT[]) END
+                END,
+            last_completed_priority = %L::INTEGER -- Always advance priority
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L::INTEGER[]) AND dt.action != 'skip';
+        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L::BIGINT[]) AND dt.action != 'skip';
     $$,
-        v_data_table_name, p_batch_row_ids, -- For lookups CTE
-        v_data_table_name, -- For main UPDATE target
-        v_error_json_physical, v_error_json_postal, -- For state CASE
-        v_error_json_physical, v_error_json_postal, -- For error CASE (add)
-        v_error_json_physical, v_error_json_postal, -- For error CASE (add)
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, -- For error CASE (clear), ensuring two arguments for two %L
-        v_error_json_physical, v_error_json_postal, -- For last_completed_priority CASE (error)
-        v_step.priority - 1, v_step.priority, -- For last_completed_priority CASE values
-        p_batch_row_ids -- For final WHERE clause
+        v_data_table_name, p_batch_row_ids,                     -- For lookups CTE
+        v_data_table_name,                                      -- For main UPDATE target
+        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear)
+        v_error_condition_sql,                                  -- For invalid_codes CASE (condition)
+        v_invalid_code_keys_to_clear_arr,                       -- For invalid_codes CASE (clear old)
+        v_invalid_codes_json_expr_sql,                          -- For invalid_codes CASE (add new)
+        v_invalid_code_keys_to_clear_arr, v_invalid_code_keys_to_clear_arr, -- For invalid_codes CASE (clear on success)
+        v_step.priority,                                        -- For last_completed_priority CASE
+        p_batch_row_ids                                         -- For final WHERE clause
     );
 
     RAISE DEBUG '[Job %] analyse_location: Single-pass batch update for non-skipped rows for step %: %', p_job_id, p_step_code, v_sql;
@@ -457,10 +465,10 @@ BEGIN
                     EXECUTE format($$
                         UPDATE public.%I SET
                             state = %L,
-                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_location_error', %L),
-                            last_completed_priority = %L
+                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_location_error', %L)
+                            -- last_completed_priority is preserved (not changed) on error
                         WHERE row_id = %L;
-                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_step.priority - 1, v_batch_upsert_result.source_row_id);
+                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
                 ELSE
                     v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
                 END IF;
@@ -491,8 +499,8 @@ BEGIN
         RAISE WARNING '[Job %] process_location: Error during batch operation for type %: %. SQLSTATE: %', p_job_id, v_location_type, error_message, SQLSTATE;
         -- Attempt to mark individual data rows as error (best effort)
         BEGIN
-            v_sql := format($$UPDATE public.%I SET state = %L, error = COALESCE(error, '{}'::jsonb) || %L, last_completed_priority = %L WHERE row_id = ANY(%L)$$,
-                           v_data_table_name, 'error'::public.import_data_state, jsonb_build_object('batch_error_process_location', error_message), v_step.priority - 1, p_batch_row_ids);
+            v_sql := format($$UPDATE public.%I SET state = %L, error = COALESCE(error, '{}'::jsonb) || %L WHERE row_id = ANY(%L)$$, -- LCP not changed here
+                           v_data_table_name, 'error'::public.import_data_state, jsonb_build_object('batch_error_process_location', error_message), p_batch_row_ids);
             EXECUTE v_sql;
         EXCEPTION WHEN OTHERS THEN
             RAISE WARNING '[Job %] process_location: Could not mark individual data rows as error: %', p_job_id, SQLERRM;

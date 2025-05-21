@@ -15,7 +15,8 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_sql TEXT;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['tag_path']; -- Define keys to clear
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['tag_path'];
+    -- v_invalid_code_keys_to_clear_arr is removed as tag errors are now fatal
 BEGIN
     RAISE DEBUG '[Job %] analyse_tags (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -36,7 +37,7 @@ BEGIN
                 dt.row_id,
                 import.safe_cast_to_ltree(dt.tag_path) AS ltree_path
             FROM public.%I dt
-            WHERE dt.row_id = ANY(%L) AND dt.tag_path IS NOT NULL AND dt.action != 'skip' -- Exclude skipped rows
+            WHERE dt.row_id = ANY(%L) AND dt.tag_path IS NOT NULL AND dt.action IS DISTINCT FROM 'skip' -- Process if action is distinct from 'skip' (handles NULL)
         ),
         resolved_tags AS (
             SELECT
@@ -47,12 +48,12 @@ BEGIN
             LEFT JOIN public.tag t ON t.path = ct.ltree_path
         )
         UPDATE public.%I dt SET
-            tag_path_ltree = rt.ltree_path, -- Set from resolved_tags (will be NULL if cast failed or no path)
-            tag_id = rt.resolved_tag_id, -- Set from resolved_tags (will be NULL if not found)
+            tag_path_ltree = rt.ltree_path,
+            tag_id = rt.resolved_tag_id,
             state = CASE
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_path IS NULL THEN 'error'::public.import_data_state
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_path IS NOT NULL AND rt.resolved_tag_id IS NULL THEN 'error'::public.import_data_state
-                        ELSE 'analysing'::public.import_data_state -- Success or no tag_path provided (will be handled by process step)
+                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_path IS NULL THEN 'error'::public.import_data_state -- Invalid format
+                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_path IS NOT NULL AND rt.resolved_tag_id IS NULL THEN 'error'::public.import_data_state -- Not found
+                        ELSE 'analysing'::public.import_data_state -- Success or no tag_path provided
                     END,
             error = CASE
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_path IS NULL THEN
@@ -62,23 +63,25 @@ BEGIN
                         ELSE -- Success or no tag_path provided
                             CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
+            invalid_codes = CASE WHEN (dt.invalid_codes - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.invalid_codes - %L::TEXT[]) END, -- Always clear invalid_codes for tag_path
             last_completed_priority = CASE
-                                        WHEN dt.tag_path IS NOT NULL AND (rt.ltree_path IS NULL OR (rt.ltree_path IS NOT NULL AND rt.resolved_tag_id IS NULL)) THEN %L::INTEGER -- v_step.priority - 1
-                                        ELSE %L::INTEGER -- v_step.priority (Success or no tag_path)
+                                        WHEN dt.tag_path IS NOT NULL AND (rt.ltree_path IS NULL OR (rt.ltree_path IS NOT NULL AND rt.resolved_tag_id IS NULL)) THEN dt.last_completed_priority -- Error: Preserve existing LCP
+                                        ELSE %s -- Success or no tag_path: v_step.priority
                                       END
-        FROM ( -- Subquery ensures we process all rows in the batch, even if they don't join resolved_tags
-            SELECT row_id FROM public.%I WHERE row_id = ANY(%L) AND action != 'skip' -- Exclude skipped from base
+        FROM (
+            SELECT row_id FROM public.%I WHERE row_id = ANY(%L) AND action IS DISTINCT FROM 'skip'
         ) base
         LEFT JOIN resolved_tags rt ON base.row_id = rt.row_id
-        WHERE dt.row_id = base.row_id AND dt.action != 'skip'; -- Ensure main update also excludes skipped
+        WHERE dt.row_id = base.row_id AND dt.action IS DISTINCT FROM 'skip';
     $$,
         v_data_table_name, p_batch_row_ids,                     -- For casted_tags CTE
         v_data_table_name,                                      -- For main UPDATE target
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear)
-        v_step.priority - 1, v_step.priority,                   -- For last_completed_priority CASE
+        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear on success)
+        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For invalid_codes CASE (clear)
+        v_step.priority,                                        -- For last_completed_priority CASE (success part)
         v_data_table_name, p_batch_row_ids                      -- For base subquery
     );
-    RAISE DEBUG '[Job %] analyse_tags: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_tags: Single-pass batch update for non-skipped rows (tag errors are fatal): %', p_job_id, v_sql;
     BEGIN
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;

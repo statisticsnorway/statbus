@@ -300,10 +300,10 @@ BEGIN
                     EXECUTE format($$
                         UPDATE public.%I SET
                             state = %L,
-                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_contact_error', %L),
-                            last_completed_priority = %L
+                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_contact_error', %L)
+                            -- last_completed_priority is preserved (not changed) on error
                         WHERE row_id = %L;
-                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_step.priority - 1, v_batch_upsert_result.source_row_id);
+                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
                 ELSE
                     v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
                 END IF;

@@ -45,6 +45,7 @@ WITH ordered_values AS (
         ('enterprise_link_for_establishment', 'primary_for_enterprise',    'BOOLEAN', 'internal', true, NULL, false),
         ('link_establishment_to_legal_unit', 'legal_unit_id',        'INTEGER', 'pk_id',    true, NULL, false),
         ('link_establishment_to_legal_unit', 'primary_for_legal_unit','BOOLEAN',   'internal', true, NULL, false),
+        ('valid_time_from_context', 'derived_valid_after', 'DATE', 'internal', true, NULL, false), -- Added derived_valid_after
         ('valid_time_from_context', 'derived_valid_from',  'DATE', 'internal', true, NULL, false),
         ('valid_time_from_context', 'derived_valid_to',    'DATE', 'internal', true, NULL, false),
         ('valid_time_from_source', 'valid_from',            'TEXT', 'source_input', true, NULL, false),
@@ -134,7 +135,8 @@ WITH ordered_values AS (
         ('edit_info',         'edit_comment',                'TEXT',      'internal', true, NULL, false),
         ('metadata',          'state',                       'public.import_data_state','metadata', false, '''pending''', false),
         ('metadata',          'last_completed_priority',     'INTEGER',   'metadata', false, '0',           false),
-        ('metadata',          'error',                       'JSONB',     'metadata', true,  NULL,          false)
+        ('metadata',          'error',                       'JSONB',     'metadata', true,  NULL,          false),
+        ('metadata',          'invalid_codes',               'JSONB',     'metadata', true,  NULL,          false)
     ) AS v_raw(step_code, column_name, column_type, purpose, is_nullable, default_value, is_uniquely_identifying)
 ),
 values_with_priority AS (
@@ -152,5 +154,10 @@ SELECT
 FROM public.import_step s
 JOIN values_with_priority v ON s.code = v.step_code
 ON CONFLICT (step_id, column_name) DO NOTHING;
+
+-- Dynamically create import_data_column entries for statistical variables
+-- This is now handled by the lifecycle callback import.generate_stat_var_data_columns()
+-- called in migration 20250506120000_import_lifecycle_for_stat_definition_import_data_columns.up.sql
+-- No action needed here for that specific purpose.
 
 COMMIT;

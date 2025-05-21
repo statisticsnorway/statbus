@@ -253,6 +253,7 @@ CREATE TABLE public.import_mapping(
     source_expression public.import_source_expression,
     target_data_column_id int REFERENCES public.import_data_column(id) ON DELETE CASCADE, -- FK to import_data_column
     CONSTRAINT unique_target_data_column_mapping UNIQUE (definition_id, target_data_column_id), -- Ensure target data column mapped only once
+    CONSTRAINT unique_source_to_target_mapping UNIQUE (definition_id, source_column_id, target_data_column_id), -- Ensure a source maps to a target only once per definition
     CONSTRAINT "only_one_source_can_be_defined"
     CHECK( source_column_id IS NOT NULL AND source_value IS     NULL AND source_expression IS     NULL
         OR source_column_id IS     NULL AND source_value IS NOT NULL AND source_expression IS     NULL
@@ -1176,15 +1177,18 @@ BEGIN
             ELSIF NOT should_reschedule THEN -- No error, and phase reported no more work
                 IF job.review THEN
                     -- Transition rows from 'analysing' to 'analysed' if review is required
+                    -- Rows in 'analysing' state here have completed all analysis steps.
+                    -- The 'error' field might be populated with non-fatal errors (e.g., for legal_unit activity codes).
                     RAISE DEBUG '[Job %] Updating data rows from analysing to analysed in table % for review', job_id, job.data_table_name;
-                    EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L AND error IS NULL$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
+                    EXECUTE format($$UPDATE public.%I SET state = %L WHERE state = %L$$, job.data_table_name, 'analysed'::public.import_data_state, 'analysing'::public.import_data_state);
                     job := admin.import_job_set_state(job, 'waiting_for_review');
                     RAISE DEBUG '[Job %] Analysis complete, waiting for review.', job_id;
                     -- should_reschedule remains FALSE as it's waiting for user action
                 ELSE
                     -- Transition rows from 'analysing' to 'processing' if no review
+                    -- Rows in 'analysing' state here have completed all analysis steps.
                     RAISE DEBUG '[Job %] Updating data rows from analysing to processing and resetting LCP in table %', job_id, job.data_table_name;
-                    EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L AND error IS NULL$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
+                    EXECUTE format($$UPDATE public.%I SET state = %L, last_completed_priority = 0 WHERE state = %L$$, job.data_table_name, 'processing'::public.import_data_state, 'analysing'::public.import_data_state);
                     job := admin.import_job_set_state(job, 'processing_data');
                     RAISE DEBUG '[Job %] Analysis complete, proceeding to processing.', job_id;
                     should_reschedule := TRUE; -- Reschedule to start processing

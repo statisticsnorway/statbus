@@ -15,15 +15,23 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0; -- Added from location
     v_sql TEXT;
-    v_error_json_primary TEXT;
-    v_error_json_secondary TEXT;
-    v_error_keys_to_clear_arr TEXT[]; -- Changed from TEXT to TEXT[]
+    -- v_error_json_primary TEXT; -- Replaced by v_error_json_expr_sql
+    -- v_error_json_secondary TEXT; -- Replaced by v_error_json_expr_sql
+    v_error_keys_to_clear_arr TEXT[];
+    v_job_mode public.import_mode;
+    v_source_code_col_name TEXT; -- e.g., primary_activity_category_code
+    v_resolved_id_col_name_in_lookup_cte TEXT; -- e.g., resolved_primary_activity_category_id
+    v_json_key TEXT; -- e.g., primary_activity_category_code (for JSON keys)
+    v_lookup_failed_condition_sql TEXT;
+    v_error_json_expr_sql TEXT;
+    v_invalid_code_json_expr_sql TEXT;
 BEGIN
     RAISE DEBUG '[Job %] analyse_activity (Batch) for step_code %: Starting analysis for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job ij WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name; -- Assign separately
+    v_job_mode := (v_job.definition_snapshot->'import_definition'->>'mode')::public.import_mode;
 
     -- Get the specific step details using p_step_code
     SELECT * INTO v_step FROM public.import_step WHERE code = p_step_code;
@@ -34,19 +42,28 @@ BEGIN
 
     RAISE DEBUG '[Job %] analyse_activity: Processing for target % (code: %, priority %)', p_job_id, v_step.name, v_step.code, v_step.priority;
 
-    -- Define error JSON construction and keys to clear based on step_code
-    -- Error JSON uses 'dt' for the table being updated and 'l' for the 'lookups' CTE.
+    -- Determine column names and JSON key based on the step being processed
     IF p_step_code = 'primary_activity' THEN
-        v_error_json_primary := $$jsonb_build_object('primary_activity_category_code', CASE WHEN dt.primary_activity_category_code IS NOT NULL AND l.resolved_primary_activity_category_id IS NULL THEN 'Not found' ELSE NULL END)$$;
-        v_error_json_secondary := $$'{}'::jsonb$$; -- Use $$ for 'empty' jsonb
-        v_error_keys_to_clear_arr := ARRAY['primary_activity_category_code'];
+        v_source_code_col_name := 'primary_activity_category_code';
+        v_resolved_id_col_name_in_lookup_cte := 'resolved_primary_activity_category_id';
+        v_json_key := 'primary_activity_category_code';
     ELSIF p_step_code = 'secondary_activity' THEN
-        v_error_json_primary := $$'{}'::jsonb$$; -- Use $$ for 'empty' jsonb
-        v_error_json_secondary := $$jsonb_build_object('secondary_activity_category_code', CASE WHEN dt.secondary_activity_category_code IS NOT NULL AND l.resolved_secondary_activity_category_id IS NULL THEN 'Not found' ELSE NULL END)$$;
-        v_error_keys_to_clear_arr := ARRAY['secondary_activity_category_code'];
+        v_source_code_col_name := 'secondary_activity_category_code';
+        v_resolved_id_col_name_in_lookup_cte := 'resolved_secondary_activity_category_id';
+        v_json_key := 'secondary_activity_category_code';
     ELSE
         RAISE EXCEPTION '[Job %] analyse_activity: Invalid p_step_code provided: %. Expected ''primary_activity'' or ''secondary_activity''.', p_job_id, p_step_code;
     END IF;
+    v_error_keys_to_clear_arr := ARRAY[v_json_key];
+
+    -- SQL condition string for when the lookup for the current activity type fails
+    v_lookup_failed_condition_sql := format('dt.%I IS NOT NULL AND l.%I IS NULL', v_source_code_col_name, v_resolved_id_col_name_in_lookup_cte);
+
+    -- SQL expression string for constructing the error JSON object for the current activity type
+    v_error_json_expr_sql := format('jsonb_build_object(%L, ''Not found'')', v_json_key);
+
+    -- SQL expression string for constructing the invalid_codes JSON object for the current activity type
+    v_invalid_code_json_expr_sql := format('jsonb_build_object(%L, dt.%I)', v_json_key, v_source_code_col_name);
 
     v_sql := format($$
         WITH lookups AS (
@@ -68,20 +85,15 @@ BEGIN
                                                  WHEN %L = 'secondary_activity' THEN l.resolved_secondary_activity_category_id
                                                  ELSE dt.secondary_activity_category_id -- Keep existing if not this step's target
                                              END,
-            state = CASE
-                        WHEN jsonb_strip_nulls(%s::jsonb || %s::jsonb) != '{}'::jsonb THEN 'error'::public.import_data_state
-                        ELSE 'analysing'::public.import_data_state
-                    END,
-            error = CASE
-                        WHEN jsonb_strip_nulls(%s::jsonb || %s::jsonb) != '{}'::jsonb THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_strip_nulls(%s::jsonb || %s::jsonb)
-                        ELSE
-                            CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END -- Use array for clearing keys
-                    END,
-            last_completed_priority = CASE
-                                        WHEN jsonb_strip_nulls(%s::jsonb || %s::jsonb) != '{}'::jsonb THEN %L::INTEGER -- v_step.priority - 1
-                                        ELSE %L::INTEGER -- v_step.priority
-                                      END
+            state = 'analysing'::public.import_data_state, -- Activity lookup issues are non-fatal, state remains analysing
+            error = CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END, -- Always clear this step's error key
+            invalid_codes = CASE
+                                WHEN (%s) THEN -- Lookup failed for the current activity type
+                                    COALESCE(dt.invalid_codes, '{}'::jsonb) || jsonb_strip_nulls(%s) -- Add specific invalid code with original value
+                                ELSE -- Success for this activity type: clear this step's invalid_code key
+                                    CASE WHEN (dt.invalid_codes - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.invalid_codes - %L::TEXT[]) END
+                            END,
+            last_completed_priority = %L::INTEGER -- Always advance priority for this step
         FROM lookups l
         WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Process only non-skipped rows matched in lookups
     $$,
@@ -89,16 +101,20 @@ BEGIN
         v_data_table_name,                                      -- For main UPDATE target (%I)
         p_step_code,                                            -- For primary_activity_category_id SET CASE (%L)
         p_step_code,                                            -- For secondary_activity_category_id SET CASE (%L)
-        v_error_json_primary, v_error_json_secondary,           -- For state CASE (%s, %s)
-        v_error_json_primary, v_error_json_secondary,           -- For error CASE (add part 1) (%s, %s)
-        v_error_json_primary, v_error_json_secondary,           -- For error CASE (add part 2) (%s, %s)
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear) (%L, %L for two usages of the array)
-        v_error_json_primary, v_error_json_secondary,           -- For last_completed_priority CASE (error condition) (%s, %s)
-        v_step.priority - 1, v_step.priority,                   -- For last_completed_priority CASE values (%L, %L)
+        -- Error CASE (clearing)
+        v_error_keys_to_clear_arr,                              -- %L
+        v_error_keys_to_clear_arr,                              -- %L
+        -- Invalid Codes CASE
+        v_lookup_failed_condition_sql,                          -- %s (condition for lookup failure)
+        v_invalid_code_json_expr_sql,                           -- %s (JSON for invalid code)
+        v_error_keys_to_clear_arr,                              -- %L (keys to clear on success)
+        v_error_keys_to_clear_arr,                              -- %L
+        -- Last Completed Priority CASE
+        v_step.priority,                                        -- %L (always advance to current step's priority)
         p_batch_row_ids                                         -- For final WHERE clause (%L)
     );
 
-    RAISE DEBUG '[Job %] analyse_activity: Single-pass batch update for non-skipped rows for step %: %', p_job_id, p_step_code, v_sql;
+    RAISE DEBUG '[Job %] analyse_activity: Single-pass batch update for non-skipped rows for step % (activity issues now non-fatal for all modes): %', p_job_id, p_step_code, v_sql;
 
     BEGIN
         EXECUTE v_sql;
@@ -383,10 +399,10 @@ BEGIN
                     EXECUTE format($$
                         UPDATE public.%I SET
                             state = %L,
-                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_activity_error', %L),
-                            last_completed_priority = %L
+                            error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('batch_replace_activity_error', %L)
+                            -- last_completed_priority is preserved (not changed) on error
                         WHERE row_id = %L;
-                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_step.priority - 1, v_batch_upsert_result.source_row_id);
+                    $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
                 ELSE
                     v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
                 END IF;

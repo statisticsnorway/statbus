@@ -82,10 +82,10 @@ BEGIN
          v_sql := format($$
             UPDATE public.%I dt SET
                 state = %L,
-                error = jsonb_build_object('link_establishment_to_legal_unit', 'No legal unit identifier provided'),
-                last_completed_priority = %L
+                error = jsonb_build_object('link_establishment_to_legal_unit', 'No legal unit identifier provided')
+                -- last_completed_priority is preserved (not changed) on error
             WHERE dt.row_id = ANY(%L);
-        $$, v_data_table_name, 'error', v_step.priority - 1, p_batch_row_ids);
+        $$, v_data_table_name, 'error', p_batch_row_ids);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers)', p_job_id, v_error_count;
@@ -153,11 +153,11 @@ BEGIN
             UPDATE public.%I dt SET
                 state = %L,
                 action = 'skip', -- Set action to skip if there's an error here
-                error = COALESCE(dt.error, %L) || jsonb_build_object('link_establishment_to_legal_unit', err.error_jsonb),
-                last_completed_priority = %L::INTEGER
+                error = COALESCE(dt.error, %L) || jsonb_build_object('link_establishment_to_legal_unit', err.error_jsonb)
+                -- last_completed_priority is preserved (not changed) on error
             FROM temp_batch_errors err
             WHERE dt.row_id = err.data_row_id;
-        $$, v_data_table_name, 'error', '{}'::jsonb, v_step.priority - 1);
+        $$, v_data_table_name, 'error', '{}'::jsonb);
         RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating error rows: %', p_job_id, v_sql;
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;

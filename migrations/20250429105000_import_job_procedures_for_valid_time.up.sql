@@ -39,16 +39,17 @@ BEGIN
         RAISE EXCEPTION '[Job %] valid_time_from_context target not found', p_job_id;
     END IF;
 
-    -- Step 1: Batch Update derived_valid_from/to from job defaults for non-skipped rows
+    -- Step 1: Batch Update derived_valid_from/to and derived_valid_after from job defaults for non-skipped rows
     v_sql := format($$
         UPDATE public.%I dt SET
+            derived_valid_after = CASE WHEN %L::DATE IS NOT NULL THEN %L::DATE - INTERVAL '1 day' ELSE NULL END, -- Calculate derived_valid_after
             derived_valid_from = %L::DATE,
             derived_valid_to = %L::DATE,
             last_completed_priority = %L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
-        WHERE dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Only process non-skipped rows
-    $$, v_data_table_name, v_job.default_valid_from, v_job.default_valid_to, v_step.priority, 'analysing', p_batch_row_ids);
+        WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
+    $$, v_data_table_name, v_job.default_valid_from, v_job.default_valid_from, v_job.default_valid_from, v_job.default_valid_to, v_step.priority, 'analysing', p_batch_row_ids);
     RAISE DEBUG '[Job %] analyse_valid_time_from_context: Updating derived dates for non-skipped rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -112,14 +113,14 @@ BEGIN
             last_completed_priority = CASE
                                         WHEN (dt.valid_from IS NOT NULL AND import.safe_cast_to_date(dt.valid_from) IS NULL) OR
                                              (dt.valid_to IS NOT NULL AND import.safe_cast_to_date(dt.valid_to) IS NULL)
-                                        THEN %L::INTEGER -- v_step.priority - 1
-                                        ELSE %L::INTEGER -- v_step.priority
+                                        THEN dt.last_completed_priority -- Preserve existing LCP on error
+                                        ELSE %s -- v_step.priority (success)
                                       END
-        WHERE dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Exclude skipped rows
+        WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
     $$,
         v_data_table_name,
         v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, -- For error CASE (clear)
-        v_step.priority - 1, v_step.priority,                -- For last_completed_priority CASE
+        v_step.priority,                                     -- For last_completed_priority CASE (success part)
         p_batch_row_ids
     );
     RAISE DEBUG '[Job %] analyse_valid_time_from_source: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;

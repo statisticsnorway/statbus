@@ -34,7 +34,7 @@ BEGIN
             last_completed_priority = %L,
             -- error = NULL, -- Removed: This step should not clear errors from prior steps
             state = %L
-        WHERE dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Only process non-skipped rows
+        WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
     $$, v_data_table_name, v_job.user_id, v_job.edit_comment, v_step.priority, 'analysing', p_batch_row_ids);
     RAISE DEBUG '[Job %] analyse_edit_info: Updating edit columns for non-skipped rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
