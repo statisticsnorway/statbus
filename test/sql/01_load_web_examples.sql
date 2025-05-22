@@ -92,8 +92,9 @@ FROM def;
 \copy public.import_es_web_example_current_upload(tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees) FROM 'samples/norway/establishment/underenheter-selection-web-import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- SET client_min_messages TO DEBUG1;
-\echo Run worker processing to run import jobs and generate computed data
-CALL worker.process_tasks();
+\echo Run worker processing for import jobs
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 -- SET client_min_messages TO NOTICE;
 
 \echo "Inspecting first 5 rows of legal unit import job data (import_lu_web_example_current_data)"
@@ -150,7 +151,9 @@ SELECT 'establishment' AS unit_type, COUNT(DISTINCT id) AS count FROM public.est
 \echo "Worker task summary after import processing"
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 
-
+\echo Run worker processing for analytics tasks
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking statistics"
 \x
