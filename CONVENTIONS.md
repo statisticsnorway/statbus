@@ -25,6 +25,7 @@ It is deployed on custom servers behind Caddy with HTTPS.
       This improves readability and maintainability.
 - **Table Aliases**: Prefer explicit `AS` for table aliases, e.g., `FROM my_table AS mt`. For common data table aliases in import procedures, `AS dt` is preferred.
 - **Batch Operations**: Utilize PostgreSQL 17+ `MERGE` syntax for efficient batch handling where appropriate.
+- **Database Inspection**: Use `psql` for direct database inspection and querying during development. For example, to list available import definitions: `echo 'SELECT slug, name FROM public.import_definition;' | ./devops/manage-statbus.sh psql`
 
 ### SQL Testing
 - Use pg_regress with `test/` as the base directory.
