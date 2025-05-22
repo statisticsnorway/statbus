@@ -48,19 +48,44 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
-\echo "User uploads legal_units with statistics"
-\copy public.import_legal_unit_current(tax_ident,name,birth_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postplace,postal_postcode,postal_region_code,postal_country_iso_2,primary_activity_category_code,sector_code,legal_form_code,employees,turnover) FROM 'test/data/04_legal-units-with-stats.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+-- Create Import Job for Legal Units with Statistics
+WITH def AS (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_current_year')
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT id, 'import_04_lu_current_stats',
+       'Import Legal Units with Stats (04_legal_units_with_statistics.sql)',
+       'Import job for legal units from test/data/04_legal-units-with-stats.csv using legal_unit_current_year definition.',
+       'Test data load (04_legal_units_with_statistics.sql)'
+FROM def;
+
+\echo "User uploads legal_units with statistics (via import job: import_04_lu_current_stats)"
+\copy public.import_04_lu_current_stats_upload(tax_ident,name,birth_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postplace,postal_postcode,postal_region_code,postal_country_iso_2,primary_activity_category_code,sector_code,legal_form_code,employees,turnover) FROM 'test/data/04_legal-units-with-stats.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+\echo Run worker processing for import jobs
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+\echo "Checking unit counts after import processing"
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
+\echo "Inspecting import job data for import_04_lu_current_stats"
+SELECT row_id, state, error, tax_ident, name, employees, turnover
+FROM public.import_04_lu_current_stats_data
+ORDER BY row_id
+LIMIT 5;
 
-\echo Run worker processing to run import jobs and generate computed data
-CALL worker.process_tasks();
+\echo "Checking import job status for import_04_lu_current_stats"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
+       (SELECT COUNT(*) FROM public.import_04_lu_current_stats_data dr WHERE dr.state = 'error') AS error_rows
+FROM public.import_job
+WHERE slug = 'import_04_lu_current_stats';
+
+\echo Run worker processing for analytics tasks
+CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-
-
 
 \x
 SELECT unit_type, name, external_idents, stats, jsonb_pretty(stats_summary) AS stats_summary
