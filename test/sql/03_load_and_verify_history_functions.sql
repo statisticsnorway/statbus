@@ -1,5 +1,3 @@
-SET datestyle TO 'ISO, DMY';
-
 BEGIN;
 
 \i test/setup.sql
@@ -38,22 +36,48 @@ SELECT count(*) FROM public.legal_form_available;
 \copy public.sector_custom_only(path,name,description) FROM 'samples/norway/sector/sector_norway.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SELECT count(*) FROM public.sector_available;
 
-SELECT
-    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
-    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
-    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
-
-\echo "User uploads the legal units over time"
-\copy public.import_legal_unit_era(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,data_source_code) FROM 'test/data/03_norwegian-legal-units-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-
-\echo "User uploads the establishments over time"
-\copy public.import_establishment_era_for_legal_unit(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,data_source_code,unit_size_code,employees,turnover) FROM 'test/data/03_norwegian-establishments-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- SAVEPOINT before_loading_units; -- Removed to simplify transaction handling, aligning with other tests.
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
+-- Create Import Job for Legal Units (Era)
+WITH def AS (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates')
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT id, 'import_03_lu_era',
+       'Import Legal Units Era (03_load_and_verify_history_functions.sql)',
+       'Import job for legal units from test/data/03_norwegian-legal-units-over-time.csv using legal_unit_explicit_dates definition.',
+       'Test data load (03_load_and_verify_history_functions.sql)'
+FROM def;
+
+\echo "User uploads the legal units over time (via import job: import_03_lu_era)"
+\copy public.import_03_lu_era_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,data_source_code) FROM 'test/data/03_norwegian-legal-units-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+-- Create Import Job for Establishments (Era for LU)
+WITH def AS (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates')
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT id, 'import_03_esflu_era',
+       'Import Establishments Era for LU (03_load_and_verify_history_functions.sql)',
+       'Import job for establishments from test/data/03_norwegian-establishments-over-time.csv using establishment_for_lu_explicit_dates definition.',
+       'Test data load (03_load_and_verify_history_functions.sql)'
+FROM def;
+
+\echo "User uploads the establishments over time (via import job: import_03_esflu_era)"
+\copy public.import_03_esflu_era_upload(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,data_source_code,unit_size_code,employees,turnover) FROM 'test/data/03_norwegian-establishments-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+\echo Run worker processing for import jobs
+--SET client_min_messages TO DEBUG1;
+CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+\echo "Checking unit counts after import processing"
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 \echo "Test get_statistical_history_periods with specific date range - yearly resolution"
 SELECT
@@ -118,10 +142,33 @@ FROM public.get_statistical_history_periods(
 ORDER BY year, month;
 
 
-\echo Run worker processing to run import jobs and generate computed data
-CALL worker.process_tasks();
+\echo Run worker processing for analytics tasks
+CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 
+\echo "Inspecting import job data for import_03_lu_era"
+SELECT row_id, state, error, tax_ident, name, valid_from, valid_to
+FROM public.import_03_lu_era_data
+ORDER BY row_id
+LIMIT 5;
+
+\echo "Checking import job status for import_03_lu_era"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
+       (SELECT COUNT(*) FROM public.import_03_lu_era_data dr WHERE dr.state = 'error') AS error_rows
+FROM public.import_job
+WHERE slug = 'import_03_lu_era';
+
+\echo "Inspecting import job data for import_03_esflu_era"
+SELECT row_id, state, error, tax_ident, legal_unit_tax_ident, name, valid_from, valid_to
+FROM public.import_03_esflu_era_data
+ORDER BY row_id
+LIMIT 5;
+
+\echo "Checking import job status for import_03_esflu_era"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
+       (SELECT COUNT(*) FROM public.import_03_esflu_era_data dr WHERE dr.state = 'error') AS error_rows
+FROM public.import_job
+WHERE slug = 'import_03_esflu_era';
 
 \echo "Checking statistical_history_periods from statistical_unit data"
 SELECT * FROM public.get_statistical_history_periods()
@@ -685,5 +732,4 @@ SELECT valid_after
      '2023-01-01'::DATE
 );
 
-
-ROLLBACK;
+\i test/rollback_unless_persist_is_specified.sql
