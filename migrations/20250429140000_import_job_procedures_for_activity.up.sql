@@ -341,7 +341,7 @@ BEGIN
         RAISE DEBUG '[Job %] process_activity: Handling REPLACES for existing activities (type: %).', p_job_id, v_activity_type;
         -- Create temp source table for batch upsert
         CREATE TEMP TABLE temp_act_upsert_source (
-            data_row_id BIGINT PRIMARY KEY, -- Link back to original _data row
+            row_id BIGINT PRIMARY KEY, -- Link back to original _data row
             id INT, -- Target activity ID
             valid_after DATE NOT NULL, -- Changed
             valid_to DATE NOT NULL,
@@ -357,11 +357,11 @@ BEGIN
 
         -- Populate temp source table (only for 'replace' actions)
         INSERT INTO temp_act_upsert_source (
-            data_row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, type, category_id, -- Changed valid_from to valid_after
+            row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, type, category_id, -- Changed valid_from to valid_after
             data_source_id, edit_by_user_id, edit_at, edit_comment
         )
         SELECT
-            tbd.data_row_id,
+            tbd.data_row_id, -- This becomes row_id in temp_act_upsert_source
             tbd.existing_act_id,
             tbd.valid_after, -- Changed
             tbd.valid_to,
@@ -387,9 +387,7 @@ BEGIN
                     p_target_table_name => 'activity',
                     p_source_schema_name => 'pg_temp',
                     p_source_table_name => 'temp_act_upsert_source',
-                    p_source_row_id_column_name => 'data_row_id', 
                     p_unique_columns => '[]'::jsonb, 
-                    p_temporal_columns => ARRAY['valid_after', 'valid_to'], -- Changed
                     p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
                     p_id_column_name => 'id'
                 )

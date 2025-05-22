@@ -150,7 +150,8 @@ DECLARE
     v_sql TEXT;
     v_error_count INT := 0;
     v_inserted_new_est_count INT := 0;
-    v_updated_existing_est_count INT := 0;
+    v_updated_existing_est_count INT := 0; -- Tracks rows intended for replace/update
+    v_actually_replaced_or_updated_est_count INT := 0; -- Tracks rows successfully processed by batch function
     error_message TEXT;
     v_batch_upsert_result RECORD;
     v_batch_upsert_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
@@ -232,11 +233,12 @@ BEGIN
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
         edit_comment TEXT, -- Added
-        action public.import_row_action_type
+        action public.import_row_action_type,
+        founding_row_id BIGINT
     ) ON COMMIT DROP;
 
     v_select_list := format(
-        'dt.row_id, dt.tax_ident, %s AS legal_unit_id, %s AS primary_for_legal_unit, %s AS enterprise_id, %s AS primary_for_enterprise, dt.name, dt.typed_birth_date, dt.typed_death_date, dt.derived_valid_after, dt.derived_valid_from, dt.derived_valid_to, dt.sector_id, dt.unit_size_id, dt.status_id, dt.data_source_id, dt.establishment_id, dt.invalid_codes, dt.edit_by_user_id, dt.edit_at, dt.edit_comment, dt.action',
+        'dt.row_id, dt.founding_row_id, dt.tax_ident, %s AS legal_unit_id, %s AS primary_for_legal_unit, %s AS enterprise_id, %s AS primary_for_enterprise, dt.name, dt.typed_birth_date, dt.typed_death_date, dt.derived_valid_after, dt.derived_valid_from, dt.derived_valid_to, dt.sector_id, dt.unit_size_id, dt.status_id, dt.data_source_id, dt.establishment_id, dt.invalid_codes, dt.edit_by_user_id, dt.edit_at, dt.edit_comment, dt.action',
         v_select_legal_unit_id_expr,
         v_select_primary_for_legal_unit_expr,
         v_select_enterprise_id_expr,
@@ -245,14 +247,14 @@ BEGIN
 
     v_sql := format($$
         INSERT INTO temp_batch_data (
-            data_row_id, tax_ident, legal_unit_id, primary_for_legal_unit, enterprise_id, primary_for_enterprise, name, typed_birth_date, typed_death_date,
+            data_row_id, founding_row_id, tax_ident, legal_unit_id, primary_for_legal_unit, enterprise_id, primary_for_enterprise, name, typed_birth_date, typed_death_date,
             valid_after, valid_from, valid_to, sector_id, unit_size_id, status_id, data_source_id,
             existing_est_id, invalid_codes, edit_by_user_id, edit_at, edit_comment, action
         )
         SELECT %s
          FROM public.%I dt WHERE dt.row_id = ANY(%L) AND dt.action != 'skip';
     $$, v_select_list, v_data_table_name, p_batch_row_ids);
-    RAISE DEBUG '[Job %] process_establishment: Fetching batch data (including invalid_codes): %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] process_establishment: Fetching batch data (including invalid_codes and founding_row_id): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     -- Log sample data from temp_batch_data after initial population
@@ -264,9 +266,14 @@ BEGIN
     -- The enterprise_id is populated by import.analyse_enterprise_link_for_establishment if that step is included.
     -- It should not be looked up directly here from legal_unit.
 
-    CREATE TEMP TABLE temp_created_ests (
+    CREATE TEMP TABLE temp_created_ests ( -- For 'insert' action
         data_row_id BIGINT PRIMARY KEY,
         new_establishment_id INT NOT NULL
+    ) ON COMMIT DROP;
+
+    CREATE TEMP TABLE temp_processed_action_ids ( -- For 'replace' and 'update' actions
+        data_row_id BIGINT PRIMARY KEY,
+        actual_establishment_id INT NOT NULL
     ) ON COMMIT DROP;
 
     BEGIN
@@ -346,10 +353,24 @@ BEGIN
             END LOOP;
             RAISE DEBUG '[Job %] process_establishment: Processed external idents for % new ESTs.', p_job_id, v_inserted_new_est_count;
 
+            -- Update temp_batch_data with the new_establishment_id for subsequent 'replace' rows of the same logical entity
+            -- This uses tax_ident as the proxy for entity_signature. A more robust solution might involve
+            -- passing entity_signature or rn_in_batch_for_entity from the analyse step.
+            FOR rec_created_est IN SELECT tce.data_row_id, tce.new_establishment_id, tbd.tax_ident
+                                   FROM temp_created_ests tce
+                                   JOIN temp_batch_data tbd ON tce.data_row_id = tbd.data_row_id
+            LOOP
+                UPDATE temp_batch_data tbd_update
+                SET existing_est_id = rec_created_est.new_establishment_id
+                WHERE tbd_update.tax_ident = rec_created_est.tax_ident -- Match by tax_ident
+                  AND tbd_update.action = 'replace'                   -- Only for 'replace' actions
+                  AND tbd_update.data_row_id != rec_created_est.data_row_id; -- Not the original insert row
+                RAISE DEBUG '[Job %] process_establishment: Updated temp_batch_data.existing_est_id to % for tax_ident % on replace rows.', p_job_id, rec_created_est.new_establishment_id, rec_created_est.tax_ident;
+            END LOOP;
 
             EXECUTE format($$
                 UPDATE public.%I dt SET
-                    establishment_id = tce.new_establishment_id,
+                    establishment_id = tce.new_establishment_id, -- This updates the _data table for the 'insert' rows
                     last_completed_priority = %L,
                     error = NULL,
                     state = %L
@@ -362,7 +383,8 @@ BEGIN
         RAISE DEBUG '[Job %] process_establishment: Handling REPLACES for existing ESTs via batch_upsert.', p_job_id;
 
         CREATE TEMP TABLE temp_est_upsert_source (
-            data_row_id BIGINT PRIMARY KEY,
+            row_id BIGINT PRIMARY KEY,
+            founding_row_id BIGINT,
             id INT,
             valid_after DATE NOT NULL,
             valid_to DATE NOT NULL,
@@ -385,11 +407,11 @@ BEGIN
         ) ON COMMIT DROP;
 
         INSERT INTO temp_est_upsert_source (
-            data_row_id, id, valid_after, valid_to, legal_unit_id, primary_for_legal_unit, enterprise_id, primary_for_enterprise, name, birth_date, death_date, active,
+            row_id, founding_row_id, id, valid_after, valid_to, legal_unit_id, primary_for_legal_unit, enterprise_id, primary_for_enterprise, name, birth_date, death_date, active,
             sector_id, unit_size_id, status_id, data_source_id, invalid_codes, edit_by_user_id, edit_at, edit_comment
         )
         SELECT
-            tbd.data_row_id, tbd.existing_est_id, tbd.valid_after, tbd.valid_to, -- Use tbd.valid_after directly
+            tbd.data_row_id, tbd.founding_row_id, tbd.existing_est_id, tbd.valid_after, tbd.valid_to, -- Use tbd.valid_after directly
             tbd.legal_unit_id, -- Value from temp_batch_data, correctly nulled by mode if needed
             tbd.primary_for_legal_unit, -- Value from temp_batch_data
             tbd.enterprise_id, -- Value from temp_batch_data
@@ -410,10 +432,10 @@ BEGIN
                 SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
                     p_target_schema_name => 'public', p_target_table_name => 'establishment',
                     p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_est_upsert_source',
-                    p_source_row_id_column_name => 'data_row_id', p_unique_columns => '[]'::jsonb,
-                    p_temporal_columns => ARRAY['valid_after', 'valid_to'],
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
-                    p_id_column_name => 'id'
+                    p_id_column_name => 'id', -- Ensure this is the PK in temp_est_upsert_source
+                    p_unique_columns => '[]'::jsonb,
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    -- p_source_row_id_column_name, p_temporal_columns, p_founding_row_id_column_name are removed
                 )
             LOOP
                 IF v_batch_upsert_result.status = 'ERROR' THEN
@@ -425,16 +447,26 @@ BEGIN
                     $$, v_data_table_name, 'error'::public.import_data_state, v_batch_upsert_result.error_message, v_batch_upsert_result.source_row_id);
                 ELSE
                     v_batch_upsert_success_row_ids := array_append(v_batch_upsert_success_row_ids, v_batch_upsert_result.source_row_id);
+                    INSERT INTO temp_processed_action_ids (data_row_id, actual_establishment_id)
+                    VALUES (v_batch_upsert_result.source_row_id, v_batch_upsert_result.upserted_record_id); -- Corrected to upserted_record_id
                 END IF;
             END LOOP;
 
+            v_actually_replaced_or_updated_est_count := array_length(v_batch_upsert_success_row_ids, 1);
             v_error_count := array_length(v_batch_upsert_error_row_ids, 1);
-            RAISE DEBUG '[Job %] process_establishment: Batch replace finished. Success: %, Errors: %', p_job_id, array_length(v_batch_upsert_success_row_ids, 1), v_error_count;
+            RAISE DEBUG '[Job %] process_establishment: Batch replace finished. Success: %, Errors: %', p_job_id, v_actually_replaced_or_updated_est_count, v_error_count;
 
-            IF array_length(v_batch_upsert_success_row_ids, 1) > 0 THEN
-                FOR rec_created_est IN SELECT tbd.data_row_id, tbd.existing_est_id as new_establishment_id, tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment
-                                       FROM temp_batch_data tbd
-                                       WHERE tbd.data_row_id = ANY(v_batch_upsert_success_row_ids)
+            IF v_actually_replaced_or_updated_est_count > 0 THEN
+                FOR rec_created_est IN
+                    SELECT
+                        tbd.data_row_id,
+                        tpai.actual_establishment_id as new_establishment_id,
+                        tbd.edit_by_user_id,
+                        tbd.edit_at,
+                        tbd.edit_comment
+                    FROM temp_batch_data tbd
+                    JOIN temp_processed_action_ids tpai ON tbd.data_row_id = tpai.data_row_id
+                    WHERE tbd.data_row_id = ANY(v_batch_upsert_success_row_ids) -- Redundant due to JOIN, but safe
                 LOOP
                     FOR rec_ident_type IN SELECT * FROM public.external_ident_type_active ORDER BY priority LOOP
                         v_data_table_col_name := rec_ident_type.code;
@@ -459,21 +491,25 @@ BEGIN
                         END;
                     END LOOP;
                 END LOOP;
-                RAISE DEBUG '[Job %] process_establishment: Ensured/Updated external_ident (type tax_ident) for successfully replaced ESTs.', p_job_id;
+                RAISE DEBUG '[Job %] process_establishment: Ensured/Updated external_ident for % successfully replaced ESTs.', p_job_id, v_actually_replaced_or_updated_est_count;
 
                 EXECUTE format($$
-                    UPDATE public.%I dt SET establishment_id = tbd.existing_est_id, last_completed_priority = %L, error = NULL, state = %L
-                    FROM temp_batch_data tbd
-                    WHERE dt.row_id = tbd.data_row_id AND dt.row_id = ANY(%L);
+                    UPDATE public.%I dt SET
+                        establishment_id = tpai.actual_establishment_id,
+                        last_completed_priority = %L,
+                        error = NULL,
+                        state = %L
+                    FROM temp_processed_action_ids tpai
+                    WHERE dt.row_id = tpai.data_row_id AND dt.row_id = ANY(%L); -- dt.row_id = ANY ensures we only update rows from this batch
                 $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, v_batch_upsert_success_row_ids);
-                RAISE DEBUG '[Job %] process_establishment: Updated _data table for % successfully replaced ESTs.', p_job_id, array_length(v_batch_upsert_success_row_ids, 1);
+                RAISE DEBUG '[Job %] process_establishment: Updated _data table for % successfully replaced ESTs with correct establishment_id.', p_job_id, v_actually_replaced_or_updated_est_count;
             END IF;
-        END IF;
+        END IF; -- End v_updated_existing_est_count > 0 (renamed from v_updated_existing_est_count for clarity of original intent)
         DROP TABLE IF EXISTS temp_est_upsert_source;
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
-        RAISE WARNING '[Job %] process_establishment: Error during batch operation: %', p_job_id, error_message;
+        RAISE WARNING '[Job %] process_establishment: Error during batch operation: %', p_job_id, replace(error_message, '%', '%%');
         UPDATE public.import_job
         SET error = jsonb_build_object('process_establishment_error', error_message),
             state = 'finished'
@@ -485,11 +521,12 @@ BEGIN
     EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
                    v_job.data_table_name, v_step.priority, p_batch_row_ids);
 
-    RAISE DEBUG '[Job %] process_establishment (Batch): Finished. New ESTs processed: %, Existing ESTs processed (attempted replace): %. Rows marked as error in this step: %',
-        p_job_id, v_inserted_new_est_count, v_updated_existing_est_count, v_error_count;
+    RAISE DEBUG '[Job %] process_establishment (Batch): Finished. New ESTs (action=insert): %, ESTs for replace/update: % (succeeded: %, errored: %). Total Errors in step: %',
+        p_job_id, v_inserted_new_est_count, v_updated_existing_est_count, v_actually_replaced_or_updated_est_count, v_error_count, v_error_count; -- Assuming v_error_count is total for replace/update part
 
     DROP TABLE IF EXISTS temp_batch_data;
     DROP TABLE IF EXISTS temp_created_ests;
+    DROP TABLE IF EXISTS temp_processed_action_ids;
 END;
 $process_establishment$;
 

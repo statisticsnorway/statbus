@@ -412,7 +412,7 @@ BEGIN
 
     -- Create temp source table for batch upsert (for replaces) *before* the inner BEGIN block
     CREATE TEMP TABLE temp_stat_upsert_source (
-        data_row_id BIGINT, 
+        row_id BIGINT, 
         id INT, 
         valid_after DATE NOT NULL, -- Changed
         valid_to DATE NOT NULL,
@@ -427,7 +427,7 @@ BEGIN
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
         edit_comment TEXT,
-        PRIMARY KEY (data_row_id, stat_definition_id) 
+        PRIMARY KEY (row_id, stat_definition_id) 
     ) ON COMMIT DROP;
 
     BEGIN
@@ -509,12 +509,12 @@ BEGIN
         RAISE DEBUG '[Job %] process_statistical_variables: Handling REPLACES for existing stats via batch_upsert.', p_job_id;
         
         INSERT INTO temp_stat_upsert_source (
-            data_row_id, id, valid_after, valid_to, stat_definition_id, legal_unit_id, establishment_id, -- Changed valid_from to valid_after
+            row_id, id, valid_after, valid_to, stat_definition_id, legal_unit_id, establishment_id, -- Changed valid_from to valid_after
             value_string, value_int, value_float, value_bool, -- Add typed columns
             data_source_id, edit_by_user_id, edit_at, edit_comment
         )
         SELECT
-            tbd.data_row_id, 
+            tbd.data_row_id, -- This becomes row_id in temp_stat_upsert_source
             tbd.existing_link_id,
             tbd.valid_after, -- Changed
             tbd.valid_to,
@@ -557,9 +557,7 @@ BEGIN
                     p_target_table_name => 'stat_for_unit',
                     p_source_schema_name => 'pg_temp', 
                     p_source_table_name => 'temp_stat_upsert_source',
-                    p_source_row_id_column_name => 'data_row_id',
                     p_unique_columns => '[]'::jsonb, 
-                    p_temporal_columns => ARRAY['valid_after', 'valid_to'], -- Changed
                     p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'], 
                     p_id_column_name => 'id'
                     -- The generic function needs to be enhanced to handle mapping of multiple value_* columns
@@ -626,7 +624,7 @@ BEGIN
           AND dt.action != 'skip'
           AND dt.state != 'error'
           AND NOT EXISTS (SELECT 1 FROM temp_created_stats tcs WHERE tcs.data_row_id = dt.row_id) 
-          AND NOT EXISTS (SELECT 1 FROM temp_stat_upsert_source tsus WHERE tsus.data_row_id = dt.row_id); 
+          AND NOT EXISTS (SELECT 1 FROM temp_stat_upsert_source tsus WHERE tsus.row_id = dt.row_id); 
     $$, v_data_table_name, v_step.priority, p_batch_row_ids);
     RAISE DEBUG '[Job %] process_statistical_variables: Updating priority for unprocessed rows: %', p_job_id, v_sql;
     EXECUTE v_sql;

@@ -23,6 +23,7 @@ CREATE TABLE batch_test_update.batch_upsert_target (
 
 CREATE TABLE batch_test_update.batch_upsert_source (
     row_id BIGSERIAL PRIMARY KEY,
+    founding_row_id BIGINT,
     target_id INT,
     valid_after DATE NOT NULL, -- (exclusive start)
     valid_to DATE,             -- (inclusive end)
@@ -37,9 +38,9 @@ CREATE TABLE batch_test_update.batch_upsert_source (
 \set target_table 'batch_upsert_target'
 \set source_schema 'batch_test_update'
 \set source_table 'batch_upsert_source'
-\set source_row_id_col 'row_id'
+-- \set source_row_id_col 'row_id' -- Removed
 \set unique_cols '[ "value_a" ]'
-\set temporal_cols '{valid_after, valid_to}'
+-- \set temporal_cols '{valid_after, valid_to}' -- Removed
 \set ephemeral_cols '{edit_comment, updated_on}'
 \set id_col 'id'
 
@@ -58,11 +59,17 @@ $$ LANGUAGE plpgsql;
 
 -- Scenario 1: Initial Insert (same as replace)
 \echo 'Scenario 1: Initial Insert'
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(NULL, '2023-12-31', '2024-12-31', 'A', 10, 'Initial C1', '2024-01-15', 'Initial A'); -- (2023-12-31, 2024-12-31]
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, NULL, '2023-12-31', '2024-12-31', 'A', 10, 'Initial C1', '2024-01-15', 'Initial A'); -- row_id=1, founding_row_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    :'unique_cols'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => :'unique_cols'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table();
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
@@ -70,12 +77,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 2: Update existing - Full Overlap, Non-Null Update
 \echo 'Scenario 2: Update existing - Full Overlap, Non-Null Update'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-12-31', 'A', 10, 'Original C', '2024-01-10', 'Original'); -- (2023-12-31, 2024-12-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-12-31', 'A', 20, 'Updated C', '2024-01-15', 'Update B and C'); -- value_b and value_c change
+(1, '2023-12-31', '2024-12-31', 'A', 10, 'Original C', '2024-01-10', 'Original');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-12-31', 'A', 20, 'Updated C', '2024-01-15', 'Update B and C'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1); -- Expected: value_b=20, value_c='Updated C', updated_on='2024-01-15'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
@@ -83,12 +96,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 3: Update existing - Full Overlap, Partial Null Update (value_b is NULL in source)
 \echo 'Scenario 3: Update existing - Full Overlap, Partial Null Update'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-12-31', 'A', 10, 'Original C', '2024-01-10', 'Original'); -- (2023-12-31, 2024-12-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-12-31', 'A', NULL, 'Updated C by partial null', '2024-01-15', 'Update C, B is null in source'); -- value_b is NULL
+(1, '2023-12-31', '2024-12-31', 'A', 10, 'Original C', '2024-01-10', 'Original');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-12-31', 'A', NULL, 'Updated C by partial null', '2024-01-15', 'Update C, B is null in source'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1); -- Expected: value_b=10 (unchanged), value_c='Updated C by partial null', updated_on='2024-01-15'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
@@ -96,12 +115,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 4: Update existing - Inside Different (Split with Update)
 \echo 'Scenario 4: Update existing - Inside Different (Split with Update)'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-12-31', 'A', 10, 'Original C', '2024-01-10', 'Original Jan-Dec'); -- (2023-12-31, 2024-12-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2024-03-31', '2024-08-31', 'A', 20, NULL, '2024-01-15', 'Update Apr-Aug, C is null'); -- Source: (2024-03-31, 2024-08-31]
+(1, '2023-12-31', '2024-12-31', 'A', 10, 'Original C', '2024-01-10', 'Original Jan-Dec');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2024-03-31', '2024-08-31', 'A', 20, NULL, '2024-01-15', 'Update Apr-Aug, C is null'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1); 
 -- Expected: 
@@ -113,17 +138,23 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 5: No data change, only temporal adjustment (adjacent equivalent merge)
 \echo 'Scenario 5: No data change, only temporal adjustment (adjacent equivalent merge)'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-06-30', 'A', 10, 'C val', '2024-01-10', 'First half'); -- (2023-12-31, 2024-06-30]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2024-06-30', '2024-12-31', 'A', 10, 'C val', '2024-01-15', 'Second half'); -- Source: (2024-06-30, 2024-12-31] -- All data same
+(1, '2023-12-31', '2024-06-30', 'A', 10, 'C val', '2024-01-10', 'First half');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2024-06-30', '2024-12-31', 'A', 10, 'C val', '2024-01-15', 'Second half'); -- founding_row_id=target_id=1
 
 \echo 'Manual check for earlier adjacent record before function call (Scenario 5):'
 SELECT * FROM batch_test_update.batch_upsert_target WHERE id = 1 AND valid_to = '2024-06-30'::DATE LIMIT 1;
 \echo 'End of manual check.'
 
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1); -- Expected: One merged row: (2023-12-31, 2024-12-31], updated_on='2024-01-15', edit_comment='Second half'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
@@ -131,12 +162,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 6: Source overlaps start of existing, data different
 \echo 'Scenario 6: Source overlaps start of existing, data different'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2024-02-28', '2024-10-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Mid-Year'); -- Period: (2024-02-28, 2024-10-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-05-31', 'A', 20, 'Updated C by Source Overlap Start', '2024-01-15', 'Source Overlaps Start'); -- Period: (2023-12-31, 2024-05-31]
+(1, '2024-02-28', '2024-10-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Mid-Year');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-05-31', 'A', 20, 'Updated C by Source Overlap Start', '2024-01-15', 'Source Overlaps Start'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 3 rows
@@ -148,12 +185,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 7: Source overlaps end of existing, data different
 \echo 'Scenario 7: Source overlaps end of existing, data different'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-08-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Early-Mid Year'); -- Period: (2023-12-31, 2024-08-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2024-05-31', '2024-12-31', 'A', 30, 'Updated C by Source Overlap End', '2024-01-15', 'Source Overlaps End'); -- Period: (2024-05-31, 2024-12-31]
+(1, '2023-12-31', '2024-08-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Early-Mid Year');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2024-05-31', '2024-12-31', 'A', 30, 'Updated C by Source Overlap End', '2024-01-15', 'Source Overlaps End'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 3 rows
@@ -165,12 +208,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 8: Existing is contained within source, data different
 \echo 'Scenario 8: Existing is contained within source, data different'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2024-02-28', '2024-08-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Mid-Period'); -- Period: (2024-02-28, 2024-08-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-12-31', 'A', 40, 'Updated C by Source Contains Existing', '2024-01-15', 'Source Contains Existing'); -- Period: (2023-12-31, 2024-12-31]
+(1, '2024-02-28', '2024-08-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Mid-Period');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-12-31', 'A', 40, 'Updated C by Source Contains Existing', '2024-01-15', 'Source Contains Existing'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 3 rows
@@ -182,12 +231,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 9: Existing is contained within source, data equivalent
 \echo 'Scenario 9: Existing is contained within source, data equivalent'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2024-02-28', '2024-08-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Mid-Period, Same Data'); -- Period: (2024-02-28, 2024-08-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-12-31', 'A', 10, 'Same C', '2024-01-15', 'Source Contains Existing, Same Data'); -- Period: (2023-12-31, 2024-12-31]
+(1, '2024-02-28', '2024-08-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Mid-Period, Same Data');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-12-31', 'A', 10, 'Same C', '2024-01-15', 'Source Contains Existing, Same Data'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 1 row (the source record, as the existing one was deleted due to being contained with equivalent data)
@@ -197,12 +252,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 10: Source overlaps start of existing, data equivalent
 \echo 'Scenario 10: Source overlaps start of existing, data equivalent'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2024-02-28', '2024-10-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Mid-Year, Same Data'); -- Period: (2024-02-28, 2024-10-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-05-31', 'A', 10, 'Same C', '2024-01-15', 'Source Overlaps Start, Same Data'); -- Period: (2023-12-31, 2024-05-31]
+(1, '2024-02-28', '2024-10-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Mid-Year, Same Data');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-05-31', 'A', 10, 'Same C', '2024-01-15', 'Source Overlaps Start, Same Data'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 1 row, existing extended to start earlier
@@ -212,12 +273,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 11: Source overlaps end of existing, data equivalent
 \echo 'Scenario 11: Source overlaps end of existing, data equivalent'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-08-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Early-Mid Year, Same Data'); -- Period: (2023-12-31, 2024-08-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2024-05-31', '2024-12-31', 'A', 10, 'Same C', '2024-01-15', 'Source Overlaps End, Same Data'); -- Period: (2024-05-31, 2024-12-31]
+(1, '2023-12-31', '2024-08-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Early-Mid Year, Same Data');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2024-05-31', '2024-12-31', 'A', 10, 'Same C', '2024-01-15', 'Source Overlaps End, Same Data'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 1 row, existing extended to end later
@@ -227,12 +294,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 12: Source starts existing, data different
 \echo 'Scenario 12: Source starts existing, data different'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-10-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Full Year'); -- Period: (2023-12-31, 2024-10-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-05-31', 'A', 50, 'Updated C by Source Starts Existing', '2024-01-15', 'Source Starts Existing'); -- Period: (2023-12-31, 2024-05-31]
+(1, '2023-12-31', '2024-10-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Full Year');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-05-31', 'A', 50, 'Updated C by Source Starts Existing', '2024-01-15', 'Source Starts Existing'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 2 rows
@@ -243,12 +316,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 13: Existing starts source, data different
 \echo 'Scenario 13: Existing starts source, data different'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-05-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Shorter Period'); -- Period: (2023-12-31, 2024-05-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-10-31', 'A', 60, 'Updated C by Existing Starts Source', '2024-01-15', 'Existing Starts Source'); -- Period: (2023-12-31, 2024-10-31]
+(1, '2023-12-31', '2024-05-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Shorter Period');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-10-31', 'A', 60, 'Updated C by Existing Starts Source', '2024-01-15', 'Existing Starts Source'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 2 rows
@@ -259,12 +338,18 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 -- Scenario 14: Existing finishes source, data different
 \echo 'Scenario 14: Existing finishes source, data different'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2024-03-31', '2024-10-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Later Part'); -- Period: (2024-03-31, 2024-10-31]
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-10-31', 'A', 70, 'Updated C by Existing Finishes Source', '2024-01-15', 'Existing Finishes Source'); -- Period: (2023-12-31, 2024-10-31]
+(1, '2024-03-31', '2024-10-31', 'A', 10, 'Original C', '2024-01-10', 'Existing Later Part');
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-10-31', 'A', 70, 'Updated C by Existing Finishes Source', '2024-01-15', 'Existing Finishes Source'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 2 rows
@@ -276,11 +361,17 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 \echo 'Scenario 15: Source starts existing, data equivalent'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Full Year, Same Data'); 
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-05-31', 'A', 10, 'Same C', '2024-01-15', 'Source Starts Existing, Same Data'); 
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-05-31', 'A', 10, 'Same C', '2024-01-15', 'Source Starts Existing, Same Data'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 1 row (existing record unchanged, source is fully handled, ephemeral data updated from source)
@@ -291,11 +382,17 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 \echo 'Scenario 16: Existing starts source, data equivalent'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-05-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Shorter, Same Data'); 
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-15', 'Existing Starts Source, Same Data'); 
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-15', 'Existing Starts Source, Same Data'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 1 row (source record, existing was deleted)
@@ -306,11 +403,17 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 \echo 'Scenario 17: Source finishes existing, data equivalent'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2023-12-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Full Year, Same Data'); 
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2024-03-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-15', 'Source Finishes Existing, Same Data'); 
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2024-03-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-15', 'Source Finishes Existing, Same Data'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 1 row (existing record unchanged, source is fully handled, ephemeral data updated from source)
@@ -321,16 +424,93 @@ TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE 
 \echo 'Scenario 18: Existing finishes source, data equivalent'
 INSERT INTO batch_test_update.batch_upsert_target (id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
 (1, '2024-03-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-10', 'Existing Later Part, Same Data'); 
-INSERT INTO batch_test_update.batch_upsert_source (target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
-(1, '2023-12-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-15', 'Existing Finishes Source, Same Data'); 
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2023-12-31', '2024-10-31', 'A', 10, 'Same C', '2024-01-15', 'Existing Finishes Source, Same Data'); -- founding_row_id=target_id=1
 SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
-    :'target_schema', :'target_table', :'source_schema', :'source_table', :'source_row_id_col',
-    '[]'::JSONB, :'temporal_cols'::TEXT[], :'ephemeral_cols'::TEXT[], NULL, :'id_col'
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
 );
 SELECT * FROM batch_test_update.show_target_table(1);
 -- Expected: 1 row (source record, existing was deleted)
 -- Row 1: va=2023-12-31, vt=2024-10-31, value_b=10, value_c='Same C', updated_on='2024-01-15', edit_comment='Existing Finishes Source, Same Data'
 TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target; ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+
+
+-- New Scenario: Multiple Edits to Same New Entity in One Batch (founding_row_id cache test)
+\echo 'Scenario N1: Multiple Edits to Same New Entity in One Batch (founding_row_id cache test)'
+TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE;
+DELETE FROM batch_test_update.batch_upsert_target;
+ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(101, NULL, '2023-01-01', '2023-06-30', 'MultiEditNew', 10, 'C_First', '2023-01-15', 'First part new'), -- row_id=1
+(101, NULL, '2023-07-01', '2023-12-31', 'MultiEditNew', 20, 'C_Second', '2023-07-15', 'Second part new, values changed'); -- row_id=2
+
+SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => :'unique_cols'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
+) ORDER BY source_row_id;
+SELECT * FROM batch_test_update.show_target_table();
+-- Expected: A single new ID (e.g., 1) should be created for 'MultiEditNew'.
+-- Two rows for this ID due to different value_b/c in different periods.
+-- ID (e.g. 1): (MultiEditNew, 10, C_First) valid_after='2023-01-01', valid_to='2023-06-30', updated_on='2023-01-15'
+-- ID (e.g. 1): (MultiEditNew, 20, C_Second) valid_after='2023-07-01', valid_to='2023-12-31', updated_on='2023-07-15'
+TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target;
+ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+
+-- New Scenario: Rolling Infinity Updates - Equivalent Core Data
+\echo 'Scenario N2: Rolling Infinity Updates - Equivalent Core Data'
+TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE;
+DELETE FROM batch_test_update.batch_upsert_target;
+ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
+
+-- Step 1: Insert initial record with valid_to = infinity
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(201, NULL, '2022-12-31', 'infinity', 'RollingInf', 100, 'C_Initial', '2023-01-01', 'Initial Infinity');
+SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => :'unique_cols'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
+);
+SELECT * FROM batch_test_update.show_target_table();
+-- Expected: One row for new ID (e.g. 1), (RollingInf, 100, C_Initial), va='2022-12-31', vt='infinity', updated_on='2023-01-01'
+
+-- Step 2: Update with a new record that meets the previous one, same core data, new ephemeral data
+TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE;
+INSERT INTO batch_test_update.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(201, 1, '2023-12-31', 'infinity', 'RollingInf', 100, 'C_Initial', '2024-01-01', 'Update Ephemeral for Infinity'); -- Assumes ID 1 was created
+SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
+);
+SELECT * FROM batch_test_update.show_target_table(1);
+-- Expected: One row for ID 1, (RollingInf, 100, C_Initial), va='2022-12-31', vt='infinity', updated_on='2024-01-01' (original closed, new one merged and extended)
+
+TRUNCATE batch_test_update.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update.batch_upsert_target;
+ALTER SEQUENCE batch_test_update.batch_upsert_target_id_seq RESTART WITH 1;
 
 
 -- Cleanup

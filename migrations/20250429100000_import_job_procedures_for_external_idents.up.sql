@@ -147,44 +147,67 @@ BEGIN
         resolved_lu_id INT,
         resolved_est_id INT,
         operation public.import_row_operation_type,
-        action public.import_row_action_type
+        action public.import_row_action_type,
+        derived_founding_row_id BIGINT
     ) ON COMMIT DROP;
 
     v_sql := format($$
-        WITH RowChecks AS (
+        WITH RowChecks AS ( -- Determines existing DB entity and entity signature for each row_id
             SELECT
                 orig.data_row_id,
-                COUNT(tui.ident_value) FILTER (WHERE tui.ident_value IS NOT NULL) AS num_raw_idents_with_value, -- Count of idents that had a value from source
-                COUNT(tui.ident_type_id) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS num_valid_type_idents_with_value, -- Count of idents with value AND recognized type
-                array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NULL) as unknown_ident_codes, -- List of codes for unknown types that had a value
+                dt.derived_valid_from, -- Used for ordering entities within the batch
+                COUNT(tui.ident_value) FILTER (WHERE tui.ident_value IS NOT NULL) AS num_raw_idents_with_value,
+                COUNT(tui.ident_type_id) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS num_valid_type_idents_with_value,
+                array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NULL) as unknown_ident_codes,
                 COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_lu_ids,
                 COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_est_ids,
-                MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id,
-                MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id
-            FROM (SELECT unnest(%L::BIGINT[]) as data_row_id) orig
+                MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id, -- Entity ID from DB
+                MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id, -- Entity ID from DB
+                jsonb_object_agg(tui.source_ident_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature
+            FROM (SELECT unnest(%1$L::BIGINT[]) as data_row_id) orig -- %1$L is p_batch_row_ids
+            JOIN public.%2$I dt ON orig.data_row_id = dt.row_id      -- %2$I is v_data_table_name
             LEFT JOIN temp_unpivoted_idents tui ON orig.data_row_id = tui.data_row_id
-            GROUP BY orig.data_row_id
+            GROUP BY orig.data_row_id, dt.derived_valid_from
         ),
-        AnalysisWithOperation AS (
+        OrderedBatchEntities AS ( -- Orders rows within the batch that share the same entity signature
             SELECT
-                rc.data_row_id,
-                rc.final_lu_id,
-                rc.final_est_id,
+                rc.*, -- Select all columns from RowChecks
+                ROW_NUMBER() OVER (PARTITION BY rc.entity_signature ORDER BY rc.derived_valid_from NULLS LAST, rc.data_row_id) as rn_in_batch_for_entity,
+                FIRST_VALUE(rc.data_row_id) OVER (PARTITION BY rc.entity_signature ORDER BY rc.derived_valid_from NULLS LAST, rc.data_row_id) as actual_founding_row_id
+            FROM RowChecks rc
+        ),
+        AnalysisWithOperation AS ( -- Determines operation based on DB existence and batch order
+            SELECT
+                obe.data_row_id,
+                obe.actual_founding_row_id, -- Added
+                obe.final_lu_id, -- DB lu_id
+                obe.final_est_id, -- DB est_id
                 jsonb_strip_nulls(jsonb_build_object(
-                    'missing_identifier_value', CASE WHEN rc.num_raw_idents_with_value = 0 THEN true ELSE NULL END, -- Error if NO identifier had any value
-                    'unknown_identifier_type', CASE WHEN rc.num_raw_idents_with_value > 0 AND rc.num_valid_type_idents_with_value = 0 THEN rc.unknown_ident_codes ELSE NULL END, -- Error if values provided but for types not in external_ident_type
-                    'inconsistent_legal_unit', CASE WHEN rc.distinct_lu_ids > 1 THEN true ELSE NULL END,
-                    'inconsistent_establishment', CASE WHEN rc.distinct_est_ids > 1 THEN true ELSE NULL END,
-                    'ambiguous_unit_type', CASE WHEN rc.final_lu_id IS NOT NULL AND rc.final_est_id IS NOT NULL THEN true ELSE NULL END
+                    'missing_identifier_value', CASE WHEN obe.num_raw_idents_with_value = 0 THEN true ELSE NULL END,
+                    'unknown_identifier_type', CASE WHEN obe.num_raw_idents_with_value > 0 AND obe.num_valid_type_idents_with_value = 0 THEN obe.unknown_ident_codes ELSE NULL END,
+                    'inconsistent_legal_unit', CASE WHEN obe.distinct_lu_ids > 1 THEN true ELSE NULL END,
+                    'inconsistent_establishment', CASE WHEN obe.distinct_est_ids > 1 THEN true ELSE NULL END,
+                    'ambiguous_unit_type', CASE WHEN obe.final_lu_id IS NOT NULL AND obe.final_est_id IS NOT NULL THEN true ELSE NULL END
                 )) as error_jsonb,
                 CASE
-                    WHEN rc.final_lu_id IS NULL AND rc.final_est_id IS NULL THEN 'insert'::public.import_row_operation_type
-                    WHEN %L::public.import_strategy IN ('insert_or_update', 'update_only') THEN 'update'::public.import_row_operation_type
-                    ELSE 'replace'::public.import_row_operation_type -- Covers insert_or_replace, replace_only, and insert_only (when existing is found)
+                    WHEN obe.final_lu_id IS NULL AND obe.final_est_id IS NULL THEN -- Entity is new to the DB
+                        CASE
+                            WHEN obe.rn_in_batch_for_entity = 1 THEN 'insert'::public.import_row_operation_type
+                            ELSE -- Subsequent row for a new entity within this batch
+                                CASE
+                                    WHEN %3$L::public.import_strategy IN ('insert_or_update', 'update_only') THEN 'update'::public.import_row_operation_type -- %3$L is v_strategy
+                                    ELSE 'replace'::public.import_row_operation_type
+                                END
+                        END
+                    ELSE -- Entity already exists in the DB
+                        CASE
+                            WHEN %3$L::public.import_strategy IN ('insert_or_update', 'update_only') THEN 'update'::public.import_row_operation_type -- %3$L is v_strategy
+                            ELSE 'replace'::public.import_row_operation_type
+                        END
                 END as operation
-            FROM RowChecks rc
+            FROM OrderedBatchEntities obe
         )
-        INSERT INTO temp_batch_analysis (data_row_id, error_jsonb, resolved_lu_id, resolved_est_id, operation, action)
+        INSERT INTO temp_batch_analysis (data_row_id, error_jsonb, resolved_lu_id, resolved_est_id, operation, action, derived_founding_row_id)
         SELECT
             awo.data_row_id,
             awo.error_jsonb,
@@ -193,54 +216,54 @@ BEGIN
             awo.operation,
             CASE
                 WHEN awo.error_jsonb != '{}'::jsonb THEN 'skip'::public.import_row_action_type -- Priority 1: Error
-
-                -- Strategy: insert_only. Skip if operation is not 'insert'.
-                WHEN %L::public.import_strategy = 'insert_only' AND awo.operation != 'insert'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type
-
-                -- Strategy: replace_only. Skip if operation is not 'replace'.
-                WHEN %L::public.import_strategy = 'replace_only' AND awo.operation != 'replace'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type
-                
-                -- Strategy: update_only. Skip if operation is not 'update'.
-                WHEN %L::public.import_strategy = 'update_only' AND awo.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type
-
-                -- Otherwise, action is the same as the (now strategy-aware) operation.
+                WHEN %3$L::public.import_strategy = 'insert_only' AND awo.operation != 'insert'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
+                WHEN %3$L::public.import_strategy = 'replace_only' AND awo.operation != 'replace'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
+                WHEN %3$L::public.import_strategy = 'update_only' AND awo.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
                 ELSE (awo.operation::text)::public.import_row_action_type
-            END as action
+            END as action,
+            awo.actual_founding_row_id -- Added
         FROM AnalysisWithOperation awo;
-    $$, p_batch_row_ids, v_strategy, -- For operation CASE
-        v_strategy, v_strategy, v_strategy); -- For action CASE
+    $$, p_batch_row_ids, v_data_table_name, v_strategy); -- Parameters for format()
     RAISE DEBUG '[Job %] analyse_external_idents: Identifying errors, determining operation and action: %', p_job_id, v_sql;
     EXECUTE v_sql;
     
-    -- Debug: Log results from RowChecks logic (which is inside the v_sql for temp_batch_analysis)
+    -- Debug: Log results from RowChecks and OrderedBatchEntities logic
     DECLARE
-        rc_rec RECORD;
+        debug_rec RECORD;
         debug_sql TEXT;
     BEGIN
         debug_sql := format($$
             WITH RowChecks AS (
                 SELECT
                     orig.data_row_id,
+                    dt.derived_valid_from,
                     COUNT(tui.ident_value) FILTER (WHERE tui.ident_value IS NOT NULL) AS num_raw_idents_with_value,
                     COUNT(tui.ident_type_id) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS num_valid_type_idents_with_value,
                     array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NULL) as unknown_ident_codes,
                     COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_lu_ids,
                     COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_est_ids,
                     MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id,
-                    MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id
-                FROM (SELECT unnest(%L::BIGINT[]) as data_row_id) orig
+                    MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id,
+                    jsonb_object_agg(tui.source_ident_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature
+                FROM (SELECT unnest(%1$L::BIGINT[]) as data_row_id) orig
+                JOIN public.%2$I dt ON orig.data_row_id = dt.row_id
                 LEFT JOIN temp_unpivoted_idents tui ON orig.data_row_id = tui.data_row_id
-                GROUP BY orig.data_row_id
+                GROUP BY orig.data_row_id, dt.derived_valid_from
+            ),
+            OrderedBatchEntities AS (
+                SELECT
+                    rc.*,
+                    ROW_NUMBER() OVER (PARTITION BY rc.entity_signature ORDER BY rc.derived_valid_from NULLS LAST, rc.data_row_id) as rn_in_batch_for_entity
+                FROM RowChecks rc
             )
-            SELECT * FROM RowChecks WHERE data_row_id = ANY(%L::BIGINT[]) ORDER BY data_row_id;
-        $$, p_batch_row_ids, p_batch_row_ids); -- Pass p_batch_row_ids for both %L
+            SELECT obe.* FROM OrderedBatchEntities obe WHERE obe.data_row_id = ANY(%1$L::BIGINT[]) ORDER BY obe.entity_signature, obe.rn_in_batch_for_entity;
+        $$, p_batch_row_ids, v_data_table_name);
 
-        RAISE DEBUG '[Job %] analyse_external_idents: Debugging RowChecks logic with SQL: %', p_job_id, debug_sql;
-        FOR rc_rec IN EXECUTE debug_sql
+        RAISE DEBUG '[Job %] analyse_external_idents: Debugging OrderedBatchEntities logic with SQL: %', p_job_id, debug_sql;
+        FOR debug_rec IN EXECUTE debug_sql
         LOOP
-            RAISE DEBUG '[Job %]   RowChecks for data_row_id=%: num_raw_idents_with_value=%, num_valid_type_idents_with_value=%, unknown_ident_codes=%, distinct_lu_ids=%, distinct_est_ids=%, final_lu_id=%, final_est_id=%',
-                        p_job_id, rc_rec.data_row_id, rc_rec.num_raw_idents_with_value, rc_rec.num_valid_type_idents_with_value, rc_rec.unknown_ident_codes,
-                        rc_rec.distinct_lu_ids, rc_rec.distinct_est_ids, rc_rec.final_lu_id, rc_rec.final_est_id;
+            RAISE DEBUG '[Job %]   OBE: data_row_id=%, final_lu_id=%, final_est_id=%, entity_signature=%, rn_in_batch_for_entity=%, derived_valid_from=%',
+                        p_job_id, debug_rec.data_row_id, debug_rec.final_lu_id, debug_rec.final_est_id, debug_rec.entity_signature, debug_rec.rn_in_batch_for_entity, debug_rec.derived_valid_from;
         END LOOP;
     END;
 
@@ -265,7 +288,7 @@ BEGIN
     END;
 
     -- Step 4: Batch Update Non-Error Rows (Success or Strategy Skips)
-    v_set_clause := format('last_completed_priority = %L, error = CASE WHEN (error - %L::TEXT[]) = ''{}''::jsonb THEN NULL ELSE (error - %L::TEXT[]) END, state = %L, action = ru.action, operation = ru.operation',
+    v_set_clause := format('last_completed_priority = %L, error = CASE WHEN (error - %L::TEXT[]) = ''{}''::jsonb THEN NULL ELSE (error - %L::TEXT[]) END, state = %L, action = ru.action, operation = ru.operation, founding_row_id = ru.derived_founding_row_id',
                            v_step.priority, v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, 'analysing'::public.import_data_state);
     IF v_has_lu_id_col THEN
         v_set_clause := v_set_clause || ', legal_unit_id = ru.resolved_lu_id';

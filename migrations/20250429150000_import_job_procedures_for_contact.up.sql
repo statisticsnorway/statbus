@@ -239,7 +239,7 @@ BEGIN
         RAISE DEBUG '[Job %] process_contact: Handling REPLACES for existing contacts via batch_upsert.', p_job_id;
 
         CREATE TEMP TABLE temp_contact_upsert_source (
-            data_row_id BIGINT PRIMARY KEY, 
+            row_id BIGINT PRIMARY KEY, 
             id INT, 
             valid_after DATE NOT NULL, -- Changed
             valid_to DATE NOT NULL,
@@ -258,12 +258,12 @@ BEGIN
         ) ON COMMIT DROP;
 
         INSERT INTO temp_contact_upsert_source (
-            data_row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, data_source_id, -- Changed valid_from to valid_after
+            row_id, id, valid_after, valid_to, legal_unit_id, establishment_id, data_source_id, -- Changed valid_from to valid_after
             web_address, email_address, phone_number, landline, mobile_number, fax_number,
             edit_by_user_id, edit_at, edit_comment
         )
         SELECT
-            tbd.data_row_id,
+            tbd.data_row_id, -- This becomes row_id in temp_contact_upsert_source
             tbd.existing_contact_id, 
             tbd.valid_after, -- Changed
             tbd.valid_to,
@@ -288,9 +288,7 @@ BEGIN
                     p_target_table_name => 'contact',
                     p_source_schema_name => 'pg_temp',
                     p_source_table_name => 'temp_contact_upsert_source',
-                    p_source_row_id_column_name => 'data_row_id',
                     p_unique_columns => '[]'::jsonb, 
-                    p_temporal_columns => ARRAY['valid_after', 'valid_to'], -- Changed
                     p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'],
                     p_id_column_name => 'id'
                 )

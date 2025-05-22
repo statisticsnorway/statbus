@@ -5,12 +5,10 @@ CREATE OR REPLACE FUNCTION import.batch_insert_or_replace_generic_valid_time_tab
     p_target_table_name TEXT,
     p_source_schema_name TEXT,
     p_source_table_name TEXT,
-    p_source_row_id_column_name TEXT, -- Name of the column in source table that uniquely identifies the row (e.g., 'row_id' from _data table)
     p_unique_columns JSONB, -- For identifying existing ID if input ID is null. Format: '[ "col_name_1", ["comp_col_a", "comp_col_b"] ]'
-    p_temporal_columns TEXT[], -- Must be ARRAY['valid_after_col_name', 'valid_to_col_name'] using (exclusive_start, inclusive_end] interval
     p_ephemeral_columns TEXT[], -- Columns to exclude from equivalence check but keep in insert/update
-    p_generated_columns_override TEXT[] DEFAULT NULL, -- Explicit list of DB-generated columns (e.g., 'id' if serial/identity)
-    p_id_column_name TEXT DEFAULT 'id' -- Name of the primary key / ID column in the target table
+    p_id_column_name TEXT, -- Name of the primary key / ID column in the target table
+    p_generated_columns_override TEXT[] DEFAULT NULL -- Explicit list of DB-generated columns (e.g., 'id' if serial/identity)
 )
 RETURNS TABLE (
     source_row_id BIGINT,
@@ -46,8 +44,9 @@ DECLARE
     v_source_query TEXT;
     v_sql TEXT;
 
-    v_valid_after_col TEXT; -- Renamed from v_valid_from_col
-    v_valid_to_col TEXT;
+    v_founding_id_cache JSONB := '{}'::JSONB;
+    v_current_founding_row_id BIGINT;
+    v_initial_existing_id_is_null BOOLEAN;
 
     v_err_context TEXT;
     v_loop_error_message TEXT;
@@ -56,12 +55,6 @@ DECLARE
     v_target_table_actual_columns TEXT[]; -- Holds actual column names of the target table
     v_source_target_id_alias TEXT;
 BEGIN
-    IF array_length(p_temporal_columns, 1) != 2 THEN
-        RAISE EXCEPTION 'p_temporal_columns must contain exactly two column names (e.g., valid_after, valid_to)';
-    END IF;
-    v_valid_after_col := p_temporal_columns[1]; -- Renamed
-    v_valid_to_col := p_temporal_columns[2];
-
     -- Get actual column names for the target table
     EXECUTE format(
         'SELECT array_agg(column_name::TEXT) FROM information_schema.columns WHERE table_schema = %L AND table_name = %L',
@@ -132,14 +125,36 @@ BEGIN
     FOR v_input_row_record IN EXECUTE v_source_query
     LOOP
         v_source_record_jsonb := to_jsonb(v_input_row_record); -- Renamed
-        IF NOT (v_source_record_jsonb ? p_source_row_id_column_name) THEN
-            RAISE EXCEPTION 'Source row ID column % not found in source table %.%', p_source_row_id_column_name, p_source_schema_name, p_source_table_name;
+        IF NOT (v_source_record_jsonb ? 'row_id') THEN
+            RAISE EXCEPTION 'Source row ID column ''row_id'' not found in source table %.%', p_source_schema_name, p_source_table_name;
         END IF;
-        v_current_source_row_id := (v_source_record_jsonb->>p_source_row_id_column_name)::BIGINT;
+        v_current_source_row_id := (v_source_record_jsonb->>'row_id')::BIGINT;
         
         v_existing_id := (v_source_record_jsonb->>p_id_column_name)::INT;
+        v_initial_existing_id_is_null := (v_existing_id IS NULL);
 
-        RAISE DEBUG '[batch_replace] Processing source_row_id %: %. Initial v_existing_id from source field %I: %', 
+        -- Attempt to use founding_row_id cache if v_existing_id is NULL
+        IF v_initial_existing_id_is_null THEN
+            IF v_source_record_jsonb ? 'founding_row_id' AND (v_source_record_jsonb->>'founding_row_id') IS NOT NULL THEN
+                v_current_founding_row_id := (v_source_record_jsonb->>'founding_row_id')::BIGINT;
+                IF v_founding_id_cache ? v_current_founding_row_id::TEXT THEN
+                    v_existing_id := (v_founding_id_cache->>v_current_founding_row_id::TEXT)::INT;
+                    v_source_record_jsonb := jsonb_set(v_source_record_jsonb, ARRAY[p_id_column_name], to_jsonb(v_existing_id), true);
+                    RAISE DEBUG '[batch_replace] Cache hit for founding_row_id %: set %I to % for source_row_id %', 
+                                v_current_founding_row_id, p_id_column_name, v_existing_id, v_current_source_row_id;
+                ELSE
+                    RAISE DEBUG '[batch_replace] founding_row_id % not in cache for source_row_id %.', v_current_founding_row_id, v_current_source_row_id;
+                    -- v_existing_id remains NULL, will proceed to unique column lookup or new insert
+                END IF;
+            ELSE
+                v_current_founding_row_id := NULL; -- Ensure it's null if not present or null in source
+                RAISE DEBUG '[batch_replace] No founding_row_id found or it is NULL in source_row_id %.', v_current_source_row_id;
+            END IF;
+        ELSE
+            v_current_founding_row_id := NULL; -- Not needed if v_existing_id is already known from source p_id_column_name
+        END IF;
+
+        RAISE DEBUG '[batch_replace] Processing source_row_id %: %. Initial v_existing_id (after cache check) from source field %I: %', 
             v_current_source_row_id, v_source_record_jsonb, p_id_column_name, v_existing_id;
 
         BEGIN -- Start block for individual row processing
@@ -151,12 +166,12 @@ BEGIN
             v_result_id := NULL;
             v_source_record_handled := FALSE; -- Initialize for each source record
 
-            v_source_valid_after := (v_source_record_jsonb->>v_valid_after_col)::DATE;
-            v_source_valid_to    := (v_source_record_jsonb->>v_valid_to_col)::DATE;
+            v_source_valid_after := (v_source_record_jsonb->>'valid_after')::DATE;
+            v_source_valid_to    := (v_source_record_jsonb->>'valid_to')::DATE;
 
             IF v_source_valid_after IS NULL OR v_source_valid_to IS NULL THEN
-                RAISE EXCEPTION 'Temporal columns (%, %) cannot be null. Error in source row with % = %: %',
-                    v_valid_after_col, v_valid_to_col, p_source_row_id_column_name, v_current_source_row_id, v_source_record_jsonb;
+                RAISE EXCEPTION 'Temporal columns (''valid_after'', ''valid_to'') cannot be null. Error in source row with ''row_id'' = %: %',
+                    v_current_source_row_id, v_source_record_jsonb;
             END IF;
 
             IF v_existing_id IS NULL AND jsonb_array_length(p_unique_columns) > 0 THEN
@@ -207,7 +222,7 @@ BEGIN
             BEGIN
                 FOR _col_equiv IN 
                     SELECT col FROM unnest(v_target_table_actual_columns) col
-                    WHERE NOT (col = ANY(p_temporal_columns))
+                    WHERE NOT (col = 'valid_after' OR col = 'valid_to')
                       AND col != 'valid_from' 
                       AND NOT (col = ANY(p_ephemeral_columns))
                       AND NOT (col = p_id_column_name AND (p_id_column_name = ANY(v_generated_columns)))
@@ -223,14 +238,13 @@ BEGIN
                 $$SELECT * 
                   FROM %I.%I AS tbl
                   WHERE tbl.%I = %L 
-                    AND tbl.%I <= %L::DATE -- tbl.valid_after <= v_source_valid_to
-                    AND tbl.%I >= %L::DATE -- tbl.valid_to    >= v_source_valid_after
-                  ORDER BY tbl.%I$$,
+                    AND tbl.valid_after <= %L::DATE -- tbl.valid_after <= v_source_valid_to
+                    AND tbl.valid_to    >= %L::DATE -- tbl.valid_to    >= v_source_valid_after
+                  ORDER BY tbl.valid_after$$, -- Order by valid_after
                 p_target_schema_name, p_target_table_name,
                 p_id_column_name, v_existing_id, 
-                v_valid_after_col, v_source_valid_to,   -- For tbl.valid_after <= v_source_valid_to
-                v_valid_to_col, v_source_valid_after, -- For tbl.valid_to    >= v_source_valid_after
-                v_valid_after_col -- Order by valid_after
+                v_source_valid_to,   -- Value for tbl.valid_after <= %L
+                v_source_valid_after -- Value for tbl.valid_to    >= %L
             );
             RAISE DEBUG '[batch_replace] Existing eras query for source row % (target ID %): %', v_current_source_row_id, v_existing_id, v_existing_query;
 
@@ -240,8 +254,8 @@ BEGIN
                 RAISE DEBUG '[batch_replace] Source row %, Existing era record found: %', v_current_source_row_id, v_existing_era_jsonb;
 
                 DECLARE
-                    _ex_va DATE := (v_existing_era_jsonb->>v_valid_after_col)::DATE;
-                    _ex_vt DATE := (v_existing_era_jsonb->>v_valid_to_col)::DATE;
+                    _ex_va DATE := (v_existing_era_jsonb->>'valid_after')::DATE;
+                    _ex_vt DATE := (v_existing_era_jsonb->>'valid_to')::DATE;
                     v_relation public.allen_interval_relation;
                     _data_is_equivalent BOOLEAN := TRUE; -- Assume true, prove false
                     _key TEXT;
@@ -266,7 +280,7 @@ BEGIN
                     END IF;
 
                     v_relation := public.get_allen_relation(v_source_valid_after, v_source_valid_to, _ex_va, _ex_vt);
-                    RAISE DEBUG '[batch_replace] Allen relation for source (% to %] and existing (% to %]: %', 
+                    RAISE DEBUG '[batch_replace] Allen relation for source (valid_after % to valid_to %] and existing (valid_after % to valid_to %]: %', 
                                 v_source_valid_after, v_source_valid_to, _ex_va, _ex_vt, v_relation;
 
                     CASE v_relation
@@ -274,37 +288,37 @@ BEGIN
                             IF _data_is_equivalent THEN
                                 RAISE DEBUG '[batch_replace] Relation: EQUALS, data equivalent. Updating ephemeral on existing.';
                                 IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
-                                    EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                    EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                    p_target_schema_name, p_target_table_name, _eph_update_set_clause,
-                                                   p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                   p_id_column_name, v_existing_id, _ex_va, _ex_vt);
                                 END IF;
                                 v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: EQUALS, data different. Deleting existing.';
-                                EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
-                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                               _ex_va, _ex_vt);
                             END IF;
                         WHEN 'during' THEN -- Source X is during Existing Y
                             IF _data_is_equivalent THEN
                                 RAISE DEBUG '[batch_replace] Relation: DURING, data equivalent. Updating ephemeral on existing.';
                                 IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
-                                     EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                     EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                    p_target_schema_name, p_target_table_name, _eph_update_set_clause,
-                                                   p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                   p_id_column_name, v_existing_id, _ex_va, _ex_vt);
                                 END IF;
                                 v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: DURING, data different. Splitting existing.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name, v_valid_to_col, v_source_valid_after,
-                                               p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
+                                               p_target_schema_name, p_target_table_name, v_source_valid_after,
+                                               p_id_column_name, v_existing_id, _ex_va, _ex_vt);
                                 IF v_source_valid_to < _ex_vt THEN
                                     DECLARE _trailing_part_data JSONB := v_existing_era_jsonb; _insert_cols_trail TEXT[]; _insert_vals_trail TEXT[]; _col_trail TEXT;
                                     BEGIN
                                         _trailing_part_data := v_existing_era_jsonb; -- Start with original existing data
-                                        _trailing_part_data := jsonb_set(_trailing_part_data, ARRAY[v_valid_after_col], to_jsonb(v_source_valid_to::TEXT)); -- Starts after source
-                                        _trailing_part_data := jsonb_set(_trailing_part_data, ARRAY[v_valid_to_col], to_jsonb(_ex_vt::TEXT)); -- Ends at original existing end
+                                        _trailing_part_data := jsonb_set(_trailing_part_data, ARRAY['valid_after'], to_jsonb(v_source_valid_to::TEXT)); -- Starts after source
+                                        _trailing_part_data := jsonb_set(_trailing_part_data, ARRAY['valid_to'], to_jsonb(_ex_vt::TEXT)); -- Ends at original existing end
                                         _trailing_part_data := jsonb_set(_trailing_part_data, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
                                         _trailing_part_data := _trailing_part_data - 'valid_from'; -- Ensure trigger handles valid_from
 
@@ -338,89 +352,89 @@ BEGIN
                             END IF;
                         WHEN 'contains' THEN 
                             RAISE DEBUG '[batch_replace] Relation: CONTAINS. Deleting existing.';
-                            EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                            EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                            p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
-                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                           _ex_va, _ex_vt);
                         WHEN 'overlaps' THEN 
                             IF _data_is_equivalent THEN
                                 RAISE DEBUG '[batch_replace] Relation: OVERLAPS, data equivalent. Extending existing start and updating ephemeral.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L %s WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name, v_valid_after_col, v_source_valid_after,
+                                EXECUTE format('UPDATE %I.%I SET valid_after = %L %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
+                                               p_target_schema_name, p_target_table_name, v_source_valid_after,
                                                CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
-                                               p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                               p_id_column_name, v_existing_id, _ex_va, _ex_vt);
                                 v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: OVERLAPS, data different. Truncating existing Y by setting Y.valid_after = X.valid_to (%L).', v_source_valid_to;
-                                IF _ex_va < v_source_valid_to THEN EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, v_valid_after_col, v_source_valid_to, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
+                                IF _ex_va < v_source_valid_to THEN EXECUTE format('UPDATE %I.%I SET valid_after = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, v_source_valid_to, p_id_column_name, v_existing_id, _ex_va, _ex_vt);
+                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, _ex_va, _ex_vt); END IF;
                             END IF;
                         WHEN 'overlapped_by' THEN 
                             IF _data_is_equivalent THEN
                                 RAISE DEBUG '[batch_replace] Relation: OVERLAPPED_BY, data equivalent. Extending existing end and updating ephemeral.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L %s WHERE %I = %L AND %I = %L AND %I = %L',
-                                               p_target_schema_name, p_target_table_name, v_valid_to_col, v_source_valid_to,
+                                EXECUTE format('UPDATE %I.%I SET valid_to = %L %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
+                                               p_target_schema_name, p_target_table_name, v_source_valid_to,
                                                CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
-                                               p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                               p_id_column_name, v_existing_id, _ex_va, _ex_vt);
                                 v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: OVERLAPPED_BY, data different. Truncating existing Y by setting Y.valid_to = X.valid_after (%L).', v_source_valid_after;
-                                IF _ex_vt > v_source_valid_after THEN EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, v_valid_to_col, v_source_valid_after, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
+                                IF _ex_vt > v_source_valid_after THEN EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, v_source_valid_after, p_id_column_name, v_existing_id, _ex_va, _ex_vt);
+                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, _ex_va, _ex_vt); END IF;
                             END IF;
                         WHEN 'starts' THEN
                             IF _data_is_equivalent THEN
                                 RAISE DEBUG '[batch_replace] Relation: STARTS, data equivalent. Updating ephemeral on existing.';
-                                IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
+                                IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, _ex_va, _ex_vt); END IF;
                                 v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: STARTS, data different. Modifying existing Y to start after X by setting Y.valid_after = X.valid_to (%L).', v_source_valid_to;
-                                IF _ex_va < v_source_valid_to THEN EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, v_valid_after_col, v_source_valid_to, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
+                                IF _ex_va < v_source_valid_to THEN EXECUTE format('UPDATE %I.%I SET valid_after = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, v_source_valid_to, p_id_column_name, v_existing_id, _ex_va, _ex_vt);
+                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, _ex_va, _ex_vt); END IF;
                             END IF;
                         WHEN 'started_by' THEN
                             RAISE DEBUG '[batch_replace] Relation: STARTED_BY. Deleting existing.';
-                            EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                            EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                            p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
-                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                           _ex_va, _ex_vt);
                         WHEN 'finishes' THEN
                             IF _data_is_equivalent THEN
                                 IF v_source_valid_to = 'infinity'::DATE AND _ex_vt = 'infinity'::DATE AND v_source_valid_after > _ex_va THEN
                                      RAISE DEBUG '[batch_replace] Relation: FINISHES, data equivalent, existing ends at infinity. Updating ephemeral.';
-                                     IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
+                                     IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, _ex_va, _ex_vt); END IF;
                                      v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                                 ELSE
                                     RAISE DEBUG '[batch_replace] Relation: FINISHES, data equivalent (non-infinity or source not later start). Updating ephemeral on existing.';
-                                    IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
+                                    IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, _ex_va, _ex_vt); END IF;
                                     v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                                 END IF;
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: FINISHES, data different. Modifying existing Y to end before X by setting Y.valid_to = X.valid_after (%L).', v_source_valid_after;
-                                IF _ex_vt > v_source_valid_after THEN EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, v_valid_to_col, v_source_valid_after, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
-                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt); END IF;
+                                IF _ex_vt > v_source_valid_after THEN EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, v_source_valid_after, p_id_column_name, v_existing_id, _ex_va, _ex_vt);
+                                ELSE EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id, _ex_va, _ex_vt); END IF;
                             END IF;
                         WHEN 'finished_by' THEN
                             RAISE DEBUG '[batch_replace] Relation: FINISHED_BY. Deleting existing.';
-                            EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                            EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                            p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
-                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                           _ex_va, _ex_vt);
                         WHEN 'meets' THEN -- Source X (v_source_valid_after, v_source_valid_to] meets Existing Y (_ex_va, _ex_vt] :: v_source_valid_to = _ex_va
                             IF _data_is_equivalent THEN
                                 RAISE DEBUG '[batch_replace] Relation: MEETS, data equivalent. Extending existing Y''s valid_after to source X''s valid_after.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                EXECUTE format('UPDATE %I.%I SET valid_after = %L %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                p_target_schema_name, p_target_table_name, 
-                                               v_valid_after_col, v_source_valid_after, -- Set existing Y's start to source X's start
+                                               v_source_valid_after, -- Set existing Y's start to source X's start
                                                CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
-                                               p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                               p_id_column_name, v_existing_id, _ex_va, _ex_vt);
                                 v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             END IF; -- Data different: no action on existing, source will be inserted.
                         WHEN 'met_by' THEN -- Source X (v_source_valid_after, v_source_valid_to] is met_by Existing Y (_ex_va, _ex_vt] :: v_source_valid_after = _ex_vt
                             IF _data_is_equivalent THEN
                                 RAISE DEBUG '[batch_replace] Relation: MET_BY, data equivalent. Extending existing Y''s valid_to to source X''s valid_to.';
-                                EXECUTE format('UPDATE %I.%I SET %I = %L %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                EXECUTE format('UPDATE %I.%I SET valid_to = %L %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                p_target_schema_name, p_target_table_name, 
-                                               v_valid_to_col, v_source_valid_to, -- Set existing Y's end to source X's end
+                                               v_source_valid_to, -- Set existing Y's end to source X's end
                                                CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
-                                               p_id_column_name, v_existing_id, v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                               p_id_column_name, v_existing_id, _ex_va, _ex_vt);
                                 v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
                             END IF; -- Data different: no action on existing, source will be inserted.
                         ELSE -- 'precedes', 'preceded_by', or unhandled
@@ -486,6 +500,17 @@ BEGIN
                                         p_id_column_name);
                         RAISE DEBUG '[batch_replace] Source row %, Insert SQL: %', v_current_source_row_id, v_sql;
                         EXECUTE v_sql INTO v_result_id;
+
+                        -- Update founding_row_id cache if this was a new entity identified by founding_row_id
+                        IF v_initial_existing_id_is_null AND
+                           v_current_founding_row_id IS NOT NULL AND 
+                           v_result_id IS NOT NULL AND
+                           NOT (v_founding_id_cache ? v_current_founding_row_id::TEXT)
+                        THEN
+                            v_founding_id_cache := jsonb_set(v_founding_id_cache, ARRAY[v_current_founding_row_id::TEXT], to_jsonb(v_result_id));
+                            RAISE DEBUG '[batch_replace] Cached new ID % for founding_row_id % from source_row_id %', 
+                                        v_result_id, v_current_founding_row_id, v_current_source_row_id;
+                        END IF;
                     END IF;
                 END;
             ELSE

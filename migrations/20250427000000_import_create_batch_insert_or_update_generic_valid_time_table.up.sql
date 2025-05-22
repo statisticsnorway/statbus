@@ -8,12 +8,10 @@ CREATE OR REPLACE FUNCTION import.batch_insert_or_update_generic_valid_time_tabl
     p_target_table_name TEXT,
     p_source_schema_name TEXT,
     p_source_table_name TEXT,
-    p_source_row_id_column_name TEXT, -- Name of the column in source table that uniquely identifies the row
     p_unique_columns JSONB, -- For identifying existing ID if input ID is null.
-    p_temporal_columns TEXT[], -- Must be ARRAY['valid_after_col_name', 'valid_to_col_name'] using (exclusive_start, inclusive_end] interval
     p_ephemeral_columns TEXT[], -- Columns to exclude from data comparison but keep in insert/update
-    p_generated_columns_override TEXT[] DEFAULT NULL, -- Explicit list of DB-generated columns
-    p_id_column_name TEXT DEFAULT 'id' -- Name of the primary key / ID column in the target table
+    p_id_column_name TEXT, -- Name of the primary key / ID column in the target table
+    p_generated_columns_override TEXT[] DEFAULT NULL -- Explicit list of DB-generated columns
 )
 RETURNS TABLE (
     source_row_id BIGINT,
@@ -38,8 +36,9 @@ DECLARE
     v_err_context TEXT;
     v_loop_error_message TEXT;
 
-    v_valid_after_col TEXT; -- Renamed from v_valid_from_col
-    v_valid_to_col TEXT;    -- Remains inclusive
+    v_founding_id_cache JSONB := '{}'::JSONB;
+    v_current_founding_row_id BIGINT;
+    v_initial_existing_id_is_null BOOLEAN;
 
     v_target_table_actual_columns TEXT[];
     v_source_target_id_alias TEXT;
@@ -55,17 +54,10 @@ DECLARE
     v_target_column_types JSONB; -- To store {column_name: udt_type}
 
 BEGIN -- Main function body starts here
-    RAISE DEBUG '[batch_update] Initializing. p_id_column_name: "%", p_temporal_columns[1] (valid_after_col): "%", p_temporal_columns[2] (valid_to_col): "%"',
-        p_id_column_name, p_temporal_columns[1], p_temporal_columns[2];
+    RAISE DEBUG '[batch_update] Initializing. p_id_column_name: "%"', p_id_column_name;
 
     -- _insert_record helper function removed due to PL/pgSQL syntax limitations for nested functions.
     -- Its logic will need to be inlined or moved to a separate schema-level function.
-
-    IF array_length(p_temporal_columns, 1) != 2 THEN
-        RAISE EXCEPTION 'p_temporal_columns must contain exactly two column names (e.g., valid_after, valid_to)';
-    END IF; -- End IF for p_temporal_columns check
-    v_valid_after_col := p_temporal_columns[1]; -- Renamed
-    v_valid_to_col := p_temporal_columns[2];
 
     EXECUTE format(
         'SELECT array_agg(column_name::TEXT) FROM information_schema.columns WHERE table_schema = %L AND table_name = %L',
@@ -121,7 +113,7 @@ BEGIN -- Main function body starts here
     -- Determine data columns to consider for update (non-temporal, non-ephemeral, non-generated-id)
     SELECT array_agg(col) INTO v_data_columns_to_consider
     FROM unnest(v_target_table_actual_columns) col
-    WHERE NOT (col = ANY(p_temporal_columns))
+    WHERE NOT (col = 'valid_after' OR col = 'valid_to') -- Use hardcoded temporal column names
       AND col != 'valid_from' -- Explicitly exclude valid_from
       AND NOT (col = ANY(p_ephemeral_columns))
       AND NOT (col = p_id_column_name AND p_id_column_name = ANY(v_generated_columns));
@@ -130,10 +122,34 @@ BEGIN -- Main function body starts here
     FOR v_input_row_record IN EXECUTE v_source_query
     LOOP
         v_new_record_for_processing := to_jsonb(v_input_row_record);
-        v_current_source_row_id := (v_new_record_for_processing->>p_source_row_id_column_name)::BIGINT;
+        IF NOT (v_new_record_for_processing ? 'row_id') THEN
+            RAISE EXCEPTION 'Source row ID column ''row_id'' not found in source table %.%', p_source_schema_name, p_source_table_name;
+        END IF;
+        v_current_source_row_id := (v_new_record_for_processing->>'row_id')::BIGINT;
         v_existing_id := (v_new_record_for_processing->>p_id_column_name)::INT;
+        v_initial_existing_id_is_null := (v_existing_id IS NULL);
 
-        RAISE DEBUG '[batch_update] Processing source_row_id %: %. Initial v_existing_id: %', 
+        -- Attempt to use founding_row_id cache if v_existing_id is NULL
+        IF v_initial_existing_id_is_null THEN
+            IF v_new_record_for_processing ? 'founding_row_id' AND (v_new_record_for_processing->>'founding_row_id') IS NOT NULL THEN
+                v_current_founding_row_id := (v_new_record_for_processing->>'founding_row_id')::BIGINT;
+                IF v_founding_id_cache ? v_current_founding_row_id::TEXT THEN
+                    v_existing_id := (v_founding_id_cache->>v_current_founding_row_id::TEXT)::INT;
+                    v_new_record_for_processing := jsonb_set(v_new_record_for_processing, ARRAY[p_id_column_name], to_jsonb(v_existing_id), true);
+                    RAISE DEBUG '[batch_update] Cache hit for founding_row_id %: set %I to % for source_row_id %', 
+                                v_current_founding_row_id, p_id_column_name, v_existing_id, v_current_source_row_id;
+                ELSE
+                    RAISE DEBUG '[batch_update] founding_row_id % not in cache for source_row_id %.', v_current_founding_row_id, v_current_source_row_id;
+                END IF;
+            ELSE
+                v_current_founding_row_id := NULL;
+                RAISE DEBUG '[batch_update] No founding_row_id found or it is NULL in source_row_id %.', v_current_source_row_id;
+            END IF;
+        ELSE
+            v_current_founding_row_id := NULL; 
+        END IF;
+
+        RAISE DEBUG '[batch_update] Processing source_row_id %: %. Initial v_existing_id (after cache): %', 
             v_current_source_row_id, v_new_record_for_processing, v_existing_id;
 
         BEGIN -- Main processing block for each source row (v_input_row_record)
@@ -142,12 +158,12 @@ BEGIN -- Main function body starts here
             v_result_id := NULL;
             v_source_period_fully_handled := FALSE; -- Initialize for each source row
 
-            v_source_valid_after := (v_new_record_for_processing->>v_valid_after_col)::DATE; -- Renamed
-            v_source_valid_to    := (v_new_record_for_processing->>v_valid_to_col)::DATE;
+            v_source_valid_after := (v_new_record_for_processing->>'valid_after')::DATE;
+            v_source_valid_to    := (v_new_record_for_processing->>'valid_to')::DATE;
 
             IF v_source_valid_after IS NULL OR v_source_valid_to IS NULL THEN
-                RAISE EXCEPTION 'Temporal columns (%, %) cannot be null. Error in source row %: %',
-                    v_valid_after_col, v_valid_to_col, v_current_source_row_id, v_new_record_for_processing;
+                RAISE EXCEPTION 'Temporal columns (''valid_after'', ''valid_to'') cannot be null. Error in source row %: %',
+                    v_current_source_row_id, v_new_record_for_processing;
             END IF; -- End IF for null check on source temporal columns
 
             -- Step 1: Resolve v_existing_id if NULL using p_unique_columns (similar to replace function)
@@ -209,7 +225,7 @@ BEGIN -- Main function body starts here
                                     _insert_cols_list_inline := array_append(_insert_cols_list_inline, quote_ident(_col_name_inline));
                                     _insert_vals_list_inline := array_append(_insert_vals_list_inline, quote_nullable(_final_data_to_insert_inline->>_col_name_inline));
                                 END IF; -- End IF for checking if generated p_id_column_name is provided
-                            ELSIF _col_name_inline = ANY(p_temporal_columns) THEN
+                            ELSIF _col_name_inline = 'valid_after' OR _col_name_inline = 'valid_to' THEN
                                 _insert_cols_list_inline := array_append(_insert_cols_list_inline, quote_ident(_col_name_inline));
                                 _insert_vals_list_inline := array_append(_insert_vals_list_inline, quote_nullable(_final_data_to_insert_inline->>_col_name_inline));
                             ELSIF _col_name_inline = 'valid_from' THEN
@@ -233,6 +249,17 @@ BEGIN -- Main function body starts here
                         RAISE DEBUG '[batch_update] Inlined insert SQL (v_existing_id IS NULL): %', _sql_insert_inline;
                         EXECUTE _sql_insert_inline INTO _inserted_id_inline;
                         v_result_id := _inserted_id_inline;
+
+                        -- Update founding_row_id cache if this was a new entity
+                        IF v_initial_existing_id_is_null AND
+                           v_current_founding_row_id IS NOT NULL AND 
+                           v_result_id IS NOT NULL AND
+                           NOT (v_founding_id_cache ? v_current_founding_row_id::TEXT)
+                        THEN
+                            v_founding_id_cache := jsonb_set(v_founding_id_cache, ARRAY[v_current_founding_row_id::TEXT], to_jsonb(v_result_id));
+                            RAISE DEBUG '[batch_update] Cached new ID % for founding_row_id % from source_row_id % (v_existing_id was NULL path)', 
+                                        v_result_id, v_current_founding_row_id, v_current_source_row_id;
+                        END IF;
                     ELSE
                         RAISE WARNING '[batch_update] No columns to insert for new record (v_existing_id IS NULL): %', _final_data_to_insert_inline;
                         v_result_id := NULL; -- p_record_id was NULL
@@ -264,11 +291,10 @@ BEGIN -- Main function body starts here
                     v_data_is_different BOOLEAN; 
                 BEGIN
                     FOR v_existing_era_record IN EXECUTE format( -- Loop through existing eras of the current v_existing_id that overlap with source period
-                        'SELECT * FROM %I.%I WHERE %I = %L AND public.after_to_overlaps(%I, %I, %L::DATE, %L::DATE) ORDER BY %I', -- Changed to after_to_overlaps
+                        $$SELECT * FROM %I.%I tbl WHERE tbl.%I = %L AND public.after_to_overlaps(tbl.valid_after, tbl.valid_to, %L::DATE, %L::DATE) ORDER BY tbl.valid_after$$,
                         p_target_schema_name, p_target_table_name,
                         p_id_column_name, v_existing_id,
-                        v_valid_after_col, v_valid_to_col, v_source_valid_after, v_source_valid_to, -- Renamed variables
-                        v_valid_after_col -- Order by valid_after_col
+                        v_source_valid_after, v_source_valid_to
                     )
                     LOOP
                         v_processed_via_overlap_logic := TRUE; 
@@ -286,10 +312,10 @@ BEGIN -- Main function body starts here
                             -- v_data_is_different is declared in an outer scope, so it's fine
                         BEGIN
                             -- Initialize date variables for Allen relation calculation
-                            _new_va := (v_new_record_for_processing->>v_valid_after_col)::DATE; 
-                            _new_vt := (v_new_record_for_processing->>v_valid_to_col)::DATE;
-                            _ex_va  := (v_existing_era_jsonb->>v_valid_after_col)::DATE; 
-                            _ex_vt  := (v_existing_era_jsonb->>v_valid_to_col)::DATE;
+                            _new_va := (v_new_record_for_processing->>'valid_after')::DATE; 
+                            _new_vt := (v_new_record_for_processing->>'valid_to')::DATE;
+                            _ex_va  := (v_existing_era_jsonb->>'valid_after')::DATE; 
+                            _ex_vt  := (v_existing_era_jsonb->>'valid_to')::DATE;
 
                             -- Calculate v_data_is_different
                             v_data_is_different := FALSE; 
@@ -332,13 +358,13 @@ BEGIN -- Main function body starts here
                                         v_sql := format('WITH source_data AS (SELECT %s)
                                                          UPDATE %I.%I target SET %s
                                                          FROM source_data
-                                                         WHERE target.%I = %L AND target.%I = %L AND target.%I = %L RETURNING target.%I',
+                                                         WHERE target.%I = %L AND target.valid_after = %L AND target.valid_to = %L RETURNING target.%I',
                                                         v_source_data_select_list,
                                                         p_target_schema_name, p_target_table_name,
                                                         v_update_set_clause,
                                                         p_id_column_name, v_existing_id,
-                                                        v_valid_after_col, _ex_va, -- Renamed variables
-                                                        v_valid_to_col, _ex_vt, 
+                                                        _ex_va, 
+                                                        _ex_vt, 
                                                         p_id_column_name
                                                         );
                                         RAISE DEBUG '[batch_update] Exact match update SQL: %', v_sql;
@@ -352,11 +378,11 @@ BEGIN -- Main function body starts here
 
                                     -- Delete the existing era that is being split
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va, -- Renamed variables
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va, 
+                                        _ex_vt
                                     );
 
                                     -- 1. Insert leading part (if it exists), using original data: (ex_va, new_va]
@@ -365,15 +391,15 @@ BEGIN -- Main function body starts here
                                             _data_for_leading_part JSONB := v_existing_era_jsonb;
                                             _insert_cols_lead TEXT[] := ARRAY[]::TEXT[]; _insert_vals_lead TEXT[] := ARRAY[]::TEXT[]; _col_lead TEXT; _sql_lead TEXT; _id_lead INT;
                                         BEGIN
-                                            _data_for_leading_part := jsonb_set(_data_for_leading_part, ARRAY[v_valid_after_col], to_jsonb(_ex_va::TEXT)); -- Renamed
-                                            _data_for_leading_part := jsonb_set(_data_for_leading_part, ARRAY[v_valid_to_col], to_jsonb(_new_va::TEXT)); -- End of leading part is new_va (inclusive)
+                                            _data_for_leading_part := jsonb_set(_data_for_leading_part, ARRAY['valid_after'], to_jsonb(_ex_va::TEXT));
+                                            _data_for_leading_part := jsonb_set(_data_for_leading_part, ARRAY['valid_to'], to_jsonb(_new_va::TEXT)); -- End of leading part is new_va (inclusive)
                                             _data_for_leading_part := jsonb_set(_data_for_leading_part, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
 
                                             FOR _col_lead IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_for_leading_part) LOOP
                                                 IF _col_lead = ANY(v_target_table_actual_columns) THEN
                                                     IF _col_lead = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                         IF (_data_for_leading_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead)); END IF;
-                                                    ELSIF _col_lead = ANY(p_temporal_columns) THEN _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead));
+                                                    ELSIF _col_lead = 'valid_after' OR _col_lead = 'valid_to' THEN _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead));
                                                     ELSIF _col_lead = 'valid_from' THEN
                                                         RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_for_leading_part;
                                                         -- Skip this column
@@ -402,14 +428,14 @@ BEGIN -- Main function body starts here
                                             _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY[_col_mid], v_new_record_for_processing->_col_mid, true);
                                         END LOOP;
                                         _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY[v_valid_after_col], to_jsonb(_new_va::TEXT)); -- Renamed
-                                        _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY[v_valid_to_col],   to_jsonb(_new_vt::TEXT));
+                                        _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY['valid_after'], to_jsonb(_new_va::TEXT));
+                                        _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY['valid_to'],   to_jsonb(_new_vt::TEXT));
 
                                         FOR _col_mid IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_for_middle_part) LOOP
                                             IF _col_mid = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_mid = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_for_middle_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid)); END IF;
-                                                ELSIF _col_mid = ANY(p_temporal_columns) THEN _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid));
+                                                ELSIF _col_mid = 'valid_after' OR _col_mid = 'valid_to' THEN _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid));
                                                 ELSIF _col_mid = 'valid_from' THEN
                                                     RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_for_middle_part;
                                                     -- Skip this column
@@ -432,15 +458,15 @@ BEGIN -- Main function body starts here
                                             _data_for_trailing_part JSONB := v_existing_era_jsonb;
                                             _insert_cols_trail TEXT[] := ARRAY[]::TEXT[]; _insert_vals_trail TEXT[] := ARRAY[]::TEXT[]; _col_trail TEXT; _sql_trail TEXT; _id_trail INT;
                                         BEGIN
-                                            _data_for_trailing_part := jsonb_set(_data_for_trailing_part, ARRAY[v_valid_after_col], to_jsonb(_new_vt::TEXT)); -- Start of trailing is new_vt (exclusive)
-                                            _data_for_trailing_part := jsonb_set(_data_for_trailing_part, ARRAY[v_valid_to_col], to_jsonb(_ex_vt::TEXT));
+                                            _data_for_trailing_part := jsonb_set(_data_for_trailing_part, ARRAY['valid_after'], to_jsonb(_new_vt::TEXT)); -- Start of trailing is new_vt (exclusive)
+                                            _data_for_trailing_part := jsonb_set(_data_for_trailing_part, ARRAY['valid_to'], to_jsonb(_ex_vt::TEXT));
                                             _data_for_trailing_part := jsonb_set(_data_for_trailing_part, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
 
                                             FOR _col_trail IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_for_trailing_part) LOOP
                                                 IF _col_trail = ANY(v_target_table_actual_columns) THEN
                                                     IF _col_trail = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                         IF (_data_for_trailing_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail)); END IF;
-                                                    ELSIF _col_trail = ANY(p_temporal_columns) THEN _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail));
+                                                    ELSIF _col_trail = 'valid_after' OR _col_trail = 'valid_to' THEN _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail));
                                                     ELSIF _col_trail = 'valid_from' THEN
                                                         RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_for_trailing_part;
                                                         -- Skip this column
@@ -463,11 +489,11 @@ BEGIN -- Main function body starts here
                                     
                                     -- Delete the existing era that is being split/merged
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va,
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va,
+                                        _ex_vt
                                     );
 
                                     -- 1. Insert leading source part: (_new_va, _ex_va]
@@ -475,15 +501,15 @@ BEGIN -- Main function body starts here
                                         _data_leading_source JSONB := v_new_record_for_processing;
                                         _insert_cols_ls TEXT[] := ARRAY[]::TEXT[]; _insert_vals_ls TEXT[] := ARRAY[]::TEXT[]; _col_ls TEXT; _sql_ls TEXT; _id_ls INT;
                                     BEGIN
-                                        _data_leading_source := jsonb_set(_data_leading_source, ARRAY[v_valid_after_col], to_jsonb(_new_va::TEXT));
-                                        _data_leading_source := jsonb_set(_data_leading_source, ARRAY[v_valid_to_col], to_jsonb(_ex_va::TEXT)); -- Ends where existing began
+                                        _data_leading_source := jsonb_set(_data_leading_source, ARRAY['valid_after'], to_jsonb(_new_va::TEXT));
+                                        _data_leading_source := jsonb_set(_data_leading_source, ARRAY['valid_to'], to_jsonb(_ex_va::TEXT)); -- Ends where existing began
                                         _data_leading_source := jsonb_set(_data_leading_source, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
 
                                         FOR _col_ls IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_leading_source) LOOP
                                             IF _col_ls = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_ls = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_leading_source->>p_id_column_name) IS NOT NULL THEN _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls)); END IF;
-                                                ELSIF _col_ls = ANY(p_temporal_columns) THEN _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls));
+                                                ELSIF _col_ls = 'valid_after' OR _col_ls = 'valid_to' THEN _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls));
                                                 ELSIF _col_ls = 'valid_from' THEN
                                                     RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_leading_source;
                                                     -- Skip this column
@@ -511,14 +537,14 @@ BEGIN -- Main function body starts here
                                             _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY[_col_mo], v_new_record_for_processing->_col_mo, true);
                                         END LOOP;
                                         _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY[v_valid_after_col], to_jsonb(_ex_va::TEXT));
-                                        _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY[v_valid_to_col],   to_jsonb(_new_vt::TEXT));
+                                        _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY['valid_after'], to_jsonb(_ex_va::TEXT));
+                                        _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY['valid_to'],   to_jsonb(_new_vt::TEXT));
 
                                         FOR _col_mo IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_middle_overlap) LOOP
                                             IF _col_mo = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_mo = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_middle_overlap->>p_id_column_name) IS NOT NULL THEN _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo)); END IF;
-                                                ELSIF _col_mo = ANY(p_temporal_columns) THEN _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo));
+                                                ELSIF _col_mo = 'valid_after' OR _col_mo = 'valid_to' THEN _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo));
                                                 ELSIF _col_mo = 'valid_from' THEN
                                                     RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_middle_overlap;
                                                     -- Skip this column
@@ -541,15 +567,15 @@ BEGIN -- Main function body starts here
                                             _data_trailing_existing JSONB := v_existing_era_jsonb;
                                             _insert_cols_te TEXT[] := ARRAY[]::TEXT[]; _insert_vals_te TEXT[] := ARRAY[]::TEXT[]; _col_te TEXT; _sql_te TEXT; _id_te INT;
                                         BEGIN
-                                            _data_trailing_existing := jsonb_set(_data_trailing_existing, ARRAY[v_valid_after_col], to_jsonb(_new_vt::TEXT));
-                                            _data_trailing_existing := jsonb_set(_data_trailing_existing, ARRAY[v_valid_to_col], to_jsonb(_ex_vt::TEXT));
+                                            _data_trailing_existing := jsonb_set(_data_trailing_existing, ARRAY['valid_after'], to_jsonb(_new_vt::TEXT));
+                                            _data_trailing_existing := jsonb_set(_data_trailing_existing, ARRAY['valid_to'], to_jsonb(_ex_vt::TEXT));
                                             _data_trailing_existing := jsonb_set(_data_trailing_existing, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
 
                                             FOR _col_te IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_trailing_existing) LOOP
                                                 IF _col_te = ANY(v_target_table_actual_columns) THEN
                                                     IF _col_te = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                         IF (_data_trailing_existing->>p_id_column_name) IS NOT NULL THEN _insert_cols_te := array_append(_insert_cols_te, quote_ident(_col_te)); _insert_vals_te := array_append(_insert_vals_te, quote_nullable(_data_trailing_existing->>_col_te)); END IF;
-                                                    ELSIF _col_te = ANY(p_temporal_columns) THEN _insert_cols_te := array_append(_insert_cols_te, quote_ident(_col_te)); _insert_vals_te := array_append(_insert_vals_te, quote_nullable(_data_trailing_existing->>_col_te));
+                                                    ELSIF _col_te = 'valid_after' OR _col_te = 'valid_to' THEN _insert_cols_te := array_append(_insert_cols_te, quote_ident(_col_te)); _insert_vals_te := array_append(_insert_vals_te, quote_nullable(_data_trailing_existing->>_col_te));
                                                     ELSIF _col_te = 'valid_from' THEN
                                                         RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_trailing_existing;
                                                         -- Skip this column
@@ -577,11 +603,11 @@ BEGIN -- Main function body starts here
 
                                     -- Delete the existing era that is being contained
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va,
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va,
+                                        _ex_vt
                                     );
 
                                     -- 1. Insert leading part of source (if it exists): (_new_va, _ex_va]
@@ -590,15 +616,15 @@ BEGIN -- Main function body starts here
                                             _data_for_leading_part JSONB := v_new_record_for_processing;
                                             _insert_cols_lead TEXT[] := ARRAY[]::TEXT[]; _insert_vals_lead TEXT[] := ARRAY[]::TEXT[]; _col_lead TEXT; _sql_lead TEXT; _id_lead INT;
                                         BEGIN
-                                            _data_for_leading_part := jsonb_set(_data_for_leading_part, ARRAY[v_valid_after_col], to_jsonb(_new_va::TEXT));
-                                            _data_for_leading_part := jsonb_set(_data_for_leading_part, ARRAY[v_valid_to_col], to_jsonb(_ex_va::TEXT));
+                                            _data_for_leading_part := jsonb_set(_data_for_leading_part, ARRAY['valid_after'], to_jsonb(_new_va::TEXT));
+                                            _data_for_leading_part := jsonb_set(_data_for_leading_part, ARRAY['valid_to'], to_jsonb(_ex_va::TEXT));
                                             _data_for_leading_part := jsonb_set(_data_for_leading_part, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
 
                                             FOR _col_lead IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_for_leading_part) LOOP
                                                 IF _col_lead = ANY(v_target_table_actual_columns) THEN
                                                     IF _col_lead = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                         IF (_data_for_leading_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead)); END IF;
-                                                    ELSIF _col_lead = ANY(p_temporal_columns) THEN _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead));
+                                                    ELSIF _col_lead = 'valid_after' OR _col_lead = 'valid_to' THEN _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead));
                                                     ELSIF _col_lead = 'valid_from' THEN RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" for leading part. Record: %.', _data_for_leading_part;
                                                     ELSIF _col_lead = ANY(v_generated_columns) THEN /*Skip*/
                                                     ELSE _insert_cols_lead := array_append(_insert_cols_lead, quote_ident(_col_lead)); _insert_vals_lead := array_append(_insert_vals_lead, quote_nullable(_data_for_leading_part->>_col_lead)); END IF;
@@ -616,15 +642,15 @@ BEGIN -- Main function body starts here
                                         _data_for_middle_part JSONB := v_new_record_for_processing;
                                         _insert_cols_mid TEXT[] := ARRAY[]::TEXT[]; _insert_vals_mid TEXT[] := ARRAY[]::TEXT[]; _col_mid TEXT; _sql_mid TEXT; _id_mid INT;
                                     BEGIN
-                                        _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY[v_valid_after_col], to_jsonb(_ex_va::TEXT));
-                                        _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY[v_valid_to_col], to_jsonb(_ex_vt::TEXT));
+                                        _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY['valid_after'], to_jsonb(_ex_va::TEXT));
+                                        _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY['valid_to'], to_jsonb(_ex_vt::TEXT));
                                         _data_for_middle_part := jsonb_set(_data_for_middle_part, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
 
                                         FOR _col_mid IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_for_middle_part) LOOP
                                             IF _col_mid = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_mid = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_for_middle_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid)); END IF;
-                                                ELSIF _col_mid = ANY(p_temporal_columns) THEN _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid));
+                                                ELSIF _col_mid = 'valid_after' OR _col_mid = 'valid_to' THEN _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid));
                                                 ELSIF _col_mid = 'valid_from' THEN RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" for middle part. Record: %.', _data_for_middle_part;
                                                 ELSIF _col_mid = ANY(v_generated_columns) THEN /*Skip*/
                                                 ELSE _insert_cols_mid := array_append(_insert_cols_mid, quote_ident(_col_mid)); _insert_vals_mid := array_append(_insert_vals_mid, quote_nullable(_data_for_middle_part->>_col_mid)); END IF;
@@ -645,15 +671,15 @@ BEGIN -- Main function body starts here
                                             _data_for_trailing_part JSONB := v_new_record_for_processing;
                                             _insert_cols_trail TEXT[] := ARRAY[]::TEXT[]; _insert_vals_trail TEXT[] := ARRAY[]::TEXT[]; _col_trail TEXT; _sql_trail TEXT; _id_trail INT;
                                         BEGIN
-                                            _data_for_trailing_part := jsonb_set(_data_for_trailing_part, ARRAY[v_valid_after_col], to_jsonb(_ex_vt::TEXT));
-                                            _data_for_trailing_part := jsonb_set(_data_for_trailing_part, ARRAY[v_valid_to_col], to_jsonb(_new_vt::TEXT));
+                                            _data_for_trailing_part := jsonb_set(_data_for_trailing_part, ARRAY['valid_after'], to_jsonb(_ex_vt::TEXT));
+                                            _data_for_trailing_part := jsonb_set(_data_for_trailing_part, ARRAY['valid_to'], to_jsonb(_new_vt::TEXT));
                                             _data_for_trailing_part := jsonb_set(_data_for_trailing_part, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
 
                                             FOR _col_trail IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_for_trailing_part) LOOP
                                                 IF _col_trail = ANY(v_target_table_actual_columns) THEN
                                                     IF _col_trail = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                         IF (_data_for_trailing_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail)); END IF;
-                                                    ELSIF _col_trail = ANY(p_temporal_columns) THEN _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail));
+                                                    ELSIF _col_trail = 'valid_after' OR _col_trail = 'valid_to' THEN _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail));
                                                     ELSIF _col_trail = 'valid_from' THEN RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" for trailing part. Record: %.', _data_for_trailing_part;
                                                     ELSIF _col_trail = ANY(v_generated_columns) THEN /*Skip*/
                                                     ELSE _insert_cols_trail := array_append(_insert_cols_trail, quote_ident(_col_trail)); _insert_vals_trail := array_append(_insert_vals_trail, quote_nullable(_data_for_trailing_part->>_col_trail)); END IF;
@@ -674,11 +700,11 @@ BEGIN -- Main function body starts here
 
                                     -- Delete the existing era
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va,
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va,
+                                        _ex_vt
                                     );
 
                                     -- 1. Insert "updated source part": (_new_va, _new_vt]
@@ -695,14 +721,14 @@ BEGIN -- Main function body starts here
                                             _data_updated_part := jsonb_set(_data_updated_part, ARRAY[_col_up], v_new_record_for_processing->_col_up, true);
                                         END LOOP;
                                         _data_updated_part := jsonb_set(_data_updated_part, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY[v_valid_after_col], to_jsonb(_new_va::TEXT)); -- same as _ex_va
-                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY[v_valid_to_col],   to_jsonb(_new_vt::TEXT));
+                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY['valid_after'], to_jsonb(_new_va::TEXT)); -- same as _ex_va
+                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY['valid_to'],   to_jsonb(_new_vt::TEXT));
 
                                         FOR _col_up IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_updated_part) LOOP
                                             IF _col_up = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_up = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_updated_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up)); END IF;
-                                                ELSIF _col_up = ANY(p_temporal_columns) THEN _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up));
+                                                ELSIF _col_up = 'valid_after' OR _col_up = 'valid_to' THEN _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up));
                                                 ELSIF _col_up = 'valid_from' THEN
                                                     RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_updated_part;
                                                     -- Skip this column
@@ -724,14 +750,14 @@ BEGIN -- Main function body starts here
                                         _insert_cols_re TEXT[] := ARRAY[]::TEXT[]; _insert_vals_re TEXT[] := ARRAY[]::TEXT[]; _col_re TEXT; _sql_re TEXT; _id_re INT;
                                     BEGIN
                                         _data_remaining_existing := jsonb_set(_data_remaining_existing, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_remaining_existing := jsonb_set(_data_remaining_existing, ARRAY[v_valid_after_col], to_jsonb(_new_vt::TEXT)); -- Starts after the new part ends
-                                        _data_remaining_existing := jsonb_set(_data_remaining_existing, ARRAY[v_valid_to_col],   to_jsonb(_ex_vt::TEXT));
+                                        _data_remaining_existing := jsonb_set(_data_remaining_existing, ARRAY['valid_after'], to_jsonb(_new_vt::TEXT)); -- Starts after the new part ends
+                                        _data_remaining_existing := jsonb_set(_data_remaining_existing, ARRAY['valid_to'],   to_jsonb(_ex_vt::TEXT));
 
                                         FOR _col_re IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_remaining_existing) LOOP
                                             IF _col_re = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_re = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_remaining_existing->>p_id_column_name) IS NOT NULL THEN _insert_cols_re := array_append(_insert_cols_re, quote_ident(_col_re)); _insert_vals_re := array_append(_insert_vals_re, quote_nullable(_data_remaining_existing->>_col_re)); END IF;
-                                                ELSIF _col_re = ANY(p_temporal_columns) THEN _insert_cols_re := array_append(_insert_cols_re, quote_ident(_col_re)); _insert_vals_re := array_append(_insert_vals_re, quote_nullable(_data_remaining_existing->>_col_re));
+                                                ELSIF _col_re = 'valid_after' OR _col_re = 'valid_to' THEN _insert_cols_re := array_append(_insert_cols_re, quote_ident(_col_re)); _insert_vals_re := array_append(_insert_vals_re, quote_nullable(_data_remaining_existing->>_col_re));
                                                 ELSIF _col_re = 'valid_from' THEN
                                                     RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_remaining_existing;
                                                     -- Skip this column
@@ -752,11 +778,11 @@ BEGIN -- Main function body starts here
 
                                     -- Delete the existing era
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va,
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va,
+                                        _ex_vt
                                     );
 
                                     -- 1. Insert "updated part" (span of original existing): (_ex_va, _ex_vt]
@@ -773,14 +799,14 @@ BEGIN -- Main function body starts here
                                             _data_updated_part := jsonb_set(_data_updated_part, ARRAY[_col_up], v_new_record_for_processing->_col_up, true);
                                         END LOOP;
                                         _data_updated_part := jsonb_set(_data_updated_part, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY[v_valid_after_col], to_jsonb(_ex_va::TEXT)); -- same as _new_va
-                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY[v_valid_to_col],   to_jsonb(_ex_vt::TEXT));
+                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY['valid_after'], to_jsonb(_ex_va::TEXT)); -- same as _new_va
+                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY['valid_to'],   to_jsonb(_ex_vt::TEXT));
 
                                         FOR _col_up IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_updated_part) LOOP
                                             IF _col_up = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_up = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_updated_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up)); END IF;
-                                                ELSIF _col_up = ANY(p_temporal_columns) THEN _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up));
+                                                ELSIF _col_up = 'valid_after' OR _col_up = 'valid_to' THEN _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up));
                                                 ELSIF _col_up = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_up := array_append(_insert_cols_up, quote_ident(_col_up)); _insert_vals_up := array_append(_insert_vals_up, quote_nullable(_data_updated_part->>_col_up)); END IF;
                                             END IF;
                                         END LOOP;
@@ -798,14 +824,14 @@ BEGIN -- Main function body starts here
                                         _insert_cols_ts TEXT[] := ARRAY[]::TEXT[]; _insert_vals_ts TEXT[] := ARRAY[]::TEXT[]; _col_ts TEXT; _sql_ts TEXT; _id_ts INT;
                                     BEGIN
                                         _data_trailing_source := jsonb_set(_data_trailing_source, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_trailing_source := jsonb_set(_data_trailing_source, ARRAY[v_valid_after_col], to_jsonb(_ex_vt::TEXT)); 
-                                        _data_trailing_source := jsonb_set(_data_trailing_source, ARRAY[v_valid_to_col],   to_jsonb(_new_vt::TEXT));
+                                        _data_trailing_source := jsonb_set(_data_trailing_source, ARRAY['valid_after'], to_jsonb(_ex_vt::TEXT)); 
+                                        _data_trailing_source := jsonb_set(_data_trailing_source, ARRAY['valid_to'],   to_jsonb(_new_vt::TEXT));
 
                                         FOR _col_ts IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_trailing_source) LOOP
                                             IF _col_ts = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_ts = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_trailing_source->>p_id_column_name) IS NOT NULL THEN _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts)); END IF;
-                                                ELSIF _col_ts = ANY(p_temporal_columns) THEN _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts));
+                                                ELSIF _col_ts = 'valid_after' OR _col_ts = 'valid_to' THEN _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts));
                                                 ELSIF _col_ts = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts)); END IF;
                                             END IF;
                                         END LOOP;
@@ -822,11 +848,11 @@ BEGIN -- Main function body starts here
 
                                     -- Delete the existing era
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va,
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va,
+                                        _ex_vt
                                     );
 
                                     -- 1. Insert "leading existing part": (_ex_va, _new_va]
@@ -835,14 +861,14 @@ BEGIN -- Main function body starts here
                                         _insert_cols_le TEXT[] := ARRAY[]::TEXT[]; _insert_vals_le TEXT[] := ARRAY[]::TEXT[]; _col_le TEXT; _sql_le TEXT; _id_le INT;
                                     BEGIN
                                         _data_leading_existing := jsonb_set(_data_leading_existing, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_leading_existing := jsonb_set(_data_leading_existing, ARRAY[v_valid_after_col], to_jsonb(_ex_va::TEXT));
-                                        _data_leading_existing := jsonb_set(_data_leading_existing, ARRAY[v_valid_to_col],   to_jsonb(_new_va::TEXT));
+                                        _data_leading_existing := jsonb_set(_data_leading_existing, ARRAY['valid_after'], to_jsonb(_ex_va::TEXT));
+                                        _data_leading_existing := jsonb_set(_data_leading_existing, ARRAY['valid_to'],   to_jsonb(_new_va::TEXT));
 
                                         FOR _col_le IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_leading_existing) LOOP
                                             IF _col_le = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_le = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_leading_existing->>p_id_column_name) IS NOT NULL THEN _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le)); END IF;
-                                                ELSIF _col_le = ANY(p_temporal_columns) THEN _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le));
+                                                ELSIF _col_le = 'valid_after' OR _col_le = 'valid_to' THEN _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le));
                                                 ELSIF _col_le = 'valid_from' THEN
                                                     RAISE DEBUG '[batch_update] Skipping explicit insert of "valid_from" as it will be derived by trigger. Record: %.', _data_leading_existing;
                                                     -- Skip this column
@@ -870,14 +896,14 @@ BEGIN -- Main function body starts here
                                             _data_updated_part := jsonb_set(_data_updated_part, ARRAY[_col_uf], v_new_record_for_processing->v_col_uf, true);
                                         END LOOP;
                                         _data_updated_part := jsonb_set(_data_updated_part, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY[v_valid_after_col], to_jsonb(_new_va::TEXT));
-                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY[v_valid_to_col],   to_jsonb(_new_vt::TEXT)); -- same as _ex_vt
+                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY['valid_after'], to_jsonb(_new_va::TEXT));
+                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY['valid_to'],   to_jsonb(_new_vt::TEXT)); -- same as _ex_vt
 
                                         FOR _col_uf IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_updated_part) LOOP
                                             IF _col_uf = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_uf = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_updated_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_uf := array_append(_insert_cols_uf, quote_ident(_col_uf)); _insert_vals_uf := array_append(_insert_vals_uf, quote_nullable(_data_updated_part->>_col_uf)); END IF;
-                                                ELSIF _col_uf = ANY(p_temporal_columns) THEN _insert_cols_uf := array_append(_insert_cols_uf, quote_ident(_col_uf)); _insert_vals_uf := array_append(_insert_vals_uf, quote_nullable(_data_updated_part->>_col_uf));
+                                                ELSIF _col_uf = 'valid_after' OR _col_uf = 'valid_to' THEN _insert_cols_uf := array_append(_insert_cols_uf, quote_ident(_col_uf)); _insert_vals_uf := array_append(_insert_vals_uf, quote_nullable(_data_updated_part->>_col_uf));
                                                 ELSIF _col_uf = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_uf := array_append(_insert_cols_uf, quote_ident(_col_uf)); _insert_vals_uf := array_append(_insert_vals_uf, quote_nullable(_data_updated_part->>_col_uf)); END IF;
                                             END IF;
                                         END LOOP;
@@ -898,11 +924,11 @@ BEGIN -- Main function body starts here
 
                                     -- Delete the existing era that is being split/merged
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va,
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va,
+                                        _ex_vt
                                     );
 
                                     -- 1. Insert leading existing part: (_ex_va, _new_va]
@@ -911,15 +937,15 @@ BEGIN -- Main function body starts here
                                             _data_leading_existing JSONB := v_existing_era_jsonb;
                                             _insert_cols_le TEXT[] := ARRAY[]::TEXT[]; _insert_vals_le TEXT[] := ARRAY[]::TEXT[]; _col_le TEXT; _sql_le TEXT; _id_le INT;
                                         BEGIN
-                                            _data_leading_existing := jsonb_set(_data_leading_existing, ARRAY[v_valid_after_col], to_jsonb(_ex_va::TEXT));
-                                            _data_leading_existing := jsonb_set(_data_leading_existing, ARRAY[v_valid_to_col], to_jsonb(_new_va::TEXT)); -- Ends where source begins
+                                            _data_leading_existing := jsonb_set(_data_leading_existing, ARRAY['valid_after'], to_jsonb(_ex_va::TEXT));
+                                            _data_leading_existing := jsonb_set(_data_leading_existing, ARRAY['valid_to'], to_jsonb(_new_va::TEXT)); -- Ends where source begins
                                             _data_leading_existing := jsonb_set(_data_leading_existing, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
 
                                             FOR _col_le IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_leading_existing) LOOP
                                                 IF _col_le = ANY(v_target_table_actual_columns) THEN
                                                     IF _col_le = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                         IF (_data_leading_existing->>p_id_column_name) IS NOT NULL THEN _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le)); END IF;
-                                                    ELSIF _col_le = ANY(p_temporal_columns) THEN _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le));
+                                                    ELSIF _col_le = 'valid_after' OR _col_le = 'valid_to' THEN _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le));
                                                     ELSIF _col_le = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_le := array_append(_insert_cols_le, quote_ident(_col_le)); _insert_vals_le := array_append(_insert_vals_le, quote_nullable(_data_leading_existing->>_col_le)); END IF;
                                                 END IF;
                                             END LOOP;
@@ -948,14 +974,14 @@ BEGIN -- Main function body starts here
                                             _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY[_col_mo], v_new_record_for_processing->_col_mo, true);
                                         END LOOP;
                                         _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY[v_valid_after_col], to_jsonb(_new_va::TEXT));
-                                        _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY[v_valid_to_col],   to_jsonb(_ex_vt::TEXT));
+                                        _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY['valid_after'], to_jsonb(_new_va::TEXT));
+                                        _data_middle_overlap := jsonb_set(_data_middle_overlap, ARRAY['valid_to'],   to_jsonb(_ex_vt::TEXT));
 
                                         FOR _col_mo IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_middle_overlap) LOOP
                                             IF _col_mo = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_mo = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_middle_overlap->>p_id_column_name) IS NOT NULL THEN _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo)); END IF;
-                                                ELSIF _col_mo = ANY(p_temporal_columns) THEN _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo));
+                                                ELSIF _col_mo = 'valid_after' OR _col_mo = 'valid_to' THEN _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo));
                                                 ELSIF _col_mo = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_mo := array_append(_insert_cols_mo, quote_ident(_col_mo)); _insert_vals_mo := array_append(_insert_vals_mo, quote_nullable(_data_middle_overlap->>_col_mo)); END IF;
                                             END IF;
                                         END LOOP;
@@ -974,15 +1000,15 @@ BEGIN -- Main function body starts here
                                             _data_trailing_source JSONB := v_new_record_for_processing;
                                             _insert_cols_ts TEXT[] := ARRAY[]::TEXT[]; _insert_vals_ts TEXT[] := ARRAY[]::TEXT[]; _col_ts TEXT; _sql_ts TEXT; _id_ts INT;
                                         BEGIN
-                                            _data_trailing_source := jsonb_set(_data_trailing_source, ARRAY[v_valid_after_col], to_jsonb(_ex_vt::TEXT)); -- Starts where existing ended
-                                            _data_trailing_source := jsonb_set(_data_trailing_source, ARRAY[v_valid_to_col], to_jsonb(_new_vt::TEXT));
+                                            _data_trailing_source := jsonb_set(_data_trailing_source, ARRAY['valid_after'], to_jsonb(_ex_vt::TEXT)); -- Starts where existing ended
+                                            _data_trailing_source := jsonb_set(_data_trailing_source, ARRAY['valid_to'], to_jsonb(_new_vt::TEXT));
                                             _data_trailing_source := jsonb_set(_data_trailing_source, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
 
                                             FOR _col_ts IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_trailing_source) LOOP
                                                 IF _col_ts = ANY(v_target_table_actual_columns) THEN
                                                     IF _col_ts = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                         IF (_data_trailing_source->>p_id_column_name) IS NOT NULL THEN _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts)); END IF;
-                                                    ELSIF _col_ts = ANY(p_temporal_columns) THEN _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts));
+                                                    ELSIF _col_ts = 'valid_after' OR _col_ts = 'valid_to' THEN _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts));
                                                     ELSIF _col_ts = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_ts := array_append(_insert_cols_ts, quote_ident(_col_ts)); _insert_vals_ts := array_append(_insert_vals_ts, quote_nullable(_data_trailing_source->>_col_ts)); END IF;
                                                 END IF;
                                             END LOOP;
@@ -1001,11 +1027,11 @@ BEGIN -- Main function body starts here
 
                                     -- Delete the existing era
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va,
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va,
+                                        _ex_vt
                                     );
 
                                     -- 1. Insert "leading source part": (_new_va, _ex_va]
@@ -1014,14 +1040,14 @@ BEGIN -- Main function body starts here
                                         _insert_cols_ls TEXT[] := ARRAY[]::TEXT[]; _insert_vals_ls TEXT[] := ARRAY[]::TEXT[]; _col_ls TEXT; _sql_ls TEXT; _id_ls INT;
                                     BEGIN
                                         _data_leading_source := jsonb_set(_data_leading_source, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_leading_source := jsonb_set(_data_leading_source, ARRAY[v_valid_after_col], to_jsonb(_new_va::TEXT));
-                                        _data_leading_source := jsonb_set(_data_leading_source, ARRAY[v_valid_to_col],   to_jsonb(_ex_va::TEXT));
+                                        _data_leading_source := jsonb_set(_data_leading_source, ARRAY['valid_after'], to_jsonb(_new_va::TEXT));
+                                        _data_leading_source := jsonb_set(_data_leading_source, ARRAY['valid_to'],   to_jsonb(_ex_va::TEXT));
 
                                         FOR _col_ls IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_leading_source) LOOP
                                             IF _col_ls = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_ls = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_leading_source->>p_id_column_name) IS NOT NULL THEN _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls)); END IF;
-                                                ELSIF _col_ls = ANY(p_temporal_columns) THEN _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls));
+                                                ELSIF _col_ls = 'valid_after' OR _col_ls = 'valid_to' THEN _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls));
                                                 ELSIF _col_ls = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_ls := array_append(_insert_cols_ls, quote_ident(_col_ls)); _insert_vals_ls := array_append(_insert_vals_ls, quote_nullable(_data_leading_source->>_col_ls)); END IF;
                                             END IF;
                                         END LOOP;
@@ -1045,14 +1071,14 @@ BEGIN -- Main function body starts here
                                             _data_updated_part := jsonb_set(_data_updated_part, ARRAY[_col_uf], v_new_record_for_processing->_col_uf, true);
                                         END LOOP;
                                         _data_updated_part := jsonb_set(_data_updated_part, ARRAY[p_id_column_name], to_jsonb(v_existing_id));
-                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY[v_valid_after_col], to_jsonb(_ex_va::TEXT)); 
-                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY[v_valid_to_col],   to_jsonb(_ex_vt::TEXT)); -- same as _new_vt
+                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY['valid_after'], to_jsonb(_ex_va::TEXT)); 
+                                        _data_updated_part := jsonb_set(_data_updated_part, ARRAY['valid_to'],   to_jsonb(_ex_vt::TEXT)); -- same as _new_vt
 
                                         FOR _col_uf IN SELECT jsonb_object_keys FROM jsonb_object_keys(_data_updated_part) LOOP
                                             IF _col_uf = ANY(v_target_table_actual_columns) THEN
                                                 IF _col_uf = p_id_column_name AND p_id_column_name = ANY(v_generated_columns) THEN
                                                     IF (_data_updated_part->>p_id_column_name) IS NOT NULL THEN _insert_cols_uf := array_append(_insert_cols_uf, quote_ident(_col_uf)); _insert_vals_uf := array_append(_insert_vals_uf, quote_nullable(_data_updated_part->>_col_uf)); END IF;
-                                                ELSIF _col_uf = ANY(p_temporal_columns) THEN _insert_cols_uf := array_append(_insert_cols_uf, quote_ident(_col_uf)); _insert_vals_uf := array_append(_insert_vals_uf, quote_nullable(_data_updated_part->>_col_uf));
+                                                ELSIF _col_uf = 'valid_after' OR _col_uf = 'valid_to' THEN _insert_cols_uf := array_append(_insert_cols_uf, quote_ident(_col_uf)); _insert_vals_uf := array_append(_insert_vals_uf, quote_nullable(_data_updated_part->>_col_uf));
                                                 ELSIF _col_uf = ANY(v_generated_columns) THEN /*Skip*/ ELSE _insert_cols_uf := array_append(_insert_cols_uf, quote_ident(_col_uf)); _insert_vals_uf := array_append(_insert_vals_uf, quote_nullable(_data_updated_part->>_col_uf)); END IF;
                                             END IF;
                                         END LOOP;
@@ -1078,10 +1104,10 @@ BEGIN -- Main function body starts here
                         ELSE -- Data is equivalent (corresponds to IF v_data_is_different on L298)
                             RAISE DEBUG '[batch_update] Data is equivalent for existing era of ID %. Checking for merge/containment.', v_existing_id;
                             DECLARE -- Date variables for Allen relation with equivalent data
-                                _new_va DATE := (v_new_record_for_processing->>v_valid_after_col)::DATE; -- Renamed
-                                _new_vt DATE := (v_new_record_for_processing->>v_valid_to_col)::DATE;
-                                _ex_va DATE  := (v_existing_era_jsonb->>v_valid_after_col)::DATE; -- Renamed
-                                _ex_vt DATE  := (v_existing_era_jsonb->>v_valid_to_col)::DATE;
+                                _new_va DATE := (v_new_record_for_processing->>'valid_after')::DATE;
+                                _new_vt DATE := (v_new_record_for_processing->>'valid_to')::DATE;
+                                _ex_va DATE  := (v_existing_era_jsonb->>'valid_after')::DATE;
+                                _ex_vt DATE  := (v_existing_era_jsonb->>'valid_to')::DATE;
                             BEGIN -- Process Allen relations for equivalent data
                                 CASE v_relation -- CASE for equivalent data based on Allen relation
                                 WHEN 'equals' THEN
@@ -1094,11 +1120,11 @@ BEGIN -- Main function body starts here
                                         WHERE v_new_record_for_processing ? eph_col;
 
                                         IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
-                                            EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
                                                            _eph_update_set_clause,
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         END IF;
                                     END;
                                     v_source_period_fully_handled := TRUE;
@@ -1114,18 +1140,18 @@ BEGIN -- Main function body starts here
                                         WHERE v_new_record_for_processing ? eph_col;
 
                                         IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
-                                            EXECUTE format('UPDATE %I.%I SET %I = %L, %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET valid_after = %L, %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
-                                                           v_valid_after_col, _new_va, -- Temporal update
+                                                           _new_va, -- Temporal update
                                                            _eph_update_set_clause,     -- Ephemeral update
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         ELSE
-                                            EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET valid_after = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
-                                                           v_valid_after_col, _new_va,
+                                                           _new_va,
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         END IF;
                                     END;
                                     v_source_period_fully_handled := TRUE;
@@ -1142,18 +1168,18 @@ BEGIN -- Main function body starts here
                                         WHERE v_new_record_for_processing ? eph_col;
 
                                         IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
-                                            EXECUTE format('UPDATE %I.%I SET %I = %L, %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET valid_to = %L, %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
-                                                           v_valid_to_col, _new_vt,   -- Temporal update
+                                                           _new_vt,   -- Temporal update
                                                            _eph_update_set_clause,   -- Ephemeral update
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         ELSE
-                                            EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
-                                                           v_valid_to_col, _new_vt,
+                                                           _new_vt,
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         END IF;
                                     END;
                                     v_source_period_fully_handled := TRUE;
@@ -1170,11 +1196,11 @@ BEGIN -- Main function body starts here
                                         WHERE v_new_record_for_processing ? eph_col;
 
                                         IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
-                                            EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
                                                            _eph_update_set_clause,
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         END IF;
                                     END;
                                     v_source_period_fully_handled := TRUE;
@@ -1183,11 +1209,11 @@ BEGIN -- Main function body starts here
                                 WHEN 'contains' THEN -- X contains Y (Existing is strictly contained within Source)
                                     RAISE DEBUG '[batch_update] Allen case: ''contains'', data equivalent. Existing era (% to %] is contained within source period (% to %]. Deleting existing era.', _ex_va, _ex_vt, _new_va, _new_vt;
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va,
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va,
+                                        _ex_vt
                                     );
                                     v_temp_result_id := v_existing_id; -- Source record will effectively use this ID for this span
                                     -- v_source_period_fully_handled remains FALSE, source record continues processing
@@ -1202,18 +1228,18 @@ BEGIN -- Main function body starts here
                                         WHERE v_new_record_for_processing ? eph_col;
 
                                         IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
-                                            EXECUTE format('UPDATE %I.%I SET %I = %L, %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET valid_after = %L, %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
-                                                           v_valid_after_col, _new_va, -- Temporal update
+                                                           _new_va, -- Temporal update
                                                            _eph_update_set_clause,     -- Ephemeral update
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         ELSE
-                                            EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET valid_after = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
-                                                           v_valid_after_col, _new_va,
+                                                           _new_va,
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         END IF;
                                     END;
                                     v_source_period_fully_handled := TRUE;
@@ -1230,18 +1256,18 @@ BEGIN -- Main function body starts here
                                         WHERE v_new_record_for_processing ? eph_col;
 
                                         IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
-                                            EXECUTE format('UPDATE %I.%I SET %I = %L, %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET valid_to = %L, %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
-                                                           v_valid_to_col, _new_vt,   -- Temporal update
+                                                           _new_vt,   -- Temporal update
                                                            _eph_update_set_clause,   -- Ephemeral update
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         ELSE
-                                            EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
-                                                           v_valid_to_col, _new_vt,
+                                                           _new_vt,
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         END IF;
                                     END;
                                     v_source_period_fully_handled := TRUE;
@@ -1258,11 +1284,11 @@ BEGIN -- Main function body starts here
                                         WHERE v_new_record_for_processing ? eph_col;
 
                                         IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
-                                            EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name,
                                                            _eph_update_set_clause,
                                                            p_id_column_name, v_existing_id,
-                                                           v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                           _ex_va, _ex_vt);
                                         END IF;
                                     END;
                                     v_source_period_fully_handled := TRUE;
@@ -1271,11 +1297,11 @@ BEGIN -- Main function body starts here
                                 WHEN 'started_by' THEN -- X started_by Y (Existing Starts Source)
                                     RAISE DEBUG '[batch_update] Allen case: ''started_by'', data equivalent. Existing (% to %] STARTS Source (% to %]. Deleting existing era.', _ex_va, _ex_vt, _new_va, _new_vt;
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va,
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va,
+                                        _ex_vt
                                     );
                                     v_temp_result_id := v_existing_id;
                                     -- v_source_period_fully_handled remains FALSE, source record continues processing.
@@ -1302,12 +1328,12 @@ BEGIN -- Main function body starts here
                                             END IF;
 
                                             IF array_length(_ephemeral_update_parts, 1) > 0 THEN
-                                                _update_stmt := format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                                _update_stmt := format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                     p_target_schema_name, p_target_table_name,
                                                     array_to_string(_ephemeral_update_parts, ', '),
                                                     p_id_column_name, v_existing_id,
-                                                    v_valid_after_col, _ex_va,  -- Target the existing record
-                                                    v_valid_to_col, _ex_vt     -- Which is (_ex_va, 'infinity')
+                                                    _ex_va,  -- Target the existing record
+                                                    _ex_vt     -- Which is (_ex_va, 'infinity')
                                                 );
                                                 RAISE DEBUG '[batch_update] Equivalent data, ''finishes'' with infinity: Updating ephemeral columns. SQL: %', _update_stmt;
                                                 EXECUTE _update_stmt;
@@ -1329,11 +1355,11 @@ BEGIN -- Main function body starts here
                                             WHERE v_new_record_for_processing ? eph_col;
 
                                             IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN
-                                                EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                                EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                                p_target_schema_name, p_target_table_name,
                                                                _eph_update_set_clause,
                                                                p_id_column_name, v_existing_id,
-                                                               v_valid_after_col, _ex_va, v_valid_to_col, _ex_vt);
+                                                               _ex_va, _ex_vt);
                                             END IF;
                                         END;
                                         v_source_period_fully_handled := TRUE;
@@ -1343,11 +1369,11 @@ BEGIN -- Main function body starts here
                                 WHEN 'finished_by' THEN -- X finished_by Y (Existing Finishes Source)
                                     RAISE DEBUG '[batch_update] Allen case: ''finished_by'', data equivalent. Existing (% to %] FINISHES Source (% to %]. Deleting existing era.', _ex_va, _ex_vt, _new_va, _new_vt;
                                     EXECUTE format(
-                                        'DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        'DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                         p_target_schema_name, p_target_table_name,
                                         p_id_column_name, v_existing_id,
-                                        v_valid_after_col, _ex_va,
-                                        v_valid_to_col, _ex_vt
+                                        _ex_va,
+                                        _ex_vt
                                     );
                                     v_temp_result_id := v_existing_id;
                                     -- v_source_period_fully_handled remains FALSE, source record continues processing.
@@ -1369,8 +1395,8 @@ BEGIN -- Main function body starts here
                         RAISE DEBUG '[batch_update] Source period for ID % not fully handled by overlap logic. Attempting adjacent merge or insert for remaining period: %', v_existing_id, v_new_record_for_processing;
                         DECLARE
                             _merge_attempted_record JSONB := v_new_record_for_processing; 
-                            _current_va DATE := (_merge_attempted_record->>v_valid_after_col)::DATE; -- Renamed
-                            _current_vt DATE := (_merge_attempted_record->>v_valid_to_col)::DATE;
+                            _current_va DATE := (_merge_attempted_record->>'valid_after')::DATE;
+                            _current_vt DATE := (_merge_attempted_record->>'valid_to')::DATE;
                             _merged_this_pass BOOLEAN := FALSE;
                             _final_insert_needed BOOLEAN := TRUE; 
                             _earlier_era RECORD; _later_era RECORD; _data_matches BOOLEAN; _col_check TEXT;
@@ -1380,8 +1406,8 @@ BEGIN -- Main function body starts here
                         BEGIN
                             -- Try to merge with an earlier adjacent era: earlier_era.valid_to = _current_va
                             RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Checking for earlier era. Comparing earlier.valid_to = % with _current_va = %', _current_va, _current_va;
-                            _debug_sql := format('SELECT * FROM %I.%I WHERE %I = $1 AND %I = $2 LIMIT 1',
-                                p_target_schema_name, p_target_table_name, p_id_column_name, v_valid_to_col); -- Compare earlier.valid_to with _current_va
+                            _debug_sql := format('SELECT * FROM %I.%I WHERE %I = $1 AND valid_to = $2 LIMIT 1',
+                                p_target_schema_name, p_target_table_name, p_id_column_name);
                             RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Earlier era query: % (USING %, %)', _debug_sql, v_existing_id, _current_va;
                             EXECUTE _debug_sql INTO _earlier_era USING v_existing_id, _current_va;
 
@@ -1396,11 +1422,11 @@ BEGIN -- Main function body starts here
                                     END IF;
                                 END LOOP;
                                 IF _data_matches THEN
-                                    RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Data matches earlier. Extending earlier era (ends %s) to cover source period (ends %s)', (_earlier_era_jsonb->>v_valid_to_col)::DATE, _current_vt;
-                                    EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                                   p_target_schema_name, p_target_table_name, v_valid_to_col, _current_vt,
-                                                   p_id_column_name, v_existing_id, v_valid_after_col, (_earlier_era_jsonb->>v_valid_after_col)::DATE, v_valid_to_col, (_earlier_era_jsonb->>v_valid_to_col)::DATE);
-                                    _current_va := (_earlier_era_jsonb->>v_valid_after_col)::DATE; -- Update effective start for potential later merge
+                                    RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Data matches earlier. Extending earlier era (ends %s) to cover source period (ends %s)', (_earlier_era_jsonb->>'valid_to')::DATE, _current_vt;
+                                    EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
+                                                   p_target_schema_name, p_target_table_name, _current_vt,
+                                                   p_id_column_name, v_existing_id, (_earlier_era_jsonb->>'valid_after')::DATE, (_earlier_era_jsonb->>'valid_to')::DATE);
+                                    _current_va := (_earlier_era_jsonb->>'valid_after')::DATE; -- Update effective start for potential later merge
                                     v_result_id := v_existing_id; _merged_this_pass := TRUE; _final_insert_needed := FALSE;
                                 ELSE
                                     RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Data does NOT match earlier found record.';
@@ -1411,8 +1437,8 @@ BEGIN -- Main function body starts here
 
                             -- Try to merge with a later adjacent era: later_era.valid_after = _current_vt
                             RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Checking for later era. Comparing later.valid_after = % with _current_vt = %', _current_vt, _current_vt;
-                            _debug_sql := format('SELECT * FROM %I.%I WHERE %I = $1 AND %I = $2 LIMIT 1',
-                                p_target_schema_name, p_target_table_name, p_id_column_name, v_valid_after_col); -- Compare later.valid_after with _current_vt
+                            _debug_sql := format('SELECT * FROM %I.%I WHERE %I = $1 AND valid_after = $2 LIMIT 1',
+                                p_target_schema_name, p_target_table_name, p_id_column_name);
                             RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Later era query: % (USING %, %)', _debug_sql, v_existing_id, _current_vt;
                             EXECUTE _debug_sql INTO _later_era USING v_existing_id, _current_vt;
 
@@ -1429,20 +1455,20 @@ BEGIN -- Main function body starts here
                                 IF _data_matches THEN
                                     RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Data matches later.';
                                     IF _merged_this_pass THEN 
-                                        RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Extending already merged earlier record (now (%s, %s]) to cover later era (ends %s) and deleting later era.', _current_va, _current_vt, (_later_era_jsonb->>v_valid_to_col)::DATE;
-                                        EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                                       p_target_schema_name, p_target_table_name, v_valid_to_col, (_later_era_jsonb->>v_valid_to_col)::DATE,
-                                                       p_id_column_name, v_existing_id, v_valid_after_col, _current_va, v_valid_to_col, _current_vt);
-                                         EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Extending already merged earlier record (now (%s, %s]) to cover later era (ends %s) and deleting later era.', _current_va, _current_vt, (_later_era_jsonb->>'valid_to')::DATE;
+                                        EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
+                                                       p_target_schema_name, p_target_table_name, (_later_era_jsonb->>'valid_to')::DATE,
+                                                       p_id_column_name, v_existing_id, _current_va, _current_vt);
+                                         EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                        p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
-                                                       v_valid_after_col, (_later_era_jsonb->>v_valid_after_col)::DATE, v_valid_to_col, (_later_era_jsonb->>v_valid_to_col)::DATE);
+                                                       (_later_era_jsonb->>'valid_after')::DATE, (_later_era_jsonb->>'valid_to')::DATE);
                                     ELSE 
-                                        RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Extending source period (starts after %s) to cover later era (starts after %s) and deleting later era.', _current_va, (_later_era_jsonb->>v_valid_after_col)::DATE;
-                                        _current_vt := (_later_era_jsonb->>v_valid_to_col)::DATE; 
-                                        _merge_attempted_record := jsonb_set(_merge_attempted_record, ARRAY[v_valid_to_col], to_jsonb(_current_vt::TEXT));
-                                        EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        RAISE DEBUG '[batch_update] Adj Merge (post-overlap): Extending source period (starts after %s) to cover later era (starts after %s) and deleting later era.', _current_va, (_later_era_jsonb->>'valid_after')::DATE;
+                                        _current_vt := (_later_era_jsonb->>'valid_to')::DATE; 
+                                        _merge_attempted_record := jsonb_set(_merge_attempted_record, ARRAY['valid_to'], to_jsonb(_current_vt::TEXT));
+                                        EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                        p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
-                                                       v_valid_after_col, (_later_era_jsonb->>v_valid_after_col)::DATE, v_valid_to_col, (_later_era_jsonb->>v_valid_to_col)::DATE);
+                                                       (_later_era_jsonb->>'valid_after')::DATE, (_later_era_jsonb->>'valid_to')::DATE);
                                     END IF;
                                     v_result_id := v_existing_id; _final_insert_needed := TRUE; 
                                     IF _merged_this_pass THEN _final_insert_needed := FALSE; END IF; -- End IF for setting _final_insert_needed based on _merged_this_pass
@@ -1477,7 +1503,7 @@ BEGIN -- Main function body starts here
                                                     _insert_cols_list_inline_2 := array_append(_insert_cols_list_inline_2, quote_ident(_col_name_inline_2));
                                                     _insert_vals_list_inline_2 := array_append(_insert_vals_list_inline_2, quote_nullable(_final_data_to_insert_inline_2->>_col_name_inline_2));
                                                 END IF; -- End IF for checking if generated p_id_column_name is provided in data
-                                            ELSIF _col_name_inline_2 = ANY(p_temporal_columns) THEN
+                                            ELSIF _col_name_inline_2 = 'valid_after' OR _col_name_inline_2 = 'valid_to' THEN
                                                 _insert_cols_list_inline_2 := array_append(_insert_cols_list_inline_2, quote_ident(_col_name_inline_2));
                                                 _insert_vals_list_inline_2 := array_append(_insert_vals_list_inline_2, quote_nullable(_final_data_to_insert_inline_2->>_col_name_inline_2));
                                             ELSIF _col_name_inline_2 = 'valid_from' THEN
@@ -1513,8 +1539,8 @@ BEGIN -- Main function body starts here
                         -- Attempt to merge with adjacent records before inserting as a new slice
                         DECLARE
                             _merge_attempted_record JSONB := v_new_record_for_processing;
-                            _current_va DATE := (v_new_record_for_processing->>v_valid_after_col)::DATE; -- Renamed
-                            _current_vt DATE := (v_new_record_for_processing->>v_valid_to_col)::DATE;
+                            _current_va DATE := (v_new_record_for_processing->>'valid_after')::DATE;
+                            _current_vt DATE := (v_new_record_for_processing->>'valid_to')::DATE;
                             _merged_this_pass BOOLEAN := FALSE;
                             _final_insert_needed BOOLEAN := TRUE;
                             _earlier_era RECORD; _later_era RECORD; _data_matches BOOLEAN; _col_check TEXT;
@@ -1527,18 +1553,11 @@ BEGIN -- Main function body starts here
                             -- Try to merge with an earlier adjacent era: earlier_era.valid_to = _current_va
                             RAISE DEBUG '[batch_update] Adj Merge (no overlap): Checking for earlier era. Comparing earlier.valid_to = % with _current_va = %', _current_va, _current_va;
 
-                            -- Diagnostic COUNT(*) check -- REMOVED
-                            -- _debug_sql_count := format('SELECT COUNT(*) FROM %I.%I WHERE %I = $1 AND %I = $2',
-                            --     p_target_schema_name, p_target_table_name, p_id_column_name, v_valid_to_col);
-                            -- RAISE DEBUG '[batch_update] Adj Merge (no overlap): Test count query: % (USING %, %)', _debug_sql_count, v_existing_id, _current_va;
-                            -- EXECUTE _debug_sql_count INTO _test_count USING v_existing_id, _current_va;
-                            -- RAISE DEBUG '[batch_update] Adj Merge (no overlap): Test count result: %', _test_count;
-
-                            _debug_sql := format('SELECT * FROM %I.%I WHERE %I = $1 AND %I = $2 LIMIT 1',
-                                p_target_schema_name, p_target_table_name, p_id_column_name, v_valid_to_col); -- Compare earlier.valid_to with _current_va
+                            _debug_sql := format('SELECT * FROM %I.%I WHERE %I = $1 AND valid_to = $2 LIMIT 1',
+                                p_target_schema_name, p_target_table_name, p_id_column_name);
                             RAISE DEBUG '[batch_update] Adj Merge (no overlap): Earlier era query: % (USING %, %)', _debug_sql, v_existing_id, _current_va;
                             EXECUTE _debug_sql INTO _earlier_era USING v_existing_id, _current_va;
-                            -- RAISE DEBUG '[batch_update] Adj Merge (no overlap): After EXECUTE earlier. _earlier_era: %, (original FOUND was: %)', _earlier_era, FOUND; -- Diagnostic REMOVED
+
                             IF _earlier_era IS NOT NULL THEN
                                 RAISE DEBUG '[batch_update] Adj Merge (no overlap): Found potential earlier era: %', _earlier_era;
                                 _earlier_era_jsonb := to_jsonb(_earlier_era); _data_matches := TRUE;
@@ -1550,7 +1569,7 @@ BEGIN -- Main function body starts here
                                     END IF;
                                 END LOOP;
                                 IF _data_matches THEN
-                                    RAISE DEBUG '[batch_update] Adj Merge (no overlap): Data matches earlier. Extending earlier era (ends %s) to cover source period (ends %s) and updating ephemeral columns.', (_earlier_era_jsonb->>v_valid_to_col)::DATE, _current_vt;
+                                    RAISE DEBUG '[batch_update] Adj Merge (no overlap): Data matches earlier. Extending earlier era (ends %s) to cover source period (ends %s) and updating ephemeral columns.', (_earlier_era_jsonb->>'valid_to')::DATE, _current_vt;
                                     DECLARE _eph_update_set_clause_adj TEXT;
                                     BEGIN
                                         SELECT string_agg(format('%I = %L', eph_col, _merge_attempted_record->>eph_col), ', ')
@@ -1559,23 +1578,23 @@ BEGIN -- Main function body starts here
                                         WHERE _merge_attempted_record ? eph_col;
 
                                         IF _eph_update_set_clause_adj IS NOT NULL AND _eph_update_set_clause_adj != '' THEN
-                                            EXECUTE format('UPDATE %I.%I SET %I = %L, %s WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET valid_to = %L, %s WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name, 
-                                                           v_valid_to_col, _current_vt, -- Temporal update
+                                                           _current_vt, -- Temporal update
                                                            _eph_update_set_clause_adj,  -- Ephemeral update
                                                            p_id_column_name, v_existing_id, 
-                                                           v_valid_after_col, (_earlier_era_jsonb->>v_valid_after_col)::DATE, 
-                                                           v_valid_to_col, (_earlier_era_jsonb->>v_valid_to_col)::DATE);
+                                                           (_earlier_era_jsonb->>'valid_after')::DATE, 
+                                                           (_earlier_era_jsonb->>'valid_to')::DATE);
                                         ELSE
-                                            EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
+                                            EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                            p_target_schema_name, p_target_table_name, 
-                                                           v_valid_to_col, _current_vt,
+                                                           _current_vt,
                                                            p_id_column_name, v_existing_id, 
-                                                           v_valid_after_col, (_earlier_era_jsonb->>v_valid_after_col)::DATE, 
-                                                           v_valid_to_col, (_earlier_era_jsonb->>v_valid_to_col)::DATE);
+                                                           (_earlier_era_jsonb->>'valid_after')::DATE, 
+                                                           (_earlier_era_jsonb->>'valid_to')::DATE);
                                         END IF;
                                     END;
-                                    _current_va := (_earlier_era_jsonb->>v_valid_after_col)::DATE; -- Update effective start for potential later merge
+                                    _current_va := (_earlier_era_jsonb->>'valid_after')::DATE; -- Update effective start for potential later merge
                                     v_result_id := v_existing_id; _merged_this_pass := TRUE; _final_insert_needed := FALSE;
                                 ELSE
                                      RAISE DEBUG '[batch_update] Adj Merge (no overlap): Data does NOT match earlier found record.';
@@ -1586,11 +1605,10 @@ BEGIN -- Main function body starts here
 
                             -- Try to merge with a later adjacent era: later_era.valid_after = _current_vt
                             RAISE DEBUG '[batch_update] Adj Merge (no overlap): Checking for later era. Comparing later.valid_after = % with _current_vt = %', _current_vt, _current_vt;
-                            _debug_sql := format('SELECT * FROM %I.%I WHERE %I = $1 AND %I = $2 LIMIT 1',
-                                p_target_schema_name, p_target_table_name, p_id_column_name, v_valid_after_col); -- Compare later.valid_after with _current_vt
+                            _debug_sql := format('SELECT * FROM %I.%I WHERE %I = $1 AND valid_after = $2 LIMIT 1',
+                                p_target_schema_name, p_target_table_name, p_id_column_name);
                             RAISE DEBUG '[batch_update] Adj Merge (no overlap): Later era query: % (USING %, %)', _debug_sql, v_existing_id, _current_vt;
                             EXECUTE _debug_sql INTO _later_era USING v_existing_id, _current_vt;
-                            -- RAISE DEBUG '[batch_update] Adj Merge (no overlap): After EXECUTE later. _later_era: %, (original FOUND was: %)', _later_era, FOUND; -- Diagnostic REMOVED
 
                             IF _later_era IS NOT NULL THEN
                                 RAISE DEBUG '[batch_update] Adj Merge (no overlap): Found potential later era: %', _later_era;
@@ -1605,18 +1623,18 @@ BEGIN -- Main function body starts here
                                 IF _data_matches THEN
                                     RAISE DEBUG '[batch_update] Adj Merge (no overlap): Data matches later.';
                                      IF _merged_this_pass THEN 
-                                        RAISE DEBUG '[batch_update] Adj Merge (no overlap): Extending already merged earlier record (now (%s, %s]) to cover later era (ends %s) and deleting later era.', _current_va, _current_vt, (_later_era_jsonb->>v_valid_to_col)::DATE;
-                                        EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                                       p_target_schema_name, p_target_table_name, v_valid_to_col, (_later_era_jsonb->>v_valid_to_col)::DATE,
-                                                       p_id_column_name, v_existing_id, v_valid_after_col, _current_va, v_valid_to_col, _current_vt);
-                                         EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND %I = %L AND %I = %L',
+                                        RAISE DEBUG '[batch_update] Adj Merge (no overlap): Extending already merged earlier record (now (%s, %s]) to cover later era (ends %s) and deleting later era.', _current_va, _current_vt, (_later_era_jsonb->>'valid_to')::DATE;
+                                        EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
+                                                       p_target_schema_name, p_target_table_name, (_later_era_jsonb->>'valid_to')::DATE,
+                                                       p_id_column_name, v_existing_id, _current_va, _current_vt);
+                                         EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
                                                        p_target_schema_name, p_target_table_name, p_id_column_name, v_existing_id,
-                                                       v_valid_after_col, (_later_era_jsonb->>v_valid_after_col)::DATE, v_valid_to_col, (_later_era_jsonb->>v_valid_to_col)::DATE);
+                                                       (_later_era_jsonb->>'valid_after')::DATE, (_later_era_jsonb->>'valid_to')::DATE);
                                     ELSE 
-                                        RAISE DEBUG '[batch_update] Adj Merge (no overlap): Extending later era (starts after %s) to cover source period (starts after %s)', (_later_era_jsonb->>v_valid_after_col)::DATE, _current_va;
-                                        EXECUTE format('UPDATE %I.%I SET %I = %L WHERE %I = %L AND %I = %L AND %I = %L',
-                                                       p_target_schema_name, p_target_table_name, v_valid_after_col, _current_va,
-                                                       p_id_column_name, v_existing_id, v_valid_after_col, (_later_era_jsonb->>v_valid_after_col)::DATE, v_valid_to_col, (_later_era_jsonb->>v_valid_to_col)::DATE);
+                                        RAISE DEBUG '[batch_update] Adj Merge (no overlap): Extending later era (starts after %s) to cover source period (starts after %s)', (_later_era_jsonb->>'valid_after')::DATE, _current_va;
+                                        EXECUTE format('UPDATE %I.%I SET valid_after = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
+                                                       p_target_schema_name, p_target_table_name, _current_va,
+                                                       p_id_column_name, v_existing_id, (_later_era_jsonb->>'valid_after')::DATE, (_later_era_jsonb->>'valid_to')::DATE);
                                     END IF;
                                     v_result_id := v_existing_id; _final_insert_needed := FALSE;
                                 ELSE
@@ -1650,7 +1668,7 @@ BEGIN -- Main function body starts here
                                             _insert_cols_list_inline_3 := array_append(_insert_cols_list_inline_3, quote_ident(_col_name_inline_3));
                                             _insert_vals_list_inline_3 := array_append(_insert_vals_list_inline_3, quote_nullable(_final_data_to_insert_inline_3->>_col_name_inline_3));
                                         END IF; -- End IF for checking if generated p_id_column_name is provided in data (no overlap)
-                                    ELSIF _col_name_inline_3 = ANY(p_temporal_columns) THEN
+                                    ELSIF _col_name_inline_3 = 'valid_after' OR _col_name_inline_3 = 'valid_to' THEN
                                         _insert_cols_list_inline_3 := array_append(_insert_cols_list_inline_3, quote_ident(_col_name_inline_3));
                                         _insert_vals_list_inline_3 := array_append(_insert_vals_list_inline_3, quote_nullable(_final_data_to_insert_inline_3->>_col_name_inline_3));
                                     ELSIF _col_name_inline_3 = 'valid_from' THEN
