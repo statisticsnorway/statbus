@@ -159,15 +159,15 @@ BEGIN
     CREATE TEMP TABLE temp_new_est_for_enterprise_creation (
         data_row_id BIGINT PRIMARY KEY,
         est_name TEXT,
-        est_short_name VARCHAR(16),
+        -- est_short_name VARCHAR(16), -- Removed, short_name will be NULL by default
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
         edit_comment TEXT -- Added
     ) ON COMMIT DROP;
 
     v_sql := format($$
-        INSERT INTO temp_new_est_for_enterprise_creation (data_row_id, est_name, est_short_name, edit_by_user_id, edit_at, edit_comment)
-        SELECT row_id, name, SUBSTRING(name FROM 1 FOR 16), edit_by_user_id, edit_at, edit_comment
+        INSERT INTO temp_new_est_for_enterprise_creation (data_row_id, est_name, edit_by_user_id, edit_at, edit_comment)
+        SELECT row_id, name, edit_by_user_id, edit_at, edit_comment
         FROM public.%I
         WHERE row_id = ANY(%L) AND action = 'insert'; -- Only process rows for new standalone ESTs (mode 'establishment_informal' implies no LU link in data)
     $$, v_data_table_name, p_batch_row_ids);
@@ -183,7 +183,7 @@ BEGIN
     BEGIN
         FOR rec_new_est IN SELECT * FROM temp_new_est_for_enterprise_creation LOOP
             INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at, edit_comment)
-            VALUES (rec_new_est.est_short_name, rec_new_est.edit_by_user_id, rec_new_est.edit_at, rec_new_est.edit_comment)
+            VALUES (NULL, rec_new_est.edit_by_user_id, rec_new_est.edit_at, rec_new_est.edit_comment) -- Set short_name to NULL
             RETURNING id INTO new_enterprise_id;
 
             INSERT INTO temp_created_enterprises (data_row_id, enterprise_id)

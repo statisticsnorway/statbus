@@ -13429,7 +13429,7 @@ statistical_unit_hierarchy
                 "primary_for_enterprise": true
             }
         ],
-        "short_name": "KRANLØFT ENK",
+        "short_name": null,
         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)"
     }
 }
@@ -13737,7 +13737,7 @@ statistical_unit_hierarchy
                 "primary_for_enterprise": true
             }
         ],
-        "short_name": "KRAN & SPESIALLØ",
+        "short_name": null,
         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)"
     }
 }
@@ -14044,7 +14044,7 @@ statistical_unit_hierarchy
                 "primary_for_enterprise": true
             }
         ],
-        "short_name": "KRAN & SPESIALLØ",
+        "short_name": null,
         "edit_comment": "Test data load (03_load_and_verify_history_functions.sql)"
     }
 }
