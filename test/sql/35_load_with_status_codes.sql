@@ -43,21 +43,45 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
-\echo "User uploads the legal units"
-\copy public.import_legal_unit_era(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,status_code) FROM 'test/data/35_norwegian-legal-units-with-status.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Legal Units with Status
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    'import_35_lu_era_status',
+    'Import LU Era with Status (35_load_with_status_codes.sql)',
+    'Import job for test/data/35_norwegian-legal-units-with-status.csv.',
+    'Test data load (35_load_with_status_codes.sql)';
+\echo "User uploads the legal units (via import job: import_35_lu_era_status)"
+\copy public.import_35_lu_era_status_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,status_code) FROM 'test/data/35_norwegian-legal-units-with-status.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
-\echo "User uploads the establishments"
-\copy public.import_establishment_era_for_legal_unit(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,status_code) FROM 'test/data/35_norwegian-establishments-with-status.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Establishments with Status
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates'), -- Corrected slug
+    'import_35_esflu_era_status',
+    'Import ES Era with Status (35_load_with_status_codes.sql)',
+    'Import job for test/data/35_norwegian-establishments-with-status.csv.',
+    'Test data load (35_load_with_status_codes.sql)';
+\echo "User uploads the establishments (via import job: import_35_esflu_era_status)"
+\copy public.import_35_esflu_era_status_upload(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,turnover,status_code) FROM 'test/data/35_norwegian-establishments-with-status.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+
+\echo Run worker processing for import jobs
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+\echo "Checking import job statuses"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
+FROM public.import_job
+WHERE slug LIKE 'import_35_%' ORDER BY slug;
+
+\echo Run worker processing for analytics tasks
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
-
-\echo Run worker processing to run import jobs and generate computed data
-CALL worker.process_tasks();
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-
 
 \echo "Checking current statistical units that are included in reports"
 SELECT valid_from, valid_to, name, unit_type,  jsonb_pretty(stats_summary) AS stats_summary, status_code, include_unit_in_reports

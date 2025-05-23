@@ -65,8 +65,8 @@ erDiagram
 	}
 	activity["activity"] {
 		"integer" id
-		"date" valid_after
 		"date" valid_from
+		"date" valid_after
 		"date" valid_to
 		"activity_type" type
 		"integer" category_id
@@ -117,8 +117,8 @@ erDiagram
 	}
 	contact["contact"] {
 		"integer" id
-		"date" valid_after
 		"date" valid_from
+		"date" valid_after
 		"date" valid_to
 		"character varying(256)" web_address
 		"character varying(50)" email_address
@@ -173,8 +173,8 @@ erDiagram
 	}
 	enterprise_group["enterprise_group"] {
 		"integer" id
-		"date" valid_after
 		"date" valid_from
+		"date" valid_after
 		"date" valid_to
 		"boolean" active
 		"character varying(16)" short_name
@@ -211,8 +211,8 @@ erDiagram
 	}
 	establishment["establishment"] {
 		"integer" id
-		"date" valid_after
 		"date" valid_from
+		"date" valid_after
 		"date" valid_to
 		"boolean" active
 		"character varying(16)" short_name
@@ -284,9 +284,11 @@ erDiagram
 		"integer" data_source_id
 		"text" time_context_ident
 		"import_strategy" strategy
+		"import_mode" mode
 		"integer" user_id
 		"boolean" valid
 		"text" validation_error
+		"interval" default_retention_period
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
 	}
@@ -323,6 +325,8 @@ erDiagram
 		"import_job_state" state
 		"text" error
 		"boolean" review
+		"text" edit_comment
+		"timestamp with time zone" expires_at
 		"integer" definition_id
 		"integer" user_id
 	}
@@ -371,8 +375,8 @@ erDiagram
 	}
 	legal_unit["legal_unit"] {
 		"integer" id
-		"date" valid_after
 		"date" valid_from
+		"date" valid_after
 		"date" valid_to
 		"boolean" active
 		"character varying(16)" short_name
@@ -395,8 +399,8 @@ erDiagram
 	}
 	location["location"] {
 		"integer" id
-		"date" valid_after
 		"date" valid_from
+		"date" valid_after
 		"date" valid_to
 		"location_type" type
 		"character varying(200)" address_part1
@@ -434,8 +438,8 @@ erDiagram
 	}
 	person_for_unit["person_for_unit"] {
 		"integer" id
-		"date" valid_after
 		"date" valid_from
+		"date" valid_after
 		"date" valid_to
 		"integer" person_id
 		"integer" person_role_id
@@ -533,8 +537,8 @@ erDiagram
 	stat_for_unit["stat_for_unit"] {
 		"integer" id
 		"integer" stat_definition_id
-		"date" valid_after
 		"date" valid_from
+		"date" valid_after
 		"date" valid_to
 		"integer" data_source_id
 		"integer" establishment_id
@@ -1083,7 +1087,7 @@ erDiagram
 	establishment }o--o| data_source : establishment_data_source_id_fkey
 	establishment }o--o| enterprise : establishment_enterprise_id_fkey
 	establishment }o--o| sector : establishment_sector_id_fkey
-	establishment }o--o| status : establishment_status_id_fkey
+	establishment }o--|| status : establishment_status_id_fkey
 	establishment }o--o| unit_size : establishment_unit_size_id_fkey
 	external_ident }o--|| auth.user : external_ident_edit_by_user_id_fkey
 	external_ident }o--o| enterprise : external_ident_enterprise_id_fkey
@@ -1097,8 +1101,8 @@ erDiagram
 	import_job }o--o| auth.user : import_job_user_id_fkey
 	import_job }o--|| import_definition : import_job_definition_id_fkey
 	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_fkey
-	import_mapping }o--|| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
 	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
+	import_mapping }o--|| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
 	import_mapping }|--|| import_definition : import_mapping_definition_id_fkey
 	import_mapping }o--o| import_source_column : import_mapping_source_column_id_fkey
 	import_source_column }|--|| import_definition : import_source_column_definition_id_fkey
@@ -1108,7 +1112,7 @@ erDiagram
 	legal_unit }o--o| foreign_participation : legal_unit_foreign_participation_id_fkey
 	legal_unit }o--o| legal_form : legal_unit_legal_form_id_fkey
 	legal_unit }o--o| sector : legal_unit_sector_id_fkey
-	legal_unit }o--o| status : legal_unit_status_id_fkey
+	legal_unit }o--|| status : legal_unit_status_id_fkey
 	legal_unit }o--o| unit_size : legal_unit_unit_size_id_fkey
 	location }o--|| auth.user : location_edit_by_user_id_fkey
 	location }o--|| country : location_country_id_fkey

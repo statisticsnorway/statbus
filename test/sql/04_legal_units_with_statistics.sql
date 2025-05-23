@@ -50,13 +50,13 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 -- Create Import Job for Legal Units with Statistics
-WITH def AS (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_current_year')
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-SELECT id, 'import_04_lu_current_stats',
-       'Import Legal Units with Stats (04_legal_units_with_statistics.sql)',
-       'Import job for legal units from test/data/04_legal-units-with-stats.csv using legal_unit_current_year definition.',
-       'Test data load (04_legal_units_with_statistics.sql)'
-FROM def;
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_current_year'),
+    'import_04_lu_current_stats',
+    'Import Legal Units with Stats (04_legal_units_with_statistics.sql)',
+    'Import job for legal units from test/data/04_legal-units-with-stats.csv using legal_unit_current_year definition.',
+    'Test data load (04_legal_units_with_statistics.sql)';
 
 \echo "User uploads legal_units with statistics (via import job: import_04_lu_current_stats)"
 \copy public.import_04_lu_current_stats_upload(tax_ident,name,birth_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postplace,postal_postcode,postal_region_code,postal_country_iso_2,primary_activity_category_code,sector_code,legal_form_code,employees,turnover) FROM 'test/data/04_legal-units-with-stats.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);

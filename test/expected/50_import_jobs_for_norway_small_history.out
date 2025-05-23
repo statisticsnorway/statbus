@@ -630,9 +630,11 @@ Triggers:
  edit_by_user_id                  | integer                   |           |          | 
  edit_at                          | timestamp with time zone  |           |          | 
  edit_comment                     | text                      |           |          | 
+ founding_row_id                  | bigint                    |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
  error                            | jsonb                     |           |          | 
+ invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "import_lu_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
     "import_lu_2015_sht_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
@@ -1930,8 +1932,17 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                     +
          },                                                                       +
          {                                                                        +
-             "purpose": "metadata",                                               +
+             "purpose": "internal",                                               +
              "priority": 1,                                                       +
+             "column_name": "founding_row_id",                                    +
+             "column_type": "BIGINT",                                             +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "metadata",                                               +
+             "priority": 2,                                                       +
              "column_name": "state",                                              +
              "column_type": "public.import_data_state",                           +
              "is_nullable": false,                                                +
@@ -1940,7 +1951,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "metadata",                                               +
-             "priority": 2,                                                       +
+             "priority": 3,                                                       +
              "column_name": "last_completed_priority",                            +
              "column_type": "INTEGER",                                            +
              "is_nullable": false,                                                +
@@ -1949,8 +1960,17 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                       +
          {                                                                        +
              "purpose": "metadata",                                               +
-             "priority": 3,                                                       +
+             "priority": 4,                                                       +
              "column_name": "error",                                              +
+             "column_type": "JSONB",                                              +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "metadata",                                               +
+             "priority": 5,                                                       +
+             "column_name": "invalid_codes",                                      +
              "column_type": "JSONB",                                              +
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
@@ -2310,9 +2330,11 @@ Triggers:
  edit_by_user_id                  | integer                   |           |          | 
  edit_at                          | timestamp with time zone  |           |          | 
  edit_comment                     | text                      |           |          | 
+ founding_row_id                  | bigint                    |           |          | 
  state                            | import_data_state         |           | not null | 'pending'::import_data_state
  last_completed_priority          | integer                   |           | not null | 0
  error                            | jsonb                     |           |          | 
+ invalid_codes                    | jsonb                     |           |          | 
 Indexes:
     "import_es_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
     "import_es_2015_sht_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
@@ -3610,8 +3632,17 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_uniquely_identifying": false                                       +
          },                                                                         +
          {                                                                          +
-             "purpose": "metadata",                                                 +
+             "purpose": "internal",                                                 +
              "priority": 1,                                                         +
+             "column_name": "founding_row_id",                                      +
+             "column_type": "BIGINT",                                               +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "metadata",                                                 +
+             "priority": 2,                                                         +
              "column_name": "state",                                                +
              "column_type": "public.import_data_state",                             +
              "is_nullable": false,                                                  +
@@ -3620,7 +3651,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "metadata",                                                 +
-             "priority": 2,                                                         +
+             "priority": 3,                                                         +
              "column_name": "last_completed_priority",                              +
              "column_type": "INTEGER",                                              +
              "is_nullable": false,                                                  +
@@ -3629,8 +3660,17 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          },                                                                         +
          {                                                                          +
              "purpose": "metadata",                                                 +
-             "priority": 3,                                                         +
+             "priority": 4,                                                         +
              "column_name": "error",                                                +
+             "column_type": "JSONB",                                                +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "metadata",                                                 +
+             "priority": 5,                                                         +
+             "column_name": "invalid_codes",                                        +
              "column_type": "JSONB",                                                +
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +

@@ -68,25 +68,25 @@ FROM public.data_source_available;
 \echo "Supress invalid code warnings, they are tested later, and the debug output contains the current date, that changes with time."
 
 -- Create Import Job for Legal Units (Web Example)
-WITH def AS (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_current_year')
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-SELECT id, 'import_lu_web_example_current',
-       'Import Legal Units - Web Example (Current Year)',
-       'Import job for legal units from samples/norway/legal_unit/enheter-selection-web-import.csv using legal_unit_current_year definition.',
-       'Test data load (01_load_web_examples.sql)'
-FROM def;
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_current_year'),
+    'import_lu_web_example_current',
+    'Import Legal Units - Web Example (Current Year)',
+    'Import job for legal units from samples/norway/legal_unit/enheter-selection-web-import.csv using legal_unit_current_year definition.',
+    'Test data load (01_load_web_examples.sql)';
 
 \echo "User uploads the sample legal units (via import job: import_lu_web_example_current)"
 \copy public.import_lu_web_example_current_upload(tax_ident,name,birth_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'samples/norway/legal_unit/enheter-selection-web-import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 -- Create Import Job for Establishments (Web Example)
-WITH def AS (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_current_year')
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-SELECT id, 'import_es_web_example_current',
-       'Import Establishments - Web Example (Current Year)',
-       'Import job for establishments from samples/norway/establishment/underenheter-selection-web-import.csv using establishment_for_lu_current_year definition.',
-       'Test data load (01_load_web_examples.sql)'
-FROM def;
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_current_year'),
+    'import_es_web_example_current',
+    'Import Establishments - Web Example (Current Year)',
+    'Import job for establishments from samples/norway/establishment/underenheter-selection-web-import.csv using establishment_for_lu_current_year definition.',
+    'Test data load (01_load_web_examples.sql)';
 
 \echo "User uploads the sample establishments (via import job: import_es_web_example_current)"
 \copy public.import_es_web_example_current_upload(tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees) FROM 'samples/norway/establishment/underenheter-selection-web-import.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);

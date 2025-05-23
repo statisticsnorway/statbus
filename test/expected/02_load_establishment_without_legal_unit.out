@@ -152,13 +152,13 @@ SELECT
 (1 row)
 
 -- Create Import Job for Establishments Without Legal Unit
-WITH def AS (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_current_year')
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-SELECT id, 'import_02_eswlu_current',
-       'Import Establishments Without LU (02_load_establishment_without_legal_unit.sql)',
-       'Import job for establishments from test/data/02_norwegian-establishments-without-legal-unit.csv using establishment_without_lu_current_year definition.',
-       'Test data load (02_load_establishment_without_legal_unit.sql)'
-FROM def;
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_current_year'),
+    'import_02_eswlu_current',
+    'Import Establishments Without LU (02_load_establishment_without_legal_unit.sql)',
+    'Import job for establishments from test/data/02_norwegian-establishments-without-legal-unit.csv using establishment_without_lu_current_year definition.',
+    'Test data load (02_load_establishment_without_legal_unit.sql)';
 \echo "User uploads establishments without legal_unit (via import job: import_02_eswlu_current)"
 "User uploads establishments without legal_unit (via import job: import_02_eswlu_current)"
 \copy public.import_02_eswlu_current_upload(tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,data_source_code) FROM 'test/data/02_norwegian-establishments-without-legal-unit.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);

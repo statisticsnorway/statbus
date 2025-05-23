@@ -172,8 +172,17 @@ SELECT update_validity_dates(2018);
 -- Speed up changes by validating in the end.
 SET CONSTRAINTS ALL DEFERRED;
 
--- Insert into target table
-INSERT INTO public.import_legal_unit_era (
+-- Create Import Job for Legal Units (Small History)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    'import_10_lu_era_smallhist',
+    'Import LU Small History (10_small_history_load_and_check.sql)',
+    'Import job for prepared_small_history data using legal_unit_explicit_dates definition.', -- Corrected description
+    'Test data load (10_small_history_load_and_check.sql)';
+
+-- Insert into target job upload table
+INSERT INTO public.import_10_lu_era_smallhist_upload (
     valid_from,
     valid_to,
     tax_ident,
@@ -211,8 +220,16 @@ SELECT
 FROM prepared_small_history
 ORDER BY valid_from, tax_ident;
 
+\echo Run worker processing for import jobs
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
 -- Validate all inserted rows.
 SET CONSTRAINTS ALL IMMEDIATE;
+
+\echo Run worker processing for analytics tasks before EXPLAIN ANALYZE
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 
 SELECT test.sudo_exec($sql$
   CREATE INDEX IF NOT EXISTS tidx_establishment_valid_after_valid_to ON establishment (valid_after, valid_to);
@@ -313,10 +330,25 @@ ORDER BY
 LIMIT 20;  -- Display top used indexes, adjust if necessary
 \o
 
-\echo Run worker processing to run import jobs and generate computed data
-CALL worker.process_tasks();
+-- The main analytics processing was done before EXPLAIN ANALYZE.
+-- This call might process any remaining or newly queued tasks if necessary,
+-- or could be removed if the earlier analytics call is comprehensive.
+-- For safety and to catch any deferred analytics, we can run it again.
+\echo Run worker processing for any remaining analytics tasks
+CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 
+\echo "Inspecting import job data for import_10_lu_era_smallhist"
+SELECT row_id, state, error, tax_ident, name, valid_from, valid_to
+FROM public.import_10_lu_era_smallhist_data
+ORDER BY row_id
+LIMIT 5;
+
+\echo "Checking import job status for import_10_lu_era_smallhist"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
+       (SELECT COUNT(*) FROM public.import_10_lu_era_smallhist_data dr WHERE dr.state = 'error') AS error_rows
+FROM public.import_job
+WHERE slug = 'import_10_lu_era_smallhist';
 
 \x
 SELECT valid_after

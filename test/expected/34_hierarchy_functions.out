@@ -92,15 +92,73 @@ SELECT
                    0 |                0 |                0
 (1 row)
 
-\echo "User uploads legal units"
-"User uploads legal units"
-\copy public.import_legal_unit_era(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,phone_number) FROM 'test/data/34_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\echo "User uploads formal establishments"
-"User uploads formal establishments"
-\copy public.import_establishment_era_for_legal_unit(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,landline) FROM 'test/data/34_formal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\echo "User uploads informal establishments"
-"User uploads informal establishments"
-\copy public.import_establishment_era_without_legal_unit(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,phone_number) FROM 'test/data/34_informal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Legal Units
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    'import_34_lu_era',
+    'Import LU Era (34_hierarchy_functions.sql)',
+    'Import job for test/data/34_legal_units.csv.',
+    'Test data load (34_hierarchy_functions.sql)';
+\echo "User uploads legal units (via import job: import_34_lu_era)"
+"User uploads legal units (via import job: import_34_lu_era)"
+\copy public.import_34_lu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,phone_number) FROM 'test/data/34_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Formal Establishments
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates'), -- Corrected slug
+    'import_34_esflu_era',
+    'Import Formal ES Era (34_hierarchy_functions.sql)',
+    'Import job for test/data/34_formal_establishments.csv.',
+    'Test data load (34_hierarchy_functions.sql)';
+\echo "User uploads formal establishments (via import job: import_34_esflu_era)"
+"User uploads formal establishments (via import job: import_34_esflu_era)"
+\copy public.import_34_esflu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,landline) FROM 'test/data/34_formal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Informal Establishments
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_explicit_dates'), -- Corrected slug
+    'import_34_eswlu_era',
+    'Import Informal ES Era (34_hierarchy_functions.sql)',
+    'Import job for test/data/34_informal_establishments.csv.',
+    'Test data load (34_hierarchy_functions.sql)';
+\echo "User uploads informal establishments (via import job: import_34_eswlu_era)"
+"User uploads informal establishments (via import job: import_34_eswlu_era)"
+\copy public.import_34_eswlu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code,physical_latitude,physical_longitude,physical_altitude,web_address,email_address,phone_number) FROM 'test/data/34_informal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo Run worker processing for import jobs
+Run worker processing for import jobs
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | pending   |     7
+ import      | completed |    12
+ maintenance | pending   |     2
+(3 rows)
+
+\echo "Checking import job statuses"
+"Checking import job statuses"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
+FROM public.import_job
+WHERE slug LIKE 'import_34_%' ORDER BY slug;
+        slug         |  state   | total_rows | imported_rows | has_error 
+---------------------+----------+------------+---------------+-----------
+ import_34_esflu_era | finished |          3 |             3 | f
+ import_34_eswlu_era | finished |          2 |             2 | f
+ import_34_lu_era    | finished |          2 |             2 | f
+(3 rows)
+
+\echo Run worker processing for analytics tasks
+Run worker processing for analytics tasks
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |     9
+ import      | completed |    12
+ maintenance | pending   |     2
+(3 rows)
+
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
@@ -109,16 +167,6 @@ SELECT
 ---------------------+------------------+------------------
                    5 |                2 |                4
 (1 row)
-
-\echo Run worker processing to run import jobs and generate computed data
-Run worker processing to run import jobs and generate computed data
-CALL worker.process_tasks();
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-    queue    |   state   | count 
--------------+-----------+-------
- analytics   | completed |     9
- maintenance | pending   |     1
-(2 rows)
 
 SELECT unit_type, name, external_idents
 FROM statistical_unit ORDER BY unit_type,name;
@@ -189,7 +237,7 @@ SELECT jsonb_pretty(
                      "valid_from": "2024-01-01",                                                                                  +
                      "valid_after": "2023-12-31",                                                                                 +
                      "web_address": "www.nilepearlwater.ug",                                                                      +
-                     "edit_comment": null,                                                                                        +
+                     "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                               +
                      "phone_number": "123456789",                                                                                 +
                      "email_address": "contact@npw.ug",                                                                           +
                      "mobile_number": null                                                                                        +
@@ -206,7 +254,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
@@ -261,7 +309,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -285,7 +333,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "edit_comment": "Batch import",                                                                                  +
+                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                                   +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
@@ -306,7 +354,7 @@ SELECT jsonb_pretty(
                              "valid_from": "2024-01-01",                                                                          +
                              "valid_after": "2023-12-31",                                                                         +
                              "web_address": "www.nilepearlwater.ug",                                                              +
-                             "edit_comment": null,                                                                                +
+                             "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                       +
                              "phone_number": null,                                                                                +
                              "email_address": "contact@npw.ug",                                                                   +
                              "mobile_number": null                                                                                +
@@ -323,7 +371,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -378,7 +426,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -396,7 +444,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": "Batch import",                                                                          +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -412,6 +460,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": null,                                                                             +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "employees",                                                                         +
@@ -436,6 +485,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": 5000000,                                                                          +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "turnover",                                                                          +
@@ -480,7 +530,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "activity_category": {                                                                           +
                                      "code": "1311",                                                                              +
                                      "name": "Preparation and spinning of textile fibres",                                        +
@@ -535,7 +585,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -553,7 +603,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": "Batch import",                                                                          +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -569,6 +619,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": null,                                                                             +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "employees",                                                                         +
@@ -593,6 +644,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": 10000000,                                                                         +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "turnover",                                                                          +
@@ -629,6 +681,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": null,                                                                                     +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "employees",                                                                                 +
@@ -653,6 +706,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": 0,                                                                                        +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "turnover",                                                                                  +
@@ -674,7 +728,7 @@ SELECT jsonb_pretty(
              }                                                                                                                    +
          ],                                                                                                                       +
          "short_name": null,                                                                                                      +
-         "edit_comment": "Batch import"                                                                                           +
+         "edit_comment": "Test data load (34_hierarchy_functions.sql)"                                                            +
      }                                                                                                                            +
  }
 (1 row)
@@ -703,7 +757,7 @@ SELECT jsonb_pretty(
      "enterprise": {                                                                                                      +
          "active": true,                                                                                                  +
          "short_name": null,                                                                                              +
-         "edit_comment": "Batch import",                                                                                  +
+         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                                   +
          "establishment": [                                                                                               +
              {                                                                                                            +
                  "name": "THE MARINE SERVICES",                                                                           +
@@ -724,7 +778,7 @@ SELECT jsonb_pretty(
                      "valid_from": "2024-01-01",                                                                          +
                      "valid_after": "2023-12-31",                                                                         +
                      "web_address": "www.ms.ug",                                                                          +
-                     "edit_comment": null,                                                                                +
+                     "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                       +
                      "phone_number": "123456789",                                                                         +
                      "email_address": "contact@ms.ug",                                                                    +
                      "mobile_number": null                                                                                +
@@ -741,7 +795,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                              +
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
-                         "edit_comment": null,                                                                            +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                          "activity_category": {                                                                           +
                              "code": "0123",                                                                              +
                              "name": "Growing of citrus fruits",                                                          +
@@ -796,7 +850,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                              +
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
-                         "edit_comment": null,                                                                            +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                          "address_part1": null,                                                                           +
                          "address_part2": null,                                                                           +
                          "address_part3": null                                                                            +
@@ -814,7 +868,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                      +
                  },                                                                                                       +
                  "valid_after": "2023-12-31",                                                                             +
-                 "edit_comment": "Batch import",                                                                          +
+                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
                  "invalid_codes": null,                                                                                   +
                  "stat_for_unit": [                                                                                       +
                      {                                                                                                    +
@@ -830,6 +884,7 @@ SELECT jsonb_pretty(
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
                          "value_float": null,                                                                             +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                          "value_string": null,                                                                            +
                          "stat_definition": {                                                                             +
                              "code": "employees",                                                                         +
@@ -854,6 +909,7 @@ SELECT jsonb_pretty(
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
                          "value_float": 4400000,                                                                          +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                          "value_string": null,                                                                            +
                          "stat_definition": {                                                                             +
                              "code": "turnover",                                                                          +
@@ -917,7 +973,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                   +
                          },                                                                                    +
                          "valid_after": "2023-12-31",                                                          +
-                         "edit_comment": null,                                                                 +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                        +
                          "activity_category": {                                                                +
                              "code": "4752",                                                                   +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",        +
@@ -972,7 +1028,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                   +
                          },                                                                                    +
                          "valid_after": "2023-12-31",                                                          +
-                         "edit_comment": null,                                                                 +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                        +
                          "address_part1": null,                                                                +
                          "address_part2": null,                                                                +
                          "address_part3": null                                                                 +
@@ -984,7 +1040,7 @@ SELECT jsonb_pretty(
                  "short_name": null,                                                                           +
                  "valid_from": "2024-01-01",                                                                   +
                  "valid_after": "2023-12-31",                                                                  +
-                 "edit_comment": "Batch import",                                                               +
+                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                +
                  "establishment": [                                                                            +
                      {                                                                                         +
                          "name": "NILE PEARL WATER",                                                           +
@@ -1001,7 +1057,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                           +
                                  },                                                                            +
                                  "valid_after": "2023-12-31",                                                  +
-                                 "edit_comment": null,                                                         +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                +
                                  "activity_category": {                                                        +
                                      "code": "4752",                                                           +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",+
@@ -1056,7 +1112,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                           +
                                  },                                                                            +
                                  "valid_after": "2023-12-31",                                                  +
-                                 "edit_comment": null,                                                         +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                +
                                  "address_part1": null,                                                        +
                                  "address_part2": null,                                                        +
                                  "address_part3": null                                                         +
@@ -1068,7 +1124,7 @@ SELECT jsonb_pretty(
                          "short_name": null,                                                                   +
                          "valid_from": "2024-01-01",                                                           +
                          "valid_after": "2023-12-31",                                                          +
-                         "edit_comment": "Batch import",                                                       +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                        +
                          "invalid_codes": null,                                                                +
                          "free_econ_zone": null,                                                               +
                          "external_idents": {                                                                  +
@@ -1093,7 +1149,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                           +
                                  },                                                                            +
                                  "valid_after": "2023-12-31",                                                  +
-                                 "edit_comment": null,                                                         +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                +
                                  "activity_category": {                                                        +
                                      "code": "1311",                                                           +
                                      "name": "Preparation and spinning of textile fibres",                     +
@@ -1148,7 +1204,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                           +
                                  },                                                                            +
                                  "valid_after": "2023-12-31",                                                  +
-                                 "edit_comment": null,                                                         +
+                                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                +
                                  "address_part1": null,                                                        +
                                  "address_part2": null,                                                        +
                                  "address_part3": null                                                         +
@@ -1160,7 +1216,7 @@ SELECT jsonb_pretty(
                          "short_name": null,                                                                   +
                          "valid_from": "2024-01-01",                                                           +
                          "valid_after": "2023-12-31",                                                          +
-                         "edit_comment": "Batch import",                                                       +
+                         "edit_comment": "Test data load (34_hierarchy_functions.sql)",                        +
                          "invalid_codes": null,                                                                +
                          "free_econ_zone": null,                                                               +
                          "external_idents": {                                                                  +
@@ -1181,7 +1237,7 @@ SELECT jsonb_pretty(
              }                                                                                                 +
          ],                                                                                                    +
          "short_name": null,                                                                                   +
-         "edit_comment": "Batch import"                                                                        +
+         "edit_comment": "Test data load (34_hierarchy_functions.sql)"                                         +
      }                                                                                                         +
  }
 (1 row)
@@ -1235,7 +1291,7 @@ SELECT jsonb_pretty(
                  "valid_from": "2024-01-01",                                                                          +
                  "valid_after": "2023-12-31",                                                                         +
                  "web_address": "www.nilepearlwater.ug",                                                              +
-                 "edit_comment": null,                                                                                +
+                 "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                       +
                  "phone_number": "123456789",                                                                         +
                  "email_address": "contact@npw.ug",                                                                   +
                  "mobile_number": null                                                                                +
@@ -1252,7 +1308,7 @@ SELECT jsonb_pretty(
                          "custom": false                                                                              +
                      },                                                                                               +
                      "valid_after": "2023-12-31",                                                                     +
-                     "edit_comment": null,                                                                            +
+                     "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                      "activity_category": {                                                                           +
                          "code": "4752",                                                                              +
                          "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -1307,7 +1363,7 @@ SELECT jsonb_pretty(
                          "custom": false                                                                              +
                      },                                                                                               +
                      "valid_after": "2023-12-31",                                                                     +
-                     "edit_comment": null,                                                                            +
+                     "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                      "address_part1": null,                                                                           +
                      "address_part2": null,                                                                           +
                      "address_part3": null                                                                            +
@@ -1331,7 +1387,7 @@ SELECT jsonb_pretty(
                  "custom": false                                                                                      +
              },                                                                                                       +
              "valid_after": "2023-12-31",                                                                             +
-             "edit_comment": "Batch import",                                                                          +
+             "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                           +
              "invalid_codes": null,                                                                                   +
              "stat_for_unit": [                                                                                       +
                  {                                                                                                    +
@@ -1347,6 +1403,7 @@ SELECT jsonb_pretty(
                      },                                                                                               +
                      "valid_after": "2023-12-31",                                                                     +
                      "value_float": null,                                                                             +
+                     "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                      "value_string": null,                                                                            +
                      "stat_definition": {                                                                             +
                          "code": "employees",                                                                         +
@@ -1371,6 +1428,7 @@ SELECT jsonb_pretty(
                      },                                                                                               +
                      "valid_after": "2023-12-31",                                                                     +
                      "value_float": 0,                                                                                +
+                     "edit_comment": "Test data load (34_hierarchy_functions.sql)",                                   +
                      "value_string": null,                                                                            +
                      "stat_definition": {                                                                             +
                          "code": "turnover",                                                                          +

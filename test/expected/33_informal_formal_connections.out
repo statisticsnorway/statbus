@@ -92,16 +92,74 @@ SELECT
                    0 |                0 |                0
 (1 row)
 
-\echo "User uploads legal units"
-"User uploads legal units"
-\copy public.import_legal_unit_era(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/31_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\echo "User uploads formal establishments"
-"User uploads formal establishments"
-\copy public.import_establishment_era_for_legal_unit(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'test/data/31_formal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
-\echo "User uploads informal establishments"
-"User uploads informal establishments"
-\copy public.import_establishment_era_without_legal_unit(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'test/data/33_informal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Legal Units
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    'import_33_lu_era',
+    'Import LU Era (33_informal_formal_connections.sql)',
+    'Import job for test/data/31_legal_units.csv.',
+    'Test data load (33_informal_formal_connections.sql)';
+\echo "User uploads legal units (via import job: import_33_lu_era)"
+"User uploads legal units (via import job: import_33_lu_era)"
+\copy public.import_33_lu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/31_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Formal Establishments
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates'), -- Corrected slug
+    'import_33_esflu_era',
+    'Import Formal ES Era (33_informal_formal_connections.sql)',
+    'Import job for test/data/31_formal_establishments.csv.',
+    'Test data load (33_informal_formal_connections.sql)';
+\echo "User uploads formal establishments (via import job: import_33_esflu_era)"
+"User uploads formal establishments (via import job: import_33_esflu_era)"
+\copy public.import_33_esflu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'test/data/31_formal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Informal Establishments
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_explicit_dates'), -- Corrected slug
+    'import_33_eswlu_era',
+    'Import Informal ES Era (33_informal_formal_connections.sql)',
+    'Import job for test/data/33_informal_establishments.csv.',
+    'Test data load (33_informal_formal_connections.sql)';
+\echo "User uploads informal establishments (via import job: import_33_eswlu_era)"
+"User uploads informal establishments (via import job: import_33_eswlu_era)"
+\copy public.import_33_eswlu_era_upload(valid_from,valid_to,tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'test/data/33_informal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 SAVEPOINT after_loading_units;
+\echo Run worker processing for import jobs
+Run worker processing for import jobs
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | pending   |     7
+ import      | completed |    12
+ maintenance | pending   |     2
+(3 rows)
+
+\echo "Checking import job statuses"
+"Checking import job statuses"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
+FROM public.import_job
+WHERE slug LIKE 'import_33_%' ORDER BY slug;
+        slug         |  state   | total_rows | imported_rows | has_error 
+---------------------+----------+------------+---------------+-----------
+ import_33_esflu_era | finished |          2 |             2 | f
+ import_33_eswlu_era | finished |          2 |             2 | f
+ import_33_lu_era    | finished |          2 |             2 | f
+(3 rows)
+
+\echo Run worker processing for initial analytics tasks
+Run worker processing for initial analytics tasks
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |     9
+ import      | completed |    12
+ maintenance | pending   |     2
+(3 rows)
+
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
@@ -110,16 +168,6 @@ SELECT
 ---------------------+------------------+------------------
                    4 |                2 |                4
 (1 row)
-
-\echo Run worker processing to run import jobs and generate computed data
-Run worker processing to run import jobs and generate computed data
-CALL worker.process_tasks();
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-    queue    |   state   | count 
--------------+-----------+-------
- analytics   | completed |     8
- maintenance | pending   |     1
-(2 rows)
 
 SELECT unit_type, name, external_idents
 FROM statistical_unit ORDER BY unit_type,name;
@@ -194,7 +242,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
@@ -249,7 +297,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -273,7 +321,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "edit_comment": "Batch import",                                                                                  +
+                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
@@ -299,7 +347,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -354,7 +402,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -372,7 +420,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": "Batch import",                                                                          +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -388,6 +436,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": null,                                                                             +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "employees",                                                                         +
@@ -412,6 +461,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": 0,                                                                                +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "turnover",                                                                          +
@@ -448,6 +498,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": null,                                                                                     +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "employees",                                                                                 +
@@ -472,6 +523,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": 9000000,                                                                                  +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "turnover",                                                                                  +
@@ -492,8 +544,8 @@ SELECT jsonb_pretty(
                  "primary_for_enterprise": true                                                                                   +
              }                                                                                                                    +
          ],                                                                                                                       +
-         "short_name": null,                                                                                                      +
-         "edit_comment": "Batch import"                                                                                           +
+         "short_name": "NILE PEARL WATER",                                                                                        +
+         "edit_comment": "Test data load (33_informal_formal_connections.sql)"                                                    +
      }                                                                                                                            +
  }
 (1 row)
@@ -521,8 +573,8 @@ SELECT jsonb_pretty(
  {                                                                                                                        +
      "enterprise": {                                                                                                      +
          "active": true,                                                                                                  +
-         "short_name": null,                                                                                              +
-         "edit_comment": "Batch import",                                                                                  +
+         "short_name": "THE EQUATOR GLOB",                                                                                +
+         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
          "establishment": [                                                                                               +
              {                                                                                                            +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                   +
@@ -548,7 +600,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                              +
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
-                         "edit_comment": null,                                                                            +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                          "activity_category": {                                                                           +
                              "code": "5610",                                                                              +
                              "name": "Restaurants and mobile food service activities",                                    +
@@ -603,7 +655,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                              +
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
-                         "edit_comment": null,                                                                            +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                          "address_part1": null,                                                                           +
                          "address_part2": null,                                                                           +
                          "address_part3": null                                                                            +
@@ -621,7 +673,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                      +
                  },                                                                                                       +
                  "valid_after": "2023-12-31",                                                                             +
-                 "edit_comment": "Batch import",                                                                          +
+                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                  "invalid_codes": null,                                                                                   +
                  "stat_for_unit": [                                                                                       +
                      {                                                                                                    +
@@ -637,6 +689,7 @@ SELECT jsonb_pretty(
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
                          "value_float": null,                                                                             +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                          "value_string": null,                                                                            +
                          "stat_definition": {                                                                             +
                              "code": "employees",                                                                         +
@@ -661,6 +714,7 @@ SELECT jsonb_pretty(
                          },                                                                                               +
                          "valid_after": "2023-12-31",                                                                     +
                          "value_float": 4400,                                                                             +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                          "value_string": null,                                                                            +
                          "stat_definition": {                                                                             +
                              "code": "turnover",                                                                          +
@@ -716,15 +770,16 @@ FROM equator_enterprise
  {}
 (1 row)
 
-\echo Run worker processing to run import jobs and generate computed data
-Run worker processing to run import jobs and generate computed data
-CALL worker.process_tasks();
+\echo Run worker processing for analytics tasks (after import and manual connection)
+Run worker processing for analytics tasks (after import and manual connection)
+CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
     queue    |   state   | count 
 -------------+-----------+-------
- analytics   | completed |    12
- maintenance | pending   |     1
-(2 rows)
+ analytics   | completed |    13
+ import      | completed |    12
+ maintenance | pending   |     2
+(3 rows)
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -833,7 +888,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
@@ -888,7 +943,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -912,7 +967,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "edit_comment": "Batch import",                                                                                  +
+                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
@@ -938,7 +993,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -993,7 +1048,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -1011,7 +1066,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": "Batch import",                                                                          +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -1027,6 +1082,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": null,                                                                             +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "employees",                                                                         +
@@ -1051,6 +1107,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": 0,                                                                                +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "turnover",                                                                          +
@@ -1087,6 +1144,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": null,                                                                                     +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "employees",                                                                                 +
@@ -1111,6 +1169,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": 9000000,                                                                                  +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "turnover",                                                                                  +
@@ -1132,7 +1191,7 @@ SELECT jsonb_pretty(
              }                                                                                                                    +
          ],                                                                                                                       +
          "short_name": null,                                                                                                      +
-         "edit_comment": "Batch import",                                                                                          +
+         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                                   +
          "establishment": [                                                                                                       +
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
@@ -1158,7 +1217,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "5610",                                                                                      +
                              "name": "Restaurants and mobile food service activities",                                            +
@@ -1213,7 +1272,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1231,7 +1290,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "edit_comment": "Batch import",                                                                                  +
+                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
@@ -1247,6 +1306,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": null,                                                                                     +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "employees",                                                                                 +
@@ -1271,6 +1331,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": 4400,                                                                                     +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "turnover",                                                                                  +
@@ -1353,7 +1414,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
@@ -1408,7 +1469,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1432,7 +1493,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "edit_comment": "Batch import",                                                                                  +
+                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
@@ -1458,7 +1519,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -1513,7 +1574,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -1531,7 +1592,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": "Batch import",                                                                          +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -1547,6 +1608,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": null,                                                                             +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "employees",                                                                         +
@@ -1571,6 +1633,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": 0,                                                                                +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "turnover",                                                                          +
@@ -1607,6 +1670,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": null,                                                                                     +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "employees",                                                                                 +
@@ -1631,6 +1695,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": 9000000,                                                                                  +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "turnover",                                                                                  +
@@ -1652,7 +1717,7 @@ SELECT jsonb_pretty(
              }                                                                                                                    +
          ],                                                                                                                       +
          "short_name": null,                                                                                                      +
-         "edit_comment": "Batch import",                                                                                          +
+         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                                   +
          "establishment": [                                                                                                       +
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
@@ -1678,7 +1743,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "5610",                                                                                      +
                              "name": "Restaurants and mobile food service activities",                                            +
@@ -1733,7 +1798,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1751,7 +1816,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "edit_comment": "Batch import",                                                                                  +
+                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
@@ -1767,6 +1832,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": null,                                                                                     +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "employees",                                                                                 +
@@ -1791,6 +1857,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": 4400,                                                                                     +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "turnover",                                                                                  +
@@ -1873,7 +1940,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "4752",                                                                                      +
                              "name": "Retail sale of hardware, paints and glass in specialized stores",                           +
@@ -1928,7 +1995,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -1952,7 +2019,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "edit_comment": "Batch import",                                                                                  +
+                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "establishment": [                                                                                               +
                      {                                                                                                            +
                          "name": "NILE PEARL WATER",                                                                              +
@@ -1978,7 +2045,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "activity_category": {                                                                           +
                                      "code": "4752",                                                                              +
                                      "name": "Retail sale of hardware, paints and glass in specialized stores",                   +
@@ -2033,7 +2100,7 @@ SELECT jsonb_pretty(
                                      "custom": false                                                                              +
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
-                                 "edit_comment": null,                                                                            +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "address_part1": null,                                                                           +
                                  "address_part2": null,                                                                           +
                                  "address_part3": null                                                                            +
@@ -2051,7 +2118,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": "Batch import",                                                                          +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "invalid_codes": null,                                                                                   +
                          "stat_for_unit": [                                                                                       +
                              {                                                                                                    +
@@ -2067,6 +2134,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": null,                                                                             +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "employees",                                                                         +
@@ -2091,6 +2159,7 @@ SELECT jsonb_pretty(
                                  },                                                                                               +
                                  "valid_after": "2023-12-31",                                                                     +
                                  "value_float": 0,                                                                                +
+                                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                           +
                                  "value_string": null,                                                                            +
                                  "stat_definition": {                                                                             +
                                      "code": "turnover",                                                                          +
@@ -2127,6 +2196,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": null,                                                                                     +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "employees",                                                                                 +
@@ -2151,6 +2221,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": 9000000,                                                                                  +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "turnover",                                                                                  +
@@ -2172,7 +2243,7 @@ SELECT jsonb_pretty(
              }                                                                                                                    +
          ],                                                                                                                       +
          "short_name": null,                                                                                                      +
-         "edit_comment": "Batch import",                                                                                          +
+         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                                   +
          "establishment": [                                                                                                       +
              {                                                                                                                    +
                  "name": "THE EQUATOR GLOBE SOLUTIONS",                                                                           +
@@ -2198,7 +2269,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "activity_category": {                                                                                   +
                              "code": "5610",                                                                                      +
                              "name": "Restaurants and mobile food service activities",                                            +
@@ -2253,7 +2324,7 @@ SELECT jsonb_pretty(
                              "custom": false                                                                                      +
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
-                         "edit_comment": null,                                                                                    +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "address_part1": null,                                                                                   +
                          "address_part2": null,                                                                                   +
                          "address_part3": null                                                                                    +
@@ -2271,7 +2342,7 @@ SELECT jsonb_pretty(
                      "custom": false                                                                                              +
                  },                                                                                                               +
                  "valid_after": "2023-12-31",                                                                                     +
-                 "edit_comment": "Batch import",                                                                                  +
+                 "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
                  "invalid_codes": null,                                                                                           +
                  "stat_for_unit": [                                                                                               +
                      {                                                                                                            +
@@ -2287,6 +2358,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": null,                                                                                     +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "employees",                                                                                 +
@@ -2311,6 +2383,7 @@ SELECT jsonb_pretty(
                          },                                                                                                       +
                          "valid_after": "2023-12-31",                                                                             +
                          "value_float": 4400,                                                                                     +
+                         "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                   +
                          "value_string": null,                                                                                    +
                          "stat_definition": {                                                                                     +
                              "code": "turnover",                                                                                  +
