@@ -544,7 +544,7 @@ SELECT jsonb_pretty(
                  "primary_for_enterprise": true                                                                                   +
              }                                                                                                                    +
          ],                                                                                                                       +
-         "short_name": "NILE PEARL WATER",                                                                                        +
+         "short_name": null,                                                                                                      +
          "edit_comment": "Test data load (33_informal_formal_connections.sql)"                                                    +
      }                                                                                                                            +
  }
@@ -573,7 +573,7 @@ SELECT jsonb_pretty(
  {                                                                                                                        +
      "enterprise": {                                                                                                      +
          "active": true,                                                                                                  +
-         "short_name": "THE EQUATOR GLOB",                                                                                +
+         "short_name": null,                                                                                              +
          "edit_comment": "Test data load (33_informal_formal_connections.sql)",                                           +
          "establishment": [                                                                                               +
              {                                                                                                            +
