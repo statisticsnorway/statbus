@@ -2,9 +2,22 @@ BEGIN;
 
 \i test/setup.sql
 
-\echo "Establish a baseline"
-\sv public.import_legal_unit_era
-\sv public.import_establishment_era
+\echo "Establish a baseline by capturing initial state of import_data_column (stable columns)"
+CREATE TEMP TABLE import_data_column_baseline AS
+SELECT
+    step_id,
+    priority,
+    column_name,
+    column_type,
+    purpose::text AS purpose,
+    is_nullable,
+    default_value,
+    is_uniquely_identifying
+FROM public.import_data_column
+ORDER BY step_id, priority NULLS FIRST, column_name;
+
+\echo "Initial import_data_column state (stable columns):"
+SELECT * FROM import_data_column_baseline;
 
 \echo "Modify stat_definition"
 
@@ -45,7 +58,35 @@ INSERT INTO public.external_ident_type(code, name, priority, description) VALUES
 UPDATE public.external_ident_type SET archived = true wHERE code = 'mobile';
 
 \echo "Check new generated code"
-\sv public.import_legal_unit_era
-\sv public.import_establishment_era
+
+\echo "Removed import_data_column rows (stable columns):"
+SELECT * FROM import_data_column_baseline
+EXCEPT
+SELECT
+    step_id,
+    priority,
+    column_name,
+    column_type,
+    purpose::text AS purpose,
+    is_nullable,
+    default_value,
+    is_uniquely_identifying
+FROM public.import_data_column
+ORDER BY step_id, priority NULLS FIRST, column_name;
+
+\echo "Added import_data_column rows (stable columns):"
+SELECT
+    step_id,
+    priority,
+    column_name,
+    column_type,
+    purpose::text AS purpose,
+    is_nullable,
+    default_value,
+    is_uniquely_identifying
+FROM public.import_data_column
+EXCEPT
+SELECT * FROM import_data_column_baseline
+ORDER BY step_id, priority NULLS FIRST, column_name;
 
 ROLLBACK;
