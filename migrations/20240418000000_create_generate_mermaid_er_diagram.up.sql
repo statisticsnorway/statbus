@@ -136,7 +136,27 @@ BEGIN
           AND n2.nspname !~ '^pg_'
           AND n2.nspname !~ '^_'
           AND n2.nspname <> 'information_schema'
-        ORDER BY n1.nspname, c1.relname, n2.nspname, c2.relname, c.conname
+        ORDER BY
+            n1.nspname,
+            c1.relname,
+            n2.nspname,
+            c2.relname,
+            (CASE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM pg_constraint con
+                    WHERE con.conrelid = c.confrelid
+                    AND con.conkey = c.conkey
+                    AND con.contype IN ('p', 'u')
+                )
+                THEN '}|'
+                ELSE '}o'
+            END || '--' || CASE
+                WHEN a.attnotnull THEN '||'
+                ELSE 'o|'
+            END), -- Order by the full relationship string
+            c.conname,
+            a.attnum -- Ensure stable order for composite keys
     LOOP
         result := result || E'\n' || rec.format;
     END LOOP;

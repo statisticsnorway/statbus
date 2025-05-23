@@ -1100,9 +1100,9 @@ erDiagram
 	import_definition_step }|--|| import_step : import_definition_step_step_id_fkey
 	import_job }o--o| auth.user : import_job_user_id_fkey
 	import_job }o--|| import_definition : import_job_definition_id_fkey
+	import_mapping }o--|| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
 	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_fkey
 	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
-	import_mapping }o--|| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
 	import_mapping }|--|| import_definition : import_mapping_definition_id_fkey
 	import_mapping }o--o| import_source_column : import_mapping_source_column_id_fkey
 	import_source_column }|--|| import_definition : import_source_column_definition_id_fkey
