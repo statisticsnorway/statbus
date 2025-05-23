@@ -185,26 +185,41 @@ BEGIN
             SELECT
                 rl.data_row_id,
                 rl.resolved_lu_id,
+                rl.original_data_table_row_id,
+                rl.est_derived_valid_after,
+                rl.est_derived_valid_to,
                 -- Check if any EST is already primary for this LU in the main DB table *during the current EST's validity period*
                 NOT EXISTS (
                     SELECT 1 FROM public.establishment est
                     WHERE est.legal_unit_id = rl.resolved_lu_id
                       AND est.primary_for_legal_unit = TRUE
                       AND public.after_to_overlaps(est.valid_after, est.valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to) -- Changed to after_to_overlaps
-                ) AS no_overlapping_primary_in_db, -- Renamed for clarity
-                -- Rank rows within the current batch that map to the same resolved_lu_id, by original data table row_id
-                ROW_NUMBER() OVER (PARTITION BY rl.resolved_lu_id ORDER BY rl.original_data_table_row_id ASC) as rn_for_lu_in_batch
+                ) AS no_overlapping_primary_in_db -- Renamed for clarity
             FROM ResolvedLinks rl
         )
         UPDATE public.%1$I dt SET -- %1$I is v_data_table_name
             legal_unit_id = rfp.resolved_lu_id,
-            primary_for_legal_unit = (rfp.no_overlapping_primary_in_db AND rfp.rn_for_lu_in_batch = 1), -- Set primary based on rank and DB state (time-aware)
+            primary_for_legal_unit = (
+                rfp.no_overlapping_primary_in_db
+                AND
+                NOT EXISTS (
+                    SELECT 1
+                    FROM RankedForPrimary other_rfp -- Self-referencing RankedForPrimary to check other batch items
+                    WHERE other_rfp.resolved_lu_id = rfp.resolved_lu_id
+                      AND other_rfp.original_data_table_row_id < rfp.original_data_table_row_id
+                      AND other_rfp.no_overlapping_primary_in_db -- The other item must also be a candidate (no DB conflict)
+                      AND public.after_to_overlaps( -- Check if the other item's period overlaps with the current item's period
+                          other_rfp.est_derived_valid_after, other_rfp.est_derived_valid_to,
+                          rfp.est_derived_valid_after, rfp.est_derived_valid_to
+                      )
+                )
+            ),
             last_completed_priority = %4$L, -- %4$L is v_step.priority
             error = CASE WHEN (dt.error - %5$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %5$L::TEXT[]) END, -- %5$L is v_error_keys_to_clear_arr
             state = %7$L -- Corrected: %7$L is 'analysing'::public.import_data_state
         FROM RankedForPrimary rfp
         WHERE dt.row_id = rfp.data_row_id; -- Join condition for UPDATE
-    $$, 
+    $$,
         v_data_table_name,                      -- %1$I
         p_batch_row_ids,                        -- %2$L
         COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]), -- %3$L
@@ -213,7 +228,7 @@ BEGIN
         v_error_keys_to_clear_arr,              -- %6$L (this was the incorrect argument for state)
         'analysing'::public.import_data_state   -- %7$L (this is the correct argument for state)
     );
-    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating success rows with resolved IDs and refined primary_for_legal_unit: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating success rows with resolved IDs and refined primary_for_legal_unit logic: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Marked % rows as success for this target.', p_job_id, v_update_count;
