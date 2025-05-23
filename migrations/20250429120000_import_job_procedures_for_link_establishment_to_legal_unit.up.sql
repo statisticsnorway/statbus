@@ -168,22 +168,52 @@ BEGIN
 
     -- Step 4: Batch Update Success Rows with resolved legal_unit_id
     v_sql := format($$
-        WITH resolved_lu AS (
-            SELECT DISTINCT ON (data_row_id) data_row_id, resolved_lu_id
-            FROM temp_unpivoted_lu_idents
-            WHERE resolved_lu_id IS NOT NULL
+        WITH ResolvedLinks AS (
+            -- Get unique data_row_id to resolved_lu_id links from the current batch, excluding errored rows
+            SELECT DISTINCT ON (tui.data_row_id)
+                   tui.data_row_id,
+                   tui.resolved_lu_id,
+                   dt.row_id AS original_data_table_row_id, -- Used for ordering to pick the "first"
+                   dt.derived_valid_after AS est_derived_valid_after, -- Use derived_valid_after
+                   dt.derived_valid_to AS est_derived_valid_to
+            FROM temp_unpivoted_lu_idents tui
+            JOIN public.%1$I dt ON tui.data_row_id = dt.row_id -- %1$I is v_data_table_name
+            WHERE tui.resolved_lu_id IS NOT NULL
+              AND dt.row_id = ANY(%2$L) AND dt.row_id != ALL(%3$L) -- %2$L is p_batch_row_ids, %3$L is COALESCE(v_error_row_ids, ARRAY[]::BIGINT[])
+        ),
+        RankedForPrimary AS (
+            SELECT
+                rl.data_row_id,
+                rl.resolved_lu_id,
+                -- Check if any EST is already primary for this LU in the main DB table *during the current EST's validity period*
+                NOT EXISTS (
+                    SELECT 1 FROM public.establishment est
+                    WHERE est.legal_unit_id = rl.resolved_lu_id
+                      AND est.primary_for_legal_unit = TRUE
+                      AND public.after_to_overlaps(est.valid_after, est.valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to) -- Changed to after_to_overlaps
+                ) AS no_overlapping_primary_in_db, -- Renamed for clarity
+                -- Rank rows within the current batch that map to the same resolved_lu_id, by original data table row_id
+                ROW_NUMBER() OVER (PARTITION BY rl.resolved_lu_id ORDER BY rl.original_data_table_row_id ASC) as rn_for_lu_in_batch
+            FROM ResolvedLinks rl
         )
-        UPDATE public.%I dt SET
-            legal_unit_id = rlu.resolved_lu_id, 
-            primary_for_legal_unit = TRUE, 
-            last_completed_priority = %L,
-            error = CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END, -- Clear only this step's error key
-            state = %L
-        FROM resolved_lu rlu
-        WHERE dt.row_id = rlu.data_row_id
-          AND dt.row_id = ANY(%L) AND dt.row_id != ALL(%L); -- Update only non-error rows from the original batch
-    $$, v_data_table_name, v_step.priority, v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, 'analysing', p_batch_row_ids, COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]));
-    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating success rows with resolved IDs and primary_for_legal_unit: %', p_job_id, v_sql;
+        UPDATE public.%1$I dt SET -- %1$I is v_data_table_name
+            legal_unit_id = rfp.resolved_lu_id,
+            primary_for_legal_unit = (rfp.no_overlapping_primary_in_db AND rfp.rn_for_lu_in_batch = 1), -- Set primary based on rank and DB state (time-aware)
+            last_completed_priority = %4$L, -- %4$L is v_step.priority
+            error = CASE WHEN (dt.error - %5$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %5$L::TEXT[]) END, -- %5$L is v_error_keys_to_clear_arr
+            state = %7$L -- Corrected: %7$L is 'analysing'::public.import_data_state
+        FROM RankedForPrimary rfp
+        WHERE dt.row_id = rfp.data_row_id; -- Join condition for UPDATE
+    $$, 
+        v_data_table_name,                      -- %1$I
+        p_batch_row_ids,                        -- %2$L
+        COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]), -- %3$L
+        v_step.priority,                        -- %4$L
+        v_error_keys_to_clear_arr,              -- %5$L (used for error clearing)
+        v_error_keys_to_clear_arr,              -- %6$L (this was the incorrect argument for state)
+        'analysing'::public.import_data_state   -- %7$L (this is the correct argument for state)
+    );
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating success rows with resolved IDs and refined primary_for_legal_unit: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Marked % rows as success for this target.', p_job_id, v_update_count;
