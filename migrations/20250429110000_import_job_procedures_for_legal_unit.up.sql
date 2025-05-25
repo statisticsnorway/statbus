@@ -158,15 +158,17 @@ DECLARE
     v_actually_replaced_lu_count INT := 0;
     v_actually_updated_lu_count INT := 0;
     error_message TEXT;
-    v_batch_result RECORD; 
+    v_batch_result RECORD;
     v_batch_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
     v_batch_success_row_ids BIGINT[] := ARRAY[]::BIGINT[];
     rec_created_lu RECORD;
     rec_ident_type public.external_ident_type_active;
+    rec_demotion RECORD;
     v_ident_value TEXT;
     v_data_table_col_name TEXT;
     v_inserted_ext_id INT; -- For debugging
     v_inserted_lu_id INT;  -- For debugging
+    v_current_op_row_count INT; -- For storing ROW_COUNT from individual DML operations
 BEGIN
     RAISE DEBUG '[Job %] process_legal_unit (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -249,6 +251,55 @@ BEGIN
     RAISE DEBUG '[Job %] process_legal_unit: Fetching core batch data (including invalid_codes and founding_row_id): %', p_job_id, v_sql;
     EXECUTE v_sql;
 
+    -- Propagate enterprise_id and primary_for_enterprise from founding 'insert' row to subsequent 'replace'/'update' rows in temp_batch_data
+    -- This ensures that entities newly created and linked to an enterprise in this batch
+    -- have their enterprise information correctly carried over to their subsequent time slices within the same batch.
+    UPDATE temp_batch_data tbd_target
+    SET enterprise_id = tbd_source.enterprise_id,
+        primary_for_enterprise = tbd_source.primary_for_enterprise -- If founding insert was primary, subsequent slices are too (before conflict resolution)
+    FROM temp_batch_data tbd_source
+    WHERE tbd_target.founding_row_id IS NOT NULL                         -- Target must be a subsequent row
+      AND tbd_target.founding_row_id = tbd_source.data_row_id          -- Link target to its source/founding row
+      AND tbd_target.data_row_id != tbd_source.data_row_id            -- Ensure it's a different row
+      AND tbd_source.action = 'insert'                                 -- Source must be the original insert action
+      AND tbd_target.enterprise_id IS NULL;                            -- Only update if target's enterprise_id is currently NULL (avoid overwriting already resolved ones for existing LUs)
+    IF FOUND THEN
+        RAISE DEBUG '[Job %] process_legal_unit: Propagated enterprise_id and primary_for_enterprise from founding insert rows to subsequent rows in temp_batch_data.', p_job_id;
+    END IF;
+
+    -- Resolve primary_for_enterprise conflicts within the current batch in temp_batch_data
+    -- For each enterprise and overlapping period, ensure only one LU (the "winner") has primary_for_enterprise = true.
+    RAISE DEBUG '[Job %] process_legal_unit: Resolving primary_for_enterprise conflicts within temp_batch_data.', p_job_id;
+    WITH BatchPrimaries AS (
+        SELECT
+            data_row_id,
+            enterprise_id,
+            valid_after,
+            valid_to,
+            existing_lu_id, -- Assuming this is the actual LU ID
+            primary_for_enterprise,
+            -- Determine the winner within each group of conflicting primaries
+            FIRST_VALUE(data_row_id) OVER (
+                PARTITION BY enterprise_id, daterange(valid_after, valid_to, '(]') -- Partition by enterprise and the validity range
+                ORDER BY existing_lu_id ASC NULLS LAST, data_row_id ASC -- Deterministic tie-breaking: lowest LU ID, then lowest data_row_id
+            ) as winner_data_row_id
+        FROM temp_batch_data
+        WHERE action IN ('replace', 'update')
+          AND primary_for_enterprise = true -- Only consider those initially marked as primary
+          AND enterprise_id IS NOT NULL
+    )
+    UPDATE temp_batch_data tbd
+    SET primary_for_enterprise = false
+    FROM BatchPrimaries bp
+    WHERE tbd.data_row_id = bp.data_row_id
+      AND tbd.data_row_id != bp.winner_data_row_id -- Set to false if not the winner
+      AND tbd.primary_for_enterprise = true; -- Only update if it was true
+
+    IF FOUND THEN
+        RAISE DEBUG '[Job %] process_legal_unit: Resolved primary_for_enterprise conflicts in temp_batch_data. Some LUs were demoted within the batch.', p_job_id;
+    ELSE
+        RAISE DEBUG '[Job %] process_legal_unit: No primary_for_enterprise conflicts to resolve within temp_batch_data, or no candidates found.', p_job_id;
+    END IF;
 
     CREATE TEMP TABLE temp_created_lus ( -- For 'insert' action
         data_row_id BIGINT PRIMARY KEY,
@@ -308,9 +359,105 @@ BEGIN
         edit_comment TEXT
     ) ON COMMIT DROP;
 
-    BEGIN
-        RAISE DEBUG '[Job %] process_legal_unit: Handling INSERTS for new LUs using MERGE.', p_job_id;
+    -- Temp table for demotion operations
+    CREATE TEMP TABLE temp_lu_demotion_ops (
+        row_id BIGINT PRIMARY KEY, -- Can be a synthetic ID for this temp table if needed, or map to an existing LU ID
+        founding_row_id BIGINT,    -- Not strictly needed for demotion, but part of target table structure
+        id INT NOT NULL,           -- The ID of the LU in public.legal_unit to be demoted
+        valid_after DATE NOT NULL,
+        valid_to DATE NOT NULL,
+        name TEXT,
+        birth_date DATE,
+        death_date DATE,
+        active BOOLEAN,
+        sector_id INT,
+        unit_size_id INT,
+        status_id INT,
+        legal_form_id INT,
+        enterprise_id INT,
+        primary_for_enterprise BOOLEAN NOT NULL DEFAULT false, -- Will be false for demotion
+        data_source_id INT,
+        invalid_codes JSONB,
+        edit_by_user_id INT,
+        edit_at TIMESTAMPTZ,
+        edit_comment TEXT
+    ) ON COMMIT DROP;
 
+    BEGIN
+        RAISE DEBUG '[Job %] process_legal_unit: Starting demotion of conflicting primary LUs.', p_job_id;
+
+        INSERT INTO temp_lu_demotion_ops (
+            id, valid_after, valid_to, name, birth_date, death_date, active, sector_id, unit_size_id, status_id, legal_form_id,
+            enterprise_id, primary_for_enterprise, data_source_id, invalid_codes,
+            edit_by_user_id, edit_at, edit_comment,
+            row_id -- Synthetic PK for temp_lu_demotion_ops
+        )
+        SELECT
+            ex_lu.id, -- ID of the LU to be demoted
+            incoming_primary.new_primary_valid_after, -- Demotion period starts when new primary starts
+            incoming_primary.new_primary_valid_to,   -- Demotion period ends when new primary ends
+            ex_lu.name, ex_lu.birth_date, ex_lu.death_date, ex_lu.active, ex_lu.sector_id, ex_lu.unit_size_id, ex_lu.status_id, ex_lu.legal_form_id,
+            ex_lu.enterprise_id,
+            false, -- Explicitly demoting
+            ex_lu.data_source_id, ex_lu.invalid_codes,
+            incoming_primary.demotion_edit_by_user_id,
+            incoming_primary.demotion_edit_at,
+            COALESCE(ex_lu.edit_comment || '; ', '') || 'Demoted: LU ' || COALESCE(incoming_primary.incoming_lu_id::TEXT, 'NEW') || 
+                ' became primary for enterprise ' || incoming_primary.target_enterprise_id || 
+                ' for period ' || incoming_primary.new_primary_valid_after || ' to ' || incoming_primary.new_primary_valid_to || 
+                ' by job ' || p_job_id,
+            -- Generate a unique row_id for the temp table using row_number()
+            row_number() OVER (ORDER BY ex_lu.id, incoming_primary.new_primary_valid_after)
+        FROM
+            public.legal_unit ex_lu
+        JOIN
+            (SELECT -- Subquery to get all incoming LUs from the current batch that are to be primary
+                 sfi_sub.data_row_id AS source_data_row_id,
+                 sfi_sub.existing_lu_id AS incoming_lu_id,
+                 sfi_sub.enterprise_id AS target_enterprise_id,
+                 sfi_sub.valid_after AS new_primary_valid_after,
+                 sfi_sub.valid_to AS new_primary_valid_to,
+                 sfi_sub.edit_by_user_id AS demotion_edit_by_user_id,
+                 sfi_sub.edit_at AS demotion_edit_at
+             FROM temp_batch_data sfi_sub
+             WHERE sfi_sub.action IN ('replace', 'update') -- Only consider LUs being updated/replaced in this batch
+               AND sfi_sub.primary_for_enterprise = true
+               AND sfi_sub.enterprise_id IS NOT NULL
+            ) AS incoming_primary
+        ON ex_lu.enterprise_id = incoming_primary.target_enterprise_id
+        WHERE
+            ex_lu.id != incoming_primary.incoming_lu_id -- Don't demote the LU being processed itself
+            AND ex_lu.primary_for_enterprise = true      -- Only consider existing LUs that are currently primary
+            AND public.after_to_overlaps(ex_lu.valid_after, ex_lu.valid_to, incoming_primary.new_primary_valid_after, incoming_primary.new_primary_valid_to); -- Check for overlap
+
+        IF FOUND THEN
+            RAISE DEBUG '[Job %] process_legal_unit: Identified % LUs for demotion. Populated temp_lu_demotion_ops.', p_job_id, (SELECT count(*) FROM temp_lu_demotion_ops);
+
+            FOR v_batch_result IN
+                SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+                    p_target_schema_name => 'public', p_target_table_name => 'legal_unit',
+                    p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_demotion_ops',
+                    p_id_column_name => 'id',
+                    p_unique_columns => '[]'::jsonb,
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                )
+            LOOP
+                IF v_batch_result.status = 'ERROR' THEN
+                    RAISE WARNING '[Job %] process_legal_unit: Error during demotion batch_replace for LU ID % (source_row_id %): %',
+                                  p_job_id, v_batch_result.upserted_record_id, v_batch_result.source_row_id, v_batch_result.error_message;
+                    UPDATE public.import_job SET error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('demotion_error_lu_' || v_batch_result.upserted_record_id, v_batch_result.error_message)
+                    WHERE id = p_job_id;
+                ELSE
+                    RAISE DEBUG '[Job %] process_legal_unit: Successfully processed demotion for LU ID % (source_row_id %)',
+                                  p_job_id, v_batch_result.upserted_record_id, v_batch_result.source_row_id;
+                END IF;
+            END LOOP;
+        ELSE
+            RAISE DEBUG '[Job %] process_legal_unit: No existing primary LUs found to demote based on current batch.', p_job_id;
+        END IF;
+        RAISE DEBUG '[Job %] process_legal_unit: Finished demotion of conflicting primary LUs.', p_job_id;
+
+        RAISE DEBUG '[Job %] process_legal_unit: Handling INSERTS for new LUs using MERGE.', p_job_id;
         WITH source_for_insert AS (
             SELECT * FROM temp_batch_data WHERE action = 'insert'
         ),
@@ -379,18 +526,18 @@ BEGIN
 
             RAISE DEBUG '[Job %] process_legal_unit: Processed external idents for % new LUs.', p_job_id, v_inserted_new_lu_count;
 
-            -- Update temp_batch_data with the new_legal_unit_id for subsequent 'replace' rows of the same logical entity
-            FOR rec_created_lu IN SELECT tcl.data_row_id, tcl.new_legal_unit_id, tbd.tax_ident -- Assuming tax_ident is the primary grouping identifier
-                                  FROM temp_created_lus tcl
-                                  JOIN temp_batch_data tbd ON tcl.data_row_id = tbd.data_row_id
-            LOOP
-                UPDATE temp_batch_data tbd_update
-                SET existing_lu_id = rec_created_lu.new_legal_unit_id
-                WHERE tbd_update.tax_ident = rec_created_lu.tax_ident -- Match by tax_ident
-                  AND tbd_update.action = 'replace'                    -- Only for 'replace' actions
-                  AND tbd_update.data_row_id != rec_created_lu.data_row_id; -- Not the original insert row
-                RAISE DEBUG '[Job %] process_legal_unit: Updated temp_batch_data.existing_lu_id to % for tax_ident % on replace rows.', p_job_id, rec_created_lu.new_legal_unit_id, rec_created_lu.tax_ident;
-            END LOOP;
+            -- Update temp_batch_data with the new_legal_unit_id for subsequent 'replace'/'update' rows of the same logical entity
+            -- This uses the founding_row_id determined by analyse_external_idents to link to the 'insert' row that created the LU.
+            UPDATE temp_batch_data tbd_target
+            SET existing_lu_id = tcl.new_legal_unit_id
+            FROM temp_created_lus tcl
+            WHERE tbd_target.founding_row_id IS NOT NULL             -- Target must be a subsequent row of a new entity
+              AND tbd_target.founding_row_id = tcl.data_row_id     -- Match target's founding_row_id to the data_row_id of the 'insert' action in temp_created_lus
+              AND tbd_target.action IN ('replace', 'update');        -- Apply to subsequent 'replace' or 'update' actions
+            IF FOUND THEN
+                 GET DIAGNOSTICS v_current_op_row_count = ROW_COUNT;
+                 RAISE DEBUG '[Job %] process_legal_unit: Updated temp_batch_data.existing_lu_id for % subsequent replace/update rows based on founding_row_id.', p_job_id, v_current_op_row_count;
+            END IF;
 
             EXECUTE format($$
                 UPDATE public.%I dt SET
@@ -414,14 +561,18 @@ BEGIN
         )
         SELECT
             tbd.data_row_id, tbd.founding_row_id, tbd.existing_lu_id, tbd.valid_after, tbd.valid_to, tbd.name,
-            tbd.typed_birth_date, tbd.typed_death_date, true,
+            tbd.typed_birth_date, tbd.typed_death_date, true, -- Assuming active=true for replace actions
             tbd.sector_id, tbd.unit_size_id, tbd.status_id, tbd.legal_form_id, tbd.enterprise_id,
             tbd.primary_for_enterprise, tbd.data_source_id,
-            tbd.invalid_codes, -- Use invalid_codes from temp_batch_data
+            tbd.invalid_codes,
             tbd.edit_by_user_id, tbd.edit_at,
             tbd.edit_comment
-        FROM temp_batch_data tbd
-        WHERE tbd.action = 'replace';
+        FROM (
+            SELECT DISTINCT ON (existing_lu_id, valid_after) * -- Select one row per LU ID and valid_after
+            FROM temp_batch_data
+            WHERE action = 'replace'
+            ORDER BY existing_lu_id ASC NULLS LAST, valid_after ASC, data_row_id ASC -- Deterministic pick
+        ) tbd;
 
         GET DIAGNOSTICS v_intended_replace_lu_count = ROW_COUNT;
         RAISE DEBUG '[Job %] process_legal_unit: Populated temp_lu_replace_source with % rows for action=replace.', p_job_id, v_intended_replace_lu_count;
@@ -518,14 +669,18 @@ BEGIN
         )
         SELECT
             tbd.data_row_id, tbd.founding_row_id, tbd.existing_lu_id, tbd.valid_after, tbd.valid_to, tbd.name,
-            tbd.typed_birth_date, tbd.typed_death_date, true,
+            tbd.typed_birth_date, tbd.typed_death_date, true, -- Assuming active=true for update actions
             tbd.sector_id, tbd.unit_size_id, tbd.status_id, tbd.legal_form_id, tbd.enterprise_id,
             tbd.primary_for_enterprise, tbd.data_source_id,
-            tbd.invalid_codes, -- Use invalid_codes from temp_batch_data
+            tbd.invalid_codes,
             tbd.edit_by_user_id, tbd.edit_at,
             tbd.edit_comment
-        FROM temp_batch_data tbd
-        WHERE tbd.action = 'update';
+        FROM (
+            SELECT DISTINCT ON (existing_lu_id, valid_after) * -- Select one row per LU ID and valid_after
+            FROM temp_batch_data
+            WHERE action = 'update'
+            ORDER BY existing_lu_id ASC NULLS LAST, valid_after ASC, data_row_id ASC -- Deterministic pick
+        ) tbd;
 
         GET DIAGNOSTICS v_intended_update_lu_count = ROW_COUNT;
         RAISE DEBUG '[Job %] process_legal_unit: Populated temp_lu_update_source with % rows for action=update.', p_job_id, v_intended_update_lu_count;
@@ -607,6 +762,7 @@ BEGIN
     DROP TABLE IF EXISTS temp_lu_replace_source;
     DROP TABLE IF EXISTS temp_lu_update_source;
     DROP TABLE IF EXISTS temp_processed_action_lu_ids;
+    DROP TABLE IF EXISTS temp_lu_demotion_ops;
 
 EXCEPTION WHEN OTHERS THEN
     GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
@@ -614,7 +770,7 @@ EXCEPTION WHEN OTHERS THEN
     -- Ensure all temp tables are dropped
     DROP TABLE IF EXISTS temp_batch_data; DROP TABLE IF EXISTS temp_created_lus;
     DROP TABLE IF EXISTS temp_lu_replace_source; DROP TABLE IF EXISTS temp_lu_update_source;
-    DROP TABLE IF EXISTS temp_processed_action_lu_ids;
+    DROP TABLE IF EXISTS temp_processed_action_lu_ids; DROP TABLE IF EXISTS temp_lu_demotion_ops;
     -- Attempt to mark individual data rows as error (best effort)
     BEGIN
         v_sql := format($$UPDATE public.%I SET state = %L, error = COALESCE(error, '{}'::jsonb) || jsonb_build_object('unhandled_error_process_lu', %L) WHERE row_id = ANY(%L) AND state != 'error'$$, -- LCP not changed here

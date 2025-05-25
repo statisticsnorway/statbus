@@ -154,6 +154,7 @@ DECLARE
     v_actually_replaced_or_updated_est_count INT := 0; -- Tracks rows successfully processed by batch function
     error_message TEXT;
     v_batch_upsert_result RECORD;
+    v_batch_result RECORD; -- Declaration for the loop variable used in demotion
     v_batch_upsert_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
     v_batch_upsert_success_row_ids BIGINT[] := ARRAY[]::BIGINT[];
     -- Removed v_has_*_col flags, will use v_job_mode
@@ -168,6 +169,7 @@ DECLARE
     v_data_table_col_name TEXT;
     v_select_list TEXT;
     v_job_mode public.import_mode; -- Added for job mode
+    rec_demotion_es RECORD; -- For establishment demotion
 BEGIN
     RAISE DEBUG '[Job %] process_establishment (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -263,20 +265,140 @@ BEGIN
                      p_job_id, sample_data_row.data_row_id, sample_data_row.tax_ident, sample_data_row.legal_unit_id, sample_data_row.primary_for_legal_unit, sample_data_row.enterprise_id, sample_data_row.primary_for_enterprise, sample_data_row.name, sample_data_row.action;
     END LOOP;
 
-    -- The enterprise_id is populated by import.analyse_enterprise_link_for_establishment if that step is included.
-    -- It should not be looked up directly here from legal_unit.
+    -- Resolve primary_for_legal_unit conflicts within the current batch
+    IF v_job_mode = 'establishment_formal' THEN
+        RAISE DEBUG '[Job %] process_establishment: Resolving primary_for_legal_unit conflicts within temp_batch_data.', p_job_id;
+        WITH BatchPrimariesES_PFLU AS (
+            SELECT
+                data_row_id,
+                FIRST_VALUE(data_row_id) OVER (
+                    PARTITION BY legal_unit_id, daterange(valid_after, valid_to, '(]')
+                    ORDER BY existing_est_id ASC NULLS LAST, data_row_id ASC
+                ) as winner_data_row_id
+            FROM temp_batch_data
+            WHERE action IN ('replace', 'update')
+              AND primary_for_legal_unit = true
+              AND legal_unit_id IS NOT NULL
+        )
+        UPDATE temp_batch_data tbd
+        SET primary_for_legal_unit = false
+        FROM BatchPrimariesES_PFLU bp
+        WHERE tbd.data_row_id = bp.data_row_id
+          AND tbd.data_row_id != bp.winner_data_row_id
+          AND tbd.primary_for_legal_unit = true;
+        IF FOUND THEN RAISE DEBUG '[Job %] process_establishment: Resolved PFLU conflicts in temp_batch_data.', p_job_id; END IF;
+    END IF;
 
-    CREATE TEMP TABLE temp_created_ests ( -- For 'insert' action
+    -- Resolve primary_for_enterprise conflicts within the current batch (for informal establishments)
+    IF v_job_mode = 'establishment_informal' THEN
+        RAISE DEBUG '[Job %] process_establishment: Resolving primary_for_enterprise conflicts for informal ESTs within temp_batch_data.', p_job_id;
+        WITH BatchPrimariesES_PFE AS (
+            SELECT
+                data_row_id,
+                FIRST_VALUE(data_row_id) OVER (
+                    PARTITION BY enterprise_id, daterange(valid_after, valid_to, '(]')
+                    ORDER BY existing_est_id ASC NULLS LAST, data_row_id ASC
+                ) as winner_data_row_id
+            FROM temp_batch_data
+            WHERE action IN ('replace', 'update')
+              AND primary_for_enterprise = true
+              AND enterprise_id IS NOT NULL
+        )
+        UPDATE temp_batch_data tbd
+        SET primary_for_enterprise = false
+        FROM BatchPrimariesES_PFE bp
+        WHERE tbd.data_row_id = bp.data_row_id
+          AND tbd.data_row_id != bp.winner_data_row_id
+          AND tbd.primary_for_enterprise = true;
+        IF FOUND THEN RAISE DEBUG '[Job %] process_establishment: Resolved PFE conflicts for informal ESTs in temp_batch_data.', p_job_id; END IF;
+    END IF;
+
+    CREATE TEMP TABLE temp_created_ests (
         data_row_id BIGINT PRIMARY KEY,
         new_establishment_id INT NOT NULL
     ) ON COMMIT DROP;
 
-    CREATE TEMP TABLE temp_processed_action_ids ( -- For 'replace' and 'update' actions
+    CREATE TEMP TABLE temp_processed_action_ids (
         data_row_id BIGINT PRIMARY KEY,
         actual_establishment_id INT NOT NULL
     ) ON COMMIT DROP;
 
+    CREATE TEMP TABLE temp_es_demotion_ops (
+        row_id BIGINT PRIMARY KEY, founding_row_id BIGINT, id INT NOT NULL, valid_after DATE NOT NULL, valid_to DATE NOT NULL,
+        name TEXT, birth_date DATE, death_date DATE, active BOOLEAN, sector_id INT, unit_size_id INT, status_id INT,
+        legal_unit_id INT, primary_for_legal_unit BOOLEAN, enterprise_id INT, primary_for_enterprise BOOLEAN,
+        data_source_id INT, invalid_codes JSONB, edit_by_user_id INT, edit_at TIMESTAMPTZ, edit_comment TEXT
+    ) ON COMMIT DROP;
+
     BEGIN
+        -- Demotion logic for primary_for_legal_unit (formal establishments)
+        IF v_job_mode = 'establishment_formal' THEN
+            RAISE DEBUG '[Job %] process_establishment: Starting demotion of conflicting PFLU ESTs.', p_job_id;
+            INSERT INTO temp_es_demotion_ops (
+                id, valid_after, valid_to, name, birth_date, death_date, active, sector_id, unit_size_id, status_id,
+                legal_unit_id, primary_for_legal_unit, enterprise_id, primary_for_enterprise,
+                data_source_id, invalid_codes, edit_by_user_id, edit_at, edit_comment, row_id
+            )
+            SELECT
+                ex_es.id, ipes.new_primary_valid_after, ipes.new_primary_valid_to,
+                ex_es.name, ex_es.birth_date, ex_es.death_date, ex_es.active, ex_es.sector_id, ex_es.unit_size_id, ex_es.status_id,
+                ex_es.legal_unit_id, false, ex_es.enterprise_id, ex_es.primary_for_enterprise,
+                ex_es.data_source_id, ex_es.invalid_codes, ipes.demotion_edit_by_user_id, ipes.demotion_edit_at,
+                COALESCE(ex_es.edit_comment || '; ', '') || 'Demoted (PFLU): EST ' || COALESCE(ipes.incoming_est_id::TEXT, 'NEW') ||
+                ' became primary for LU ' || ipes.target_legal_unit_id || ' for period ' || ipes.new_primary_valid_after || ' to ' || ipes.new_primary_valid_to || ' by job ' || p_job_id,
+                row_number() OVER (ORDER BY ex_es.id, ipes.new_primary_valid_after)
+            FROM public.establishment ex_es
+            JOIN (
+                SELECT s.existing_est_id AS incoming_est_id, s.legal_unit_id AS target_legal_unit_id, s.valid_after AS new_primary_valid_after, s.valid_to AS new_primary_valid_to, s.edit_by_user_id AS demotion_edit_by_user_id, s.edit_at AS demotion_edit_at
+                FROM temp_batch_data s WHERE s.action IN ('replace', 'update') AND s.primary_for_legal_unit = true AND s.legal_unit_id IS NOT NULL
+            ) AS ipes ON ex_es.legal_unit_id = ipes.target_legal_unit_id
+            WHERE ex_es.id != ipes.incoming_est_id AND ex_es.primary_for_legal_unit = true
+              AND public.after_to_overlaps(ex_es.valid_after, ex_es.valid_to, ipes.new_primary_valid_after, ipes.new_primary_valid_to);
+
+            IF FOUND THEN
+                RAISE DEBUG '[Job %] process_establishment: Identified % ESTs for PFLU demotion.', p_job_id, (SELECT count(*) FROM temp_es_demotion_ops);
+                FOR v_batch_result IN SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table('public','establishment','pg_temp','temp_es_demotion_ops','id','[]'::jsonb,ARRAY['edit_comment','edit_by_user_id','edit_at']) LOOP
+                    IF v_batch_result.status = 'ERROR' THEN RAISE WARNING '[Job %] process_establishment: Error PFLU demotion EST ID %: %', p_job_id,v_batch_result.upserted_record_id,v_batch_result.error_message;
+                    ELSE RAISE DEBUG '[Job %] process_establishment: Success PFLU demotion EST ID %',p_job_id,v_batch_result.upserted_record_id; END IF;
+                END LOOP;
+                DELETE FROM temp_es_demotion_ops;
+            ELSE RAISE DEBUG '[Job %] process_establishment: No existing PFLU ESTs to demote.', p_job_id; END IF;
+        END IF;
+
+        -- Demotion logic for primary_for_enterprise (informal establishments)
+        IF v_job_mode = 'establishment_informal' THEN
+            RAISE DEBUG '[Job %] process_establishment: Starting demotion of conflicting PFE informal ESTs.', p_job_id;
+            INSERT INTO temp_es_demotion_ops (
+                id, valid_after, valid_to, name, birth_date, death_date, active, sector_id, unit_size_id, status_id,
+                legal_unit_id, primary_for_legal_unit, enterprise_id, primary_for_enterprise,
+                data_source_id, invalid_codes, edit_by_user_id, edit_at, edit_comment, row_id
+            )
+            SELECT
+                ex_es.id, ipes.new_primary_valid_after, ipes.new_primary_valid_to,
+                ex_es.name, ex_es.birth_date, ex_es.death_date, ex_es.active, ex_es.sector_id, ex_es.unit_size_id, ex_es.status_id,
+                ex_es.legal_unit_id, ex_es.primary_for_legal_unit, ex_es.enterprise_id, false, -- Demoting primary_for_enterprise
+                ex_es.data_source_id, ex_es.invalid_codes, ipes.demotion_edit_by_user_id, ipes.demotion_edit_at,
+                COALESCE(ex_es.edit_comment || '; ', '') || 'Demoted (PFE): EST ' || COALESCE(ipes.incoming_est_id::TEXT, 'NEW') ||
+                ' became primary for EN ' || ipes.target_enterprise_id || ' for period ' || ipes.new_primary_valid_after || ' to ' || ipes.new_primary_valid_to || ' by job ' || p_job_id,
+                row_number() OVER (ORDER BY ex_es.id, ipes.new_primary_valid_after)
+            FROM public.establishment ex_es
+            JOIN (
+                SELECT s.existing_est_id AS incoming_est_id, s.enterprise_id AS target_enterprise_id, s.valid_after AS new_primary_valid_after, s.valid_to AS new_primary_valid_to, s.edit_by_user_id AS demotion_edit_by_user_id, s.edit_at AS demotion_edit_at
+                FROM temp_batch_data s WHERE s.action IN ('replace', 'update') AND s.primary_for_enterprise = true AND s.enterprise_id IS NOT NULL
+            ) AS ipes ON ex_es.enterprise_id = ipes.target_enterprise_id
+            WHERE ex_es.id != ipes.incoming_est_id AND ex_es.primary_for_enterprise = true
+              AND public.after_to_overlaps(ex_es.valid_after, ex_es.valid_to, ipes.new_primary_valid_after, ipes.new_primary_valid_to);
+
+            IF FOUND THEN
+                RAISE DEBUG '[Job %] process_establishment: Identified % informal ESTs for PFE demotion.', p_job_id, (SELECT count(*) FROM temp_es_demotion_ops);
+                FOR v_batch_result IN SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table('public','establishment','pg_temp','temp_es_demotion_ops','id','[]'::jsonb,ARRAY['edit_comment','edit_by_user_id','edit_at']) LOOP
+                    IF v_batch_result.status = 'ERROR' THEN RAISE WARNING '[Job %] process_establishment: Error PFE demotion EST ID %: %',p_job_id,v_batch_result.upserted_record_id,v_batch_result.error_message;
+                    ELSE RAISE DEBUG '[Job %] process_establishment: Success PFE demotion EST ID %',p_job_id,v_batch_result.upserted_record_id; END IF;
+                END LOOP;
+                DELETE FROM temp_es_demotion_ops;
+            ELSE RAISE DEBUG '[Job %] process_establishment: No existing PFE informal ESTs to demote.', p_job_id; END IF;
+        END IF;
+
         RAISE DEBUG '[Job %] process_establishment: Handling INSERTS for new ESTs using MERGE.', p_job_id;
 
         -- Log data going into MERGE for inserts
@@ -416,12 +538,16 @@ BEGIN
             tbd.primary_for_legal_unit, -- Value from temp_batch_data
             tbd.enterprise_id, -- Value from temp_batch_data
             tbd.primary_for_enterprise, -- Value from temp_batch_data
-            tbd.name, tbd.typed_birth_date, tbd.typed_death_date, true,
+            tbd.name, tbd.typed_birth_date, tbd.typed_death_date, true, -- Assuming active=true
             tbd.sector_id, tbd.unit_size_id, tbd.status_id, tbd.data_source_id,
-            tbd.invalid_codes, -- Added
+            tbd.invalid_codes,
             tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment
-        FROM temp_batch_data tbd
-        WHERE tbd.action = 'replace';
+        FROM (
+            SELECT DISTINCT ON (existing_est_id, valid_after) *
+            FROM temp_batch_data
+            WHERE action = 'replace'
+            ORDER BY existing_est_id ASC NULLS LAST, valid_after ASC, data_row_id ASC
+        ) tbd;
 
         GET DIAGNOSTICS v_updated_existing_est_count = ROW_COUNT;
         RAISE DEBUG '[Job %] process_establishment: Populated temp_est_upsert_source with % rows for batch replace.', p_job_id, v_updated_existing_est_count;
@@ -527,6 +653,7 @@ BEGIN
     DROP TABLE IF EXISTS temp_batch_data;
     DROP TABLE IF EXISTS temp_created_ests;
     DROP TABLE IF EXISTS temp_processed_action_ids;
+    DROP TABLE IF EXISTS temp_es_demotion_ops;
 END;
 $process_establishment$;
 
