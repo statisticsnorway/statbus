@@ -195,6 +195,7 @@ DECLARE
     v_error_count INT := 0;
     v_inserted_new_loc_count INT := 0;
     v_updated_existing_loc_count INT := 0;
+    v_update_count INT; -- Declaration for v_update_count
     error_message TEXT;
     v_location_type public.location_type;
     v_job_mode public.import_mode;
@@ -254,41 +255,42 @@ BEGIN
 
     CREATE TEMP TABLE temp_batch_data (
         data_row_id BIGINT PRIMARY KEY,
+        founding_row_id BIGINT, -- Added to link rows of the same logical entity
         legal_unit_id INT,
         establishment_id INT,
-        valid_after DATE, -- Added
+        valid_after DATE,
         valid_from DATE,
         valid_to DATE,
         data_source_id INT,
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
-        edit_comment TEXT, -- Added
+        edit_comment TEXT,
         address_part1 TEXT, address_part2 TEXT, address_part3 TEXT,
         postcode TEXT, postplace TEXT, region_id INT, country_id INT,
         latitude NUMERIC, longitude NUMERIC, altitude NUMERIC,
-        existing_loc_id INT,
+        existing_loc_id INT, -- Will store the ID of the location in public.location
         action public.import_row_action_type
     ) ON COMMIT DROP;
 
     v_sql := format($$
         INSERT INTO temp_batch_data (
-            data_row_id, legal_unit_id, establishment_id, valid_after, valid_from, valid_to, data_source_id,
-            edit_by_user_id, edit_at, edit_comment, -- Added
+            data_row_id, founding_row_id, legal_unit_id, establishment_id, valid_after, valid_from, valid_to, data_source_id,
+            edit_by_user_id, edit_at, edit_comment,
             address_part1, address_part2, address_part3, postcode, postplace,
             region_id, country_id, latitude, longitude, altitude, action
         )
         SELECT
-            row_id, %s, %s,
-            derived_valid_after, -- Added
-            derived_valid_from,
-            derived_valid_to,
-            data_source_id,
-            edit_by_user_id, edit_at, edit_comment, -- Added
-            %I, %I, %I, %I, %I,
-            %I, %I,
-            %I, %I, %I,
-            action
-         FROM public.%I dt WHERE row_id = ANY(%L) AND action != 'skip'; -- Added alias dt
+            dt.row_id, dt.founding_row_id, %s, %s,
+            dt.derived_valid_after,
+            dt.derived_valid_from,
+            dt.derived_valid_to,
+            dt.data_source_id,
+            dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
+            dt.%I, dt.%I, dt.%I, dt.%I, dt.%I,
+            dt.%I, dt.%I,
+            dt.%I, dt.%I, dt.%I,
+            dt.action
+         FROM public.%I dt WHERE dt.row_id = ANY(%L) AND dt.action != 'skip';
     $$,
         v_select_lu_id_expr,
         v_select_est_id_expr,
@@ -308,10 +310,12 @@ BEGIN
 
     -- Debug: Log content of temp_batch_data
     FOR v_row IN SELECT * FROM temp_batch_data LOOP
-        RAISE DEBUG '[Job %] process_location: temp_batch_data content for data_row_id %: LU_ID:%, EST_ID:%, VF:% VT:% Action:% Addr1:% Postcode:%',
-            p_job_id, v_row.data_row_id, v_row.legal_unit_id, v_row.establishment_id, v_row.valid_from, v_row.valid_to, v_row.action, v_row.address_part1, v_row.postcode;
+        RAISE DEBUG '[Job %] process_location: temp_batch_data content for data_row_id %: FRID:% LU_ID:%, EST_ID:%, ExLocID:% VF:% VT:% Action:% Addr1:% Postcode:%',
+            p_job_id, v_row.data_row_id, v_row.founding_row_id, v_row.legal_unit_id, v_row.establishment_id, v_row.existing_loc_id, v_row.valid_from, v_row.valid_to, v_row.action, v_row.address_part1, v_row.postcode;
     END LOOP;
 
+    -- Step 2: Determine existing_loc_id for entities that pre-exist in public.location
+    -- This updates temp_batch_data.existing_loc_id for all rows matching a unit.
     IF v_job_mode = 'legal_unit' THEN
         v_sql := format($$
             UPDATE temp_batch_data tbd SET
@@ -319,7 +323,7 @@ BEGIN
             FROM public.location loc
             WHERE loc.type = %L
               AND loc.legal_unit_id = tbd.legal_unit_id
-              AND loc.establishment_id IS NULL;
+              AND loc.establishment_id IS NULL; -- Location is exclusively for the Legal Unit
         $$, v_location_type);
     ELSIF v_job_mode IN ('establishment_formal', 'establishment_informal') THEN
         v_sql := format($$
@@ -328,7 +332,7 @@ BEGIN
             FROM public.location loc
             WHERE loc.type = %L
               AND loc.establishment_id = tbd.establishment_id
-              AND loc.legal_unit_id IS NULL;
+              AND loc.legal_unit_id IS NULL; -- Location is exclusively for the Establishment
         $$, v_location_type);
     ELSE
         -- This case should have been caught earlier by the job mode check, but as a safeguard:
@@ -350,11 +354,11 @@ BEGIN
         WITH source_for_insert AS (
             SELECT
                 tbd.data_row_id, tbd.legal_unit_id, tbd.establishment_id, tbd.valid_after, tbd.valid_from, tbd.valid_to, tbd.data_source_id, -- Added valid_after
-                tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment, -- Added edit_comment
+                tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment,
                 tbd.address_part1, tbd.address_part2, tbd.address_part3, tbd.postcode, tbd.postplace,
                 tbd.region_id, tbd.country_id, tbd.latitude, tbd.longitude, tbd.altitude
             FROM temp_batch_data tbd
-            WHERE tbd.action = 'insert'
+            WHERE tbd.action = 'insert' AND tbd.existing_loc_id IS NULL -- Only insert if no existing location ID was found
             AND (tbd.region_id IS NOT NULL OR tbd.country_id IS NOT NULL OR tbd.address_part1 IS NOT NULL OR tbd.postcode IS NOT NULL) -- Ensure some actual location data exists
         ),
         merged_locations AS (
@@ -400,9 +404,36 @@ BEGIN
             RAISE DEBUG '[Job %] process_location: Updated _data table for % new locations (type: %).', p_job_id, v_inserted_new_loc_count, v_location_type;
         END IF;
 
+        -- Step 4: Propagate newly created location_ids to other rows in temp_batch_data
+        -- belonging to the same logical entity (identified by founding_row_id and unit id).
+        -- This ensures that 'replace' actions for newly created entities use the correct location_id.
+        IF v_inserted_new_loc_count > 0 THEN
+            RAISE DEBUG '[Job %] process_location: Propagating new location_ids within temp_batch_data (type: %).', p_job_id, v_location_type;
+            WITH new_entity_details AS (
+                SELECT
+                    tcl.new_location_id,
+                    tbd_founder.founding_row_id,
+                    tbd_founder.legal_unit_id,
+                    tbd_founder.establishment_id
+                FROM temp_created_locs tcl
+                JOIN temp_batch_data tbd_founder ON tcl.data_row_id = tbd_founder.data_row_id -- tbd_founder is the row that caused the insert
+            )
+            UPDATE temp_batch_data tbd -- tbd are the rows to be updated
+            SET existing_loc_id = ned.new_location_id
+            FROM new_entity_details ned
+            WHERE tbd.founding_row_id = ned.founding_row_id
+              AND ( -- Match on the correct unit ID based on job mode
+                    (v_job_mode = 'legal_unit' AND tbd.legal_unit_id = ned.legal_unit_id) OR
+                    (v_job_mode IN ('establishment_formal', 'establishment_informal') AND tbd.establishment_id = ned.establishment_id)
+                  )
+              AND tbd.existing_loc_id IS NULL -- Only update if not already set
+              AND tbd.action IN ('replace', 'update'); -- Apply to subsequent actions for the same new entity
+            GET DIAGNOSTICS v_update_count = ROW_COUNT;
+            RAISE DEBUG '[Job %] process_location: Propagated new location_ids to % rows in temp_batch_data (type: %).', p_job_id, v_update_count, v_location_type;
+        END IF;
 
-        -- Handle REPLACES for existing locations (action = 'replace')
-        RAISE DEBUG '[Job %] process_location: Handling REPLACES for existing locations (type: %).', p_job_id, v_location_type;
+        -- Handle REPLACES for existing locations (action = 'replace' or 'update')
+        RAISE DEBUG '[Job %] process_location: Handling REPLACES/UPDATES for existing locations (type: %).', p_job_id, v_location_type;
         -- Create temp source table for batch upsert
         CREATE TEMP TABLE temp_loc_upsert_source (
             row_id BIGINT PRIMARY KEY,
@@ -437,16 +468,17 @@ BEGIN
             tbd.address_part1, tbd.address_part2, tbd.address_part3, tbd.postcode, tbd.postplace,
             tbd.region_id, tbd.country_id, tbd.latitude, tbd.longitude, tbd.altitude,
             tbd.data_source_id, tbd.edit_by_user_id, tbd.edit_at,
-            tbd.edit_comment -- Use tbd.edit_comment
+            tbd.edit_comment
         FROM temp_batch_data tbd
-        WHERE tbd.action = 'replace'
+        WHERE tbd.action IN ('replace', 'update') -- Process both 'replace' and 'update' actions here
+        AND tbd.existing_loc_id IS NOT NULL -- Crucially, only process if we have a location ID
         AND (tbd.region_id IS NOT NULL OR tbd.country_id IS NOT NULL OR tbd.address_part1 IS NOT NULL OR tbd.postcode IS NOT NULL); -- Ensure some actual location data exists
 
         GET DIAGNOSTICS v_updated_existing_loc_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] process_location: Populated temp_loc_upsert_source with % rows for batch replace (type: %).', p_job_id, v_updated_existing_loc_count, v_location_type;
+        RAISE DEBUG '[Job %] process_location: Populated temp_loc_upsert_source with % rows for batch replace/update (type: %).', p_job_id, v_updated_existing_loc_count, v_location_type;
 
         IF v_updated_existing_loc_count > 0 THEN
-            RAISE DEBUG '[Job %] process_location: Calling batch_insert_or_replace_generic_valid_time_table for location (type: %).', p_job_id, v_location_type;
+            RAISE DEBUG '[Job %] process_location: Calling batch_insert_or_replace_generic_valid_time_table for location (type: %). Found % rows to process.', p_job_id, v_location_type, v_updated_existing_loc_count;
             FOR v_batch_upsert_result IN
                 SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
                     p_target_schema_name => 'public',

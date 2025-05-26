@@ -83,33 +83,45 @@ BEGIN
 
     v_unpivot_sql := '';
     v_add_separator := FALSE;
-    FOR v_col_rec IN SELECT value->>'column_name' as col_name
+    -- For external_idents step, the import_data_column.column_name *is* the external_ident_type.code
+    FOR v_col_rec IN SELECT value->>'column_name' as idc_column_name -- This is the actual external_ident_type.code
                      FROM jsonb_array_elements(v_ident_data_cols) value
     LOOP
+        -- idc_column_name itself will be used to join with external_ident_type.code
+        IF v_col_rec.idc_column_name IS NULL THEN
+             RAISE DEBUG '[Job %] analyse_external_idents: Skipping column as its name is null in import_data_column_list for step external_idents.', p_job_id;
+             CONTINUE;
+        END IF;
+
         IF v_add_separator THEN v_unpivot_sql := v_unpivot_sql || ' UNION ALL '; END IF;
         v_unpivot_sql := v_unpivot_sql || format(
-            $$SELECT dt.row_id, %L AS ident_code, dt.%I AS ident_value
-             FROM public.%I dt WHERE dt.%I IS NOT NULL AND dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'$$, -- Exclude pre-skipped, handle NULL action
-             v_col_rec.col_name, v_col_rec.col_name, v_data_table_name, v_col_rec.col_name, p_batch_row_ids
+            $$SELECT dt.row_id, 
+                     %L AS source_column_name_in_data_table, -- This is the name of the column in _data table (e.g., 'tax_ident')
+                     %L AS ident_type_code_to_join_on,     -- This is also the external_ident_type.code (e.g., 'tax_ident')
+                     dt.%I AS ident_value
+             FROM public.%I dt WHERE dt.%I IS NOT NULL AND dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'$$,
+             v_col_rec.idc_column_name, -- Name of column in _data table
+             v_col_rec.idc_column_name, -- Code to join with external_ident_type
+             v_col_rec.idc_column_name, -- Column to select value from in _data table
+             v_data_table_name, v_col_rec.idc_column_name, p_batch_row_ids
         );
         v_add_separator := TRUE;
     END LOOP;
 
     IF v_unpivot_sql = '' THEN
-        RAISE DEBUG '[Job %] analyse_external_idents: No external ident values found in batch. Skipping further analysis.', p_job_id;
+        RAISE DEBUG '[Job %] analyse_external_idents: No external ident values found in batch (e.g. all source columns were NULL, or no relevant columns in snapshot for external_idents step). Skipping further analysis.', p_job_id;
         v_sql := format($$
             UPDATE public.%I dt SET
                 state = %L,
-                error = jsonb_build_object('external_idents', 'No identifier provided'),
-                -- last_completed_priority is preserved (not changed) on error
-                operation = 'insert'::public.import_row_operation_type, -- Always set operation
+                error = jsonb_build_object('external_idents', 'No identifier provided or mapped correctly for external_idents step'),
+                operation = 'insert'::public.import_row_operation_type,
                 action = %L
             WHERE dt.row_id = ANY(%L);
         $$, v_data_table_name, 'error', 'skip'::public.import_row_action_type, p_batch_row_ids);
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers)', p_job_id, v_error_count;
-        DROP TABLE IF EXISTS temp_unpivoted_idents; -- Ensure cleanup
+        RAISE DEBUG '[Job %] analyse_external_idents (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers or mappings for external_idents step)', p_job_id, v_error_count;
+        DROP TABLE IF EXISTS temp_unpivoted_idents; 
         RETURN;
     END IF;
 
@@ -117,14 +129,14 @@ BEGIN
         INSERT INTO temp_unpivoted_idents (data_row_id, source_ident_code, ident_value, ident_type_id, resolved_lu_id, resolved_est_id)
         SELECT
             up.row_id, 
-            up.ident_code AS source_ident_code, 
+            up.source_column_name_in_data_table AS source_ident_code, 
             up.ident_value, 
-            xit.id AS ident_type_id, -- This will be NULL if up.ident_code is not found in xit.code
+            xit.id AS ident_type_id,
             xi.legal_unit_id, 
             xi.establishment_id
-        FROM ( %s ) up -- up.ident_code is the column name from _data table, e.g. 'tax_ident'
-        LEFT JOIN public.external_ident_type_active xit ON xit.code = up.ident_code -- Use _active view
-        LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = up.ident_value; -- xi.type_id will be NULL if xit.id is NULL
+        FROM ( %s ) up 
+        LEFT JOIN public.external_ident_type_active xit ON xit.code = up.ident_type_code_to_join_on
+        LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = up.ident_value; 
     $$, v_unpivot_sql);
     RAISE DEBUG '[Job %] analyse_external_idents: Unpivoting and looking up identifiers: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -343,7 +355,7 @@ END;
 $analyse_external_idents$;
 
 
-CREATE FUNCTION import.process_external_idents(
+CREATE OR REPLACE FUNCTION import.process_external_idents(
     new_jsonb JSONB,
     unit_type TEXT,
     OUT external_idents public.external_ident[],

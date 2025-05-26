@@ -369,6 +369,7 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
  import      | completed |    12
  maintenance | pending   |     2
 (3 rows)
+
 ROLLBACK TO before_loading_units;
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,

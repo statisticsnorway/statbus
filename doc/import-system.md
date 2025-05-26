@@ -48,6 +48,7 @@ The import system is built around several key database tables and concepts:
     *   They contain the actual logic for:
         *   **Analysis (`analyse_procedure`):** Reads `source_input` columns, performs lookups (e.g., finding `sector_id` from `sector_code`), type casting (e.g., `admin.safe_cast_to_date`), and validations. Stores results in `internal` columns (e.g., `sector_id`, `typed_birth_date`). The `external_idents` step specifically determines the potential operation (`operation`: `insert` or `replace`) based on identifier lookups, and the final `action` (`insert`, `replace`, or `skip`) based on the `operation` and the job's `strategy`, storing both in their respective `internal` columns. Updates the row's `state` (to `analysing` or `error`), `error` (JSONB), and `last_completed_priority` in the `_data` table.
         *   **Operation (`process_procedure`):** Reads `source_input` and `internal` columns, including the `action` column. Performs the final `INSERT` (for `action='insert'`) or `REPLACE` (for `action='replace'`, typically using `admin.batch_insert_or_replace_generic_valid_time_table` for temporal data) into the target Statbus tables, respecting the job's `strategy`. Skips rows where `action='skip'`. Stores the resulting primary key(s) in the corresponding `pk_id` column (e.g., `legal_unit_id`, `location_id`, `activity_id`). Updates the row's `state` (to `processing` or `error`), `error`, and `last_completed_priority`. *Note: Some steps like `external_idents` only perform analysis and do not have a process procedure.*
+    *   **Temporal Slicing Principle**: A new temporal slice (i.e., a new row with adjusted `valid_after`/`valid_to`) is created in a specific target table (e.g., `public.legal_unit`, `public.location`) *only* when "core" data fields *within that specific table* change. Changes in related tables (e.g., a `location` change for a `legal_unit`) will create new slices in the related table (`public.location`) but not necessarily in the parent table (`public.legal_unit`) unless the parent table's own core data also changes (e.g., if the `legal_unit`'s `status_id` changes due to the location change). The `public.statistical_unit` view then joins these tables to present a consolidated timeline, which may appear more fragmented if related data changes frequently.
     *   These procedures operate on batches of rows identified by an array of their `row_id` values (e.g., `INTEGER[]`). The `row_id` is a stable, dedicated identifier within the job-specific `_data` table, used instead of PostgreSQL's system column `ctid` because `ctid` can change during row updates or table maintenance, making it unreliable for this multi-stage process. When these `row_id`s are temporarily stored (e.g., in a `TEMP TABLE` for batch processing), the column holding them in the temporary table is typically named `data_row_id` for clarity. They use `FOR UPDATE SKIP LOCKED` when selecting batches to handle concurrency.
 
 8.  **Import Job (`import_job`)**:
@@ -169,16 +170,16 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
         *   `edit_by_user_id` (purpose: `internal`, type: `INTEGER`)
         *   `edit_at` (purpose: `internal`, type: `TIMESTAMPTZ`)
     *   **`external_idents` step:**
-        *   `tax_ident` (purpose: `source_input`, type: `TEXT`, uniquely_identifying: `true`) - *Dynamically generated based on `external_ident_type`*
-        *   `stat_ident` (purpose: `source_input`, type: `TEXT`) - *Dynamically generated*
-        *   ... (other dynamic external ident columns)
-        *   `legal_unit_id` (purpose: `pk_id`, type: `INTEGER`) - *Resolved internal ID*
-        *   `establishment_id` (purpose: `pk_id`, type: `INTEGER`) - *Resolved internal ID*
-        *   `operation` (purpose: `internal`, type: `public.import_row_operation_type`) - *Determined operation*
-        *   `action` (purpose: `internal`, type: `public.import_row_action_type`) - *Determined action*
+        *   `tax_ident` (purpose: `source_input`, type: `TEXT`, uniquely_identifying: `true`) - *Dynamically generated `import_data_column`. Its `column_name` ("tax_ident") matches an `external_ident_type.code`.*
+        *   `stat_ident` (purpose: `source_input`, type: `TEXT`) - *Dynamically generated `import_data_column`. Its `column_name` ("stat_ident") matches an `external_ident_type.code`.*
+        *   ... (other dynamic external ident columns, where `column_name` matches an `external_ident_type.code`)
+        *   `legal_unit_id` (purpose: `pk_id`, type: `INTEGER`) - *Resolved internal ID of the unit identified.*
+        *   `establishment_id` (purpose: `pk_id`, type: `INTEGER`) - *Resolved internal ID of the unit identified.*
+        *   `operation` (purpose: `internal`, type: `public.import_row_operation_type`) - *Determined operation (insert/replace/update) based on identifier lookups.*
+        *   `action` (purpose: `internal`, type: `public.import_row_action_type`) - *Determined final action based on operation and job strategy.*
     *   **`enterprise_link_for_legal_unit` step:**
         *   `enterprise_id` (purpose: `internal`, type: `INTEGER`)
-        *   `is_primary` (purpose: `internal`, type: `BOOLEAN`)
+        *   `primary_for_enterprise` (purpose: `internal`, type: `BOOLEAN`) -- Renamed from is_primary for consistency
     *   **`valid_time_from_source` step:**
         *   `valid_from` (purpose: `source_input`, type: `TEXT`)
         *   `valid_to` (purpose: `source_input`, type: `TEXT`)
@@ -201,8 +202,8 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
         *   `data_source_id` (purpose: `internal`, type: `INTEGER`)
         *   `typed_birth_date` (purpose: `internal`, type: `DATE`)
         *   `typed_death_date` (purpose: `internal`, type: `DATE`) -- Added
-        *   `enterprise_id` (purpose: `internal`, type: `INTEGER`) -- Populated by enterprise_link step
-        *   `is_primary` (purpose: `internal`, type: `BOOLEAN`) -- Populated by enterprise_link step
+        *   `enterprise_id` (purpose: `internal`, type: `INTEGER`) -- Populated by enterprise_link_for_legal_unit step
+        *   `primary_for_enterprise` (purpose: `internal`, type: `BOOLEAN`) -- Populated by enterprise_link_for_legal_unit step
     *   **`physical_location` step:**
         *   `physical_address_part1` (purpose: `source_input`, type: `TEXT`)
         *   `physical_postcode` (purpose: `source_input`, type: `TEXT`)

@@ -161,7 +161,7 @@ FROM public.import_job
 WHERE slug = 'import_41_lu_era_b1_birth_start_y';
                slug                |  state   | total_rows | imported_rows | has_error | error_rows 
 -----------------------------------+----------+------------+---------------+-----------+------------
- import_41_lu_era_b1_birth_start_y | finished |          4 |             2 | f         |          2
+ import_41_lu_era_b1_birth_start_y | finished |          4 |             4 | f         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 1
@@ -303,7 +303,7 @@ FROM public.import_job
 WHERE slug = 'import_41_lu_era_b2_birth_start_m2';
                 slug                |  state   | total_rows | imported_rows | has_error | error_rows 
 ------------------------------------+----------+------------+---------------+-----------+------------
- import_41_lu_era_b2_birth_start_m2 | finished |          4 |             2 | f         |          2
+ import_41_lu_era_b2_birth_start_m2 | finished |          4 |             4 | f         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 2
@@ -444,7 +444,7 @@ FROM public.import_job
 WHERE slug = 'import_41_lu_era_b3_birth_mid_m';
               slug               |  state   | total_rows | imported_rows | has_error | error_rows 
 ---------------------------------+----------+------------+---------------+-----------+------------
- import_41_lu_era_b3_birth_mid_m | finished |          4 |             2 | f         |          2
+ import_41_lu_era_b3_birth_mid_m | finished |          4 |             4 | f         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 3

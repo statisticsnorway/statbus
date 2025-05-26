@@ -439,7 +439,7 @@ BEGIN
                     p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_demotion_ops',
                     p_id_column_name => 'id',
                     p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'primary_for_enterprise', 'invalid_codes']
                 )
             LOOP
                 IF v_batch_result.status = 'ERROR' THEN
@@ -459,17 +459,24 @@ BEGIN
 
         RAISE DEBUG '[Job %] process_legal_unit: Handling INSERTS for new LUs using MERGE.', p_job_id;
         WITH source_for_insert AS (
-            SELECT * FROM temp_batch_data WHERE action = 'insert'
+            SELECT
+                data_row_id, name, typed_birth_date, typed_death_date,
+                sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
+                primary_for_enterprise, data_source_id, invalid_codes,
+                valid_from, valid_to,
+                edit_by_user_id, edit_at, edit_comment,
+                action -- Though action is 'insert', including it for completeness if MERGE logic were more complex
+            FROM temp_batch_data WHERE action = 'insert'
         ),
         merged_legal_units AS (
             MERGE INTO public.legal_unit lu
             USING source_for_insert sfi
-            ON 1 = 0
-            WHEN NOT MATCHED THEN
+            ON 1 = 0 -- Always insert for this action when action = 'insert'
+            WHEN NOT MATCHED THEN -- This condition will always be true due to "ON 1 = 0"
                 INSERT (
                     name, birth_date, death_date,
                     sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
-                    primary_for_enterprise, data_source_id, invalid_codes, -- Added invalid_codes
+                    primary_for_enterprise, data_source_id, invalid_codes,
                     valid_from, valid_to,
                     edit_by_user_id, edit_at, edit_comment
                 )
@@ -477,7 +484,7 @@ BEGIN
                     sfi.name, sfi.typed_birth_date, sfi.typed_death_date,
                     sfi.sector_id, sfi.unit_size_id, sfi.status_id, sfi.legal_form_id, sfi.enterprise_id,
                     sfi.primary_for_enterprise, sfi.data_source_id,
-                    sfi.invalid_codes, -- Use invalid_codes from temp_batch_data
+                    sfi.invalid_codes,
                     sfi.valid_from, sfi.valid_to,
                     sfi.edit_by_user_id, sfi.edit_at, sfi.edit_comment
                 )
@@ -587,7 +594,7 @@ BEGIN
                     p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_replace_source',
                     p_id_column_name => 'id', -- Ensure this is the PK in temp_lu_replace_source
                     p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'primary_for_enterprise', 'invalid_codes']
                     -- p_source_row_id_column_name, p_temporal_columns, p_founding_row_id_column_name are removed
                 )
             LOOP
@@ -700,7 +707,7 @@ BEGIN
                     p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_update_source',
                     p_id_column_name => 'id', -- Ensure this is the PK in temp_lu_update_source
                     p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'primary_for_enterprise', 'invalid_codes']
                     -- p_source_row_id_column_name, p_temporal_columns, p_founding_row_id_column_name are removed
                 )
             LOOP

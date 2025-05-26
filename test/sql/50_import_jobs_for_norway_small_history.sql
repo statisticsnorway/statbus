@@ -124,21 +124,73 @@ SELECT state, count(*) FROM public.import_es_2016_sht_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2017_sht_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2018_sht_data GROUP BY state;
 
-\echo "Row-level errors for import_es_2016_sht (if any):"
-SELECT row_id, state, error, tax_ident, name, legal_unit_tax_ident
+\echo "Checking for Row-level errors for all import jobs:"
+
+\echo "Row-level errors for job import_es_2015_sht (table import_es_2015_sht_data):"
+SELECT row_id, state, error,
+       tax_ident::TEXT AS tax_ident,
+       name::TEXT AS name,
+       legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
+FROM public.import_es_2015_sht_data
+WHERE state = 'error' OR error IS NOT NULL
+ORDER BY row_id;
+
+\echo "Row-level errors for job import_es_2016_sht (table import_es_2016_sht_data):"
+SELECT row_id, state, error,
+       tax_ident::TEXT AS tax_ident,
+       name::TEXT AS name,
+       legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2016_sht_data
 WHERE state = 'error' OR error IS NOT NULL
 ORDER BY row_id;
 
-\echo "Row-level errors for import_es_2017_sht (if any):"
-SELECT row_id, state, error, tax_ident, name, legal_unit_tax_ident
+\echo "Row-level errors for job import_es_2017_sht (table import_es_2017_sht_data):"
+SELECT row_id, state, error,
+       tax_ident::TEXT AS tax_ident,
+       name::TEXT AS name,
+       legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2017_sht_data
 WHERE state = 'error' OR error IS NOT NULL
 ORDER BY row_id;
 
-\echo "Row-level errors for import_es_2018_sht (if any):"
-SELECT row_id, state, error, tax_ident, name, legal_unit_tax_ident
+\echo "Row-level errors for job import_es_2018_sht (table import_es_2018_sht_data):"
+SELECT row_id, state, error,
+       tax_ident::TEXT AS tax_ident,
+       name::TEXT AS name,
+       legal_unit_tax_ident::TEXT AS legal_unit_tax_ident
 FROM public.import_es_2018_sht_data
+WHERE state = 'error' OR error IS NOT NULL
+ORDER BY row_id;
+
+\echo "Row-level errors for job import_lu_2015_sht (table import_lu_2015_sht_data):"
+SELECT row_id, state, error,
+       tax_ident::TEXT AS tax_ident,
+       name::TEXT AS name
+FROM public.import_lu_2015_sht_data
+WHERE state = 'error' OR error IS NOT NULL
+ORDER BY row_id;
+
+\echo "Row-level errors for job import_lu_2016_sht (table import_lu_2016_sht_data):"
+SELECT row_id, state, error,
+       tax_ident::TEXT AS tax_ident,
+       name::TEXT AS name
+FROM public.import_lu_2016_sht_data
+WHERE state = 'error' OR error IS NOT NULL
+ORDER BY row_id;
+
+\echo "Row-level errors for job import_lu_2017_sht (table import_lu_2017_sht_data):"
+SELECT row_id, state, error,
+       tax_ident::TEXT AS tax_ident,
+       name::TEXT AS name
+FROM public.import_lu_2017_sht_data
+WHERE state = 'error' OR error IS NOT NULL
+ORDER BY row_id;
+
+\echo "Row-level errors for job import_lu_2018_sht (table import_lu_2018_sht_data):"
+SELECT row_id, state, error,
+       tax_ident::TEXT AS tax_ident,
+       name::TEXT AS name
+FROM public.import_lu_2018_sht_data
 WHERE state = 'error' OR error IS NOT NULL
 ORDER BY row_id;
 
@@ -197,6 +249,101 @@ ORDER BY ted.unit_id, ted.valid_after,
          phl.id NULLS FIRST,
          pol.id NULLS FIRST,
          c.id NULLS FIRST;
+
+\echo "Checking for duplicates from enterprise_with_primary_legal_unit stage (within timeline_enterprise_def logic):"
+WITH timesegments_enterprise AS (
+    SELECT ts.*, en.id AS enterprise_id
+    FROM public.timesegments AS ts
+    INNER JOIN public.enterprise AS en
+        ON ts.unit_type = 'enterprise' AND ts.unit_id = en.id
+)
+SELECT ten.enterprise_id, ten.valid_after AS segment_valid_after, ten.valid_to AS segment_valid_to, COUNT(*) as num_primary_lu_matches
+FROM timesegments_enterprise AS ten
+INNER JOIN public.timeline_legal_unit AS tlu
+    ON tlu.enterprise_id = ten.enterprise_id
+    AND tlu.primary_for_enterprise = true
+    AND public.after_to_overlaps(ten.valid_after, ten.valid_to, tlu.valid_after, tlu.valid_to)
+GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
+HAVING COUNT(*) > 1
+ORDER BY ten.enterprise_id, segment_valid_after;
+
+\echo "Checking for duplicates from enterprise_with_primary_establishment stage (within timeline_enterprise_def logic):"
+WITH timesegments_enterprise AS (
+    SELECT ts.*, en.id AS enterprise_id
+    FROM public.timesegments AS ts
+    INNER JOIN public.enterprise AS en
+        ON ts.unit_type = 'enterprise' AND ts.unit_id = en.id
+)
+SELECT ten.enterprise_id, ten.valid_after AS segment_valid_after, ten.valid_to AS segment_valid_to, COUNT(*) as num_primary_es_matches
+FROM timesegments_enterprise AS ten
+INNER JOIN public.timeline_establishment AS tes
+    ON tes.enterprise_id = ten.enterprise_id
+    AND tes.primary_for_enterprise = true
+    AND public.after_to_overlaps(ten.valid_after, ten.valid_to, tes.valid_after, tes.valid_to)
+GROUP BY ten.enterprise_id, ten.valid_after, ten.valid_to
+HAVING COUNT(*) > 1
+ORDER BY ten.enterprise_id, segment_valid_after;
+
+\echo "Duplicate (unit_type, unit_id, valid_after) in timeline_enterprise_def that would cause ON CONFLICT error:"
+SELECT unit_type, unit_id, valid_after, COUNT(*)
+FROM public.timeline_enterprise_def
+GROUP BY unit_type, unit_id, valid_after
+HAVING COUNT(*) > 1
+ORDER BY unit_id, valid_after;
+
+\echo "Detailed duplicate rows from timeline_enterprise_def causing ON CONFLICT errors:"
+WITH DuplicatedKeys AS (
+    SELECT unit_type, unit_id, valid_after
+    FROM public.timeline_enterprise_def
+    GROUP BY unit_type, unit_id, valid_after
+    HAVING COUNT(*) > 1
+)
+SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
+       ted.name,
+       ted.primary_activity_category_code,
+       ted.sector_code,
+       ted.legal_form_code,
+       ted.last_edit_comment,
+       ted.last_edit_at,
+       ted.primary_legal_unit_id,
+       ted.primary_establishment_id
+FROM public.timeline_enterprise_def ted
+JOIN DuplicatedKeys dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_after = dk.valid_after
+ORDER BY ted.unit_id, ted.valid_after, ted.valid_from NULLS FIRST, ted.valid_to NULLS FIRST, ted.name NULLS FIRST, ted.last_edit_at NULLS FIRST;
+
+\echo "Checking for duplicates in the data that would be inserted into timeline_enterprise (simulating temp_timeline_enterprise):"
+CREATE TEMP TABLE debug_temp_timeline_enterprise AS
+SELECT * FROM public.timeline_enterprise_def
+WHERE public.after_to_overlaps(valid_after, valid_to, '2014-12-31'::date, 'infinity'::date);
+
+\echo "Duplicate (unit_type, unit_id, valid_after) in simulated debug_temp_timeline_enterprise:"
+SELECT unit_type, unit_id, valid_after, COUNT(*)
+FROM debug_temp_timeline_enterprise
+GROUP BY unit_type, unit_id, valid_after
+HAVING COUNT(*) > 1
+ORDER BY unit_id, valid_after;
+
+\echo "Detailed duplicate rows from simulated debug_temp_timeline_enterprise:"
+WITH DuplicatedKeysInTemp AS (
+    SELECT unit_type, unit_id, valid_after
+    FROM debug_temp_timeline_enterprise
+    GROUP BY unit_type, unit_id, valid_after
+    HAVING COUNT(*) > 1
+)
+SELECT ted.unit_id, ted.valid_after, ted.valid_from, ted.valid_to,
+       ted.name,
+       ted.primary_activity_category_code,
+       ted.sector_code,
+       ted.legal_form_code,
+       ted.last_edit_comment,
+       ted.last_edit_at,
+       ted.primary_legal_unit_id,
+       ted.primary_establishment_id
+FROM debug_temp_timeline_enterprise ted
+JOIN DuplicatedKeysInTemp dk ON ted.unit_type = dk.unit_type AND ted.unit_id = dk.unit_id AND ted.valid_after = dk.valid_after
+ORDER BY ted.unit_id, ted.valid_after, ted.valid_from NULLS FIRST, ted.valid_to NULLS FIRST, ted.name NULLS FIRST, ted.last_edit_at NULLS FIRST;
+
+DROP TABLE debug_temp_timeline_enterprise;
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -264,4 +411,4 @@ EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
 
 RESET client_min_messages;
 
-ROLLBACK;
+\i test/rollback_unless_persist_is_specified.sql

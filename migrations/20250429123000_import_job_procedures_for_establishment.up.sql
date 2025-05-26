@@ -408,7 +408,14 @@ BEGIN
         END LOOP;
 
         WITH source_for_insert AS (
-            SELECT * FROM temp_batch_data WHERE action = 'insert'
+            SELECT
+                data_row_id, name, typed_birth_date, typed_death_date,
+                sector_id, unit_size_id, status_id, data_source_id,
+                legal_unit_id, primary_for_legal_unit,
+                enterprise_id, primary_for_enterprise,
+                valid_from, valid_to, invalid_codes,
+                edit_by_user_id, edit_at, edit_comment
+            FROM temp_batch_data WHERE action = 'insert'
         ),
         merged_establishments AS (
             MERGE INTO public.establishment est
@@ -560,7 +567,7 @@ BEGIN
                     p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_est_upsert_source',
                     p_id_column_name => 'id', -- Ensure this is the PK in temp_est_upsert_source
                     p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'invalid_codes', 'primary_for_enterprise', 'primary_for_legal_unit']
                     -- p_source_row_id_column_name, p_temporal_columns, p_founding_row_id_column_name are removed
                 )
             LOOP

@@ -200,18 +200,20 @@ BEGIN
 
     RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Created % new enterprises.', p_job_id, v_created_enterprise_count;
 
-    -- Step 3: Update _data table for newly created enterprises (action = 'insert')
+    -- Step 3: Update _data table for newly created enterprises (action = 'insert') and their related 'replace' rows
     v_sql := format($$
-        UPDATE public.%I dt SET
+        UPDATE public.%1$I dt SET -- v_data_table_name
             enterprise_id = tce.enterprise_id,
-            primary_for_enterprise = TRUE, -- New standalone EST becomes primary for its new enterprise
-            last_completed_priority = %L,
+            primary_for_enterprise = (dt.row_id = tce.data_row_id), -- True for the founding/insert row, False for others in the entity
+            last_completed_priority = %2$L, -- v_step.priority
             error = NULL,
-            state = %L
-        FROM temp_created_enterprises tce
-        WHERE dt.row_id = tce.data_row_id; -- Join on data_row_id
-    $$, v_data_table_name, v_step.priority, 'processing');
-    RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating _data for new enterprises (action=insert): %', p_job_id, v_sql;
+            state = %3$L -- 'processing'
+        FROM temp_created_enterprises tce -- tce.data_row_id is the founding_row_id of the entity
+        WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
+          AND dt.row_id = ANY(%4$L) -- p_batch_row_ids
+          AND dt.state != 'error'; -- Avoid updating rows already in error from a prior step
+    $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, p_batch_row_ids);
+    RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Updating _data for new enterprises and their related rows: %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 

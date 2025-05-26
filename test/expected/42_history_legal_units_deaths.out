@@ -161,7 +161,7 @@ FROM public.import_job
 WHERE slug = 'import_42_lu_era_b1_death_end_y';
               slug               |  state   | total_rows | imported_rows | has_error | error_rows 
 ---------------------------------+----------+------------+---------------+-----------+------------
- import_42_lu_era_b1_death_end_y | finished |          4 |             2 | f         |          2
+ import_42_lu_era_b1_death_end_y | finished |          4 |             4 | f         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 1
