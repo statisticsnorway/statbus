@@ -201,10 +201,11 @@ BEGIN
     RAISE DEBUG '[Job %] process_enterprise_link_for_establishment: Created % new enterprises.', p_job_id, v_created_enterprise_count;
 
     -- Step 3: Update _data table for newly created enterprises (action = 'insert') and their related 'replace' rows
+    -- For new informal ESTs linked to new Enterprises, all their initial slices are primary.
     v_sql := format($$
         UPDATE public.%1$I dt SET -- v_data_table_name
             enterprise_id = tce.enterprise_id,
-            primary_for_enterprise = (dt.row_id = tce.data_row_id), -- True for the founding/insert row, False for others in the entity
+            primary_for_enterprise = TRUE, -- All slices of a new informal EST linked to a new Enterprise are initially primary
             last_completed_priority = %2$L, -- v_step.priority
             error = NULL,
             state = %3$L -- 'processing'

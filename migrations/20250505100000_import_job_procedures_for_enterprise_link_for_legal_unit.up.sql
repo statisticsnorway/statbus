@@ -199,17 +199,20 @@ BEGIN
     RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Created % new enterprises.', p_job_id, v_created_enterprise_count;
 
     -- Step 3: Update _data table for newly created enterprises (action = 'insert')
+    -- For new LUs linked to new Enterprises, all their initial slices are primary.
     v_sql := format($$
         UPDATE public.%I dt SET
             enterprise_id = tce.enterprise_id,
-            primary_for_enterprise = true, -- Assume new LU is primary for new enterprise
+            primary_for_enterprise = TRUE, -- All slices of a new LU linked to a new Enterprise are initially primary
             last_completed_priority = %L,
             error = NULL, -- Clear previous errors if this step succeeds for the row
             state = %L
         FROM temp_created_enterprises tce
-        WHERE dt.row_id = tce.data_row_id; -- Join on data_row_id
-    $$, v_data_table_name, v_step.priority, 'processing');
-    RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating _data for new enterprises (action=insert): %', p_job_id, v_sql;
+        WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
+          AND dt.row_id = ANY(%L) -- Ensure we only update rows from the current batch
+          AND dt.state != 'error'; -- Avoid updating rows already in error from a prior step
+    $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state, p_batch_row_ids);
+    RAISE DEBUG '[Job %] process_enterprise_link_for_legal_unit: Updating _data for new enterprises and their related rows (action=insert): %', p_job_id, v_sql;
     EXECUTE v_sql;
     GET DIAGNOSTICS v_update_count = ROW_COUNT;
 

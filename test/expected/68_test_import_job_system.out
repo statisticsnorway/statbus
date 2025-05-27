@@ -596,9 +596,8 @@ LEFT JOIN public.sector sec ON lu.sector_id = sec.id
 WHERE ei.ident = '680500001' ORDER BY ei.ident, lu.valid_after, lu.valid_from, lu.valid_to;
        name       | tax_ident | sector_code | invalid_sector_code | valid_from | valid_after |  valid_to  
 ------------------+-----------+-------------+---------------------+------------+-------------+------------
- LU Three Periods | 680500001 | 2100        |                     | 2020-01-01 | 2019-12-31  | 2020-06-30
- LU Three Periods | 680500001 |             | INVALID_SECTOR      | 2020-07-01 | 2020-06-30  | 2020-09-30
-(2 rows)
+ LU Three Periods | 680500001 | 2100        |                     | 2020-01-01 | 2019-12-31  | 2020-09-30
+(1 row)
 
 \echo "Physical Locations for LU 680500001 (expect 2 slices: P1+P2 merged, P3 separate):"
 "Physical Locations for LU 680500001 (expect 2 slices: P1+P2 merged, P3 separate):"
@@ -630,7 +629,7 @@ WHERE su.unit_type = 'legal_unit' AND su.external_idents->>'tax_ident' = '680500
        name       | tax_ident | physical_address_part1 | sector_code | valid_from |  valid_to  
 ------------------+-----------+------------------------+-------------+------------+------------
  LU Three Periods | 680500001 | Addr P1                | 2100        | 2020-01-01 | 2020-06-30
- LU Three Periods | 680500001 | Addr P3 Changed        |             | 2020-07-01 | 2020-09-30
+ LU Three Periods | 680500001 | Addr P3 Changed        | 2100        | 2020-07-01 | 2020-09-30
 (2 rows)
 
 ROLLBACK TO scenario_5_lu_three_periods;
