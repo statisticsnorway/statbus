@@ -75,9 +75,9 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 
 \echo "Checking statistics"
 
-SELECT unit_type, external_idents, name, data_source_codes, invalid_codes
+SELECT name, external_idents, unit_type, data_source_codes, invalid_codes
  FROM statistical_unit
  WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
- ORDER BY unit_type, unit_id, valid_from;
+ ORDER BY name, external_idents->>'tax_ident', unit_type, valid_from, unit_id;
 
 ROLLBACK;
