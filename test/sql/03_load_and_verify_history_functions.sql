@@ -55,6 +55,13 @@ SELECT
 \echo "User uploads the legal units over time (via import job: import_03_lu_era)"
 \copy public.import_03_lu_era_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code,data_source_code) FROM 'test/data/03_norwegian-legal-units-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
+\echo Run worker processing for legal units
+--SET client_min_messages TO DEBUG1;
+CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+
 -- Create Import Job for Establishments (Era for LU)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
@@ -67,7 +74,7 @@ SELECT
 \echo "User uploads the establishments over time (via import job: import_03_esflu_era)"
 \copy public.import_03_esflu_era_upload(valid_from, valid_to, tax_ident,legal_unit_tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,data_source_code,unit_size_code,employees,turnover) FROM 'test/data/03_norwegian-establishments-over-time.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
-\echo Run worker processing for import jobs
+\echo Run worker processing for establishments
 --SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
 --SET client_min_messages TO NOTICE;
