@@ -413,7 +413,7 @@ BEGIN
                 sector_id, unit_size_id, status_id, data_source_id,
                 legal_unit_id, primary_for_legal_unit,
                 enterprise_id, primary_for_enterprise,
-                valid_from, valid_to, invalid_codes,
+                valid_after, valid_to, invalid_codes, -- Changed valid_from to valid_after
                 edit_by_user_id, edit_at, edit_comment
             FROM temp_batch_data WHERE action = 'insert'
         ),
@@ -425,7 +425,7 @@ BEGIN
                 INSERT (
                     legal_unit_id, primary_for_legal_unit, enterprise_id, primary_for_enterprise, name, birth_date, death_date,
                     sector_id, unit_size_id, status_id, data_source_id, invalid_codes, -- Added invalid_codes
-                    valid_from, valid_to,
+                    valid_after, valid_to, -- Changed valid_from to valid_after
                     edit_by_user_id, edit_at, edit_comment
                 )
                 VALUES (
@@ -435,7 +435,7 @@ BEGIN
                     sfi.primary_for_enterprise, -- Will be NULL if mode is formal
                     sfi.name, sfi.typed_birth_date, sfi.typed_death_date,
                     sfi.sector_id, sfi.unit_size_id, sfi.status_id, sfi.data_source_id, sfi.invalid_codes, -- Added sfi.invalid_codes
-                    sfi.valid_from, sfi.valid_to,
+                    sfi.valid_after, sfi.valid_to, -- Changed sfi.valid_from to sfi.valid_after
                     sfi.edit_by_user_id, sfi.edit_at, sfi.edit_comment
                 )
             RETURNING est.id AS new_establishment_id, sfi.data_row_id

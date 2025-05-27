@@ -463,7 +463,7 @@ BEGIN
                 data_row_id, name, typed_birth_date, typed_death_date,
                 sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
                 primary_for_enterprise, data_source_id, invalid_codes,
-                valid_from, valid_to,
+                valid_after, valid_to, -- Changed valid_from to valid_after
                 edit_by_user_id, edit_at, edit_comment,
                 action -- Though action is 'insert', including it for completeness if MERGE logic were more complex
             FROM temp_batch_data WHERE action = 'insert'
@@ -477,7 +477,7 @@ BEGIN
                     name, birth_date, death_date,
                     sector_id, unit_size_id, status_id, legal_form_id, enterprise_id,
                     primary_for_enterprise, data_source_id, invalid_codes,
-                    valid_from, valid_to,
+                    valid_after, valid_to, -- Changed valid_from to valid_after
                     edit_by_user_id, edit_at, edit_comment
                 )
                 VALUES (
@@ -485,7 +485,7 @@ BEGIN
                     sfi.sector_id, sfi.unit_size_id, sfi.status_id, sfi.legal_form_id, sfi.enterprise_id,
                     sfi.primary_for_enterprise, sfi.data_source_id,
                     sfi.invalid_codes,
-                    sfi.valid_from, sfi.valid_to,
+                    sfi.valid_after, sfi.valid_to, -- Changed sfi.valid_from to sfi.valid_after
                     sfi.edit_by_user_id, sfi.edit_at, sfi.edit_comment
                 )
             RETURNING lu.id AS new_legal_unit_id, sfi.data_row_id AS data_row_id
