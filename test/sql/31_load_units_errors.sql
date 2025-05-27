@@ -185,8 +185,4 @@ FROM public.import_31_lu_era_b3_coord_errors_data
 WHERE error IS NOT NULL OR state = 'error'
 ORDER BY row_id;
 
-\echo Run worker processing for analytics tasks - Block 3 (errors primarily tested on import queue)
-CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-
 ROLLBACK;
