@@ -439,7 +439,7 @@ BEGIN
                     p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_demotion_ops',
                     p_id_column_name => 'id',
                     p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'primary_for_enterprise', 'invalid_codes']
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
                 )
             LOOP
                 IF v_batch_result.status = 'ERROR' THEN
@@ -594,7 +594,7 @@ BEGIN
                     p_source_schema_name => 'pg_temp', p_source_table_name => 'temp_lu_replace_source',
                     p_id_column_name => 'id', -- Ensure this is the PK in temp_lu_replace_source
                     p_unique_columns => '[]'::jsonb,
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'primary_for_enterprise', 'invalid_codes']
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at']
                     -- p_source_row_id_column_name, p_temporal_columns, p_founding_row_id_column_name are removed
                 )
             LOOP
