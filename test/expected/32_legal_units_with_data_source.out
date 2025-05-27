@@ -171,52 +171,52 @@ SELECT unit_type, external_idents, name, data_source_codes, invalid_codes
  ORDER BY unit_type, unit_id, valid_from;
  unit_type  |                 external_idents                 |            name             | data_source_codes | invalid_codes 
 ------------+-------------------------------------------------+-----------------------------+-------------------+---------------
- legal_unit | {"tax_ident": "2212760144", "stat_ident": "1"}  | NILE PEARL WATER            | {nlr}             | 
- legal_unit | {"tax_ident": "2812760140", "stat_ident": "2"}  | EQUATOR GLOBE SOLUTIONS     | {nlr}             | 
- legal_unit | {"tax_ident": "2212760084", "stat_ident": "3"}  | EQUATOR CIRCLE CONSTRUCTION | {nlr}             | 
- legal_unit | {"tax_ident": "2612760138", "stat_ident": "4"}  | LIRA FRESH FRUIT EXPORTERS  | {nlr}             | 
- legal_unit | {"tax_ident": "2812760130", "stat_ident": "5"}  | ENTEBBE FUEL ENTERPRISES    | {nlr}             | 
- legal_unit | {"tax_ident": "2312760075", "stat_ident": "6"}  | ZEBRA HAVEN SAFARIS         | {nlr}             | 
- legal_unit | {"tax_ident": "2407020166", "stat_ident": "7"}  | KAMPALA DIGITAL CHARTS      | {nlr}             | 
- legal_unit | {"tax_ident": "2602025168", "stat_ident": "8"}  | MARINE SERVICES             | {nlr}             | 
- legal_unit | {"tax_ident": "2612760118", "stat_ident": "9"}  | NILE TEXTILES               | {nlr}             | 
- legal_unit | {"tax_ident": "2815384160", "stat_ident": "11"} | KAMPALA Cofffe SUPPLIERS    | {nlr}             | 
- legal_unit | {"tax_ident": "2507020167", "stat_ident": "12"} | VICTORIA FRESH FARMS        | {nlr}             | 
- legal_unit | {"tax_ident": "45000", "stat_ident": "13"}      | Statistics Denmark          | {nlr}             | 
- legal_unit | {"tax_ident": "358000", "stat_ident": "14"}     | Statistics Finland          | {nlr}             | 
- legal_unit | {"tax_ident": "46001", "stat_ident": "15"}      | Statistics Sweeden          | {nlr}             | 
- legal_unit | {"tax_ident": "5340521", "stat_ident": "16"}    | Morocco Trade               | {nlr}             | 
- legal_unit | {"tax_ident": "2220794", "stat_ident": "17"}    | Office Picture Corp         | {nlr}             | 
- legal_unit | {"tax_ident": "22501", "stat_ident": "18"}      | Statistics Ethiopia         | {nlr}             | 
- legal_unit | {"tax_ident": "397611", "stat_ident": "19"}     | Erdenes Tavan Tolgoi JSC    | {nlr}             | 
- legal_unit | {"tax_ident": "397622", "stat_ident": "20"}     | Oyu Tolgoi LLC              | {nlr}             | 
  legal_unit | {"tax_ident": "2200019", "stat_ident": "21"}    | Rainbow shopping            | {nlr}             | 
+ legal_unit | {"tax_ident": "2507020167", "stat_ident": "12"} | VICTORIA FRESH FARMS        | {nlr}             | 
+ legal_unit | {"tax_ident": "22501", "stat_ident": "18"}      | Statistics Ethiopia         | {nlr}             | 
+ legal_unit | {"tax_ident": "45000", "stat_ident": "13"}      | Statistics Denmark          | {nlr}             | 
+ legal_unit | {"tax_ident": "2815384160", "stat_ident": "11"} | KAMPALA Cofffe SUPPLIERS    | {nlr}             | 
+ legal_unit | {"tax_ident": "397611", "stat_ident": "19"}     | Erdenes Tavan Tolgoi JSC    | {nlr}             | 
+ legal_unit | {"tax_ident": "2812760140", "stat_ident": "2"}  | EQUATOR GLOBE SOLUTIONS     | {nlr}             | 
+ legal_unit | {"tax_ident": "5340521", "stat_ident": "16"}    | Morocco Trade               | {nlr}             | 
+ legal_unit | {"tax_ident": "358000", "stat_ident": "14"}     | Statistics Finland          | {nlr}             | 
  legal_unit | {"tax_ident": "3300598", "stat_ident": "22"}    | Amman RIAD 13-14            | {nlr}             | 
- legal_unit | {"tax_ident": "4711111", "stat_ident": "230"}   | Statistics Norway           | {nlr}             | 
+ legal_unit | {"tax_ident": "2812760130", "stat_ident": "5"}  | ENTEBBE FUEL ENTERPRISES    | {nlr}             | 
+ legal_unit | {"tax_ident": "397622", "stat_ident": "20"}     | Oyu Tolgoi LLC              | {nlr}             | 
+ legal_unit | {"tax_ident": "2602025168", "stat_ident": "8"}  | MARINE SERVICES             | {nlr}             | 
+ legal_unit | {"tax_ident": "2312760075", "stat_ident": "6"}  | ZEBRA HAVEN SAFARIS         | {nlr}             | 
+ legal_unit | {"tax_ident": "2220794", "stat_ident": "17"}    | Office Picture Corp         | {nlr}             | 
+ legal_unit | {"tax_ident": "2612760138", "stat_ident": "4"}  | LIRA FRESH FRUIT EXPORTERS  | {nlr}             | 
  legal_unit | {"tax_ident": "3998011", "stat_ident": "231"}   | MANUAL Auto Uzbekistan      | {nlr}             | 
- enterprise | {"tax_ident": "2212760144", "stat_ident": "1"}  | NILE PEARL WATER            | {nlr}             | 
- enterprise | {"tax_ident": "2812760140", "stat_ident": "2"}  | EQUATOR GLOBE SOLUTIONS     | {nlr}             | 
- enterprise | {"tax_ident": "2212760084", "stat_ident": "3"}  | EQUATOR CIRCLE CONSTRUCTION | {nlr}             | 
- enterprise | {"tax_ident": "2612760138", "stat_ident": "4"}  | LIRA FRESH FRUIT EXPORTERS  | {nlr}             | 
- enterprise | {"tax_ident": "2812760130", "stat_ident": "5"}  | ENTEBBE FUEL ENTERPRISES    | {nlr}             | 
- enterprise | {"tax_ident": "2312760075", "stat_ident": "6"}  | ZEBRA HAVEN SAFARIS         | {nlr}             | 
- enterprise | {"tax_ident": "2407020166", "stat_ident": "7"}  | KAMPALA DIGITAL CHARTS      | {nlr}             | 
- enterprise | {"tax_ident": "2602025168", "stat_ident": "8"}  | MARINE SERVICES             | {nlr}             | 
- enterprise | {"tax_ident": "2612760118", "stat_ident": "9"}  | NILE TEXTILES               | {nlr}             | 
- enterprise | {"tax_ident": "2815384160", "stat_ident": "11"} | KAMPALA Cofffe SUPPLIERS    | {nlr}             | 
- enterprise | {"tax_ident": "2507020167", "stat_ident": "12"} | VICTORIA FRESH FARMS        | {nlr}             | 
- enterprise | {"tax_ident": "45000", "stat_ident": "13"}      | Statistics Denmark          | {nlr}             | 
- enterprise | {"tax_ident": "358000", "stat_ident": "14"}     | Statistics Finland          | {nlr}             | 
- enterprise | {"tax_ident": "46001", "stat_ident": "15"}      | Statistics Sweeden          | {nlr}             | 
- enterprise | {"tax_ident": "5340521", "stat_ident": "16"}    | Morocco Trade               | {nlr}             | 
- enterprise | {"tax_ident": "2220794", "stat_ident": "17"}    | Office Picture Corp         | {nlr}             | 
- enterprise | {"tax_ident": "22501", "stat_ident": "18"}      | Statistics Ethiopia         | {nlr}             | 
- enterprise | {"tax_ident": "397611", "stat_ident": "19"}     | Erdenes Tavan Tolgoi JSC    | {nlr}             | 
- enterprise | {"tax_ident": "397622", "stat_ident": "20"}     | Oyu Tolgoi LLC              | {nlr}             | 
+ legal_unit | {"tax_ident": "2212760144", "stat_ident": "1"}  | NILE PEARL WATER            | {nlr}             | 
+ legal_unit | {"tax_ident": "4711111", "stat_ident": "230"}   | Statistics Norway           | {nlr}             | 
+ legal_unit | {"tax_ident": "2212760084", "stat_ident": "3"}  | EQUATOR CIRCLE CONSTRUCTION | {nlr}             | 
+ legal_unit | {"tax_ident": "46001", "stat_ident": "15"}      | Statistics Sweeden          | {nlr}             | 
+ legal_unit | {"tax_ident": "2612760118", "stat_ident": "9"}  | NILE TEXTILES               | {nlr}             | 
+ legal_unit | {"tax_ident": "2407020166", "stat_ident": "7"}  | KAMPALA DIGITAL CHARTS      | {nlr}             | 
  enterprise | {"tax_ident": "2200019", "stat_ident": "21"}    | Rainbow shopping            | {nlr}             | 
+ enterprise | {"tax_ident": "2507020167", "stat_ident": "12"} | VICTORIA FRESH FARMS        | {nlr}             | 
+ enterprise | {"tax_ident": "22501", "stat_ident": "18"}      | Statistics Ethiopia         | {nlr}             | 
+ enterprise | {"tax_ident": "45000", "stat_ident": "13"}      | Statistics Denmark          | {nlr}             | 
+ enterprise | {"tax_ident": "2815384160", "stat_ident": "11"} | KAMPALA Cofffe SUPPLIERS    | {nlr}             | 
+ enterprise | {"tax_ident": "397611", "stat_ident": "19"}     | Erdenes Tavan Tolgoi JSC    | {nlr}             | 
+ enterprise | {"tax_ident": "2812760140", "stat_ident": "2"}  | EQUATOR GLOBE SOLUTIONS     | {nlr}             | 
+ enterprise | {"tax_ident": "5340521", "stat_ident": "16"}    | Morocco Trade               | {nlr}             | 
+ enterprise | {"tax_ident": "358000", "stat_ident": "14"}     | Statistics Finland          | {nlr}             | 
  enterprise | {"tax_ident": "3300598", "stat_ident": "22"}    | Amman RIAD 13-14            | {nlr}             | 
- enterprise | {"tax_ident": "4711111", "stat_ident": "230"}   | Statistics Norway           | {nlr}             | 
+ enterprise | {"tax_ident": "2812760130", "stat_ident": "5"}  | ENTEBBE FUEL ENTERPRISES    | {nlr}             | 
+ enterprise | {"tax_ident": "397622", "stat_ident": "20"}     | Oyu Tolgoi LLC              | {nlr}             | 
+ enterprise | {"tax_ident": "2602025168", "stat_ident": "8"}  | MARINE SERVICES             | {nlr}             | 
+ enterprise | {"tax_ident": "2312760075", "stat_ident": "6"}  | ZEBRA HAVEN SAFARIS         | {nlr}             | 
+ enterprise | {"tax_ident": "2220794", "stat_ident": "17"}    | Office Picture Corp         | {nlr}             | 
+ enterprise | {"tax_ident": "2612760138", "stat_ident": "4"}  | LIRA FRESH FRUIT EXPORTERS  | {nlr}             | 
  enterprise | {"tax_ident": "3998011", "stat_ident": "231"}   | MANUAL Auto Uzbekistan      | {nlr}             | 
+ enterprise | {"tax_ident": "2212760144", "stat_ident": "1"}  | NILE PEARL WATER            | {nlr}             | 
+ enterprise | {"tax_ident": "4711111", "stat_ident": "230"}   | Statistics Norway           | {nlr}             | 
+ enterprise | {"tax_ident": "2212760084", "stat_ident": "3"}  | EQUATOR CIRCLE CONSTRUCTION | {nlr}             | 
+ enterprise | {"tax_ident": "46001", "stat_ident": "15"}      | Statistics Sweeden          | {nlr}             | 
+ enterprise | {"tax_ident": "2612760118", "stat_ident": "9"}  | NILE TEXTILES               | {nlr}             | 
+ enterprise | {"tax_ident": "2407020166", "stat_ident": "7"}  | KAMPALA DIGITAL CHARTS      | {nlr}             | 
 (46 rows)
 
 ROLLBACK;
