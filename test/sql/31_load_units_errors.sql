@@ -174,12 +174,24 @@ INSERT INTO public.import_job (definition_id, slug, description, note, edit_comm
 SELECT
     (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
     'import_31_lu_era_b3_coord_errors',
-    'Import LU Era B3 Coord Errors (31_load_units_errors.sql)',
-    'Import job for test/data/31_legal_units_with_coordinates_errors.csv (Block 3).',
+    'Import LU Era B3 Various Coord Errors (31_load_units_errors.sql)',
+    'Import job with various physical coordinate errors for Legal Units (Block 3).',
     'Test data load (31_load_units_errors.sql)';
 INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code, physical_latitude, physical_longitude, physical_altitude, web_address, email_address, phone_number) VALUES
+-- Original: Latitude out of range (cast error)
 ('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr','3333333','32.2984354','1144','nilepearlwater.ug','contact@npw.ug','123456789'),
-('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr','1.234567','32.442243','1172','egs.ug','contact@egs.ug','987654321');
+-- Original: Valid coordinates
+('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr','1.234567','32.442243','1172','egs.ug','contact@egs.ug','987654321'),
+-- New: Longitude out of range
+('2024-01-01','infinity','3000000003','3003','Longitude Range Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','10.0','190.123456','100',NULL,NULL,NULL),
+-- New: Altitude negative
+('2024-01-01','infinity','3000000004','3004','Altitude Negative Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','10.0','30.0','-50.5',NULL,NULL,NULL),
+-- New: Latitude invalid text
+('2024-01-01','infinity','3000000005','3005','Latitude Text Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','abc','30.0','100',NULL,NULL,NULL),
+-- New: Longitude invalid text
+('2024-01-01','infinity','3000000006','3006','Longitude Text Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','10.0','def','100',NULL,NULL,NULL),
+-- New: Altitude invalid text
+('2024-01-01','infinity','3000000007','3007','Altitude Text Test LU','01.01.2024','225613','UG','0111','1','1100',1,100000,'test','10.0','30.0','ghi',NULL,NULL,NULL);
 
 \echo Run worker processing for import jobs - Block 3
 CALL worker.process_tasks(p_queue => 'import');
@@ -196,5 +208,28 @@ SELECT row_id, state, error, tax_ident, name, physical_latitude
 FROM public.import_31_lu_era_b3_coord_errors_data
 WHERE error IS NOT NULL OR state = 'error'
 ORDER BY row_id;
+
+ROLLBACK TO before_loading_units;
+
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+
+\echo "User uploads legal units with postal coordinates (error condition)"
+-- Create Import Job for Legal Units (Block 4 - Postal Coordinate Errors)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'),
+    'import_31_lu_postal_coord_errors',
+    'Import LU Era B4 Postal Coord Errors (31_load_units_errors.sql)',
+    'Import job with postal coordinate errors for Legal Units (Block 4).',
+    'Test data load (31_load_units_errors.sql)';
+INSERT INTO public.import_31_lu_postal_coord_errors_upload(
+    valid_from, valid_to, tax_ident, stat_ident, name, birth_date, data_source_code,
+    postal_address_part1, postal_country_iso_2, postal_latitude, postal_longitude, postal_altitude
+) VALUES
+('2024-01-01','infinity','4000000001','4001','Postal Coord Test LU 1','01.01.2024','test', 'PO Box 123', 'UG', '1.0', '32.0', '1100'),
+('2024-01-01','infinity','4000000002','4002','Postal Coord Test LU 2 (No Coords)','01.01.2024','test', 'PO Box 456', 'UG', NULL, NULL, NULL);
 
 ROLLBACK;
