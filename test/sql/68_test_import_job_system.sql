@@ -52,7 +52,8 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
     VALUES (v_definition_id, v_job_slug, v_job_description, v_job_note, v_job_edit_comment);
 END $$;
-\copy public.import_68_01_single_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'test/data/68_01_single_lu.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_68_01_single_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) VALUES
+('2020-01-01','2020-12-31','680100001','Single LU One','2020-01-01',NULL,'Main St 1','1234','Oslo','0301','NO','01.110',NULL,'2100','AS');
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo "Import job status for 68_01_single_lu:"
@@ -125,7 +126,8 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
     VALUES (v_definition_id, v_job_slug, v_job_description, v_job_note, v_job_edit_comment);
 END $$;
-\copy public.import_68_02_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'test/data/68_02_lu_plus_formal_es_lu.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_68_02_lu_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) VALUES
+('2020-01-01','2020-12-31','680200001','LU for Formal ES','2020-01-01',NULL,'LU Address 1','1234','Oslo','0301','NO','02.200',NULL,'2100','AS');
 
 DO $$
 DECLARE
@@ -144,7 +146,8 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
     VALUES (v_definition_id, v_job_slug, v_job_description, v_job_note, v_job_edit_comment);
 END $$;
-\copy public.import_68_02_es_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,legal_unit_tax_ident) FROM 'test/data/68_02_lu_plus_formal_es_est.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_68_02_es_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,legal_unit_tax_ident) VALUES
+('2020-01-01','2020-12-31','E68020001','Formal ES One','2020-01-01',NULL,'ES Address 1','1234','Oslo','0301','NO','02.200',NULL,'680200001');
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo "Import job statuses for 68_02:"
@@ -238,7 +241,8 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
     VALUES (v_definition_id, v_job_slug, v_job_description, v_job_note, v_job_edit_comment);
 END $$;
-\copy public.import_68_03_informal_es_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code) FROM 'test/data/68_03_single_informal_es.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_68_03_informal_es_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code) VALUES
+('2020-01-01','2020-12-31','E68030001','Informal ES One','2020-01-01',NULL,'Informal St 1','1234','Oslo','0301','NO','03.100',NULL);
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Import job status for 68_03_informal_es:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_03_informal_es'; -- Added error_details
@@ -310,7 +314,9 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
     VALUES (v_definition_id, v_job_slug, v_job_description, v_job_note, v_job_edit_comment);
 END $$;
-\copy public.import_68_04_two_lus_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'test/data/68_04_two_lus.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_68_04_two_lus_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) VALUES
+('2020-01-01','2020-12-31','680400001','First of Two LUs','2020-01-01',NULL,'First St 1','1234','Oslo','0301','NO','05.100',NULL,'2100','AS'),
+('2020-01-01','2020-12-31','680400002','Second of Two LUs','2020-01-01',NULL,'Second St 1','5678','Bergen','4601','NO','06.100',NULL,'2100','AS');
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Import job status for 68_04_two_lus:"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_04_two_lus'; -- Added error_details
@@ -379,7 +385,10 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
     VALUES (v_definition_id, v_job_slug, v_job_description, v_job_note, v_job_edit_comment);
 END $$;
-\copy public.import_68_05_lu_periods_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'test/data/68_05_lu_three_periods.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_68_05_lu_periods_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) VALUES
+('2020-01-01','2020-03-31','680500001','LU Three Periods','2020-01-01',NULL,'Addr P1','1000','Oslo','0301','NO','10.100',NULL,'2100','AS'),
+('2020-04-01','2020-06-30','680500001','LU Three Periods','2020-01-01',NULL,'Addr P1','1000','Oslo','0301','NO','10.100',NULL,'2100','AS'),
+('2020-07-01','2020-09-30','680500001','LU Three Periods','2020-01-01',NULL,'Addr P3 Changed','1000','Oslo','0301','NO','10.100',NULL,'2100','AS');
 
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
@@ -443,7 +452,10 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
     VALUES (v_definition_id, v_job_slug, v_job_description, v_job_note, v_job_edit_comment);
 END $$;
-\copy public.import_68_06_lu_periods_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) FROM 'test/data/68_06_lu_plus_formal_es_three_periods_lu.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_68_06_lu_periods_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code) VALUES
+('2021-01-01','2021-03-31','680600001','LU for ES Periods','2021-01-01',NULL,'LU Addr P1','2000','Oslo','0301','NO','11.100',NULL,'2100','AS'),
+('2021-04-01','2021-06-30','680600001','LU for ES Periods','2021-01-01',NULL,'LU Addr P1','2000','Oslo','0301','NO','11.100',NULL,'2100','AS'),
+('2021-07-01','2021-09-30','680600001','LU for ES Periods','2021-01-01',NULL,'LU Addr P3 Changed','2000','Oslo','0301','NO','11.100',NULL,'2100','AS');
 
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
@@ -466,7 +478,10 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
     VALUES (v_definition_id, v_job_slug, v_job_description, v_job_note, v_job_edit_comment);
 END $$;
-\copy public.import_68_06_es_periods_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,legal_unit_tax_ident) FROM 'test/data/68_06_lu_plus_formal_es_three_periods_es.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_68_06_es_periods_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,legal_unit_tax_ident) VALUES
+('2021-01-01','2021-03-31','E68060001','ES for LU Periods','2021-01-01',NULL,'ES Addr P1','2000','Oslo','0301','NO','11.100',NULL,'680600001'),
+('2021-04-01','2021-06-30','E68060001','ES for LU Periods','2021-01-01',NULL,'ES Addr P1','2000','Oslo','0301','NO','11.100',NULL,'680600001'),
+('2021-07-01','2021-09-30','E68060001','ES for LU Periods','2021-01-01',NULL,'ES Addr P3 Changed','2000','Oslo','0301','NO','11.100',NULL,'680600001');
 
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
@@ -536,7 +551,10 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
     VALUES (v_definition_id, v_job_slug, v_job_description, v_job_note, v_job_edit_comment);
 END $$;
-\copy public.import_68_07_informal_es_periods_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code) FROM 'test/data/68_07_informal_es_three_periods.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_68_07_informal_es_periods_upload(valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code) VALUES
+('2022-01-01','2022-03-31','E68070001','Informal ES Three Periods','2022-01-01',NULL,'Inf Addr P1','3000','Oslo','0301','NO','10.110',NULL),
+('2022-04-01','2022-06-30','E68070001','Informal ES Three Periods','2022-01-01',NULL,'Inf Addr P1','3000','Oslo','0301','NO','10.110',NULL),
+('2022-07-01','2022-09-30','E68070001','Informal ES Three Periods','2022-01-01',NULL,'Inf Addr P3 Changed','3000','Oslo','0301','NO','10.110',NULL);
 
 --SET LOCAL client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');

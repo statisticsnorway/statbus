@@ -1,4 +1,0 @@
-valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,sector_code,legal_form_code
-2020-01-01,2020-03-31,680500001,LU Three Periods,2020-01-01,,Addr P1,1000,Oslo,0301,NO,10.100,,2100,AS
-2020-04-01,2020-06-30,680500001,LU Three Periods,2020-01-01,,Addr P1,1000,Oslo,0301,NO,10.100,,2100,AS
-2020-07-01,2020-09-30,680500001,LU Three Periods,2020-01-01,,Addr P3 Changed,1000,Oslo,0301,NO,10.100,,2100,AS

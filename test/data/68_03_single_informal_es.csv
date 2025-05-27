@@ -1,2 +1,0 @@
-valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code
-2020-01-01,2020-12-31,E68030001,Informal ES One,2020-01-01,,Informal St 1,1234,Oslo,0301,NO,03.100,

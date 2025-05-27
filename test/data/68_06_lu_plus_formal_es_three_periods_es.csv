@@ -1,4 +1,0 @@
-valid_from,valid_to,tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,primary_activity_category_code,secondary_activity_category_code,legal_unit_tax_ident
-2021-01-01,2021-03-31,E68060001,ES for LU Periods,2021-01-01,,ES Addr P1,2000,Oslo,0301,NO,11.100,,680600001
-2021-04-01,2021-06-30,E68060001,ES for LU Periods,2021-01-01,,ES Addr P1,2000,Oslo,0301,NO,11.100,,680600001
-2021-07-01,2021-09-30,E68060001,ES for LU Periods,2021-01-01,,ES Addr P3 Changed,2000,Oslo,0301,NO,11.100,,680600001
