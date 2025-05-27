@@ -466,7 +466,8 @@ BEGIN
                 valid_after, valid_to, -- Changed valid_from to valid_after
                 edit_by_user_id, edit_at, edit_comment,
                 action -- Though action is 'insert', including it for completeness if MERGE logic were more complex
-            FROM temp_batch_data WHERE action = 'insert'
+            FROM temp_batch_data
+            WHERE action = 'insert'
         ),
         merged_legal_units AS (
             MERGE INTO public.legal_unit lu
