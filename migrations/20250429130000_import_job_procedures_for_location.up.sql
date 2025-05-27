@@ -4,6 +4,35 @@
 
 BEGIN;
 
+-- Helper function to safely cast text to a specific numeric type, handling common errors.
+CREATE OR REPLACE FUNCTION import.try_cast_to_numeric_specific(
+    p_value TEXT,
+    p_target_type TEXT -- e.g., 'NUMERIC(9,6)' or 'NUMERIC(6,1)'
+)
+RETURNS NUMERIC LANGUAGE plpgsql IMMUTABLE AS $try_cast_to_numeric_specific$
+DECLARE
+    v_result NUMERIC;
+BEGIN
+    IF p_value IS NULL OR p_value = '' THEN
+        RETURN NULL;
+    END IF;
+    BEGIN
+        EXECUTE format('SELECT %L::%s', p_value, p_target_type) INTO v_result;
+        RETURN v_result;
+    EXCEPTION
+        WHEN numeric_value_out_of_range THEN -- SQLSTATE 22003
+            RAISE DEBUG '[import.try_cast_to_numeric_specific] Value ''%'' is out of range for type %.', p_value, p_target_type;
+            RETURN NULL;
+        WHEN invalid_text_representation THEN -- SQLSTATE 22P02
+            RAISE DEBUG '[import.try_cast_to_numeric_specific] Value ''%'' is not a valid numeric representation for type %.', p_value, p_target_type;
+            RETURN NULL;
+        WHEN others THEN -- Catch any other potential errors during cast
+            RAISE DEBUG '[import.try_cast_to_numeric_specific] Unexpected error casting value ''%'' to type %: %', p_value, p_target_type, SQLERRM;
+            RETURN NULL;
+    END;
+END;
+$try_cast_to_numeric_specific$;
+
 -- Procedure to analyse location data (handles both physical and postal) (Batch Oriented)
 CREATE OR REPLACE PROCEDURE import.analyse_location(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
 LANGUAGE plpgsql AS $analyse_location$
@@ -16,11 +45,21 @@ DECLARE
     v_sql TEXT;
     v_error_json_expr_sql TEXT; -- For dt.error (fatal) - though this step makes them non-fatal
     v_invalid_codes_json_expr_sql TEXT; -- For dt.invalid_codes (non-fatal)
-    v_error_keys_to_clear_arr TEXT[]; 
+    v_error_keys_to_clear_arr TEXT[];
     v_invalid_code_keys_to_clear_arr TEXT[];
     v_skipped_update_count INT;
-    error_message TEXT; 
-    v_error_condition_sql TEXT;
+    error_message TEXT;
+    v_error_condition_sql TEXT; -- For non-fatal invalid codes
+    v_fatal_error_condition_sql TEXT; -- For fatal errors like missing country
+    v_fatal_error_json_expr_sql TEXT; -- For fatal error messages
+    v_address_present_condition_sql TEXT; -- To check if any address part is present
+
+    -- For coordinate validation
+    v_coord_cast_error_json_expr_sql TEXT;
+    v_coord_range_error_json_expr_sql TEXT;
+    v_postal_coord_present_error_json_expr_sql TEXT := $$'{}'::jsonb$$; -- Default to SQL literal for empty JSONB
+    v_coord_invalid_value_json_expr_sql TEXT;
+    v_any_coord_error_condition_sql TEXT;
 BEGIN
     RAISE DEBUG '[Job %] analyse_location (Batch) for step_code %: Starting analysis for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
@@ -35,15 +74,35 @@ BEGIN
     RAISE DEBUG '[Job %] analyse_location: Processing for target % (code: %, priority %)', p_job_id, v_step.name, v_step.code, v_step.priority;
 
     IF p_step_code = 'physical_location' THEN
-        v_error_keys_to_clear_arr := ARRAY['physical_region_code', 'physical_country_iso_2', 'physical_latitude', 'physical_longitude', 'physical_altitude'];
-        v_invalid_code_keys_to_clear_arr := v_error_keys_to_clear_arr; -- Same keys for invalid_codes
+        v_error_keys_to_clear_arr := ARRAY[
+            'physical_region_code', 
+            'physical_country_iso_2', 
+            'physical_latitude', -- Error key for latitude issues
+            'physical_longitude', -- Error key for longitude issues
+            'physical_altitude' -- Error key for altitude issues
+            -- 'physical_location_error' is now covered by more specific keys like physical_country_iso_2 for missing country
+        ];
+        v_invalid_code_keys_to_clear_arr := ARRAY['physical_region_code', 'physical_country_iso_2', 'physical_latitude', 'physical_longitude', 'physical_altitude'];
+        v_address_present_condition_sql := $$
+            (NULLIF(dt.physical_address_part1, '') IS NOT NULL OR NULLIF(dt.physical_address_part2, '') IS NOT NULL OR NULLIF(dt.physical_address_part3, '') IS NOT NULL OR
+             NULLIF(dt.physical_postcode, '') IS NOT NULL OR NULLIF(dt.physical_postplace, '') IS NOT NULL OR NULLIF(dt.physical_region_code, '') IS NOT NULL)
+        $$;
+        v_fatal_error_condition_sql := format($$
+            (%s AND (NULLIF(dt.physical_country_iso_2, '') IS NULL OR l.resolved_physical_country_id IS NULL))
+        $$, v_address_present_condition_sql);
+        v_fatal_error_json_expr_sql := $$
+            jsonb_build_object('physical_country_iso_2', 'Country is required and must be valid when other physical address details are provided.')
+        $$;
         v_error_condition_sql := $$
             (dt.physical_region_code IS NOT NULL AND l.resolved_physical_region_id IS NULL) OR
-            (dt.physical_country_iso_2 IS NOT NULL AND l.resolved_physical_country_id IS NULL) OR
+            -- Country check is now fatal if address parts are present, otherwise non-fatal for invalid_codes
+            (dt.physical_country_iso_2 IS NOT NULL AND l.resolved_physical_country_id IS NULL AND NOT (%s)) OR
             (dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL) OR
             (dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL) OR
             (dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL)
         $$;
+        v_error_condition_sql := format(v_error_condition_sql, v_address_present_condition_sql); -- Inject address_present check
+
         v_invalid_codes_json_expr_sql := $$
             jsonb_build_object('physical_region_code', CASE WHEN dt.physical_region_code IS NOT NULL AND l.resolved_physical_region_id IS NULL THEN dt.physical_region_code ELSE NULL END) ||
             jsonb_build_object('physical_country_iso_2', CASE WHEN dt.physical_country_iso_2 IS NOT NULL AND l.resolved_physical_country_id IS NULL THEN dt.physical_country_iso_2 ELSE NULL END) ||
@@ -51,16 +110,65 @@ BEGIN
             jsonb_build_object('physical_longitude', CASE WHEN dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL THEN dt.physical_longitude ELSE NULL END) ||
             jsonb_build_object('physical_altitude', CASE WHEN dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL THEN dt.physical_altitude ELSE NULL END)
         $$;
+
+        -- Coordinate error expressions for physical location
+        v_coord_cast_error_json_expr_sql := $$
+            jsonb_strip_nulls(
+                jsonb_build_object('physical_latitude', CASE WHEN dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(9,6).', dt.physical_latitude) ELSE NULL END) ||
+                jsonb_build_object('physical_longitude', CASE WHEN dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(9,6).', dt.physical_longitude) ELSE NULL END) ||
+                jsonb_build_object('physical_altitude', CASE WHEN dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(6,1).', dt.physical_altitude) ELSE NULL END)
+            )
+        $$;
+        v_coord_range_error_json_expr_sql := $$
+            jsonb_strip_nulls(
+                jsonb_build_object('physical_latitude', CASE WHEN l.resolved_typed_physical_latitude IS NOT NULL AND (l.resolved_typed_physical_latitude < -90 OR l.resolved_typed_physical_latitude > 90) THEN format('Value ''%s'' out of range. Expected -90 to 90.', l.resolved_typed_physical_latitude::TEXT) ELSE NULL END) ||
+                jsonb_build_object('physical_longitude', CASE WHEN l.resolved_typed_physical_longitude IS NOT NULL AND (l.resolved_typed_physical_longitude < -180 OR l.resolved_typed_physical_longitude > 180) THEN format('Value ''%s'' out of range. Expected -180 to 180.', l.resolved_typed_physical_longitude::TEXT) ELSE NULL END) ||
+                jsonb_build_object('physical_altitude', CASE WHEN l.resolved_typed_physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude < 0 THEN format('Value ''%s'' cannot be negative. Expected >= 0.', l.resolved_typed_physical_altitude::TEXT) ELSE NULL END)
+            )
+        $$;
+        v_coord_invalid_value_json_expr_sql := $$
+            jsonb_strip_nulls(
+                jsonb_build_object('physical_latitude', CASE WHEN (dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL) OR (l.resolved_typed_physical_latitude IS NOT NULL AND (l.resolved_typed_physical_latitude < -90 OR l.resolved_typed_physical_latitude > 90)) THEN dt.physical_latitude ELSE NULL END) ||
+                jsonb_build_object('physical_longitude', CASE WHEN (dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL) OR (l.resolved_typed_physical_longitude IS NOT NULL AND (l.resolved_typed_physical_longitude < -180 OR l.resolved_typed_physical_longitude > 180)) THEN dt.physical_longitude ELSE NULL END) ||
+                jsonb_build_object('physical_altitude', CASE WHEN (dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL) OR (l.resolved_typed_physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude < 0) THEN dt.physical_altitude ELSE NULL END)
+            )
+        $$;
+        v_any_coord_error_condition_sql := $$
+            (dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL) OR (l.resolved_typed_physical_latitude IS NOT NULL AND (l.resolved_typed_physical_latitude < -90 OR l.resolved_typed_physical_latitude > 90)) OR
+            (dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL) OR (l.resolved_typed_physical_longitude IS NOT NULL AND (l.resolved_typed_physical_longitude < -180 OR l.resolved_typed_physical_longitude > 180)) OR
+            (dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL) OR (l.resolved_typed_physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude < 0)
+        $$;
+
     ELSIF p_step_code = 'postal_location' THEN
-        v_error_keys_to_clear_arr := ARRAY['postal_region_code', 'postal_country_iso_2', 'postal_latitude', 'postal_longitude', 'postal_altitude'];
-        v_invalid_code_keys_to_clear_arr := v_error_keys_to_clear_arr;
+        v_error_keys_to_clear_arr := ARRAY[
+            'postal_region_code', 
+            'postal_country_iso_2', 
+            'postal_latitude', -- Error key for latitude issues
+            'postal_longitude', -- Error key for longitude issues
+            'postal_altitude', -- Error key for altitude issues
+            -- 'postal_location_error' is now covered by more specific keys like postal_country_iso_2 for missing country
+            'postal_location_has_coordinates_error' -- Specific error for postal having coords, keep this one
+        ];
+        v_invalid_code_keys_to_clear_arr := ARRAY['postal_region_code', 'postal_country_iso_2', 'postal_latitude', 'postal_longitude', 'postal_altitude'];
+        v_address_present_condition_sql := $$
+            (NULLIF(dt.postal_address_part1, '') IS NOT NULL OR NULLIF(dt.postal_address_part2, '') IS NOT NULL OR NULLIF(dt.postal_address_part3, '') IS NOT NULL OR
+             NULLIF(dt.postal_postcode, '') IS NOT NULL OR NULLIF(dt.postal_postplace, '') IS NOT NULL OR NULLIF(dt.postal_region_code, '') IS NOT NULL)
+        $$;
+        v_fatal_error_condition_sql := format($$
+            (%s AND (NULLIF(dt.postal_country_iso_2, '') IS NULL OR l.resolved_postal_country_id IS NULL))
+        $$, v_address_present_condition_sql);
+        v_fatal_error_json_expr_sql := $$
+            jsonb_build_object('postal_country_iso_2', 'Country is required and must be valid when other postal address details are provided.')
+        $$;
         v_error_condition_sql := $$
             (dt.postal_region_code IS NOT NULL AND l.resolved_postal_region_id IS NULL) OR
-            (dt.postal_country_iso_2 IS NOT NULL AND l.resolved_postal_country_id IS NULL) OR
+            (dt.postal_country_iso_2 IS NOT NULL AND l.resolved_postal_country_id IS NULL AND NOT (%s)) OR
             (dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL) OR
             (dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL) OR
             (dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL)
         $$;
+        v_error_condition_sql := format(v_error_condition_sql, v_address_present_condition_sql); -- Inject address_present check
+
         v_invalid_codes_json_expr_sql := $$
             jsonb_build_object('postal_region_code', CASE WHEN dt.postal_region_code IS NOT NULL AND l.resolved_postal_region_id IS NULL THEN dt.postal_region_code ELSE NULL END) ||
             jsonb_build_object('postal_country_iso_2', CASE WHEN dt.postal_country_iso_2 IS NOT NULL AND l.resolved_postal_country_id IS NULL THEN dt.postal_country_iso_2 ELSE NULL END) ||
@@ -68,6 +176,38 @@ BEGIN
             jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL THEN dt.postal_longitude ELSE NULL END) ||
             jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL THEN dt.postal_altitude ELSE NULL END)
         $$;
+
+        -- Coordinate error expressions for postal location
+        v_coord_cast_error_json_expr_sql := $$
+            jsonb_strip_nulls(
+                jsonb_build_object('postal_latitude', CASE WHEN dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(9,6).', dt.postal_latitude) ELSE NULL END) ||
+                jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(9,6).', dt.postal_longitude) ELSE NULL END) ||
+                jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(6,1).', dt.postal_altitude) ELSE NULL END)
+            )
+        $$;
+        -- Range errors are not applicable here as the primary error is their presence.
+        v_coord_range_error_json_expr_sql := $$'{}'::jsonb$$; -- Use SQL literal for empty JSONB.
+        v_postal_coord_present_error_json_expr_sql := $$
+            jsonb_build_object('postal_location_has_coordinates_error', -- This is a general error, not tied to a specific input coord column.
+                CASE WHEN l.resolved_typed_postal_latitude IS NOT NULL OR l.resolved_typed_postal_longitude IS NOT NULL OR l.resolved_typed_postal_altitude IS NOT NULL
+                THEN 'Postal locations cannot have coordinates (latitude, longitude, altitude).'
+                ELSE NULL END
+            )
+        $$;
+        v_coord_invalid_value_json_expr_sql := $$
+            jsonb_strip_nulls(
+                jsonb_build_object('postal_latitude', CASE WHEN dt.postal_latitude IS NOT NULL AND (l.resolved_typed_postal_latitude IS NULL OR l.resolved_typed_postal_latitude IS NOT NULL) THEN dt.postal_latitude ELSE NULL END) || -- Log if provided, regardless of cast success for this error type
+                jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND (l.resolved_typed_postal_longitude IS NULL OR l.resolved_typed_postal_longitude IS NOT NULL) THEN dt.postal_longitude ELSE NULL END) ||
+                jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND (l.resolved_typed_postal_altitude IS NULL OR l.resolved_typed_postal_altitude IS NOT NULL) THEN dt.postal_altitude ELSE NULL END)
+            )
+        $$;
+        v_any_coord_error_condition_sql := $$
+            (dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL) OR
+            (dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL) OR
+            (dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL) OR
+            (l.resolved_typed_postal_latitude IS NOT NULL OR l.resolved_typed_postal_longitude IS NOT NULL OR l.resolved_typed_postal_altitude IS NOT NULL) -- This covers the "postal has coords" error
+        $$;
+
     ELSE
         RAISE EXCEPTION '[Job %] analyse_location: Invalid p_step_code provided: %. Expected ''physical_location'' or ''postal_location''.', p_job_id, p_step_code;
     END IF;
@@ -80,20 +220,20 @@ BEGIN
                 pc.id as resolved_physical_country_id,
                 psr.id as resolved_postal_region_id,
                 psc.id as resolved_postal_country_id,
-                import.safe_cast_to_numeric(dt_sub.physical_latitude) as resolved_typed_physical_latitude,
-                import.safe_cast_to_numeric(dt_sub.physical_longitude) as resolved_typed_physical_longitude,
-                import.safe_cast_to_numeric(dt_sub.physical_altitude) as resolved_typed_physical_altitude,
-                import.safe_cast_to_numeric(dt_sub.postal_latitude) as resolved_typed_postal_latitude,
-                import.safe_cast_to_numeric(dt_sub.postal_longitude) as resolved_typed_postal_longitude,
-                import.safe_cast_to_numeric(dt_sub.postal_altitude) as resolved_typed_postal_altitude
-            FROM public.%I dt_sub
+                import.try_cast_to_numeric_specific(dt_sub.physical_latitude, 'NUMERIC(9,6)') as resolved_typed_physical_latitude,
+                import.try_cast_to_numeric_specific(dt_sub.physical_longitude, 'NUMERIC(9,6)') as resolved_typed_physical_longitude,
+                import.try_cast_to_numeric_specific(dt_sub.physical_altitude, 'NUMERIC(6,1)') as resolved_typed_physical_altitude,
+                import.try_cast_to_numeric_specific(dt_sub.postal_latitude, 'NUMERIC(9,6)') as resolved_typed_postal_latitude,
+                import.try_cast_to_numeric_specific(dt_sub.postal_longitude, 'NUMERIC(9,6)') as resolved_typed_postal_longitude,
+                import.try_cast_to_numeric_specific(dt_sub.postal_altitude, 'NUMERIC(6,1)') as resolved_typed_postal_altitude
+            FROM public.%1$I dt_sub
             LEFT JOIN public.region pr ON dt_sub.physical_region_code IS NOT NULL AND pr.code = dt_sub.physical_region_code
             LEFT JOIN public.country pc ON dt_sub.physical_country_iso_2 IS NOT NULL AND pc.iso_2 = dt_sub.physical_country_iso_2
             LEFT JOIN public.region psr ON dt_sub.postal_region_code IS NOT NULL AND psr.code = dt_sub.postal_region_code
             LEFT JOIN public.country psc ON dt_sub.postal_country_iso_2 IS NOT NULL AND psc.iso_2 = dt_sub.postal_country_iso_2
-            WHERE dt_sub.row_id = ANY(%L) AND dt_sub.action != 'skip'
+            WHERE dt_sub.row_id = ANY(%2$L) AND dt_sub.action != 'skip'
         )
-        UPDATE public.%I dt SET
+        UPDATE public.%1$I dt SET
             physical_region_id = l.resolved_physical_region_id,
             physical_country_id = l.resolved_physical_country_id,
             typed_physical_latitude = l.resolved_typed_physical_latitude,
@@ -104,28 +244,44 @@ BEGIN
             typed_postal_latitude = l.resolved_typed_postal_latitude,
             typed_postal_longitude = l.resolved_typed_postal_longitude,
             typed_postal_altitude = l.resolved_typed_postal_altitude,
-            state = 'analysing'::public.import_data_state, -- Location issues are non-fatal
-            error = CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END, -- Clear error keys
-            invalid_codes = 
+            state = CASE
+                        WHEN (%6$s) OR (%10$s) THEN 'error'::public.import_data_state -- Fatal country error OR any coordinate error
+                        ELSE 'analysing'::public.import_data_state
+                    END,
+            error = jsonb_strip_nulls(
+                        (COALESCE(dt.error, '{}'::jsonb) - %3$L::TEXT[])
+                        || CASE WHEN (%6$s) THEN (%7$s) ELSE '{}'::jsonb END -- Fatal country error message
+                        || (%11$s) -- Coordinate cast error messages
+                        || (%12$s) -- Coordinate range error messages
+                        || (%13$s) -- Postal coordinate present error message
+                    ),
+            invalid_codes = jsonb_strip_nulls(
+                        (COALESCE(dt.invalid_codes, '{}'::jsonb) - %8$L::TEXT[])
+                        || CASE WHEN (%4$s) AND NOT ((%6$s) OR (%10$s)) THEN (%5$s) ELSE '{}'::jsonb END -- Non-fatal region/country codes (if no fatal/coord error)
+                        || CASE WHEN (%10$s) THEN (%14$s) ELSE '{}'::jsonb END -- Original invalid coordinate values
+                    ),
+            last_completed_priority =
                 CASE
-                    WHEN (%s) THEN -- Error condition for this location type
-                        jsonb_strip_nulls(COALESCE(dt.invalid_codes, '{}'::jsonb) - %L::TEXT[] || (%s))
-                    ELSE -- Success for this location type
-                        CASE WHEN (dt.invalid_codes - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.invalid_codes - %L::TEXT[]) END
-                END,
-            last_completed_priority = %L::INTEGER -- Always advance priority
+                    WHEN (%6$s) OR (%10$s) THEN dt.last_completed_priority -- Fatal country error OR any coordinate error: do not advance priority
+                    ELSE %9$L::INTEGER -- Non-fatal or success: advance priority
+                END
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L::BIGINT[]) AND dt.action != 'skip';
+        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%2$L::BIGINT[]) AND dt.action != 'skip';
     $$,
-        v_data_table_name, p_batch_row_ids,                     -- For lookups CTE
-        v_data_table_name,                                      -- For main UPDATE target
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear)
-        v_error_condition_sql,                                  -- For invalid_codes CASE (condition)
-        v_invalid_code_keys_to_clear_arr,                       -- For invalid_codes CASE (clear old)
-        v_invalid_codes_json_expr_sql,                          -- For invalid_codes CASE (add new)
-        v_invalid_code_keys_to_clear_arr, v_invalid_code_keys_to_clear_arr, -- For invalid_codes CASE (clear on success)
-        v_step.priority,                                        -- For last_completed_priority CASE
-        p_batch_row_ids                                         -- For final WHERE clause
+        v_data_table_name,                      /* %1$I (target table) */
+        p_batch_row_ids,                        /* %2$L (for lookups CTE and final WHERE) */
+        v_error_keys_to_clear_arr,              /* %3$L (for clearing error keys) */
+        v_error_condition_sql,                  /* %4$s (non-fatal region/country error condition) */
+        v_invalid_codes_json_expr_sql,          /* %5$s (for adding non-fatal region/country invalid codes) */
+        v_fatal_error_condition_sql,            /* %6$s (fatal country error condition) */
+        v_fatal_error_json_expr_sql,            /* %7$s (for adding fatal country error message) */
+        v_invalid_code_keys_to_clear_arr,       /* %8$L (for clearing invalid_codes keys) */
+        v_step.priority,                        /* %9$L (for last_completed_priority) */
+        v_any_coord_error_condition_sql,        /* %10$s (any coordinate error condition) */
+        v_coord_cast_error_json_expr_sql,       /* %11$s (coordinate cast error JSON) */
+        v_coord_range_error_json_expr_sql,      /* %12$s (coordinate range error JSON) */
+        v_postal_coord_present_error_json_expr_sql, /* %13$s (postal has coords error JSON) */
+        v_coord_invalid_value_json_expr_sql     /* %14$s (original invalid coordinate values JSON) */
     );
 
     RAISE DEBUG '[Job %] analyse_location: Single-pass batch update for non-skipped rows for step %: %', p_job_id, p_step_code, v_sql;
@@ -151,29 +307,39 @@ BEGIN
         INTO v_error_count;
         RAISE DEBUG '[Job %] analyse_location: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
-    EXCEPTION WHEN others THEN
-        error_message := SQLERRM; -- Capture SQLERRM
-        RAISE WARNING '[Job %] analyse_location: Error during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
-        -- Attempt to mark individual data rows as error (best effort)
-        BEGIN
-            v_sql := format('
-                UPDATE public.%I dt SET
-                    state = %L,
-                    error = COALESCE(dt.error, ''{}''::jsonb) || jsonb_build_object(''location_batch_error'', ''Error during update for step %s: '' || %L),
-                    last_completed_priority = %L
-                WHERE dt.row_id = ANY(%L);
-            ', v_data_table_name, 'error'::public.import_data_state, p_step_code, error_message, v_step.priority - 1, p_batch_row_ids);
-            EXECUTE v_sql;
-        EXCEPTION WHEN OTHERS THEN
-            RAISE WARNING '[Job %] analyse_location: Could not mark individual data rows as error: %', p_job_id, SQLERRM;
-        END;
-        -- Mark the job as failed
-        UPDATE public.import_job
-        SET error = jsonb_build_object('analyse_location_error', format('Error for step %s: %s', p_step_code, error_message)),
-            state = 'finished'
-        WHERE id = p_job_id;
-        RAISE DEBUG '[Job %] analyse_location: Marked job as failed due to error for step %: %', p_job_id, p_step_code, error_message;
-        RAISE; -- Re-throw the exception
+    EXCEPTION 
+        WHEN PROGRAM_LIMIT_EXCEEDED THEN -- e.g. statement too complex, or other similar limit errors
+            error_message := SQLERRM;
+            RAISE WARNING '[Job %] analyse_location: Program limit exceeded during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
+            -- Fallback or simplified error marking might be needed here if the main query is too complex
+            UPDATE public.import_job
+            SET error = jsonb_build_object('analyse_location_error', format('Program limit error for step %s: %s', p_step_code, error_message)),
+                state = 'finished'
+            WHERE id = p_job_id;
+            RAISE; -- Re-throw
+        WHEN OTHERS THEN
+            error_message := SQLERRM; 
+            RAISE WARNING '[Job %] analyse_location: Unexpected error during single-pass batch update for step %: %. SQLSTATE: %', p_job_id, p_step_code, error_message, SQLSTATE;
+            -- Attempt to mark individual data rows as error (best effort)
+            BEGIN
+                v_sql := format('
+                    UPDATE public.%I dt SET
+                        state = %L,
+                        error = COALESCE(dt.error, ''{}''::jsonb) || jsonb_build_object(''location_batch_error'', ''Unexpected error during update for step %s: '' || %L),
+                        last_completed_priority = dt.last_completed_priority -- Do not advance priority on unexpected error, use existing LCP
+                    WHERE dt.row_id = ANY(%L);
+                ', v_data_table_name, 'error'::public.import_data_state, p_step_code, error_message, p_batch_row_ids); 
+                EXECUTE v_sql;
+            EXCEPTION WHEN OTHERS THEN
+                RAISE WARNING '[Job %] analyse_location: Could not mark individual data rows as error after unexpected error: %', p_job_id, SQLERRM;
+            END;
+            -- Mark the job as failed
+            UPDATE public.import_job
+            SET error = jsonb_build_object('analyse_location_error', format('Unexpected error for step %s: %s', p_step_code, error_message)),
+                state = 'finished'
+            WHERE id = p_job_id;
+            RAISE DEBUG '[Job %] analyse_location: Marked job as failed due to unexpected error for step %: %', p_job_id, p_step_code, error_message;
+            RAISE; -- Re-throw the exception
     END;
 
     RAISE DEBUG '[Job %] analyse_location (Batch): Finished analysis for batch for step %. Errors newly marked in this step: %', p_job_id, p_step_code, v_error_count;

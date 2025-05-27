@@ -25,6 +25,10 @@ DECLARE
     v_lookup_failed_condition_sql TEXT;
     v_error_json_expr_sql TEXT;
     v_invalid_code_json_expr_sql TEXT;
+    v_parent_unit_missing_error_key TEXT;
+    v_parent_unit_missing_error_message TEXT;
+    v_prelim_update_count INT := 0;
+    v_parent_id_check_sql TEXT; -- For dynamically building the parent ID check condition
 BEGIN
     RAISE DEBUG '[Job %] analyse_activity (Batch) for step_code %: Starting analysis for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
@@ -64,6 +68,10 @@ BEGIN
 
     -- SQL expression string for constructing the invalid_codes JSON object for the current activity type
     v_invalid_code_json_expr_sql := format('jsonb_build_object(%L, dt.%I)', v_json_key, v_source_code_col_name);
+
+    -- The preliminary parent ID check has been removed from analyse_activity.
+    -- This check will now be handled in process_activity, as parent unit IDs (legal_unit_id, establishment_id)
+    -- are populated by their respective process_ steps, which run after analysis steps.
 
     v_sql := format($$
         WITH lookups AS (
@@ -178,6 +186,10 @@ DECLARE
     v_job_mode public.import_mode;
     v_select_lu_id_expr TEXT;
     v_select_est_id_expr TEXT;
+    v_parent_id_check_sql TEXT; -- For checking if parent ID is NULL in _data table
+    v_parent_unavailable_error_key TEXT;
+    v_parent_unavailable_error_message TEXT;
+    v_parent_check_update_count INT := 0;
 BEGIN
     RAISE DEBUG '[Job %] process_activity (Batch) for step_code %: Starting operation for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
@@ -232,7 +244,51 @@ BEGIN
     RAISE DEBUG '[Job %] process_activity: Based on mode %, using lu_id_expr: %, est_id_expr: % for table %', 
         p_job_id, v_job_mode, v_select_lu_id_expr, v_select_est_id_expr, v_data_table_name;
 
-    -- Step 1: Fetch batch data into a temporary table
+    -- Preliminary step: Check for missing parent unit IDs in the _data table.
+    -- If a parent ID is NULL, the activity cannot be linked. Mark row as error and skip.
+    IF v_job_mode = 'legal_unit' THEN
+        v_parent_id_check_sql := 'dt.legal_unit_id IS NULL';
+        v_parent_unavailable_error_message := format('Parent Legal Unit ID was not available when attempting to process %s.', v_activity_type);
+    ELSIF v_job_mode IN ('establishment_formal', 'establishment_informal') THEN
+        v_parent_id_check_sql := 'dt.establishment_id IS NULL';
+        v_parent_unavailable_error_message := format('Parent Establishment ID was not available when attempting to process %s.', v_activity_type);
+    ELSE
+        v_parent_id_check_sql := 'TRUE'; -- Should not happen, but effectively skips if mode is unknown
+        v_parent_unavailable_error_message := format('Parent unit ID for unknown mode ''%s'' was not available when attempting to process %s.', v_job_mode, v_activity_type);
+    END IF;
+    
+    -- The error key should be the name of the input column that could not be processed.
+    v_parent_unavailable_error_key := CASE v_activity_type 
+                                        WHEN 'primary' THEN 'primary_activity_category_code' 
+                                        ELSE 'secondary_activity_category_code' 
+                                     END;
+
+    RAISE DEBUG '[Job %] process_activity: Checking for rows where parent ID is missing using condition: %s (Error key: %s)', p_job_id, v_parent_id_check_sql, v_parent_unavailable_error_key;
+
+    EXECUTE format($$
+        UPDATE public.%I dt SET
+            action = 'skip',
+            state = 'error',
+            error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(%L, %L),
+            last_completed_priority = %L -- Update LCP to this step's priority
+        WHERE dt.row_id = ANY(%L)
+          AND dt.action != 'skip' -- Only consider rows not already skipped by prior analysis steps
+          AND dt.%I IS NOT NULL -- Only if an activity code was provided (otherwise this step is N/A for the row)
+          AND (%s); -- The check for parent ID being NULL
+    $$, v_data_table_name, 
+        v_parent_unavailable_error_key, 
+        v_parent_unavailable_error_message, 
+        v_step.priority, 
+        p_batch_row_ids,
+        v_category_id_col, -- Check against the resolved category_id column from _data table
+        v_parent_id_check_sql
+    );
+    GET DIAGNOSTICS v_parent_check_update_count = ROW_COUNT;
+    IF v_parent_check_update_count > 0 THEN
+        RAISE DEBUG '[Job %] process_activity: Marked % rows as skipped due to missing parent unit ID during processing.', p_job_id, v_parent_check_update_count;
+    END IF;
+
+    -- Step 1: Fetch batch data into a temporary table (will now exclude rows marked 'skip' above)
     CREATE TEMP TABLE temp_batch_data (
         data_row_id BIGINT PRIMARY KEY,
         legal_unit_id INT,

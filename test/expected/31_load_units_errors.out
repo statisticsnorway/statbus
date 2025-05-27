@@ -318,7 +318,9 @@ SELECT row_id, state, error, tax_ident, name, physical_latitude
 FROM public.import_31_lu_era_b3_coord_errors_data
 WHERE error IS NOT NULL OR state = 'error'
 ORDER BY row_id;
- row_id | state |                                                                                             error                                                                                             | tax_ident  |          name           | physical_latitude 
---------+-------+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+------------+-------------------------+-------------------
-NOTICE:  Invalid physical_latitude for row {"name": "NILE PEARL WATER", "landline": null, "tag_path": null, "turnover": "9000000", "valid_to": "infinity", "employees": "2", "tax_ident": "2212760144", "birth_date": "01.10.2016", "death_date": null, "fax_number": null, "stat_ident": "1000", "valid_from": "2024-01-01", "sector_code": "6100", "status_code": null, "web_address": "nilepearlwater.ug", "phone_number": "123456789", "email_address": "contact@npw.ug", "mobile_number": null, "unit_size_code": null, "legal_form_code": "4", "postal_altitude": null, "postal_latitude": null, "postal_postcode": null, "data_source_code": "nlr", "postal_longitude": null, "postal_postplace": null, "physical_altitude": "1144", "physical_latitude": "3333333", "physical_postcode": null, "physical_longitude": "32.2984354", "physical_postplace": null, "postal_region_code": null, "postal_region_path": null, "physical_region_code": "225613", "physical_region_path": null, "postal_address_part1": null, "postal_address_part2": null, "postal_address_part3": null, "postal_country_iso_2": null, "physical_address_part1": null, "physical_address_part2": null, "physical_address_part3": null, "physical_country_iso_2": "UG", "primary_activity_category_code": "4752", "secondary_activity_category_code": null} because of numeric field overflow
+ row_id | state |                                  error                                   | tax_ident  |       name       | physical_latitude 
+--------+-------+--------------------------------------------------------------------------+------------+------------------+-------------------
+      1 | error | {"physical_latitude": "Invalid value '3333333'. Expected NUMERIC(9,6)."} | 2212760144 | NILE PEARL WATER | 3333333
+(1 row)
+
 ROLLBACK;
