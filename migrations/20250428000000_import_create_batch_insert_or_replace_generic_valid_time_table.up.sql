@@ -216,23 +216,8 @@ BEGIN
             END IF;
 
             -- Determine non-ephemeral, non-temporal, non-ID columns for equivalence check
-            v_equivalent_data_cols := '{}'::JSONB;
-            DECLARE 
-                _col_equiv TEXT;
-            BEGIN
-                FOR _col_equiv IN 
-                    SELECT col FROM unnest(v_target_table_actual_columns) col
-                    WHERE NOT (col = 'valid_after' OR col = 'valid_to')
-                      AND col != 'valid_from' 
-                      AND NOT (col = ANY(p_ephemeral_columns))
-                      AND NOT (col = p_id_column_name AND (p_id_column_name = ANY(v_generated_columns)))
-                LOOP
-                    IF v_source_record_jsonb ? _col_equiv THEN
-                        v_equivalent_data_cols := jsonb_set(v_equivalent_data_cols, ARRAY[_col_equiv], v_source_record_jsonb-> _col_equiv);
-                    END IF;
-                END LOOP;
-            END;
-            RAISE DEBUG '[batch_replace] Source row % Equivalence data columns being considered: %', v_current_source_row_id, v_equivalent_data_cols;
+            -- v_equivalent_data_cols is no longer used directly to store data, 
+            -- the check is done by iterating core column names.
 
             v_existing_query := format(
                 $$SELECT * 
@@ -258,25 +243,39 @@ BEGIN
                     _ex_vt DATE := (v_existing_era_jsonb->>'valid_to')::DATE;
                     v_relation public.allen_interval_relation;
                     _data_is_equivalent BOOLEAN := TRUE; -- Assume true, prove false
-                    _key TEXT;
+                    _key TEXT; -- Retained for potential future use, but not directly for core col iteration
                     _eph_update_set_clause TEXT; -- For updating ephemeral columns
+                    _core_column_name TEXT;      -- For iterating through core column names
                 BEGIN
-                    -- Determine if data is equivalent based on v_equivalent_data_cols
-                    FOR _key IN SELECT * FROM jsonb_object_keys(v_equivalent_data_cols) LOOP
-                        IF (v_source_record_jsonb->>_key) IS DISTINCT FROM (v_existing_era_jsonb->>_key) THEN
+                    -- Determine if data is equivalent by iterating defined core columns
+                    _data_is_equivalent := TRUE; -- Assume true, prove false
+                    FOR _core_column_name IN
+                        SELECT col FROM unnest(v_target_table_actual_columns) col
+                        WHERE NOT (col = 'valid_after' OR col = 'valid_to' OR col = 'valid_from') -- Exclude temporal columns
+                          AND NOT (col = ANY(p_ephemeral_columns)) -- Exclude ephemeral columns
+                          AND col != p_id_column_name -- Exclude the ID column itself
+                    LOOP
+                        IF (v_source_record_jsonb->>_core_column_name) IS DISTINCT FROM (v_existing_era_jsonb->>_core_column_name) THEN
                             _data_is_equivalent := FALSE;
-                            RAISE DEBUG '[batch_replace] Data different for key "%": Source "%", Existing "%"', 
-                                        _key, (v_source_record_jsonb->>_key), (v_existing_era_jsonb->>_key);
-                            EXIT;
+                            RAISE DEBUG '[batch_replace] Data different for core column "%": Source val "%", Existing val "%". Source JSON: %, Existing JSON: %', 
+                                        _core_column_name, 
+                                        (v_source_record_jsonb->>_core_column_name), 
+                                        (v_existing_era_jsonb->>_core_column_name),
+                                        v_source_record_jsonb,
+                                        v_existing_era_jsonb;
+                            EXIT; -- Exit the core column loop
                         END IF;
                     END LOOP;
+
                     IF _data_is_equivalent THEN
-                        RAISE DEBUG '[batch_replace] Data is equivalent between source and existing era %', v_existing_era_jsonb;
+                        RAISE DEBUG '[batch_replace] Core data is equivalent between source and existing era. Source JSON: %, Existing JSON: %', v_source_record_jsonb, v_existing_era_jsonb;
                         -- Build ephemeral update clause
                         SELECT string_agg(format('%I = %L', eph_col, v_source_record_jsonb->>eph_col), ', ')
                         INTO _eph_update_set_clause
                         FROM unnest(p_ephemeral_columns) eph_col
-                        WHERE v_source_record_jsonb ? eph_col;
+                        WHERE v_source_record_jsonb ? eph_col; -- Source must have the ephemeral col to update it
+                    ELSE
+                        RAISE DEBUG '[batch_replace] Core data is NOT equivalent between source and existing era. Source JSON: %, Existing JSON: %', v_source_record_jsonb, v_existing_era_jsonb;
                     END IF;
 
                     v_relation := public.get_allen_relation(v_source_valid_after, v_source_valid_to, _ex_va, _ex_vt);

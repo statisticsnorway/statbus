@@ -777,6 +777,89 @@ SELECT * FROM batch_test_update_vf.show_target_table(1);
 -- Expected: One row for ID 1, (RollingInfVF_U, 100, C_Initial_U), vf='2023-01-01', va='2022-12-31', vt='infinity', updated_on='2024-01-01'
 TRUNCATE batch_test_update_vf.batch_upsert_source RESTART IDENTITY CASCADE; DELETE FROM batch_test_update_vf.batch_upsert_target;
 ALTER SEQUENCE batch_test_update_vf.batch_upsert_target_id_seq RESTART WITH 1;
+-- Scenario 20: Fix Verification (Update Strategy) - Sequential Equivalent Segments with Infinity
+\echo 'Scenario 20: Fix Verification (Update Strategy) - Sequential Equivalent Segments with Infinity'
+Scenario 20: Fix Verification (Update Strategy) - Sequential Equivalent Segments with Infinity
+TRUNCATE batch_test_update_vf.batch_upsert_source RESTART IDENTITY CASCADE;
+DELETE FROM batch_test_update_vf.batch_upsert_target;
+ALTER SEQUENCE batch_test_update_vf.batch_upsert_target_id_seq RESTART WITH 1;
+-- Step 20.1: Manually insert initial record for Year 1 (ends before infinity to set a base)
+\echo 'Step 20.1: Insert Year 1 data (e.g., 2021)'
+Step 20.1: Insert Year 1 data (e.g., 2021)
+INSERT INTO batch_test_update_vf.batch_upsert_target (id, valid_from, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, '2021-01-01', '2020-12-31', '2021-12-31', 'FixVerifyUpdateInf', 100, 'C_FixVerify', '2021-01-10', 'Year 1 Data');
+SELECT * FROM batch_test_update_vf.show_target_table(1);
+ id | valid_from | valid_after |  valid_to  |      value_a       | value_b |   value_c   | updated_on | edit_comment 
+----+------------+-------------+------------+--------------------+---------+-------------+------------+--------------
+  1 | 2021-01-01 | 2020-12-31  | 2021-12-31 | FixVerifyUpdateInf |     100 | C_FixVerify | 2021-01-10 | Year 1 Data
+(1 row)
+
+-- Expected: 1 row for ID 1: (FixVerifyUpdateInf,100,C_FixVerify) vf='2021-01-01', va='2020-12-31', vt='2021-12-31', updated_on='2021-01-10', comment='Year 1 Data'
+-- Step 20.2: Process Year 2 data (meets Year 1, equivalent core, new ephemeral, ends infinity)
+\echo 'Step 20.2: Process Year 2 data (meets Year 1, equivalent core, new ephemeral, ends infinity)'
+Step 20.2: Process Year 2 data (meets Year 1, equivalent core, new ephemeral, ends infinity)
+TRUNCATE batch_test_update_vf.batch_upsert_source RESTART IDENTITY CASCADE;
+INSERT INTO batch_test_update_vf.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2021-12-31', 'infinity', 'FixVerifyUpdateInf', 100, 'C_FixVerify', '2022-01-10', 'Year 2 Data'); -- target_id=1
+SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB, -- ID is provided
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
+);
+ source_row_id | upserted_record_id | status  | error_message 
+---------------+--------------------+---------+---------------
+             1 |                  1 | SUCCESS | 
+(1 row)
+
+SELECT * FROM batch_test_update_vf.show_target_table(1);
+ id | valid_from | valid_after | valid_to |      value_a       | value_b |   value_c   | updated_on | edit_comment 
+----+------------+-------------+----------+--------------------+---------+-------------+------------+--------------
+  1 | 2021-01-01 | 2020-12-31  | infinity | FixVerifyUpdateInf |     100 | C_FixVerify | 2022-01-10 | Year 2 Data
+(1 row)
+
+-- Expected: 1 row for ID 1:
+-- vf='2021-01-01', va='2020-12-31', vt='infinity'
+-- value_a='FixVerifyUpdateInf', value_b=100, value_c='C_FixVerify'
+-- updated_on='2022-01-10', comment='Year 2 Data'
+-- Step 20.3: Process Year 3 data (meets Year 2 period, equivalent core, new ephemeral, ends infinity)
+\echo 'Step 20.3: Process Year 3 data (meets Year 2, equivalent core, new ephemeral, ends infinity)'
+Step 20.3: Process Year 3 data (meets Year 2, equivalent core, new ephemeral, ends infinity)
+TRUNCATE batch_test_update_vf.batch_upsert_source RESTART IDENTITY CASCADE;
+INSERT INTO batch_test_update_vf.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, value_c, updated_on, edit_comment) VALUES
+(1, 1, '2022-12-31', 'infinity', 'FixVerifyUpdateInf', 100, 'C_FixVerify', '2023-01-10', 'Year 3 Data'); -- target_id=1
+SELECT * FROM import.batch_insert_or_update_generic_valid_time_table(
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB, -- ID is provided
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
+);
+ source_row_id | upserted_record_id | status  | error_message 
+---------------+--------------------+---------+---------------
+             1 |                  1 | SUCCESS | 
+(1 row)
+
+SELECT * FROM batch_test_update_vf.show_target_table(1);
+ id | valid_from | valid_after | valid_to |      value_a       | value_b |   value_c   | updated_on | edit_comment 
+----+------------+-------------+----------+--------------------+---------+-------------+------------+--------------
+  1 | 2021-01-01 | 2020-12-31  | infinity | FixVerifyUpdateInf |     100 | C_FixVerify | 2023-01-10 | Year 3 Data
+(1 row)
+
+-- Expected: 1 row for ID 1:
+-- vf='2021-01-01', va='2020-12-31', vt='infinity'
+-- value_a='FixVerifyUpdateInf', value_b=100, value_c='C_FixVerify'
+-- updated_on='2023-01-10', comment='Year 3 Data'
+TRUNCATE batch_test_update_vf.batch_upsert_source RESTART IDENTITY CASCADE;
+DELETE FROM batch_test_update_vf.batch_upsert_target;
+ALTER SEQUENCE batch_test_update_vf.batch_upsert_target_id_seq RESTART WITH 1;
 -- Cleanup
 DROP FUNCTION batch_test_update_vf.show_target_table(INT);
 DROP TABLE batch_test_update_vf.batch_upsert_source;

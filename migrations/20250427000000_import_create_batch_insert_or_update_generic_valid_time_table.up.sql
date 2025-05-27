@@ -317,12 +317,10 @@ BEGIN -- Main function body starts here
                             _ex_va  := (v_existing_era_jsonb->>'valid_after')::DATE; 
                             _ex_vt  := (v_existing_era_jsonb->>'valid_to')::DATE;
 
-                            -- Calculate v_data_is_different
+                            -- Calculate v_data_is_different (true equivalence check)
                             v_data_is_different := FALSE; 
                             FOR v_col_name_check IN SELECT unnest(v_data_columns_to_consider) LOOP
-                                IF (v_new_record_for_processing->v_col_name_check) IS DISTINCT FROM 'null'::jsonb AND
-                                   ((v_new_record_for_processing->>v_col_name_check) IS DISTINCT FROM (v_existing_era_jsonb->>v_col_name_check))
-                                THEN
+                                IF (v_new_record_for_processing->>v_col_name_check) IS DISTINCT FROM (v_existing_era_jsonb->>v_col_name_check) THEN
                                     v_data_is_different := TRUE;
                                     RAISE DEBUG '[batch_update] Data different for column %: Source "%", Target "%"', 
                                                 v_col_name_check, (v_new_record_for_processing->>v_col_name_check), (v_existing_era_jsonb->>v_col_name_check);
