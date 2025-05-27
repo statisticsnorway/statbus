@@ -851,15 +851,15 @@ BEGIN
 
   -- Add triggers to upload table
   EXECUTE format($$
-      CREATE TRIGGER %I_check_state_before_insert
+      CREATE TRIGGER %I
       BEFORE INSERT ON public.%I FOR EACH STATEMENT
       EXECUTE FUNCTION admin.check_import_job_state_for_insert(%L);$$,
-      job.upload_table_name, job.upload_table_name, job.slug);
+      job.upload_table_name || '_check_state_before_insert', job.upload_table_name, job.slug);
   EXECUTE format($$
-      CREATE TRIGGER %I_update_state_after_insert
+      CREATE TRIGGER %I
       AFTER INSERT ON public.%I FOR EACH STATEMENT
       EXECUTE FUNCTION admin.update_import_job_state_after_insert(%L);$$,
-      job.upload_table_name, job.upload_table_name, job.slug);
+      job.upload_table_name || '_update_state_after_insert', job.upload_table_name, job.slug);
   RAISE DEBUG '[Job %] Added triggers to upload table %', job.id, job.upload_table_name;
 
   -- 2. Create Data Table
