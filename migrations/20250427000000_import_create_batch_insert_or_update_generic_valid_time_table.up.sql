@@ -110,6 +110,10 @@ BEGIN -- Main function body starts here
         v_source_query := format('SELECT * FROM %I.%I', p_source_schema_name, p_source_table_name);
     END IF; -- End IF for v_source_target_id_alias
 
+    -- Ensure processing order matches source file order (by row_id)
+    v_source_query := v_source_query || ' ORDER BY row_id ASC';
+    RAISE DEBUG '[batch_update] Final source query: %', v_source_query;
+
     -- Determine data columns to consider for update (non-temporal, non-ephemeral, non-generated-id)
     SELECT array_agg(col) INTO v_data_columns_to_consider
     FROM unnest(v_target_table_actual_columns) col

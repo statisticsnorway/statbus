@@ -115,12 +115,13 @@ BEGIN
 
     IF v_source_target_id_alias IS NOT NULL THEN
         v_source_query := format('SELECT src.*, src.target_id AS %I FROM %I.%I src', p_id_column_name, p_source_schema_name, p_source_table_name);
-        RAISE DEBUG '[batch_replace] Source query (with target_id aliased to %I): %', p_id_column_name, v_source_query;
     ELSE
         v_source_query := format('SELECT * FROM %I.%I', p_source_schema_name, p_source_table_name);
-        RAISE DEBUG '[batch_replace] Source query (no target_id column found to alias): %', v_source_query;
     END IF;
 
+    -- Ensure processing order matches source file order (by row_id)
+    v_source_query := v_source_query || ' ORDER BY row_id ASC';
+    RAISE DEBUG '[batch_replace] Final source query: %', v_source_query;
 
     FOR v_input_row_record IN EXECUTE v_source_query
     LOOP
