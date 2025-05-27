@@ -105,7 +105,9 @@ SELECT
     'Test data load (31_load_units_errors.sql)';
 \echo "User uploads legal units (via import job: import_31_lu_era_b1)"
 "User uploads legal units (via import job: import_31_lu_era_b1)"
-\copy public.import_31_lu_era_b1_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/31_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_31_lu_era_b1_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) VALUES
+('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr'),
+('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr');
 -- Create Import Job for Formal Establishments (Block 1 - Errors)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
@@ -116,7 +118,9 @@ SELECT
     'Test data load (31_load_units_errors.sql)';
 \echo "User uploads formal establishments with same stat_ident as legal units (via import job: import_31_esflu_era_b1)"
 "User uploads formal establishments with same stat_ident as legal units (via import job: import_31_esflu_era_b1)"
-\copy public.import_31_esflu_era_b1_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'test/data/31_formal_establishments_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_31_esflu_era_b1_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) VALUES
+('2024-01-01','infinity','92212760144','1000','NILE PEARL WATER','225613','UG','4752',0,0,'2212760144','nlr'),
+('2024-01-01','infinity','92812760140','1001','EQUATOR GLOBE SOLUTIONS','225602','UG','5610',0,0,'2812760140','nlr');
 \echo Run worker processing for import jobs - Block 1
 Run worker processing for import jobs - Block 1
 CALL worker.process_tasks(p_queue => 'import');
@@ -186,7 +190,9 @@ SELECT
     'Test data load (31_load_units_errors.sql)';
 \echo "User uploads legal units (via import job: import_31_lu_era_b2)"
 "User uploads legal units (via import job: import_31_lu_era_b2)"
-\copy public.import_31_lu_era_b2_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/31_legal_units.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_31_lu_era_b2_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) VALUES
+('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr'),
+('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr');
 -- Create Import Job for Formal Establishments (Block 2)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
@@ -197,7 +203,9 @@ SELECT
     'Test data load (31_load_units_errors.sql)';
 \echo "User uploads formal establishments (via import job: import_31_esflu_era_b2)"
 "User uploads formal establishments (via import job: import_31_esflu_era_b2)"
-\copy public.import_31_esflu_era_b2_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'test/data/31_formal_establishments.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_31_esflu_era_b2_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) VALUES
+('2024-01-01','infinity','92212760144','2000','NILE PEARL WATER','225613','UG','4752',0,0,'2212760144','nlr'),
+('2024-01-01','infinity','92812760140','2001','EQUATOR GLOBE SOLUTIONS','225602','UG','5610',0,0,'2812760140','nlr');
 -- Create Import Job for Informal Establishments (Block 2 - Errors)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
@@ -208,7 +216,9 @@ SELECT
     'Test data load (31_load_units_errors.sql)';
 \echo "User uploads informal establishments with same stat_idents as formal establishments (via import job: import_31_eswlu_era_b2_errors)"
 "User uploads informal establishments with same stat_idents as formal establishments (via import job: import_31_eswlu_era_b2_errors)"
-\copy public.import_31_eswlu_era_b2_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'test/data/31_informal_establishments_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_31_eswlu_era_b2_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) VALUES
+('2024-01-01','infinity','82212760144','2000','THE NILE PEARL WATER','225613','UG','4752',1,1200,'nlr'),
+('2024-01-01','infinity','82812760140','2001','THE  EQUATOR GLOBE SOLUTIONS','225602','UG','5610',2,4400,'nlr');
 \echo Run worker processing for import jobs - Block 2
 Run worker processing for import jobs - Block 2
 CALL worker.process_tasks(p_queue => 'import');
@@ -289,7 +299,9 @@ SELECT
     'Test data load (31_load_units_errors.sql)';
 NOTICE:  identifier "import_31_lu_era_b3_coord_errors_upload_check_state_before_insert" will be truncated to "import_31_lu_era_b3_coord_errors_upload_check_state_before_inse"
 NOTICE:  identifier "import_31_lu_era_b3_coord_errors_upload_update_state_after_insert" will be truncated to "import_31_lu_era_b3_coord_errors_upload_update_state_after_inse"
-\copy public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code, physical_latitude, physical_longitude, physical_altitude, web_address, email_address, phone_number) FROM 'test/data/31_legal_units_with_coordinates_errors.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to, tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code, physical_latitude, physical_longitude, physical_altitude, web_address, email_address, phone_number) VALUES
+('2024-01-01','infinity','2212760144','1000','NILE PEARL WATER','01.10.2016','225613','UG','4752','4','6100',2,9000000,'nlr','3333333','32.2984354','1144','nilepearlwater.ug','contact@npw.ug','123456789'),
+('2024-01-01','infinity','2812760140','1001','EQUATOR GLOBE SOLUTIONS','01.10.2016','225602','UG','5610','1','6100',2,2400000,'nlr','1.234567','32.442243','1172','egs.ug','contact@egs.ug','987654321');
 \echo Run worker processing for import jobs - Block 3
 Run worker processing for import jobs - Block 3
 CALL worker.process_tasks(p_queue => 'import');
