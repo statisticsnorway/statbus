@@ -213,7 +213,8 @@ LIMIT 5;
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_05_lu_era_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_05_lu_era';
+WHERE slug = 'import_05_lu_era'
+ORDER BY slug;
        slug       |  state   | total_rows | imported_rows | has_error | error_rows 
 ------------------+----------+------------+---------------+-----------+------------
  import_05_lu_era | finished |          2 |             2 | f         |          0
@@ -237,7 +238,8 @@ LIMIT 5;
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_05_esflu_era_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_05_esflu_era';
+WHERE slug = 'import_05_esflu_era'
+ORDER BY slug;
         slug         |  state   | total_rows | imported_rows | has_error | error_rows 
 ---------------------+----------+------------+---------------+-----------+------------
  import_05_esflu_era | finished |          3 |             3 | f         |          0

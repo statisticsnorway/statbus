@@ -156,7 +156,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_40_lu_era_b1_sector_mid_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_40_lu_era_b1_sector_mid';
+WHERE slug = 'import_40_lu_era_b1_sector_mid'
+ORDER BY slug;
               slug              |  state   | total_rows | imported_rows | has_error | error_rows 
 --------------------------------+----------+------------+---------------+-----------+------------
  import_40_lu_era_b1_sector_mid | finished |          2 |             2 | f         |          0
@@ -300,7 +301,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_40_lu_era_b2_sector_start_m2_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_40_lu_era_b2_sector_start_m2';
+WHERE slug = 'import_40_lu_era_b2_sector_start_m2'
+ORDER BY slug;
                 slug                 |  state   | total_rows | imported_rows | has_error | error_rows 
 -------------------------------------+----------+------------+---------------+-----------+------------
  import_40_lu_era_b2_sector_start_m2 | finished |          2 |             2 | f         |          0
@@ -431,7 +433,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_40_lu_era_b3_sector_start_y_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_40_lu_era_b3_sector_start_y';
+WHERE slug = 'import_40_lu_era_b3_sector_start_y'
+ORDER BY slug;
                 slug                |  state   | total_rows | imported_rows | has_error | error_rows 
 ------------------------------------+----------+------------+---------------+-----------+------------
  import_40_lu_era_b3_sector_start_y | finished |          3 |             3 | f         |          0

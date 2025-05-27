@@ -94,7 +94,8 @@ LIMIT 5;
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_05_lu_era_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_05_lu_era';
+WHERE slug = 'import_05_lu_era'
+ORDER BY slug;
 
 \echo "Inspecting import job data for import_05_esflu_era"
 SELECT row_id, state, error, tax_ident, legal_unit_tax_ident, name, valid_from, valid_to
@@ -106,7 +107,8 @@ LIMIT 5;
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_05_esflu_era_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_05_esflu_era';
+WHERE slug = 'import_05_esflu_era'
+ORDER BY slug;
 
 \echo "Test statistical_unit_hierarchy - for Kranløft Vestland"
 WITH selected_enterprise AS (

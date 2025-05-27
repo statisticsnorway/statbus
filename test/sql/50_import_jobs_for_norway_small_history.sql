@@ -60,16 +60,16 @@ FROM def RETURNING slug, description, note, default_valid_from, default_valid_to
 \d public.import_lu_2015_sht_data
 
 \echo 'Definition snapshot for import_lu_2015_sht:'
-SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snapshot)) FROM public.import_job WHERE slug = 'import_lu_2015_sht';
+SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snapshot)) FROM public.import_job WHERE slug = 'import_lu_2015_sht' ORDER BY slug;
 
 \d public.import_es_2015_sht_upload
 \d public.import_es_2015_sht_data
 
 \echo 'Definition snapshot for import_es_2015_sht:'
-SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snapshot)) FROM public.import_job WHERE slug = 'import_es_2015_sht';
+SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snapshot)) FROM public.import_job WHERE slug = 'import_es_2015_sht' ORDER BY slug;
 -- 
 -- Display the definition snapshot for one job (optional, can be large)
--- SELECT slug, definition_snapshot FROM public.import_job WHERE slug = 'import_lu_2015_sht';
+-- SELECT slug, definition_snapshot FROM public.import_job WHERE slug = 'import_lu_2015_sht' ORDER BY slug;
 
 \echo "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
@@ -79,7 +79,8 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
 SELECT slug,
        (SELECT email FROM public.user WHERE id = user_id) AS user_email
 FROM public.import_job
-WHERE slug = 'import_lu_2015_sht';
+WHERE slug = 'import_lu_2015_sht'
+ORDER BY slug;
 
 \echo "Loading historical units"
 
@@ -108,7 +109,7 @@ CALL worker.process_tasks(p_queue => 'import');
 
 \echo Check the states of the import job tasks.
 select queue,t.command,state,error from worker.tasks as t join worker.command_registry as c on t.command = c.command where t.command = 'import_job_process' order by priority;
-select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job order by id;
+select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job ORDER BY slug;
 
 \echo Check import job state after import
 SELECT state, count(*) FROM import_job GROUP BY state;

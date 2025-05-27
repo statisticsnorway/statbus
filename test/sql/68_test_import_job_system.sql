@@ -57,7 +57,7 @@ INSERT INTO public.import_68_01_single_lu_upload(valid_from,valid_to,tax_ident,n
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo "Import job status for 68_01_single_lu:"
-SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_01_single_lu';
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_01_single_lu' ORDER BY slug;
 
 \echo "Data table row status for import_68_01_single_lu:"
 SELECT row_id, state, error, action, operation FROM public.import_68_01_single_lu_data;
@@ -151,7 +151,7 @@ INSERT INTO public.import_68_02_es_upload(valid_from,valid_to,tax_ident,name,bir
 CALL worker.process_tasks(p_queue => 'import');
 
 \echo "Import job statuses for 68_02:"
-SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug LIKE 'import_68_02%';
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug LIKE 'import_68_02%' ORDER BY slug;
 
 \echo "Verification for Scenario 2: LU + Formal ES"
 \echo "Legal Units:"
@@ -245,7 +245,7 @@ INSERT INTO public.import_68_03_informal_es_upload(valid_from,valid_to,tax_ident
 ('2020-01-01','2020-12-31','E68030001','Informal ES One','2020-01-01',NULL,'Informal St 1','1234','Oslo','0301','NO','03.100',NULL);
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Import job status for 68_03_informal_es:"
-SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_03_informal_es'; -- Added error_details
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_03_informal_es' ORDER BY slug; -- Added error_details
 
 \echo "Data table row status for import_68_03_informal_es:" -- Added for consistency
 SELECT row_id, state, error, action, operation FROM public.import_68_03_informal_es_data ORDER BY row_id;
@@ -319,7 +319,7 @@ INSERT INTO public.import_68_04_two_lus_upload(valid_from,valid_to,tax_ident,nam
 ('2020-01-01','2020-12-31','680400002','Second of Two LUs','2020-01-01',NULL,'Second St 1','5678','Bergen','4601','NO','06.100',NULL,'2100','AS');
 CALL worker.process_tasks(p_queue => 'import');
 \echo "Import job status for 68_04_two_lus:"
-SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_04_two_lus'; -- Added error_details
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_04_two_lus' ORDER BY slug; -- Added error_details
 
 \echo "Data table row status for import_68_04_two_lus:" -- Added for consistency
 SELECT row_id, state, error, action, operation FROM public.import_68_04_two_lus_data ORDER BY row_id;
@@ -395,7 +395,7 @@ CALL worker.process_tasks(p_queue => 'import');
 --RESET client_min_messages;
 
 \echo "Import job status for 68_05_lu_periods:"
-SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_05_lu_periods';
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_05_lu_periods' ORDER BY slug;
 
 \echo "Data table row status for import_68_05_lu_periods:"
 SELECT row_id, state, error, action, operation FROM public.import_68_05_lu_periods_data ORDER BY row_id;
@@ -488,7 +488,7 @@ CALL worker.process_tasks(p_queue => 'import');
 --RESET client_min_messages;
 
 \echo "Import job statuses for 68_06:"
-SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug LIKE 'import_68_06%'; -- Added error_details
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug LIKE 'import_68_06%' ORDER BY slug; -- Added error_details
 
 \echo "Data table row status for import_68_06_lu_periods:" -- Added for consistency
 SELECT row_id, state, error, action, operation FROM public.import_68_06_lu_periods_data ORDER BY row_id;
@@ -561,7 +561,7 @@ CALL worker.process_tasks(p_queue => 'import');
 --RESET client_min_messages;
 
 \echo "Import job status for 68_07_informal_es_periods:"
-SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_07_informal_es_periods'; -- Added error_details
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error, error as error_details FROM public.import_job WHERE slug = 'import_68_07_informal_es_periods' ORDER BY slug; -- Added error_details
 
 \echo "Data table row status for import_68_07_informal_es_periods:" -- Added for consistency
 SELECT row_id, state, error, action, operation FROM public.import_68_07_informal_es_periods_data ORDER BY row_id;

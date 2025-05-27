@@ -67,7 +67,8 @@ LIMIT 5;
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_32_lu_curr_ds_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_32_lu_curr_ds';
+WHERE slug = 'import_32_lu_curr_ds'
+ORDER BY slug;
 
 \echo Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');

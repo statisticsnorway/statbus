@@ -158,7 +158,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_41_lu_era_b1_birth_start_y_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_41_lu_era_b1_birth_start_y';
+WHERE slug = 'import_41_lu_era_b1_birth_start_y'
+ORDER BY slug;
                slug                |  state   | total_rows | imported_rows | has_error | error_rows 
 -----------------------------------+----------+------------+---------------+-----------+------------
  import_41_lu_era_b1_birth_start_y | finished |          4 |             4 | f         |          0
@@ -300,7 +301,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_41_lu_era_b2_birth_start_m2_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_41_lu_era_b2_birth_start_m2';
+WHERE slug = 'import_41_lu_era_b2_birth_start_m2'
+ORDER BY slug;
                 slug                |  state   | total_rows | imported_rows | has_error | error_rows 
 ------------------------------------+----------+------------+---------------+-----------+------------
  import_41_lu_era_b2_birth_start_m2 | finished |          4 |             4 | f         |          0
@@ -441,7 +443,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_41_lu_era_b3_birth_mid_m_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_41_lu_era_b3_birth_mid_m';
+WHERE slug = 'import_41_lu_era_b3_birth_mid_m'
+ORDER BY slug;
               slug               |  state   | total_rows | imported_rows | has_error | error_rows 
 ---------------------------------+----------+------------+---------------+-----------+------------
  import_41_lu_era_b3_birth_mid_m | finished |          4 |             4 | f         |          0

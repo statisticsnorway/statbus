@@ -201,7 +201,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_31_lu_era_b3_coord_errors_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_31_lu_era_b3_coord_errors';
+WHERE slug = 'import_31_lu_era_b3_coord_errors'
+ORDER BY slug;
 
 \echo "Error rows in import_31_lu_era_b3_coord_errors_data (if any):"
 SELECT row_id, state, error, tax_ident, name, physical_latitude

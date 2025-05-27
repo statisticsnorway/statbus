@@ -330,7 +330,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_31_lu_era_b3_coord_errors_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_31_lu_era_b3_coord_errors';
+WHERE slug = 'import_31_lu_era_b3_coord_errors'
+ORDER BY slug;
                slug               |  state   | total_rows | imported_rows | has_error | error_rows 
 ----------------------------------+----------+------------+---------------+-----------+------------
  import_31_lu_era_b3_coord_errors | finished |          7 |             1 | f         |          6

@@ -158,7 +158,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_42_lu_era_b1_death_end_y_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_42_lu_era_b1_death_end_y';
+WHERE slug = 'import_42_lu_era_b1_death_end_y'
+ORDER BY slug;
               slug               |  state   | total_rows | imported_rows | has_error | error_rows 
 ---------------------------------+----------+------------+---------------+-----------+------------
  import_42_lu_era_b1_death_end_y | finished |          4 |             4 | f         |          0
@@ -302,7 +303,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_42_lu_era_b2_death_end_m1_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_42_lu_era_b2_death_end_m1';
+WHERE slug = 'import_42_lu_era_b2_death_end_m1'
+ORDER BY slug;
                slug               |  state   | total_rows | imported_rows | has_error | error_rows 
 ----------------------------------+----------+------------+---------------+-----------+------------
  import_42_lu_era_b2_death_end_m1 | finished |          3 |             2 | f         |          1
@@ -445,10 +447,11 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_42_lu_era_b3_death_start_m_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_42_lu_era_b3_death_start_m';
+WHERE slug = 'import_42_lu_era_b3_death_start_m'
+ORDER BY slug;
                slug                |  state   | total_rows | imported_rows | has_error | error_rows 
 -----------------------------------+----------+------------+---------------+-----------+------------
- import_42_lu_era_b3_death_start_m | finished |          3 |             2 | f         |          1
+ import_42_lu_era_b3_death_start_m | finished |          3 |             3 | f         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 3

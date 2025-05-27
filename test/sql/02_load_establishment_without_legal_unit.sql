@@ -73,7 +73,8 @@ LIMIT 5;
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_02_eswlu_current_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_02_eswlu_current';
+WHERE slug = 'import_02_eswlu_current'
+ORDER BY slug;
 
 \echo "Checking unit counts after import processing"
 SELECT

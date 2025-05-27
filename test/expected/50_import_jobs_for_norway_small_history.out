@@ -653,7 +653,7 @@ Policies:
 
 \echo 'Definition snapshot for import_lu_2015_sht:'
 Definition snapshot for import_lu_2015_sht:
-SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snapshot)) FROM public.import_job WHERE slug = 'import_lu_2015_sht';
+SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snapshot)) FROM public.import_job WHERE slug = 'import_lu_2015_sht' ORDER BY slug;
                                    jsonb_pretty                                    
 -----------------------------------------------------------------------------------
  {                                                                                +
@@ -2353,7 +2353,7 @@ Policies:
 
 \echo 'Definition snapshot for import_es_2015_sht:'
 Definition snapshot for import_es_2015_sht:
-SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snapshot)) FROM public.import_job WHERE slug = 'import_es_2015_sht';
+SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snapshot)) FROM public.import_job WHERE slug = 'import_es_2015_sht' ORDER BY slug;
                                     jsonb_pretty                                     
 -------------------------------------------------------------------------------------
  {                                                                                  +
@@ -3828,7 +3828,7 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
 
 -- 
 -- Display the definition snapshot for one job (optional, can be large)
--- SELECT slug, definition_snapshot FROM public.import_job WHERE slug = 'import_lu_2015_sht';
+-- SELECT slug, definition_snapshot FROM public.import_job WHERE slug = 'import_lu_2015_sht' ORDER BY slug;
 \echo "Setting up Statbus for Norway"
 "Setting up Statbus for Norway"
 \i samples/norway/getting-started.sql
@@ -3853,7 +3853,8 @@ DO UPDATE SET
 SELECT slug,
        (SELECT email FROM public.user WHERE id = user_id) AS user_email
 FROM public.import_job
-WHERE slug = 'import_lu_2015_sht';
+WHERE slug = 'import_lu_2015_sht'
+ORDER BY slug;
         slug        |       user_email       
 --------------------+------------------------
  import_lu_2015_sht | test.admin@statbus.org
@@ -3937,17 +3938,17 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
 (32 rows)
 
-select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job order by id;
+select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job ORDER BY slug;
         slug        |  state   | failed | total_rows | imported_rows | import_completed_pct 
 --------------------+----------+--------+------------+---------------+----------------------
- import_lu_2015_sht | finished | f      |          4 |             4 |               100.00
- import_lu_2016_sht | finished | f      |          6 |             6 |               100.00
- import_lu_2017_sht | finished | f      |          5 |             5 |               100.00
- import_lu_2018_sht | finished | f      |          6 |             6 |               100.00
  import_es_2015_sht | finished | f      |          4 |             4 |               100.00
  import_es_2016_sht | finished | f      |          6 |             6 |               100.00
  import_es_2017_sht | finished | f      |          4 |             4 |               100.00
  import_es_2018_sht | finished | f      |          5 |             5 |               100.00
+ import_lu_2015_sht | finished | f      |          4 |             4 |               100.00
+ import_lu_2016_sht | finished | f      |          6 |             6 |               100.00
+ import_lu_2017_sht | finished | f      |          5 |             5 |               100.00
+ import_lu_2018_sht | finished | f      |          6 |             6 |               100.00
 (8 rows)
 
 \echo Check import job state after import

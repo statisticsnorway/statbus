@@ -67,7 +67,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_42_lu_era_b1_death_end_y_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_42_lu_era_b1_death_end_y';
+WHERE slug = 'import_42_lu_era_b1_death_end_y'
+ORDER BY slug;
 
 \echo Run worker processing for analytics tasks - Block 1
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -132,7 +133,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_42_lu_era_b2_death_end_m1_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_42_lu_era_b2_death_end_m1';
+WHERE slug = 'import_42_lu_era_b2_death_end_m1'
+ORDER BY slug;
 
 \echo Run worker processing for analytics tasks - Block 2
 CALL worker.process_tasks(p_queue => 'analytics');
@@ -196,7 +198,8 @@ SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registr
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
        (SELECT COUNT(*) FROM public.import_42_lu_era_b3_death_start_m_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_42_lu_era_b3_death_start_m';
+WHERE slug = 'import_42_lu_era_b3_death_start_m'
+ORDER BY slug;
 
 \echo Run worker processing for analytics tasks - Block 3
 CALL worker.process_tasks(p_queue => 'analytics');
