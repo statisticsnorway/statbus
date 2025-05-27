@@ -97,8 +97,9 @@ BEGIN
         ident_type_id INT,      -- Resolved ID from external_ident_type, NULL if source_ident_code is unknown
         resolved_lu_id INT,
         resolved_est_id INT,
-        is_cross_type_conflict BOOLEAN, -- New flag
-        conflicting_unit_jsonb JSONB    -- New column for the conflicting external_ident record
+        is_cross_type_conflict BOOLEAN,
+        conflicting_unit_jsonb JSONB,
+        conflicting_est_is_formal BOOLEAN DEFAULT FALSE -- New: Flag if conflicting EST is formal
         -- PRIMARY KEY (data_row_id, source_ident_code) -- Might be too restrictive if same source_ident_code appears multiple times (should not happen with current unpivot)
     ) ON COMMIT DROP;
 
@@ -150,7 +151,7 @@ BEGIN
     -- temp_unpivoted_idents population directly using is_cross_type_conflict and conflicting_unit_jsonb.
 
     v_sql := format($$
-        INSERT INTO temp_unpivoted_idents (data_row_id, source_ident_code, ident_value, ident_type_id, resolved_lu_id, resolved_est_id, is_cross_type_conflict, conflicting_unit_jsonb)
+        INSERT INTO temp_unpivoted_idents (data_row_id, source_ident_code, ident_value, ident_type_id, resolved_lu_id, resolved_est_id, is_cross_type_conflict, conflicting_unit_jsonb, conflicting_est_is_formal)
         SELECT
             up.row_id, 
             up.source_column_name_in_data_table AS source_ident_code, 
@@ -159,29 +160,35 @@ BEGIN
             xi.legal_unit_id, 
             xi.establishment_id,
             CASE %2$L -- v_job_mode
-                WHEN 'legal_unit' THEN (xi.establishment_id IS NOT NULL)
-                WHEN 'establishment_formal' THEN (xi.legal_unit_id IS NOT NULL)
-                WHEN 'establishment_informal' THEN (xi.legal_unit_id IS NOT NULL)
+                WHEN 'legal_unit' THEN (xi.establishment_id IS NOT NULL) -- Importing LU, conflict if ident used by any EST
+                WHEN 'establishment_formal' THEN (xi.legal_unit_id IS NOT NULL) -- Importing Formal EST, conflict if ident used by LU
+                WHEN 'establishment_informal' THEN 
+                    (xi.legal_unit_id IS NOT NULL OR -- Conflict if used by LU
+                     (xi.establishment_id IS NOT NULL AND (conflicting_est_table.legal_unit_id IS NOT NULL)) -- Conflict if used by an EST that is formal (linked to an LU)
+                    )
                 ELSE FALSE
             END AS is_cross_type_conflict,
             CASE %2$L -- v_job_mode
-                WHEN 'legal_unit' THEN -- Current import is LU, conflict is with EST
-                    CASE WHEN xi.establishment_id IS NOT NULL THEN
-                        jsonb_build_object(xit.code, xi.ident) -- Use type_code as key
-                    ELSE NULL END
-                WHEN 'establishment_formal' THEN -- Current import is EST, conflict is with LU
-                    CASE WHEN xi.legal_unit_id IS NOT NULL THEN
-                        jsonb_build_object(xit.code, xi.ident) -- Use type_code as key
-                    ELSE NULL END
-                WHEN 'establishment_informal' THEN -- Current import is EST, conflict is with LU
-                    CASE WHEN xi.legal_unit_id IS NOT NULL THEN
-                        jsonb_build_object(xit.code, xi.ident) -- Use type_code as key
-                    ELSE NULL END
+                WHEN 'legal_unit' THEN 
+                    CASE WHEN xi.establishment_id IS NOT NULL THEN jsonb_build_object(xit.code, xi.ident) ELSE NULL END
+                WHEN 'establishment_formal' THEN 
+                    CASE WHEN xi.legal_unit_id IS NOT NULL THEN jsonb_build_object(xit.code, xi.ident) ELSE NULL END
+                WHEN 'establishment_informal' THEN 
+                    CASE
+                        WHEN xi.legal_unit_id IS NOT NULL THEN jsonb_build_object(xit.code, xi.ident) -- Conflicting with LU
+                        WHEN xi.establishment_id IS NOT NULL AND (conflicting_est_table.legal_unit_id IS NOT NULL) THEN jsonb_build_object(xit.code, xi.ident) -- Conflicting with Formal EST
+                        ELSE NULL -- No conflict OR conflict with non-formal EST (which is not a "cross-type" or "formal-takeover" error here)
+                    END
                 ELSE NULL
-            END AS conflicting_unit_jsonb
+            END AS conflicting_unit_jsonb,
+            CASE 
+                WHEN xi.establishment_id IS NOT NULL THEN (conflicting_est_table.legal_unit_id IS NOT NULL)
+                ELSE FALSE 
+            END AS conflicting_est_is_formal
         FROM ( %1$s ) up -- v_unpivot_sql
         LEFT JOIN public.external_ident_type_active xit ON xit.code = up.ident_type_code_to_join_on
-        LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = up.ident_value; 
+        LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = up.ident_value
+        LEFT JOIN public.establishment conflicting_est_table ON conflicting_est_table.id = xi.establishment_id; -- Join to check if conflicting EST is formal
     $$, v_unpivot_sql, v_job_mode);
     RAISE DEBUG '[Job %] analyse_external_idents: Unpivoting and looking up identifiers: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -221,14 +228,22 @@ BEGIN
                 MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id, -- Entity ID from DB
                 MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id, -- Entity ID from DB
                 jsonb_object_agg(tui.source_ident_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature,
+                BOOL_OR(tui.conflicting_est_is_formal) AS agg_conflicting_est_is_formal, -- Aggregate the formal flag
                 -- Aggregate cross-type conflicts: key is source_ident_code, value is conflict message including conflicting ident JSONB
                 jsonb_object_agg(
                     tui.source_ident_code,
                     'Identifier already used by a ' ||
                     CASE
-                        WHEN %4$L = 'legal_unit' AND tui.resolved_est_id IS NOT NULL THEN 'Establishment' -- Importing LU, conflict with EST
-                        WHEN %4$L IN ('establishment_formal', 'establishment_informal') AND tui.resolved_lu_id IS NOT NULL THEN 'Legal Unit' -- Importing EST, conflict with LU
-                        ELSE 'different unit type' -- Fallback, should ideally not be reached if is_cross_type_conflict is true
+                        WHEN %4$L = 'legal_unit' AND tui.resolved_est_id IS NOT NULL THEN 'Establishment'
+                        WHEN %4$L = 'establishment_formal' AND tui.resolved_lu_id IS NOT NULL THEN 'Legal Unit'
+                        WHEN %4$L = 'establishment_informal' THEN
+                            CASE
+                                WHEN tui.resolved_lu_id IS NOT NULL THEN 'Legal Unit'
+                                WHEN tui.resolved_est_id IS NOT NULL AND tui.conflicting_est_is_formal THEN 'Formal Establishment' -- Use the per-identifier flag
+                                WHEN tui.resolved_est_id IS NOT NULL AND NOT tui.conflicting_est_is_formal THEN 'Informal Establishment'
+                                ELSE 'unknown conflicting unit for informal'
+                            END
+                        ELSE 'different unit type'
                     END || ': ' || tui.conflicting_unit_jsonb::TEXT
                 ) FILTER (WHERE tui.is_cross_type_conflict IS TRUE) AS cross_type_conflict_errors
             FROM (SELECT unnest(%1$L::BIGINT[]) as data_row_id) orig -- %1$L is p_batch_row_ids
