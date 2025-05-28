@@ -60,6 +60,12 @@ SELECT
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 
+\echo "Checking related table counts after Day 1 analytics"
+SELECT
+    (SELECT COUNT(*) FROM public.location) AS location_count,
+    (SELECT COUNT(*) FROM public.contact) AS contact_count,
+    (SELECT COUNT(*) FROM public.activity) AS activity_count;
+
 \echo "Checking timeline_legal_unit data after Day 1 load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
@@ -96,7 +102,10 @@ SELECT
 \copy public.import_43_lu_day4_upload(valid_from,valid_to,tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'test/data/43_legal-units-day-4.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 \echo Run worker processing for import jobs (Day 4)
+--SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
+
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking unit counts after import processing (Day 4)"
@@ -108,6 +117,12 @@ SELECT
 \echo Run worker processing for analytics tasks (Day 4)
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+\echo "Checking related table counts after Day 4 analytics"
+SELECT
+    (SELECT COUNT(*) FROM public.location) AS location_count,
+    (SELECT COUNT(*) FROM public.contact) AS contact_count,
+    (SELECT COUNT(*) FROM public.activity) AS activity_count;
 
 \echo "Checking timeline_legal_unit data after Day 4 load"
 SELECT unit_type
@@ -157,6 +172,12 @@ SELECT
 \echo Run worker processing for analytics tasks (Day 3)
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+\echo "Checking related table counts after Day 3 analytics"
+SELECT
+    (SELECT COUNT(*) FROM public.location) AS location_count,
+    (SELECT COUNT(*) FROM public.contact) AS contact_count,
+    (SELECT COUNT(*) FROM public.activity) AS activity_count;
 
 \echo "Checking timeline_legal_unit data after Day 3 load"
 SELECT unit_type
@@ -235,6 +256,12 @@ SELECT
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
 
+\echo "Checking related table counts after Scenario 2 (Day 1 & 3) analytics"
+SELECT
+    (SELECT COUNT(*) FROM public.location) AS location_count,
+    (SELECT COUNT(*) FROM public.contact) AS contact_count,
+    (SELECT COUNT(*) FROM public.activity) AS activity_count;
+
 \echo "Checking timeline_legal_unit data after Scenario 2 (Day 1 & 3) load"
 SELECT unit_type
      , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
@@ -283,6 +310,12 @@ SELECT
 \echo Run worker processing for analytics tasks (Scenario 2 - Day 1, 3 & 4)
 CALL worker.process_tasks(p_queue => 'analytics');
 SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+
+\echo "Checking related table counts after Scenario 2 (Day 1, 3 & 4) analytics"
+SELECT
+    (SELECT COUNT(*) FROM public.location) AS location_count,
+    (SELECT COUNT(*) FROM public.contact) AS contact_count,
+    (SELECT COUNT(*) FROM public.activity) AS activity_count;
 
 \echo "Checking timeline_legal_unit data after Scenario 2 (Day 1, 3 & 4) load"
 SELECT unit_type

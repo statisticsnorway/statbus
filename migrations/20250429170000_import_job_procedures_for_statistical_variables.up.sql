@@ -558,7 +558,7 @@ BEGIN
                     p_source_schema_name => 'pg_temp', 
                     p_source_table_name => 'temp_stat_upsert_source',
                     p_unique_columns => '[]'::jsonb, 
-                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at'], 
+                    p_ephemeral_columns => ARRAY['edit_comment', 'edit_by_user_id', 'edit_at', 'created_at'], 
                     p_id_column_name => 'id'
                     -- The generic function needs to be enhanced to handle mapping of multiple value_* columns
                     -- or a specialized version for stat_for_unit is needed.
