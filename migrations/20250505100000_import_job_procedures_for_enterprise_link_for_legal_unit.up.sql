@@ -18,6 +18,10 @@ DECLARE
     v_job_mode public.import_mode;
     error_message TEXT;
     v_error_keys_to_clear_arr TEXT[] := ARRAY['enterprise_link_for_legal_unit'];
+    v_current_lu_data_row RECORD;
+    v_existing_lu_record RECORD;
+    v_resolved_enterprise_id INT;
+    v_resolved_primary_for_enterprise BOOLEAN;
 BEGIN
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Starting analysis for % rows. Batch Row IDs: %', p_job_id, array_length(p_batch_row_ids, 1), p_batch_row_ids;
 
@@ -76,6 +80,34 @@ BEGIN
     );
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating "replace" rows: %', p_job_id, v_sql;
+
+    -- Debug loop before the actual update
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Debugging values for "replace" rows before update:', p_job_id;
+    FOR v_current_lu_data_row IN EXECUTE format(
+        'SELECT row_id, legal_unit_id, enterprise_id AS current_data_enterprise_id, primary_for_enterprise AS current_data_primary_for_enterprise, action FROM public.%I WHERE row_id = ANY(%L) AND action = ''replace''',
+        v_data_table_name, p_batch_row_ids
+    ) LOOP
+        IF v_current_lu_data_row.legal_unit_id IS NOT NULL THEN
+            SELECT lu.id, lu.enterprise_id, lu.primary_for_enterprise
+            INTO v_existing_lu_record
+            FROM public.legal_unit lu WHERE lu.id = v_current_lu_data_row.legal_unit_id;
+
+            IF v_existing_lu_record.id IS NOT NULL THEN -- Corresponds to ld.found_lu_id IS NOT NULL
+                v_resolved_enterprise_id := v_existing_lu_record.enterprise_id;
+                v_resolved_primary_for_enterprise := v_existing_lu_record.primary_for_enterprise;
+            ELSE
+                v_resolved_enterprise_id := v_current_lu_data_row.current_data_enterprise_id; -- Would keep existing if LU not found
+                v_resolved_primary_for_enterprise := v_current_lu_data_row.current_data_primary_for_enterprise;
+            END IF;
+
+            RAISE DEBUG '[Job %]   RowID: %, LU_ID_data: %, Found_LU_ID_db: %, Existing_Enterprise_ID_db: %, Current_Enterprise_ID_data: %, Resolved_Enterprise_ID_to_set: %',
+                        p_job_id, v_current_lu_data_row.row_id, v_current_lu_data_row.legal_unit_id, v_existing_lu_record.id, v_existing_lu_record.enterprise_id, v_current_lu_data_row.current_data_enterprise_id, v_resolved_enterprise_id;
+            RAISE DEBUG '[Job %]   RowID: %, Existing_Primary_db: %, Current_Primary_data: %, Resolved_Primary_to_set: %',
+                        p_job_id, v_current_lu_data_row.row_id, v_existing_lu_record.primary_for_enterprise, v_current_lu_data_row.current_data_primary_for_enterprise, v_resolved_primary_for_enterprise;
+        ELSE
+            RAISE DEBUG '[Job %]   RowID: %, LU_ID_data: NULL, Skipping detailed lookup for this row.', p_job_id, v_current_lu_data_row.row_id;
+        END IF;
+    END LOOP;
 
     BEGIN
         EXECUTE v_sql;

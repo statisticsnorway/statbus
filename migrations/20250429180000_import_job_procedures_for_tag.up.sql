@@ -32,34 +32,36 @@ BEGIN
 
     -- Single-pass batch update for casting, lookup, state, error, and priority
     v_sql := format($$
-        WITH casted_tags AS (
+        WITH casted_tags_cte AS ( -- Renamed CTE
             SELECT
                 dt.row_id,
-                import.safe_cast_to_ltree(dt.tag_path) AS ltree_path
+                (import.safe_cast_to_ltree(dt.tag_path)).p_value AS casted_ltree_path,
+                (import.safe_cast_to_ltree(dt.tag_path)).p_error_message AS ltree_error_msg
             FROM public.%1$I dt -- v_data_table_name
             WHERE dt.row_id = ANY(%2$L) AND dt.tag_path IS NOT NULL AND dt.action IS DISTINCT FROM 'skip' -- p_batch_row_ids
         ),
         resolved_tags AS (
             SELECT
-                ct.row_id,
-                ct.ltree_path,
+                ctc.row_id, -- Use ctc alias
+                ctc.casted_ltree_path,
+                ctc.ltree_error_msg,
                 t.id as resolved_tag_id
-            FROM casted_tags ct
-            LEFT JOIN public.tag t ON t.path = ct.ltree_path
+            FROM casted_tags_cte ctc -- Use ctc alias
+            LEFT JOIN public.tag t ON t.path = ctc.casted_ltree_path -- Join on casted_ltree_path
         )
         UPDATE public.%1$I dt SET -- v_data_table_name
-            tag_path_ltree = rt.ltree_path,
+            tag_path_ltree = rt.casted_ltree_path, -- Use casted_ltree_path from resolved_tags
             tag_id = rt.resolved_tag_id,
             state = CASE
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_path IS NULL THEN 'error'::public.import_data_state -- Invalid format
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_path IS NOT NULL AND rt.resolved_tag_id IS NULL THEN 'error'::public.import_data_state -- Not found
+                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN 'error'::public.import_data_state -- Invalid format from cast
+                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL THEN 'error'::public.import_data_state -- Valid format, but tag not found
                         ELSE 'analysing'::public.import_data_state -- Success or no tag_path provided
                     END,
             error = CASE
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_path IS NULL THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('tag_path', 'Tag path invalid format')
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_path IS NOT NULL AND rt.resolved_tag_id IS NULL THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('tag_path', 'Tag not found')
+                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('tag_path', rt.ltree_error_msg) -- Use error message from cast
+                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL THEN
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('tag_path', 'Tag not found for path: ' || dt.tag_path)
                         ELSE -- Success or no tag_path provided
                             CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END -- v_error_keys_to_clear_arr
                     END,

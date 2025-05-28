@@ -6,29 +6,31 @@ BEGIN;
 
 -- Helper function to safely cast text to a specific numeric type, handling common errors.
 CREATE OR REPLACE FUNCTION import.try_cast_to_numeric_specific(
-    p_value TEXT,
-    p_target_type TEXT -- e.g., 'NUMERIC(9,6)' or 'NUMERIC(6,1)'
-)
-RETURNS NUMERIC LANGUAGE plpgsql IMMUTABLE AS $try_cast_to_numeric_specific$
-DECLARE
-    v_result NUMERIC;
+    IN p_text_value TEXT,
+    IN p_target_type TEXT, -- e.g., 'NUMERIC(9,6)' or 'NUMERIC(6,1)'
+    OUT p_value NUMERIC,
+    OUT p_error_message TEXT
+) LANGUAGE plpgsql IMMUTABLE AS $try_cast_to_numeric_specific$
 BEGIN
-    IF p_value IS NULL OR p_value = '' THEN
-        RETURN NULL;
+    p_value := NULL;
+    p_error_message := NULL;
+
+    IF p_text_value IS NULL OR p_text_value = '' THEN
+        RETURN;
     END IF;
+
     BEGIN
-        EXECUTE format('SELECT %L::%s', p_value, p_target_type) INTO v_result;
-        RETURN v_result;
+        EXECUTE format('SELECT %L::%s', p_text_value, p_target_type) INTO p_value;
     EXCEPTION
         WHEN numeric_value_out_of_range THEN -- SQLSTATE 22003
-            RAISE DEBUG '[import.try_cast_to_numeric_specific] Value ''%'' is out of range for type %.', p_value, p_target_type;
-            RETURN NULL;
+            p_error_message := 'Value ''' || p_text_value || ''' is out of range for type ' || p_target_type || '. SQLSTATE: ' || SQLSTATE;
+            RAISE DEBUG '%', p_error_message;
         WHEN invalid_text_representation THEN -- SQLSTATE 22P02
-            RAISE DEBUG '[import.try_cast_to_numeric_specific] Value ''%'' is not a valid numeric representation for type %.', p_value, p_target_type;
-            RETURN NULL;
+            p_error_message := 'Value ''' || p_text_value || ''' is not a valid numeric representation for type ' || p_target_type || '. SQLSTATE: ' || SQLSTATE;
+            RAISE DEBUG '%', p_error_message;
         WHEN others THEN -- Catch any other potential errors during cast
-            RAISE DEBUG '[import.try_cast_to_numeric_specific] Unexpected error casting value ''%'' to type %: %', p_value, p_target_type, SQLERRM;
-            RETURN NULL;
+            p_error_message := 'Unexpected error casting value ''' || p_text_value || ''' to type ' || p_target_type || '. SQLSTATE: ' || SQLSTATE || ', SQLERRM: ' || SQLERRM;
+            RAISE DEBUG '%', p_error_message;
     END;
 END;
 $try_cast_to_numeric_specific$;
@@ -97,26 +99,26 @@ BEGIN
             (dt.physical_region_code IS NOT NULL AND l.resolved_physical_region_id IS NULL) OR
             -- Country check is now fatal if address parts are present, otherwise non-fatal for invalid_codes
             (dt.physical_country_iso_2 IS NOT NULL AND l.resolved_physical_country_id IS NULL AND NOT (%s)) OR
-            (dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL) OR
-            (dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL) OR
-            (dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL)
+            (dt.physical_latitude IS NOT NULL AND l.physical_latitude_error_msg IS NOT NULL) OR
+            (dt.physical_longitude IS NOT NULL AND l.physical_longitude_error_msg IS NOT NULL) OR
+            (dt.physical_altitude IS NOT NULL AND l.physical_altitude_error_msg IS NOT NULL)
         $$;
         v_error_condition_sql := format(v_error_condition_sql, v_address_present_condition_sql); -- Inject address_present check
 
         v_invalid_codes_json_expr_sql := $$
             jsonb_build_object('physical_region_code', CASE WHEN dt.physical_region_code IS NOT NULL AND l.resolved_physical_region_id IS NULL THEN dt.physical_region_code ELSE NULL END) ||
             jsonb_build_object('physical_country_iso_2', CASE WHEN dt.physical_country_iso_2 IS NOT NULL AND l.resolved_physical_country_id IS NULL THEN dt.physical_country_iso_2 ELSE NULL END) ||
-            jsonb_build_object('physical_latitude', CASE WHEN dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL THEN dt.physical_latitude ELSE NULL END) ||
-            jsonb_build_object('physical_longitude', CASE WHEN dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL THEN dt.physical_longitude ELSE NULL END) ||
-            jsonb_build_object('physical_altitude', CASE WHEN dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL THEN dt.physical_altitude ELSE NULL END)
+            jsonb_build_object('physical_latitude', CASE WHEN dt.physical_latitude IS NOT NULL AND l.physical_latitude_error_msg IS NOT NULL THEN dt.physical_latitude ELSE NULL END) ||
+            jsonb_build_object('physical_longitude', CASE WHEN dt.physical_longitude IS NOT NULL AND l.physical_longitude_error_msg IS NOT NULL THEN dt.physical_longitude ELSE NULL END) ||
+            jsonb_build_object('physical_altitude', CASE WHEN dt.physical_altitude IS NOT NULL AND l.physical_altitude_error_msg IS NOT NULL THEN dt.physical_altitude ELSE NULL END)
         $$;
 
         -- Coordinate error expressions for physical location
         v_coord_cast_error_json_expr_sql := $$
             jsonb_strip_nulls(
-                jsonb_build_object('physical_latitude', CASE WHEN dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(9,6).', dt.physical_latitude) ELSE NULL END) ||
-                jsonb_build_object('physical_longitude', CASE WHEN dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(9,6).', dt.physical_longitude) ELSE NULL END) ||
-                jsonb_build_object('physical_altitude', CASE WHEN dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(6,1).', dt.physical_altitude) ELSE NULL END)
+                jsonb_build_object('physical_latitude', l.physical_latitude_error_msg) ||
+                jsonb_build_object('physical_longitude', l.physical_longitude_error_msg) ||
+                jsonb_build_object('physical_altitude', l.physical_altitude_error_msg)
             )
         $$;
         v_coord_range_error_json_expr_sql := $$
@@ -128,15 +130,15 @@ BEGIN
         $$;
         v_coord_invalid_value_json_expr_sql := $$
             jsonb_strip_nulls(
-                jsonb_build_object('physical_latitude', CASE WHEN (dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL) OR (l.resolved_typed_physical_latitude IS NOT NULL AND (l.resolved_typed_physical_latitude < -90 OR l.resolved_typed_physical_latitude > 90)) THEN dt.physical_latitude ELSE NULL END) ||
-                jsonb_build_object('physical_longitude', CASE WHEN (dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL) OR (l.resolved_typed_physical_longitude IS NOT NULL AND (l.resolved_typed_physical_longitude < -180 OR l.resolved_typed_physical_longitude > 180)) THEN dt.physical_longitude ELSE NULL END) ||
-                jsonb_build_object('physical_altitude', CASE WHEN (dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL) OR (l.resolved_typed_physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude < 0) THEN dt.physical_altitude ELSE NULL END)
+                jsonb_build_object('physical_latitude', CASE WHEN (dt.physical_latitude IS NOT NULL AND l.physical_latitude_error_msg IS NOT NULL) OR (l.resolved_typed_physical_latitude IS NOT NULL AND (l.resolved_typed_physical_latitude < -90 OR l.resolved_typed_physical_latitude > 90)) THEN dt.physical_latitude ELSE NULL END) ||
+                jsonb_build_object('physical_longitude', CASE WHEN (dt.physical_longitude IS NOT NULL AND l.physical_longitude_error_msg IS NOT NULL) OR (l.resolved_typed_physical_longitude IS NOT NULL AND (l.resolved_typed_physical_longitude < -180 OR l.resolved_typed_physical_longitude > 180)) THEN dt.physical_longitude ELSE NULL END) ||
+                jsonb_build_object('physical_altitude', CASE WHEN (dt.physical_altitude IS NOT NULL AND l.physical_altitude_error_msg IS NOT NULL) OR (l.resolved_typed_physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude < 0) THEN dt.physical_altitude ELSE NULL END)
             )
         $$;
         v_any_coord_error_condition_sql := $$
-            (dt.physical_latitude IS NOT NULL AND l.resolved_typed_physical_latitude IS NULL) OR (l.resolved_typed_physical_latitude IS NOT NULL AND (l.resolved_typed_physical_latitude < -90 OR l.resolved_typed_physical_latitude > 90)) OR
-            (dt.physical_longitude IS NOT NULL AND l.resolved_typed_physical_longitude IS NULL) OR (l.resolved_typed_physical_longitude IS NOT NULL AND (l.resolved_typed_physical_longitude < -180 OR l.resolved_typed_physical_longitude > 180)) OR
-            (dt.physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude IS NULL) OR (l.resolved_typed_physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude < 0)
+            (l.physical_latitude_error_msg IS NOT NULL) OR (l.resolved_typed_physical_latitude IS NOT NULL AND (l.resolved_typed_physical_latitude < -90 OR l.resolved_typed_physical_latitude > 90)) OR
+            (l.physical_longitude_error_msg IS NOT NULL) OR (l.resolved_typed_physical_longitude IS NOT NULL AND (l.resolved_typed_physical_longitude < -180 OR l.resolved_typed_physical_longitude > 180)) OR
+            (l.physical_altitude_error_msg IS NOT NULL) OR (l.resolved_typed_physical_altitude IS NOT NULL AND l.resolved_typed_physical_altitude < 0)
         $$;
 
     ELSIF p_step_code = 'postal_location' THEN
@@ -163,26 +165,26 @@ BEGIN
         v_error_condition_sql := $$
             (dt.postal_region_code IS NOT NULL AND l.resolved_postal_region_id IS NULL) OR
             (dt.postal_country_iso_2 IS NOT NULL AND l.resolved_postal_country_id IS NULL AND NOT (%s)) OR
-            (dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL) OR
-            (dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL) OR
-            (dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL)
+            (dt.postal_latitude IS NOT NULL AND l.postal_latitude_error_msg IS NOT NULL) OR
+            (dt.postal_longitude IS NOT NULL AND l.postal_longitude_error_msg IS NOT NULL) OR
+            (dt.postal_altitude IS NOT NULL AND l.postal_altitude_error_msg IS NOT NULL)
         $$;
         v_error_condition_sql := format(v_error_condition_sql, v_address_present_condition_sql); -- Inject address_present check
 
         v_invalid_codes_json_expr_sql := $$
             jsonb_build_object('postal_region_code', CASE WHEN dt.postal_region_code IS NOT NULL AND l.resolved_postal_region_id IS NULL THEN dt.postal_region_code ELSE NULL END) ||
             jsonb_build_object('postal_country_iso_2', CASE WHEN dt.postal_country_iso_2 IS NOT NULL AND l.resolved_postal_country_id IS NULL THEN dt.postal_country_iso_2 ELSE NULL END) ||
-            jsonb_build_object('postal_latitude', CASE WHEN dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL THEN dt.postal_latitude ELSE NULL END) ||
-            jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL THEN dt.postal_longitude ELSE NULL END) ||
-            jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL THEN dt.postal_altitude ELSE NULL END)
+            jsonb_build_object('postal_latitude', CASE WHEN dt.postal_latitude IS NOT NULL AND l.postal_latitude_error_msg IS NOT NULL THEN dt.postal_latitude ELSE NULL END) ||
+            jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND l.postal_longitude_error_msg IS NOT NULL THEN dt.postal_longitude ELSE NULL END) ||
+            jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND l.postal_altitude_error_msg IS NOT NULL THEN dt.postal_altitude ELSE NULL END)
         $$;
 
         -- Coordinate error expressions for postal location
         v_coord_cast_error_json_expr_sql := $$
             jsonb_strip_nulls(
-                jsonb_build_object('postal_latitude', CASE WHEN dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(9,6).', dt.postal_latitude) ELSE NULL END) ||
-                jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(9,6).', dt.postal_longitude) ELSE NULL END) ||
-                jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL THEN format('Invalid value ''%s''. Expected NUMERIC(6,1).', dt.postal_altitude) ELSE NULL END)
+                jsonb_build_object('postal_latitude', l.postal_latitude_error_msg) ||
+                jsonb_build_object('postal_longitude', l.postal_longitude_error_msg) ||
+                jsonb_build_object('postal_altitude', l.postal_altitude_error_msg)
             )
         $$;
         -- Range errors are not applicable here as the primary error is their presence.
@@ -196,15 +198,15 @@ BEGIN
         $$;
         v_coord_invalid_value_json_expr_sql := $$
             jsonb_strip_nulls(
-                jsonb_build_object('postal_latitude', CASE WHEN dt.postal_latitude IS NOT NULL AND (l.resolved_typed_postal_latitude IS NULL OR l.resolved_typed_postal_latitude IS NOT NULL) THEN dt.postal_latitude ELSE NULL END) || -- Log if provided, regardless of cast success for this error type
-                jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND (l.resolved_typed_postal_longitude IS NULL OR l.resolved_typed_postal_longitude IS NOT NULL) THEN dt.postal_longitude ELSE NULL END) ||
-                jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND (l.resolved_typed_postal_altitude IS NULL OR l.resolved_typed_postal_altitude IS NOT NULL) THEN dt.postal_altitude ELSE NULL END)
+                jsonb_build_object('postal_latitude', CASE WHEN dt.postal_latitude IS NOT NULL AND (l.postal_latitude_error_msg IS NOT NULL OR l.resolved_typed_postal_latitude IS NOT NULL) THEN dt.postal_latitude ELSE NULL END) || -- Log if provided, regardless of cast success for this error type
+                jsonb_build_object('postal_longitude', CASE WHEN dt.postal_longitude IS NOT NULL AND (l.postal_longitude_error_msg IS NOT NULL OR l.resolved_typed_postal_longitude IS NOT NULL) THEN dt.postal_longitude ELSE NULL END) ||
+                jsonb_build_object('postal_altitude', CASE WHEN dt.postal_altitude IS NOT NULL AND (l.postal_altitude_error_msg IS NOT NULL OR l.resolved_typed_postal_altitude IS NOT NULL) THEN dt.postal_altitude ELSE NULL END)
             )
         $$;
         v_any_coord_error_condition_sql := $$
-            (dt.postal_latitude IS NOT NULL AND l.resolved_typed_postal_latitude IS NULL) OR
-            (dt.postal_longitude IS NOT NULL AND l.resolved_typed_postal_longitude IS NULL) OR
-            (dt.postal_altitude IS NOT NULL AND l.resolved_typed_postal_altitude IS NULL) OR
+            (l.postal_latitude_error_msg IS NOT NULL) OR
+            (l.postal_longitude_error_msg IS NOT NULL) OR
+            (l.postal_altitude_error_msg IS NOT NULL) OR
             (l.resolved_typed_postal_latitude IS NOT NULL OR l.resolved_typed_postal_longitude IS NOT NULL OR l.resolved_typed_postal_altitude IS NOT NULL) -- This covers the "postal has coords" error
         $$;
 
@@ -220,12 +222,18 @@ BEGIN
                 pc.id as resolved_physical_country_id,
                 psr.id as resolved_postal_region_id,
                 psc.id as resolved_postal_country_id,
-                import.try_cast_to_numeric_specific(dt_sub.physical_latitude, 'NUMERIC(9,6)') as resolved_typed_physical_latitude,
-                import.try_cast_to_numeric_specific(dt_sub.physical_longitude, 'NUMERIC(9,6)') as resolved_typed_physical_longitude,
-                import.try_cast_to_numeric_specific(dt_sub.physical_altitude, 'NUMERIC(6,1)') as resolved_typed_physical_altitude,
-                import.try_cast_to_numeric_specific(dt_sub.postal_latitude, 'NUMERIC(9,6)') as resolved_typed_postal_latitude,
-                import.try_cast_to_numeric_specific(dt_sub.postal_longitude, 'NUMERIC(9,6)') as resolved_typed_postal_longitude,
-                import.try_cast_to_numeric_specific(dt_sub.postal_altitude, 'NUMERIC(6,1)') as resolved_typed_postal_altitude
+                (import.try_cast_to_numeric_specific(dt_sub.physical_latitude, 'NUMERIC(9,6)')).p_value as resolved_typed_physical_latitude,
+                (import.try_cast_to_numeric_specific(dt_sub.physical_latitude, 'NUMERIC(9,6)')).p_error_message as physical_latitude_error_msg,
+                (import.try_cast_to_numeric_specific(dt_sub.physical_longitude, 'NUMERIC(9,6)')).p_value as resolved_typed_physical_longitude,
+                (import.try_cast_to_numeric_specific(dt_sub.physical_longitude, 'NUMERIC(9,6)')).p_error_message as physical_longitude_error_msg,
+                (import.try_cast_to_numeric_specific(dt_sub.physical_altitude, 'NUMERIC(6,1)')).p_value as resolved_typed_physical_altitude,
+                (import.try_cast_to_numeric_specific(dt_sub.physical_altitude, 'NUMERIC(6,1)')).p_error_message as physical_altitude_error_msg,
+                (import.try_cast_to_numeric_specific(dt_sub.postal_latitude, 'NUMERIC(9,6)')).p_value as resolved_typed_postal_latitude,
+                (import.try_cast_to_numeric_specific(dt_sub.postal_latitude, 'NUMERIC(9,6)')).p_error_message as postal_latitude_error_msg,
+                (import.try_cast_to_numeric_specific(dt_sub.postal_longitude, 'NUMERIC(9,6)')).p_value as resolved_typed_postal_longitude,
+                (import.try_cast_to_numeric_specific(dt_sub.postal_longitude, 'NUMERIC(9,6)')).p_error_message as postal_longitude_error_msg,
+                (import.try_cast_to_numeric_specific(dt_sub.postal_altitude, 'NUMERIC(6,1)')).p_value as resolved_typed_postal_altitude,
+                (import.try_cast_to_numeric_specific(dt_sub.postal_altitude, 'NUMERIC(6,1)')).p_error_message as postal_altitude_error_msg
             FROM public.%1$I dt_sub
             LEFT JOIN public.region pr ON dt_sub.physical_region_code IS NOT NULL AND pr.code = dt_sub.physical_region_code
             LEFT JOIN public.country pc ON dt_sub.physical_country_iso_2 IS NOT NULL AND pc.iso_2 = dt_sub.physical_country_iso_2
@@ -739,17 +747,30 @@ BEGIN
 END;
 $process_location$;
 
--- Helper function for safe numeric casting (example)
-CREATE OR REPLACE FUNCTION import.safe_cast_to_numeric(p_text_numeric TEXT)
-RETURNS NUMERIC LANGUAGE plpgsql IMMUTABLE AS $$
+-- Helper function for safe numeric casting (general numeric)
+CREATE OR REPLACE FUNCTION import.safe_cast_to_numeric(
+    IN p_text_numeric TEXT,
+    OUT p_value NUMERIC,
+    OUT p_error_message TEXT
+) LANGUAGE plpgsql IMMUTABLE AS $$
 BEGIN
+    p_value := NULL;
+    p_error_message := NULL;
+
     IF p_text_numeric IS NULL OR p_text_numeric = '' THEN
-        RETURN NULL;
+        RETURN;
     END IF;
-    RETURN p_text_numeric::NUMERIC;
-EXCEPTION WHEN others THEN
-    RAISE WARNING 'Invalid numeric format: "%". Returning NULL.', p_text_numeric;
-    RETURN NULL;
+
+    BEGIN
+        p_value := p_text_numeric::NUMERIC;
+    EXCEPTION
+        WHEN invalid_text_representation THEN
+            p_error_message := 'Invalid numeric format: ''' || p_text_numeric || '''. SQLSTATE: ' || SQLSTATE;
+            RAISE DEBUG '%', p_error_message;
+        WHEN others THEN
+            p_error_message := 'Failed to cast ''' || p_text_numeric || ''' to numeric. SQLSTATE: ' || SQLSTATE || ', SQLERRM: ' || SQLERRM;
+            RAISE DEBUG '%', p_error_message;
+    END;
 END;
 $$;
 

@@ -44,8 +44,10 @@ BEGIN
                 -- s.id as resolved_status_id, -- Removed status lookup
                 sec.id as resolved_sector_id,
                 us.id as resolved_unit_size_id,
-                import.safe_cast_to_date(dt_sub.birth_date) as resolved_typed_birth_date,
-                import.safe_cast_to_date(dt_sub.death_date) as resolved_typed_death_date
+                (import.safe_cast_to_date(dt_sub.birth_date)).p_value as resolved_typed_birth_date,
+                (import.safe_cast_to_date(dt_sub.birth_date)).p_error_message as birth_date_error_msg,
+                (import.safe_cast_to_date(dt_sub.death_date)).p_value as resolved_typed_death_date,
+                (import.safe_cast_to_date(dt_sub.death_date)).p_error_message as death_date_error_msg
             FROM public.%I dt_sub
             LEFT JOIN public.data_source_available ds ON NULLIF(dt_sub.data_source_code, '') IS NOT NULL AND ds.code = NULLIF(dt_sub.data_source_code, '')
             -- LEFT JOIN public.status s ON NULLIF(dt_sub.status_code, '') IS NOT NULL AND s.code = NULLIF(dt_sub.status_code, '') AND s.active = true -- Removed
@@ -77,8 +79,8 @@ BEGIN
                                      jsonb_build_object('data_source_code', CASE WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code ELSE NULL END) ||
                                      jsonb_build_object('sector_code', CASE WHEN NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN dt.sector_code ELSE NULL END) ||
                                      jsonb_build_object('unit_size_code', CASE WHEN NULLIF(dt.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN dt.unit_size_code ELSE NULL END) ||
-                                     jsonb_build_object('birth_date', CASE WHEN NULLIF(dt.birth_date, '') IS NOT NULL AND l.resolved_typed_birth_date IS NULL THEN dt.birth_date ELSE NULL END) ||
-                                     jsonb_build_object('death_date', CASE WHEN NULLIF(dt.death_date, '') IS NOT NULL AND l.resolved_typed_death_date IS NULL THEN dt.death_date ELSE NULL END)
+                                     jsonb_build_object('birth_date', CASE WHEN NULLIF(dt.birth_date, '') IS NOT NULL AND l.birth_date_error_msg IS NOT NULL THEN dt.birth_date ELSE NULL END) ||
+                                     jsonb_build_object('death_date', CASE WHEN NULLIF(dt.death_date, '') IS NOT NULL AND l.death_date_error_msg IS NOT NULL THEN dt.death_date ELSE NULL END)
                                     )
                                 ELSE dt.invalid_codes -- Keep existing invalid_codes if it's a fatal status_id error
                             END,

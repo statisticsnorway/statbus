@@ -3,17 +3,29 @@
 BEGIN;
 
 -- Helper function for safe date casting
-CREATE OR REPLACE FUNCTION import.safe_cast_to_date(p_text_date TEXT)
-RETURNS DATE LANGUAGE plpgsql IMMUTABLE AS $$
+CREATE OR REPLACE FUNCTION import.safe_cast_to_date(
+    IN p_text_date TEXT,
+    OUT p_value DATE,
+    OUT p_error_message TEXT
+) LANGUAGE plpgsql IMMUTABLE AS $$
 BEGIN
+    p_value := NULL;
+    p_error_message := NULL;
+
     IF p_text_date IS NULL OR p_text_date = '' THEN
-        RETURN NULL;
+        RETURN; -- p_value and p_error_message remain NULL
     END IF;
-    -- Attempt common ISO and other formats
-    RETURN p_text_date::DATE;
-EXCEPTION WHEN others THEN
-    RAISE DEBUG 'Invalid date format: "%". Returning NULL.', p_text_date;
-    RETURN NULL;
+
+    BEGIN
+        p_value := p_text_date::DATE;
+    EXCEPTION
+        WHEN invalid_datetime_format THEN
+            p_error_message := 'Invalid date format: ''' || p_text_date || '''. SQLSTATE: ' || SQLSTATE;
+            RAISE DEBUG '%', p_error_message;
+        WHEN others THEN
+            p_error_message := 'Failed to cast ''' || p_text_date || ''' to date. SQLSTATE: ' || SQLSTATE || ', SQLERRM: ' || SQLERRM;
+            RAISE DEBUG '%', p_error_message;
+    END;
 END;
 $$;
 
@@ -131,22 +143,26 @@ BEGIN
 
     -- Single-pass batch update for casting, state, error, and priority
     v_sql := format($$
-        WITH casted_dates AS (
+        WITH casted_dates_cte AS ( -- Renamed CTE
             SELECT
                 dt_sub.row_id,
-                import.safe_cast_to_date(dt_sub.valid_from) as casted_vf,
-                import.safe_cast_to_date(dt_sub.valid_to) as casted_vt,
+                (import.safe_cast_to_date(dt_sub.valid_from)).p_value as casted_vf,
+                (import.safe_cast_to_date(dt_sub.valid_from)).p_error_message as vf_error_msg,
+                (import.safe_cast_to_date(dt_sub.valid_to)).p_value as casted_vt,
+                (import.safe_cast_to_date(dt_sub.valid_to)).p_error_message as vt_error_msg,
                 dt_sub.valid_from as original_vf, -- Keep original for error messages
                 dt_sub.valid_to as original_vt   -- Keep original for error messages
             FROM public.%I dt_sub
             WHERE dt_sub.row_id = ANY(%L)
         )
         UPDATE public.%I dt SET
-            derived_valid_from = cd.casted_vf,
-            derived_valid_after = cd.casted_vf - INTERVAL '1 day',
-            derived_valid_to = cd.casted_vt,
+            derived_valid_from = cdc.casted_vf, -- Use cdc alias
+            derived_valid_after = cdc.casted_vf - INTERVAL '1 day',
+            derived_valid_to = cdc.casted_vt,
             state = CASE
-                        WHEN cd.casted_vf IS NULL OR cd.casted_vt IS NULL OR (cd.casted_vf - INTERVAL '1 day' >= cd.casted_vt)
+                        WHEN cdc.original_vf IS NULL OR cdc.vf_error_msg IS NOT NULL OR 
+                             cdc.original_vt IS NULL OR cdc.vt_error_msg IS NOT NULL OR 
+                             (cdc.casted_vf IS NOT NULL AND cdc.casted_vt IS NOT NULL AND (cdc.casted_vf - INTERVAL '1 day' >= cdc.casted_vt))
                         THEN 'error'::public.import_data_state
                         ELSE -- No error in this step
                             CASE
@@ -155,25 +171,29 @@ BEGIN
                             END
                     END,
             action = CASE
-                        WHEN cd.casted_vf IS NULL OR 
-                             cd.casted_vt IS NULL OR 
-                             (cd.casted_vf - INTERVAL '1 day' >= cd.casted_vt)
+                        WHEN cdc.original_vf IS NULL OR cdc.vf_error_msg IS NOT NULL OR 
+                             cdc.original_vt IS NULL OR cdc.vt_error_msg IS NOT NULL OR 
+                             (cdc.casted_vf IS NOT NULL AND cdc.casted_vt IS NOT NULL AND (cdc.casted_vf - INTERVAL '1 day' >= cdc.casted_vt))
                         THEN 'skip'::public.import_row_action_type -- Error implies skip
                         ELSE dt.action -- Preserve action from previous steps if no new fatal error here
                      END,
             error = CASE
-                        WHEN cd.casted_vf IS NULL THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from_source', CASE WHEN cd.original_vf IS NULL THEN 'Missing mandatory value' ELSE 'Invalid format: ' || COALESCE(cd.original_vf, 'NULL') END)
-                        WHEN cd.casted_vt IS NULL THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to_source', CASE WHEN cd.original_vt IS NULL THEN 'Missing mandatory value' ELSE 'Invalid format: ' || COALESCE(cd.original_vt, 'NULL') END)
-                        WHEN cd.casted_vf - INTERVAL '1 day' >= cd.casted_vt THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('invalid_period_source', 'Resulting valid_after (' || (cd.casted_vf - INTERVAL '1 day')::TEXT || ') is not before valid_to (' || cd.casted_vt::TEXT || ')')
-                        ELSE
+                        WHEN cdc.original_vf IS NULL THEN -- Mandatory value missing
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from_source', 'Missing mandatory value')
+                        WHEN cdc.vf_error_msg IS NOT NULL THEN -- Cast error for valid_from
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from_source', cdc.vf_error_msg)
+                        WHEN cdc.original_vt IS NULL THEN -- Mandatory value missing
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to_source', 'Missing mandatory value')
+                        WHEN cdc.vt_error_msg IS NOT NULL THEN -- Cast error for valid_to
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to_source', cdc.vt_error_msg)
+                        WHEN cdc.casted_vf IS NOT NULL AND cdc.casted_vt IS NOT NULL AND (cdc.casted_vf - INTERVAL '1 day' >= cdc.casted_vt) THEN -- Invalid period
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('invalid_period_source', 'Resulting valid_after (' || (cdc.casted_vf - INTERVAL '1 day')::TEXT || ') is not before valid_to (' || cdc.casted_vt::TEXT || ')')
+                        ELSE -- No error from this step, clear specific keys
                             CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
             last_completed_priority = %s -- Always v_step.priority
-        FROM casted_dates cd
-        WHERE dt.row_id = cd.row_id AND dt.action IS DISTINCT FROM 'skip'; -- Process if action was not already 'skip' from a prior step.
+        FROM casted_dates_cte cdc -- Use cdc alias
+        WHERE dt.row_id = cdc.row_id AND dt.action IS DISTINCT FROM 'skip'; -- Process if action was not already 'skip' from a prior step.
     $$,
         v_data_table_name, p_batch_row_ids,                     -- For CTE
         v_data_table_name,                                      -- For main UPDATE target

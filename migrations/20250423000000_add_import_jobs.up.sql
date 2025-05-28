@@ -1109,17 +1109,30 @@ $reset_import_job_user_context$;
 GRANT EXECUTE ON FUNCTION admin.set_import_job_user_context TO authenticated;
 GRANT EXECUTE ON FUNCTION admin.reset_import_job_user_context TO authenticated;
 
--- Helper function to safely cast text to ltree, returning NULL on error
-CREATE OR REPLACE FUNCTION import.safe_cast_to_ltree(p_text_ltree TEXT)
-RETURNS public.LTREE LANGUAGE plpgsql IMMUTABLE AS $$
+-- Helper function to safely cast text to ltree
+CREATE OR REPLACE FUNCTION import.safe_cast_to_ltree(
+    IN p_text_ltree TEXT,
+    OUT p_value public.LTREE,
+    OUT p_error_message TEXT
+) LANGUAGE plpgsql IMMUTABLE AS $$
 BEGIN
+    p_value := NULL;
+    p_error_message := NULL;
+
     IF p_text_ltree IS NULL OR p_text_ltree = '' THEN
-        RETURN NULL;
+        RETURN; -- p_value and p_error_message remain NULL, indicating successful cast of empty/null to NULL
     END IF;
-    RETURN p_text_ltree::public.LTREE;
-EXCEPTION WHEN invalid_text_representation THEN
-    RAISE DEBUG 'Invalid ltree format: "%". Returning NULL.', p_text_ltree;
-    RETURN NULL;
+
+    BEGIN
+        p_value := p_text_ltree::public.LTREE;
+    EXCEPTION
+        WHEN invalid_text_representation THEN
+            p_error_message := 'Invalid ltree format (invalid_text_representation): ''' || p_text_ltree || '''. SQLSTATE: ' || SQLSTATE;
+            RAISE DEBUG '%', p_error_message;
+        WHEN OTHERS THEN
+            p_error_message := 'Failed to cast ''' || p_text_ltree || ''' to ltree. SQLSTATE: ' || SQLSTATE || ', SQLERRM: ' || SQLERRM;
+            RAISE DEBUG '%', p_error_message;
+    END;
 END;
 $$;
 

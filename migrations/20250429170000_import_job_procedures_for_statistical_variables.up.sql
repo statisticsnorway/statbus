@@ -4,30 +4,56 @@
 BEGIN;
 
 -- Helper function for safe integer casting
-CREATE OR REPLACE FUNCTION import.safe_cast_to_integer(p_text_value TEXT)
-RETURNS INTEGER LANGUAGE plpgsql IMMUTABLE AS $$
+CREATE OR REPLACE FUNCTION import.safe_cast_to_integer(
+    IN p_text_value TEXT,
+    OUT p_value INTEGER,
+    OUT p_error_message TEXT
+) LANGUAGE plpgsql IMMUTABLE AS $$
 BEGIN
+    p_value := NULL;
+    p_error_message := NULL;
+
     IF p_text_value IS NULL OR p_text_value = '' THEN
-        RETURN NULL;
+        RETURN;
     END IF;
-    RETURN p_text_value::INTEGER;
-EXCEPTION WHEN others THEN
-    RAISE WARNING 'Invalid integer format: "%". Returning NULL.', p_text_value;
-    RETURN NULL;
+
+    BEGIN
+        p_value := p_text_value::INTEGER;
+    EXCEPTION
+        WHEN invalid_text_representation THEN
+            p_error_message := 'Invalid integer format: ''' || p_text_value || '''. SQLSTATE: ' || SQLSTATE;
+            RAISE DEBUG '%', p_error_message;
+        WHEN others THEN
+            p_error_message := 'Failed to cast ''' || p_text_value || ''' to integer. SQLSTATE: ' || SQLSTATE || ', SQLERRM: ' || SQLERRM;
+            RAISE DEBUG '%', p_error_message;
+    END;
 END;
 $$;
 
 -- Helper function for safe boolean casting
-CREATE OR REPLACE FUNCTION import.safe_cast_to_boolean(p_text_value TEXT)
-RETURNS BOOLEAN LANGUAGE plpgsql IMMUTABLE AS $$
+CREATE OR REPLACE FUNCTION import.safe_cast_to_boolean(
+    IN p_text_value TEXT,
+    OUT p_value BOOLEAN,
+    OUT p_error_message TEXT
+) LANGUAGE plpgsql IMMUTABLE AS $$
 BEGIN
+    p_value := NULL;
+    p_error_message := NULL;
+
     IF p_text_value IS NULL OR p_text_value = '' THEN
-        RETURN NULL;
+        RETURN;
     END IF;
-    RETURN p_text_value::BOOLEAN;
-EXCEPTION WHEN others THEN
-    RAISE WARNING 'Invalid boolean format: "%". Returning NULL.', p_text_value;
-    RETURN NULL;
+
+    BEGIN
+        p_value := p_text_value::BOOLEAN;
+    EXCEPTION
+        WHEN invalid_text_representation THEN -- Common for boolean cast errors
+            p_error_message := 'Invalid boolean format: ''' || p_text_value || '''. SQLSTATE: ' || SQLSTATE;
+            RAISE DEBUG '%', p_error_message;
+        WHEN others THEN
+            p_error_message := 'Failed to cast ''' || p_text_value || ''' to boolean. SQLSTATE: ' || SQLSTATE || ', SQLERRM: ' || SQLERRM;
+            RAISE DEBUG '%', p_error_message;
+    END;
 END;
 $$;
 
@@ -90,14 +116,14 @@ BEGIN
         END IF;
         
         v_error_conditions_sql := v_error_conditions_sql || format(
-            '(dt.%I IS NOT NULL AND import.safe_cast_to_%s(dt.%I) IS NULL)',
+            '(dt.%I IS NOT NULL AND (import.safe_cast_to_%s(dt.%I)).p_error_message IS NOT NULL)', -- Check p_error_message
             v_col_rec.col_name,
             CASE v_col_rec.type WHEN 'int' THEN 'integer' WHEN 'float' THEN 'numeric' WHEN 'bool' THEN 'boolean' ELSE 'text' END,
             v_col_rec.col_name
         );
         
         v_error_json_sql := v_error_json_sql || format(
-            'jsonb_build_object(%L, CASE WHEN dt.%I IS NOT NULL AND import.safe_cast_to_%s(dt.%I) IS NULL THEN ''Invalid format'' ELSE NULL END)',
+            'jsonb_build_object(%L, CASE WHEN dt.%I IS NOT NULL THEN (import.safe_cast_to_%s(dt.%I)).p_error_message ELSE NULL END)', -- Use p_error_message
             v_col_rec.col_name,
             v_col_rec.col_name,
             CASE v_col_rec.type WHEN 'int' THEN 'integer' WHEN 'float' THEN 'numeric' WHEN 'bool' THEN 'boolean' ELSE 'text' END,
@@ -462,9 +488,9 @@ BEGIN
                         ELSE NULL 
                     END,
                     CASE sfi.stat_type WHEN 'string' THEN sfi.stat_value ELSE NULL END,
-                    CASE sfi.stat_type WHEN 'int'    THEN import.safe_cast_to_integer(sfi.stat_value) ELSE NULL END,
-                    CASE sfi.stat_type WHEN 'float'  THEN import.safe_cast_to_numeric(sfi.stat_value) ELSE NULL END,
-                    CASE sfi.stat_type WHEN 'bool'   THEN import.safe_cast_to_boolean(sfi.stat_value) ELSE NULL END,
+                    CASE sfi.stat_type WHEN 'int'    THEN (import.safe_cast_to_integer(sfi.stat_value)).p_value ELSE NULL END,
+                    CASE sfi.stat_type WHEN 'float'  THEN (import.safe_cast_to_numeric(sfi.stat_value)).p_value ELSE NULL END,
+                    CASE sfi.stat_type WHEN 'bool'   THEN (import.safe_cast_to_boolean(sfi.stat_value)).p_value ELSE NULL END,
                     sfi.data_source_id, sfi.valid_after, sfi.valid_to, -- Changed
                     sfi.edit_by_user_id, sfi.edit_at, sfi.edit_comment -- Use sfi.edit_comment
                 )
@@ -527,9 +553,9 @@ BEGIN
                 ELSE NULL 
             END,
             CASE sd.type WHEN 'string' THEN tbd.stat_value ELSE NULL END,
-            CASE sd.type WHEN 'int'    THEN import.safe_cast_to_integer(tbd.stat_value) ELSE NULL END,
-            CASE sd.type WHEN 'float'  THEN import.safe_cast_to_numeric(tbd.stat_value) ELSE NULL END,
-            CASE sd.type WHEN 'bool'   THEN import.safe_cast_to_boolean(tbd.stat_value) ELSE NULL END,
+            CASE sd.type WHEN 'int'    THEN (import.safe_cast_to_integer(tbd.stat_value)).p_value ELSE NULL END,
+            CASE sd.type WHEN 'float'  THEN (import.safe_cast_to_numeric(tbd.stat_value)).p_value ELSE NULL END,
+            CASE sd.type WHEN 'bool'   THEN (import.safe_cast_to_boolean(tbd.stat_value)).p_value ELSE NULL END,
             tbd.data_source_id,
             tbd.edit_by_user_id,
             tbd.edit_at,
