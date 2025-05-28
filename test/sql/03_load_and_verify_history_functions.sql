@@ -274,19 +274,29 @@ ORDER BY tet.unit_type, tet.tax_ident, tet.valid_after, tet.valid_to;
 
 
 \echo "Checking timeline_establishment stats"
+WITH timeline_establishment_stats_with_tax_ident AS (
+    SELECT tes.*,
+           public.get_external_idents(tes.unit_type, tes.unit_id)->>'tax_ident' AS tax_ident
+    FROM public.timeline_establishment AS tes
+)
 SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
+     , tax_ident
      , valid_after
      , valid_from
      , valid_to
      , stats
-FROM public.timeline_establishment
-ORDER BY unit_type, unit_id, valid_after, valid_to;
+FROM timeline_establishment_stats_with_tax_ident
+ORDER BY unit_type, tax_ident, valid_after, valid_to;
 
 \echo "Checking timeline_legal_unit data"
-SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
-     , valid_after
+WITH timeline_legal_unit_with_tax_ident AS (
+    SELECT tlu.*,
+           public.get_external_idents(tlu.unit_type, tlu.unit_id)->>'tax_ident' AS tax_ident
+    FROM public.timeline_legal_unit AS tlu
+)
+SELECT tlut.unit_type
+     , tlut.tax_ident
+     , tlut.valid_after
      , valid_from
      , valid_to
      , name
@@ -314,31 +324,46 @@ SELECT unit_type
      , postal_address_part3
      , postal_postcode
      , postal_postplace
-     , postal_region_path
-     , postal_country_iso_2
-     , invalid_codes
-FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
+     , tlut.postal_region_path
+     , tlut.postal_country_iso_2
+     , tlut.invalid_codes
+FROM timeline_legal_unit_with_tax_ident AS tlut
+ORDER BY tlut.unit_type, tlut.tax_ident, tlut.valid_after, tlut.valid_to;
 
 
 \x
 \echo "Checking timeline_legal_unit stats"
+WITH timeline_legal_unit_stats_with_tax_ident AS (
+    SELECT tlus.*,
+           public.get_external_idents(tlus.unit_type, tlus.unit_id)->>'tax_ident' AS tax_ident
+    FROM public.timeline_legal_unit AS tlus
+)
 SELECT unit_type
-     , public.get_external_idents(unit_type, unit_id)->>'tax_ident' AS tax_ident
+     , tax_ident
      , valid_after
      , valid_from
      , valid_to
      , name
      , stats
      , jsonb_pretty(stats_summary) AS stats_summary
-FROM public.timeline_legal_unit
-ORDER BY unit_type, unit_id, valid_after, valid_to;
+FROM timeline_legal_unit_stats_with_tax_ident
+ORDER BY unit_type, tax_ident, valid_after, valid_to;
 \x
 
 
 \echo "Checking timeline_enterprise data"
+WITH timeline_enterprise_with_tax_ident AS (
+    SELECT te_base.*,
+           eei.external_idents->>'tax_ident' AS tax_ident
+    FROM public.timeline_enterprise AS te_base
+    LEFT JOIN public.enterprise_external_idents AS eei
+           ON eei.unit_type = te_base.unit_type
+          AND eei.unit_id = te_base.unit_id
+          AND daterange(eei.valid_after, eei.valid_to, '(]')
+           && daterange(te_base.valid_after, te_base.valid_to, '(]')
+)
 SELECT te.unit_type
-     , eei.external_idents->>'tax_ident' AS tax_ident
+     , te.tax_ident
      , te.valid_after
      , te.valid_from
      , te.valid_to
@@ -370,36 +395,41 @@ SELECT te.unit_type
      , te.postal_region_path
      , te.postal_country_iso_2
      , te.invalid_codes
-FROM public.timeline_enterprise AS te
-LEFT JOIN public.enterprise_external_idents AS eei
-       ON eei.unit_type = te.unit_type
-      AND eei.unit_id = te.unit_id
-      AND daterange(eei.valid_after, eei.valid_to, '(]')
-       && daterange(te.valid_after, te.valid_to, '(]')
-ORDER BY te.unit_type, te.unit_id, te.valid_after, te.valid_to;
+FROM timeline_enterprise_with_tax_ident AS te
+ORDER BY te.unit_type, te.tax_ident, te.valid_after, te.valid_to;
 
 
 \x
 \echo "Checking timeline_enterprise stats"
-SELECT te.unit_type
-     , eei.external_idents->>'tax_ident' AS tax_ident
-     , te.valid_after
-     , te.valid_from
-     , te.valid_to
-     , te.name
+WITH timeline_enterprise_stats_with_tax_ident AS (
+    SELECT tes_base.*,
+           eei.external_idents->>'tax_ident' AS tax_ident
+    FROM public.timeline_enterprise AS tes_base
+    LEFT JOIN public.enterprise_external_idents AS eei
+           ON eei.unit_type = tes_base.unit_type
+          AND eei.unit_id = tes_base.unit_id
+          AND daterange(eei.valid_after, eei.valid_to, '(]')
+           && daterange(tes_base.valid_after, tes_base.valid_to, '(]')
+)
+SELECT unit_type
+     , tax_ident
+     , valid_after
+     , valid_from
+     , valid_to
+     , name
      , jsonb_pretty(stats_summary) AS stats_summary
-FROM public.timeline_enterprise AS te
-LEFT JOIN public.enterprise_external_idents AS eei
-       ON eei.unit_type = te.unit_type
-      AND eei.unit_id = te.unit_id
-      AND daterange(eei.valid_after, eei.valid_to, '(]')
-       && daterange(te.valid_after, te.valid_to, '(]')
-ORDER BY te.unit_type, te.unit_id, te.valid_after, te.valid_to;
+FROM timeline_enterprise_stats_with_tax_ident
+ORDER BY unit_type, tax_ident, valid_after, valid_to;
 \x
 
 
 \x
 \echo "Check statistical_unit"
+WITH statistical_unit_ordered AS (
+    SELECT su_base.*,
+           su_base.external_idents->>'tax_ident' AS tax_ident_for_ordering
+    FROM public.statistical_unit AS su_base
+)
 SELECT valid_after
      , valid_from
      , valid_to
@@ -407,7 +437,7 @@ SELECT valid_after
      , external_idents
      , jsonb_pretty(
           public.remove_ephemeral_data_from_hierarchy(
-          to_jsonb(statistical_unit.*)
+          to_jsonb(statistical_unit_ordered.*)
           -'stats'
           -'stats_summary'
           -'valid_after'
@@ -415,12 +445,13 @@ SELECT valid_after
           -'valid_to'
           -'unit_type'
           -'external_idents'
+          -'tax_ident_for_ordering'
           )
      ) AS statistical_unit_data
      , jsonb_pretty(stats) AS stats
      , jsonb_pretty(stats_summary) AS stats_summary
- FROM public.statistical_unit
- ORDER BY valid_after, valid_from, valid_to, unit_type, unit_id;
+ FROM statistical_unit_ordered
+ ORDER BY valid_after, valid_from, valid_to, unit_type, tax_ident_for_ordering;
 
 \echo "Checking statistical_unit totals"
 SELECT unit_type
