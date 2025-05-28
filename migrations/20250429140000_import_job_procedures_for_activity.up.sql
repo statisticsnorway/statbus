@@ -190,6 +190,7 @@ DECLARE
     v_parent_unavailable_error_key TEXT;
     v_parent_unavailable_error_message TEXT;
     v_parent_check_update_count INT := 0;
+    v_update_count INT; -- Declaration for v_update_count used in propagation
 BEGIN
     RAISE DEBUG '[Job %] process_activity (Batch) for step_code %: Starting operation for % rows', p_job_id, p_step_code, array_length(p_batch_row_ids, 1);
 
@@ -291,6 +292,7 @@ BEGIN
     -- Step 1: Fetch batch data into a temporary table (will now exclude rows marked 'skip' above)
     CREATE TEMP TABLE temp_batch_data (
         data_row_id BIGINT PRIMARY KEY,
+        founding_row_id BIGINT, -- Added
         legal_unit_id INT,
         establishment_id INT,
         valid_after DATE, -- Added
@@ -307,10 +309,10 @@ BEGIN
 
     v_sql := format($$
         INSERT INTO temp_batch_data (
-            data_row_id, legal_unit_id, establishment_id, valid_after, valid_from, valid_to, data_source_id, category_id, edit_by_user_id, edit_at, edit_comment, action -- Added edit_comment, valid_after
+            data_row_id, founding_row_id, legal_unit_id, establishment_id, valid_after, valid_from, valid_to, data_source_id, category_id, edit_by_user_id, edit_at, edit_comment, action -- Added edit_comment, valid_after, founding_row_id
         )
         SELECT
-            row_id, %s, %s, -- Use dynamic expressions for LU/EST IDs
+            row_id, founding_row_id, %s, %s, -- Use dynamic expressions for LU/EST IDs, Added founding_row_id
             derived_valid_after, -- Added
             derived_valid_from, 
             derived_valid_to,   
@@ -391,6 +393,33 @@ BEGIN
                 WHERE dt.row_id = tca.data_row_id AND dt.state != 'error';
             $$, v_data_table_name, v_final_id_col, v_step.priority, 'processing'::public.import_data_state);
             RAISE DEBUG '[Job %] process_activity: Updated _data table for % new activities (type: %).', p_job_id, v_inserted_new_act_count, v_activity_type;
+        END IF;
+
+        -- Propagate newly created activity_ids to other rows in temp_batch_data
+        -- belonging to the same logical entity (identified by founding_row_id and unit id).
+        IF v_inserted_new_act_count > 0 THEN
+            RAISE DEBUG '[Job %] process_activity: Propagating new activity_ids within temp_batch_data (type: %).', p_job_id, v_activity_type;
+            WITH new_entity_details AS (
+                SELECT
+                    tca.new_activity_id,
+                    tbd_founder.founding_row_id,
+                    tbd_founder.legal_unit_id,
+                    tbd_founder.establishment_id
+                FROM temp_created_acts tca
+                JOIN temp_batch_data tbd_founder ON tca.data_row_id = tbd_founder.data_row_id
+            )
+            UPDATE temp_batch_data tbd
+            SET existing_act_id = ned.new_activity_id
+            FROM new_entity_details ned
+            WHERE tbd.founding_row_id = ned.founding_row_id
+              AND ( -- Match on the correct unit ID based on job mode
+                    (v_job_mode = 'legal_unit' AND tbd.legal_unit_id = ned.legal_unit_id AND tbd.establishment_id IS NULL AND ned.establishment_id IS NULL) OR
+                    (v_job_mode IN ('establishment_formal', 'establishment_informal') AND tbd.establishment_id = ned.establishment_id AND tbd.legal_unit_id IS NULL AND ned.legal_unit_id IS NULL)
+                  )
+              AND tbd.existing_act_id IS NULL -- Only update if not already set
+              AND tbd.action IN ('replace', 'update'); -- Apply to subsequent actions for the same new entity
+            GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-declare v_update_count or use a different local variable if needed for other counts
+            RAISE DEBUG '[Job %] process_activity: Propagated new activity_ids to % rows in temp_batch_data (type: %).', p_job_id, v_update_count, v_activity_type;
         END IF;
 
         -- Handle REPLACES for existing activities (action = 'replace')

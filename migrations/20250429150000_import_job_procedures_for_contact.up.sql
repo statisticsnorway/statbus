@@ -86,6 +86,7 @@ DECLARE
     v_select_lu_id_expr TEXT := 'NULL::INTEGER'; 
     v_select_est_id_expr TEXT := 'NULL::INTEGER'; 
     v_select_list TEXT;
+    v_update_count INT; -- Declaration for v_update_count used in propagation
 BEGIN
     RAISE DEBUG '[Job %] process_contact (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -128,6 +129,7 @@ BEGIN
     -- Step 1: Fetch batch data into a temporary table, including action
     CREATE TEMP TABLE temp_batch_data (
         data_row_id BIGINT PRIMARY KEY,
+        founding_row_id BIGINT, -- Added
         legal_unit_id INT,
         establishment_id INT,
         valid_after DATE, -- Added
@@ -149,14 +151,14 @@ BEGIN
 
     -- Construct the SELECT list dynamically
     v_select_list := format(
-        'dt.row_id, %s AS legal_unit_id, %s AS establishment_id, dt.derived_valid_after, dt.derived_valid_from, dt.derived_valid_to, dt.data_source_id, dt.web_address, dt.email_address, dt.phone_number, dt.landline, dt.mobile_number, dt.fax_number, dt.edit_by_user_id, dt.edit_at, dt.edit_comment, dt.action', -- Added dt.derived_valid_after and dt.edit_comment
+        'dt.row_id, dt.founding_row_id, %s AS legal_unit_id, %s AS establishment_id, dt.derived_valid_after, dt.derived_valid_from, dt.derived_valid_to, dt.data_source_id, dt.web_address, dt.email_address, dt.phone_number, dt.landline, dt.mobile_number, dt.fax_number, dt.edit_by_user_id, dt.edit_at, dt.edit_comment, dt.action', -- Added dt.derived_valid_after, dt.edit_comment, and dt.founding_row_id
         v_select_lu_id_expr, -- Use the correctly set expression
         v_select_est_id_expr  -- Use the correctly set expression
     );
 
     v_sql := format($$
         INSERT INTO temp_batch_data (
-            data_row_id, legal_unit_id, establishment_id, valid_after, valid_from, valid_to, data_source_id, -- Added valid_after
+            data_row_id, founding_row_id, legal_unit_id, establishment_id, valid_after, valid_from, valid_to, data_source_id, -- Added valid_after, founding_row_id
             web_address, email_address, phone_number, landline, mobile_number, fax_number,
             edit_by_user_id, edit_at, edit_comment, action -- Added edit_comment
         )
@@ -233,6 +235,32 @@ BEGIN
                 WHERE dt.row_id = tcc.data_row_id AND dt.state != 'error';
             $$, v_data_table_name, v_step.priority, 'processing'::public.import_data_state);
             RAISE DEBUG '[Job %] process_contact: Updated _data table for % new contacts.', p_job_id, v_inserted_new_contact_count;
+        END IF;
+
+        -- Propagate newly created contact_ids to other rows in temp_batch_data
+        IF v_inserted_new_contact_count > 0 THEN
+            RAISE DEBUG '[Job %] process_contact: Propagating new contact_ids within temp_batch_data.', p_job_id;
+            WITH new_entity_details AS (
+                SELECT
+                    tcc.new_contact_id,
+                    tbd_founder.founding_row_id,
+                    tbd_founder.legal_unit_id,
+                    tbd_founder.establishment_id
+                FROM temp_created_contacts tcc
+                JOIN temp_batch_data tbd_founder ON tcc.data_row_id = tbd_founder.data_row_id
+            )
+            UPDATE temp_batch_data tbd
+            SET existing_contact_id = ned.new_contact_id
+            FROM new_entity_details ned
+            WHERE tbd.founding_row_id = ned.founding_row_id
+              AND ( -- Match on the correct unit ID based on job mode
+                    (v_job_mode = 'legal_unit' AND tbd.legal_unit_id = ned.legal_unit_id AND tbd.establishment_id IS NULL AND ned.establishment_id IS NULL) OR
+                    (v_job_mode IN ('establishment_formal', 'establishment_informal') AND tbd.establishment_id = ned.establishment_id AND tbd.legal_unit_id IS NULL AND ned.legal_unit_id IS NULL)
+                  )
+              AND tbd.existing_contact_id IS NULL -- Only update if not already set
+              AND tbd.action IN ('replace', 'update'); -- Apply to subsequent actions for the same new entity
+            GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Re-declare v_update_count or use a different local variable if needed
+            RAISE DEBUG '[Job %] process_contact: Propagated new contact_ids to % rows in temp_batch_data.', p_job_id, v_update_count;
         END IF;
 
         -- Handle REPLACES for existing contacts (action = 'replace') using batch_insert_or_replace
