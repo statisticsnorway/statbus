@@ -879,10 +879,9 @@ FROM public.statistical_unit su
 WHERE su.unit_type = 'establishment' AND su.external_idents->>'tax_ident' = 'E68070001' ORDER BY su.external_idents->>'tax_ident', su.valid_from, su.valid_to;
            name            | tax_ident | physical_address_part1 | valid_from |  valid_to  
 ---------------------------+-----------+------------------------+------------+------------
- Informal ES Three Periods | E68070001 | Inf Addr P1            | 2022-01-01 | 2022-03-31
- Informal ES Three Periods | E68070001 | Inf Addr P1            | 2022-04-01 | 2022-06-30
+ Informal ES Three Periods | E68070001 | Inf Addr P1            | 2022-01-01 | 2022-06-30
  Informal ES Three Periods | E68070001 | Inf Addr P3 Changed    | 2022-07-01 | 2022-09-30
-(3 rows)
+(2 rows)
 
 ROLLBACK TO scenario_7_informal_es_three_periods;
 \echo "Final counts after all test blocks (should be same as initial due to rollbacks)"
