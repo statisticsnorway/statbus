@@ -36,8 +36,8 @@ BEGIN
             SELECT
                 dt.row_id,
                 import.safe_cast_to_ltree(dt.tag_path) AS ltree_path
-            FROM public.%I dt
-            WHERE dt.row_id = ANY(%L) AND dt.tag_path IS NOT NULL AND dt.action IS DISTINCT FROM 'skip' -- Process if action is distinct from 'skip' (handles NULL)
+            FROM public.%1$I dt -- v_data_table_name
+            WHERE dt.row_id = ANY(%2$L) AND dt.tag_path IS NOT NULL AND dt.action IS DISTINCT FROM 'skip' -- p_batch_row_ids
         ),
         resolved_tags AS (
             SELECT
@@ -47,7 +47,7 @@ BEGIN
             FROM casted_tags ct
             LEFT JOIN public.tag t ON t.path = ct.ltree_path
         )
-        UPDATE public.%I dt SET
+        UPDATE public.%1$I dt SET -- v_data_table_name
             tag_path_ltree = rt.ltree_path,
             tag_id = rt.resolved_tag_id,
             state = CASE
@@ -61,22 +61,20 @@ BEGIN
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_path IS NOT NULL AND rt.resolved_tag_id IS NULL THEN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('tag_path', 'Tag not found')
                         ELSE -- Success or no tag_path provided
-                            CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
+                            CASE WHEN (dt.error - %3$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %3$L::TEXT[]) END -- v_error_keys_to_clear_arr
                     END,
-            invalid_codes = CASE WHEN (dt.invalid_codes - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.invalid_codes - %L::TEXT[]) END, -- Always clear invalid_codes for tag_path
-            last_completed_priority = %s -- Always v_step.priority
+            invalid_codes = dt.invalid_codes, -- Preserve existing invalid_codes as this step only produces hard errors for tags
+            last_completed_priority = %4$L -- v_step.priority
         FROM (
-            SELECT row_id FROM public.%I WHERE row_id = ANY(%L) AND action IS DISTINCT FROM 'skip'
+            SELECT row_id FROM public.%1$I WHERE row_id = ANY(%2$L) AND action IS DISTINCT FROM 'skip' -- v_data_table_name, p_batch_row_ids
         ) base
         LEFT JOIN resolved_tags rt ON base.row_id = rt.row_id
         WHERE dt.row_id = base.row_id AND dt.action IS DISTINCT FROM 'skip';
     $$,
-        v_data_table_name, p_batch_row_ids,                     -- For casted_tags CTE
-        v_data_table_name,                                      -- For main UPDATE target
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear on success)
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For invalid_codes CASE (clear)
-        v_step.priority,                                        -- For last_completed_priority (always this step's priority)
-        v_data_table_name, p_batch_row_ids                      -- For base subquery
+        v_data_table_name,          -- %1$I
+        p_batch_row_ids,            -- %2$L
+        v_error_keys_to_clear_arr,  -- %3$L
+        v_step.priority             -- %4$L
     );
     RAISE DEBUG '[Job %] analyse_tags: Single-pass batch update for non-skipped rows (tag errors are fatal): %', p_job_id, v_sql;
     BEGIN
@@ -222,12 +220,12 @@ BEGIN
             v_sql_lu := format($$
                 INSERT INTO public.tag_for_unit (tag_id, legal_unit_id, establishment_id, edit_by_user_id, edit_at, edit_comment)
                 SELECT tbd.tag_id, 
-                       CASE WHEN %L = 'legal_unit' THEN tbd.legal_unit_id ELSE NULL END,
-                       CASE WHEN %L IN ('establishment_formal', 'establishment_informal') THEN tbd.establishment_id ELSE NULL END,
+                       tbd.legal_unit_id, -- Directly use tbd.legal_unit_id
+                       NULL,              -- establishment_id must be NULL for LU tag
                        dt.edit_by_user_id, dt.edit_at, tbd.edit_comment
                 FROM temp_batch_data tbd JOIN public.%I dt ON tbd.data_row_id = dt.row_id
                 WHERE tbd.action = 'insert' AND tbd.legal_unit_id IS NOT NULL AND tbd.existing_link_id IS NULL; -- Only insert new LU links
-            $$, v_job_mode, v_job_mode, v_data_table_name);
+            $$, v_data_table_name);
             RAISE DEBUG '[Job %] process_tags (insert_only LU): %', p_job_id, v_sql_lu;
             EXECUTE v_sql_lu;
             GET DIAGNOSTICS v_update_count_lu = ROW_COUNT;
@@ -237,12 +235,12 @@ BEGIN
             v_sql_est := format($$
                 INSERT INTO public.tag_for_unit (tag_id, legal_unit_id, establishment_id, edit_by_user_id, edit_at, edit_comment)
                 SELECT tbd.tag_id,
-                       CASE WHEN %L = 'legal_unit' THEN tbd.legal_unit_id ELSE NULL END,
-                       CASE WHEN %L IN ('establishment_formal', 'establishment_informal') THEN tbd.establishment_id ELSE NULL END,
+                       NULL,              -- legal_unit_id must be NULL for EST tag
+                       tbd.establishment_id, -- Directly use tbd.establishment_id
                        dt.edit_by_user_id, dt.edit_at, tbd.edit_comment
                 FROM temp_batch_data tbd JOIN public.%I dt ON tbd.data_row_id = dt.row_id
                 WHERE tbd.action = 'insert' AND tbd.establishment_id IS NOT NULL AND tbd.existing_link_id IS NULL; -- Only insert new EST links
-            $$, v_job_mode, v_job_mode, v_data_table_name);
+            $$, v_data_table_name);
             RAISE DEBUG '[Job %] process_tags (insert_only EST): %', p_job_id, v_sql_est;
             EXECUTE v_sql_est;
             GET DIAGNOSTICS v_update_count_est = ROW_COUNT;
@@ -265,7 +263,7 @@ BEGIN
             v_sql_lu := format($$
                 INSERT INTO public.tag_for_unit (tag_id, legal_unit_id, establishment_id, edit_by_user_id, edit_at, edit_comment)
                 SELECT tbd.tag_id,
-                       CASE WHEN %L = 'legal_unit' THEN tbd.legal_unit_id ELSE NULL END,
+                       tbd.legal_unit_id, -- Directly use tbd.legal_unit_id
                        NULL, -- establishment_id is NULL for LU-specific constraint
                        dt.edit_by_user_id, dt.edit_at, tbd.edit_comment
                 FROM temp_batch_data tbd JOIN public.%I dt ON tbd.data_row_id = dt.row_id
@@ -274,7 +272,7 @@ BEGIN
                     edit_by_user_id = EXCLUDED.edit_by_user_id,
                     edit_at = EXCLUDED.edit_at,
                     edit_comment = EXCLUDED.edit_comment;
-            $$, v_job_mode, v_data_table_name);
+            $$, v_data_table_name);
             RAISE DEBUG '[Job %] process_tags (insert_or_replace LU): %', p_job_id, v_sql_lu;
             EXECUTE v_sql_lu;
             GET DIAGNOSTICS v_update_count_lu = ROW_COUNT;
@@ -285,7 +283,7 @@ BEGIN
                 INSERT INTO public.tag_for_unit (tag_id, legal_unit_id, establishment_id, edit_by_user_id, edit_at, edit_comment)
                 SELECT tbd.tag_id,
                        NULL, -- legal_unit_id is NULL for EST-specific constraint
-                       CASE WHEN %L IN ('establishment_formal', 'establishment_informal') THEN tbd.establishment_id ELSE NULL END,
+                       tbd.establishment_id, -- Directly use tbd.establishment_id
                        dt.edit_by_user_id, dt.edit_at, tbd.edit_comment
                 FROM temp_batch_data tbd JOIN public.%I dt ON tbd.data_row_id = dt.row_id
                 WHERE tbd.action IN ('insert', 'replace') AND tbd.establishment_id IS NOT NULL
@@ -293,7 +291,7 @@ BEGIN
                     edit_by_user_id = EXCLUDED.edit_by_user_id,
                     edit_at = EXCLUDED.edit_at,
                     edit_comment = EXCLUDED.edit_comment;
-            $$, v_job_mode, v_data_table_name);
+            $$, v_data_table_name);
             RAISE DEBUG '[Job %] process_tags (insert_or_replace EST): %', p_job_id, v_sql_est;
             EXECUTE v_sql_est;
             GET DIAGNOSTICS v_update_count_est = ROW_COUNT;
