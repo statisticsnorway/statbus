@@ -208,7 +208,7 @@ AND unit_type = 'legal_unit';
 ------------+------+-------+------------+-------+--------+--------
  year       | 2010 |       | legal_unit |     1 |      1 |      0
  year       | 2011 |       | legal_unit |     2 |      1 |      0
- year       | 2012 |       | legal_unit |     3 |      0 |      0
+ year       | 2012 |       | legal_unit |     2 |      0 |      0
 (3 rows)
 
 \echo "Check statistical unit history by year-month - births should be 1 for year-month 2010-1 and 2011-1"
@@ -351,7 +351,7 @@ AND unit_type = 'legal_unit';
 ------------+------+-------+------------+-------+--------+--------
  year       | 2010 |       | legal_unit |     1 |      1 |      0
  year       | 2011 |       | legal_unit |     2 |      1 |      0
- year       | 2012 |       | legal_unit |     3 |      0 |      0
+ year       | 2012 |       | legal_unit |     2 |      0 |      0
 (3 rows)
 
 \echo "Check statistical unit history by year-month - births should be 1 for year-month 2010-2 and 2011-2"
@@ -493,7 +493,7 @@ AND unit_type = 'legal_unit';
 ------------+------+-------+------------+-------+--------+--------
  year       | 2010 |       | legal_unit |     1 |      1 |      0
  year       | 2011 |       | legal_unit |     2 |      1 |      0
- year       | 2012 |       | legal_unit |     3 |      0 |      0
+ year       | 2012 |       | legal_unit |     2 |      0 |      0
 (3 rows)
 
 \echo "Check statistical unit history by year-month - births should be 1 for year-month 2010-1 and 2011-1"

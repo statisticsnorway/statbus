@@ -307,7 +307,7 @@ WHERE slug = 'import_42_lu_era_b2_death_end_m1'
 ORDER BY slug;
                slug               |  state   | total_rows | imported_rows | has_error | error_rows 
 ----------------------------------+----------+------------+---------------+-----------+------------
- import_42_lu_era_b2_death_end_m1 | finished |          3 |             2 | f         |          1
+ import_42_lu_era_b2_death_end_m1 | finished |          3 |             3 | f         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks - Block 2
