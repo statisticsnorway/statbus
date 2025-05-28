@@ -94,19 +94,22 @@ The import system is built around several key database tables and concepts:
         *   Job state moves to `analysing_data`.
         *   Iterates through `import_step`s (from the `definition_snapshot`'s `import_step_list`) in `priority` order.
         *   For each step with an `analyse_procedure`:
-            *   Selects batches of rows from `_data` (identified by their `row_id`) where `state = 'analysing'` and `last_completed_priority < step.priority` using `FOR UPDATE SKIP LOCKED`.
+            *   Selects batches of rows from `_data` (identified by their `row_id`) where `state = 'analysing'` (and implicitly `action != 'skip'` if a prior step already marked it as error and skip) and `last_completed_priority < step.priority` using `FOR UPDATE SKIP LOCKED`.
             *   Calls the step's `analyse_procedure` with the batch of `row_id`s.
-            *   The procedure performs lookups/validations, updates columns with `purpose='internal'` (including the `operation` and `action` columns set by `analyse_external_idents`), and sets `last_completed_priority = step.priority` or sets `state = 'error'` for each row in the batch. *Note: The `edit_info` step populates `edit_by_user_id` and `edit_at` here.*
+            *   The procedure performs lookups/validations, updates columns with `purpose='internal'`.
+            *   **Error Handling Rule**: If an `analyse_procedure` detects an error that makes the row unprocessable for its specific domain (or subsequent domains that depend on its output), it *must* set the row's `state` to `'error'` and also set its `action` to `'skip'::public.import_row_action_type`. The `last_completed_priority` should *not* be advanced for such error rows.
+            *   If no fatal error is found by the current step, it updates `last_completed_priority = step.priority` and leaves `state` as `'analysing'` (or advances it if this is the last analysis step for the row). The `action` (e.g., 'insert', 'replace', 'update') determined by `analyse_external_idents` (or potentially modified to 'skip' by a prior analysis step) is preserved if no new fatal error is found by the current step.
+            *   *Note: The `edit_info` step populates `edit_by_user_id` and `edit_at`. The `analyse_external_idents` step is primarily responsible for determining the initial `operation` and `action` based on identifier lookups and job strategy.*
         *   Continues processing batches across steps until `max_batches_per_transaction` is reached or no more rows are found for analysis in the current state/priority range.
         *   If work remains (either batch limit hit or rows still in `analysing` state), the job is rescheduled by the worker system.
-        *   Once all analysis steps for all rows are complete (no rows left in `analysing` state), the job state moves to `processing_data` (or `waiting_for_review` if `job.review=true`). The worker is rescheduled if moving to `processing_data`.
+        *   Once all analysis steps for all rows are complete (no rows left in `analysing` state, or all remaining rows are in `error` state with `action = 'skip'`), the job state moves to `processing_data` (or `waiting_for_review` if `job.review=true`). The worker is rescheduled if moving to `processing_data`.
     *   **Process (`admin.import_job_process_phase('process')`)**:
         *   Job state is `processing_data`.
         *   Iterates through `import_step`s (from the `definition_snapshot`'s `import_step_list`) in `priority` order.
         *   For each step with a `process_procedure`:
-            *   Selects batches of rows from `_data` (identified by their `row_id`) where `state = 'processing'` and `last_completed_priority < step.priority` and `action != 'skip'` using `FOR UPDATE SKIP LOCKED`.
+            *   Selects batches of rows from `_data` (identified by their `row_id`) where `state = 'processing'` and `last_completed_priority < step.priority` and crucially `action != 'skip'` using `FOR UPDATE SKIP LOCKED`. This ensures rows marked as error (and thus skip) in the analysis phase are not processed.
             *   Calls the step's `process_procedure` with the batch of `row_id`s.
-            *   The procedure reads data (including `internal` results, audit info, and `action`), performs the final `INSERT` (for `action='insert'`) or `REPLACE` (for `action='replace'`, using `admin.batch_insert_or_replace_generic_valid_time_table` for temporal data), updates `pk_id` columns, and sets `last_completed_priority = step.priority` or sets `state = 'error'`.
+            *   The procedure reads data (including `internal` results, audit info, and `action`), performs the final `INSERT` (for `action='insert'`) or `REPLACE` (for `action='replace'`, using `admin.batch_insert_or_replace_generic_valid_time_table` for temporal data), updates `pk_id` columns, and sets `last_completed_priority = step.priority`. If a `process_procedure` encounters an unrecoverable error for a row (which should be rare if analysis is robust), it should set that row's `state` to `'error'` and `action` to `'skip'`.
         *   Continues processing batches across steps until `max_batches_per_transaction` is reached or no more rows are found for processing in the current state/priority range.
         *   If work remains, the job is rescheduled.
         *   Once all operation steps for all rows are complete (no rows left in `processing` state), the job state moves to `finished`.
@@ -128,9 +131,10 @@ Creating a new import type involves defining the metadata in the database:
     *   Read `definition_snapshot` from `import_job` if needed.
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
-    *   Perform logic (lookups, validation, casting, final DML using audit info and `action` from `_data`).
-    *   Correctly update `last_completed_priority`, `state`, and `error` columns in `_data`.
-    *   Handle errors gracefully, ideally marking only affected rows within the batch as `error` and storing details in the `error` JSONB column. If a batch-wide error occurs (e.g., constraint violation during a batch DML), mark all rows identified by `p_batch_row_ids` as error.
+    *   Perform logic (lookups, validation, casting for analysis; final DML using audit info and `action` from `_data` for processing).
+    *   Correctly update `last_completed_priority`, `state`, `action` (if an error occurs during analysis), and `error` columns in `_data`.
+    *   **Error Handling Rule for Analysis Procedures**: If an `analyse_procedure` detects an error making the row unprocessable, it *must* set `state = 'error'`, `action = 'skip'`, and store details in the `error` JSONB column. `last_completed_priority` should not be advanced for this row.
+    *   Handle batch-wide errors (e.g., constraint violation during a batch DML in a `process_procedure`) by marking all rows identified by `p_batch_row_ids` as error (and action='skip') in the `_data` table and potentially failing the job.
 4.  **Create Definition (`import_definition`)**: Create a record defining the overall import (e.g., slug='legal_unit_import', name='Legal Unit Import', strategy='insert_or_replace'). Set `valid=false` initially.
 5.  **Link Steps to Definition (`import_definition_step`)**: Insert records into `import_definition_step` linking the new `definition_id` to the `step_id`s of the chosen `import_step` records defined in step 1.
 6.  **Define Source Columns (`import_source_column`)**: Define the expected columns in the source file and their order (`priority`) for this definition. These should cover the `source_input` data columns required by the *linked steps*.
@@ -246,9 +250,10 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
     *   Read `definition_snapshot` from `import_job` if needed.
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
-    *   Perform logic (lookups, validation, casting, final DML using audit info and `action` from `_data`).
-    *   Correctly update `last_completed_priority`, `state`, and `error` columns in `_data`.
-    *   Handle errors gracefully, ideally marking only affected rows within the batch as `error` and storing details in the `error` JSONB column. If a batch-wide error occurs (e.g., constraint violation during a batch DML), mark all rows identified by `p_batch_row_ids` as error.
+    *   Perform logic (lookups, validation, casting for analysis; final DML using audit info and `action` from `_data` for processing).
+    *   Correctly update `last_completed_priority`, `state`, `action` (if an error occurs during analysis), and `error` columns in `_data`.
+    *   **Error Handling Rule for Analysis Procedures**: If an `analyse_procedure` detects an error making the row unprocessable, it *must* set `state = 'error'`, `action = 'skip'`, and store details in the `error` JSONB column. `last_completed_priority` should not be advanced for this row.
+    *   Handle batch-wide errors (e.g., constraint violation during a batch DML in a `process_procedure`) by marking all rows identified by `p_batch_row_ids` as error (and action='skip') in the `_data` table and potentially failing the job.
 4.  **Create Definition (`import_definition`)**:
     ```sql
     INSERT INTO public.import_definition (slug, name, note, strategy, valid)
