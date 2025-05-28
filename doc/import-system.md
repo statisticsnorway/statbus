@@ -50,9 +50,19 @@ The import system is built around several key database tables and concepts:
             *   Reads `source_input` columns.
             *   Performs lookups (e.g., finding `sector_id` from `sector_code`), type casting (e.g., `admin.safe_cast_to_date`), and validations.
             *   Stores results in `internal` columns (e.g., `sector_id`, `typed_birth_date`).
-            *   **Error Handling**:
-                *   **Hard Errors**: Critical issues (e.g., malformed mandatory dates, missing essential identifiers for `external_idents` step) that prevent further processing. These populate the `error` JSONB column (e.g., `{"valid_from_source": "Invalid format"}`), set `state = 'error'`, and `action = 'skip'`.
-                *   **Soft Errors / Invalid Codes**: Non-critical issues where specific input codes (e.g., `sector_code`) are not found, or optional data is malformed. These populate the `invalid_codes` JSONB column (e.g., `{"sector_code": "INVALID_XYZ"}`). They do *not* directly set `state = 'error'` or `action = 'skip'`. The row continues analysis. If a `process_` step relies on a resolved ID that couldn't be derived due to an invalid code, that specific attribute might not be set, or the `process_` step might skip that part of the operation for the row.
+            *   **Error Handling (JSONB Columns `error` and `invalid_codes`)**:
+                *   Each `analyse_procedure` is authoritative for specific keys within the `error` and `invalid_codes` JSONB columns. A key typically corresponds to an input data column name (e.g., `sector_code`, `physical_latitude`) or a specific validation type (e.g., `inconsistent_legal_unit`, `invalid_period_source`).
+                *   **Hard Errors (`error` column)**: Critical issues (e.g., malformed mandatory dates, missing essential identifiers for `external_idents` step) that prevent further processing.
+                    *   These populate the `error` JSONB column with a key-value pair, where the key indicates the error type/source and the value describes the error (e.g., `{"valid_from_source": "Invalid format"}`).
+                    *   The procedure sets `state = 'error'` and `action = 'skip'`.
+                    *   When adding a new hard error, a step should merge its error JSONB object with the existing `dt.error` (e.g., `COALESCE(dt.error, '{}'::jsonb) || new_error_details_jsonb`).
+                    *   If a step resolves a hard error it previously reported (or if the condition for the error no longer applies after re-evaluation), it should clear *only its specific key(s)* from the `error` column (e.g., `dt.error - 'my_error_key'`). It must not clear keys reported by other steps.
+                *   **Soft Errors / Invalid Codes (`invalid_codes` column)**: Non-critical issues where specific input codes (e.g., `sector_code`) are not found, or optional data is malformed but doesn't halt further analysis by other steps.
+                    *   These populate the `invalid_codes` JSONB column, typically storing the original problematic value (e.g., `{"sector_code": "INVALID_XYZ"}`).
+                    *   They do *not* directly set `state = 'error'` or `action = 'skip'`. The row continues analysis.
+                    *   `invalid_codes` should be treated as additive. A step appends its new soft errors by merging its `invalid_codes` JSONB object with the existing `dt.invalid_codes` (e.g., `COALESCE(dt.invalid_codes, '{}'::jsonb) || new_invalid_codes_jsonb`).
+                    *   If a step resolves a soft error it previously reported (e.g., an invalid code becomes valid upon re-evaluation or data correction), it should clear *only its specific key(s)* from the `invalid_codes` column (e.g., `dt.invalid_codes - 'my_invalid_code_key'`).
+                    *   If a `process_` step relies on a resolved ID that couldn't be derived due to an invalid code, that specific attribute might not be set, or the `process_` step might skip that part of the operation for the row.
             *   The `external_idents` step specifically determines the potential `operation` (`insert`, `replace`, `update`) based on identifier lookups, and the final `action` (`insert`, `replace`, `update`, or `skip`) based on the `operation`, job's `strategy`, and any hard errors.
             *   Updates the row's `state` (to `analysing`, or `error` for hard errors), `error` (for hard errors), `invalid_codes` (for soft errors), and `last_completed_priority`.
         *   **Operation (`process_procedure`):** Reads `source_input` and `internal` columns, including the `action` column. Performs the final `INSERT` (for `action='insert'`), `REPLACE` (for `action='replace'`), or `UPDATE` (for `action='update'`) into the target Statbus tables, respecting the job's `strategy`. Skips rows where `action='skip'`. Stores the resulting primary key(s) in the corresponding `pk_id` column. Updates the row's `state` (to `processing` or `error` if the DML fails), `error`, and `last_completed_priority`. *Note: Some steps like `external_idents` only perform analysis and do not have a process procedure.*
@@ -107,16 +117,18 @@ The import system is built around several key database tables and concepts:
             *   The procedure performs lookups/validations, updates `internal` columns, `error` (for hard errors), and `invalid_codes` (for soft errors).
             *   **Error Handling Rule for Analysis Procedures**:
                 *   **Hard Errors**: If an `analyse_procedure` detects a critical error that makes the row unprocessable for its specific domain (or subsequent domains that depend on its output), it *must*:
-                    *   Populate the `error` JSONB column with details.
+                    *   Populate the `error` JSONB column with details, merging with existing errors (e.g., `COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('my_error_key', 'description')`).
                     *   Set the row's `state` to `'error'`.
                     *   Set the row's `action` to `'skip'::public.import_row_action_type`.
-                    *   The `last_completed_priority` should *not* be advanced for this row by this step (it will be advanced in a separate update for skipped rows to ensure the step is not re-attempted).
+                    *   The `last_completed_priority` should be advanced to the current step's priority, even on error, to indicate which step identified the issue.
                 *   **Soft Errors / Invalid Codes**: If an `analyse_procedure` detects a non-critical issue (e.g., an unresolvable `sector_code`), it should:
-                    *   Populate the `invalid_codes` JSONB column (e.g., `{"sector_code": "INVALID_XYZ"}`).
+                    *   Populate the `invalid_codes` JSONB column, merging with existing invalid codes (e.g., `COALESCE(dt.invalid_codes, '{}'::jsonb) || jsonb_build_object('my_code_key', 'original_value')`).
                     *   It should *not* set `state = 'error'` or `action = 'skip'` solely for this reason.
                     *   The row's `state` remains `'analysing'` (or proceeds as normal).
-                    *   `last_completed_priority` is advanced if no hard error occurred.
+                    *   `last_completed_priority` is advanced.
             *   If no hard error is found by the current step, it updates `last_completed_priority = step.priority`. The `state` remains `'analysing'` (or advances if this is the last analysis step for the row). The `action` (e.g., 'insert', 'replace', 'update') determined by `analyse_external_idents` (or potentially modified to 'skip' by a prior analysis step that found a hard error) is preserved if no new hard error is found by the current step.
+            *   When a step successfully processes data or resolves a previously reported issue, it should clear *only its specific keys* from the `error` and `invalid_codes` columns (e.g., `dt.error - 'my_error_key'`, `dt.invalid_codes - 'my_code_key'`). This ensures that errors or invalid codes reported by other steps are preserved.
+            *   *Note: The `edit_info` step populates `edit_by_user_id` and `edit_at`. The `analyse_external_idents` step is primarily responsible for determining the initial `operation` and `action` based on identifier lookups and job strategy, and for identifying hard errors related to identifiers.*
             *   *Note: The `edit_info` step populates `edit_by_user_id` and `edit_at`. The `analyse_external_idents` step is primarily responsible for determining the initial `operation` and `action` based on identifier lookups and job strategy, and for identifying hard errors related to identifiers.*
         *   Continues processing batches across steps until `max_batches_per_transaction` is reached or no more rows are found for analysis in the current state/priority range.
         *   If work remains (either batch limit hit or rows still in `analysing` state), the job is rescheduled by the worker system.
@@ -150,10 +162,11 @@ Creating a new import type involves defining the metadata in the database:
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
     *   Perform logic (lookups, validation, casting for analysis; final DML using audit info and `action` from `_data` for processing).
-    *   Correctly update `last_completed_priority`, `state`, `action` (for hard errors), `error` (for hard errors), and `invalid_codes` (for soft errors) columns in `_data`.
+    *   Correctly update `last_completed_priority`, `state`, `action` (for hard errors), `error` (for hard errors), and `invalid_codes` (for soft errors) columns in `_data`, adhering to the key management principles (each step manages its own keys, `invalid_codes` is additive, `error` is merged, and specific keys are cleared upon resolution).
     *   **Error Handling Rule for Analysis Procedures (reiteration)**:
-        *   **Hard Errors**: Set `state = 'error'`, `action = 'skip'`, populate `error` JSONB. `last_completed_priority` is not advanced by the main logic for this row (but will be updated for skipped rows to prevent re-processing).
-        *   **Soft Errors**: Populate `invalid_codes` JSONB. Do *not* set `state = 'error'` or `action = 'skip'` solely for this. `last_completed_priority` advances if no hard error.
+        *   **Hard Errors**: Set `state = 'error'`, `action = 'skip'`, populate `error` JSONB (merging with existing errors). `last_completed_priority` is advanced to the current step's priority.
+        *   **Soft Errors**: Populate `invalid_codes` JSONB (merging with existing invalid codes). Do *not* set `state = 'error'` or `action = 'skip'` solely for this. `last_completed_priority` advances.
+        *   **Clearing Errors**: If a condition is resolved, clear only the step-specific keys from `error` and/or `invalid_codes`.
     *   Handle batch-wide errors (e.g., constraint violation during a batch DML in a `process_procedure`) by marking all rows identified by `p_batch_row_ids` as error (and action='skip') in the `_data` table and potentially failing the job.
 4.  **Create Definition (`import_definition`)**: Create a record defining the overall import (e.g., slug='legal_unit_import', name='Legal Unit Import', strategy='insert_or_replace'). Set `valid=false` initially.
 5.  **Link Steps to Definition (`import_definition_step`)**: Insert records into `import_definition_step` linking the new `definition_id` to the `step_id`s of the chosen `import_step` records defined in step 1.
@@ -251,7 +264,7 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
         *   ... (other contact source/pk_id columns)
         *   `contact_id` (purpose: `pk_id`, type: `INTEGER`)
     *   **`statistical_variables` step:**
-        *   `employees` (purpose: `source_input`, type: `TEXT`) - *Dynamically generated*
+        *   `employees` (purpose: `source_input`, type: `TEXT`) - *Dynamically generated, assumes 'employees' is a stat_definition.code*
         *   ... (other dynamic stat source/pk_id columns)
         *   `stat_for_unit_employees_id` (purpose: `pk_id`, type: `INTEGER`) - *Dynamically generated*
     *   **`tags` step:**
@@ -271,8 +284,8 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
     *   Determine the job-specific `_data` table name.
     *   Read from/write to the `_data` table using dynamic SQL and `p_batch_row_ids` (e.g., `WHERE row_id = ANY(p_batch_row_ids)`).
     *   Perform logic (lookups, validation, casting for analysis; final DML using audit info and `action` from `_data` for processing).
-    *   Correctly update `last_completed_priority`, `state`, `action` (if an error occurs during analysis), and `error` columns in `_data`.
-    *   **Error Handling Rule for Analysis Procedures**: If an `analyse_procedure` detects an error making the row unprocessable, it *must* set `state = 'error'`, `action = 'skip'`, and store details in the `error` JSONB column. `last_completed_priority` should not be advanced for this row.
+    *   Correctly update `last_completed_priority`, `state`, `action` (if an error occurs during analysis), and `error`/`invalid_codes` columns in `_data`, following the key management and additive principles.
+    *   **Error Handling Rule for Analysis Procedures**: If an `analyse_procedure` detects an error making the row unprocessable, it *must* set `state = 'error'`, `action = 'skip'`, and store details in the `error` JSONB column (merging with existing errors). `last_completed_priority` should be advanced to the current step's priority. Soft errors are added to `invalid_codes` without setting `state='error'` or `action='skip'`.
     *   Handle batch-wide errors (e.g., constraint violation during a batch DML in a `process_procedure`) by marking all rows identified by `p_batch_row_ids` as error (and action='skip') in the `_data` table and potentially failing the job.
 4.  **Create Definition (`import_definition`)**:
     ```sql
