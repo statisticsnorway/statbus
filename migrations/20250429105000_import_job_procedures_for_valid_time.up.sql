@@ -26,6 +26,8 @@ DECLARE
     v_data_table_name TEXT;
     v_sql TEXT;
     v_update_count INT := 0;
+    v_error_count INT := 0; -- For rows marked as error in this step
+    v_default_valid_after DATE; -- Renamed for clarity
 BEGIN
     RAISE DEBUG '[Job %] analyse_valid_time_from_context (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -39,29 +41,65 @@ BEGIN
         RAISE EXCEPTION '[Job %] valid_time_from_context target not found', p_job_id;
     END IF;
 
-    -- Step 1: Batch Update derived_valid_from/to and derived_valid_after from job defaults for non-skipped rows
-    v_sql := format($$
-        UPDATE public.%I dt SET
-            derived_valid_after = CASE WHEN %L::DATE IS NOT NULL THEN %L::DATE - INTERVAL '1 day' ELSE NULL END, -- Calculate derived_valid_after
-            derived_valid_from = %L::DATE,
-            derived_valid_to = %L::DATE,
-            last_completed_priority = %L,
-            -- error = NULL, -- Removed: This step should not clear errors from prior steps
-            state = %L
-        WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
-    $$, v_data_table_name, v_job.default_valid_from, v_job.default_valid_from, v_job.default_valid_from, v_job.default_valid_to, v_step.priority, 'analysing', p_batch_row_ids);
-    RAISE DEBUG '[Job %] analyse_valid_time_from_context: Updating derived dates for non-skipped rows: %', p_job_id, v_sql;
-    EXECUTE v_sql;
-    GET DIAGNOSTICS v_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_valid_time_from_context: Marked % non-skipped rows as success for this target.', p_job_id, v_update_count;
+    -- Calculate default_valid_after based on job default
+    IF v_job.default_valid_from IS NOT NULL THEN
+        v_default_valid_after := v_job.default_valid_from - INTERVAL '1 day';
+    ELSE
+        v_default_valid_after := NULL;
+    END IF;
 
-    -- Update priority for skipped rows
+    -- Check if the job's default dates themselves form an invalid period or involve NULLs for NOT NULL columns
+    IF v_job.default_valid_from IS NULL OR v_job.default_valid_to IS NULL OR v_default_valid_after >= v_job.default_valid_to THEN
+        -- Mark all applicable rows in the batch as error
+        v_sql := format($$
+            UPDATE public.%I dt SET
+                derived_valid_after = %L, -- Store potentially problematic default_valid_after
+                derived_valid_from = %L,
+                derived_valid_to = %L,
+                last_completed_priority = %L, -- Advance to current step's priority on error
+                error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('invalid_period_context', 
+                    CASE 
+                        WHEN %L::DATE IS NULL THEN 'Job default_valid_from is NULL, resulting in NULL derived_valid_after for a NOT NULL column.'
+                        WHEN %L::DATE IS NULL THEN 'Job default_valid_to is NULL for a NOT NULL column.'
+                        ELSE 'Job default dates create an invalid period (derived_valid_after >= derived_valid_to).'
+                    END),
+                state = 'error',
+                action = 'skip'::public.import_row_action_type -- Error implies skip
+            WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Only update rows not already skipped by a *prior* step.
+        $$, v_data_table_name, 
+             v_default_valid_after, v_job.default_valid_from, v_job.default_valid_to,
+             v_step.priority, -- For last_completed_priority
+             v_job.default_valid_from, v_job.default_valid_to, -- For CASE check
+             p_batch_row_ids);
+        RAISE DEBUG '[Job %] analyse_valid_time_from_context: Job default dates are invalid. Marking non-skipped rows as error and action=skip: %', p_job_id, v_sql;
+        EXECUTE v_sql;
+        GET DIAGNOSTICS v_error_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] analyse_valid_time_from_context: Marked % non-skipped rows as error due to invalid job default dates.', p_job_id, v_error_count;
+    ELSE
+        -- Job default dates are valid, proceed to update rows
+        v_sql := format($$
+            UPDATE public.%I dt SET
+                derived_valid_after = %L, -- Use pre-calculated v_default_valid_after
+                derived_valid_from = %L::DATE,
+                derived_valid_to = %L::DATE,
+                last_completed_priority = %L,
+                error = CASE WHEN (dt.error - ARRAY['invalid_period_context']::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - ARRAY['invalid_period_context']::TEXT[]) END, -- Clear only our specific error key
+                state = 'analysing' -- Action remains as determined by previous steps
+            WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; 
+        $$, v_data_table_name, v_default_valid_after, v_job.default_valid_from, v_job.default_valid_to, v_step.priority, p_batch_row_ids);
+        RAISE DEBUG '[Job %] analyse_valid_time_from_context: Updating derived dates for non-skipped rows: %', p_job_id, v_sql;
+        EXECUTE v_sql;
+        GET DIAGNOSTICS v_update_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] analyse_valid_time_from_context: Marked % non-skipped rows as success for this target.', p_job_id, v_update_count;
+    END IF;
+
+    -- Update priority for already skipped rows (this part remains the same)
     EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
                    v_data_table_name, v_step.priority, p_batch_row_ids);
-    GET DIAGNOSTICS v_update_count = ROW_COUNT;
-    RAISE DEBUG '[Job %] analyse_valid_time_from_context: Advanced priority for % skipped rows.', p_job_id, v_update_count;
+    GET DIAGNOSTICS v_update_count = ROW_COUNT; -- This v_update_count is for skipped rows
+    RAISE DEBUG '[Job %] analyse_valid_time_from_context: Advanced priority for % pre-skipped rows.', p_job_id, v_update_count;
 
-    RAISE DEBUG '[Job %] analyse_valid_time_from_context (Batch): Finished analysis for batch.', p_job_id;
+    RAISE DEBUG '[Job %] analyse_valid_time_from_context (Batch): Finished analysis for batch. Errors in this step: %', p_job_id, v_error_count;
 END;
 $analyse_valid_time_from_context$;
 
@@ -77,7 +115,7 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_sql TEXT;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['valid_from_source', 'valid_to_source'];
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['valid_from_source', 'valid_to_source', 'invalid_period_source'];
 BEGIN
     RAISE DEBUG '[Job %] analyse_valid_time_from_source (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -93,35 +131,54 @@ BEGIN
 
     -- Single-pass batch update for casting, state, error, and priority
     v_sql := format($$
+        WITH casted_dates AS (
+            SELECT
+                dt_sub.row_id,
+                import.safe_cast_to_date(dt_sub.valid_from) as casted_vf,
+                import.safe_cast_to_date(dt_sub.valid_to) as casted_vt,
+                dt_sub.valid_from as original_vf, -- Keep original for error messages
+                dt_sub.valid_to as original_vt   -- Keep original for error messages
+            FROM public.%I dt_sub
+            WHERE dt_sub.row_id = ANY(%L)
+        )
         UPDATE public.%I dt SET
-            derived_valid_from = import.safe_cast_to_date(dt.valid_from),
-            derived_valid_after = import.safe_cast_to_date(dt.valid_from) - INTERVAL '1 day',
-            derived_valid_to = import.safe_cast_to_date(dt.valid_to),
+            derived_valid_from = cd.casted_vf,
+            derived_valid_after = cd.casted_vf - INTERVAL '1 day',
+            derived_valid_to = cd.casted_vt,
             state = CASE
-                        WHEN dt.valid_from IS NOT NULL AND import.safe_cast_to_date(dt.valid_from) IS NULL THEN 'error'::public.import_data_state
-                        WHEN dt.valid_to IS NOT NULL AND import.safe_cast_to_date(dt.valid_to) IS NULL THEN 'error'::public.import_data_state
-                        ELSE 'analysing'::public.import_data_state
+                        WHEN cd.casted_vf IS NULL OR cd.casted_vt IS NULL OR (cd.casted_vf - INTERVAL '1 day' >= cd.casted_vt)
+                        THEN 'error'::public.import_data_state
+                        ELSE -- No error in this step
+                            CASE
+                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state -- Preserve previous error
+                                ELSE 'analysing'::public.import_data_state -- OK to set to analysing
+                            END
                     END,
+            action = CASE
+                        WHEN cd.casted_vf IS NULL OR 
+                             cd.casted_vt IS NULL OR 
+                             (cd.casted_vf - INTERVAL '1 day' >= cd.casted_vt)
+                        THEN 'skip'::public.import_row_action_type -- Error implies skip
+                        ELSE dt.action -- Preserve action from previous steps if no new fatal error here
+                     END,
             error = CASE
-                        WHEN dt.valid_from IS NOT NULL AND import.safe_cast_to_date(dt.valid_from) IS NULL THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from_source', 'Invalid format')
-                        WHEN dt.valid_to IS NOT NULL AND import.safe_cast_to_date(dt.valid_to) IS NULL THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to_source', 'Invalid format')
+                        WHEN cd.casted_vf IS NULL THEN
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from_source', CASE WHEN cd.original_vf IS NULL THEN 'Missing mandatory value' ELSE 'Invalid format: ' || COALESCE(cd.original_vf, 'NULL') END)
+                        WHEN cd.casted_vt IS NULL THEN
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to_source', CASE WHEN cd.original_vt IS NULL THEN 'Missing mandatory value' ELSE 'Invalid format: ' || COALESCE(cd.original_vt, 'NULL') END)
+                        WHEN cd.casted_vf - INTERVAL '1 day' >= cd.casted_vt THEN
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('invalid_period_source', 'Resulting valid_after (' || (cd.casted_vf - INTERVAL '1 day')::TEXT || ') is not before valid_to (' || cd.casted_vt::TEXT || ')')
                         ELSE
                             CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
-            last_completed_priority = CASE
-                                        WHEN (dt.valid_from IS NOT NULL AND import.safe_cast_to_date(dt.valid_from) IS NULL) OR
-                                             (dt.valid_to IS NOT NULL AND import.safe_cast_to_date(dt.valid_to) IS NULL)
-                                        THEN dt.last_completed_priority -- Preserve existing LCP on error
-                                        ELSE %s -- v_step.priority (success)
-                                      END
-        WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
+            last_completed_priority = %s -- Always v_step.priority
+        FROM casted_dates cd
+        WHERE dt.row_id = cd.row_id AND dt.action IS DISTINCT FROM 'skip'; -- Process if action was not already 'skip' from a prior step.
     $$,
-        v_data_table_name,
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, -- For error CASE (clear)
-        v_step.priority,                                     -- For last_completed_priority CASE (success part)
-        p_batch_row_ids
+        v_data_table_name, p_batch_row_ids,                     -- For CTE
+        v_data_table_name,                                      -- For main UPDATE target
+        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear)
+        v_step.priority                                         -- For last_completed_priority (always this step's priority)
     );
     RAISE DEBUG '[Job %] analyse_valid_time_from_source: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
 

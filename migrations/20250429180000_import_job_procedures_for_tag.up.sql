@@ -64,10 +64,7 @@ BEGIN
                             CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
             invalid_codes = CASE WHEN (dt.invalid_codes - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.invalid_codes - %L::TEXT[]) END, -- Always clear invalid_codes for tag_path
-            last_completed_priority = CASE
-                                        WHEN dt.tag_path IS NOT NULL AND (rt.ltree_path IS NULL OR (rt.ltree_path IS NOT NULL AND rt.resolved_tag_id IS NULL)) THEN dt.last_completed_priority -- Error: Preserve existing LCP
-                                        ELSE %s -- Success or no tag_path: v_step.priority
-                                      END
+            last_completed_priority = %s -- Always v_step.priority
         FROM (
             SELECT row_id FROM public.%I WHERE row_id = ANY(%L) AND action IS DISTINCT FROM 'skip'
         ) base
@@ -78,7 +75,7 @@ BEGIN
         v_data_table_name,                                      -- For main UPDATE target
         v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear on success)
         v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For invalid_codes CASE (clear)
-        v_step.priority,                                        -- For last_completed_priority CASE (success part)
+        v_step.priority,                                        -- For last_completed_priority (always this step's priority)
         v_data_table_name, p_batch_row_ids                      -- For base subquery
     );
     RAISE DEBUG '[Job %] analyse_tags: Single-pass batch update for non-skipped rows (tag errors are fatal): %', p_job_id, v_sql;

@@ -123,17 +123,14 @@ BEGIN
                         WHEN %s THEN COALESCE(dt.error, '{}'::jsonb) || jsonb_strip_nulls(%s) -- Error condition
                         ELSE CASE WHEN (dt.error - %L) = '{}'::jsonb THEN NULL ELSE (dt.error - %L) END
                     END,
-            last_completed_priority = CASE
-                                        WHEN %s THEN dt.last_completed_priority -- Error condition: Preserve existing LCP
-                                        ELSE %s -- Success: v_step.priority
-                                      END
+            last_completed_priority = %s -- Always v_step.priority
         WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
     $$,
         v_data_table_name,
         v_error_conditions_sql, -- For state CASE
         v_error_conditions_sql, v_error_json_sql, -- For error CASE (add)
         v_error_keys_to_clear_list, v_error_keys_to_clear_list, -- For error CASE (clear)
-        v_error_conditions_sql, v_step.priority, -- For last_completed_priority CASE (success part)
+        v_step.priority, -- For last_completed_priority (always this step's priority)
         p_batch_row_ids
     );
 

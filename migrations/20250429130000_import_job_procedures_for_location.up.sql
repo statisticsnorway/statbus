@@ -244,29 +244,29 @@ BEGIN
             typed_postal_latitude = l.resolved_typed_postal_latitude,
             typed_postal_longitude = l.resolved_typed_postal_longitude,
             typed_postal_altitude = l.resolved_typed_postal_altitude,
+            action = CASE
+                        WHEN (%6$s) OR (%10$s) THEN 'skip'::public.import_row_action_type -- Fatal error: set action to skip
+                        ELSE dt.action -- Preserve existing action otherwise
+                     END,
             state = CASE
                         WHEN (%6$s) OR (%10$s) THEN 'error'::public.import_data_state -- Fatal country error OR any coordinate error
                         ELSE 'analysing'::public.import_data_state
                     END,
             error = jsonb_strip_nulls(
-                        (COALESCE(dt.error, '{}'::jsonb) - %3$L::TEXT[])
-                        || CASE WHEN (%6$s) THEN (%7$s) ELSE '{}'::jsonb END -- Fatal country error message
-                        || (%11$s) -- Coordinate cast error messages
-                        || (%12$s) -- Coordinate range error messages
-                        || (%13$s) -- Postal coordinate present error message
+                        COALESCE(dt.error, '{}'::jsonb) -- Start with existing errors
+                        || CASE WHEN (%6$s) THEN (%7$s) ELSE '{}'::jsonb END -- Add Fatal country error message
+                        || (%11$s) -- Add Coordinate cast error messages
+                        || (%12$s) -- Add Coordinate range error messages
+                        || (%13$s) -- Add Postal coordinate present error message
                     ),
             invalid_codes = jsonb_strip_nulls(
-                        (COALESCE(dt.invalid_codes, '{}'::jsonb) - %8$L::TEXT[])
-                        || CASE WHEN (%4$s) AND NOT ((%6$s) OR (%10$s)) THEN (%5$s) ELSE '{}'::jsonb END -- Non-fatal region/country codes (if no fatal/coord error)
-                        || CASE WHEN (%10$s) THEN (%14$s) ELSE '{}'::jsonb END -- Original invalid coordinate values
+                        COALESCE(dt.invalid_codes, '{}'::jsonb) -- Start with existing invalid codes
+                        || CASE WHEN (%4$s) AND NOT ((%6$s) OR (%10$s)) THEN (%5$s) ELSE '{}'::jsonb END -- Add Non-fatal region/country codes (if no fatal/coord error)
+                        || CASE WHEN (%10$s) THEN (%14$s) ELSE '{}'::jsonb END -- Add Original invalid coordinate values
                     ),
-            last_completed_priority =
-                CASE
-                    WHEN (%6$s) OR (%10$s) THEN dt.last_completed_priority -- Fatal country error OR any coordinate error: do not advance priority
-                    ELSE %9$L::INTEGER -- Non-fatal or success: advance priority
-                END
+            last_completed_priority = %9$L::INTEGER -- Always v_step.priority
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%2$L::BIGINT[]) AND dt.action != 'skip';
+        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%2$L::BIGINT[]) AND dt.action IS DISTINCT FROM 'skip';
     $$,
         v_data_table_name,                      /* %1$I (target table) */
         p_batch_row_ids,                        /* %2$L (for lookups CTE and final WHERE) */

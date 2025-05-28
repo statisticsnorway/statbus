@@ -362,12 +362,12 @@ BEGIN
             UPDATE public.%I dt SET
                 state = %L,
                 error = COALESCE(dt.error, %L) || err.error_jsonb, -- Merge err.error_jsonb directly
-                -- last_completed_priority is preserved (not changed) on error
+                last_completed_priority = %L, -- Set to current step's priority on error
                 operation = err.operation, -- Always set operation
                 action = err.action
             FROM temp_batch_analysis err
             WHERE dt.row_id = err.data_row_id AND err.error_jsonb != %L;
-        $$, v_data_table_name, 'error', '{}'::jsonb, '{}'::jsonb);
+        $$, v_data_table_name, 'error', '{}'::jsonb, v_step.priority, '{}'::jsonb);
         RAISE DEBUG '[Job %] analyse_external_idents: Updating error rows: %', p_job_id, v_sql;
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;

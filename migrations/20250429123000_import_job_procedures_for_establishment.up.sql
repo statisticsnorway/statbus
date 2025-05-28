@@ -82,10 +82,7 @@ BEGIN
                                     )
                                 ELSE dt.invalid_codes -- Keep existing invalid_codes if it's a fatal status_id error
                             END,
-            last_completed_priority = CASE
-                                        WHEN dt.status_id IS NULL THEN dt.last_completed_priority -- Fatal: Preserve existing LCP
-                                        ELSE %s -- Non-fatal or success: v_step.priority
-                                      END
+            last_completed_priority = %s -- Always v_step.priority
         FROM lookups l
         WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L) AND dt.action != 'skip'; -- Ensure main update also excludes skipped
     $$,
@@ -93,7 +90,7 @@ BEGIN
         v_job.data_table_name,                                      -- For main UPDATE target
         v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,       -- For error CASE (clear)
         v_invalid_code_keys_arr,                                    -- For invalid_codes CASE (clear old)
-        v_step.priority,                                            -- For last_completed_priority CASE (success part)
+        v_step.priority,                                            -- For last_completed_priority (always this step's priority)
         p_batch_row_ids                                             -- For final WHERE clause
     );
 

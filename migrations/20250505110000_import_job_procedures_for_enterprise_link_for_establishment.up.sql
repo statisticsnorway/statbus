@@ -65,10 +65,7 @@ BEGIN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('enterprise_link_for_establishment', jsonb_build_object('missing_enterprise_for_informal_establishment', dt.establishment_id))
                         ELSE CASE WHEN (dt.error - %4$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %4$L::TEXT[]) END -- v_error_keys_to_clear_arr
                     END,
-            last_completed_priority = CASE
-                                        WHEN dt.action = 'replace' AND dt.establishment_id IS NOT NULL AND %3$L = 'establishment_informal' AND (ed.found_est_id IS NULL OR ed.existing_enterprise_id IS NULL) THEN dt.last_completed_priority -- Error: preserve existing LCP -- v_job_mode
-                                        ELSE %5$s -- Success or non-applicable: current priority -- v_step.priority
-                                      END
+            last_completed_priority = %5$s -- Always v_step.priority
         FROM public.%1$I dt_main -- Alias for the main table being updated -- v_data_table_name
         LEFT JOIN est_data ed ON dt_main.row_id = ed.row_id
         WHERE dt_main.row_id = ANY(%2$L) AND dt_main.action = 'replace' AND %3$L = 'establishment_informal'; -- p_batch_row_ids, v_job_mode
@@ -77,7 +74,7 @@ BEGIN
         p_batch_row_ids,            -- %2$L
         v_job_mode,                 -- %3$L
         v_error_keys_to_clear_arr,  -- %4$L
-        v_step.priority             -- %5$s
+        v_step.priority             -- %5$s (always this step's priority)
     );
 
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_establishment: Updating "replace" rows for informal establishments: %', p_job_id, v_sql;

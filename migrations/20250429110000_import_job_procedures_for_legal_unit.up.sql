@@ -64,16 +64,24 @@ BEGIN
             typed_death_date = l.resolved_typed_death_date,
             state = CASE
                         WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state -- Fatal if status_id is missing
-                        ELSE 'analysing'::public.import_data_state -- Non-fatal for other issues
+                        ELSE -- No error in this step
+                            CASE
+                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state -- Preserve previous error
+                                ELSE 'analysing'::public.import_data_state -- OK to set to analysing
+                            END
                     END,
+            action = CASE
+                        WHEN dt.status_id IS NULL THEN 'skip'::public.import_row_action_type -- Fatal error implies skip
+                        ELSE dt.action -- Preserve action from previous steps if no new fatal error here
+                     END,
             error = CASE
                         WHEN dt.status_id IS NULL THEN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_id_missing', 'Status ID not resolved by prior step')
-                        ELSE -- Clear specific non-fatal error keys if they were previously set
+                        ELSE -- Clear specific non-fatal error keys if they were previously set and no new fatal error
                             CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
             invalid_codes = CASE
-                                WHEN dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if status_id is present (not a fatal error)
+                                WHEN dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if status_id is present (not a fatal error for this step)
                                     jsonb_strip_nulls(
                                      COALESCE(dt.invalid_codes, '{}'::jsonb) - %L::TEXT[] || -- Remove old keys first, then add new ones
                                      jsonb_build_object('data_source_code', CASE WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code ELSE NULL END) ||
@@ -83,20 +91,17 @@ BEGIN
                                      jsonb_build_object('birth_date', CASE WHEN NULLIF(dt.birth_date, '') IS NOT NULL AND l.resolved_typed_birth_date IS NULL THEN dt.birth_date ELSE NULL END) ||
                                      jsonb_build_object('death_date', CASE WHEN NULLIF(dt.death_date, '') IS NOT NULL AND l.resolved_typed_death_date IS NULL THEN dt.death_date ELSE NULL END)
                                     )
-                                ELSE dt.invalid_codes -- Keep existing invalid_codes if it's a fatal status_id error
+                                ELSE dt.invalid_codes -- Keep existing invalid_codes if it's a fatal status_id error (action will be skip anyway)
                             END,
-            last_completed_priority = CASE
-                                        WHEN dt.status_id IS NULL THEN dt.last_completed_priority -- Fatal: Preserve existing LCP
-                                        ELSE %s -- Non-fatal or success: v_step.priority
-                                      END
+            last_completed_priority = %s -- Always v_step.priority
         FROM lookups l
-        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L) AND dt.action != 'skip';
+        WHERE dt.row_id = l.data_row_id AND dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action was not already 'skip' from a prior step.
     $$,
         v_job.data_table_name, p_batch_row_ids,                     -- For lookups CTE
         v_job.data_table_name,                                      -- For main UPDATE target
         v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,       -- For error CASE (clear)
         v_invalid_code_keys_arr,                                    -- For invalid_codes CASE (clear old)
-        v_step.priority,                                            -- For last_completed_priority CASE (success part)
+        v_step.priority,                                            -- For last_completed_priority (always this step's priority)
         p_batch_row_ids                                             -- For final WHERE clause
     );
 
@@ -246,9 +251,9 @@ BEGIN
             dt.edit_by_user_id, dt.edit_at, dt.edit_comment,
             dt.invalid_codes, -- Added
             dt.action
-         FROM public.%I dt WHERE dt.row_id = ANY(%L) AND dt.action != 'skip';
+         FROM public.%I dt WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip' AND dt.state != 'error'; -- Added dt.state != 'error'
     $$, v_data_table_name, p_batch_row_ids);
-    RAISE DEBUG '[Job %] process_legal_unit: Fetching core batch data (including invalid_codes and founding_row_id): %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] process_legal_unit: Fetching core batch data (including invalid_codes and founding_row_id), excluding rows in error state: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     -- Propagate enterprise_id and primary_for_enterprise from founding 'insert' row to subsequent 'replace'/'update' rows in temp_batch_data

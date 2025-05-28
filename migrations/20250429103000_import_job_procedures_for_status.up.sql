@@ -66,12 +66,7 @@ BEGIN
                         ELSE
                             CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
-            last_completed_priority = CASE
-                                        WHEN (NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %L::INTEGER IS NULL) OR
-                                             ((NULLIF(dt.status_code, '') IS NULL OR NULLIF(dt.status_code, '') = '') AND %L::INTEGER IS NULL)
-                                        THEN dt.last_completed_priority -- Retain previous LCP on error
-                                        ELSE %L::INTEGER -- v_step.priority for success
-                                      END
+            last_completed_priority = %L::INTEGER -- Always v_step.priority
         FROM status_lookup sl
         WHERE dt.row_id = sl.data_row_id AND dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip';
     $$,
@@ -83,8 +78,7 @@ BEGIN
         v_default_status_id,                                    -- For error CASE (code not found & no default)
         v_default_status_id,                                    -- For error CASE (no code & no default)
         v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear)
-        v_default_status_id, v_default_status_id,               -- For last_completed_priority CASE (error conditions)
-        v_step.priority,                                        -- For last_completed_priority CASE (success value)
+        v_step.priority,                                        -- For last_completed_priority (always this step's priority)
         p_batch_row_ids                                         -- For final WHERE clause
     );
 

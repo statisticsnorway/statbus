@@ -153,11 +153,11 @@ BEGIN
             UPDATE public.%I dt SET
                 state = %L,
                 action = 'skip', -- Set action to skip if there's an error here
-                error = COALESCE(dt.error, %L) || jsonb_build_object('link_establishment_to_legal_unit', err.error_jsonb)
-                -- last_completed_priority is preserved (not changed) on error
+                error = COALESCE(dt.error, %L) || jsonb_build_object('link_establishment_to_legal_unit', err.error_jsonb),
+                last_completed_priority = %L -- Set to current step's priority on error
             FROM temp_batch_errors err
             WHERE dt.row_id = err.data_row_id;
-        $$, v_data_table_name, 'error', '{}'::jsonb);
+        $$, v_data_table_name, 'error', '{}'::jsonb, v_step.priority);
         RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating error rows: %', p_job_id, v_sql;
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;

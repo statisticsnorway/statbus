@@ -62,10 +62,7 @@ BEGIN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('enterprise_link_for_legal_unit', jsonb_build_object('legal_unit_not_found_for_replace', dt.legal_unit_id))
                         ELSE CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
-            last_completed_priority = CASE
-                                        WHEN dt.action = 'replace' AND dt.legal_unit_id IS NOT NULL AND ld.found_lu_id IS NULL THEN dt.last_completed_priority -- Error: preserve existing LCP
-                                        ELSE %s -- Success or non-replace: current priority
-                                      END
+            last_completed_priority = %s -- Always v_step.priority
         FROM public.%I dt_main -- Alias for the main table being updated
         LEFT JOIN lu_data ld ON dt_main.row_id = ld.row_id
         WHERE dt_main.row_id = ANY(%L) AND dt_main.action = 'replace'; -- Only apply to 'replace' rows
@@ -73,7 +70,7 @@ BEGIN
         v_data_table_name, p_batch_row_ids, -- For lu_data CTE
         v_data_table_name, -- For main UPDATE target
         v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, -- For error clearing
-        v_step.priority, -- For LCP (success case, error case uses dt.last_completed_priority directly)
+        v_step.priority, -- For LCP (always this step's priority)
         v_data_table_name, -- Alias for dt_main
         p_batch_row_ids    -- For final WHERE clause
     );
