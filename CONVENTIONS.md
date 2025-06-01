@@ -27,6 +27,8 @@ It is deployed on custom servers behind Caddy with HTTPS.
 - **Batch Operations**: Utilize PostgreSQL 17+ `MERGE` syntax for efficient batch handling where appropriate.
 - **Database Inspection**: Use `psql` for direct database inspection and querying during development. For example, to list available import definitions: `echo 'SELECT slug, name FROM public.import_definition;' | ./devops/manage-statbus.sh psql`
 
+For a super compact data model for you reference, ask for doc/data-model.md.
+
 ### SQL Testing
 - Use pg_regress with `test/` as the base directory.
 - Run tests via `./devops/manage-statbus.sh test [all|xx_the_test_name]`.
