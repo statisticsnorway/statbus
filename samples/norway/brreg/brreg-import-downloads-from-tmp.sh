@@ -16,7 +16,7 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd ../../.. && pwd )"
 
 # Verify user exists in auth.users
-if ! $WORKSPACE/devops/manage-statbus.sh psql -t -c "select id from user_with_role where email = '${USER_EMAIL}'" | grep -q .; then
+if ! $WORKSPACE/devops/manage-statbus.sh psql -t -c "select id from public.user where email = '${USER_EMAIL}'" | grep -q .; then
   echo "Error: No user found with email ${USER_EMAIL}"
   exit 1
 fi
@@ -60,7 +60,7 @@ SELECT def.id,
        'infinity'::DATE,
        'Import Job for BRREG Hovedenhet ${IMPORT_YEAR} (Current)',
        'This job handles the import of current BRREG Hovedenhet data.',
-       (select id from user_with_role where email = '${USER_EMAIL}')
+       (select id from public.user where email = '${USER_EMAIL}')
 FROM def
 ON CONFLICT (slug) DO UPDATE SET
     default_valid_from = '${TODAY}'::DATE,
@@ -76,7 +76,7 @@ SELECT def.id,
        'infinity'::DATE,
        'Import Job for BRREG Underenhet ${IMPORT_YEAR} (Current)',
        'This job handles the import of current BRREG Underenhet data.',
-       (select id from user_with_role where email = '${USER_EMAIL}')
+       (select id from public.user where email = '${USER_EMAIL}')
 FROM def
 ON CONFLICT (slug) DO UPDATE SET
     default_valid_from = '${TODAY}'::DATE,
