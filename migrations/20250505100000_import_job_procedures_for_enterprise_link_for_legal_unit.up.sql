@@ -39,98 +39,82 @@ BEGIN
     SELECT * INTO v_step FROM public.import_step WHERE code = 'enterprise_link_for_legal_unit';
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_legal_unit step not found', p_job_id; END IF;
 
-    -- For 'replace' actions, attempt to find the existing legal unit and its enterprise.
-    -- If the legal unit is not found for a 'replace' action, it's a fatal error for this step.
+    -- Create a temporary table to hold analysis results for 'replace' actions
+    -- NOTE: DROP TABLE IF EXISTS moved to the end of the procedure (normal and exception paths)
+    CREATE TEMP TABLE temp_enterprise_analysis_results (
+        row_id BIGINT PRIMARY KEY,
+        resolved_enterprise_id INT,
+        resolved_primary_for_enterprise BOOLEAN,
+        is_error BOOLEAN DEFAULT FALSE,
+        error_details JSONB DEFAULT NULL
+    ) ON COMMIT DROP;
+
+    -- Populate the temp table for 'replace' actions where legal_unit_id is known
+    -- This isolates the lookup of existing legal unit data.
     v_sql := format($$
-        WITH lu_data AS (
-            SELECT dt.row_id, lu.enterprise_id AS existing_enterprise_id, lu.primary_for_enterprise AS existing_primary_for_enterprise, lu.id as found_lu_id
-            FROM public.%I dt
-            LEFT JOIN public.legal_unit lu ON dt.legal_unit_id = lu.id
-            WHERE dt.row_id = ANY(%L) AND dt.action = 'replace' AND dt.legal_unit_id IS NOT NULL
-        )
-        UPDATE public.%I dt SET
-            enterprise_id = CASE
-                                WHEN dt.action = 'replace' AND dt.legal_unit_id IS NOT NULL AND ld.found_lu_id IS NOT NULL THEN ld.existing_enterprise_id
-                                ELSE dt.enterprise_id -- Keep existing or NULL for inserts/skipped/not found LU
-                            END,
-            primary_for_enterprise = CASE
-                                        WHEN dt.action = 'replace' AND dt.legal_unit_id IS NOT NULL AND ld.found_lu_id IS NOT NULL THEN ld.existing_primary_for_enterprise
-                                        ELSE dt.primary_for_enterprise
-                                     END,
-            state = CASE
-                        WHEN dt.action = 'replace' AND dt.legal_unit_id IS NOT NULL AND ld.found_lu_id IS NULL THEN 'error'::public.import_data_state -- Fatal: LU for replace not found
-                        ELSE 'analysing'::public.import_data_state
-                    END,
-            error = CASE
-                        WHEN dt.action = 'replace' AND dt.legal_unit_id IS NOT NULL AND ld.found_lu_id IS NULL THEN
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('enterprise_link_for_legal_unit', jsonb_build_object('legal_unit_not_found_for_replace', dt.legal_unit_id))
-                        ELSE CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
-                    END,
-            last_completed_priority = %s -- Always v_step.priority
-        FROM public.%I dt_main -- Alias for the main table being updated
-        LEFT JOIN lu_data ld ON dt_main.row_id = ld.row_id
-        WHERE dt_main.row_id = ANY(%L) AND dt_main.action = 'replace'; -- Only apply to 'replace' rows
-    $$,
-        v_data_table_name, p_batch_row_ids, -- For lu_data CTE
-        v_data_table_name, -- For main UPDATE target
-        v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, -- For error clearing
-        v_step.priority, -- For LCP (always this step's priority)
-        v_data_table_name, -- Alias for dt_main
-        p_batch_row_ids    -- For final WHERE clause
-    );
+        INSERT INTO temp_enterprise_analysis_results (row_id, resolved_enterprise_id, resolved_primary_for_enterprise, is_error, error_details)
+        SELECT
+            dt.row_id,
+            lu.enterprise_id,
+            lu.primary_for_enterprise,
+            CASE WHEN lu.id IS NULL THEN TRUE ELSE FALSE END, -- Error if LU not found for replace
+            CASE
+                WHEN lu.id IS NULL THEN jsonb_build_object('enterprise_link_for_legal_unit', jsonb_build_object('legal_unit_not_found_for_replace', dt.legal_unit_id))
+                ELSE NULL
+            END
+        FROM public.%I dt
+        LEFT JOIN public.legal_unit lu ON dt.legal_unit_id = lu.id
+        WHERE dt.row_id = ANY(%L)
+          AND dt.action = 'replace'
+          AND dt.legal_unit_id IS NOT NULL;
+    $$, v_data_table_name, p_batch_row_ids);
 
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating "replace" rows: %', p_job_id, v_sql;
-
-    -- Debug loop before the actual update
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Debugging values for "replace" rows before update:', p_job_id;
-    FOR v_current_lu_data_row IN EXECUTE format(
-        'SELECT row_id, legal_unit_id, enterprise_id AS current_data_enterprise_id, primary_for_enterprise AS current_data_primary_for_enterprise, action FROM public.%I WHERE row_id = ANY(%L) AND action = ''replace''',
-        v_data_table_name, p_batch_row_ids
-    ) LOOP
-        IF v_current_lu_data_row.legal_unit_id IS NOT NULL THEN
-            SELECT lu.id, lu.enterprise_id, lu.primary_for_enterprise
-            INTO v_existing_lu_record
-            FROM public.legal_unit lu WHERE lu.id = v_current_lu_data_row.legal_unit_id;
-
-            IF v_existing_lu_record.id IS NOT NULL THEN -- Corresponds to ld.found_lu_id IS NOT NULL
-                v_resolved_enterprise_id := v_existing_lu_record.enterprise_id;
-                v_resolved_primary_for_enterprise := v_existing_lu_record.primary_for_enterprise;
-            ELSE
-                v_resolved_enterprise_id := v_current_lu_data_row.current_data_enterprise_id; -- Would keep existing if LU not found
-                v_resolved_primary_for_enterprise := v_current_lu_data_row.current_data_primary_for_enterprise;
-            END IF;
-
-            RAISE DEBUG '[Job %]   RowID: %, LU_ID_data: %, Found_LU_ID_db: %, Existing_Enterprise_ID_db: %, Current_Enterprise_ID_data: %, Resolved_Enterprise_ID_to_set: %',
-                        p_job_id, v_current_lu_data_row.row_id, v_current_lu_data_row.legal_unit_id, v_existing_lu_record.id, v_existing_lu_record.enterprise_id, v_current_lu_data_row.current_data_enterprise_id, v_resolved_enterprise_id;
-            RAISE DEBUG '[Job %]   RowID: %, Existing_Primary_db: %, Current_Primary_data: %, Resolved_Primary_to_set: %',
-                        p_job_id, v_current_lu_data_row.row_id, v_existing_lu_record.primary_for_enterprise, v_current_lu_data_row.current_data_primary_for_enterprise, v_resolved_primary_for_enterprise;
-        ELSE
-            RAISE DEBUG '[Job %]   RowID: %, LU_ID_data: NULL, Skipping detailed lookup for this row.', p_job_id, v_current_lu_data_row.row_id;
-        END IF;
-    END LOOP;
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Populating temp_enterprise_analysis_results: %', p_job_id, v_sql;
+    EXECUTE v_sql;
+    GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Count of rows inserted into temp table
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Populated % rows into temp_enterprise_analysis_results.', p_job_id, v_update_count;
 
     BEGIN
-        EXECUTE v_sql;
-        GET DIAGNOSTICS v_processed_non_skip_count = ROW_COUNT; -- This counts rows updated by the above SQL (action='replace')
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Processed % "replace" rows (includes potential errors).', p_job_id, v_processed_non_skip_count;
+        -- Update the main data table from the temp table results
+        v_sql := format($$
+            UPDATE public.%I dt SET
+                enterprise_id = tear.resolved_enterprise_id,
+                primary_for_enterprise = tear.resolved_primary_for_enterprise,
+                state = CASE WHEN tear.is_error THEN 'error'::public.import_data_state ELSE 'analysing'::public.import_data_state END,
+                error = CASE
+                            WHEN tear.is_error THEN COALESCE(dt.error, '{}'::jsonb) || tear.error_details
+                            ELSE CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
+                        END,
+                last_completed_priority = %s
+            FROM temp_enterprise_analysis_results tear
+            WHERE dt.row_id = tear.row_id;
+        $$, v_data_table_name, v_error_keys_to_clear_arr, v_error_keys_to_clear_arr, v_step.priority);
 
-        -- Update priority for 'insert' and 'skip' rows, and 'replace' rows that were not processed by the first UPDATE (e.g. legal_unit_id was NULL)
-        -- These rows are considered successful for this step's analysis phase or were already skipped.
+        RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating _data table from temp_enterprise_analysis_results: %', p_job_id, v_sql;
+        EXECUTE v_sql;
+        GET DIAGNOSTICS v_processed_non_skip_count = ROW_COUNT;
+        RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updated % rows in _data table from temp table.', p_job_id, v_processed_non_skip_count;
+
+        -- Update priority for rows not processed by the temp table logic
+        -- This includes 'insert', 'skip', and 'replace' rows where legal_unit_id was NULL (so not in temp table).
+        -- These rows are considered successful for this step's analysis phase or were already skipped/had no LU to link.
         v_sql := format($$
             UPDATE public.%I dt SET
                 last_completed_priority = %L,
                 state = CASE WHEN dt.state != 'error' THEN 'analysing'::public.import_data_state ELSE dt.state END, -- Keep error state if already set
                 error = CASE WHEN dt.state != 'error' THEN (CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END) ELSE dt.error END -- Clear this step's error if not an error from this step
             WHERE dt.row_id = ANY(%L)
-              AND (dt.action = 'insert' OR dt.action = 'skip' OR (dt.action = 'replace' AND dt.last_completed_priority < %L));
+              AND NOT EXISTS (SELECT 1 FROM temp_enterprise_analysis_results tear WHERE tear.row_id = dt.row_id);
         $$,
             v_data_table_name, v_step.priority,
             v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,
-            p_batch_row_ids, v_step.priority
+            p_batch_row_ids
         );
+
+        RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updating LCP for remaining rows: %', p_job_id, v_sql;
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updated priority/state for % other rows (insert/skip/unmatched_replace).', p_job_id, v_update_count;
+        RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Updated LCP for % remaining rows (insert/skip/unmatched_replace).', p_job_id, v_update_count;
         v_update_count := v_processed_non_skip_count + v_update_count; -- Total rows touched by logic in this procedure for this batch
 
     EXCEPTION WHEN OTHERS THEN
@@ -141,9 +125,14 @@ BEGIN
             state = 'finished'
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Marked job as failed due to error: %', p_job_id, replace(error_message, '%', '%%');
+        
+        -- Ensure cleanup on error
+        DROP TABLE IF EXISTS temp_enterprise_analysis_results;
         RAISE;
     END;
 
+    -- Ensure cleanup on successful completion of this block
+    DROP TABLE IF EXISTS temp_enterprise_analysis_results;
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit (Batch): Finished analysis successfully.', p_job_id;
 END;
 $analyse_enterprise_link_for_legal_unit$;
