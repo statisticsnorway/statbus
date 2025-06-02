@@ -85,13 +85,40 @@ ORDER BY slug;
 \echo "Loading historical units"
 
 \copy public.import_lu_2015_sht_upload FROM 'samples/norway/small-history/2015-enheter.csv' WITH CSV HEADER;
+
+\echo Processing tasks for import_lu_2015_sht
+CALL worker.process_tasks(p_queue => 'import');
 \copy public.import_lu_2016_sht_upload FROM 'samples/norway/small-history/2016-enheter.csv' WITH CSV HEADER;
+
+\echo Processing tasks for import_lu_2016_sht with DEBUG1
+--SET client_min_messages TO DEBUG1;
+CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
+
 \copy public.import_lu_2017_sht_upload FROM 'samples/norway/small-history/2017-enheter.csv' WITH CSV HEADER;
+
+\echo Processing tasks for import_lu_2017_sht
+CALL worker.process_tasks(p_queue => 'import');
 \copy public.import_lu_2018_sht_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
+
+\echo Processing tasks for import_lu_2018_sht
+CALL worker.process_tasks(p_queue => 'import');
 \copy public.import_es_2015_sht_upload FROM 'samples/norway/small-history/2015-underenheter.csv' WITH CSV HEADER;
+
+\echo Processing tasks for import_es_2015_sht
+CALL worker.process_tasks(p_queue => 'import');
 \copy public.import_es_2016_sht_upload FROM 'samples/norway/small-history/2016-underenheter.csv' WITH CSV HEADER;
+
+\echo Processing tasks for import_es_2016_sht
+CALL worker.process_tasks(p_queue => 'import');
 \copy public.import_es_2017_sht_upload FROM 'samples/norway/small-history/2017-underenheter.csv' WITH CSV HEADER;
+
+\echo Processing tasks for import_es_2017_sht
+CALL worker.process_tasks(p_queue => 'import');
 \copy public.import_es_2018_sht_upload FROM 'samples/norway/small-history/2018-underenheter.csv' WITH CSV HEADER;
+
+\echo Processing tasks for import_es_2018_sht
+CALL worker.process_tasks(p_queue => 'import');
 
 \echo Check import job state before import
 SELECT state, count(*) FROM import_job GROUP BY state;
@@ -101,11 +128,6 @@ SELECT state, count(*) FROM public.import_lu_2015_sht_data GROUP BY state;
 
 \echo Check data row state before import (should be empty as worker hasn't run prepare)
 SELECT state, count(*) FROM public.import_es_2015_sht_data GROUP BY state;
-
-\echo Process import jobs
--- SET client_min_messages TO debug1;
-SET client_min_messages TO NOTICE;
-CALL worker.process_tasks(p_queue => 'import');
 
 \echo Check the states of the import job tasks.
 select queue,t.command,state,error from worker.tasks as t join worker.command_registry as c on t.command = c.command where t.command = 'import_job_process' order by priority;
