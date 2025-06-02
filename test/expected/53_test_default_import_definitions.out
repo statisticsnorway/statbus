@@ -134,7 +134,7 @@ WHERE id.slug = 'establishment_for_lu_current_year'
   AND isc.column_name = 'tax_ident';
           definition_slug          | source_column_name | source_column_priority | is_mapped | target_data_column_name | target_data_column_purpose | target_step_code 
 -----------------------------------+--------------------+------------------------+-----------+-------------------------+----------------------------+------------------
- establishment_for_lu_current_year | tax_ident          |                     35 | t         | tax_ident               | source_input               | external_idents
+ establishment_for_lu_current_year | tax_ident          |                     36 | t         | tax_ident               | source_input               | external_idents
 (1 row)
 
 \echo ""
