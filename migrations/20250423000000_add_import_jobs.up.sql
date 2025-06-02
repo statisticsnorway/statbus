@@ -447,12 +447,29 @@ BEGIN
          RAISE EXCEPTION 'Failed to generate a complete definition snapshot for definition_id %. Ensure mappings, source columns, and data columns are correctly defined and linked. Specifically, import_mapping_list might be missing or null.', NEW.definition_id;
     END IF;
 
-    -- Set default validity dates from time context if available and not already set
-    IF (NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL) AND definition.time_context_ident IS NOT NULL THEN
+    -- Validate and set default validity dates
+    IF definition.time_context_ident IS NOT NULL THEN
+        -- Case A: time_context_ident is provided
+        IF NEW.default_valid_from IS NOT NULL OR NEW.default_valid_to IS NOT NULL THEN
+            RAISE EXCEPTION 'Cannot specify default_valid_from/to when import definition (%) uses time_context_ident (%); validity dates are derived from the time context.', definition.name, definition.time_context_ident;
+        END IF;
+
+        -- Derive from time_context (this was already validated to exist earlier in the trigger)
         SELECT tc.valid_from, tc.valid_to
         INTO NEW.default_valid_from, NEW.default_valid_to
         FROM public.time_context tc
         WHERE tc.ident = definition.time_context_ident;
+
+        -- Safeguard check
+        IF NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL THEN
+             RAISE EXCEPTION 'Failed to derive default_valid_from/to from time_context_ident % for import definition % (%). This should not happen if time_context_ident was validated earlier.', definition.time_context_ident, definition.id, definition.name;
+        END IF;
+    ELSE
+        -- Case B: time_context_ident is NOT provided
+        IF NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL THEN
+            RAISE EXCEPTION 'Must provide both default_valid_from and default_valid_to for import job when its definition (%) does not specify a time_context_ident.', definition.name;
+        END IF;
+        -- User has provided default_valid_from and default_valid_to, no derivation needed.
     END IF;
 
     IF NEW.default_data_source_code IS NULL AND definition.data_source_id IS NOT NULL THEN
