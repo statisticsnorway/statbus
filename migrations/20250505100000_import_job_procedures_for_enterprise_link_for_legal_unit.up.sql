@@ -63,7 +63,7 @@ BEGIN
                 ELSE NULL
             END
         FROM public.%I dt
-        LEFT JOIN public.legal_unit lu ON dt.legal_unit_id = lu.id
+        LEFT JOIN public.legal_unit lu ON dt.legal_unit_id = lu.id AND public.after_to_overlaps(lu.valid_after, lu.valid_to, dt.derived_valid_after, dt.derived_valid_to)
         WHERE dt.row_id = ANY(%L)
           AND dt.action = 'replace'
           AND dt.legal_unit_id IS NOT NULL;
