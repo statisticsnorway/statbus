@@ -10,7 +10,7 @@ shards:
 
   db:
     git: https://github.com/crystal-lang/crystal-db.git
-    version: 0.12.0
+    version: 0.13.1
 
   jwt:
     git: https://github.com/crystal-community/jwt.git
@@ -22,9 +22,9 @@ shards:
 
   pg:
     git: https://github.com/17dec/crystal-pg.git
-    version: 0.27.0+git.commit.ed26146a226f31acf77c1949dea6d3e7c6b5674e
+    version: 0.29.0+git.commit.cc94cc4ee349e4be905fae0d8db1b002369be69b
 
   poncho:
     git: https://github.com/icyleaf/poncho.git
-    version: 0.4.0+git.commit.f9e29066cfc1a7521de45fb5f7d97659dd4357ff
+    version: 0.4.1+git.commit.c6412131aeb8a309c8e771a3ee6fa5f7536cb427
 
