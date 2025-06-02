@@ -264,6 +264,23 @@ BEGIN
                 obe.actual_founding_row_id, -- Added
                 obe.final_lu_id, -- DB lu_id
                 obe.final_est_id, -- DB est_id
+                ( -- Subquery to calculate unstable_identifier_errors
+                    SELECT jsonb_object_agg(
+                               input_data.ident_code, -- This is the ident_code like 'tax_ident'
+                               'Identifier ' || input_data.ident_code || ' value ''' || input_data.input_value || ''' from input attempts to change existing value ''' || COALESCE(existing_ei.ident, 'NULL') || ''''
+                           )
+                    FROM (SELECT key AS ident_code, value AS input_value FROM jsonb_each_text(obe.entity_signature)) AS input_data
+                    JOIN public.external_ident_type_active xit ON xit.code = input_data.ident_code
+                    LEFT JOIN public.external_ident existing_ei ON
+                        existing_ei.type_id = xit.id AND
+                        (
+                            (obe.final_lu_id IS NOT NULL AND existing_ei.legal_unit_id = obe.final_lu_id) OR
+                            (obe.final_est_id IS NOT NULL AND existing_ei.establishment_id = obe.final_est_id)
+                        )
+                    WHERE (obe.final_lu_id IS NOT NULL OR obe.final_est_id IS NOT NULL) -- Only if a unit was resolved
+                      AND existing_ei.ident IS NOT NULL -- Error only if this ident type *already exists* for the unit
+                      AND input_data.input_value IS DISTINCT FROM existing_ei.ident -- And the input value is different
+                ) AS unstable_identifier_errors_jsonb,
                 jsonb_strip_nulls(jsonb_build_object(
                     'missing_identifier_value', CASE WHEN obe.num_raw_idents_with_value = 0 THEN true ELSE NULL END,
                     'unknown_identifier_type', CASE WHEN obe.num_raw_idents_with_value > 0 AND obe.num_valid_type_idents_with_value = 0 THEN obe.unknown_ident_codes ELSE NULL END,
@@ -271,7 +288,7 @@ BEGIN
                     'inconsistent_establishment', CASE WHEN obe.distinct_est_ids > 1 THEN true ELSE NULL END,
                     'ambiguous_unit_type', CASE WHEN obe.final_lu_id IS NOT NULL AND obe.final_est_id IS NOT NULL AND obe.final_lu_id != obe.final_est_id THEN true ELSE NULL END -- Refined: only error if they point to different entities
                 ) || COALESCE(obe.cross_type_conflict_errors, '{}'::jsonb) ) -- Merge specific cross-type conflict errors
-                as error_jsonb,
+                as base_error_jsonb,
                 CASE
                     WHEN obe.final_lu_id IS NULL AND obe.final_est_id IS NULL THEN -- Entity is new to the DB
                         CASE
@@ -293,12 +310,12 @@ BEGIN
         INSERT INTO temp_batch_analysis (data_row_id, error_jsonb, resolved_lu_id, resolved_est_id, operation, action, derived_founding_row_id)
         SELECT
             awo.data_row_id,
-            awo.error_jsonb,
+            awo.base_error_jsonb || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb) AS final_error_jsonb,
             awo.final_lu_id,
             awo.final_est_id,
             awo.operation,
             CASE
-                WHEN awo.error_jsonb != '{}'::jsonb THEN 'skip'::public.import_row_action_type -- Priority 1: Error
+                WHEN (awo.base_error_jsonb || COALESCE(awo.unstable_identifier_errors_jsonb, '{}'::jsonb)) != '{}'::jsonb THEN 'skip'::public.import_row_action_type -- Priority 1: Any Error
                 WHEN %3$L::public.import_strategy = 'insert_only' AND awo.operation != 'insert'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
                 WHEN %3$L::public.import_strategy = 'replace_only' AND awo.operation != 'replace'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
                 WHEN %3$L::public.import_strategy = 'update_only' AND awo.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
@@ -310,7 +327,7 @@ BEGIN
         p_batch_row_ids,                -- %1$L
         v_data_table_name,              -- %2$I
         v_strategy,                     -- %3$L
-        v_job_mode                      -- %4$L (newly added for conflict message)
+        v_job_mode                      -- %4$L
     );
     RAISE DEBUG '[Job %] analyse_external_idents: Identifying errors, determining operation and action: %', p_job_id, v_sql;
     EXECUTE v_sql;
