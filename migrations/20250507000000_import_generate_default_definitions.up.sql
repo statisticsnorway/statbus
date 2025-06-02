@@ -125,6 +125,7 @@ DECLARE
     es_no_lu_steps TEXT[] := ARRAY['external_idents', 'enterprise_link_for_establishment', 'status', 'establishment', 'physical_location', 'postal_location', 'primary_activity', 'secondary_activity', 'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'];
 
     lu_source_cols TEXT[] := ARRAY[
+        'tax_ident','stat_ident',
         'name', 'birth_date', 'death_date',
         'physical_address_part1', 'physical_address_part2', 'physical_address_part3', 'physical_postcode', 'physical_postplace', 'physical_latitude', 'physical_longitude', 'physical_altitude', 'physical_region_code', 'physical_country_iso_2',
         'postal_address_part1', 'postal_address_part2', 'postal_address_part3', 'postal_postcode', 'postal_postplace', 'postal_region_code', 'postal_country_iso_2',
@@ -136,6 +137,7 @@ DECLARE
     lu_explicit_source_cols TEXT[] := lu_source_cols || ARRAY['valid_from', 'valid_to'];
 
     es_source_cols TEXT[] := ARRAY[
+        'tax_ident','stat_ident',
         'name', 'birth_date', 'death_date',
         'physical_address_part1', 'physical_address_part2', 'physical_address_part3', 'physical_postcode', 'physical_postplace', 'physical_latitude', 'physical_longitude', 'physical_altitude', 'physical_region_code', 'physical_country_iso_2',
         'postal_address_part1', 'postal_address_part2', 'postal_address_part3', 'postal_postcode', 'postal_postplace', 'postal_region_code', 'postal_country_iso_2',
@@ -143,11 +145,12 @@ DECLARE
         'primary_activity_category_code', 'secondary_activity_category_code',
         'sector_code', 'unit_size_code', 'status_code', 'data_source_code',
         'tag_path',
-        'legal_unit_tax_ident' -- Added for linking EST to LU
+        'legal_unit_tax_ident','legal_unit_stat_ident'
     ];
     es_explicit_source_cols TEXT[] := es_source_cols || ARRAY['valid_from', 'valid_to'];
 
     es_no_lu_source_cols TEXT[] := ARRAY[
+        'tax_ident','stat_ident',
         'name', 'birth_date', 'death_date',
         'physical_address_part1', 'physical_address_part2', 'physical_address_part3', 'physical_postcode', 'physical_postplace', 'physical_latitude', 'physical_longitude', 'physical_altitude', 'physical_region_code', 'physical_country_iso_2',
         'postal_address_part1', 'postal_address_part2', 'postal_address_part3', 'postal_postcode', 'postal_postplace', 'postal_region_code', 'postal_country_iso_2',
