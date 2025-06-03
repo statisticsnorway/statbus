@@ -141,18 +141,25 @@ BEGIN
 
     v_sql := format($$
         UPDATE public.%I dt SET
+            -- Determine state first
             state = CASE
-                        WHEN %s THEN 'error'::public.import_data_state -- Error condition
-                        ELSE 'analysing'::public.import_data_state
+                        WHEN %s THEN 'error'::public.import_data_state -- Error condition for this step
+                        ELSE 'analysing'::public.import_data_state -- No error from this step
                     END,
+            -- Then determine action based on the new state or existing action
+            action = CASE
+                        WHEN %s THEN 'skip'::public.import_row_action_type -- If this step causes an error, action becomes 'skip'
+                        ELSE dt.action -- Otherwise, preserve existing action
+                     END,
             error = CASE
-                        WHEN %s THEN COALESCE(dt.error, '{}'::jsonb) || jsonb_strip_nulls(%s) -- Error condition
-                        ELSE CASE WHEN (dt.error - %L) = '{}'::jsonb THEN NULL ELSE (dt.error - %L) END
+                        WHEN %s THEN COALESCE(dt.error, '{}'::jsonb) || jsonb_strip_nulls(%s) -- Error condition for this step
+                        ELSE CASE WHEN (dt.error - %L) = '{}'::jsonb THEN NULL ELSE (dt.error - %L) END -- Clear errors specific to this step if no new error
                     END,
             last_completed_priority = %s -- Always v_step.priority
         WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Process if action is distinct from 'skip' (handles NULL)
     $$,
         v_data_table_name,
+        v_error_conditions_sql, -- For action CASE
         v_error_conditions_sql, -- For state CASE
         v_error_conditions_sql, v_error_json_sql, -- For error CASE (add)
         v_error_keys_to_clear_list, v_error_keys_to_clear_list, -- For error CASE (clear)
