@@ -10,8 +10,8 @@ WITH slugs_to_delete AS (
         ('establishment_for_lu_explicit_dates'),
         ('establishment_without_lu_current_year'),
         ('establishment_without_lu_explicit_dates'),
-        ('unit_stats_update_current_year'),       -- Added missing slug
-        ('unit_stats_update_explicit_dates')      -- Added missing slug
+        ('generic_unit_stats_update_current_year'),
+        ('generic_unit_stats_update_explicit_dates')
     ) AS t(slug)
 )
 -- Delete the import definitions. Related data in import_job, import_mapping,
@@ -22,5 +22,13 @@ WHERE idf.slug IN (SELECT slug FROM slugs_to_delete);
 -- Drop helper functions created by the UP migration
 DROP FUNCTION IF EXISTS import.link_steps_to_definition(INT, TEXT[]);
 DROP FUNCTION IF EXISTS import.create_source_and_mappings_for_definition(INT, TEXT[]);
+
+-- Remove lifecycle callback
+CALL lifecycle_callbacks.remove('import_sync_default_definition_mappings');
+
+-- Drop procedures created by the UP migration
+DROP PROCEDURE IF EXISTS import.synchronize_definition_step_mappings(INT, TEXT);
+DROP PROCEDURE IF EXISTS import.synchronize_default_definitions_all_steps();
+DROP PROCEDURE IF EXISTS import.cleanup_orphaned_synced_mappings();
 
 END;
