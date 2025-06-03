@@ -52,10 +52,18 @@ BEGIN
         UPDATE public.%1$I dt SET -- v_data_table_name
             tag_path_ltree = rt.casted_ltree_path, -- Use casted_ltree_path from resolved_tags
             tag_id = rt.resolved_tag_id,
+            -- Determine state first
             state = CASE
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN 'error'::public.import_data_state -- Invalid format from cast
-                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL THEN 'error'::public.import_data_state -- Valid format, but tag not found
-                        ELSE 'analysing'::public.import_data_state -- Success or no tag_path provided
+                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN 'error'::public.import_data_state
+                        WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL THEN 'error'::public.import_data_state
+                        ELSE 'analysing'::public.import_data_state
+                    END,
+            -- Then determine action based on the new state or existing action
+            action = CASE
+                        -- If this step causes an error, action becomes 'skip'
+                        WHEN (dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL) OR (dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NULL AND rt.resolved_tag_id IS NULL) THEN 'skip'::public.import_row_action_type
+                        -- Otherwise, preserve existing action (which could be 'skip' from a prior step, or 'insert'/'replace' etc.)
+                        ELSE dt.action
                     END,
             error = CASE
                         WHEN dt.tag_path IS NOT NULL AND rt.ltree_error_msg IS NOT NULL THEN
