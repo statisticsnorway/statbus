@@ -42,13 +42,15 @@ COMMENT ON TYPE public.import_strategy IS
 CREATE TYPE public.import_mode AS ENUM (
     'legal_unit',        -- Standard import for legal units (implies formal economy context for linked establishments)
     'establishment_formal', -- Establishment linked to a legal unit
-    'establishment_informal' -- Establishment linked directly to an enterprise (informal economy)
+    'establishment_informal', -- Establishment linked directly to an enterprise (informal economy)
+    'generic_unit'       -- For operations that apply to any unit type (e.g., stats updates)
 );
 COMMENT ON TYPE public.import_mode IS
 'Defines the structural mode of the import, especially relevant for establishments:
 - legal_unit: Standard import for legal units. Establishments linked to these are implicitly formal.
 - establishment_formal: Establishment is linked to a Legal Unit (typical formal economy).
-- establishment_informal: Establishment is linked directly to an Enterprise (typical informal economy).';
+- establishment_informal: Establishment is linked directly to an Enterprise (typical informal economy).
+- generic_unit: For operations that apply to any pre-existing unit type, like statistical variable updates.';
 
 CREATE TYPE public.import_row_operation_type AS ENUM (
     'insert',  -- Row represents a new unit/record to be inserted (no existing unit found).
@@ -84,8 +86,10 @@ CREATE TABLE public.import_definition(
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
     time_context_ident TEXT, -- Optional: For default valid_from/valid_to lookup
     strategy public.import_strategy NOT NULL DEFAULT 'insert_or_replace'::public.import_strategy,
-    mode public.import_mode, -- Defines the structural mode (e.g., for establishment imports)
+    mode public.import_mode NOT NULL, -- Defines the structural mode (e.g., for establishment imports)
     user_id integer REFERENCES auth.user(id) ON DELETE SET NULL,
+    active boolean NOT NULL DEFAULT true, -- Whether the definition is active and usable
+    custom boolean NOT NULL DEFAULT true, -- True if system-provided default, false if user-created/customized.
     valid boolean NOT NULL DEFAULT false, -- Indicates if the definition passes validation checks
     validation_error text,                -- Stores validation error messages if not valid
     default_retention_period INTERVAL NOT NULL DEFAULT '18 months'::INTERVAL, -- Default period after which related job data can be cleaned up
@@ -252,24 +256,417 @@ CREATE TABLE public.import_mapping(
     source_value TEXT,
     source_expression public.import_source_expression,
     target_data_column_id int REFERENCES public.import_data_column(id) ON DELETE CASCADE, -- FK to import_data_column
-    CONSTRAINT unique_target_data_column_mapping UNIQUE (definition_id, target_data_column_id), -- Ensure target data column mapped only once
-    CONSTRAINT unique_source_to_target_mapping UNIQUE (definition_id, source_column_id, target_data_column_id), -- Ensure a source maps to a target only once per definition
-    CONSTRAINT "only_one_source_can_be_defined"
-    CHECK( source_column_id IS NOT NULL AND source_value IS     NULL AND source_expression IS     NULL
-        OR source_column_id IS     NULL AND source_value IS NOT NULL AND source_expression IS     NULL
-        OR source_column_id IS     NULL AND source_value IS     NULL AND source_expression IS NOT NULL
-        ),
-    CONSTRAINT "target_data_column_must_be_defined" CHECK(target_data_column_id IS NOT NULL),
-    target_data_column_purpose public.import_data_column_purpose NOT NULL DEFAULT 'source_input'::public.import_data_column_purpose,
-    CONSTRAINT "target_data_column_purpose_must_be_source_input" CHECK (target_data_column_purpose = 'source_input'),
-    FOREIGN KEY (target_data_column_id, target_data_column_purpose) REFERENCES public.import_data_column(id, purpose),
+    is_ignored BOOLEAN NOT NULL DEFAULT false, -- If true, this source_column is explicitly ignored
+    target_data_column_purpose public.import_data_column_purpose, -- Nullable, no default. Value constrained by "mapping_logic"
+    -- Old constraints unique_target_data_column_mapping, only_one_source_can_be_defined,
+    -- target_data_column_must_be_defined, and target_data_column_purpose_must_be_source_input
+    -- are replaced by the "mapping_logic" CHECK constraint and a partial unique index.
+
+    CONSTRAINT unique_source_to_target_mapping UNIQUE (definition_id, source_column_id, target_data_column_id), -- Ensure a source maps to a target only once per definition (applies to non-ignored)
+
+    CONSTRAINT "mapping_logic" CHECK (
+        (
+            is_ignored IS TRUE AND
+            source_column_id IS NOT NULL AND -- Must specify which source column is ignored
+            source_value IS NULL AND
+            source_expression IS NULL AND
+            target_data_column_id IS NULL AND -- No target when ignored
+            target_data_column_purpose IS NULL    -- No target purpose when ignored
+        ) OR (
+            is_ignored IS FALSE AND
+            target_data_column_id IS NOT NULL AND -- Must have a target when not ignored
+            target_data_column_purpose = 'source_input'::public.import_data_column_purpose AND -- Target purpose must be source_input
+            ( -- Exactly one source type must be defined
+                (source_column_id IS NOT NULL AND source_value IS NULL AND source_expression IS NULL) OR
+                (source_column_id IS NULL AND source_value IS NOT NULL AND source_expression IS NULL) OR
+                (source_column_id IS NULL AND source_value IS NULL AND source_expression IS NOT NULL)
+            )
+        )
+    ),
+    FOREIGN KEY (target_data_column_id, target_data_column_purpose) REFERENCES public.import_data_column(id, purpose), -- Applies when target_data_column_id is not null
     created_at timestamp with time zone NOT NULL DEFAULT NOW(),
     updated_at timestamp with time zone NOT NULL DEFAULT NOW()
 );
-COMMENT ON COLUMN public.import_mapping.target_data_column_id IS 'The target column in the _data table.';
-COMMENT ON COLUMN public.import_mapping.target_data_column_purpose IS 'The required purpose of the target data column (must be ''source_input'').';
+-- Partial unique index to ensure target_data_column_id is unique per definition only for non-ignored mappings
+CREATE UNIQUE INDEX idx_unique_target_mapping_when_not_ignored
+ON public.import_mapping (definition_id, target_data_column_id)
+WHERE is_ignored = false;
+
+COMMENT ON COLUMN public.import_mapping.is_ignored IS 'If true, the source_column_id is explicitly marked as ignored for this import definition, and no target_data_column should be specified.';
+COMMENT ON COLUMN public.import_mapping.target_data_column_id IS 'The target column in the _data table. NULL if is_ignored is true.';
+COMMENT ON COLUMN public.import_mapping.target_data_column_purpose IS 'The purpose of the target data column. Must be ''source_input'' if not ignored, NULL if ignored.';
 
 -- Removed trigger prevent_non_draft_mapping_changes
+
+-- Function to validate import_definition
+CREATE OR REPLACE FUNCTION admin.validate_import_definition(p_definition_id INT)
+RETURNS void LANGUAGE plpgsql AS $validate_import_definition$
+DECLARE
+    v_definition public.import_definition;
+    v_error_messages TEXT[] := ARRAY[]::TEXT[];
+    v_is_valid BOOLEAN := true;
+    v_step_codes TEXT[];
+    v_has_valid_time_from_source_step BOOLEAN := false;
+    v_has_valid_from_mapping BOOLEAN := false;
+    v_has_valid_to_mapping BOOLEAN := false;
+    v_required_source_input_cols_flat JSONB;
+    v_mapped_source_input_cols_flat JSONB;
+    v_step_rec RECORD;
+    v_data_col_rec RECORD;
+    v_source_col_rec RECORD;
+    v_mapping_rec RECORD;
+    v_temp_text TEXT;
+BEGIN
+    SELECT * INTO v_definition FROM public.import_definition WHERE id = p_definition_id;
+    IF NOT FOUND THEN
+        RAISE DEBUG 'validate_import_definition: Definition ID % not found. Skipping validation.', p_definition_id;
+        RETURN;
+    END IF;
+
+    -- 1. Time Context / Validity Dates Check
+    IF v_definition.time_context_ident IS NOT NULL THEN
+        IF NOT EXISTS (SELECT 1 FROM public.time_context WHERE ident = v_definition.time_context_ident) THEN
+            v_is_valid := false;
+            v_error_messages := array_append(v_error_messages, format('Invalid time_context_ident: %L does not exist in public.time_context.', v_definition.time_context_ident));
+        END IF;
+    ELSE -- time_context_ident IS NULL, check for source-provided dates
+        SELECT EXISTS (
+            SELECT 1
+            FROM public.import_definition_step ids
+            JOIN public.import_step s ON ids.step_id = s.id
+            WHERE ids.definition_id = p_definition_id AND s.code = 'valid_time_from_source'
+        ) INTO v_has_valid_time_from_source_step;
+
+        IF v_has_valid_time_from_source_step THEN
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.import_mapping im
+                JOIN public.import_data_column idc ON im.target_data_column_id = idc.id
+                JOIN public.import_step s ON idc.step_id = s.id
+                WHERE im.definition_id = p_definition_id
+                  AND s.code = 'valid_time_from_source'
+                  AND idc.column_name = 'valid_from'
+                  AND idc.purpose = 'source_input'
+            ) INTO v_has_valid_from_mapping;
+
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.import_mapping im
+                JOIN public.import_data_column idc ON im.target_data_column_id = idc.id
+                JOIN public.import_step s ON idc.step_id = s.id
+                WHERE im.definition_id = p_definition_id
+                  AND s.code = 'valid_time_from_source'
+                  AND idc.column_name = 'valid_to'
+                  AND idc.purpose = 'source_input'
+            ) INTO v_has_valid_to_mapping;
+
+            IF NOT (v_has_valid_from_mapping AND v_has_valid_to_mapping) THEN
+                v_is_valid := false;
+                v_error_messages := array_append(v_error_messages, 'If time_context_ident is NULL and "valid_time_from_source" step is used, mappings for both "valid_from" and "valid_to" source_input data columns (belonging to that step) are required.');
+            END IF;
+        ELSE
+            v_is_valid := false;
+            v_error_messages := array_append(v_error_messages, 'Time configuration is invalid: Either time_context_ident must be set, or the "valid_time_from_source" step must be included with mappings for its "valid_from" and "valid_to" data columns.');
+        END IF;
+    END IF;
+
+    -- 2. Mode-specific step checks
+    SELECT array_agg(s.code) INTO v_step_codes
+    FROM public.import_definition_step ids
+    JOIN public.import_step s ON ids.step_id = s.id
+    WHERE ids.definition_id = p_definition_id;
+    v_step_codes := COALESCE(v_step_codes, ARRAY[]::TEXT[]);
+
+    IF v_definition.mode = 'legal_unit' THEN
+        IF NOT ('legal_unit' = ANY(v_step_codes)) THEN
+            v_is_valid := false;
+            v_error_messages := array_append(v_error_messages, 'Mode "legal_unit" requires the "legal_unit" step.');
+        END IF;
+        IF NOT ('enterprise_link_for_legal_unit' = ANY(v_step_codes)) THEN
+            v_is_valid := false;
+            v_error_messages := array_append(v_error_messages, 'Mode "legal_unit" requires the "enterprise_link_for_legal_unit" step.');
+        END IF;
+    ELSIF v_definition.mode = 'establishment_formal' THEN
+        IF NOT ('establishment' = ANY(v_step_codes)) THEN
+            v_is_valid := false;
+            v_error_messages := array_append(v_error_messages, 'Mode "establishment_formal" requires the "establishment" step.');
+        END IF;
+        IF NOT ('link_establishment_to_legal_unit' = ANY(v_step_codes)) THEN
+            v_is_valid := false;
+            v_error_messages := array_append(v_error_messages, 'Mode "establishment_formal" requires the "link_establishment_to_legal_unit" step.');
+        END IF;
+    ELSIF v_definition.mode = 'establishment_informal' THEN
+        IF NOT ('establishment' = ANY(v_step_codes)) THEN
+            v_is_valid := false;
+            v_error_messages := array_append(v_error_messages, 'Mode "establishment_informal" requires the "establishment" step.');
+        END IF;
+        IF NOT ('enterprise_link_for_establishment' = ANY(v_step_codes)) THEN
+            v_is_valid := false;
+            v_error_messages := array_append(v_error_messages, 'Mode "establishment_informal" requires the "enterprise_link_for_establishment" step.');
+        END IF;
+    ELSIF v_definition.mode = 'generic_unit' THEN
+        -- Generic unit mode might have fewer structural step requirements.
+        -- It still needs external_idents to find the unit, and likely statistical_variables if that's its purpose.
+        -- For now, no specific structural checks beyond the global mandatory ones.
+        RAISE DEBUG '[Validate Def ID %] Mode is generic_unit, skipping LU/ES specific step checks.', p_definition_id;
+    ELSE
+        -- This case should ideally not be reached if the mode enum is exhaustive and NOT NULL
+        v_is_valid := false;
+        v_error_messages := array_append(v_error_messages, format('Unknown or unhandled import mode: %L.', v_definition.mode));
+    END IF;
+
+    -- 3. Check for mandatory steps
+    IF NOT ('external_idents' = ANY(v_step_codes)) THEN
+        v_is_valid := false;
+        v_error_messages := array_append(v_error_messages, 'The "external_idents" step is mandatory.');
+    END IF;
+    IF NOT ('edit_info' = ANY(v_step_codes)) THEN
+        v_is_valid := false;
+        v_error_messages := array_append(v_error_messages, 'The "edit_info" step is mandatory.');
+    END IF;
+    IF NOT ('metadata' = ANY(v_step_codes)) THEN
+        v_is_valid := false;
+        v_error_messages := array_append(v_error_messages, 'The "metadata" step is mandatory.');
+    END IF;
+
+    -- 4. Source Column and Mapping Consistency
+    WITH required_cols_cte AS (
+        SELECT idc.step_id, s.code as step_code, idc.column_name
+        FROM public.import_definition_step ids
+        JOIN public.import_step s ON ids.step_id = s.id
+        JOIN public.import_data_column idc ON idc.step_id = s.id
+        WHERE ids.definition_id = p_definition_id AND idc.purpose = 'source_input'
+    ), mapped_cols_cte AS (
+        SELECT idc.step_id, s.code as step_code, idc.column_name
+        FROM public.import_mapping im
+        JOIN public.import_data_column idc ON im.target_data_column_id = idc.id
+        JOIN public.import_step s ON idc.step_id = s.id
+        WHERE im.definition_id = p_definition_id AND idc.purpose = 'source_input'
+    ),
+    aggregated_required_cols AS (
+        SELECT jsonb_agg(jsonb_build_object('step_code', rc.step_code, 'column_name', rc.column_name)) as agg_json
+        FROM (SELECT DISTINCT step_code, column_name FROM required_cols_cte) rc
+    ),
+    aggregated_mapped_cols AS (
+        SELECT jsonb_agg(jsonb_build_object('step_code', mc.step_code, 'column_name', mc.column_name)) as agg_json
+        FROM (SELECT DISTINCT step_code, column_name FROM mapped_cols_cte) mc
+    )
+    SELECT
+        (SELECT agg_json FROM aggregated_required_cols),
+        (SELECT agg_json FROM aggregated_mapped_cols)
+    INTO
+        v_required_source_input_cols_flat,
+        v_mapped_source_input_cols_flat;
+
+    v_required_source_input_cols_flat := COALESCE(v_required_source_input_cols_flat, '[]'::jsonb); -- All source_input cols for included steps
+    v_mapped_source_input_cols_flat := COALESCE(v_mapped_source_input_cols_flat, '[]'::jsonb);   -- All mapped source_input cols
+
+    -- Specific check for 'external_idents' step:
+    -- If 'external_idents' step is included, at least one of its 'source_input' data columns must be mapped.
+    IF 'external_idents' = ANY(v_step_codes) THEN
+        DECLARE
+            v_external_idents_step_id INT;
+            v_has_mapped_external_ident BOOLEAN := FALSE;
+        BEGIN
+            SELECT id INTO v_external_idents_step_id FROM public.import_step WHERE code = 'external_idents';
+            IF v_external_idents_step_id IS NOT NULL THEN
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements(v_mapped_source_input_cols_flat) mapped_col
+                    JOIN public.import_data_column idc ON (mapped_col->>'step_code' = (SELECT code FROM public.import_step WHERE id = idc.step_id) AND mapped_col->>'column_name' = idc.column_name)
+                    WHERE idc.step_id = v_external_idents_step_id AND idc.purpose = 'source_input'
+                ) INTO v_has_mapped_external_ident;
+
+                IF NOT v_has_mapped_external_ident THEN
+                    v_is_valid := false;
+                    v_error_messages := array_append(v_error_messages, 'At least one external identifier column (e.g., tax_ident, stat_ident) must be mapped for the "external_idents" step.');
+                END IF;
+            END IF;
+        END;
+    END IF;
+
+    -- Specific check for 'status' step removed, as status_code mapping is now optional.
+    -- The analyse_status procedure will handle defaults, and analyse_legal_unit/_establishment
+    -- will error if status_id is ultimately not resolved.
+
+    -- Conditional check for 'data_source_code' mapping:
+    -- If import_definition.data_source_id is NULL, a mapping for 'data_source_code' is required.
+    IF v_definition.data_source_id IS NULL THEN
+        DECLARE
+            v_data_source_code_mapped BOOLEAN := FALSE;
+            v_data_source_code_data_column_exists BOOLEAN := FALSE;
+        BEGIN
+            -- Check if a data_source_code data column even exists for any of the definition's steps
+            SELECT EXISTS (
+                SELECT 1
+                FROM public.import_definition_step ids
+                JOIN public.import_data_column idc ON ids.step_id = idc.step_id
+                WHERE ids.definition_id = p_definition_id
+                  AND idc.column_name = 'data_source_code'
+                  AND idc.purpose = 'source_input'
+            ) INTO v_data_source_code_data_column_exists;
+
+            IF v_data_source_code_data_column_exists THEN
+                -- If the data column exists, check if it's mapped
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM jsonb_array_elements(v_mapped_source_input_cols_flat) mapped_col
+                    WHERE mapped_col->>'column_name' = 'data_source_code'
+                ) INTO v_data_source_code_mapped;
+
+                IF NOT v_data_source_code_mapped THEN
+                    v_is_valid := false;
+                    v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL and a "data_source_code" source_input data column is available for the definition''s steps, it must be mapped.');
+                END IF;
+            ELSE
+                -- If data_source_id is NULL and no data_source_code data column is available from steps, it's an error.
+                v_is_valid := false;
+                v_error_messages := array_append(v_error_messages, 'If import_definition.data_source_id is NULL, a "data_source_code" source_input data column must be available via one of the definition''s steps and mapped. None found.');
+            END IF;
+        END;
+    END IF;
+
+    -- The old generic loop checking all source_input columns for mapping is removed.
+    -- Only specific, critical mappings are checked above.
+
+    FOR v_source_col_rec IN
+        SELECT isc.column_name
+        FROM public.import_source_column isc
+        WHERE isc.definition_id = p_definition_id
+          AND NOT EXISTS (
+            SELECT 1 FROM public.import_mapping im
+            WHERE im.definition_id = p_definition_id AND im.source_column_id = isc.id
+          )
+    LOOP
+        v_is_valid := false;
+        v_error_messages := array_append(v_error_messages, format('Unused import_source_column: "%s". It is defined but not used in any mapping.', v_source_col_rec.column_name));
+    END LOOP;
+
+    FOR v_mapping_rec IN
+        SELECT im.id as mapping_id, idc.column_name as target_col_name, s.code as target_step_code
+        FROM public.import_mapping im
+        JOIN public.import_data_column idc ON im.target_data_column_id = idc.id -- This JOIN implies target_data_column_id IS NOT NULL
+        JOIN public.import_step s ON idc.step_id = s.id
+        WHERE im.definition_id = p_definition_id
+          AND im.is_ignored = FALSE -- Only validate non-ignored mappings for this check
+          AND NOT EXISTS (
+            SELECT 1 FROM public.import_definition_step ids
+            WHERE ids.definition_id = p_definition_id AND ids.step_id = s.id
+          )
+    LOOP
+        v_is_valid := false;
+        v_error_messages := array_append(v_error_messages, format('Mapping ID %s targets data column "%s" in step "%s", but this step is not part of the definition.', v_mapping_rec.mapping_id, v_mapping_rec.target_col_name, v_mapping_rec.target_step_code));
+    END LOOP;
+
+    -- Final Update
+    IF v_is_valid THEN
+        UPDATE public.import_definition
+        SET valid = true, validation_error = NULL
+        WHERE id = p_definition_id;
+    ELSE
+        -- Concatenate unique error messages
+        SELECT string_agg(DISTINCT error_msg, '; ') INTO v_temp_text FROM unnest(v_error_messages) AS error_msg;
+        UPDATE public.import_definition
+        SET valid = false, validation_error = v_temp_text
+        WHERE id = p_definition_id;
+    END IF;
+
+END;
+$validate_import_definition$;
+
+-- Trigger function for import_definition validation
+CREATE OR REPLACE FUNCTION admin.trigger_validate_import_definition()
+RETURNS TRIGGER LANGUAGE plpgsql AS $trigger_validate_import_definition$
+DECLARE
+    v_definition_id INT;
+    v_step_id INT;
+BEGIN
+    IF TG_OP = 'DELETE' THEN
+        IF TG_TABLE_NAME = 'import_definition' THEN
+            RETURN OLD; -- No need to validate a definition that is being deleted
+        ELSIF TG_TABLE_NAME IN ('import_definition_step', 'import_source_column', 'import_mapping') THEN
+            v_definition_id := OLD.definition_id;
+        ELSIF TG_TABLE_NAME = 'import_data_column' THEN
+            v_step_id := OLD.step_id;
+        ELSIF TG_TABLE_NAME = 'import_step' THEN
+            v_step_id := OLD.id;
+        END IF;
+    ELSE -- INSERT or UPDATE
+        IF TG_TABLE_NAME = 'import_definition' THEN
+            IF TG_OP = 'UPDATE' THEN
+                -- If any core configuration field changed, validation is needed.
+                -- Otherwise, skip to prevent recursion if only valid/validation_error or non-core fields changed.
+                IF NEW.slug IS DISTINCT FROM OLD.slug OR
+                   NEW.data_source_id IS DISTINCT FROM OLD.data_source_id OR
+                   NEW.time_context_ident IS DISTINCT FROM OLD.time_context_ident OR
+                   NEW.strategy IS DISTINCT FROM OLD.strategy OR
+                   NEW.mode IS DISTINCT FROM OLD.mode OR
+                   NEW.default_retention_period IS DISTINCT FROM OLD.default_retention_period
+                THEN
+                    RAISE DEBUG '[% Trigger on %] Core field changed for import_definition ID %, proceeding with validation.', TG_OP, TG_TABLE_NAME, NEW.id;
+                    v_definition_id := NEW.id;
+                ELSE
+                    RAISE DEBUG '[% Trigger on %] Skipping validation for import_definition ID % as no core configuration fields changed in this UPDATE.', TG_OP, TG_TABLE_NAME, NEW.id;
+                    RETURN NEW; -- Skip validation
+                END IF;
+            ELSE -- TG_OP = 'INSERT'
+                v_definition_id := NEW.id; -- Always validate on INSERT
+            END IF;
+        ELSIF TG_TABLE_NAME IN ('import_definition_step', 'import_source_column', 'import_mapping') THEN
+            v_definition_id := NEW.definition_id;
+        ELSIF TG_TABLE_NAME = 'import_data_column' THEN
+            v_step_id := NEW.step_id;
+        ELSIF TG_TABLE_NAME = 'import_step' THEN
+            v_step_id := NEW.id;
+        END IF;
+    END IF;
+
+    IF v_definition_id IS NOT NULL THEN
+        PERFORM admin.validate_import_definition(v_definition_id);
+    ELSIF v_step_id IS NOT NULL THEN
+        -- Re-validate all definitions using this step
+        FOR v_definition_id IN
+            SELECT DISTINCT definition_id
+            FROM public.import_definition_step
+            WHERE step_id = v_step_id
+        LOOP
+            PERFORM admin.validate_import_definition(v_definition_id);
+        END LOOP;
+    END IF;
+
+    IF TG_OP = 'DELETE' THEN
+        RETURN OLD;
+    ELSE
+        RETURN NEW;
+    END IF;
+END;
+$trigger_validate_import_definition$;
+
+-- Triggers for import_definition validation
+CREATE TRIGGER trg_validate_import_definition_after_change
+    AFTER INSERT OR UPDATE OF slug, data_source_id, time_context_ident, strategy, mode, default_retention_period OR DELETE ON public.import_definition
+    FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition();
+
+CREATE TRIGGER trg_validate_import_definition_step_after_change
+    AFTER INSERT OR UPDATE OR DELETE ON public.import_definition_step
+    FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition();
+
+CREATE TRIGGER trg_validate_import_source_column_after_change
+    AFTER INSERT OR UPDATE OR DELETE ON public.import_source_column
+    FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition();
+
+CREATE TRIGGER trg_validate_import_mapping_after_change
+    AFTER INSERT OR UPDATE OR DELETE ON public.import_mapping
+    FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition();
+
+CREATE TRIGGER trg_validate_import_data_column_after_change
+    AFTER INSERT OR UPDATE OR DELETE ON public.import_data_column
+    FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition();
+
+CREATE TRIGGER trg_validate_import_step_after_change
+    AFTER INSERT OR UPDATE OR DELETE ON public.import_step -- Consider UPDATE OF analyse_procedure, process_procedure if more granular control is needed
+    FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition();
+
 
 CREATE TYPE public.import_job_state AS ENUM (
     'waiting_for_upload',  -- Initial state: User must upload data into table, then change state to upload_completed
@@ -293,7 +690,7 @@ CREATE TYPE public.import_data_state AS ENUM (
     'error'        -- Error occurred
 );
 
-CREATE TABLE public.import_job (
+CREATE TABLE public.import_job(
     id integer GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     slug text UNIQUE NOT NULL,
     description text,
@@ -447,29 +844,37 @@ BEGIN
          RAISE EXCEPTION 'Failed to generate a complete definition snapshot for definition_id %. Ensure mappings, source columns, and data columns are correctly defined and linked. Specifically, import_mapping_list might be missing or null.', NEW.definition_id;
     END IF;
 
-    -- Validate and set default validity dates
+    -- Validate and set default validity dates, relying on definition.valid
     IF definition.time_context_ident IS NOT NULL THEN
-        -- Case A: time_context_ident is provided
+        -- Case A: definition.time_context_ident is provided.
+        -- Job cannot override default_valid_from/to.
         IF NEW.default_valid_from IS NOT NULL OR NEW.default_valid_to IS NOT NULL THEN
-            RAISE EXCEPTION 'Cannot specify default_valid_from/to when import definition (%) uses time_context_ident (%); validity dates are derived from the time context.', definition.name, definition.time_context_ident;
+            RAISE EXCEPTION 'Cannot specify default_valid_from/to for import job when its definition (%) uses time_context_ident (%); validity dates are derived from the time context.', definition.name, definition.time_context_ident;
         END IF;
 
-        -- Derive from time_context (this was already validated to exist earlier in the trigger)
+        -- Derive from time_context. The existence of this time_context was already checked by definition validation.
         SELECT tc.valid_from, tc.valid_to
         INTO NEW.default_valid_from, NEW.default_valid_to
         FROM public.time_context tc
         WHERE tc.ident = definition.time_context_ident;
 
-        -- Safeguard check
+        -- Safeguard: This should always succeed if definition is valid.
         IF NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL THEN
-             RAISE EXCEPTION 'Failed to derive default_valid_from/to from time_context_ident % for import definition % (%). This should not happen if time_context_ident was validated earlier.', definition.time_context_ident, definition.id, definition.name;
+             RAISE EXCEPTION 'Internal error: Failed to derive default_valid_from/to from time_context_ident % for a supposedly valid import definition % (%).', definition.time_context_ident, definition.id, definition.name;
         END IF;
     ELSE
-        -- Case B: time_context_ident is NOT provided
-        IF NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL THEN
-            RAISE EXCEPTION 'Must provide both default_valid_from and default_valid_to for import job when its definition (%) does not specify a time_context_ident.', definition.name;
+        -- Case B: definition.time_context_ident is NOT provided.
+        -- The definition.valid status implies that date provision is handled (e.g., via source columns).
+        -- The job *may* provide default_valid_from/to. If it does, they are used.
+        -- If it doesn't, it's fine, as the definition is responsible for ensuring dates are sourced.
+        IF NEW.default_valid_from IS NOT NULL AND NEW.default_valid_to IS NULL THEN
+            RAISE EXCEPTION 'If providing default_valid_from for an import job (definition % without time_context_ident), default_valid_to must also be provided.', definition.name;
         END IF;
-        -- User has provided default_valid_from and default_valid_to, no derivation needed.
+        IF NEW.default_valid_from IS NULL AND NEW.default_valid_to IS NOT NULL THEN
+            RAISE EXCEPTION 'If providing default_valid_to for an import job (definition % without time_context_ident), default_valid_from must also be provided.', definition.name;
+        END IF;
+        -- If both NEW.default_valid_from/to are NULL, this is acceptable if the definition is valid
+        -- as it implies dates are sourced from input columns.
     END IF;
 
     IF NEW.default_data_source_code IS NULL AND definition.data_source_id IS NOT NULL THEN
