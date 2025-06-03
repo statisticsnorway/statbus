@@ -808,8 +808,8 @@ BEGIN
         NEW.slug := format('import_job_%s', NEW.id);
     END IF;
 
-    NEW.upload_table_name := format('%s_upload', NEW.slug);
-    NEW.data_table_name := format('%s_data', NEW.slug);
+    NEW.upload_table_name := format('%I', NEW.slug || '_upload');
+    NEW.data_table_name := format('%I', NEW.slug || '_data');
 
     -- Populate the definition_snapshot JSONB with explicit keys matching table names
     SELECT jsonb_build_object(
