@@ -12,7 +12,7 @@ The import system is built around several key database tables and concepts:
 
 1.  **Import Definition (`import_definition`)**:
     *   Represents a specific *type* of import (e.g., "Import Legal Units for Current Year", "Import Establishments with Explicit Dates").
-    *   Defines the overall behavior, such as the final database operation (`strategy`: `insert_or_replace`, `insert_only`, `replace_only`).
+    *   Defines the overall behavior, such as the final database operation (`strategy`: `insert_or_replace`, `insert_only`, `replace_only`) and the structural `mode` (`legal_unit`, `establishment_formal`, `establishment_informal`, `generic_unit`). The `mode` column is `NOT NULL`.
     *   Is linked to the specific `import_step` records it utilizes via the `import_definition_step` table.
     *   Links together all the necessary components for the chosen steps: source columns, data columns, and mappings.
     *   Can optionally reference a `time_context` for automatic validity period calculation.
@@ -79,6 +79,7 @@ The import system is built around several key database tables and concepts:
 9.  **Job-Specific Tables & Snapshot**:
     *   `<job_slug>_upload`: Stores the raw data exactly as uploaded from the source file. Columns match `import_source_column`.
     *   `<job_slug>_data`: The intermediate table structured according to `import_data_column`. This table includes a dedicated `row_id` column (e.g., `SERIAL` or `IDENTITY`) for stable row identification throughout the import process. It holds source data (`source_input`), analysis results (`internal`, including `operation` and `action`), final primary keys (`pk_id`), and row-level state (`pending`, `analysing`, `analysed`, `processing`, `processed`, `error`) and progress (`last_completed_priority`).
+    *   `generic_unit`: Used for operations that apply to any pre-existing unit type, such as updating statistical variables. These definitions typically do not create new units but modify existing ones identified by external identifiers.
     *   `definition_snapshot` (column in `import_job`): Contains a JSONB snapshot of the `import_definition` and its related metadata as they existed when the job was created. This ensures the job runs consistently even if the definition is modified later.
         *   `import_definition`: The `import_definition` row.
         *   `import_step_list`: An array of `import_step` objects.
