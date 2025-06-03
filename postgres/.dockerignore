@@ -1,0 +1,7 @@
+# Exclude PostgreSQL data volumes (main cause of cache invalidation)
+volumes/
+
+# Exclude files not needed for Docker build
+docker-compose.yml
+update-*.sh
+.dockerignore
