@@ -15,8 +15,8 @@ DECLARE
     v_data_col_id INT;
 BEGIN
     -- 1. Create the definition record (initially invalid)
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid)
-    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', false)
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid, data_source_id)
+    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -94,13 +94,21 @@ BEGIN
 
             IF v_data_col_id IS NOT NULL THEN
                 -- Insert the mapping
-                INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id)
-                VALUES (def_id, v_source_col_id, v_data_col_id)
-                ON CONFLICT DO NOTHING; -- Should not happen with unique target constraint
+                INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose, is_ignored)
+                VALUES (def_id, v_source_col_id, v_data_col_id, 'source_input'::public.import_data_column_purpose, FALSE)
+                ON CONFLICT (definition_id, source_column_id, target_data_column_id) DO NOTHING;
             ELSE
-                 -- Fail Fast: If a mapping is defined but the target data column doesn't exist for this definition's steps, it's an error.
-                RAISE EXCEPTION '[Definition %] Could not find target data column % (purpose=source_input) for source column % among linked steps.', def_id, map_rec.target_name, map_rec.source_name;
+                -- If target_name was specified but no data_col_id found, or if target_name was NULL initially.
+                INSERT INTO public.import_mapping (definition_id, source_column_id, is_ignored, target_data_column_id, target_data_column_purpose)
+                VALUES (def_id, v_source_col_id, TRUE, NULL, NULL)
+                ON CONFLICT (definition_id, source_column_id, target_data_column_id) WHERE target_data_column_id IS NULL
+                DO NOTHING;
             END IF;
+        ELSE -- map_rec.target_name IS NULL
+            INSERT INTO public.import_mapping (definition_id, source_column_id, is_ignored, target_data_column_id, target_data_column_purpose)
+            VALUES (def_id, v_source_col_id, TRUE, NULL, NULL)
+            ON CONFLICT (definition_id, source_column_id, target_data_column_id) WHERE target_data_column_id IS NULL
+            DO NOTHING;
         END IF;
     END LOOP;
 

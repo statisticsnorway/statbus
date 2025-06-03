@@ -19,6 +19,7 @@ WITH it AS (
         , 'Easy upload of the CSV file found at brreg.'
         , 'legal_unit'::public.import_mode
         , 'insert_or_replace'::public.import_strategy
+        , (SELECT id FROM public.data_source WHERE code = 'brreg') -- data_source_id
     FROM it
     RETURNING *
 ), raw_mapping(source_column_name, source_expression, target_column_name) AS (
@@ -124,9 +125,37 @@ VALUES
       ( definition_id
       , source_column_id
       , source_expression
-      , target_column_id
+      , target_data_column_id
+      , is_ignored
+      , target_data_column_purpose
       )
-      SELECT * FROM mapping
+  SELECT
+      m_sub.definition_id,
+      m_sub.source_column_id,
+      m_sub.source_expression,
+      CASE WHEN (m_sub.original_target_column_name IS NULL OR m_sub.resolved_target_id IS NULL) THEN NULL ELSE m_sub.resolved_target_id END,
+      (m_sub.original_target_column_name IS NULL OR m_sub.resolved_target_id IS NULL), -- is_ignored
+      CASE WHEN (m_sub.original_target_column_name IS NULL OR m_sub.resolved_target_id IS NULL) THEN NULL ELSE 'source_input'::public.import_data_column_purpose END
+  FROM (
+      SELECT
+          def.id as definition_id,
+          isc.id as source_column_id,
+          nm.source_expression,
+          nm.target_column_name as original_target_column_name,
+          itc.id as resolved_target_id
+      FROM def
+      CROSS JOIN name_mapping AS nm
+      LEFT JOIN inserted_source_column AS isc ON isc.column_name = nm.source_column_name AND isc.definition_id = def.id
+      LEFT JOIN public.import_target_column AS itc ON itc.column_name = nm.target_column_name AND itc.target_id = def.target_id
+      WHERE (isc.id IS NOT NULL OR nm.source_expression IS NOT NULL) -- Process only if source_column was created or it's an expression
+  ) AS m_sub
+  ON CONFLICT (definition_id, source_column_id, target_data_column_id)
+  DO UPDATE SET -- This handles cases where a mapping might exist from a previous run or manual setup
+    is_ignored = EXCLUDED.is_ignored,
+    target_data_column_purpose = EXCLUDED.target_data_column_purpose
+  WHERE -- Only update if the conflict is on the unique_source_to_target_mapping (non-ignored) or if it's an ignored mapping being re-asserted
+    (EXCLUDED.is_ignored = FALSE AND public.import_mapping.target_data_column_id = EXCLUDED.target_data_column_id) OR
+    (EXCLUDED.is_ignored = TRUE AND public.import_mapping.target_data_column_id IS NULL)
   RETURNING *
 )
 --SELECT * FROM mapped;
