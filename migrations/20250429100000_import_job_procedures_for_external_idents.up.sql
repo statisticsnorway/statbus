@@ -232,13 +232,16 @@ BEGIN
                 COUNT(tui.ident_value) FILTER (WHERE tui.ident_value IS NOT NULL) AS num_raw_idents_with_value,
                 COUNT(tui.ident_type_id) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS num_valid_type_idents_with_value,
                 array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NULL) as unknown_ident_codes,
+                array_to_string(array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL AND tui.ident_type_id IS NULL), ', ') as unknown_ident_codes_text,
+                array_agg(DISTINCT tui.source_ident_code) FILTER (WHERE tui.ident_value IS NOT NULL) as all_input_ident_codes_with_value,
+                (SELECT array_agg(value->>'column_name') FROM jsonb_array_elements(%5$L) value) as all_source_input_ident_codes_for_step, -- %5$L is v_ident_data_cols (JSONB array of data_column objects for the step)
                 COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_lu_ids,
                 COUNT(DISTINCT tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS distinct_est_ids,
-                MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id, -- Entity ID from DB
-                MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id, -- Entity ID from DB
+                MAX(tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_lu_id,
+                MAX(tui.resolved_est_id) FILTER (WHERE tui.resolved_est_id IS NOT NULL AND tui.ident_type_id IS NOT NULL) AS final_est_id,
                 jsonb_object_agg(tui.source_ident_code, tui.ident_value) FILTER (WHERE tui.ident_type_id IS NOT NULL AND tui.ident_value IS NOT NULL) AS entity_signature,
-                BOOL_OR(tui.conflicting_est_is_formal) AS agg_conflicting_est_is_formal, -- Aggregate the formal flag
-                -- Aggregate cross-type conflicts: key is source_ident_code, value is conflict message including conflicting ident JSONB
+                BOOL_OR(tui.conflicting_est_is_formal) AS agg_conflicting_est_is_formal,
+                -- Aggregate cross-type conflicts: key is source_ident_code, value is conflict message
                 jsonb_object_agg(
                     tui.source_ident_code,
                     'Identifier already used by a ' ||
@@ -275,11 +278,11 @@ BEGIN
             SELECT
                 obe.data_row_id,
                 obe.actual_founding_row_id, -- Added
-                obe.final_lu_id, -- DB lu_id
-                obe.final_est_id, -- DB est_id
+                obe.final_lu_id, 
+                obe.final_est_id, 
                 ( -- Subquery to calculate unstable_identifier_errors
                     SELECT jsonb_object_agg(
-                               input_data.ident_code, -- This is the ident_code like 'tax_ident'
+                               input_data.ident_code, 
                                'Identifier ' || input_data.ident_code || ' value ''' || input_data.input_value || ''' from input attempts to change existing value ''' || COALESCE(existing_ei.ident, 'NULL') || ''''
                            )
                     FROM (SELECT key AS ident_code, value AS input_value FROM jsonb_each_text(obe.entity_signature)) AS input_data
@@ -290,18 +293,43 @@ BEGIN
                             (obe.final_lu_id IS NOT NULL AND existing_ei.legal_unit_id = obe.final_lu_id) OR
                             (obe.final_est_id IS NOT NULL AND existing_ei.establishment_id = obe.final_est_id)
                         )
-                    WHERE (obe.final_lu_id IS NOT NULL OR obe.final_est_id IS NOT NULL) -- Only if a unit was resolved
-                      AND existing_ei.ident IS NOT NULL -- Error only if this ident type *already exists* for the unit
-                      AND input_data.input_value IS DISTINCT FROM existing_ei.ident -- And the input value is different
+                    WHERE (obe.final_lu_id IS NOT NULL OR obe.final_est_id IS NOT NULL) 
+                      AND existing_ei.ident IS NOT NULL 
+                      AND input_data.input_value IS DISTINCT FROM existing_ei.ident 
                 ) AS unstable_identifier_errors_jsonb,
-                jsonb_strip_nulls(jsonb_build_object(
-                    'missing_identifier_value', CASE WHEN obe.num_raw_idents_with_value = 0 THEN true ELSE NULL END,
-                    'unknown_identifier_type', CASE WHEN obe.num_raw_idents_with_value > 0 AND obe.num_valid_type_idents_with_value = 0 THEN obe.unknown_ident_codes ELSE NULL END,
-                    'inconsistent_legal_unit', CASE WHEN obe.distinct_lu_ids > 1 THEN true ELSE NULL END,
-                    'inconsistent_establishment', CASE WHEN obe.distinct_est_ids > 1 THEN true ELSE NULL END,
-                    'ambiguous_unit_type', CASE WHEN obe.final_lu_id IS NOT NULL AND obe.final_est_id IS NOT NULL AND obe.final_lu_id != obe.final_est_id THEN true ELSE NULL END -- Refined: only error if they point to different entities
-                ) || COALESCE(obe.cross_type_conflict_errors, '{}'::jsonb) ) -- Merge specific cross-type conflict errors
-                as base_error_jsonb,
+                (
+                    COALESCE(
+                        (SELECT jsonb_object_agg(code, 'No identifier specified')
+                         FROM unnest(obe.all_source_input_ident_codes_for_step) code
+                         WHERE obe.num_raw_idents_with_value = 0),
+                        '{}'::jsonb
+                    ) ||
+                    COALESCE(
+                        (SELECT jsonb_object_agg(code, 'Unknown identifier type(s): ' || obe.unknown_ident_codes_text)
+                         FROM unnest(obe.unknown_ident_codes) code
+                         WHERE obe.num_raw_idents_with_value > 0 AND obe.num_valid_type_idents_with_value = 0),
+                        '{}'::jsonb
+                    ) ||
+                    COALESCE(
+                        (SELECT jsonb_object_agg(code, 'Provided identifiers resolve to different Legal Units')
+                         FROM unnest(obe.all_input_ident_codes_with_value) code
+                         WHERE obe.distinct_lu_ids > 1),
+                        '{}'::jsonb
+                    ) ||
+                    COALESCE(
+                        (SELECT jsonb_object_agg(code, 'Provided identifiers resolve to different Establishments')
+                         FROM unnest(obe.all_input_ident_codes_with_value) code
+                         WHERE obe.distinct_est_ids > 1),
+                        '{}'::jsonb
+                    ) ||
+                    COALESCE(
+                        (SELECT jsonb_object_agg(code, 'Identifier(s) ambiguously resolve to both a Legal Unit and an Establishment')
+                         FROM unnest(obe.all_input_ident_codes_with_value) code
+                         WHERE obe.final_lu_id IS NOT NULL AND obe.final_est_id IS NOT NULL AND obe.final_lu_id != obe.final_est_id),
+                        '{}'::jsonb
+                    ) ||
+                    COALESCE(obe.cross_type_conflict_errors, '{}'::jsonb)
+                ) as base_error_jsonb,
                 CASE
                     WHEN obe.final_lu_id IS NULL AND obe.final_est_id IS NULL THEN -- Entity is new to the DB
                         CASE
@@ -334,13 +362,14 @@ BEGIN
                 WHEN %3$L::public.import_strategy = 'update_only' AND awo.operation != 'update'::public.import_row_operation_type THEN 'skip'::public.import_row_action_type -- %3$L is v_strategy
                 ELSE (awo.operation::text)::public.import_row_action_type
             END as action,
-            awo.actual_founding_row_id -- Added
+            awo.actual_founding_row_id
         FROM AnalysisWithOperation awo;
     $$, 
-        p_batch_row_ids,                -- %1$L
-        v_data_table_name,              -- %2$I
-        v_strategy,                     -- %3$L
-        v_job_mode                      -- %4$L
+        p_batch_row_ids,                /* %1$L */
+        v_data_table_name,              /* %2$I */
+        v_strategy,                     /* %3$L */
+        v_job_mode,                     /* %4$L */
+        v_ident_data_cols               /* %5$L */ 
     );
     RAISE DEBUG '[Job %] analyse_external_idents: Identifying errors, determining operation and action: %', p_job_id, v_sql;
     EXECUTE v_sql;
