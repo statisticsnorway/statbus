@@ -173,25 +173,25 @@ BEGIN
 
     -- Step 1: Identify rows needing enterprise creation (new LUs, action = 'insert')
     CREATE TEMP TABLE temp_new_lu_for_enterprise_creation (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id BIGINT PRIMARY KEY, -- This will be the founding_row_id for the new LU entity
         lu_name TEXT,
-        -- lu_short_name VARCHAR(16), -- Removed, short_name will be NULL by default
         edit_by_user_id INT,
         edit_at TIMESTAMPTZ,
-        edit_comment TEXT -- Added
+        edit_comment TEXT
     ) ON COMMIT DROP;
 
     v_sql := format($$
         INSERT INTO temp_new_lu_for_enterprise_creation (data_row_id, lu_name, edit_by_user_id, edit_at, edit_comment)
-        SELECT row_id, name, edit_by_user_id, edit_at, edit_comment
-        FROM public.%I
-        WHERE row_id = ANY(%L) AND action = 'insert'; -- Only process rows for new LUs
+        SELECT dt.row_id, dt.name, dt.edit_by_user_id, dt.edit_at, dt.edit_comment
+        FROM public.%I dt
+        WHERE dt.row_id = ANY(%L) AND dt.action = 'insert' AND dt.founding_row_id = dt.row_id; -- Only process founding rows for new LUs
     $$, v_data_table_name, p_batch_row_ids);
     EXECUTE v_sql;
 
     -- Step 2: Create new enterprises for LUs in temp_new_lu_for_enterprise_creation and map them
+    -- temp_created_enterprises.data_row_id will store the founding_row_id of the LU
     CREATE TEMP TABLE temp_created_enterprises (
-        data_row_id BIGINT PRIMARY KEY,
+        data_row_id BIGINT PRIMARY KEY, -- Stores the founding_row_id of the LU
         enterprise_id INT NOT NULL
     ) ON COMMIT DROP;
 
@@ -225,7 +225,7 @@ BEGIN
             last_completed_priority = %L,
             error = NULL, -- Clear previous errors if this step succeeds for the row
             state = %L
-        FROM temp_created_enterprises tce
+        FROM temp_created_enterprises tce -- tce.data_row_id is the founding_row_id
         WHERE dt.founding_row_id = tce.data_row_id -- Link all rows of the entity via founding_row_id
           AND dt.row_id = ANY(%L) -- Ensure we only update rows from the current batch
           AND dt.state != 'error'; -- Avoid updating rows already in error from a prior step

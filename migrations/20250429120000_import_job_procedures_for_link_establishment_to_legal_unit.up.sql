@@ -21,7 +21,8 @@ DECLARE
     v_unpivot_sql TEXT := ''; 
     v_add_separator BOOLEAN := FALSE; 
     v_error_row_ids BIGINT[] := ARRAY[]::BIGINT[];
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['link_establishment_to_legal_unit'];
+    v_error_keys_to_clear_arr TEXT[] := ARRAY[]::TEXT[]; 
+    v_fallback_error_key TEXT;
 BEGIN
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -51,6 +52,12 @@ BEGIN
                         v_data_table_name, v_step.priority, p_batch_row_ids);
          RETURN;
     END IF;
+
+    -- Populate v_error_keys_to_clear_arr with all source_input column names for this step
+    SELECT array_agg(value->>'column_name') INTO v_error_keys_to_clear_arr
+    FROM jsonb_array_elements(v_link_data_cols) value;
+    v_error_keys_to_clear_arr := COALESCE(v_error_keys_to_clear_arr, ARRAY[]::TEXT[]);
+    RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Error keys to clear for this step: %', p_job_id, v_error_keys_to_clear_arr;
 
     -- Step 1: Unpivot provided identifiers and lookup legal units
     CREATE TEMP TABLE temp_unpivoted_lu_idents (
@@ -119,45 +126,59 @@ BEGIN
     -- Step 2: Identify and Aggregate Errors
     CREATE TEMP TABLE temp_batch_errors (data_row_id BIGINT PRIMARY KEY, error_jsonb JSONB) ON COMMIT DROP;
 
+    -- Pre-calculate the fallback error key
+    v_fallback_error_key := COALESCE(v_error_keys_to_clear_arr[1], 'link_establishment_to_legal_unit_error');
+
     -- Check for rows missing any identifier, inconsistencies (multiple LUs found), or not found
     v_sql := format($$
         WITH RowChecks AS (
             SELECT
                 orig.data_row_id,
-                COUNT(tui.data_row_id) AS num_idents_provided,
+                COUNT(tui.data_row_id) AS num_idents_provided, -- Counts how many entries in temp_unpivoted_lu_idents match this row_id
                 COUNT(DISTINCT tui.resolved_lu_id) FILTER (WHERE tui.resolved_lu_id IS NOT NULL) AS distinct_lu_ids,
-                MAX(CASE WHEN tui.resolved_lu_id IS NOT NULL THEN 1 ELSE 0 END) AS found_lu
-            FROM (SELECT unnest(%L::BIGINT[]) as data_row_id) orig -- Ensure all original data_row_ids are checked.
+                MAX(CASE WHEN tui.resolved_lu_id IS NOT NULL THEN 1 ELSE 0 END) AS found_lu,
+                array_agg(DISTINCT tui.ident_code) FILTER (WHERE tui.ident_value IS NOT NULL) as provided_input_ident_codes -- Get actual input column names used
+            FROM (SELECT unnest(%1$L::BIGINT[]) as data_row_id) orig
             LEFT JOIN temp_unpivoted_lu_idents tui ON orig.data_row_id = tui.data_row_id
             GROUP BY orig.data_row_id
         )
         INSERT INTO temp_batch_errors (data_row_id, error_jsonb)
         SELECT
-            data_row_id,
-            jsonb_strip_nulls(jsonb_build_object(
-                'missing_identifier', CASE WHEN num_idents_provided = 0 THEN true ELSE NULL END,
-                'not_found', CASE WHEN num_idents_provided > 0 AND found_lu = 0 THEN true ELSE NULL END,
-                'inconsistent_legal_unit', CASE WHEN distinct_lu_ids > 1 THEN true ELSE NULL END
-            ))
-        FROM RowChecks
-        WHERE num_idents_provided = 0 OR (num_idents_provided > 0 AND found_lu = 0) OR distinct_lu_ids > 1;
-    $$, p_batch_row_ids);
+            rc.data_row_id,
+            CASE
+                WHEN rc.num_idents_provided = 0 THEN -- No identifiers provided at all
+                    jsonb_build_object(%2$L, 'Missing legal unit identifier.')
+                WHEN rc.num_idents_provided > 0 AND rc.found_lu = 0 THEN -- Identifiers provided, but none resolved to an LU
+                    (SELECT jsonb_object_agg(key_name, 'Legal unit not found with provided identifiers.') FROM unnest(COALESCE(rc.provided_input_ident_codes, ARRAY[%2$L])) AS key_name)
+                WHEN rc.distinct_lu_ids > 1 THEN -- Identifiers provided resolved to multiple different LUs
+                    (SELECT jsonb_object_agg(key_name, 'Provided identifiers resolve to different Legal Units.') FROM unnest(COALESCE(rc.provided_input_ident_codes, ARRAY[%2$L])) AS key_name)
+                ELSE '{}'::jsonb -- No error for this specific check, should not be inserted by WHERE clause
+            END
+        FROM RowChecks rc
+        WHERE rc.num_idents_provided = 0 OR (rc.num_idents_provided > 0 AND rc.found_lu = 0) OR rc.distinct_lu_ids > 1;
+    $$, 
+        p_batch_row_ids,         /* %1$L */
+        v_fallback_error_key     /* %2$L */
+    );
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Identifying errors post-lookup: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
     -- Step 3: Batch Update Error Rows
-    -- DECLARE -- v_error_row_ids moved to main block
-    --     v_error_row_ids BIGINT[];
     BEGIN
         v_sql := format($$
-            UPDATE public.%I dt SET
-                state = %L,
+            UPDATE public.%1$I dt SET
+                state = %2$L,
                 action = 'skip', -- Set action to skip if there's an error here
-                error = COALESCE(dt.error, %L) || jsonb_build_object('link_establishment_to_legal_unit', err.error_jsonb),
-                last_completed_priority = %L -- Set to current step's priority on error
+                error = COALESCE(dt.error, %3$L) || err.error_jsonb, -- Directly merge the error_jsonb from temp_batch_errors
+                last_completed_priority = %4$L -- Set to current step's priority on error
             FROM temp_batch_errors err
             WHERE dt.row_id = err.data_row_id;
-        $$, v_data_table_name, 'error', '{}'::jsonb, v_step.priority);
+        $$, 
+            v_data_table_name,  -- %1$I
+            'error',            -- %2$L
+            '{}'::jsonb,        -- %3$L
+            v_step.priority     -- %4$L
+        );
         RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating error rows: %', p_job_id, v_sql;
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
@@ -177,9 +198,9 @@ BEGIN
                    dt.derived_valid_after AS est_derived_valid_after, -- Use derived_valid_after
                    dt.derived_valid_to AS est_derived_valid_to
             FROM temp_unpivoted_lu_idents tui
-            JOIN public.%1$I dt ON tui.data_row_id = dt.row_id -- %1$I is v_data_table_name
+            JOIN public.%1$I dt ON tui.data_row_id = dt.row_id
             WHERE tui.resolved_lu_id IS NOT NULL
-              AND dt.row_id = ANY(%2$L) AND dt.row_id != ALL(%3$L) -- %2$L is p_batch_row_ids, %3$L is COALESCE(v_error_row_ids, ARRAY[]::BIGINT[])
+              AND dt.row_id = ANY(%2$L) AND dt.row_id != ALL(%3$L)
         ),
         RankedForPrimary AS (
             SELECT
@@ -193,11 +214,11 @@ BEGIN
                     SELECT 1 FROM public.establishment est
                     WHERE est.legal_unit_id = rl.resolved_lu_id
                       AND est.primary_for_legal_unit = TRUE
-                      AND public.after_to_overlaps(est.valid_after, est.valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to) -- Changed to after_to_overlaps
-                ) AS no_overlapping_primary_in_db -- Renamed for clarity
+                      AND public.after_to_overlaps(est.valid_after, est.valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to)
+                ) AS no_overlapping_primary_in_db
             FROM ResolvedLinks rl
         )
-        UPDATE public.%1$I dt SET -- %1$I is v_data_table_name
+        UPDATE public.%1$I dt SET
             legal_unit_id = rfp.resolved_lu_id,
             primary_for_legal_unit = (
                 rfp.no_overlapping_primary_in_db
@@ -214,19 +235,18 @@ BEGIN
                       )
                 )
             ),
-            last_completed_priority = %4$L, -- %4$L is v_step.priority
-            error = CASE WHEN (dt.error - %5$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %5$L::TEXT[]) END, -- %5$L is v_error_keys_to_clear_arr
-            state = %7$L -- Corrected: %7$L is 'analysing'::public.import_data_state
+            last_completed_priority = %4$L,
+            error = CASE WHEN (dt.error - %5$L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %5$L::TEXT[]) END,
+            state = %6$L
         FROM RankedForPrimary rfp
         WHERE dt.row_id = rfp.data_row_id; -- Join condition for UPDATE
     $$,
-        v_data_table_name,                      -- %1$I
-        p_batch_row_ids,                        -- %2$L
-        COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]), -- %3$L
-        v_step.priority,                        -- %4$L
-        v_error_keys_to_clear_arr,              -- %5$L (used for error clearing)
-        v_error_keys_to_clear_arr,              -- %6$L (this was the incorrect argument for state)
-        'analysing'::public.import_data_state   -- %7$L (this is the correct argument for state)
+        v_data_table_name,                      /* %1$I */
+        p_batch_row_ids,                        /* %2$L */
+        COALESCE(v_error_row_ids, ARRAY[]::BIGINT[]), /* %3$L */
+        v_step.priority,                        /* %4$L */
+        v_error_keys_to_clear_arr,              /* %5$L */
+        'analysing'::public.import_data_state   /* %6$L */
     );
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updating success rows with resolved IDs and refined primary_for_legal_unit logic: %', p_job_id, v_sql;
     EXECUTE v_sql;
@@ -239,9 +259,13 @@ BEGIN
             sample_data RECORD;
             v_sample_sql TEXT;
         BEGIN
-            v_sample_sql := format(
-                'SELECT row_id, legal_unit_id, primary_for_legal_unit, action, state, error FROM public.%I WHERE row_id = ANY(%L) AND legal_unit_id IS NOT NULL LIMIT 3', -- Changed linked_legal_unit_id
-                v_data_table_name, p_batch_row_ids
+            v_sample_sql := format($$
+              SELECT row_id, legal_unit_id, primary_for_legal_unit, action, state, error
+                FROM public.%1$I
+               WHERE row_id = ANY(%2$L)
+                 AND legal_unit_id IS NOT NULL LIMIT 3
+            $$, v_data_table_name,  /* %1$I */
+                p_batch_row_ids     /* %2$L */
             );
             RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Sample _data table after update: %', p_job_id, v_sample_sql;
             FOR sample_data IN EXECUTE v_sample_sql LOOP
@@ -255,11 +279,15 @@ BEGIN
     DROP TABLE IF EXISTS temp_batch_errors;
 
     -- Update priority for rows that were initially skipped
-    EXECUTE format('
-        UPDATE public.%I dt SET
-            last_completed_priority = %L
-        WHERE dt.row_id = ANY(%L) AND dt.action = ''skip'';
-    ', v_data_table_name, v_step.priority, p_batch_row_ids);
+    EXECUTE format($$
+        UPDATE public.%1$I dt SET
+            last_completed_priority = %2$L
+        WHERE dt.row_id = ANY(%3$L) AND dt.action = 'skip';
+    $$, 
+        v_data_table_name,  -- %1$I
+        v_step.priority,    -- %2$L
+        p_batch_row_ids     -- %3$L
+    );
     GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Updated last_completed_priority for % pre-skipped rows.', p_job_id, v_skipped_update_count;
 
