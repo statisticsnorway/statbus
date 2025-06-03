@@ -165,7 +165,6 @@ DECLARE
     rec_ident_type public.external_ident_type_active;
     v_ident_value TEXT;
     sample_data_row RECORD;
-    v_data_table_col_name TEXT;
     v_select_list TEXT;
     v_job_mode public.import_mode; -- Added for job mode
     rec_demotion_es RECORD; -- For establishment demotion
@@ -449,37 +448,20 @@ BEGIN
         IF v_inserted_new_est_count > 0 THEN
             FOR rec_created_est IN SELECT tce.data_row_id, tce.new_establishment_id, tbd.edit_by_user_id, tbd.edit_at, tbd.edit_comment
                                    FROM temp_created_ests tce
-                                   JOIN temp_batch_data tbd ON tce.data_row_id = tbd.data_row_id 
+                                   JOIN temp_batch_data tbd ON tce.data_row_id = tbd.data_row_id
             LOOP
-                FOR rec_ident_type IN SELECT * FROM public.external_ident_type_active ORDER BY priority LOOP
-                    v_data_table_col_name := rec_ident_type.code;
-                    BEGIN
-                        EXECUTE format('SELECT %I FROM public.%I WHERE row_id = %L',
-                                       v_data_table_col_name, v_data_table_name, rec_created_est.data_row_id)
-                        INTO v_ident_value;
-
-                        IF v_ident_value IS NOT NULL AND v_ident_value <> '' THEN
-                            RAISE DEBUG '[Job %] process_establishment: For new EST (id: %), data_row_id: %, ident_type: % (code: %), value: %',
-                                        p_job_id, rec_created_est.new_establishment_id, rec_created_est.data_row_id, rec_ident_type.id, rec_ident_type.code, v_ident_value;
-                            INSERT INTO public.external_ident (establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment)
-                            VALUES (rec_created_est.new_establishment_id, rec_ident_type.id, v_ident_value, rec_created_est.edit_by_user_id, rec_created_est.edit_at, rec_created_est.edit_comment)
-                            ON CONFLICT (type_id, ident) DO UPDATE SET
-                                establishment_id    = EXCLUDED.establishment_id,
-                                legal_unit_id       = NULL,
-                                enterprise_id       = NULL,
-                                enterprise_group_id = NULL,
-                                edit_by_user_id     = EXCLUDED.edit_by_user_id,
-                                edit_at             = EXCLUDED.edit_at,
-                                edit_comment        = EXCLUDED.edit_comment;
-                        END IF;
-                    EXCEPTION
-                        WHEN undefined_column THEN
-                             RAISE DEBUG '[Job %] process_establishment: Column % for ident type % not found in % for data_row_id %, skipping this ident type for this row.',
-                                        p_job_id, v_data_table_col_name, rec_ident_type.code, v_data_table_name, rec_created_est.data_row_id;
-                    END;
-                END LOOP;
+                CALL import.shared_upsert_external_idents_for_unit(
+                    p_job_id => p_job_id,
+                    p_data_table_name => v_data_table_name,
+                    p_data_row_id => rec_created_est.data_row_id,
+                    p_unit_id => rec_created_est.new_establishment_id,
+                    p_unit_type => 'establishment',
+                    p_edit_by_user_id => rec_created_est.edit_by_user_id,
+                    p_edit_at => rec_created_est.edit_at,
+                    p_edit_comment => rec_created_est.edit_comment
+                );
             END LOOP;
-            RAISE DEBUG '[Job %] process_establishment: Processed external idents for % new ESTs.', p_job_id, v_inserted_new_est_count;
+            RAISE DEBUG '[Job %] process_establishment: Processed external idents for % new ESTs using shared procedure.', p_job_id, v_inserted_new_est_count;
 
             -- Update temp_batch_data with the new_establishment_id for subsequent 'replace' rows of the same logical entity
             -- This uses tax_ident as the proxy for entity_signature. A more robust solution might involve
@@ -600,30 +582,18 @@ BEGIN
                     JOIN temp_processed_action_ids tpai ON tbd.data_row_id = tpai.data_row_id
                     WHERE tbd.data_row_id = ANY(v_batch_upsert_success_row_ids) -- Redundant due to JOIN, but safe
                 LOOP
-                    FOR rec_ident_type IN SELECT * FROM public.external_ident_type_active ORDER BY priority LOOP
-                        v_data_table_col_name := rec_ident_type.code;
-                        BEGIN
-                            EXECUTE format('SELECT %I FROM public.%I WHERE row_id = %L',
-                                           v_data_table_col_name, v_data_table_name, rec_created_est.data_row_id)
-                            INTO v_ident_value;
-
-                            IF v_ident_value IS NOT NULL AND v_ident_value <> '' THEN
-                                RAISE DEBUG '[Job %] process_establishment: For existing EST (id: %), data_row_id: %, ident_type: % (code: %), value: %',
-                                            p_job_id, rec_created_est.new_establishment_id, rec_created_est.data_row_id, rec_ident_type.id, rec_ident_type.code, v_ident_value;
-                                INSERT INTO public.external_ident (establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment)
-                                VALUES (rec_created_est.new_establishment_id, rec_ident_type.id, v_ident_value, rec_created_est.edit_by_user_id, rec_created_est.edit_at, rec_created_est.edit_comment)
-                                ON CONFLICT (type_id, ident) DO UPDATE SET
-                                    establishment_id = EXCLUDED.establishment_id, legal_unit_id = NULL, enterprise_id = NULL, enterprise_group_id = NULL,
-                                    edit_by_user_id = EXCLUDED.edit_by_user_id, edit_at = EXCLUDED.edit_at, edit_comment = EXCLUDED.edit_comment;
-                            END IF;
-                        EXCEPTION
-                            WHEN undefined_column THEN
-                                RAISE DEBUG '[Job %] process_establishment: Column % for ident type % not found in % for data_row_id %, skipping this ident type for this row.',
-                                            p_job_id, v_data_table_col_name, rec_ident_type.code, v_data_table_name, rec_created_est.data_row_id;
-                        END;
-                    END LOOP;
+                     CALL import.shared_upsert_external_idents_for_unit(
+                        p_job_id => p_job_id,
+                        p_data_table_name => v_data_table_name,
+                        p_data_row_id => rec_created_est.data_row_id,
+                        p_unit_id => rec_created_est.new_establishment_id,
+                        p_unit_type => 'establishment',
+                        p_edit_by_user_id => rec_created_est.edit_by_user_id,
+                        p_edit_at => rec_created_est.edit_at,
+                        p_edit_comment => rec_created_est.edit_comment
+                    );
                 END LOOP;
-                RAISE DEBUG '[Job %] process_establishment: Ensured/Updated external_ident for % successfully replaced ESTs.', p_job_id, v_actually_replaced_or_updated_est_count;
+                RAISE DEBUG '[Job %] process_establishment: Ensured/Updated external_ident for % successfully replaced ESTs using shared procedure.', p_job_id, v_actually_replaced_or_updated_est_count;
 
                 EXECUTE format($$
                     UPDATE public.%I dt SET

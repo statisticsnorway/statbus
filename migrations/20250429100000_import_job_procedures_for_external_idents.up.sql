@@ -161,27 +161,36 @@ BEGIN
             xi.establishment_id,
             CASE %2$L -- v_job_mode
                 WHEN 'legal_unit' THEN (xi.establishment_id IS NOT NULL) -- Importing LU, conflict if ident used by any EST
-                WHEN 'establishment_formal' THEN (xi.legal_unit_id IS NOT NULL) -- Importing Formal EST, conflict if ident used by LU
-                WHEN 'establishment_informal' THEN 
+                WHEN 'establishment_formal' THEN 
+                    (xi.legal_unit_id IS NOT NULL OR -- Conflict if ident used by LU
+                     (xi.establishment_id IS NOT NULL AND conflicting_est_table.legal_unit_id IS NULL) -- OR Conflict if ident used by an INFORMAL EST
+                    )
+                WHEN 'establishment_informal' THEN
                     (xi.legal_unit_id IS NOT NULL OR -- Conflict if used by LU
                      (xi.establishment_id IS NOT NULL AND (conflicting_est_table.legal_unit_id IS NOT NULL)) -- Conflict if used by an EST that is formal (linked to an LU)
                     )
-                ELSE FALSE
+                WHEN 'generic_unit' THEN FALSE -- No specific cross-type conflict for generic_unit mode at this stage
+                ELSE NULL
             END AS is_cross_type_conflict,
             CASE %2$L -- v_job_mode
-                WHEN 'legal_unit' THEN 
+                WHEN 'legal_unit' THEN
                     CASE WHEN xi.establishment_id IS NOT NULL THEN jsonb_build_object(xit.code, xi.ident) ELSE NULL END
-                WHEN 'establishment_formal' THEN 
-                    CASE WHEN xi.legal_unit_id IS NOT NULL THEN jsonb_build_object(xit.code, xi.ident) ELSE NULL END
-                WHEN 'establishment_informal' THEN 
+                WHEN 'establishment_formal' THEN
+                    CASE 
+                        WHEN xi.legal_unit_id IS NOT NULL THEN jsonb_build_object(xit.code, xi.ident) -- Conflicting with LU
+                        WHEN xi.establishment_id IS NOT NULL AND conflicting_est_table.legal_unit_id IS NULL THEN jsonb_build_object(xit.code, xi.ident) -- Conflicting with Informal EST
+                        ELSE NULL 
+                    END
+                WHEN 'establishment_informal' THEN
                     CASE
                         WHEN xi.legal_unit_id IS NOT NULL THEN jsonb_build_object(xit.code, xi.ident) -- Conflicting with LU
                         WHEN xi.establishment_id IS NOT NULL AND (conflicting_est_table.legal_unit_id IS NOT NULL) THEN jsonb_build_object(xit.code, xi.ident) -- Conflicting with Formal EST
-                        ELSE NULL -- No conflict OR conflict with non-formal EST (which is not a "cross-type" or "formal-takeover" error here)
+                        ELSE NULL
                     END
+                WHEN 'generic_unit' THEN NULL -- No specific conflicting unit JSON for generic_unit mode here
                 ELSE NULL
             END AS conflicting_unit_jsonb,
-            CASE 
+            CASE
                 WHEN xi.establishment_id IS NOT NULL THEN (conflicting_est_table.legal_unit_id IS NOT NULL)
                 ELSE FALSE 
             END AS conflicting_est_is_formal
@@ -189,7 +198,7 @@ BEGIN
         LEFT JOIN public.external_ident_type_active xit ON xit.code = up.ident_type_code_to_join_on
         LEFT JOIN public.external_ident xi ON xi.type_id = xit.id AND xi.ident = up.ident_value
         LEFT JOIN public.establishment conflicting_est_table ON conflicting_est_table.id = xi.establishment_id; -- Join to check if conflicting EST is formal
-    $$, v_unpivot_sql, v_job_mode);
+    $$, v_unpivot_sql /* %1 */, v_job_mode /* %2 */ );
     RAISE DEBUG '[Job %] analyse_external_idents: Unpivoting and looking up identifiers: %', p_job_id, v_sql;
     EXECUTE v_sql;
 
@@ -235,15 +244,19 @@ BEGIN
                     'Identifier already used by a ' ||
                     CASE
                         WHEN %4$L = 'legal_unit' AND tui.resolved_est_id IS NOT NULL THEN 'Establishment'
-                        WHEN %4$L = 'establishment_formal' AND tui.resolved_lu_id IS NOT NULL THEN 'Legal Unit'
+                        WHEN %4$L = 'establishment_formal' THEN
+                            CASE
+                                WHEN tui.resolved_lu_id IS NOT NULL THEN 'Legal Unit'
+                                WHEN tui.resolved_est_id IS NOT NULL AND NOT tui.conflicting_est_is_formal THEN 'Informal Establishment' -- Adjusted logic
+                                ELSE 'other conflicting unit for formal est'
+                            END
                         WHEN %4$L = 'establishment_informal' THEN
                             CASE
                                 WHEN tui.resolved_lu_id IS NOT NULL THEN 'Legal Unit'
-                                WHEN tui.resolved_est_id IS NOT NULL AND tui.conflicting_est_is_formal THEN 'Formal Establishment' -- Use the per-identifier flag
-                                WHEN tui.resolved_est_id IS NOT NULL AND NOT tui.conflicting_est_is_formal THEN 'Informal Establishment'
-                                ELSE 'unknown conflicting unit for informal'
+                                WHEN tui.resolved_est_id IS NOT NULL AND tui.conflicting_est_is_formal THEN 'Formal Establishment'
+                                ELSE 'other conflicting unit for informal est'
                             END
-                        ELSE 'different unit type'
+                        ELSE 'different unit type' -- Fallback for generic or unhandled modes
                     END || ': ' || tui.conflicting_unit_jsonb::TEXT
                 ) FILTER (WHERE tui.is_cross_type_conflict IS TRUE) AS cross_type_conflict_errors
             FROM (SELECT unnest(%1$L::BIGINT[]) as data_row_id) orig -- %1$L is p_batch_row_ids
@@ -403,13 +416,22 @@ BEGIN
         v_set_clause := v_set_clause || ', establishment_id = ru.resolved_est_id';
     END IF;
 
+    -- Ensure founding_row_id is part of the SET clause
+    -- v_set_clause already includes founding_row_id = ru.derived_founding_row_id from its initial construction.
+    -- No, it does not. It was:
+    -- v_set_clause := format('last_completed_priority = %L, error = CASE WHEN (error - %L::TEXT[]) = ''{}''::jsonb THEN NULL ELSE (error - %L::TEXT[]) END, state = %L, action = ru.action, operation = ru.operation, founding_row_id = ru.derived_founding_row_id',
+    -- This was correct. The issue might be if derived_founding_row_id itself is not correctly populated in temp_batch_analysis.
+    -- Let's re-verify temp_batch_analysis population.
+    -- The `actual_founding_row_id` is calculated in `OrderedBatchEntities` and selected into `temp_batch_analysis.derived_founding_row_id`. This seems correct.
+    -- The `v_set_clause` correctly includes `founding_row_id = ru.derived_founding_row_id`.
+
     IF NOT v_has_lu_id_col AND NOT v_has_est_id_col THEN
-        RAISE DEBUG '[Job %] analyse_external_idents: No specific unit ID columns (legal_unit_id, establishment_id) exist in % for Step 4. Updating metadata, action, and operation.', p_job_id, v_data_table_name;
+        RAISE DEBUG '[Job %] analyse_external_idents: No specific unit ID columns (legal_unit_id, establishment_id) exist in % for Step 4. Updating metadata, action, operation, and founding_row_id.', p_job_id, v_data_table_name;
     END IF;
 
     v_sql := format($$
         UPDATE public.%I dt SET
-            %s -- Dynamic SET clause
+            %s -- Dynamic SET clause which includes founding_row_id update
         FROM temp_batch_analysis ru
         WHERE dt.row_id = ru.data_row_id
           AND dt.row_id = ANY(%L) AND dt.row_id != ALL(%L); -- Update only non-error rows from the original batch
@@ -449,107 +471,61 @@ END;
 $analyse_external_idents$;
 
 
-CREATE OR REPLACE FUNCTION import.process_external_idents(
-    new_jsonb JSONB,
-    unit_type TEXT,
-    OUT external_idents public.external_ident[],
-    OUT prior_id INTEGER
-) RETURNS RECORD AS $process_external_idents$
+-- Shared procedure to upsert external identifiers for a given unit
+CREATE OR REPLACE PROCEDURE import.shared_upsert_external_idents_for_unit(
+    p_job_id INT,
+    p_data_table_name TEXT,
+    p_data_row_id BIGINT,
+    p_unit_id INT,
+    p_unit_type TEXT, -- 'legal_unit' or 'establishment'
+    p_edit_by_user_id INT,
+    p_edit_at TIMESTAMPTZ,
+    p_edit_comment TEXT
+)
+LANGUAGE plpgsql AS $shared_upsert_external_idents_for_unit$
 DECLARE
-    unit_fk_field TEXT;
-    unit_fk_value INTEGER;
-    ident_code TEXT;
-    ident_value TEXT;
-    ident_row public.external_ident;
-    ident_type_row public.external_ident_type_active; -- Changed to use _active view
-    ident_codes TEXT[] := '{}';
-    -- Helpers to provide error messages to the user, with the ident_type_code
-    -- that would otherwise be lost.
-    ident_jsonb JSONB;
-    prev_ident_jsonb JSONB;
-    unique_ident_specified BOOLEAN := false;
+    rec_ident_type public.external_ident_type_active;
+    v_data_table_col_name TEXT;
+    v_ident_value TEXT;
+    v_sql_insert TEXT;
+    v_sql_conflict_set TEXT;
 BEGIN
-    IF unit_type NOT IN ('legal_unit', 'establishment') THEN
-        RAISE EXCEPTION 'Invalid unit_type: %', unit_type;
+    IF p_unit_type NOT IN ('legal_unit', 'establishment') THEN
+        RAISE EXCEPTION '[Job %] Invalid p_unit_type % passed to shared_upsert_external_idents_for_unit. Must be ''legal_unit'' or ''establishment''.', p_job_id, p_unit_type;
     END IF;
 
-    unit_fk_field := unit_type || '_id';
+    FOR rec_ident_type IN SELECT * FROM public.external_ident_type_active ORDER BY priority LOOP
+        v_data_table_col_name := rec_ident_type.code;
+        BEGIN
+            EXECUTE format('SELECT %I FROM public.%I WHERE row_id = %L',
+                           v_data_table_col_name, p_data_table_name, p_data_row_id)
+            INTO v_ident_value;
 
-    FOR ident_type_row IN
-        (SELECT * FROM public.external_ident_type_active ORDER BY priority) -- Changed to use _active view and added ORDER BY
-    LOOP
-        ident_code := ident_type_row.code;
-        ident_codes := array_append(ident_codes, ident_code);
+            IF v_ident_value IS NOT NULL AND v_ident_value <> '' THEN
+                RAISE DEBUG '[Job %] shared_upsert_external_idents: For % ID %, data_row_id: %, ident_type: % (code: %), value: %',
+                            p_job_id, p_unit_type, p_unit_id, p_data_row_id, rec_ident_type.id, rec_ident_type.code, v_ident_value;
 
-        IF new_jsonb ? ident_code THEN
-            ident_value := new_jsonb ->> ident_code;
+                IF p_unit_type = 'legal_unit' THEN
+                    v_sql_insert = format('INSERT INTO public.external_ident (legal_unit_id, type_id, ident, edit_by_user_id, edit_at, edit_comment) VALUES (%L, %L, %L, %L, %L, %L)',
+                                          p_unit_id, rec_ident_type.id, v_ident_value, p_edit_by_user_id, p_edit_at, p_edit_comment);
+                    v_sql_conflict_set = 'legal_unit_id = EXCLUDED.legal_unit_id, establishment_id = NULL, enterprise_id = NULL, enterprise_group_id = NULL';
+                ELSIF p_unit_type = 'establishment' THEN
+                    v_sql_insert = format('INSERT INTO public.external_ident (establishment_id, type_id, ident, edit_by_user_id, edit_at, edit_comment) VALUES (%L, %L, %L, %L, %L, %L)',
+                                          p_unit_id, rec_ident_type.id, v_ident_value, p_edit_by_user_id, p_edit_at, p_edit_comment);
+                    v_sql_conflict_set = 'establishment_id = EXCLUDED.establishment_id, legal_unit_id = NULL, enterprise_id = NULL, enterprise_group_id = NULL';
+                END IF;
 
-            IF ident_value IS NOT NULL AND ident_value <> '' THEN
-                unique_ident_specified := true;
+                EXECUTE v_sql_insert ||
+                        format(' ON CONFLICT (type_id, ident) DO UPDATE SET %s, edit_by_user_id = EXCLUDED.edit_by_user_id, edit_at = EXCLUDED.edit_at, edit_comment = EXCLUDED.edit_comment', v_sql_conflict_set);
 
-                SELECT to_jsonb(ei.*)
-                     || jsonb_build_object(
-                    'ident_code', eit.code -- For user feedback
-                    ) INTO ident_jsonb
-                FROM public.external_ident AS ei
-                JOIN public.external_ident_type AS eit -- Keep join on base table for ID
-                  ON ei.type_id = eit.id
-                WHERE eit.id = ident_type_row.id -- Use ID from _active view iteration
-                  AND ei.ident = ident_value;
-
-                IF NOT FOUND THEN
-                    -- Prepare a row to be added later after the legal_unit is created
-                    -- and the legal_unit_id is known.
-                    ident_jsonb := jsonb_build_object(
-                                'ident_code', ident_type_row.code, -- For user feedback - ignored by jsonb_populate_record
-                                'type_id', ident_type_row.id, -- For jsonb_populate_record
-                                'ident', ident_value
-                        );
-                    -- Initialise the ROW using mandatory positions, however,
-                    -- populate with jsonb_populate_record for avoiding possible mismatch.
-                    ident_row := ROW(NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL);
-                    ident_row := jsonb_populate_record(NULL::public.external_ident,ident_jsonb);
-                    external_idents := array_append(external_idents, ident_row);
-                ELSE -- FOUND
-                    unit_fk_value := (ident_jsonb ->> unit_fk_field)::INTEGER;
-                    IF unit_fk_value IS NULL THEN
-                        DECLARE
-                          conflicting_unit_type TEXT;
-                        BEGIN
-                          CASE
-                            WHEN (ident_jsonb ->> 'establishment_id') IS NOT NULL THEN
-                              conflicting_unit_type := 'establishment';
-                            WHEN (ident_jsonb ->> 'legal_unit_id') IS NOT NULL THEN
-                              conflicting_unit_type := 'legal_unit';
-                            WHEN (ident_jsonb ->> 'enterprise_id') IS NOT NULL THEN
-                              conflicting_unit_type := 'enterprise';
-                            WHEN (ident_jsonb ->> 'enterprise_group_id') IS NOT NULL THEN
-                              conflicting_unit_type := 'enterprise_group';
-                            ELSE
-                              RAISE EXCEPTION 'Missing logic for external_ident %', ident_jsonb;
-                          END CASE;
-                          RAISE EXCEPTION 'The external identifier % for % already taken by a % for row %'
-                                          , ident_code, unit_type, conflicting_unit_type, new_jsonb;
-                        END;
-                    END IF;
-                    IF prior_id IS NULL THEN
-                        prior_id := unit_fk_value;
-                    ELSEIF prior_id IS DISTINCT FROM unit_fk_value THEN
-                        -- All matching identifiers must be consistent.
-                        RAISE EXCEPTION 'Inconsistent external identifiers % and % for row %'
-                                        , prev_ident_jsonb, ident_jsonb, new_jsonb;
-                    END IF;
-                END IF; -- FOUND / NOT FOUND
-                prev_ident_jsonb := ident_jsonb;
-            END IF; -- ident_value provided
-        END IF; -- ident_type.code in import
-    END LOOP; -- public.external_ident_type_active
-
-    IF NOT unique_ident_specified THEN
-        RAISE EXCEPTION 'No external identifier (%) is specified for row %', array_to_string(ident_codes, ','), new_jsonb;
-    END IF;
-END; -- Process external identifiers
-$process_external_idents$ LANGUAGE plpgsql;
-
+            END IF;
+        EXCEPTION
+            WHEN undefined_column THEN
+                RAISE DEBUG '[Job %] shared_upsert_external_idents: Column % for ident type % not found in % for data_row_id %, skipping this ident type for this row.',
+                            p_job_id, v_data_table_col_name, rec_ident_type.code, p_data_table_name, p_data_row_id;
+        END;
+    END LOOP;
+END;
+$shared_upsert_external_idents_for_unit$;
 
 COMMIT;

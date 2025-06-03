@@ -172,9 +172,6 @@ DECLARE
     rec_ident_type public.external_ident_type_active;
     rec_demotion RECORD;
     v_ident_value TEXT;
-    v_data_table_col_name TEXT;
-    v_inserted_ext_id INT; -- For debugging
-    v_inserted_lu_id INT;  -- For debugging
     v_current_op_row_count INT; -- For storing ROW_COUNT from individual DML operations
 BEGIN
     RAISE DEBUG '[Job %] process_legal_unit (Batch): Starting operation for % rows', p_job_id, array_length(p_batch_row_ids, 1);
@@ -510,36 +507,18 @@ BEGIN
                                   FROM temp_created_lus tcl
                                   JOIN temp_batch_data tbd ON tcl.data_row_id = tbd.data_row_id
             LOOP
-                FOR rec_ident_type IN SELECT * FROM public.external_ident_type_active ORDER BY priority LOOP
-                    v_data_table_col_name := rec_ident_type.code;
-                    BEGIN
-                        EXECUTE format('SELECT %I FROM public.%I WHERE row_id = %L',
-                                       v_data_table_col_name, v_data_table_name, rec_created_lu.data_row_id)
-                        INTO v_ident_value;
-
-                        IF v_ident_value IS NOT NULL AND v_ident_value <> '' THEN
-                            RAISE DEBUG '[Job %] process_legal_unit: For new LU (id: %), data_row_id: %, ident_type: % (code: %), value: %',
-                                        p_job_id, rec_created_lu.new_legal_unit_id, rec_created_lu.data_row_id, rec_ident_type.id, rec_ident_type.code, v_ident_value;
-                            INSERT INTO public.external_ident (legal_unit_id, type_id, ident, edit_by_user_id, edit_at, edit_comment)
-                            VALUES (rec_created_lu.new_legal_unit_id, rec_ident_type.id, v_ident_value, rec_created_lu.edit_by_user_id, rec_created_lu.edit_at, rec_created_lu.edit_comment)
-                            ON CONFLICT (type_id, ident) DO UPDATE SET
-                                legal_unit_id = EXCLUDED.legal_unit_id,
-                                establishment_id = NULL, enterprise_id = NULL, enterprise_group_id = NULL,
-                                edit_by_user_id = EXCLUDED.edit_by_user_id, edit_at = EXCLUDED.edit_at, edit_comment = EXCLUDED.edit_comment
-                            RETURNING public.external_ident.id, public.external_ident.legal_unit_id INTO v_inserted_ext_id, v_inserted_lu_id;
-
-                            RAISE DEBUG '[Job %] process_legal_unit: Upserted external_ident ID %, LU_ID %, for LU ID %, type_id %, ident %',
-                                        p_job_id, v_inserted_ext_id, v_inserted_lu_id, rec_created_lu.new_legal_unit_id, rec_ident_type.id, v_ident_value;
-                        END IF;
-                    EXCEPTION
-                        WHEN undefined_column THEN
-                            RAISE DEBUG '[Job %] process_legal_unit: Column % for ident type % not found in % for data_row_id %, skipping this ident type for this row.',
-                                        p_job_id, v_data_table_col_name, rec_ident_type.code, v_data_table_name, rec_created_lu.data_row_id;
-                    END;
-                END LOOP;
+                CALL import.shared_upsert_external_idents_for_unit(
+                    p_job_id => p_job_id,
+                    p_data_table_name => v_data_table_name,
+                    p_data_row_id => rec_created_lu.data_row_id,
+                    p_unit_id => rec_created_lu.new_legal_unit_id,
+                    p_unit_type => 'legal_unit',
+                    p_edit_by_user_id => rec_created_lu.edit_by_user_id,
+                    p_edit_at => rec_created_lu.edit_at,
+                    p_edit_comment => rec_created_lu.edit_comment
+                );
             END LOOP;
-
-            RAISE DEBUG '[Job %] process_legal_unit: Processed external idents for % new LUs.', p_job_id, v_inserted_new_lu_count;
+            RAISE DEBUG '[Job %] process_legal_unit: Processed external idents for % new LUs using shared procedure.', p_job_id, v_inserted_new_lu_count;
 
             -- Update temp_batch_data with the new_legal_unit_id for subsequent 'replace'/'update' rows of the same logical entity
             -- This uses the founding_row_id determined by analyse_external_idents to link to the 'insert' row that created the LU.
@@ -636,30 +615,18 @@ BEGIN
                     JOIN temp_processed_action_lu_ids tpai ON tbd.data_row_id = tpai.data_row_id
                     WHERE tbd.data_row_id = ANY(v_batch_success_row_ids) AND tbd.action = 'replace'
                 LOOP
-                    FOR rec_ident_type IN SELECT * FROM public.external_ident_type_active ORDER BY priority LOOP
-                        v_data_table_col_name := rec_ident_type.code;
-                        BEGIN
-                            EXECUTE format('SELECT %I FROM public.%I WHERE row_id = %L',
-                                           v_data_table_col_name, v_data_table_name, rec_created_lu.data_row_id)
-                            INTO v_ident_value;
-
-                            IF v_ident_value IS NOT NULL AND v_ident_value <> '' THEN
-                                RAISE DEBUG '[Job %] process_legal_unit: For existing LU (id: %), data_row_id: %, ident_type: % (code: %), value: %',
-                                            p_job_id, rec_created_lu.new_legal_unit_id, rec_created_lu.data_row_id, rec_ident_type.id, rec_ident_type.code, v_ident_value;
-                                INSERT INTO public.external_ident (legal_unit_id, type_id, ident, edit_by_user_id, edit_at, edit_comment)
-                                VALUES (rec_created_lu.new_legal_unit_id, rec_ident_type.id, v_ident_value, rec_created_lu.edit_by_user_id, rec_created_lu.edit_at, rec_created_lu.edit_comment)
-                                ON CONFLICT (type_id, ident) DO UPDATE SET
-                                    legal_unit_id = EXCLUDED.legal_unit_id, establishment_id = NULL, enterprise_id = NULL, enterprise_group_id = NULL,
-                                    edit_by_user_id = EXCLUDED.edit_by_user_id, edit_at = EXCLUDED.edit_at, edit_comment = EXCLUDED.edit_comment;
-                            END IF;
-                        EXCEPTION
-                            WHEN undefined_column THEN
-                                RAISE DEBUG '[Job %] process_legal_unit: Column % for ident type % not found in % for data_row_id %, skipping this ident type for this row.',
-                                            p_job_id, v_data_table_col_name, rec_ident_type.code, v_data_table_name, rec_created_lu.data_row_id;
-                        END;
-                    END LOOP;
+                    CALL import.shared_upsert_external_idents_for_unit(
+                        p_job_id => p_job_id,
+                        p_data_table_name => v_data_table_name,
+                        p_data_row_id => rec_created_lu.data_row_id,
+                        p_unit_id => rec_created_lu.new_legal_unit_id,
+                        p_unit_type => 'legal_unit',
+                        p_edit_by_user_id => rec_created_lu.edit_by_user_id,
+                        p_edit_at => rec_created_lu.edit_at,
+                        p_edit_comment => rec_created_lu.edit_comment
+                    );
                 END LOOP;
-                RAISE DEBUG '[Job %] process_legal_unit: Ensured/Updated external_ident for % successfully replaced LUs.', p_job_id, v_actually_replaced_lu_count;
+                RAISE DEBUG '[Job %] process_legal_unit: Ensured/Updated external_ident for % successfully replaced LUs using shared procedure.', p_job_id, v_actually_replaced_lu_count;
 
                 EXECUTE format($$
                     UPDATE public.%I dt SET
