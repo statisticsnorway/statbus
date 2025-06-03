@@ -13,7 +13,7 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_sql TEXT;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['data_source_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date', 'status_id_missing'];
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['name', 'data_source_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date', 'status_id_missing'];
     v_invalid_code_keys_arr TEXT[] := ARRAY['data_source_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date'];
 BEGIN
     RAISE DEBUG '[Job %] analyse_establishment (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
@@ -63,19 +63,27 @@ BEGIN
             typed_birth_date = l.resolved_typed_birth_date,
             typed_death_date = l.resolved_typed_death_date,
             state = CASE
-                        WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state -- Fatal if status_id is missing
-                        ELSE 'analysing'::public.import_data_state -- Non-fatal for other issues
+                        WHEN dt.name IS NULL OR trim(dt.name) = '' THEN 'error'::public.import_data_state
+                        WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state
+                        ELSE 'analysing'::public.import_data_state
                     END,
+            action = CASE -- Added action update
+                        WHEN dt.name IS NULL OR trim(dt.name) = '' THEN 'skip'::public.import_row_action_type
+                        WHEN dt.status_id IS NULL THEN 'skip'::public.import_row_action_type
+                        ELSE dt.action
+                     END,
             error = CASE
+                        WHEN dt.name IS NULL OR trim(dt.name) = '' THEN
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('name', 'Missing required name')
                         WHEN dt.status_id IS NULL THEN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_id_missing', 'Status ID not resolved by prior step')
-                        ELSE -- Clear specific non-fatal error keys if they were previously set
+                        ELSE 
                             CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
             invalid_codes = CASE
-                                WHEN dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if status_id is present
+                                WHEN (dt.name IS NOT NULL AND trim(dt.name) != '') AND dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if no fatal error in this step
                                     jsonb_strip_nulls(
-                                     COALESCE(dt.invalid_codes, '{}'::jsonb) - %L::TEXT[] || -- Remove old keys first
+                                     COALESCE(dt.invalid_codes, '{}'::jsonb) - %L::TEXT[] || 
                                      jsonb_build_object('data_source_code', CASE WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code ELSE NULL END) ||
                                      jsonb_build_object('sector_code', CASE WHEN NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN dt.sector_code ELSE NULL END) ||
                                      jsonb_build_object('unit_size_code', CASE WHEN NULLIF(dt.unit_size_code, '') IS NOT NULL AND l.resolved_unit_size_id IS NULL THEN dt.unit_size_code ELSE NULL END) ||

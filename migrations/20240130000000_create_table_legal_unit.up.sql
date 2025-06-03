@@ -7,7 +7,7 @@ CREATE TABLE public.legal_unit (
     valid_to date NOT NULL DEFAULT 'infinity',
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
-    name character varying(256),
+    name character varying(256) NOT NULL,
     birth_date date,
     death_date date,
     free_econ_zone boolean,

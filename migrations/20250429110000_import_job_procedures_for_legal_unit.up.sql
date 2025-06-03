@@ -14,7 +14,7 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_error_count INT := 0;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['data_source_code', 'legal_form_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date', 'status_id_missing']; -- Removed conversion_lookup_error, unexpected_error as they are too generic for specific clearing
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['name', 'data_source_code', 'legal_form_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date', 'status_id_missing'];
     v_invalid_code_keys_arr TEXT[] := ARRAY['data_source_code', 'legal_form_code', 'sector_code', 'unit_size_code', 'birth_date', 'death_date']; -- Keys that go into invalid_codes
 BEGIN
     RAISE DEBUG '[Job %] analyse_legal_unit (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
@@ -65,27 +65,31 @@ BEGIN
             typed_birth_date = l.resolved_typed_birth_date,
             typed_death_date = l.resolved_typed_death_date,
             state = CASE
-                        WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state -- Fatal if status_id is missing
-                        ELSE -- No error in this step
+                        WHEN dt.name IS NULL OR trim(dt.name) = '' THEN 'error'::public.import_data_state
+                        WHEN dt.status_id IS NULL THEN 'error'::public.import_data_state
+                        ELSE
                             CASE
-                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state -- Preserve previous error
-                                ELSE 'analysing'::public.import_data_state -- OK to set to analysing
+                                WHEN dt.state = 'error'::public.import_data_state THEN 'error'::public.import_data_state
+                                ELSE 'analysing'::public.import_data_state
                             END
                     END,
             action = CASE
-                        WHEN dt.status_id IS NULL THEN 'skip'::public.import_row_action_type -- Fatal error implies skip
-                        ELSE dt.action -- Preserve action from previous steps if no new fatal error here
+                        WHEN dt.name IS NULL OR trim(dt.name) = '' THEN 'skip'::public.import_row_action_type
+                        WHEN dt.status_id IS NULL THEN 'skip'::public.import_row_action_type
+                        ELSE dt.action
                      END,
             error = CASE
+                        WHEN dt.name IS NULL OR trim(dt.name) = '' THEN
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('name', 'Missing required name')
                         WHEN dt.status_id IS NULL THEN
                             COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('status_id_missing', 'Status ID not resolved by prior step')
-                        ELSE -- Clear specific non-fatal error keys if they were previously set and no new fatal error
+                        ELSE 
                             CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
             invalid_codes = CASE
-                                WHEN dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if status_id is present (not a fatal error for this step)
+                                WHEN (dt.name IS NOT NULL AND trim(dt.name) != '') AND dt.status_id IS NOT NULL THEN -- Only populate invalid_codes if no fatal error in this step
                                     jsonb_strip_nulls(
-                                     COALESCE(dt.invalid_codes, '{}'::jsonb) - %L::TEXT[] || -- Remove old keys first, then add new ones
+                                     COALESCE(dt.invalid_codes, '{}'::jsonb) - %L::TEXT[] || 
                                      jsonb_build_object('data_source_code', CASE WHEN NULLIF(dt.data_source_code, '') IS NOT NULL AND l.resolved_data_source_id IS NULL THEN dt.data_source_code ELSE NULL END) ||
                                      jsonb_build_object('legal_form_code', CASE WHEN NULLIF(dt.legal_form_code, '') IS NOT NULL AND l.resolved_legal_form_id IS NULL THEN dt.legal_form_code ELSE NULL END) ||
                                      jsonb_build_object('sector_code', CASE WHEN NULLIF(dt.sector_code, '') IS NOT NULL AND l.resolved_sector_id IS NULL THEN dt.sector_code ELSE NULL END) ||
