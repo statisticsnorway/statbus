@@ -320,18 +320,44 @@ BEGIN
             UPDATE public.%I dt SET
                 tag_for_unit_id = ll.link_id,
                 last_completed_priority = %L,
-                error = NULL,
-                state = %L
+                error = NULL -- Clears any error previously set by this step if now successful
+                -- State remains 'processing' as set by the calling procedure for this phase
             FROM temp_batch_data tbd
             JOIN link_lookup ll ON ll.tag_id = tbd.tag_id
                                AND ll.legal_unit_id IS NOT DISTINCT FROM tbd.legal_unit_id
                                AND ll.establishment_id IS NOT DISTINCT FROM tbd.establishment_id
             WHERE dt.row_id = tbd.data_row_id
-              AND dt.state != %L
-              AND tbd.action IN ('insert', 'replace'); -- Only update rows that were processed
-        $$, v_data_table_name, v_step.priority, 'processing', 'error');
+              AND dt.state != %L -- Do not update if row is already in 'error' state from a prior step or this one.
+              AND tbd.action IN ('insert', 'replace'); -- Only update rows that were processed by this step's DML
+        $$, v_data_table_name, v_step.priority, 'error');
         RAISE DEBUG '[Job %] process_tags: Updating _data table with final IDs: %', p_job_id, v_sql;
         EXECUTE v_sql;
+        
+
+        -- Update priority for rows that didn't have a tag_id or were skipped by the main DML
+        v_sql := format($$
+           UPDATE public.%I dt SET
+               last_completed_priority = %L
+           WHERE dt.row_id = ANY(%L) AND dt.state != %L -- dt.state != 'error'
+             AND NOT EXISTS ( -- This condition means the row was not processed by the main DML logic above
+                 SELECT 1 FROM temp_batch_data tbd_check
+                 WHERE tbd_check.data_row_id = dt.row_id
+                   AND EXISTS (SELECT 1 FROM public.tag_for_unit tfu_check WHERE tfu_check.id = tbd_check.existing_link_id OR (tfu_check.tag_id = tbd_check.tag_id AND tfu_check.legal_unit_id IS NOT DISTINCT FROM tbd_check.legal_unit_id AND tfu_check.establishment_id IS NOT DISTINCT FROM tbd_check.establishment_id))
+                   AND tbd_check.action IN ('insert', 'replace')
+             );
+       $$, v_data_table_name, v_step.priority, p_batch_row_ids, 'error');
+       EXECUTE v_sql;
+       GET DIAGNOSTICS v_update_count = ROW_COUNT;
+       RAISE DEBUG '[Job %] process_tags: Advanced LCP for % rows not processed by main DML and not in error.', p_job_id, v_update_count;
+   
+   
+       -- Update priority for rows that were already marked as 'skip' by analysis or a prior step
+       EXECUTE format($$UPDATE public.%I SET last_completed_priority = GREATEST(last_completed_priority, %L) WHERE row_id = ANY(%L) AND action = 'skip'$$,
+                      v_job.data_table_name, v_step.priority, p_batch_row_ids);
+       GET DIAGNOSTICS v_update_count = ROW_COUNT;
+       RAISE DEBUG '[Job %] process_tags: Ensured LCP advanced for % rows marked as skip.', p_job_id, v_update_count;
+   
+       DROP TABLE IF EXISTS temp_batch_data;
 
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
