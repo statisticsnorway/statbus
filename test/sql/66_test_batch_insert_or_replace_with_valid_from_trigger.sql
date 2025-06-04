@@ -650,6 +650,58 @@ DELETE FROM batch_test_replace_vf.batch_upsert_target;
 ALTER SEQUENCE batch_test_replace_vf.batch_upsert_target_id_seq RESTART WITH 1;
 
 
+-- Scenario 20: Test for MET_BY EXIT bug causing overlaps (Reproduces SC10 issue from Test 72)
+\echo 'Scenario 20: Test for MET_BY EXIT bug causing overlaps'
+TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE;
+DELETE FROM batch_test_replace_vf.batch_upsert_target;
+ALTER SEQUENCE batch_test_replace_vf.batch_upsert_target_id_seq RESTART WITH 1;
+
+-- Add exclusion constraint to make the test fail loudly if overlaps occur
+ALTER TABLE batch_test_replace_vf.batch_upsert_target ADD CONSTRAINT temp_no_overlaps_vt EXCLUDE USING GIST (id WITH =, daterange(valid_after, valid_to, '(]') WITH &&) DEFERRABLE INITIALLY IMMEDIATE;
+
+-- Setup:
+-- Target has two records for ID=1:
+-- Era1: (va='2022-12-31', vt='2023-03-31', value_a='A', value_b=10) -- Simulates part 1 after a split
+-- Era2: (va='2023-03-31', vt='2023-06-30', value_a='B', value_b=20) -- Simulates a later, different record that should be affected
+INSERT INTO batch_test_replace_vf.batch_upsert_target (id, valid_from, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(1, '2023-01-01', '2022-12-31', '2023-03-31', 'A', 10, 'Existing Era 1 (A)'),
+(1, '2023-04-01', '2023-03-31', '2023-06-30', 'B', 20, 'Existing Era 2 (B)');
+SELECT * FROM batch_test_replace_vf.show_target_table(1);
+
+-- Source record:
+-- (va='2023-02-28', vt='2023-04-30', value_a='A', value_b=10)
+-- This source record:
+--   - MEETS Era1 (data is equivalent). Should extend Era1 to vt='2023-04-30'.
+--   - The extended Era1 will then be (va='2022-12-31', vt='2023-04-30').
+--   - This extended Era1 OVERLAPS with Era2 (va='2023-03-31', vt='2023-06-30').
+--   - If the bug exists (premature EXIT in MET_BY), Era2 will not be processed against the source,
+--     and the extended Era1 will overlap with the untouched Era2, causing constraint violation.
+--   - Correct behavior: Era2 should be truncated to start after the source, i.e., (va='2023-04-30', vt='2023-06-30').
+INSERT INTO batch_test_replace_vf.batch_upsert_source (founding_row_id, target_id, valid_after, valid_to, value_a, value_b, edit_comment) VALUES
+(NULL, 1, '2023-02-28', '2023-04-30', 'A', 10, 'Source that should merge and truncate');
+
+\echo 'Calling batch_insert_or_replace_generic_valid_time_table for Scenario 20...'
+-- SET client_min_messages TO DEBUG1;
+SELECT * FROM import.batch_insert_or_replace_generic_valid_time_table(
+    p_target_schema_name           => :'target_schema',
+    p_target_table_name            => :'target_table',
+    p_source_schema_name           => :'source_schema',
+    p_source_table_name            => :'source_table',
+    p_unique_columns               => '[]'::JSONB,
+    p_ephemeral_columns            => :'ephemeral_cols'::TEXT[],
+    p_id_column_name               => :'id_col',
+    p_generated_columns_override   => NULL
+);
+-- SET client_min_messages TO NOTICE;
+\echo 'Result for Scenario 20:'
+SELECT * FROM batch_test_replace_vf.show_target_table(1);
+
+ALTER TABLE batch_test_replace_vf.batch_upsert_target DROP CONSTRAINT temp_no_overlaps_vt;
+TRUNCATE batch_test_replace_vf.batch_upsert_source RESTART IDENTITY CASCADE;
+DELETE FROM batch_test_replace_vf.batch_upsert_target;
+ALTER SEQUENCE batch_test_replace_vf.batch_upsert_target_id_seq RESTART WITH 1;
+
+
 -- Cleanup
 DROP FUNCTION batch_test_replace_vf.show_target_table(INT);
 DROP TABLE batch_test_replace_vf.batch_upsert_source;

@@ -292,7 +292,7 @@ BEGIN
                                                    p_target_schema_name, p_target_table_name, _eph_update_set_clause,
                                                    p_id_column_name, v_existing_id, _ex_va, _ex_vt);
                                 END IF;
-                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; -- EXIT; -- Removed EXIT
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: EQUALS, data different. Deleting existing.';
                                 EXECUTE format('DELETE FROM %I.%I WHERE %I = %L AND valid_after = %L AND valid_to = %L',
@@ -307,7 +307,7 @@ BEGIN
                                                    p_target_schema_name, p_target_table_name, _eph_update_set_clause,
                                                    p_id_column_name, v_existing_id, _ex_va, _ex_vt);
                                 END IF;
-                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; -- EXIT; -- Removed EXIT
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: DURING, data different. Splitting existing.';
                                 EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L',
@@ -362,7 +362,7 @@ BEGIN
                                                p_target_schema_name, p_target_table_name, v_source_valid_after,
                                                CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
                                                p_id_column_name, v_existing_id, _ex_va, _ex_vt);
-                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; -- EXIT; -- Removed EXIT
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: OVERLAPS, data different. Truncating existing Y by setting Y.valid_after = X.valid_to (%L).', v_source_valid_to;
                                 IF _ex_va < v_source_valid_to THEN EXECUTE format('UPDATE %I.%I SET valid_after = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, v_source_valid_to, p_id_column_name, v_existing_id, _ex_va, _ex_vt);
@@ -375,7 +375,7 @@ BEGIN
                                                p_target_schema_name, p_target_table_name, v_source_valid_to,
                                                CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
                                                p_id_column_name, v_existing_id, _ex_va, _ex_vt);
-                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; -- EXIT; -- Removed EXIT
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: OVERLAPPED_BY, data different. Truncating existing Y by setting Y.valid_to = X.valid_after (%L).', v_source_valid_after;
                                 IF _ex_vt > v_source_valid_after THEN EXECUTE format('UPDATE %I.%I SET valid_to = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, v_source_valid_after, p_id_column_name, v_existing_id, _ex_va, _ex_vt);
@@ -385,7 +385,7 @@ BEGIN
                             IF _data_is_equivalent THEN
                                 RAISE DEBUG '[batch_replace] Relation: STARTS, data equivalent. Updating ephemeral on existing.';
                                 IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, _ex_va, _ex_vt); END IF;
-                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; -- EXIT; -- Removed EXIT
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: STARTS, data different. Modifying existing Y to start after X by setting Y.valid_after = X.valid_to (%L).', v_source_valid_to;
                                 IF _ex_va < v_source_valid_to THEN EXECUTE format('UPDATE %I.%I SET valid_after = %L WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, v_source_valid_to, p_id_column_name, v_existing_id, _ex_va, _ex_vt);
@@ -401,11 +401,11 @@ BEGIN
                                 IF v_source_valid_to = 'infinity'::DATE AND _ex_vt = 'infinity'::DATE AND v_source_valid_after > _ex_va THEN
                                      RAISE DEBUG '[batch_replace] Relation: FINISHES, data equivalent, existing ends at infinity. Updating ephemeral.';
                                      IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, _ex_va, _ex_vt); END IF;
-                                     v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                     v_source_record_handled := TRUE; v_result_id := v_existing_id; -- EXIT; -- Removed EXIT
                                 ELSE
                                     RAISE DEBUG '[batch_replace] Relation: FINISHES, data equivalent (non-infinity or source not later start). Updating ephemeral on existing.';
                                     IF _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN EXECUTE format('UPDATE %I.%I SET %s WHERE %I = %L AND valid_after = %L AND valid_to = %L', p_target_schema_name, p_target_table_name, _eph_update_set_clause, p_id_column_name, v_existing_id, _ex_va, _ex_vt); END IF;
-                                    v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                    v_source_record_handled := TRUE; v_result_id := v_existing_id; -- EXIT; -- Removed EXIT
                                 END IF;
                             ELSE
                                 RAISE DEBUG '[batch_replace] Relation: FINISHES, data different. Modifying existing Y to end before X by setting Y.valid_to = X.valid_after (%L).', v_source_valid_after;
@@ -425,7 +425,7 @@ BEGIN
                                                v_source_valid_after, -- Set existing Y's start to source X's start
                                                CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
                                                p_id_column_name, v_existing_id, _ex_va, _ex_vt);
-                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; -- EXIT; -- Removed EXIT
                             END IF; -- Data different: no action on existing, source will be inserted.
                         WHEN 'met_by' THEN -- Source X (v_source_valid_after, v_source_valid_to] is met_by Existing Y (_ex_va, _ex_vt] :: v_source_valid_after = _ex_vt
                             IF _data_is_equivalent THEN
@@ -435,7 +435,7 @@ BEGIN
                                                v_source_valid_to, -- Set existing Y's end to source X's end
                                                CASE WHEN _eph_update_set_clause IS NOT NULL AND _eph_update_set_clause != '' THEN ', ' || _eph_update_set_clause ELSE '' END,
                                                p_id_column_name, v_existing_id, _ex_va, _ex_vt);
-                                v_source_record_handled := TRUE; v_result_id := v_existing_id; EXIT;
+                                v_source_record_handled := TRUE; v_result_id := v_existing_id; -- EXIT; -- Removed EXIT
                             END IF; -- Data different: no action on existing, source will be inserted.
                         ELSE -- 'precedes', 'preceded_by', or unhandled
                             RAISE DEBUG '[batch_replace] Relation: %s. No direct overlap modification.', v_relation;
