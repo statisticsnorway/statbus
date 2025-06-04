@@ -4,6 +4,9 @@ BEGIN;
 
 CALL test.set_user_from_email('test.admin@statbus.org');
 
+\echo "Setting up Statbus for Norway"
+\i samples/norway/getting-started.sql
+
 \i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 \i samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
@@ -65,9 +68,6 @@ FROM def RETURNING slug, description, note, default_valid_from, default_valid_to
 -- Display the definition snapshot for one job (optional, can be large)
 -- SELECT slug, definition_snapshot FROM public.import_job WHERE slug = 'import_lu_2015_h' ORDER BY slug;
 
-\echo "Setting up Statbus for Norway"
-\i samples/norway/getting-started.sql
-
 -- Verify user context is set correctly for import jobs
 \echo "Verifying user context for import jobs"
 SELECT slug,
@@ -101,12 +101,9 @@ SELECT state, count(*) FROM public.import_es_2015_h_data GROUP BY state;
 -- Notice that only the import job tasks are executed, to avoid ongoing recalculation of computed data
 
 -- Set higher logging level to debug import procedures
-SET client_min_messages = DEBUG1;
-
+--SET client_min_messages = DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
-
--- Reset logging level
-SET client_min_messages = WARNING;
+--SET client_min_messages = NOTICE;
 
 
 \echo Check the states of the import job tasks.
@@ -151,4 +148,22 @@ SELECT valid_from
  FROM public.statistical_unit
  ORDER BY valid_from, valid_to, name, external_idents ->> 'tax_ident', unit_type, unit_id;
 
-ROLLBACK;
+\echo Generate traces of indices used to build the history, analysis with tools such as shipped "/pev2" aka "postgres explain visualizer pev2 query performance"
+\o tmp/50_import_jobs_for_norway_small_history-timepoints.log
+EXPLAIN ANALYZE SELECT * FROM public.timepoints;
+\o tmp/50_import_jobs_for_norway_small_history-timesegments_def.log
+EXPLAIN ANALYZE SELECT * FROM public.timesegments_def;
+\o tmp/50_import_jobs_for_norway_small_history-timeline_establishment_def.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_establishment_def;
+\o tmp/50_import_jobs_for_norway_small_history-timeline_legal_unit_def.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_legal_unit_def;
+\o tmp/50_import_jobs_for_norway_small_history-timeline_enterprise_def.log
+EXPLAIN ANALYZE SELECT * FROM public.timeline_enterprise_def;
+\o tmp/50_import_jobs_for_norway_small_history-statistical_unit_def.log
+EXPLAIN ANALYZE SELECT * FROM public.statistical_unit_def;
+\o
+
+
+RESET client_min_messages;
+
+\i test/rollback_unless_persist_is_specified.sql
