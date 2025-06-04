@@ -118,8 +118,8 @@ ORDER BY dc.column_name;
 
 \echo ""
 \echo "   4c. Verify mapping for 'legal_unit_current_year' and (now archived) 'tax_ident'"
-\echo "       Expected: The 'tax_ident' source column on the definition still exists, but it is no longer mapped"
-\echo "                 to a data column in the 'external_idents' step (as that data column was removed)."
+\echo "       Expected: The 'tax_ident' source column on the definition is removed because its external_ident_type was archived."
+\echo "                 Therefore, no mapping exists, and the query should return 0 rows."
 SELECT
     id.slug AS definition_slug,
     isc.column_name AS source_column_name,
@@ -137,8 +137,8 @@ WHERE id.slug = 'legal_unit_current_year';
 
 \echo ""
 \echo "   4d. Verify mapping for 'legal_unit_current_year' and new 'vat_ident'"
-\echo "       Expected: No 'vat_ident' source column exists on the 'legal_unit_current_year' definition (created before 'vat_ident' was active),"
-\echo "                 so no mapping exists. (Query should return 0 rows)"
+\echo "       Expected: A 'vat_ident' source column is automatically created and mapped on the 'legal_unit_current_year' definition"
+\echo "                 because 'vat_ident' became an active external_ident_type. (Query should return 1 row)"
 SELECT
     id.slug AS definition_slug,
     isc.column_name AS source_column_name,
@@ -148,7 +148,7 @@ SELECT
     COALESCE(target_dc.purpose::text, 'N/A') AS target_data_column_purpose,
     COALESCE(target_step.code, 'N/A') AS target_step_code
 FROM public.import_definition id
-JOIN public.import_source_column isc ON isc.definition_id = id.id AND isc.column_name = 'vat_ident' -- This join condition will lead to 0 rows for this definition
+JOIN public.import_source_column isc ON isc.definition_id = id.id AND isc.column_name = 'vat_ident' -- This join condition will find the auto-created source column
 LEFT JOIN public.import_mapping im ON im.source_column_id = isc.id AND im.definition_id = id.id
 LEFT JOIN public.import_data_column target_dc ON im.target_data_column_id = target_dc.id
 LEFT JOIN public.import_step target_step ON target_dc.step_id = target_step.id
