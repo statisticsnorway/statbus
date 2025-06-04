@@ -206,6 +206,7 @@ BEGIN
             SELECT DISTINCT ON (tui.data_row_id)
                    tui.data_row_id,
                    tui.resolved_lu_id,
+                   dt.establishment_id AS current_establishment_id, -- ID of the EST record in _data table
                    dt.row_id AS original_data_table_row_id, -- Used for ordering to pick the "first"
                    dt.derived_valid_after AS est_derived_valid_after, -- Use derived_valid_after
                    dt.derived_valid_to AS est_derived_valid_to
@@ -218,14 +219,16 @@ BEGIN
             SELECT
                 rl.data_row_id,
                 rl.resolved_lu_id,
+                rl.current_establishment_id, -- Pass through the current EST ID
                 rl.original_data_table_row_id,
                 rl.est_derived_valid_after,
                 rl.est_derived_valid_to,
-                -- Check if any EST is already primary for this LU in the main DB table *during the current EST's validity period*
+                -- Check if any OTHER EST is already primary for this LU in the main DB table *during the current EST's validity period*
                 NOT EXISTS (
                     SELECT 1 FROM public.establishment est
                     WHERE est.legal_unit_id = rl.resolved_lu_id
                       AND est.primary_for_legal_unit = TRUE
+                      AND est.id IS DISTINCT FROM rl.current_establishment_id -- Exclude the current establishment itself
                       AND public.after_to_overlaps(est.valid_after, est.valid_to, rl.est_derived_valid_after, rl.est_derived_valid_to)
                 ) AS no_overlapping_primary_in_db
             FROM ResolvedLinks rl
@@ -239,8 +242,9 @@ BEGIN
                     SELECT 1
                     FROM RankedForPrimary other_rfp -- Self-referencing RankedForPrimary to check other batch items
                     WHERE other_rfp.resolved_lu_id = rfp.resolved_lu_id
-                      AND other_rfp.original_data_table_row_id < rfp.original_data_table_row_id
-                      AND other_rfp.no_overlapping_primary_in_db -- The other item must also be a candidate (no DB conflict)
+                      AND other_rfp.current_establishment_id IS DISTINCT FROM rfp.current_establishment_id -- Ensure we are comparing with *other* establishments in the batch
+                      AND other_rfp.original_data_table_row_id < rfp.original_data_table_row_id -- Prioritize by original_data_table_row_id if periods overlap
+                      AND other_rfp.no_overlapping_primary_in_db -- The other item must also be a candidate (no DB conflict with *other* ESTs)
                       AND public.after_to_overlaps( -- Check if the other item's period overlaps with the current item's period
                           other_rfp.est_derived_valid_after, other_rfp.est_derived_valid_to,
                           rfp.est_derived_valid_after, rfp.est_derived_valid_to
