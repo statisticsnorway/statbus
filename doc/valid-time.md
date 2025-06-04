@@ -19,6 +19,23 @@ Many core tables in Statbus are temporal, meaning they track changes over time. 
 
 Examples: `establishment`, `legal_unit`, `activity`, `location`, `contact`, `stat_for_unit`.
 
+A key characteristic of these temporal tables is that a single conceptual entity (e.g., a specific legal unit identified by its `id` or an external `tax_ident`) can have multiple rows in the table. Each row represents a distinct temporal slice or version of that conceptual unit's attributes over a specific period.
+
+**Example of a Temporal Table (e.g., `public.legal_unit` or similar):**
+
+| id  | valid_after | valid_to   | name     | attribute_value |
+|-----|-------------|------------|----------|-----------------|
+| 100 | 2021-12-31  | 2022-06-30 | 'LU 100' | 'Value A'       |
+| 100 | 2022-06-30  | 2022-12-31 | 'LU 100' | 'Value B'       |
+| 101 | 2022-03-31  | 2022-09-30 | 'LU 101' | 'Value C'       |
+| 101 | 2022-12-31  | 'infinity' | 'LU 101' | 'Value C Mod'   |
+
+In this example, reflecting tables like `public.legal_unit`:
+- The `id` column (e.g., 100, 101) is the **conceptual identifier** for the legal unit. It is the same for all temporal slices of that same conceptual legal unit.
+- Each **row** in the table represents a distinct **temporal slice** of the conceptual unit. For example, conceptual unit `100` has two temporal slices, and conceptual unit `101` also has two temporal slices (four rows in total shown for these conceptual units).
+- To uniquely identify each slice (each row), a **composite primary key** is typically used, such as `(id, valid_after)`.
+- Other columns (like `name`, `attribute_value`) store the attributes of the conceptual unit as they were during the period defined by `valid_after` and `valid_to` for that specific slice.
+
 The `valid_from` column, where `valid_from = valid_after + 1 day`, represents the inclusive start of the validity period. While `valid_from` might be used for human-readable display or some specific queries, the core storage and temporal logic (especially in functions like `batch_insert_or_update_generic_valid_time_table` and views like `timepoints`) primarily operate on the `(valid_after, valid_to]` interval.
 
 ### 2. `public.timepoints` View
