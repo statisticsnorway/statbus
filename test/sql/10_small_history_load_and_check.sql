@@ -4,6 +4,9 @@ BEGIN;
 
 CALL test.set_user_from_email('test.admin@statbus.org');
 
+\echo "Setting up Statbus for Norway"
+\i samples/norway/getting-started.sql
+
 \echo "Creating import definitions for BRREG Hovedenhet and Underenhet 2024"
 \i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 \i samples/norway/brreg/create-import-definition-underenhet-2024.sql
@@ -55,9 +58,6 @@ WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underen
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
 SELECT  def.id, 'import_10_es_2018_sht', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2018 Small History Test (Test 10)', 'This job handles the import of BRREG Underenhet small history test data for 2018 (Test 10).', 'BRREG Underenhet 2018 (SHT Test 10)'
 FROM def;
-
-\echo "Setting up Statbus for Norway"
-\i samples/norway/getting-started.sql
 
 \echo "Loading historical units into respective job upload tables"
 \copy public.import_10_lu_2015_sht_upload FROM 'samples/norway/small-history/2015-enheter.csv' WITH CSV HEADER;
