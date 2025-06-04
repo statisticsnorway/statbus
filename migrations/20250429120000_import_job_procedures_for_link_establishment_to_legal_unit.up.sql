@@ -242,7 +242,7 @@ BEGIN
                     SELECT 1
                     FROM RankedForPrimary other_rfp -- Self-referencing RankedForPrimary to check other batch items
                     WHERE other_rfp.resolved_lu_id = rfp.resolved_lu_id
-                      AND other_rfp.current_establishment_id IS DISTINCT FROM rfp.current_establishment_id -- Ensure we are comparing with *other* establishments in the batch
+                      AND other_rfp.original_data_table_row_id <> rfp.original_data_table_row_id -- Compare batch rows using their unique _data table row_id
                       AND other_rfp.original_data_table_row_id < rfp.original_data_table_row_id -- Prioritize by original_data_table_row_id if periods overlap
                       AND other_rfp.no_overlapping_primary_in_db -- The other item must also be a candidate (no DB conflict with *other* ESTs)
                       AND public.after_to_overlaps( -- Check if the other item's period overlaps with the current item's period
