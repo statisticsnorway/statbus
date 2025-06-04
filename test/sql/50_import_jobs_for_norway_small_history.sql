@@ -4,6 +4,9 @@ BEGIN;
 
 CALL test.set_user_from_email('test.admin@statbus.org');
 
+\echo "Setting up Statbus for Norway"
+\i samples/norway/getting-started.sql
+
 \i samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 \i samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
@@ -71,9 +74,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
 -- Display the definition snapshot for one job (optional, can be large)
 -- SELECT slug, definition_snapshot FROM public.import_job WHERE slug = 'import_lu_2015_sht' ORDER BY slug;
 
-\echo "Setting up Statbus for Norway"
-\i samples/norway/getting-started.sql
-
 -- Verify user context is set correctly for import jobs
 \echo "Verifying user context for import jobs"
 SELECT slug,
@@ -89,36 +89,46 @@ ORDER BY slug;
 \echo Processing tasks for import_lu_2015_sht
 CALL worker.process_tasks(p_queue => 'import');
 \copy public.import_lu_2016_sht_upload FROM 'samples/norway/small-history/2016-enheter.csv' WITH CSV HEADER;
-
 \echo Processing tasks for import_lu_2016_sht with DEBUG1
 --SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
 --SET client_min_messages TO NOTICE;
 
 \copy public.import_lu_2017_sht_upload FROM 'samples/norway/small-history/2017-enheter.csv' WITH CSV HEADER;
-
 \echo Processing tasks for import_lu_2017_sht
+--SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
+
 \copy public.import_lu_2018_sht_upload FROM 'samples/norway/small-history/2018-enheter.csv' WITH CSV HEADER;
-
 \echo Processing tasks for import_lu_2018_sht
+--SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
+
 \copy public.import_es_2015_sht_upload FROM 'samples/norway/small-history/2015-underenheter.csv' WITH CSV HEADER;
-
 \echo Processing tasks for import_es_2015_sht
+--SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
+
 \copy public.import_es_2016_sht_upload FROM 'samples/norway/small-history/2016-underenheter.csv' WITH CSV HEADER;
-
 \echo Processing tasks for import_es_2016_sht
+--SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
+
 \copy public.import_es_2017_sht_upload FROM 'samples/norway/small-history/2017-underenheter.csv' WITH CSV HEADER;
-
 \echo Processing tasks for import_es_2017_sht
+--SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
-\copy public.import_es_2018_sht_upload FROM 'samples/norway/small-history/2018-underenheter.csv' WITH CSV HEADER;
+--SET client_min_messages TO NOTICE;
 
+\copy public.import_es_2018_sht_upload FROM 'samples/norway/small-history/2018-underenheter.csv' WITH CSV HEADER;
 \echo Processing tasks for import_es_2018_sht
+--SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
+--SET client_min_messages TO NOTICE;
 
 \echo Check import job state before import
 SELECT state, count(*) FROM import_job GROUP BY state;
@@ -146,6 +156,62 @@ SELECT state, count(*) FROM public.import_es_2015_sht_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2016_sht_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2017_sht_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2018_sht_data GROUP BY state;
+
+\echo "Debug: BOBILER AS - Legal Unit (tax_ident 876278812) segments in public.legal_unit"
+WITH target_lu_base AS (
+    SELECT xi.legal_unit_id AS id
+    FROM public.external_ident xi
+    JOIN public.external_ident_type xit ON xi.type_id = xit.id
+    WHERE xit.code = 'tax_ident' AND xi.ident = '876278812' AND xi.legal_unit_id IS NOT NULL
+    LIMIT 1
+)
+SELECT
+    lu.valid_from, lu.valid_to, lu.valid_after, lu.name,
+    sec.code AS sector_code,
+    lf.code AS legal_form_code,
+    lu.edit_comment, lu.active,
+    lu.primary_for_enterprise
+FROM public.legal_unit lu
+JOIN target_lu_base tlb ON lu.id = tlb.id
+LEFT JOIN public.sector sec ON lu.sector_id = sec.id
+LEFT JOIN public.legal_form lf ON lu.legal_form_id = lf.id
+ORDER BY lu.valid_after;
+
+\echo "Debug: BOBILER AS - Establishment (tax_ident 929895711) segments in public.establishment"
+WITH target_est_base AS (
+    SELECT xi.establishment_id AS id
+    FROM public.external_ident xi
+    JOIN public.external_ident_type xit ON xi.type_id = xit.id
+    WHERE xit.code = 'tax_ident' AND xi.ident = '929895711' AND xi.establishment_id IS NOT NULL
+    LIMIT 1
+)
+SELECT
+    est.valid_from, est.valid_to, est.valid_after, est.name,
+    (SELECT lu_ei.ident FROM public.legal_unit lu JOIN public.external_ident lu_ei ON lu.id = lu_ei.legal_unit_id JOIN public.external_ident_type lu_eit ON lu_ei.type_id = lu_eit.id WHERE lu.id = est.legal_unit_id AND lu_eit.code = 'tax_ident' LIMIT 1) AS legal_unit_tax_ident,
+    est.primary_for_legal_unit,
+    est.primary_for_enterprise,
+    est.edit_comment, est.active
+FROM public.establishment est
+JOIN target_est_base teb ON est.id = teb.id
+ORDER BY est.valid_after;
+
+\echo "Debug: BOBILER AS - Activity segments for Establishment (tax_ident 929895711) in public.activity"
+WITH target_est_base AS (
+    SELECT xi.establishment_id AS id
+    FROM public.external_ident xi
+    JOIN public.external_ident_type xit ON xi.type_id = xit.id
+    WHERE xit.code = 'tax_ident' AND xi.ident = '929895711' AND xi.establishment_id IS NOT NULL
+    LIMIT 1
+)
+SELECT
+    act.valid_from, act.valid_to, act.valid_after,
+    ac.code AS activity_category_code,
+    ac.path AS activity_category_path,
+    act.type, act.edit_comment
+FROM public.activity act
+JOIN target_est_base teb ON act.establishment_id = teb.id
+JOIN public.activity_category ac ON act.category_id = ac.id
+ORDER BY act.valid_after, act.type;
 
 \echo "Checking for Row-level errors for all import jobs:"
 
@@ -387,7 +453,7 @@ SELECT valid_from
      , external_idents ->> 'tax_ident' AS tax_ident
      , unit_type
  FROM public.statistical_unit
- ORDER BY name, unit_type, valid_from, valid_to, external_idents ->> 'tax_ident', unit_id;
+ ORDER BY name, unit_type, valid_from, valid_to, external_idents ->> 'tax_ident';
 
 
 \echo Getting statistical_units after upload
@@ -412,7 +478,7 @@ SELECT valid_after
      , jsonb_pretty(stats) AS stats
      , jsonb_pretty(stats_summary) AS stats_summary
  FROM public.statistical_unit
- ORDER BY valid_from, valid_to, unit_type, external_idents ->> 'tax_ident', unit_id;
+ ORDER BY valid_from, valid_to, unit_type, external_idents ->> 'tax_ident';
 \x
 
 
