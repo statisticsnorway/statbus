@@ -18,6 +18,8 @@ DECLARE
     v_job_mode public.import_mode;
     error_message TEXT;
     v_error_keys_to_clear_arr TEXT[] := ARRAY['enterprise_link_for_legal_unit'];
+    v_external_ident_source_column_names_json JSONB;
+    v_external_ident_source_columns TEXT[];
     v_current_lu_data_row RECORD;
     v_existing_lu_record RECORD;
     v_resolved_enterprise_id INT;
@@ -39,8 +41,27 @@ BEGIN
     SELECT * INTO v_step FROM public.import_step WHERE code = 'enterprise_link_for_legal_unit';
     IF NOT FOUND THEN RAISE EXCEPTION '[Job %] enterprise_link_for_legal_unit step not found', p_job_id; END IF;
 
+    -- Determine relevant source column names for external identifiers from the definition snapshot
+    SELECT COALESCE(jsonb_agg(idc_element->>'column_name'), '[]'::jsonb)
+    INTO v_external_ident_source_column_names_json
+    FROM jsonb_array_elements(v_job.definition_snapshot->'import_data_column_list') AS idc_element
+    JOIN jsonb_array_elements(v_job.definition_snapshot->'import_step_list') AS isl_element
+      ON (isl_element->>'code') = 'external_idents' AND (idc_element->>'step_id')::INT = (isl_element->>'id')::INT
+    WHERE idc_element->>'purpose' = 'source_input';
+
+    SELECT ARRAY(SELECT jsonb_array_elements_text(v_external_ident_source_column_names_json))
+    INTO v_external_ident_source_columns;
+
+    IF array_length(v_external_ident_source_columns, 1) IS NULL OR array_length(v_external_ident_source_columns, 1) = 0 THEN
+        -- Fallback if no specific columns are found (should be rare for jobs with external_idents)
+        v_external_ident_source_columns := ARRAY['unknown_identifier_source'];
+        RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: No source_input columns found for external_idents step. Falling back to: %', p_job_id, v_external_ident_source_columns;
+    ELSE
+        RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Identified external_idents source_input columns: %', p_job_id, v_external_ident_source_columns;
+    END IF;
+
     -- Create a temporary table to hold analysis results for 'replace' actions
-    -- NOTE: DROP TABLE IF EXISTS moved to the end of the procedure (normal and exception paths)
+    -- Per user guidance, explicit DROP is at the end / exception, not at the beginning for multi-call-in-one-tx test scenario.
     CREATE TEMP TABLE temp_enterprise_analysis_results (
         row_id BIGINT PRIMARY KEY,
         resolved_enterprise_id INT,
@@ -49,28 +70,46 @@ BEGIN
         error_details JSONB DEFAULT NULL
     ) ON COMMIT DROP;
 
-    -- Populate the temp table for 'replace' actions where legal_unit_id is known
-    -- This isolates the lookup of existing legal unit data.
+    -- Populate the temp table for 'replace' actions.
+    -- This handles potential fan-out if dt.legal_unit_id is a conceptual ID that maps to multiple
+    -- temporal slices in public.legal_unit. It selects the latest temporally overlapping slice.
     v_sql := format($$
         INSERT INTO temp_enterprise_analysis_results (row_id, resolved_enterprise_id, resolved_primary_for_enterprise, is_error, error_details)
         SELECT
             dt.row_id,
-            lu.enterprise_id,
-            lu.primary_for_enterprise,
-            CASE WHEN lu.id IS NULL THEN TRUE ELSE FALSE END, -- Error if LU not found for replace
+            olu.enterprise_id, -- Enterprise ID from the latest LU slice
+            olu.primary_for_enterprise_resolved, -- primary_for_enterprise from the latest LU slice
+            CASE 
+                WHEN dt.legal_unit_id IS NOT NULL AND olu.ref_lu_id_check IS NULL THEN TRUE -- legal_unit.id provided by external_idents, but no LU data row found for it in public.legal_unit
+                ELSE FALSE 
+            END AS is_error,
             CASE
-                WHEN lu.id IS NULL THEN jsonb_build_object('enterprise_link_for_legal_unit', jsonb_build_object('legal_unit_not_found_for_replace', dt.legal_unit_id))
+                WHEN dt.legal_unit_id IS NOT NULL AND olu.ref_lu_id_check IS NULL THEN 
+                    (SELECT jsonb_object_agg(col_name, jsonb_build_object(
+                        'error_code', 'LU_DATA_MISSING_FOR_ID',
+                        'message', 'Legal Unit was identified by an external identifier (resolving to internal ID ' || dt.legal_unit_id::TEXT || '), but no corresponding data row was found in public.legal_unit using this internal ID.',
+                        'internal_lu_id', dt.legal_unit_id
+                    )) FROM unnest($2) AS col_name) -- $2 is v_external_ident_source_columns
                 ELSE NULL
-            END
-        FROM public.%I dt
-        LEFT JOIN public.legal_unit lu ON dt.legal_unit_id = lu.id AND public.after_to_overlaps(lu.valid_after, lu.valid_to, dt.derived_valid_after, dt.derived_valid_to)
-        WHERE dt.row_id = ANY(%L)
+            END AS error_details
+        FROM public.%I dt -- This is v_data_table_name
+        LEFT JOIN LATERAL (
+            SELECT
+                ref_lu.id AS ref_lu_id_check, -- To confirm a legal_unit row was actually found
+                ref_lu.enterprise_id,
+                COALESCE(ref_lu.primary_for_enterprise, FALSE) AS primary_for_enterprise_resolved
+            FROM public.legal_unit ref_lu
+            WHERE ref_lu.id = dt.legal_unit_id -- Match conceptual LU ID stored in dt.legal_unit_id
+            ORDER BY ref_lu.valid_after DESC, ref_lu.valid_to DESC -- Get the latest slice
+            LIMIT 1
+        ) olu ON TRUE -- olu will have 0 or 1 row
+        WHERE dt.row_id = ANY($1) -- Process only rows in the current batch
           AND dt.action = 'replace'
-          AND dt.legal_unit_id IS NOT NULL;
-    $$, v_data_table_name, p_batch_row_ids);
+          AND dt.legal_unit_id IS NOT NULL; -- Only attempt this for rows that have a legal_unit_id (identified by external_idents)
+    $$, v_data_table_name);
 
-    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Populating temp_enterprise_analysis_results: %', p_job_id, v_sql;
-    EXECUTE v_sql;
+    RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Populating temp_enterprise_analysis_results for "replace" actions (using placeholder for batch_row_ids and external_ident_cols): %', p_job_id, v_sql;
+    EXECUTE v_sql USING p_batch_row_ids, v_external_ident_source_columns; -- Pass parameters via USING clause
     GET DIAGNOSTICS v_update_count = ROW_COUNT; -- Count of rows inserted into temp table
     RAISE DEBUG '[Job %] analyse_enterprise_link_for_legal_unit: Populated % rows into temp_enterprise_analysis_results.', p_job_id, v_update_count;
 
