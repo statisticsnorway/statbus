@@ -357,8 +357,6 @@ BEGIN
        GET DIAGNOSTICS v_update_count = ROW_COUNT;
        RAISE DEBUG '[Job %] process_tags: Ensured LCP advanced for % rows marked as skip.', p_job_id, v_update_count;
    
-       DROP TABLE IF EXISTS temp_batch_data;
-
     EXCEPTION WHEN OTHERS THEN
         GET STACKED DIAGNOSTICS error_message = MESSAGE_TEXT;
         RAISE WARNING '[Job %] process_tags: Error during batch operation: %', p_job_id, error_message;
@@ -368,6 +366,7 @@ BEGIN
             state = 'finished' -- Or a new 'failed' state
         WHERE id = p_job_id;
         RAISE DEBUG '[Job %] process_tags: Marked job as failed due to error: %', p_job_id, error_message;
+        DROP TABLE IF EXISTS temp_batch_data;
         RAISE; -- Re-raise the original exception
     END;
 
