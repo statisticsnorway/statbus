@@ -59,6 +59,9 @@ BEGIN
     v_error_keys_to_clear_arr := COALESCE(v_error_keys_to_clear_arr, ARRAY[]::TEXT[]);
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Error keys to clear for this step: %', p_job_id, v_error_keys_to_clear_arr;
 
+    -- Pre-calculate the fallback error key (moved earlier)
+    v_fallback_error_key := COALESCE(v_error_keys_to_clear_arr[1], 'link_establishment_to_legal_unit_error');
+
     -- Step 1: Unpivot provided identifiers and lookup legal units
     CREATE TEMP TABLE temp_unpivoted_lu_idents (
         data_row_id BIGINT,
@@ -87,12 +90,22 @@ BEGIN
         RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: No legal unit identifier values found in batch. Skipping further analysis.', p_job_id;
         -- Mark all rows in batch as error because no identifier was provided
          v_sql := format($$
-            UPDATE public.%I dt SET
-                state = %L,
-                error = jsonb_build_object('link_establishment_to_legal_unit', 'No legal unit identifier provided')
-                -- last_completed_priority is preserved (not changed) on error
-            WHERE dt.row_id = ANY(%L);
-        $$, v_data_table_name, 'error', p_batch_row_ids);
+            UPDATE public.%1$I dt SET
+                state = %2$L,
+                action = 'skip', -- Ensure action is skip
+                error = COALESCE(dt.error, '{}'::jsonb) || 
+                        (SELECT jsonb_object_agg(key_name, 'Missing legal unit identifier.') 
+                         FROM unnest(COALESCE(%3$L::TEXT[], ARRAY[%4$L])) AS key_name),
+                last_completed_priority = %5$L -- Advance priority
+            WHERE dt.row_id = ANY(%6$L);
+        $$, 
+            v_data_table_name,          -- %1$I
+            'error',                    -- %2$L
+            v_error_keys_to_clear_arr,  -- %3$L
+            v_fallback_error_key,       -- %4$L
+            v_step.priority,            -- %5$L
+            p_batch_row_ids             -- %6$L
+        );
         EXECUTE v_sql;
         GET DIAGNOSTICS v_error_count = ROW_COUNT;
         RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit (Batch): Finished analysis for batch. Errors: % (all rows missing identifiers)', p_job_id, v_error_count;
@@ -126,10 +139,8 @@ BEGIN
     -- Step 2: Identify and Aggregate Errors
     CREATE TEMP TABLE temp_batch_errors (data_row_id BIGINT PRIMARY KEY, error_jsonb JSONB) ON COMMIT DROP;
 
-    -- Pre-calculate the fallback error key
-    v_fallback_error_key := COALESCE(v_error_keys_to_clear_arr[1], 'link_establishment_to_legal_unit_error');
-
     -- Check for rows missing any identifier, inconsistencies (multiple LUs found), or not found
+    -- v_fallback_error_key is already calculated
     v_sql := format($$
         WITH RowChecks AS (
             SELECT
@@ -147,7 +158,7 @@ BEGIN
             rc.data_row_id,
             CASE
                 WHEN rc.num_idents_provided = 0 THEN -- No identifiers provided at all
-                    jsonb_build_object(%2$L, 'Missing legal unit identifier.')
+                    (SELECT jsonb_object_agg(key_name, 'Missing legal unit identifier.') FROM unnest(COALESCE(%3$L::TEXT[], ARRAY[%2$L])) AS key_name)
                 WHEN rc.num_idents_provided > 0 AND rc.found_lu = 0 THEN -- Identifiers provided, but none resolved to an LU
                     (SELECT jsonb_object_agg(key_name, 'Legal unit not found with provided identifiers.') FROM unnest(COALESCE(rc.provided_input_ident_codes, ARRAY[%2$L])) AS key_name)
                 WHEN rc.distinct_lu_ids > 1 THEN -- Identifiers provided resolved to multiple different LUs
@@ -158,7 +169,8 @@ BEGIN
         WHERE rc.num_idents_provided = 0 OR (rc.num_idents_provided > 0 AND rc.found_lu = 0) OR rc.distinct_lu_ids > 1;
     $$, 
         p_batch_row_ids,         /* %1$L */
-        v_fallback_error_key     /* %2$L */
+        v_fallback_error_key,    /* %2$L */
+        v_error_keys_to_clear_arr /* %3$L */
     );
     RAISE DEBUG '[Job %] analyse_link_establishment_to_legal_unit: Identifying errors post-lookup: %', p_job_id, v_sql;
     EXECUTE v_sql;

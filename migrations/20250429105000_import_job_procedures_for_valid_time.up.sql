@@ -127,7 +127,7 @@ DECLARE
     v_update_count INT := 0;
     v_skipped_update_count INT := 0;
     v_sql TEXT;
-    v_error_keys_to_clear_arr TEXT[] := ARRAY['valid_from_source', 'valid_to_source', 'invalid_period_source'];
+    v_error_keys_to_clear_arr TEXT[] := ARRAY['valid_from', 'valid_to']; -- Adjusted to match source_input column names
 BEGIN
     RAISE DEBUG '[Job %] analyse_valid_time_from_source (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
@@ -179,15 +179,18 @@ BEGIN
                      END,
             error = CASE
                         WHEN cdc.original_vf IS NULL THEN -- Mandatory value missing
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from_source', 'Missing mandatory value')
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from', 'Missing mandatory value')
                         WHEN cdc.vf_error_msg IS NOT NULL THEN -- Cast error for valid_from
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from_source', cdc.vf_error_msg)
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_from', cdc.vf_error_msg)
                         WHEN cdc.original_vt IS NULL THEN -- Mandatory value missing
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to_source', 'Missing mandatory value')
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to', 'Missing mandatory value')
                         WHEN cdc.vt_error_msg IS NOT NULL THEN -- Cast error for valid_to
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to_source', cdc.vt_error_msg)
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('valid_to', cdc.vt_error_msg)
                         WHEN cdc.casted_vf IS NOT NULL AND cdc.casted_vt IS NOT NULL AND (cdc.casted_vf - INTERVAL '1 day' >= cdc.casted_vt) THEN -- Invalid period
-                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('invalid_period_source', 'Resulting valid_after (' || (cdc.casted_vf - INTERVAL '1 day')::TEXT || ') is not before valid_to (' || cdc.casted_vt::TEXT || ')')
+                            COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object(
+                                'valid_from', 'Resulting period is invalid: derived_valid_after (' || (cdc.casted_vf - INTERVAL '1 day')::TEXT || ') is not before valid_to (' || cdc.casted_vt::TEXT || ')',
+                                'valid_to',   'Resulting period is invalid: derived_valid_after (' || (cdc.casted_vf - INTERVAL '1 day')::TEXT || ') is not before valid_to (' || cdc.casted_vt::TEXT || ')'
+                            )
                         ELSE -- No error from this step, clear specific keys
                             CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
