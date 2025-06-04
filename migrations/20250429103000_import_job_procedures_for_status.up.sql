@@ -66,6 +66,15 @@ BEGIN
                         ELSE
                             CASE WHEN (dt.error - %L::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - %L::TEXT[]) END
                     END,
+            invalid_codes =
+                CASE
+                    -- Soft error: Invalid code provided, but default is available and used.
+                    WHEN NULLIF(dt.status_code, '') IS NOT NULL AND sl.resolved_status_id_by_code IS NULL AND %L::INTEGER IS NOT NULL THEN
+                        COALESCE(dt.invalid_codes, '{}'::jsonb) || jsonb_build_object('status_code', dt.status_code)
+                    -- Default case: clear 'status_code' from invalid_codes if it exists (e.g. if code is valid or hard error occurs for status_code).
+                    ELSE
+                        CASE WHEN (COALESCE(dt.invalid_codes, '{}'::jsonb) - 'status_code') = '{}'::jsonb THEN NULL ELSE (COALESCE(dt.invalid_codes, '{}'::jsonb) - 'status_code') END
+                END,
             last_completed_priority = %L::INTEGER -- Always v_step.priority
         FROM status_lookup sl
         WHERE dt.row_id = sl.data_row_id AND dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip';
@@ -78,6 +87,7 @@ BEGIN
         v_default_status_id,                                    -- For error CASE (code not found & no default)
         v_default_status_id,                                    -- For error CASE (no code & no default)
         v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear)
+        v_default_status_id,                                    -- For invalid_codes CASE (soft error condition)
         v_step.priority,                                        -- For last_completed_priority (always this step's priority)
         p_batch_row_ids                                         -- For final WHERE clause
     );
