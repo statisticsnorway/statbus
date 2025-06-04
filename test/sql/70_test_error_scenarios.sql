@@ -421,10 +421,12 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_70_07_01_lu_idents', 'Test 70.7.1: LU Ident Errors', 'Test 70.7.1');
 END $$;
-INSERT INTO public.import_70_07_01_lu_idents_upload(tax_ident, stat_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code, birth_date) VALUES
-(NULL,NULL,'LU NoIdents','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01'), -- Error: missing_identifier_value
-('LU7071_TAX','LU7072_STAT','LU Inconsistent','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01'), -- Error: inconsistent_legal_unit
-('EST7071_TAX',NULL,'LU CrossType EST','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01'); -- Error: cross-type conflict (tax_ident used by EST1)
+INSERT INTO public.import_70_07_01_lu_idents_upload(tax_ident, stat_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code, birth_date, custom_est_ident) VALUES
+(NULL,NULL,'LU NoIdents','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL), -- Error: missing_identifier_value
+('LU7071_TAX','LU7072_STAT','LU Inconsistent','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL), -- Error: inconsistent_legal_unit
+('EST7071_TAX',NULL,'LU CrossType EST','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL), -- Error: cross-type conflict (tax_ident used by EST1)
+('LU7071_TAX','LU7071_STAT_CHANGED','LU Unstable Ident','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL) -- Error: unstable_identifier (attempts to change existing LU1.stat_ident)
+;
 -- The previous attempt to test an 'unknown_identifier_type' error by inserting into a
 -- non-existent column in the _upload table was removed, as this causes a direct SQL error
 -- rather than testing the import logic for unknown identifier type codes.

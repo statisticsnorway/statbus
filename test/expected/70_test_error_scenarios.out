@@ -632,10 +632,12 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_70_07_01_lu_idents', 'Test 70.7.1: LU Ident Errors', 'Test 70.7.1');
 END $$;
-INSERT INTO public.import_70_07_01_lu_idents_upload(tax_ident, stat_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code, birth_date) VALUES
-(NULL,NULL,'LU NoIdents','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01'), -- Error: missing_identifier_value
-('LU7071_TAX','LU7072_STAT','LU Inconsistent','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01'), -- Error: inconsistent_legal_unit
-('EST7071_TAX',NULL,'LU CrossType EST','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01'); -- Error: cross-type conflict (tax_ident used by EST1)
+INSERT INTO public.import_70_07_01_lu_idents_upload(tax_ident, stat_ident, name, valid_from, valid_to, sector_code, legal_form_code, primary_activity_category_code, birth_date, custom_est_ident) VALUES
+(NULL,NULL,'LU NoIdents','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL), -- Error: missing_identifier_value
+('LU7071_TAX','LU7072_STAT','LU Inconsistent','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL), -- Error: inconsistent_legal_unit
+('EST7071_TAX',NULL,'LU CrossType EST','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL), -- Error: cross-type conflict (tax_ident used by EST1)
+('LU7071_TAX','LU7071_STAT_CHANGED','LU Unstable Ident','2023-01-01','2023-12-31','2100','AS','01.110','2023-01-01',NULL) -- Error: unstable_identifier (attempts to change existing LU1.stat_ident)
+;
 -- The previous attempt to test an 'unknown_identifier_type' error by inserting into a
 -- non-existent column in the _upload table was removed, as this causes a direct SQL error
 -- rather than testing the import logic for unknown identifier type codes.
@@ -643,12 +645,13 @@ CALL worker.process_tasks(p_queue => 'import');
 \echo "Data table for import_70_07_01_lu_idents (expect external_idents errors):"
 "Data table for import_70_07_01_lu_idents (expect external_idents errors):"
 SELECT row_id, name, state, action, operation, error, legal_unit_id FROM public.import_70_07_01_lu_idents_data ORDER BY row_id;
- row_id |       name       | state | action | operation |                                                                     error                                                                     | legal_unit_id 
---------+------------------+-------+--------+-----------+-----------------------------------------------------------------------------------------------------------------------------------------------+---------------
-      1 | LU NoIdents      | error | skip   | insert    | {"tax_ident": "No identifier specified", "stat_ident": "No identifier specified", "custom_est_ident": "No identifier specified"}              |              
-      2 | LU Inconsistent  | error | skip   | replace   | {"tax_ident": "Provided identifiers resolve to different Legal Units", "stat_ident": "Provided identifiers resolve to different Legal Units"} |              
-      3 | LU CrossType EST | error | skip   | replace   | {"tax_ident": "Identifier already used by a Establishment: {\"tax_ident\": \"EST7071_TAX\"}"}                                                 |              
-(3 rows)
+ row_id |       name        | state | action | operation |                                                                     error                                                                     | legal_unit_id 
+--------+-------------------+-------+--------+-----------+-----------------------------------------------------------------------------------------------------------------------------------------------+---------------
+      1 | LU NoIdents       | error | skip   | insert    | {"tax_ident": "No identifier specified", "stat_ident": "No identifier specified", "custom_est_ident": "No identifier specified"}              |              
+      2 | LU Inconsistent   | error | skip   | replace   | {"tax_ident": "Provided identifiers resolve to different Legal Units", "stat_ident": "Provided identifiers resolve to different Legal Units"} |              
+      3 | LU CrossType EST  | error | skip   | replace   | {"tax_ident": "Identifier already used by a Establishment: {\"tax_ident\": \"EST7071_TAX\"}"}                                                 |              
+      4 | LU Unstable Ident | error | skip   | replace   | {"stat_ident": "Identifier stat_ident value 'LU7071_STAT_CHANGED' from input attempts to change existing value 'LU7071_STAT'"}                |              
+(4 rows)
 
 -- Sub-Scenario 70.7.2: Mode 'establishment_formal' (using 'establishment_for_lu_explicit_dates')
 \echo "Sub-Scenario 70.7.2: analyse_external_idents - Mode 'establishment_formal'"
