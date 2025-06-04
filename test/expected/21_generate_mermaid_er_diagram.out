@@ -286,6 +286,8 @@ erDiagram
 		"import_strategy" strategy
 		"import_mode" mode
 		"integer" user_id
+		"boolean" active
+		"boolean" custom
 		"boolean" valid
 		"text" validation_error
 		"interval" default_retention_period
@@ -337,6 +339,7 @@ erDiagram
 		"text" source_value
 		"import_source_expression" source_expression
 		"integer" target_data_column_id
+		"boolean" is_ignored
 		"import_data_column_purpose" target_data_column_purpose
 		"timestamp with time zone" created_at
 		"timestamp with time zone" updated_at
@@ -1100,8 +1103,8 @@ erDiagram
 	import_definition_step }|--|| import_step : import_definition_step_step_id_fkey
 	import_job }o--o| auth.user : import_job_user_id_fkey
 	import_job }o--|| import_definition : import_job_definition_id_fkey
-	import_mapping }o--|| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
 	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_fkey
+	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
 	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
 	import_mapping }|--|| import_definition : import_mapping_definition_id_fkey
 	import_mapping }o--o| import_source_column : import_mapping_source_column_id_fkey

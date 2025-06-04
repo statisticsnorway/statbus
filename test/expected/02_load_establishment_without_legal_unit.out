@@ -123,7 +123,9 @@ SELECT code, name, active, custom FROM public.data_source_available;
  mi     | Manual Input                     | t      | f
  nlr    | National Legal Business Registry | t      | f
  ntr    | National Tax Registry            | t      | f
-(4 rows)
+ other  | Other External Data Source       | t      | f
+ survey | Survey Data                      | t      | f
+(6 rows)
 
 \echo "User uploads the sample data sources"
 "User uploads the sample data sources"

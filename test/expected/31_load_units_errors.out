@@ -151,10 +151,10 @@ SELECT row_id, state, error, tax_ident, stat_ident, name
 FROM public.import_31_esflu_era_b1_data
 WHERE error IS NOT NULL OR state = 'error'
 ORDER BY row_id;
- row_id | state |                                         error                                         |  tax_ident  | stat_ident |          name           
---------+-------+---------------------------------------------------------------------------------------+-------------+------------+-------------------------
-      1 | error | {"stat_ident": "Identifier already used by a Legal Unit: {\"stat_ident\": \"1000\"}"} | 92212760144 | 1000       | NILE PEARL WATER
-      2 | error | {"stat_ident": "Identifier already used by a Legal Unit: {\"stat_ident\": \"1001\"}"} | 92812760140 | 1001       | EQUATOR GLOBE SOLUTIONS
+ row_id | state |                                                                                                  error                                                                                                   |  tax_ident  | stat_ident |          name           
+--------+-------+----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+------------+-------------------------
+      1 | error | {"tax_ident": "Identifier tax_ident value '92212760144' from input attempts to change existing value '2212760144'", "stat_ident": "Identifier already used by a Legal Unit: {\"stat_ident\": \"1000\"}"} | 92212760144 | 1000       | NILE PEARL WATER
+      2 | error | {"tax_ident": "Identifier tax_ident value '92812760140' from input attempts to change existing value '2812760140'", "stat_ident": "Identifier already used by a Legal Unit: {\"stat_ident\": \"1001\"}"} | 92812760140 | 1001       | EQUATOR GLOBE SOLUTIONS
 (2 rows)
 
 \echo Run worker processing for analytics tasks - Block 1 (errors primarily tested on import queue)
@@ -260,10 +260,10 @@ SELECT row_id, state, error, tax_ident, stat_ident, name
 FROM public.import_31_eswlu_era_b2_errors_data
 WHERE error IS NOT NULL OR state = 'error'
 ORDER BY row_id;
- row_id | state |                                              error                                              |  tax_ident  | stat_ident |             name             
---------+-------+-------------------------------------------------------------------------------------------------+-------------+------------+------------------------------
-      1 | error | {"stat_ident": "Identifier already used by a Formal Establishment: {\"stat_ident\": \"2000\"}"} | 82212760144 | 2000       | THE NILE PEARL WATER
-      2 | error | {"stat_ident": "Identifier already used by a Formal Establishment: {\"stat_ident\": \"2001\"}"} | 82812760140 | 2001       | THE  EQUATOR GLOBE SOLUTIONS
+ row_id | state |                                                                                                        error                                                                                                        |  tax_ident  | stat_ident |             name             
+--------+-------+---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------+-------------+------------+------------------------------
+      1 | error | {"tax_ident": "Identifier tax_ident value '82212760144' from input attempts to change existing value '92212760144'", "stat_ident": "Identifier already used by a Formal Establishment: {\"stat_ident\": \"2000\"}"} | 82212760144 | 2000       | THE NILE PEARL WATER
+      2 | error | {"tax_ident": "Identifier tax_ident value '82812760140' from input attempts to change existing value '92812760140'", "stat_ident": "Identifier already used by a Formal Establishment: {\"stat_ident\": \"2001\"}"} | 82812760140 | 2001       | THE  EQUATOR GLOBE SOLUTIONS
 (2 rows)
 
 \echo Run worker processing for analytics tasks - Block 2 (errors primarily tested on import queue)

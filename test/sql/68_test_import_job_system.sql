@@ -1,5 +1,3 @@
-SET datestyle TO 'ISO, DMY';
-
 BEGIN;
 
 \i test/setup.sql

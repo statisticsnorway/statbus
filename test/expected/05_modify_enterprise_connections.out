@@ -129,16 +129,16 @@ SELECT
 \echo "Available import definitions before creating jobs:"
 "Available import definitions before creating jobs:"
 SELECT slug, name, valid, validation_error FROM public.import_definition ORDER BY slug;
-                  slug                   |                       name                        | valid | validation_error 
------------------------------------------+---------------------------------------------------+-------+------------------
- establishment_for_lu_current_year       | Establishment for Legal Unit - Current Year       | t     | 
- establishment_for_lu_explicit_dates     | Establishment for Legal Unit - Explicit Dates     | t     | 
- establishment_without_lu_current_year   | Establishment without Legal Unit - Current Year   | t     | 
- establishment_without_lu_explicit_dates | Establishment without Legal Unit - Explicit Dates | t     | 
- legal_unit_current_year                 | Legal Unit - Current Year                         | t     | 
- legal_unit_explicit_dates               | Legal Unit - Explicit Dates                       | t     | 
- unit_stats_update_current_year          | Unit Stats Update - Current Year                  | t     | 
- unit_stats_update_explicit_dates        | Unit Stats Update - Explicit Dates                | t     | 
+                   slug                   |                       name                        | valid | validation_error 
+------------------------------------------+---------------------------------------------------+-------+------------------
+ establishment_for_lu_current_year        | Establishment for Legal Unit - Current Year       | t     | 
+ establishment_for_lu_explicit_dates      | Establishment for Legal Unit - Explicit Dates     | t     | 
+ establishment_without_lu_current_year    | Establishment without Legal Unit - Current Year   | t     | 
+ establishment_without_lu_explicit_dates  | Establishment without Legal Unit - Explicit Dates | t     | 
+ generic_unit_stats_update_current_year   | Unit Stats Update - Current Year                  | t     | 
+ generic_unit_stats_update_explicit_dates | Unit Stats Update - Explicit Dates                | t     | 
+ legal_unit_current_year                  | Legal Unit - Current Year                         | t     | 
+ legal_unit_explicit_dates                | Legal Unit - Explicit Dates                       | t     | 
 (8 rows)
 
 -- Create Import Job for Legal Units (Era)
