@@ -722,7 +722,11 @@ CREATE TABLE public.import_job(
     edit_comment TEXT, -- Job-level default edit comment
     expires_at TIMESTAMPTZ NOT NULL, -- Timestamp when the job and its associated data are eligible for cleanup
     definition_id integer NOT NULL REFERENCES public.import_definition(id) ON DELETE CASCADE,
-    user_id integer REFERENCES auth.user(id) ON DELETE SET NULL
+    user_id integer REFERENCES auth.user(id) ON DELETE SET NULL,
+    CONSTRAINT import_job_default_valid_from_to_consistency_check CHECK (
+        (default_valid_from IS NULL AND default_valid_to IS NULL) OR
+        (default_valid_from IS NOT NULL AND default_valid_to IS NOT NULL AND default_valid_from <= default_valid_to)
+    )
 );
 COMMENT ON COLUMN public.import_job.edit_comment IS 'Default edit comment to be applied to records processed by this job.';
 COMMENT ON COLUMN public.import_job.expires_at IS 'Timestamp when the job and its associated data (_upload, _data tables) are eligible for cleanup. Calculated as created_at + import_definition.default_retention_period.';
