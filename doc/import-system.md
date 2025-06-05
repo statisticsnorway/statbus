@@ -75,14 +75,41 @@ The import system is built around several key database tables and concepts:
 
 8.  **Import Job (`import_job`)**:
     *   Represents a specific instance of an import, created by a user based on an `import_definition`.
-    *   Tracks the overall state (`waiting_for_upload`, `upload_completed`, `preparing_data`, `analysing_data`, `processing_data`, `finished`, etc.).
+    *   Tracks the overall state. The `import_job_state` enum includes:
+        *   `waiting_for_upload`: Initial state. Job created, awaiting file upload.
+            *   *Transition*: User uploads data to the job's `_upload` table. An `AFTER INSERT` trigger on this table changes the job state to `upload_completed` if rows were inserted.
+        *   `upload_completed`: File uploaded. The `import_job_state_change_after` trigger enqueues the job for processing.
+            *   *Transition*: Worker (`admin.import_job_process`) picks up the job and transitions it to `preparing_data`.
+        *   `preparing_data`: Worker is executing `admin.import_job_prepare` to move and transform data from `_upload` to `_data` table. Rows in `_data` are set to `pending` state.
+            *   *Transition*: After `admin.import_job_prepare` completes, worker transitions job to `analysing_data`. Rows in `_data` are updated from `pending` to `analysing`.
+        *   `analysing_data`: Worker is executing `admin.import_job_process_phase('analyse')`. Individual rows in `_data` are in `analysing` state.
+            *   *Transition (Success, Review Needed)*: If all rows are analysed without fatal errors and `job.review` is true, rows in `_data` (that were `analysing`) are updated to `analysed`. Job transitions to `waiting_for_review`.
+            *   *Transition (Success, No Review)*: If all rows are analysed without fatal errors and `job.review` is false, rows in `_data` (that were `analysing`) are updated to `processing` (and `last_completed_priority` reset). Job transitions to `processing_data`.
+            *   *Transition (Failure)*: If a fatal error occurs during the analysis phase (e.g., in a step procedure), the job's `error` field is set, and it transitions to `finished`.
+        *   `waiting_for_review`: Analysis complete, job requires user approval/rejection. Rows in `_data` that passed analysis are in `analysed` state.
+            *   *Transition (Approved)*: User approves. Job state changed to `approved` (typically via API call). The `import_job_state_change_after` trigger enqueues the job.
+            *   *Transition (Rejected)*: User rejects. Job state changed to `rejected` (typically via API call).
+        *   `approved`: User approved the analysed changes.
+            *   *Transition*: Worker picks up the job. Rows in `_data` (that were `analysed` and have no `error`) are updated to `processing` (and `last_completed_priority` reset). Job transitions to `processing_data`.
+        *   `rejected`: User rejected the analysed changes.
+            *   *Transition*: Worker picks up the job and transitions it to `finished`. No data is processed into final tables.
+        *   `processing_data`: Worker is executing `admin.import_job_process_phase('process')`. Individual rows in `_data` are in `processing` state.
+            *   *Transition (Success)*: If all rows are processed without fatal errors, rows in `_data` (that were `processing` and have no `error`) are updated to `processed`. Job transitions to `finished`.
+            *   *Transition (Failure)*: If a fatal error occurs during the processing phase, the job's `error` field is set, and it transitions to `finished`.
+        *   `finished`: Import process completed (successfully or due to rejection/error). This is a terminal state.
     *   Manages the job-specific tables (`_upload`, `_data`).
     *   Keeps a snapshot of the import definition and related tables in the `definition_snapshot` JSONB column.
     *   Processed asynchronously by the `worker` system.
 
 9.  **Job-Specific Tables & Snapshot**:
     *   `<job_slug>_upload`: Stores the raw data exactly as uploaded from the source file. Columns match `import_source_column`.
-    *   `<job_slug>_data`: The intermediate table structured according to `import_data_column`. This table includes a dedicated `row_id` column (e.g., `SERIAL` or `IDENTITY`) for stable row identification throughout the import process. It holds source data (`source_input`), analysis results (`internal`, including `operation` and `action`), final primary keys (`pk_id`), and row-level state (`pending`, `analysing`, `analysed`, `processing`, `processed`, `error`) and progress (`last_completed_priority`).
+    *   `<job_slug>_data`: The intermediate table structured according to `import_data_column`. This table includes a dedicated `row_id` column (e.g., `SERIAL` or `IDENTITY`) for stable row identification throughout the import process. It holds source data (`source_input`), analysis results (`internal`, including `operation` and `action`), final primary keys (`pk_id`), and row-level state and progress (`last_completed_priority`). The row-level state is managed by the `public.import_data_state` enum:
+        *   `pending`: Initial state for a row after data is moved from `_upload` to `_data` by `admin.import_job_prepare`.
+        *   `analysing`: The row is currently being processed by one of the `analyse_procedure`s for an import step.
+        *   `analysed`: The row has successfully completed all analysis steps and is awaiting user review (if `job.review=true`). If `job.review=false`, rows transition directly from `analysing` to `processing` (or `error`).
+        *   `processing`: The row is currently being processed by one of the `process_procedure`s for an import step (after analysis is complete and, if applicable, approved).
+        *   `processed`: The row has been successfully imported into the final target Statbus table(s).
+        *   `error`: A hard, unrecoverable error occurred for this row during either the analysis or processing phase. The row's `action` column is typically set to `skip`, and details are logged in its `error` JSONB column.
     *   `generic_unit`: Used for operations that apply to any pre-existing unit type, such as updating statistical variables. These definitions typically do not create new units but modify existing ones identified by external identifiers.
     *   `definition_snapshot` (JSONB column in `public.import_job`): Captures the complete state of an `import_definition` and its related entities at the moment an `import_job` is created. This ensures that the job processing logic uses a consistent version of the definition, even if the original definition is modified later. The structure is as follows:
         *   `import_definition` (object): A JSON representation of the `public.import_definition` row itself (e.g., `id`, `slug`, `name`, `strategy`, `mode`, `time_context_ident`).
