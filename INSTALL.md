@@ -137,7 +137,7 @@ Use the credentials in `.env.credentials` to log in to the Supabase admin panel.
 To run statbus on a local installation requires setting up Caddy with a HTTPS certificate
 that can be renewed for a private server.
 
-The Caddy configuration for this is found in `deployment.caddyfile`.
+Relevant Caddy configurations for HTTPS are `caddy/config/standalone.caddyfile` (for standalone servers handling their own HTTPS) and `caddy/config/public.caddyfile` (used by a central, public-facing Caddy in multi-tenant hosting environments).
 
 The Statbus Team plans to provide an integrated service for providing such certificates with
 let's encrypt for approved local statbus installations, if they have correctly configured a

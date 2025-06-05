@@ -554,7 +554,7 @@ module Statbus
     end
     
     class CaddyfileMainTemplate < CaddyfileTemplate
-      ECR.def_to_s "src/templates/main.caddyfile.ecr"
+      ECR.def_to_s "src/templates/Caddyfile.ecr"
     end
 
     class CaddyfileCommonTemplate < CaddyfileTemplate
@@ -565,30 +565,31 @@ module Statbus
     private def generate_caddy_content(derived : DerivedEnv, config : ConfigEnv)
       caddyfile_targets = {
         # Common snippets used by all configurations
-        "common" => CaddyfileCommonTemplate.new(derived, config),
+        "common.caddyfile" => CaddyfileCommonTemplate.new(derived, config),
         # For development mode
-        "development" => CaddyfileDevelopmentTemplate.new(derived, config),
+        "development.caddyfile" => CaddyfileDevelopmentTemplate.new(derived, config),
         # For private mode
-        "private" => CaddyfilePrivateTemplate.new(derived, config),
-        "public" => CaddyfilePublicTemplate.new(derived, config),
+        "private.caddyfile" => CaddyfilePrivateTemplate.new(derived, config),
+        "public.caddyfile" => CaddyfilePublicTemplate.new(derived, config),
         # For standalone mode
-        "standalone" => CaddyfileStandaloneTemplate.new(derived, config),
+        "standalone.caddyfile" => CaddyfileStandaloneTemplate.new(derived, config),
         # Main file for including the right file depending on mode
-        "main" => CaddyfileMainTemplate.new(derived, config)
+        "Caddyfile" => CaddyfileMainTemplate.new(derived, config) # This is the main Caddyfile, name is literal
       }
       
       # Write each Caddyfile variant
-      caddyfile_targets.each do |target, template|
+      caddyfile_targets.each do |target_filename, template|
         content = template.to_s
-        caddyfilename = "caddy/config/#{target}.caddyfile"
+        caddyfilename = "caddy/config/#{target_filename}"
         
         write_caddy_file(caddyfilename, content, derived.domain)
       end
 
       # Validate that the deployment mode is valid
       current_mode = config.caddy_deployment_mode
-      if !caddyfile_targets.has_key?(current_mode)
-        raise "Error: Unrecognized CADDY_DEPLOYMENT_MODE '#{current_mode}'. Must be one of: #{caddyfile_targets.keys.reject { |k| k == "main" }.join(", ")}"
+      valid_modes = ["development", "private", "standalone"]
+      if !valid_modes.includes?(current_mode)
+        raise "Error: Unrecognized CADDY_DEPLOYMENT_MODE '#{current_mode}'. Must be one of: #{valid_modes.join(", ")}"
       end
     end
     

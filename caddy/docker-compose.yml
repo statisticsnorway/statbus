@@ -8,9 +8,9 @@ services:
       - "${CADDY_HTTP_BIND_ADDRESS:?CADDY_HTTP_BIND_ADDRESS must be set in the generated .env}:80"
       - "${CADDY_HTTPS_BIND_ADDRESS:?CADDY_HTTPS_BIND_ADDRESS must be set in the generated .env}:443"
     volumes:
-      - ./config/main.caddyfile:/etc/caddy/Caddyfile:ro
+      # Mounts the entire config directory. Caddy will use /etc/caddy/Caddyfile.
+      - ./config:/etc/caddy:ro
       - caddy_data:/data
-      - ./config:/config
       - caddy_logs:/var/log/caddy
     environment:
       APP_BIND_ADDRESS: http://app:3000
