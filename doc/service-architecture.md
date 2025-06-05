@@ -102,7 +102,7 @@ The system supports three deployment modes for the Caddy service, controlled by 
   - Trusts headers from forwarding proxy
   - API forwarding to PostgREST
   - Other paths to Next.js app
-  - HTTP only (HTTPS handled by public proxy)
+  - HTTP only (HTTPS handled by public proxy). Consequently, HTTP/3 for client connections is also handled by the public-facing proxy (if it's configured for HTTP/3). The UDP port mapping for port 443 in `docker-compose.yml` for this Caddy service is primarily for 'standalone' mode where it handles TLS/HTTP/3 directly.
 - **Usage**: 
   ```bash
   # In .env.config
