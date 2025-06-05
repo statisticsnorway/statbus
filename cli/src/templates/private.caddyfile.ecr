@@ -5,6 +5,10 @@
 import ./common.caddyfile
 
 <%= @domain %> {
+    # Trust the headers forwarded by the host caddy running the public.caddyfile
+    # This is essential when Caddy is behind another reverse proxy.
+    trusted_proxies static private_ranges
+
     # Enable compression
     encode gzip
     
