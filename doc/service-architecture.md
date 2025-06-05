@@ -130,10 +130,11 @@ The application uses a layered approach to environment configuration:
    - `.env.credentials`: Contains stable credentials (passwords, secrets) - Generated once per deployment.
    - `.env.config`: Contains deployment-specific configuration - Generated and adjusted for deployment code and domain.
    - `.env`: Generated from the above files, by manage.cr, used by both Docker Compose and local development.
-   - `caddy/config/development.caddyfile`: For local development - only HTTP
-   - `caddy/config/private.caddyfile`: For deployment on server, running behind a host caddy using `public.caddyfile`
-   - `caddy/config/public.caddyfile`: For inclusion in a host wide caddy installation serving multiple deployments.
-   - `caddy/config/standalone.caddyfile`: For standalone deployment on server (same functionality as public+private combined in same server)
+   - `caddy/config/Caddyfile`: The main Caddy configuration file used by the Caddy service. It imports one of the mode-specific files below based on `CADDY_DEPLOYMENT_MODE`.
+   - `caddy/config/development.caddyfile`: Imported by `Caddyfile` for local development (HTTP only, API forwarding, CORS).
+   - `caddy/config/private.caddyfile`: Imported by `Caddyfile` for deployment on a server behind a host Caddy that handles HTTPS and public routing (HTTP only within the container).
+   - `caddy/config/public.caddyfile`: Designed for inclusion in a separate, host-wide Caddy installation that serves multiple Statbus deployments (handles HTTPS and public routing for a specific deployment).
+   - `caddy/config/standalone.caddyfile`: Imported by `Caddyfile` for standalone server deployments where this Caddy instance handles HTTPS and public routing directly.
 
 2. **Key Configuration Variables** (Edit in `.env.config`):
    - `DEPLOYMENT_SLOT_NAME`: Human-readable name
@@ -173,8 +174,8 @@ For local Next.js development:
    - Caddy serves as an API gateway on NEXT_PUBLIC_BROWSER_REST_URL
    - All API requests from the local Next.js app go through Caddy
    - Caddy handles authentication by converting cookies to JWT headers
-     - Caddy includes the `development.caddyfile` where
-       CORS headers are automatically configured for local development
+     - Caddy, via its main `Caddyfile`, includes `caddy/config/development.caddyfile` when `CADDY_DEPLOYMENT_MODE=development`.
+       This `development.caddyfile` configures API forwarding and CORS headers for local development.
 
 ### Environment Variable Flow
 
