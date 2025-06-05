@@ -5,3 +5,5 @@ node_modules/
 # Editor related files.
 .idea
 .vscode
+# TypeScript build info file, regenerated during build
+tsconfig.tsbuildinfo
