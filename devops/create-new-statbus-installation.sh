@@ -228,6 +228,20 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
         echo "Slot name is already $DEPLOYMENT_SLOT_NAME"
     fi
 
+    # Update CADDY_DEPLOYMENT_MODE
+    current_caddy_mode=\$(grep '^CADDY_DEPLOYMENT_MODE=' .env.config | cut -d'=' -f2)
+    if [ "\$current_caddy_mode" = "development" ]; then
+        sed -i "s/CADDY_DEPLOYMENT_MODE=development/CADDY_DEPLOYMENT_MODE=private/" .env.config
+        echo "Updated CADDY_DEPLOYMENT_MODE to private"
+    elif [ "\$current_caddy_mode" != "private" ]; then
+        # If it's neither development nor private, it might be an unexpected value.
+        # For now, we'll assume if it's not development, it's either already private or set to something else intentionally.
+        # If you want to force it to private regardless of current value (unless already private), adjust logic here.
+        echo "CADDY_DEPLOYMENT_MODE is '\$current_caddy_mode', not changing."
+    else
+        echo "CADDY_DEPLOYMENT_MODE is already private"
+    fi
+    
     # Only update slot code if different
     current_code=\$(grep '^DEPLOYMENT_SLOT_CODE=' .env.config | cut -d'=' -f2)
     if [ "\$current_code" != "$DEPLOYMENT_SLOT_CODE" ]; then
@@ -304,8 +318,11 @@ ssh root@$HOST bash <<CONFIGURE_CADDY_ACCESS
     setfacl -m u:caddy:rx "/home/$DEPLOYMENT_USER"
     # Give Caddy access to the statbus directory
     setfacl -m u:caddy:rx "/home/$DEPLOYMENT_USER/statbus"
-    # Give Caddy read access to the deployment config file
-    setfacl -m u:caddy:r "/home/$DEPLOYMENT_USER/statbus/deployment.caddyfile"
+    # Give Caddy access to the caddy config directory
+    setfacl -m u:caddy:rx "/home/$DEPLOYMENT_USER/statbus/caddy"
+    setfacl -m u:caddy:rx "/home/$DEPLOYMENT_USER/statbus/caddy/config"
+    # Give Caddy read access to the Caddyfile(s) within the config directory
+    setfacl -m u:caddy:r "/home/$DEPLOYMENT_USER/statbus/caddy/config/"*.caddyfile
     echo "Configured Caddy access permissions"
 CONFIGURE_CADDY_ACCESS
 
