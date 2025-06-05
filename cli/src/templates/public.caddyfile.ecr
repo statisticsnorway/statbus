@@ -5,7 +5,7 @@
 # It handles the public-facing HTTPS configuration for the Statbus deployment
 
 # Import common snippets
-import /config/common.caddyfile
+import ./common.caddyfile
 
 <%= @domain %> {
     # Forward all requests to the private Caddy instance with forwarding headers
