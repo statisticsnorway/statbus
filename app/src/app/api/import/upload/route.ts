@@ -46,10 +46,17 @@ export async function POST(request: NextRequest) {
       .select("*")
       .eq("slug", jobSlug);
 
-    const job = jobs[0];
-    if (jobError || !job) {
+    if (jobError || !jobs || jobs.length === 0) {
       return NextResponse.json(
-        { message: `Import job not found: ${jobError?.message || "Unknown error"}` },
+        { message: `Import job not found: ${jobError?.message || "No job found with that slug"}` },
+        { status: 404 }
+      );
+    }
+    const job = jobs[0];
+    // This secondary check is mostly for type safety now, primary check is above.
+    if (!job) {
+      return NextResponse.json(
+        { message: `Import job data is invalid.` },
         { status: 404 }
       );
     }

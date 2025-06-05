@@ -140,55 +140,66 @@ export function ImportJobUpload({
             <span>Waiting for file upload</span>
           </div>
         );
-      // Assuming 'upload_completed' means server received file, 'preparing_data' is next
       case "upload_completed":
+        return (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center text-blue-600">
+                <Database className="mr-2 h-4 w-4" />
+                <span>Upload complete, preparing data...</span>
+              </div>
+              {/* Progress might not be available yet, or could be 0 */}
+              <Progress value={import_completed_pct ?? 0} className="h-2" />
+            </div>
+          </div>
+        );
       case "preparing_data":
         return (
           <div className="space-y-4">
             <div className="space-y-2">
               <div className="flex items-center text-blue-600">
                 <Database className="mr-2 h-4 w-4" />
-                {/* Provide default 0 for Math.round */}
                 <span>Preparing data ({Math.round(import_completed_pct ?? 0)}%)</span>
               </div>
               <Progress value={import_completed_pct ?? 0} className="h-2" />
             </div>
           </div>
         );
-      // Assuming 'analysing_data' is the state for analysis
       case "analysing_data":
         return (
           <div className="space-y-2">
             <div className="flex items-center text-blue-600">
               <Spinner className="mr-2 h-4 w-4" />
-              {/* Provide default 0 for Math.round */}
               <span>Analyzing data ({Math.round(import_completed_pct ?? 0)}%)</span>
             </div>
             <Progress value={import_completed_pct ?? 0} className="h-2" />
           </div>
         );
-      // Assuming 'importing_data' is the state for final import step
-      case "importing_data":
+      case "waiting_for_review":
          return (
-          <div className="space-y-2">
-            <div className="flex items-center text-blue-600">
-              <Spinner className="mr-2 h-4 w-4" />
-              {/* Provide default 0 for Math.round */}
-              <span>Importing data ({Math.round(import_completed_pct ?? 0)}%)</span>
-            </div>
-            <Progress value={import_completed_pct ?? 0} className="h-2" />
+          <div className="flex items-center text-blue-600">
+            <Spinner className="mr-2 h-4 w-4" />
+            <span>Awaiting Review</span>
           </div>
         );
-      // Assuming 'waiting_for_review' and 'approved' are intermediate states before 'finished'
-      case "waiting_for_review":
       case "approved":
          return (
           <div className="flex items-center text-blue-600">
             <Spinner className="mr-2 h-4 w-4" />
-            <span>Finalizing...</span>
+            <span>Approved, Queued for Processing</span>
           </div>
         );
-      case "finished": // Use 'finished' instead of 'completed'
+      case "processing_data":
+         return (
+          <div className="space-y-2">
+            <div className="flex items-center text-blue-600">
+              <Spinner className="mr-2 h-4 w-4" />
+              <span>Processing data ({Math.round(import_completed_pct ?? 0)}%)</span>
+            </div>
+            <Progress value={import_completed_pct ?? 0} className="h-2" />
+          </div>
+        );
+      case "finished":
         return (
           <div className="flex items-center text-green-600">
             <CheckCircle className="mr-2 h-4 w-4" />

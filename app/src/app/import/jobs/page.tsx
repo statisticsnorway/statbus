@@ -307,8 +307,8 @@ export default function ImportJobsPage() {
         return <Badge variant="secondary">Preparing</Badge>;
       case "analysing_data": // Use schema spelling
         return <Badge variant="secondary">Analyzing</Badge>;
-      case "importing_data":
-        return <Badge variant="secondary">Importing</Badge>;
+      case "processing_data": // Use schema spelling for processing
+        return <Badge variant="secondary">Processing</Badge>;
       case "waiting_for_review":
         return <Badge variant="secondary">Review</Badge>;
       case "approved":
@@ -387,7 +387,7 @@ export default function ImportJobsPage() {
                   </TableCell>
                   <TableCell>
                     {/* Show progress for states that have it - align with schema/ImportJobUpload */}
-                    {job.state && ["preparing_data", "analysing_data", "importing_data"].includes(job.state) && job.import_completed_pct !== null ? (
+                    {job.state && ["preparing_data", "analysing_data", "processing_data"].includes(job.state) && job.import_completed_pct !== null ? (
                       <div className="w-32">
                         <Progress value={job.import_completed_pct ?? 0} className="h-2" />
                         <span className="text-xs text-gray-500">{Math.round(job.import_completed_pct ?? 0)}%</span>
