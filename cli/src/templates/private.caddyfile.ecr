@@ -13,11 +13,11 @@ import ./common.caddyfile
     import maintenance /home/<%= @deployment_user %> /home/<%= @deployment_user %>/statbus/app/public
     
     # Use common PostgREST endpoint handling
-    import postgrest_endpoints {$REST_BIND_ADDRESS}
+    import postgrest_endpoints rest:3000 # Internal Docker service address for PostgREST
     
     # Handle all other requests
     handle {
-        import reverse_proxy_standard <%= @app_bind_address %>
+        import reverse_proxy_standard app:3000 # Internal Docker service address for Next.js app
     }
 
     # Use standard logging
