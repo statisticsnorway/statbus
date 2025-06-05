@@ -3,7 +3,6 @@ services:
     container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-worker
     build:
       context: ./cli
-    platform: linux/arm64
     profiles:
       - "all"
       - "all_except_app"
