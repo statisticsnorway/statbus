@@ -98,11 +98,13 @@
     }
 }
 
-# Standard logging configuration - args[0] is the log path
+# Standard logging configuration
 (standard_logging) {
     log {
-        #output file {args[0]}
-        #format json
+        # To enable file logging, uncomment the next line and ensure
+        # CADDY_LOG_PATH is set in the Caddy environment.
+        # output file {$CADDY_LOG_PATH}
+        # format json
         output stdout
     }
 }
