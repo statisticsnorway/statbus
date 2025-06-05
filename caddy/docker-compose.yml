@@ -5,8 +5,9 @@ services:
     image: caddy:2-alpine
     restart: unless-stopped
     ports:
-      - "${CADDY_HTTP_BIND_ADDRESS:?CADDY_HTTP_BIND_ADDRESS must be set in the generated .env}:80"
-      - "${CADDY_HTTPS_BIND_ADDRESS:?CADDY_HTTPS_BIND_ADDRESS must be set in the generated .env}:443"
+      - "${CADDY_HTTP_BIND_ADDRESS:?CADDY_HTTP_BIND_ADDRESS must be set in the generated .env}:80/tcp"
+      - "${CADDY_HTTPS_BIND_ADDRESS:?CADDY_HTTPS_BIND_ADDRESS must be set in the generated .env}:443/tcp"
+      - "${CADDY_HTTPS_BIND_ADDRESS:?CADDY_HTTPS_BIND_ADDRESS must be set in the generated .env}:443/udp"
     volumes:
       # Mounts the entire config directory. Caddy will use /etc/caddy/Caddyfile.
       - ./config:/etc/caddy:ro
