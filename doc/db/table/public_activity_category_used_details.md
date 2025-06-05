@@ -1,5 +1,5 @@
 ```sql
-                                       Materialized view "public.activity_category_used"
+                                             Table "public.activity_category_used"
     Column     |          Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
 ---------------+------------------------+-----------+----------+---------+----------+-------------+--------------+-------------
  standard_code | character varying(16)  |           |          |         | extended |             |              | 
@@ -12,25 +12,17 @@
  description   | text                   |           |          |         | extended |             |              | 
 Indexes:
     "activity_category_used_key" UNIQUE, btree (path)
-View definition:
- SELECT acs.code AS standard_code,
-    ac.id,
-    ac.path,
-    acp.path AS parent_path,
-    ac.code,
-    ac.label,
-    ac.name,
-    ac.description
-   FROM activity_category ac
-     JOIN activity_category_standard acs ON ac.standard_id = acs.id
-     LEFT JOIN activity_category acp ON ac.parent_id = acp.id
-  WHERE acs.id = (( SELECT settings.activity_category_standard_id
-           FROM settings)) AND ac.active AND (ac.path @> (( SELECT array_agg(DISTINCT statistical_unit.primary_activity_category_path) AS array_agg
-           FROM statistical_unit
-          WHERE statistical_unit.primary_activity_category_path IS NOT NULL)) OR ac.path @> (( SELECT array_agg(DISTINCT statistical_unit.secondary_activity_category_path) AS array_agg
-           FROM statistical_unit
-          WHERE statistical_unit.secondary_activity_category_path IS NOT NULL)))
-  ORDER BY ac.path;
+Policies:
+    POLICY "activity_category_used_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
+    POLICY "activity_category_used_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "activity_category_used_regular_user_read" FOR SELECT
+      TO regular_user
+      USING (true)
 Access method: heap
 
 ```

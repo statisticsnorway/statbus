@@ -1,8 +1,9 @@
-This is a Supabase + Next.js project using modern PostgreSQL (16+).
+This document outlines conventions for the Next.js (15) application part of the STATBUS project.
+For general project, SQL, and infrastructure conventions, see `CONVENTIONS.md` in the project root.
+
 Next.js files are in the app/ directory with TypeScript.
-Legacy code is in legacy/ for reference only.
-The app runs server-side and client-side with SSR, using Next.js 14 in app/src/{app,api,...} directories.
-Deployed on custom servers behind Caddy with HTTPS.
+The app runs server-side and client-side with SSR, using Next.js 15 in app/src/{app,api,...} directories.
+The new Next.js promise pattern is used for params.
 
  • Use named exports for HTTP methods.
  • Use destructuring for imports.
@@ -18,6 +19,13 @@ Deployed on custom servers behind Caddy with HTTPS.
  • Group components by feature in components/.
  • Use TypeScript; define types in .d.ts or locally.
  • Use functional components with hooks.
+ • Use a Fail Fast Approach for functionality that is supposed to work.
+ • Have a single source of truth in the codebase - avoid duplicate stores for the same data.
+ • When refactoring, complete the full migration without compatibility layers.
+ • Fail fast and provide error or debug information to fix, don't mask or workaround issues.
+ • Think from first principles.
+ • Document by having clear code - any internal comments about your thought process should not be left in the code.
+ 
 ## Routing System
 This project uses **App Routing** with the `app/` directory structure. Do not use the Pages Router.
 
@@ -25,25 +33,4 @@ This project uses **App Routing** with the `app/` directory structure. Do not us
 - Use hooks from `next/navigation` such as `usePathname` and `useSearchParams` for navigation and route handling.
 - Organize routes using `route.ts` files for pages and API routes.
 - Handle responses with `NextResponse`.
- • Use layout.tsx in app/ for global providers, not `_app.tsx`. 
-
-When CWD is the app dir then shell commands must remove the initial 'app/' from paths.
-
-## SQL
-When defining functions and procedures use the function name as part of the literal string quote
-for the body and specify the LANGUAGE before the body, so one knows how to parse it up front.
-Ensure that parameters are documentation friendly, and therefore always use the long form
-to avoid ambiguity.
-```
-CREATE FUNCTION public.example(email text) RETURNS void LANGUAGE plpgsql AS $example$
-BEGIN
-  ...
-  SELECT * FROM ...
-  WHERE email = example.email
-  ...
-END;
-$$;
-
-### SQL Testing
-Is done with pg_regress with test/ as base.
-Run with `./devops/manage-statbus.sh test [all|xx_the_test_name]`.
+ • Use layout.tsx in app/ for global providers, not `_app.tsx`.

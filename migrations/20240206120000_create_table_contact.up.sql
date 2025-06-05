@@ -3,8 +3,8 @@ BEGIN;
 
 CREATE TABLE public.contact (
     id SERIAL NOT NULL,
-    valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
-    valid_from date NOT NULL DEFAULT current_date,
+    valid_from date NOT NULL,
+    valid_after date NOT NULL,
     valid_to date NOT NULL DEFAULT 'infinity',
     web_address character varying(256),
     email_address character varying(50),
@@ -28,7 +28,7 @@ CREATE TABLE public.contact (
         ),
     data_source_id integer REFERENCES public.data_source(id),
     edit_comment character varying(512),
-    edit_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
+    edit_by_user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE RESTRICT,
     edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp()
 );
 
@@ -36,5 +36,9 @@ CREATE INDEX ix_contact_establishment_id ON public.contact USING btree (establis
 CREATE INDEX ix_contact_legal_unit_id ON public.contact USING btree (legal_unit_id);
 CREATE INDEX ix_contact_data_source_id ON public.contact USING btree (data_source_id);
 CREATE INDEX ix_contact_edit_by_user_id ON public.contact USING btree (edit_by_user_id);
+
+CREATE TRIGGER trg_contact_synchronize_valid_from_after
+    BEFORE INSERT OR UPDATE ON public.contact
+    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
 
 END;

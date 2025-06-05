@@ -2,19 +2,19 @@ BEGIN;
 
 CREATE TABLE public.establishment (
     id SERIAL NOT NULL,
-    valid_after date GENERATED ALWAYS AS (valid_from - INTERVAL '1 day') STORED,
-    valid_from date NOT NULL DEFAULT current_date,
+    valid_from date NOT NULL,
+    valid_after date NOT NULL,
     valid_to date NOT NULL DEFAULT 'infinity',
     active boolean NOT NULL DEFAULT true,
     short_name character varying(16),
-    name character varying(256),
+    name character varying(256) NOT NULL,
     birth_date date,
     death_date date,
     free_econ_zone boolean,
     sector_id integer REFERENCES public.sector(id) ON DELETE RESTRICT,
-    status_id integer REFERENCES public.status(id) ON DELETE RESTRICT,
+    status_id integer NOT NULL REFERENCES public.status(id) ON DELETE RESTRICT,
     edit_comment character varying(512),
-    edit_by_user_id integer NOT NULL REFERENCES public.statbus_user(id) ON DELETE RESTRICT,
+    edit_by_user_id integer NOT NULL REFERENCES auth.user(id) ON DELETE RESTRICT,
     edit_at timestamp with time zone NOT NULL DEFAULT statement_timestamp(),
     unit_size_id integer REFERENCES public.unit_size(id),
     data_source_id integer REFERENCES public.data_source(id) ON DELETE RESTRICT,
@@ -55,5 +55,9 @@ CREATE INDEX establishment_legal_unit_id_primary_for_legal_unit_idx ON public.es
 CREATE OR REPLACE FUNCTION admin.establishment_id_exists(fk_id integer) RETURNS boolean LANGUAGE sql STABLE STRICT AS $$
     SELECT fk_id IS NULL OR EXISTS (SELECT 1 FROM public.establishment WHERE id = fk_id);
 $$;
+
+CREATE TRIGGER trg_establishment_synchronize_valid_from_after
+    BEFORE INSERT OR UPDATE ON public.establishment
+    FOR EACH ROW EXECUTE FUNCTION public.synchronize_valid_from_after();
 
 END;

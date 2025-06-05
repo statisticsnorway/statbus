@@ -83,7 +83,7 @@ if test -n "$dbseed_changes" || test -n "$migrations_changes" || test -n "${RECR
 
   ./devops/manage-statbus.sh generate-config
 
-  ./devops/manage-statbus.sh start required
+  ./devops/manage-statbus.sh start all
 
   # Copy static files out for Caddy to serve
   mkdir -p ${HOME}/public

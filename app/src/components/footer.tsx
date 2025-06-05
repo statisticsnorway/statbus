@@ -1,7 +1,6 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { getServerRestClient } from "@/context/RestClientStore";
 import Link from "next/link";
 import { Github, Globe } from "lucide-react";
-import { Session } from "@supabase/auth-js/src/lib/types";
 import { CommandPaletteTriggerButton } from "@/components/command-palette/command-palette-trigger-button";
 
 export function FooterSkeleton() {
@@ -15,15 +14,17 @@ export function FooterSkeleton() {
 }
 
 export default async function Footer() {
-  const client = await createSupabaseSSRClient();
-  const session = (await client.auth.getSession()).data.session;
+  // Check if user is authenticated using AuthStore
+  const { authStore } = await import('@/context/AuthStore');
+  const authStatus = await authStore.getAuthStatus();
+  const isAuthenticated = authStatus.isAuthenticated;
 
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">
       <div className="mx-auto max-w-(--breakpoint-xl) p-6 lg:py-12 lg:px-24">
         <div
           className={`flex items-center space-x-2 ${
-            session != null ? "justify-between" : "justify-center"
+            isAuthenticated ? "justify-between" : "justify-center"
           }`}
         >
           <div className="flex items-center justify-between space-x-3">
@@ -37,7 +38,7 @@ export default async function Footer() {
               <Globe size={22} className="stroke-ssb-neon" />
             </Link>
           </div>
-          {session != null && (
+          {isAuthenticated && (
             <CommandPaletteTriggerButton className="text-white bg-transparent max-lg:hidden" />
           )}
         </div>

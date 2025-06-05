@@ -1,5 +1,5 @@
 ```sql
-                                               Materialized view "public.statistical_unit_facet"
+                                                     Table "public.statistical_unit_facet"
              Column             |         Type          | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
 --------------------------------+-----------------------+-----------+----------+---------+----------+-------------+--------------+-------------
  valid_from                     | date                  |           |          |         | plain    |             |              | 
@@ -25,20 +25,17 @@ Indexes:
     "statistical_unit_facet_unit_type" btree (unit_type)
     "statistical_unit_facet_valid_from" btree (valid_from)
     "statistical_unit_facet_valid_to" btree (valid_to)
-View definition:
- SELECT statistical_unit.valid_from,
-    statistical_unit.valid_to,
-    statistical_unit.unit_type,
-    statistical_unit.physical_region_path,
-    statistical_unit.primary_activity_category_path,
-    statistical_unit.sector_path,
-    statistical_unit.legal_form_id,
-    statistical_unit.physical_country_id,
-    statistical_unit.status_id,
-    count(*) AS count,
-    jsonb_stats_summary_merge_agg(statistical_unit.stats_summary) AS stats_summary
-   FROM statistical_unit
-  GROUP BY statistical_unit.valid_from, statistical_unit.valid_to, statistical_unit.unit_type, statistical_unit.physical_region_path, statistical_unit.primary_activity_category_path, statistical_unit.sector_path, statistical_unit.legal_form_id, statistical_unit.physical_country_id, statistical_unit.status_id;
+Policies:
+    POLICY "statistical_unit_facet_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
+    POLICY "statistical_unit_facet_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "statistical_unit_facet_regular_user_read" FOR SELECT
+      TO regular_user
+      USING (true)
 Access method: heap
 
 ```

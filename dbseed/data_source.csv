@@ -2,4 +2,6 @@ code,name
 ntr,National Tax Registry
 nlr,National Legal Business Registry
 census,Census
+survey,Survey Data
 mi,Manual Input
+other,Other External Data Source

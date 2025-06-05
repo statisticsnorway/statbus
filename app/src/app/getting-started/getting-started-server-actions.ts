@@ -1,9 +1,8 @@
 "use server";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { getServerRestClient, fetchWithAuth } from "@/context/RestClientStore";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
-import { Fetch } from "@supabase/auth-js/src/lib/fetch";
 
 interface State {
   readonly error: string | null;
@@ -30,12 +29,14 @@ export async function uploadFile(
   try {
     const logger = await createServerLogger();
     const file = formData.get(filename) as File;
-    const client = await createSupabaseSSRClient();
+    const client = await getServerRestClient();
 
-    const authFetch = (client as any).rest.fetch as Fetch;
-    const supabaseUrl = (client as any).rest.url as String;
-    const response = await authFetch(
-      `${supabaseUrl}/${uploadView}`,
+    // Get the base URL from the client
+    const postgrestUrl = client.url;
+    
+    // We need to use the full URL here because uploadView is a view name, not a relative path
+    const response = await fetchWithAuth(
+      `${postgrestUrl}/${uploadView}`,
       {
         method: "POST",
         headers: {
@@ -61,7 +62,7 @@ export async function uploadFile(
 
 export async function setCategoryStandard(formData: FormData) {
   "use server";
-  const client = await createSupabaseSSRClient();
+  const client = await getServerRestClient();
   const logger = await createServerLogger();
 
   const activityCategoryStandardIdFormEntry = formData.get(

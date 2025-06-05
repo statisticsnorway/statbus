@@ -1,0 +1,180 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+\echo "Testing regions with coordinates"
+"Testing regions with coordinates"
+-- Test invalid latitude (>90)
+SAVEPOINT bad_latitude;
+\echo "Testing invalid latitude value"
+"Testing invalid latitude value"
+\copy public.region_upload(path,name,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+ERROR:  Failed to insert/update region: {
+    "row": {
+        "name": "Invalid",
+        "path": "91",
+        "center_altitude": "10",
+        "center_latitude": "91.0",
+        "center_longitude": "10.0"
+    },
+    "error": "new row for relation \"region\" violates check constraint \"center_latitude_must_be_from_minus_90_to_90_degrees\""
+}
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 72 at RAISE
+COPY region_upload, line 1: "91,Invalid,91.0,10.0,10"
+ROLLBACK TO bad_latitude;
+-- Test invalid longitude (>180)
+SAVEPOINT bad_longitude;
+\echo "Testing invalid longitude value"
+"Testing invalid longitude value"
+\copy public.region_upload(path,name,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+ERROR:  Failed to insert/update region: {
+    "row": {
+        "name": "Invalid",
+        "path": "92",
+        "center_altitude": "10",
+        "center_latitude": "60.0",
+        "center_longitude": "181.0"
+    },
+    "error": "new row for relation \"region\" violates check constraint \"center_longitude_must_be_from_minus_180_to_180_degrees\""
+}
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 72 at RAISE
+COPY region_upload, line 1: "92,Invalid,60.0,181.0,10"
+ROLLBACK TO bad_longitude;
+-- Test negative altitude
+SAVEPOINT negative_altitude;
+\echo "Testing negative altitude value"
+"Testing negative altitude value"
+\copy public.region_upload(path,name,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+ERROR:  Failed to insert/update region: {
+    "row": {
+        "name": "Invalid",
+        "path": "93",
+        "center_altitude": "-1",
+        "center_latitude": "60.0",
+        "center_longitude": "10.0"
+    },
+    "error": "new row for relation \"region\" violates check constraint \"center_altitude_must_be_positive\""
+}
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 72 at RAISE
+COPY region_upload, line 1: "93,Invalid,60.0,10.0,-1"
+ROLLBACK TO negative_altitude;
+-- Test invalid coordinate syntax
+SAVEPOINT bad_syntax;
+\echo "Testing invalid coordinate syntax"
+"Testing invalid coordinate syntax"
+\copy public.region_upload(path,name,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+NOTICE:  Invalid center_latitude for row {"name": "Invalid", "path": "94", "center_altitude": "10", "center_latitude": "60.0.1", "center_longitude": "10.0"} because of invalid input syntax for type numeric: "60.0.1"
+ERROR:  Invalid data: {
+    "row": {
+        "name": "Invalid",
+        "path": "94",
+        "center_altitude": "10",
+        "center_latitude": "60.0.1",
+        "center_longitude": "10.0"
+    },
+    "errors": {
+        "center_latitude": "60.0.1"
+    }
+}
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 47 at RAISE
+COPY region_upload, line 1: "94,Invalid,60.0.1,10.0,10"
+ROLLBACK TO bad_syntax;
+-- Test invalid path syntax
+SAVEPOINT bad_path;
+\echo "Testing invalid path syntax"
+"Testing invalid path syntax"
+\copy public.region_upload(path,name,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+NOTICE:  Invalid path for row {"name": "Invalid", "path": "01:1", "center_altitude": "10", "center_latitude": "60.0", "center_longitude": "10.0"} because of ltree syntax error at character 3
+ERROR:  Invalid data: {
+    "row": {
+        "name": "Invalid",
+        "path": "01:1",
+        "center_altitude": "10",
+        "center_latitude": "60.0",
+        "center_longitude": "10.0"
+    },
+    "errors": {
+        "path": "01:1"
+    }
+}
+CONTEXT:  PL/pgSQL function admin.region_upload_upsert() line 47 at RAISE
+COPY region_upload, line 1: "01:1,Invalid,60.0,10.0,10"
+ROLLBACK TO bad_path;
+\echo "Loading regions with latitude, longitude and altitude"
+"Loading regions with latitude, longitude and altitude"
+\copy public.region_upload(path,name,center_latitude,center_longitude,center_altitude) FROM stdin WITH (FORMAT csv, DELIMITER ',');
+\echo "Verifying loaded regions with coordinates"
+"Verifying loaded regions with coordinates"
+SELECT path
+     , name
+     , center_latitude
+     , center_longitude
+     , center_altitude
+  FROM public.region
+ WHERE center_latitude IS NOT NULL
+ ORDER BY path;
+ path |         name          | center_latitude | center_longitude | center_altitude 
+------+-----------------------+-----------------+------------------+-----------------
+ 03   | Oslo                  |       59.913868 |        10.752245 |            23.0
+ 11   | Rogaland              |       58.969975 |         5.733107 |            50.0
+ 15   | Møre og Romsdal       |       62.846827 |         7.161711 |           100.0
+ 18   | Nordland - Nordlánnda |       67.280416 |        14.404916 |           150.0
+(4 rows)
+
+ROLLBACK;

@@ -1,13 +1,10 @@
 ```sql
 CREATE OR REPLACE FUNCTION auth.uid()
- RETURNS uuid
+ RETURNS integer
  LANGUAGE sql
  STABLE
 AS $function$
-  select 
-  coalesce(
-    nullif(current_setting('request.jwt.claim.sub', true), ''),
-    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'sub')
-  )::uuid
+  -- Find the user ID based on the current database role, which should match the email
+  SELECT id FROM auth.user WHERE email = current_user;
 $function$
 ```

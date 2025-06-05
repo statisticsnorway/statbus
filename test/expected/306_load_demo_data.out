@@ -1,0 +1,1666 @@
+BEGIN;
+\i test/setup.sql
+-- While the datestyle is set for the database, the pg_regress tool sets the MDY format
+-- to ensure consistent date formatting, so we must manually override this
+SET datestyle TO 'ISO, DMY';
+\if :{?DEBUG}
+SET client_min_messages TO debug1;
+\else
+SET client_min_messages TO NOTICE;
+\endif
+-- Create temporary function to execute queries as system user
+CREATE OR REPLACE FUNCTION test.sudo_exec(
+    sql text,
+    OUT results jsonb
+) RETURNS jsonb
+SECURITY DEFINER LANGUAGE plpgsql AS $sudo_exec$
+DECLARE
+    result_rows jsonb;
+BEGIN
+    -- Check if the SQL starts with common DDL keywords
+    IF sql ~* '^\s*(CREATE|DROP|ALTER|TRUNCATE|GRANT|REVOKE|ANALYZE)' THEN
+        -- For DDL statements, execute directly
+        EXECUTE sql;
+        results := '[]'::jsonb;
+    ELSE
+        -- For DML/queries, wrap in a SELECT to capture results
+        EXECUTE format('
+            SELECT COALESCE(
+                jsonb_agg(row_to_json(t)),
+                ''[]''::jsonb
+            )
+            FROM (%s) t',
+            sql
+        ) INTO result_rows;
+        results := result_rows;
+    END IF;
+END;
+$sudo_exec$;
+-- Grant execute to public since this is for testing
+GRANT EXECUTE ON FUNCTION test.sudo_exec(text) TO PUBLIC;
+\echo Add users for testing purposes
+Add users for testing purposes
+SELECT * FROM public.user_create('test.admin@statbus.org', 'admin_user'::statbus_role, 'Admin#123!');
+         email          |  password  
+------------------------+------------
+ test.admin@statbus.org | Admin#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.regular@statbus.org', 'regular_user'::statbus_role, 'Regular#123!');
+          email           |   password   
+--------------------------+--------------
+ test.regular@statbus.org | Regular#123!
+(1 row)
+
+SELECT * FROM public.user_create('test.restricted@statbus.org', 'restricted_user'::statbus_role, 'Restricted#123!');
+            email            |    password     
+-----------------------------+-----------------
+ test.restricted@statbus.org | Restricted#123!
+(1 row)
+
+\echo "Setting up Statbus using the web provided examples"
+"Setting up Statbus using the web provided examples"
+-- A Super User configures statbus.
+CALL test.set_user_from_email('test.admin@statbus.org');
+\echo "User selected the Activity Category Standard"
+"User selected the Activity Category Standard"
+INSERT INTO settings(activity_category_standard_id,only_one_setting)
+SELECT id, true FROM activity_category_standard WHERE code = 'isic_v4'
+ON CONFLICT (only_one_setting)
+DO UPDATE SET
+   activity_category_standard_id =(SELECT id FROM activity_category_standard WHERE code = 'isic_v4')
+   WHERE settings.id = EXCLUDED.id;
+;
+SELECT acs.code
+  FROM public.settings AS s
+  JOIN activity_category_standard AS acs
+    ON s.activity_category_standard_id = acs.id;
+  code   
+---------
+ isic_v4
+(1 row)
+
+\echo "User uploads the sample activity categories"
+"User uploads the sample activity categories"
+\copy public.activity_category_available_custom(path,name) FROM 'app/public/demo/activity_custom_isic_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT standard_code
+     , code
+     , path
+     , parent_path
+     , label
+     , name
+FROM public.activity_category_available
+ORDER BY standard_code, path;
+ standard_code | code  |    path    | parent_path | label  |                                                                   name                                                                   
+---------------+-------+------------+-------------+--------+------------------------------------------------------------------------------------------------------------------------------------------
+ isic_v4       |       | A          |             | A      | Farming and Fishing
+ isic_v4       | 01    | A.01       | A           | A01    | Farming Foresting and Fishing
+ isic_v4       | 011   | A.01.1     | A.01        | A011   | Growing of non-perennial crops
+ isic_v4       | 0111  | A.01.1.1   | A.01.1      | A0111  | Growing of cereals (except rice), leguminous crops and oil seeds
+ isic_v4       | 0112  | A.01.1.2   | A.01.1      | A0112  | Growing of rice
+ isic_v4       | 0113  | A.01.1.3   | A.01.1      | A0113  | Growing of vegetables and melons, roots and tubers
+ isic_v4       | 0114  | A.01.1.4   | A.01.1      | A0114  | Growing of sugar cane
+ isic_v4       | 0115  | A.01.1.5   | A.01.1      | A0115  | Growing of tobacco
+ isic_v4       | 0116  | A.01.1.6   | A.01.1      | A0116  | Growing of fibre crops
+ isic_v4       | 0119  | A.01.1.9   | A.01.1      | A0119  | Growing of other non-perennial crops
+ isic_v4       | 012   | A.01.2     | A.01        | A012   | Growing of perennial crops
+ isic_v4       | 0121  | A.01.2.1   | A.01.2      | A0121  | Growing of grapes
+ isic_v4       | 0122  | A.01.2.2   | A.01.2      | A0122  | Growing of tropical and subtropical fruits
+ isic_v4       | 0123  | A.01.2.3   | A.01.2      | A0123  | Growing of citrus fruits
+ isic_v4       | 0124  | A.01.2.4   | A.01.2      | A0124  | Growing of pome fruits and stone fruits
+ isic_v4       | 0125  | A.01.2.5   | A.01.2      | A0125  | Growing of other tree and bush fruits and nuts
+ isic_v4       | 0126  | A.01.2.6   | A.01.2      | A0126  | Growing of oleaginous fruits
+ isic_v4       | 0127  | A.01.2.7   | A.01.2      | A0127  | Growing of beverage crops
+ isic_v4       | 0128  | A.01.2.8   | A.01.2      | A0128  | Growing of spices, aromatic, drug and pharmaceutical crops
+ isic_v4       | 0129  | A.01.2.9   | A.01.2      | A0129  | Growing of other perennial crops
+ isic_v4       | 013   | A.01.3     | A.01        | A013   | Plant propagation
+ isic_v4       | 0130  | A.01.3.0   | A.01.3      | A0130  | Plant propagation
+ isic_v4       | 014   | A.01.4     | A.01        | A014   | Animal production
+ isic_v4       | 0141  | A.01.4.1   | A.01.4      | A0141  | Raising of cattle and buffaloes
+ isic_v4       | 0142  | A.01.4.2   | A.01.4      | A0142  | Raising of horses and other equines
+ isic_v4       | 0143  | A.01.4.3   | A.01.4      | A0143  | Raising of camels and camelids
+ isic_v4       | 0144  | A.01.4.4   | A.01.4      | A0144  | Raising of sheep and goats
+ isic_v4       | 0145  | A.01.4.5   | A.01.4      | A0145  | Raising of swine/pigs
+ isic_v4       | 0146  | A.01.4.6   | A.01.4      | A0146  | Raising of poultry
+ isic_v4       | 0149  | A.01.4.9   | A.01.4      | A0149  | Raising of other animals
+ isic_v4       | 015   | A.01.5     | A.01        | A015   | Mixed farming
+ isic_v4       | 0150  | A.01.5.0   | A.01.5      | A0150  | Mixed farming
+ isic_v4       | 016   | A.01.6     | A.01        | A016   | Support activities to agriculture and post-harvest crop activities
+ isic_v4       | 0161  | A.01.6.1   | A.01.6      | A0161  | Support activities for crop production
+ isic_v4       | 0162  | A.01.6.2   | A.01.6      | A0162  | Support activities for animal production
+ isic_v4       | 0163  | A.01.6.3   | A.01.6      | A0163  | Post-harvest crop activities
+ isic_v4       | 0164  | A.01.6.4   | A.01.6      | A0164  | Seed processing for propagation
+ isic_v4       | 017   | A.01.7     | A.01        | A017   | Hunting, trapping and related service activities
+ isic_v4       | 0170  | A.01.7.0   | A.01.7      | A0170  | Hunting, trapping and related service activities
+ isic_v4       | 02    | A.02       | A           | A02    | Forestry and logging
+ isic_v4       | 021   | A.02.1     | A.02        | A021   | Silviculture and other forestry activities
+ isic_v4       | 0210  | A.02.1.0   | A.02.1      | A0210  | Silviculture and other forestry activities
+ isic_v4       | 022   | A.02.2     | A.02        | A022   | Logging
+ isic_v4       | 0220  | A.02.2.0   | A.02.2      | A0220  | Logging
+ isic_v4       | 023   | A.02.3     | A.02        | A023   | Gathering of non-wood forest products
+ isic_v4       | 0230  | A.02.3.0   | A.02.3      | A0230  | Gathering of non-wood forest products
+ isic_v4       | 024   | A.02.4     | A.02        | A024   | Support services to forestry
+ isic_v4       | 0240  | A.02.4.0   | A.02.4      | A0240  | Support services to forestry
+ isic_v4       | 03    | A.03       | A           | A03    | Fishing and aquaculture
+ isic_v4       | 031   | A.03.1     | A.03        | A031   | Fishing
+ isic_v4       | 0311  | A.03.1.1   | A.03.1      | A0311  | Marine fishing
+ isic_v4       | 0312  | A.03.1.2   | A.03.1      | A0312  | Freshwater fishing
+ isic_v4       | 032   | A.03.2     | A.03        | A032   | Aquaculture
+ isic_v4       | 0321  | A.03.2.1   | A.03.2      | A0321  | Marine aquaculture
+ isic_v4       | 0322  | A.03.2.2   | A.03.2      | A0322  | Freshwater aquaculture
+ isic_v4       |       | B          |             | B      | Mining and quarrying
+ isic_v4       | 05    | B.05       | B           | B05    | Mining of coal and lignite
+ isic_v4       | 051   | B.05.1     | B.05        | B051   | Mining of hard coal
+ isic_v4       | 0510  | B.05.1.0   | B.05.1      | B0510  | Mining of hard coal
+ isic_v4       | 052   | B.05.2     | B.05        | B052   | Mining of lignite
+ isic_v4       | 0520  | B.05.2.0   | B.05.2      | B0520  | Mining of lignite
+ isic_v4       | 06    | B.06       | B           | B06    | Extraction of crude petroleum and natural gas
+ isic_v4       | 061   | B.06.1     | B.06        | B061   | Extraction of crude petroleum
+ isic_v4       | 0610  | B.06.1.0   | B.06.1      | B0610  | Extraction of crude petroleum
+ isic_v4       | 062   | B.06.2     | B.06        | B062   | Extraction of natural gas
+ isic_v4       | 0620  | B.06.2.0   | B.06.2      | B0620  | Extraction of natural gas
+ isic_v4       | 07    | B.07       | B           | B07    | Mining of metal ores
+ isic_v4       | 071   | B.07.1     | B.07        | B071   | Mining of iron ores
+ isic_v4       | 0710  | B.07.1.0   | B.07.1      | B0710  | Mining of iron ores
+ isic_v4       | 072   | B.07.2     | B.07        | B072   | Mining of non-ferrous metal ores
+ isic_v4       | 0721  | B.07.2.1   | B.07.2      | B0721  | Mining of uranium and thorium ores
+ isic_v4       | 0729  | B.07.2.9   | B.07.2      | B0729  | Mining of other non-ferrous metal ores
+ isic_v4       | 08    | B.08       | B           | B08    | Other mining and quarrying
+ isic_v4       | 081   | B.08.1     | B.08        | B081   | Quarrying of stone, sand and clay
+ isic_v4       | 0810  | B.08.1.0   | B.08.1      | B0810  | Quarrying of stone, sand and clay
+ isic_v4       | 089   | B.08.9     | B.08        | B089   | Mining and quarrying n.e.c.
+ isic_v4       | 0891  | B.08.9.1   | B.08.9      | B0891  | Mining of chemical and fertilizer minerals
+ isic_v4       | 0892  | B.08.9.2   | B.08.9      | B0892  | Extraction of peat
+ isic_v4       | 0893  | B.08.9.3   | B.08.9      | B0893  | Extraction of salt
+ isic_v4       | 0899  | B.08.9.9   | B.08.9      | B0899  | Other mining and quarrying n.e.c.
+ isic_v4       | 09    | B.09       | B           | B09    | Mining support service activities
+ isic_v4       | 091   | B.09.1     | B.09        | B091   | Support activities for petroleum and natural gas extraction
+ isic_v4       | 0910  | B.09.1.0   | B.09.1      | B0910  | Support activities for petroleum and natural gas extraction
+ isic_v4       | 099   | B.09.9     | B.09        | B099   | Support activities for other mining and quarrying
+ isic_v4       | 0990  | B.09.9.0   | B.09.9      | B0990  | Support activities for other mining and quarrying
+ isic_v4       |       | C          |             | C      | Manufacturing
+ isic_v4       | 10    | C.10       | C           | C10    | Manufacture of food products
+ isic_v4       | 101   | C.10.1     | C.10        | C101   | Processing and preserving of meat
+ isic_v4       | 1010  | C.10.1.0   | C.10.1      | C1010  | Processing and preserving of meat
+ isic_v4       | 102   | C.10.2     | C.10        | C102   | Processing and preserving of fish, crustaceans and molluscs
+ isic_v4       | 1020  | C.10.2.0   | C.10.2      | C1020  | Processing and preserving of fish, crustaceans and molluscs
+ isic_v4       | 103   | C.10.3     | C.10        | C103   | Processing and preserving of fruit and vegetables
+ isic_v4       | 1030  | C.10.3.0   | C.10.3      | C1030  | Processing and preserving of fruit and vegetables
+ isic_v4       | 104   | C.10.4     | C.10        | C104   | Manufacture of vegetable and animal oils and fats
+ isic_v4       | 1040  | C.10.4.0   | C.10.4      | C1040  | Manufacture of vegetable and animal oils and fats
+ isic_v4       | 105   | C.10.5     | C.10        | C105   | Manufacture of dairy products
+ isic_v4       | 1050  | C.10.5.0   | C.10.5      | C1050  | Manufacture of dairy products
+ isic_v4       | 106   | C.10.6     | C.10        | C106   | Manufacture of grain mill products, starches and starch products
+ isic_v4       | 1061  | C.10.6.1   | C.10.6      | C1061  | Manufacture of grain mill products
+ isic_v4       | 1062  | C.10.6.2   | C.10.6      | C1062  | Manufacture of starches and starch products
+ isic_v4       | 107   | C.10.7     | C.10        | C107   | Manufacture of other food products
+ isic_v4       | 1071  | C.10.7.1   | C.10.7      | C1071  | Manufacture of bakery products
+ isic_v4       | 1072  | C.10.7.2   | C.10.7      | C1072  | Manufacture of sugar
+ isic_v4       | 1073  | C.10.7.3   | C.10.7      | C1073  | Manufacture of cocoa, chocolate and sugar confectionery
+ isic_v4       | 1074  | C.10.7.4   | C.10.7      | C1074  | Manufacture of macaroni, noodles, couscous and similar farinaceous products
+ isic_v4       | 1075  | C.10.7.5   | C.10.7      | C1075  | Manufacture of prepared meals and dishes
+ isic_v4       | 1079  | C.10.7.9   | C.10.7      | C1079  | Manufacture of other food products n.e.c.
+ isic_v4       | 108   | C.10.8     | C.10        | C108   | Manufacture of prepared animal feeds
+ isic_v4       | 1080  | C.10.8.0   | C.10.8      | C1080  | Manufacture of prepared animal feeds
+ isic_v4       | 11    | C.11       | C           | C11    | Manufacture of beverages
+ isic_v4       | 110   | C.11.0     | C.11        | C110   | Manufacture of beverages
+ isic_v4       | 1101  | C.11.0.1   | C.11.0      | C1101  | Distilling, rectifying and blending of spirits
+ isic_v4       | 1102  | C.11.0.2   | C.11.0      | C1102  | Manufacture of wines
+ isic_v4       | 1103  | C.11.0.3   | C.11.0      | C1103  | Manufacture of malt liquors and malt
+ isic_v4       | 1104  | C.11.0.4   | C.11.0      | C1104  | Manufacture of soft drinks; production of mineral waters and other bottled waters
+ isic_v4       | 12    | C.12       | C           | C12    | Manufacture of tobacco products
+ isic_v4       | 120   | C.12.0     | C.12        | C120   | Manufacture of tobacco products
+ isic_v4       | 1200  | C.12.0.0   | C.12.0      | C1200  | Manufacture of tobacco products
+ isic_v4       | 13    | C.13       | C           | C13    | Manufacture of textiles
+ isic_v4       | 131   | C.13.1     | C.13        | C131   | Spinning, weaving and finishing of textiles
+ isic_v4       | 1311  | C.13.1.1   | C.13.1      | C1311  | Preparation and spinning of textile fibres
+ isic_v4       | 1312  | C.13.1.2   | C.13.1      | C1312  | Weaving of textiles
+ isic_v4       | 1313  | C.13.1.3   | C.13.1      | C1313  | Finishing of textiles
+ isic_v4       | 139   | C.13.9     | C.13        | C139   | Manufacture of other textiles
+ isic_v4       | 1391  | C.13.9.1   | C.13.9      | C1391  | Manufacture of knitted and crocheted fabrics
+ isic_v4       | 1392  | C.13.9.2   | C.13.9      | C1392  | Manufacture of made-up textile articles, except apparel
+ isic_v4       | 1393  | C.13.9.3   | C.13.9      | C1393  | Manufacture of carpets and rugs
+ isic_v4       | 1394  | C.13.9.4   | C.13.9      | C1394  | Manufacture of cordage, rope, twine and netting
+ isic_v4       | 1399  | C.13.9.9   | C.13.9      | C1399  | Manufacture of other textiles n.e.c.
+ isic_v4       | 14    | C.14       | C           | C14    | Manufacture of wearing apparel
+ isic_v4       | 141   | C.14.1     | C.14        | C141   | Manufacture of wearing apparel, except fur apparel
+ isic_v4       | 1410  | C.14.1.0   | C.14.1      | C1410  | Manufacture of wearing apparel, except fur apparel
+ isic_v4       | 142   | C.14.2     | C.14        | C142   | Manufacture of articles of fur
+ isic_v4       | 1420  | C.14.2.0   | C.14.2      | C1420  | Manufacture of articles of fur
+ isic_v4       | 143   | C.14.3     | C.14        | C143   | Manufacture of knitted and crocheted apparel
+ isic_v4       | 1430  | C.14.3.0   | C.14.3      | C1430  | Manufacture of knitted and crocheted apparel
+ isic_v4       | 15    | C.15       | C           | C15    | Manufacture of leather and related products
+ isic_v4       | 151   | C.15.1     | C.15        | C151   | Tanning and dressing of leather; manufacture of luggage, handbags, saddlery and harness; dressing and dyeing of fur
+ isic_v4       | 1511  | C.15.1.1   | C.15.1      | C1511  | Tanning and dressing of leather; dressing and dyeing of fur
+ isic_v4       | 1512  | C.15.1.2   | C.15.1      | C1512  | Manufacture of luggage, handbags and the like, saddlery and harness
+ isic_v4       | 152   | C.15.2     | C.15        | C152   | Manufacture of footwear
+ isic_v4       | 1520  | C.15.2.0   | C.15.2      | C1520  | Manufacture of footwear
+ isic_v4       | 16    | C.16       | C           | C16    | Manufacture of wood and of products of wood and cork, except furniture; manufacture of articles of straw and plaiting materials
+ isic_v4       | 161   | C.16.1     | C.16        | C161   | Sawmilling and planing of wood
+ isic_v4       | 1610  | C.16.1.0   | C.16.1      | C1610  | Sawmilling and planing of wood
+ isic_v4       | 162   | C.16.2     | C.16        | C162   | Manufacture of products of wood, cork, straw and plaiting materials
+ isic_v4       | 1621  | C.16.2.1   | C.16.2      | C1621  | Manufacture of veneer sheets and wood-based panels
+ isic_v4       | 1622  | C.16.2.2   | C.16.2      | C1622  | Manufacture of builders' carpentry and joinery
+ isic_v4       | 1623  | C.16.2.3   | C.16.2      | C1623  | Manufacture of wooden containers
+ isic_v4       | 1629  | C.16.2.9   | C.16.2      | C1629  | Manufacture of other products of wood; manufacture of articles of cork, straw and plaiting materials
+ isic_v4       | 17    | C.17       | C           | C17    | Manufacture of paper and paper products
+ isic_v4       | 170   | C.17.0     | C.17        | C170   | Manufacture of paper and paper products
+ isic_v4       | 1701  | C.17.0.1   | C.17.0      | C1701  | Manufacture of pulp, paper and paperboard
+ isic_v4       | 1702  | C.17.0.2   | C.17.0      | C1702  | Manufacture of corrugated paper and paperboard and of containers of paper and paperboard
+ isic_v4       | 1709  | C.17.0.9   | C.17.0      | C1709  | Manufacture of other articles of paper and paperboard
+ isic_v4       | 18    | C.18       | C           | C18    | Printing and reproduction of recorded media
+ isic_v4       | 181   | C.18.1     | C.18        | C181   | Printing and service activities related to printing
+ isic_v4       | 1811  | C.18.1.1   | C.18.1      | C1811  | Printing
+ isic_v4       | 1812  | C.18.1.2   | C.18.1      | C1812  | Service activities related to printing
+ isic_v4       | 182   | C.18.2     | C.18        | C182   | Reproduction of recorded media
+ isic_v4       | 1820  | C.18.2.0   | C.18.2      | C1820  | Reproduction of recorded media
+ isic_v4       | 19    | C.19       | C           | C19    | Manufacture of coke and refined petroleum products
+ isic_v4       | 191   | C.19.1     | C.19        | C191   | Manufacture of coke oven products
+ isic_v4       | 1910  | C.19.1.0   | C.19.1      | C1910  | Manufacture of coke oven products
+ isic_v4       | 192   | C.19.2     | C.19        | C192   | Manufacture of refined petroleum products
+ isic_v4       | 1920  | C.19.2.0   | C.19.2      | C1920  | Manufacture of refined petroleum products
+ isic_v4       | 20    | C.20       | C           | C20    | Manufacture of chemicals and chemical products
+ isic_v4       | 201   | C.20.1     | C.20        | C201   | Manufacture of basic chemicals, fertilizers and nitrogen compounds, plastics and synthetic rubber in primary forms
+ isic_v4       | 2011  | C.20.1.1   | C.20.1      | C2011  | Manufacture of basic chemicals
+ isic_v4       | 2012  | C.20.1.2   | C.20.1      | C2012  | Manufacture of fertilizers and nitrogen compounds
+ isic_v4       | 2013  | C.20.1.3   | C.20.1      | C2013  | Manufacture of plastics and synthetic rubber in primary forms
+ isic_v4       | 202   | C.20.2     | C.20        | C202   | Manufacture of other chemical products
+ isic_v4       | 2021  | C.20.2.1   | C.20.2      | C2021  | Manufacture of pesticides and other agrochemical products
+ isic_v4       | 2022  | C.20.2.2   | C.20.2      | C2022  | Manufacture of paints, varnishes and similar coatings, printing ink and mastics
+ isic_v4       | 2023  | C.20.2.3   | C.20.2      | C2023  | Manufacture of soap and detergents, cleaning and polishing preparations, perfumes and toilet preparations
+ isic_v4       | 2029  | C.20.2.9   | C.20.2      | C2029  | Manufacture of other chemical products n.e.c.
+ isic_v4       | 203   | C.20.3     | C.20        | C203   | Manufacture of man-made fibres
+ isic_v4       | 2030  | C.20.3.0   | C.20.3      | C2030  | Manufacture of man-made fibres
+ isic_v4       | 21    | C.21       | C           | C21    | Manufacture of basic pharmaceutical products and pharmaceutical preparations
+ isic_v4       | 210   | C.21.0     | C.21        | C210   | Manufacture of pharmaceuticals, medicinal chemical and botanical products
+ isic_v4       | 2100  | C.21.0.0   | C.21.0      | C2100  | Manufacture of pharmaceuticals, medicinal chemical and botanical products
+ isic_v4       | 22    | C.22       | C           | C22    | Manufacture of rubber and plastics products
+ isic_v4       | 221   | C.22.1     | C.22        | C221   | Manufacture of rubber products
+ isic_v4       | 2211  | C.22.1.1   | C.22.1      | C2211  | Manufacture of rubber tyres and tubes; retreading and rebuilding of rubber tyres
+ isic_v4       | 2219  | C.22.1.9   | C.22.1      | C2219  | Manufacture of other rubber products
+ isic_v4       | 222   | C.22.2     | C.22        | C222   | Manufacture of plastics products
+ isic_v4       | 2220  | C.22.2.0   | C.22.2      | C2220  | Manufacture of plastics products
+ isic_v4       | 23    | C.23       | C           | C23    | Manufacture of other non-metallic mineral products
+ isic_v4       | 231   | C.23.1     | C.23        | C231   | Manufacture of glass and glass products
+ isic_v4       | 2310  | C.23.1.0   | C.23.1      | C2310  | Manufacture of glass and glass products
+ isic_v4       | 239   | C.23.9     | C.23        | C239   | Manufacture of non-metallic mineral products n.e.c.
+ isic_v4       | 2391  | C.23.9.1   | C.23.9      | C2391  | Manufacture of refractory products
+ isic_v4       | 2392  | C.23.9.2   | C.23.9      | C2392  | Manufacture of clay building materials
+ isic_v4       | 2393  | C.23.9.3   | C.23.9      | C2393  | Manufacture of other porcelain and ceramic products
+ isic_v4       | 2394  | C.23.9.4   | C.23.9      | C2394  | Manufacture of cement, lime and plaster
+ isic_v4       | 2395  | C.23.9.5   | C.23.9      | C2395  | Manufacture of articles of concrete, cement and plaster
+ isic_v4       | 2396  | C.23.9.6   | C.23.9      | C2396  | Cutting, shaping and finishing of stone
+ isic_v4       | 2399  | C.23.9.9   | C.23.9      | C2399  | Manufacture of other non-metallic mineral products n.e.c.
+ isic_v4       | 24    | C.24       | C           | C24    | Manufacture of basic metals
+ isic_v4       | 241   | C.24.1     | C.24        | C241   | Manufacture of basic iron and steel
+ isic_v4       | 2410  | C.24.1.0   | C.24.1      | C2410  | Manufacture of basic iron and steel
+ isic_v4       | 242   | C.24.2     | C.24        | C242   | Manufacture of basic precious and other non-ferrous metals
+ isic_v4       | 2420  | C.24.2.0   | C.24.2      | C2420  | Manufacture of basic precious and other non-ferrous metals
+ isic_v4       | 243   | C.24.3     | C.24        | C243   | Casting of metals
+ isic_v4       | 2431  | C.24.3.1   | C.24.3      | C2431  | Casting of iron and steel
+ isic_v4       | 2432  | C.24.3.2   | C.24.3      | C2432  | Casting of non-ferrous metals
+ isic_v4       | 25    | C.25       | C           | C25    | Manufacture of fabricated metal products, except machinery and equipment
+ isic_v4       | 251   | C.25.1     | C.25        | C251   | Manufacture of structural metal products, tanks, reservoirs and steam generators
+ isic_v4       | 2511  | C.25.1.1   | C.25.1      | C2511  | Manufacture of structural metal products
+ isic_v4       | 2512  | C.25.1.2   | C.25.1      | C2512  | Manufacture of tanks, reservoirs and containers of metal
+ isic_v4       | 2513  | C.25.1.3   | C.25.1      | C2513  | Manufacture of steam generators, except central heating hot water boilers
+ isic_v4       | 252   | C.25.2     | C.25        | C252   | Manufacture of weapons and ammunition
+ isic_v4       | 2520  | C.25.2.0   | C.25.2      | C2520  | Manufacture of weapons and ammunition
+ isic_v4       | 259   | C.25.9     | C.25        | C259   | Manufacture of other fabricated metal products; metalworking service activities
+ isic_v4       | 2591  | C.25.9.1   | C.25.9      | C2591  | Forging, pressing, stamping and roll-forming of metal; powder metallurgy
+ isic_v4       | 2592  | C.25.9.2   | C.25.9      | C2592  | Treatment and coating of metals; machining
+ isic_v4       | 2593  | C.25.9.3   | C.25.9      | C2593  | Manufacture of cutlery, hand tools and general hardware
+ isic_v4       | 2599  | C.25.9.9   | C.25.9      | C2599  | Manufacture of other fabricated metal products n.e.c.
+ isic_v4       | 26    | C.26       | C           | C26    | Manufacture of computer, electronic and optical products
+ isic_v4       | 261   | C.26.1     | C.26        | C261   | Manufacture of electronic components and boards
+ isic_v4       | 2610  | C.26.1.0   | C.26.1      | C2610  | Manufacture of electronic components and boards
+ isic_v4       | 262   | C.26.2     | C.26        | C262   | Manufacture of computers and peripheral equipment
+ isic_v4       | 2620  | C.26.2.0   | C.26.2      | C2620  | Manufacture of computers and peripheral equipment
+ isic_v4       | 263   | C.26.3     | C.26        | C263   | Manufacture of communication equipment
+ isic_v4       | 2630  | C.26.3.0   | C.26.3      | C2630  | Manufacture of communication equipment
+ isic_v4       | 264   | C.26.4     | C.26        | C264   | Manufacture of consumer electronics
+ isic_v4       | 2640  | C.26.4.0   | C.26.4      | C2640  | Manufacture of consumer electronics
+ isic_v4       | 265   | C.26.5     | C.26        | C265   | Manufacture of measuring, testing, navigating and control equipment; watches and clocks
+ isic_v4       | 2651  | C.26.5.1   | C.26.5      | C2651  | Manufacture of measuring, testing, navigating and control equipment
+ isic_v4       | 2652  | C.26.5.2   | C.26.5      | C2652  | Manufacture of watches and clocks
+ isic_v4       | 266   | C.26.6     | C.26        | C266   | Manufacture of irradiation, electromedical and electrotherapeutic equipment
+ isic_v4       | 2660  | C.26.6.0   | C.26.6      | C2660  | Manufacture of irradiation, electromedical and electrotherapeutic equipment
+ isic_v4       | 267   | C.26.7     | C.26        | C267   | Manufacture of optical instruments and photographic equipment
+ isic_v4       | 2670  | C.26.7.0   | C.26.7      | C2670  | Manufacture of optical instruments and photographic equipment
+ isic_v4       | 268   | C.26.8     | C.26        | C268   | Manufacture of magnetic and optical media
+ isic_v4       | 2680  | C.26.8.0   | C.26.8      | C2680  | Manufacture of magnetic and optical media
+ isic_v4       | 27    | C.27       | C           | C27    | Manufacture of electrical equipment
+ isic_v4       | 271   | C.27.1     | C.27        | C271   | Manufacture of electric motors, generators, transformers and electricity distribution and control apparatus
+ isic_v4       | 2710  | C.27.1.0   | C.27.1      | C2710  | Manufacture of electric motors, generators, transformers and electricity distribution and control apparatus
+ isic_v4       | 272   | C.27.2     | C.27        | C272   | Manufacture of batteries and accumulators
+ isic_v4       | 2720  | C.27.2.0   | C.27.2      | C2720  | Manufacture of batteries and accumulators
+ isic_v4       | 273   | C.27.3     | C.27        | C273   | Manufacture of wiring and wiring devices
+ isic_v4       | 2731  | C.27.3.1   | C.27.3      | C2731  | Manufacture of fibre optic cables
+ isic_v4       | 2732  | C.27.3.2   | C.27.3      | C2732  | Manufacture of other electronic and electric wires and cables
+ isic_v4       | 2733  | C.27.3.3   | C.27.3      | C2733  | Manufacture of wiring devices
+ isic_v4       | 274   | C.27.4     | C.27        | C274   | Manufacture of electric lighting equipment
+ isic_v4       | 2740  | C.27.4.0   | C.27.4      | C2740  | Manufacture of electric lighting equipment
+ isic_v4       | 275   | C.27.5     | C.27        | C275   | Manufacture of domestic appliances
+ isic_v4       | 2750  | C.27.5.0   | C.27.5      | C2750  | Manufacture of domestic appliances
+ isic_v4       | 279   | C.27.9     | C.27        | C279   | Manufacture of other electrical equipment
+ isic_v4       | 2790  | C.27.9.0   | C.27.9      | C2790  | Manufacture of other electrical equipment
+ isic_v4       | 28    | C.28       | C           | C28    | Manufacture of machinery and equipment n.e.c.
+ isic_v4       | 281   | C.28.1     | C.28        | C281   | Manufacture of general-purpose machinery
+ isic_v4       | 2811  | C.28.1.1   | C.28.1      | C2811  | Manufacture of engines and turbines, except aircraft, vehicle and cycle engines
+ isic_v4       | 2812  | C.28.1.2   | C.28.1      | C2812  | Manufacture of fluid power equipment
+ isic_v4       | 2813  | C.28.1.3   | C.28.1      | C2813  | Manufacture of other pumps, compressors, taps and valves
+ isic_v4       | 2814  | C.28.1.4   | C.28.1      | C2814  | Manufacture of bearings, gears, gearing and driving elements
+ isic_v4       | 2815  | C.28.1.5   | C.28.1      | C2815  | Manufacture of ovens, furnaces and furnace burners
+ isic_v4       | 2816  | C.28.1.6   | C.28.1      | C2816  | Manufacture of lifting and handling equipment
+ isic_v4       | 2817  | C.28.1.7   | C.28.1      | C2817  | Manufacture of office machinery and equipment (except computers and peripheral equipment)
+ isic_v4       | 2818  | C.28.1.8   | C.28.1      | C2818  | Manufacture of power-driven hand tools
+ isic_v4       | 2819  | C.28.1.9   | C.28.1      | C2819  | Manufacture of other general-purpose machinery
+ isic_v4       | 282   | C.28.2     | C.28        | C282   | Manufacture of special-purpose machinery
+ isic_v4       | 2821  | C.28.2.1   | C.28.2      | C2821  | Manufacture of agricultural and forestry machinery
+ isic_v4       | 2822  | C.28.2.2   | C.28.2      | C2822  | Manufacture of metal-forming machinery and machine tools
+ isic_v4       | 2823  | C.28.2.3   | C.28.2      | C2823  | Manufacture of machinery for metallurgy
+ isic_v4       | 2824  | C.28.2.4   | C.28.2      | C2824  | Manufacture of machinery for mining, quarrying and construction
+ isic_v4       | 2825  | C.28.2.5   | C.28.2      | C2825  | Manufacture of machinery for food, beverage and tobacco processing
+ isic_v4       | 2826  | C.28.2.6   | C.28.2      | C2826  | Manufacture of machinery for textile, apparel and leather production
+ isic_v4       | 2829  | C.28.2.9   | C.28.2      | C2829  | Manufacture of other special-purpose machinery
+ isic_v4       | 29    | C.29       | C           | C29    | Manufacture of motor vehicles, trailers and semi-trailers
+ isic_v4       | 291   | C.29.1     | C.29        | C291   | Manufacture of motor vehicles
+ isic_v4       | 2910  | C.29.1.0   | C.29.1      | C2910  | Manufacture of motor vehicles
+ isic_v4       | 292   | C.29.2     | C.29        | C292   | Manufacture of bodies (coachwork) for motor vehicles; manufacture of trailers and semi-trailers
+ isic_v4       | 2920  | C.29.2.0   | C.29.2      | C2920  | Manufacture of bodies (coachwork) for motor vehicles; manufacture of trailers and semi-trailers
+ isic_v4       | 293   | C.29.3     | C.29        | C293   | Manufacture of parts and accessories for motor vehicles
+ isic_v4       | 2930  | C.29.3.0   | C.29.3      | C2930  | Manufacture of parts and accessories for motor vehicles
+ isic_v4       | 30    | C.30       | C           | C30    | Manufacture of other transport equipment
+ isic_v4       | 301   | C.30.1     | C.30        | C301   | Building of ships and boats
+ isic_v4       | 3011  | C.30.1.1   | C.30.1      | C3011  | Building of ships and floating structures
+ isic_v4       | 3012  | C.30.1.2   | C.30.1      | C3012  | Building of pleasure and sporting boats
+ isic_v4       | 302   | C.30.2     | C.30        | C302   | Manufacture of railway locomotives and rolling stock
+ isic_v4       | 3020  | C.30.2.0   | C.30.2      | C3020  | Manufacture of railway locomotives and rolling stock
+ isic_v4       | 303   | C.30.3     | C.30        | C303   | Manufacture of air and spacecraft and related machinery
+ isic_v4       | 3030  | C.30.3.0   | C.30.3      | C3030  | Manufacture of air and spacecraft and related machinery
+ isic_v4       | 304   | C.30.4     | C.30        | C304   | Manufacture of military fighting vehicles
+ isic_v4       | 3040  | C.30.4.0   | C.30.4      | C3040  | Manufacture of military fighting vehicles
+ isic_v4       | 309   | C.30.9     | C.30        | C309   | Manufacture of transport equipment n.e.c.
+ isic_v4       | 3091  | C.30.9.1   | C.30.9      | C3091  | Manufacture of motorcycles
+ isic_v4       | 3092  | C.30.9.2   | C.30.9      | C3092  | Manufacture of bicycles and invalid carriages
+ isic_v4       | 3099  | C.30.9.9   | C.30.9      | C3099  | Manufacture of other transport equipment n.e.c.
+ isic_v4       | 31    | C.31       | C           | C31    | Manufacture of furniture
+ isic_v4       | 310   | C.31.0     | C.31        | C310   | Manufacture of furniture
+ isic_v4       | 3100  | C.31.0.0   | C.31.0      | C3100  | Manufacture of furniture
+ isic_v4       | 32    | C.32       | C           | C32    | Other manufacturing
+ isic_v4       | 321   | C.32.1     | C.32        | C321   | Manufacture of jewellery, bijouterie and related articles
+ isic_v4       | 3211  | C.32.1.1   | C.32.1      | C3211  | Manufacture of jewellery and related articles
+ isic_v4       | 3212  | C.32.1.2   | C.32.1      | C3212  | Manufacture of imitation jewellery and related articles
+ isic_v4       | 322   | C.32.2     | C.32        | C322   | Manufacture of musical instruments
+ isic_v4       | 3220  | C.32.2.0   | C.32.2      | C3220  | Manufacture of musical instruments
+ isic_v4       | 323   | C.32.3     | C.32        | C323   | Manufacture of sports goods
+ isic_v4       | 3230  | C.32.3.0   | C.32.3      | C3230  | Manufacture of sports goods
+ isic_v4       | 324   | C.32.4     | C.32        | C324   | Manufacture of games and toys
+ isic_v4       | 3240  | C.32.4.0   | C.32.4      | C3240  | Manufacture of games and toys
+ isic_v4       | 325   | C.32.5     | C.32        | C325   | Manufacture of medical and dental instruments and supplies
+ isic_v4       | 3250  | C.32.5.0   | C.32.5      | C3250  | Manufacture of medical and dental instruments and supplies
+ isic_v4       | 329   | C.32.9     | C.32        | C329   | Other manufacturing n.e.c.
+ isic_v4       | 3290  | C.32.9.0   | C.32.9      | C3290  | Other manufacturing n.e.c.
+ isic_v4       | 33    | C.33       | C           | C33    | Repair and installation of machinery and equipment
+ isic_v4       | 331   | C.33.1     | C.33        | C331   | Repair of fabricated metal products, machinery and equipment
+ isic_v4       | 3311  | C.33.1.1   | C.33.1      | C3311  | Repair of fabricated metal products
+ isic_v4       | 3312  | C.33.1.2   | C.33.1      | C3312  | Repair of machinery
+ isic_v4       | 3313  | C.33.1.3   | C.33.1      | C3313  | Repair of electronic and optical equipment
+ isic_v4       | 3314  | C.33.1.4   | C.33.1      | C3314  | Repair of electrical equipment
+ isic_v4       | 3315  | C.33.1.5   | C.33.1      | C3315  | Repair of transport equipment, except motor vehicles
+ isic_v4       | 3319  | C.33.1.9   | C.33.1      | C3319  | Repair of other equipment
+ isic_v4       | 332   | C.33.2     | C.33        | C332   | Installation of industrial machinery and equipment
+ isic_v4       | 3320  | C.33.2.0   | C.33.2      | C3320  | Installation of industrial machinery and equipment
+ isic_v4       |       | D          |             | D      | Electricity, gas, steam and air conditioning supply
+ isic_v4       | 35    | D.35       | D           | D35    | Electricity, gas, steam and air conditioning supply
+ isic_v4       | 351   | D.35.1     | D.35        | D351   | Electric power generation, transmission and distribution
+ isic_v4       | 3510  | D.35.1.0   | D.35.1      | D3510  | Electric power generation, transmission and distribution
+ isic_v4       | 352   | D.35.2     | D.35        | D352   | Manufacture of gas; distribution of gaseous fuels through mains
+ isic_v4       | 3520  | D.35.2.0   | D.35.2      | D3520  | Manufacture of gas; distribution of gaseous fuels through mains
+ isic_v4       | 353   | D.35.3     | D.35        | D353   | Steam and air conditioning supply
+ isic_v4       | 3530  | D.35.3.0   | D.35.3      | D3530  | Steam and air conditioning supply
+ isic_v4       |       | E          |             | E      | Water supply; sewerage, waste management and remediation activities
+ isic_v4       | 36    | E.36       | E           | E36    | Water collection, treatment and supply
+ isic_v4       | 360   | E.36.0     | E.36        | E360   | Water collection, treatment and supply
+ isic_v4       | 3600  | E.36.0.0   | E.36.0      | E3600  | Water collection, treatment and supply
+ isic_v4       | 37    | E.37       | E           | E37    | Sewerage
+ isic_v4       | 370   | E.37.0     | E.37        | E370   | Sewerage
+ isic_v4       | 3700  | E.37.0.0   | E.37.0      | E3700  | Sewerage
+ isic_v4       | 38    | E.38       | E           | E38    | Waste collection, treatment and disposal activities; materials recovery
+ isic_v4       | 381   | E.38.1     | E.38        | E381   | Waste collection
+ isic_v4       | 3811  | E.38.1.1   | E.38.1      | E3811  | Collection of non-hazardous waste
+ isic_v4       | 3812  | E.38.1.2   | E.38.1      | E3812  | Collection of hazardous waste
+ isic_v4       | 382   | E.38.2     | E.38        | E382   | Waste treatment and disposal
+ isic_v4       | 3821  | E.38.2.1   | E.38.2      | E3821  | Treatment and disposal of non-hazardous waste
+ isic_v4       | 3822  | E.38.2.2   | E.38.2      | E3822  | Treatment and disposal of hazardous waste
+ isic_v4       | 383   | E.38.3     | E.38        | E383   | Materials recovery
+ isic_v4       | 3830  | E.38.3.0   | E.38.3      | E3830  | Materials recovery
+ isic_v4       | 39    | E.39       | E           | E39    | Remediation activities and other waste management services
+ isic_v4       | 390   | E.39.0     | E.39        | E390   | Remediation activities and other waste management services
+ isic_v4       | 3900  | E.39.0.0   | E.39.0      | E3900  | Remediation activities and other waste management services
+ isic_v4       |       | F          |             | F      | Construction
+ isic_v4       | 41    | F.41       | F           | F41    | Construction of buildings
+ isic_v4       | 410   | F.41.0     | F.41        | F410   | Construction of buildings
+ isic_v4       | 4100  | F.41.0.0   | F.41.0      | F4100  | Construction of buildings
+ isic_v4       | 42    | F.42       | F           | F42    | Civil engineering
+ isic_v4       | 421   | F.42.1     | F.42        | F421   | Construction of roads and railways
+ isic_v4       | 4210  | F.42.1.0   | F.42.1      | F4210  | Construction of roads and railways
+ isic_v4       | 42101 | F.42.1.0.1 | F.42.1.0    | F42101 | Rail double custom
+ isic_v4       | 422   | F.42.2     | F.42        | F422   | Construction of utility projects
+ isic_v4       | 4220  | F.42.2.0   | F.42.2      | F4220  | Construction of utility projects
+ isic_v4       | 429   | F.42.9     | F.42        | F429   | Construction of other civil engineering projects
+ isic_v4       | 4290  | F.42.9.0   | F.42.9      | F4290  | Construction of other civil engineering projects
+ isic_v4       | 43    | F.43       | F           | F43    | Specialized construction activities
+ isic_v4       | 431   | F.43.1     | F.43        | F431   | Demolition and site preparation
+ isic_v4       | 4311  | F.43.1.1   | F.43.1      | F4311  | Demolition
+ isic_v4       | 4312  | F.43.1.2   | F.43.1      | F4312  | Site preparation
+ isic_v4       | 432   | F.43.2     | F.43        | F432   | Electrical, plumbing and other construction installation activities
+ isic_v4       | 4321  | F.43.2.1   | F.43.2      | F4321  | Electrical installation
+ isic_v4       | 4322  | F.43.2.2   | F.43.2      | F4322  | Plumbing, heat and air-conditioning installation
+ isic_v4       | 4329  | F.43.2.9   | F.43.2      | F4329  | Other construction installation
+ isic_v4       | 433   | F.43.3     | F.43        | F433   | Building completion and finishing
+ isic_v4       | 4330  | F.43.3.0   | F.43.3      | F4330  | Building completion and finishing
+ isic_v4       | 43301 | F.43.3.0.1 | F.43.3.0    | F43301 | Finishing work custom
+ isic_v4       | 439   | F.43.9     | F.43        | F439   | Other specialized construction activities
+ isic_v4       | 4390  | F.43.9.0   | F.43.9      | F4390  | Other specialized construction activities
+ isic_v4       |       | G          |             | G      | Wholesale and retail trade; repair of motor vehicles and motorcycles
+ isic_v4       | 45    | G.45       | G           | G45    | Wholesale and retail trade and repair of motor vehicles and motorcycles
+ isic_v4       | 451   | G.45.1     | G.45        | G451   | Sale of motor vehicles
+ isic_v4       | 4510  | G.45.1.0   | G.45.1      | G4510  | Sale of motor vehicles
+ isic_v4       | 452   | G.45.2     | G.45        | G452   | Maintenance and repair of motor vehicles
+ isic_v4       | 4520  | G.45.2.0   | G.45.2      | G4520  | Maintenance and repair of motor vehicles
+ isic_v4       | 453   | G.45.3     | G.45        | G453   | Sale of motor vehicle parts and accessories
+ isic_v4       | 4530  | G.45.3.0   | G.45.3      | G4530  | Sale of motor vehicle parts and accessories
+ isic_v4       | 454   | G.45.4     | G.45        | G454   | Sale, maintenance and repair of motorcycles and related parts and accessories
+ isic_v4       | 4540  | G.45.4.0   | G.45.4      | G4540  | Sale, maintenance and repair of motorcycles and related parts and accessories
+ isic_v4       | 46    | G.46       | G           | G46    | Wholesale trade, except of motor vehicles and motorcycles
+ isic_v4       | 461   | G.46.1     | G.46        | G461   | Wholesale on a fee or contract basis
+ isic_v4       | 4610  | G.46.1.0   | G.46.1      | G4610  | Wholesale on a fee or contract basis
+ isic_v4       | 462   | G.46.2     | G.46        | G462   | Wholesale of agricultural raw materials and live animals
+ isic_v4       | 4620  | G.46.2.0   | G.46.2      | G4620  | Wholesale of agricultural raw materials and live animals
+ isic_v4       | 463   | G.46.3     | G.46        | G463   | Wholesale of food, beverages and tobacco
+ isic_v4       | 4630  | G.46.3.0   | G.46.3      | G4630  | Wholesale of food, beverages and tobacco
+ isic_v4       | 464   | G.46.4     | G.46        | G464   | Wholesale of household goods
+ isic_v4       | 4641  | G.46.4.1   | G.46.4      | G4641  | Wholesale of textiles, clothing and footwear
+ isic_v4       | 4649  | G.46.4.9   | G.46.4      | G4649  | Wholesale of other household goods
+ isic_v4       | 465   | G.46.5     | G.46        | G465   | Wholesale of machinery, equipment and supplies
+ isic_v4       | 4651  | G.46.5.1   | G.46.5      | G4651  | Wholesale of computers, computer peripheral equipment and software
+ isic_v4       | 4652  | G.46.5.2   | G.46.5      | G4652  | Wholesale of electronic and telecommunications equipment and parts
+ isic_v4       | 4653  | G.46.5.3   | G.46.5      | G4653  | Wholesale of agricultural machinery, equipment and supplies
+ isic_v4       | 4659  | G.46.5.9   | G.46.5      | G4659  | Wholesale of other machinery and equipment
+ isic_v4       | 466   | G.46.6     | G.46        | G466   | Other specialized wholesale
+ isic_v4       | 4661  | G.46.6.1   | G.46.6      | G4661  | Wholesale of solid, liquid and gaseous fuels and related products
+ isic_v4       | 4662  | G.46.6.2   | G.46.6      | G4662  | Wholesale of metals and metal ores
+ isic_v4       | 4663  | G.46.6.3   | G.46.6      | G4663  | Wholesale of construction materials, hardware, plumbing and heating equipment and supplies
+ isic_v4       | 4669  | G.46.6.9   | G.46.6      | G4669  | Wholesale of waste and scrap and other products n.e.c.
+ isic_v4       | 469   | G.46.9     | G.46        | G469   | Non-specialized wholesale trade
+ isic_v4       | 4690  | G.46.9.0   | G.46.9      | G4690  | Non-specialized wholesale trade
+ isic_v4       | 47    | G.47       | G           | G47    | Retail trade, except of motor vehicles and motorcycles
+ isic_v4       | 471   | G.47.1     | G.47        | G471   | Retail sale in non-specialized stores
+ isic_v4       | 4711  | G.47.1.1   | G.47.1      | G4711  | Retail sale in non-specialized stores with food, beverages or tobacco predominating
+ isic_v4       | 4719  | G.47.1.9   | G.47.1      | G4719  | Other retail sale in non-specialized stores
+ isic_v4       | 472   | G.47.2     | G.47        | G472   | Retail sale of food, beverages and tobacco in specialized stores
+ isic_v4       | 4721  | G.47.2.1   | G.47.2      | G4721  | Retail sale of food in specialized stores
+ isic_v4       | 4722  | G.47.2.2   | G.47.2      | G4722  | Retail sale of beverages in specialized stores
+ isic_v4       | 4723  | G.47.2.3   | G.47.2      | G4723  | Retail sale of tobacco products in specialized stores
+ isic_v4       | 473   | G.47.3     | G.47        | G473   | Retail sale of automotive fuel in specialized stores
+ isic_v4       | 4730  | G.47.3.0   | G.47.3      | G4730  | Retail sale of automotive fuel in specialized stores
+ isic_v4       | 474   | G.47.4     | G.47        | G474   | Retail sale of information and communications equipment in specialized stores
+ isic_v4       | 4741  | G.47.4.1   | G.47.4      | G4741  | Retail sale of computers, peripheral units, software and telecommunications equipment in specialized stores
+ isic_v4       | 4742  | G.47.4.2   | G.47.4      | G4742  | Retail sale of audio and video equipment in specialized stores
+ isic_v4       | 475   | G.47.5     | G.47        | G475   | Retail sale of other household equipment in specialized stores
+ isic_v4       | 4751  | G.47.5.1   | G.47.5      | G4751  | Retail sale of textiles in specialized stores
+ isic_v4       | 4752  | G.47.5.2   | G.47.5      | G4752  | Retail sale of hardware, paints and glass in specialized stores
+ isic_v4       | 4753  | G.47.5.3   | G.47.5      | G4753  | Retail sale of carpets, rugs, wall and floor coverings in specialized stores
+ isic_v4       | 4759  | G.47.5.9   | G.47.5      | G4759  | Retail sale of electrical household appliances, furniture, lighting equipment and other household articles in specialized stores
+ isic_v4       | 476   | G.47.6     | G.47        | G476   | Retail sale of cultural and recreation goods in specialized stores
+ isic_v4       | 4761  | G.47.6.1   | G.47.6      | G4761  | Retail sale of books, newspapers and stationary in specialized stores
+ isic_v4       | 4762  | G.47.6.2   | G.47.6      | G4762  | Retail sale of music and video recordings in specialized stores
+ isic_v4       | 4763  | G.47.6.3   | G.47.6      | G4763  | Retail sale of sporting equipment in specialized stores
+ isic_v4       | 4764  | G.47.6.4   | G.47.6      | G4764  | Retail sale of games and toys in specialized stores
+ isic_v4       | 477   | G.47.7     | G.47        | G477   | Retail sale of other goods in specialized stores
+ isic_v4       | 4771  | G.47.7.1   | G.47.7      | G4771  | Retail sale of clothing, footwear and leather articles in specialized stores
+ isic_v4       | 4772  | G.47.7.2   | G.47.7      | G4772  | Retail sale of pharmaceutical and medical goods, cosmetic and toilet articles in specialized stores
+ isic_v4       | 4773  | G.47.7.3   | G.47.7      | G4773  | Other retail sale of new goods in specialized stores
+ isic_v4       | 4774  | G.47.7.4   | G.47.7      | G4774  | Retail sale of second-hand goods
+ isic_v4       | 478   | G.47.8     | G.47        | G478   | Retail sale via stalls and markets
+ isic_v4       | 4781  | G.47.8.1   | G.47.8      | G4781  | Retail sale via stalls and markets of food, beverages and tobacco products
+ isic_v4       | 4782  | G.47.8.2   | G.47.8      | G4782  | Retail sale via stalls and markets of textiles, clothing and footwear
+ isic_v4       | 4789  | G.47.8.9   | G.47.8      | G4789  | Retail sale via stalls and markets of other goods
+ isic_v4       | 479   | G.47.9     | G.47        | G479   | Retail trade not in stores, stalls or markets
+ isic_v4       | 4791  | G.47.9.1   | G.47.9      | G4791  | Retail sale via mail order houses or via Internet
+ isic_v4       | 4799  | G.47.9.9   | G.47.9      | G4799  | Other retail sale not in stores, stalls or markets
+ isic_v4       |       | H          |             | H      | Transportation and storage
+ isic_v4       | 49    | H.49       | H           | H49    | Land transport and transport via pipelines
+ isic_v4       | 491   | H.49.1     | H.49        | H491   | Transport via railways
+ isic_v4       | 4911  | H.49.1.1   | H.49.1      | H4911  | Passenger rail transport, interurban
+ isic_v4       | 4912  | H.49.1.2   | H.49.1      | H4912  | Freight rail transport
+ isic_v4       | 492   | H.49.2     | H.49        | H492   | Other land transport
+ isic_v4       | 4921  | H.49.2.1   | H.49.2      | H4921  | Urban and suburban passenger land transport
+ isic_v4       | 4922  | H.49.2.2   | H.49.2      | H4922  | Other passenger land transport
+ isic_v4       | 4923  | H.49.2.3   | H.49.2      | H4923  | Freight transport by road
+ isic_v4       | 493   | H.49.3     | H.49        | H493   | Transport via pipeline
+ isic_v4       | 4930  | H.49.3.0   | H.49.3      | H4930  | Transport via pipeline
+ isic_v4       | 50    | H.50       | H           | H50    | Water transport
+ isic_v4       | 501   | H.50.1     | H.50        | H501   | Sea and coastal water transport
+ isic_v4       | 5011  | H.50.1.1   | H.50.1      | H5011  | Sea and coastal passenger water transport
+ isic_v4       | 5012  | H.50.1.2   | H.50.1      | H5012  | Sea and coastal freight water transport
+ isic_v4       | 502   | H.50.2     | H.50        | H502   | Inland water transport
+ isic_v4       | 5021  | H.50.2.1   | H.50.2      | H5021  | Inland passenger water transport
+ isic_v4       | 5022  | H.50.2.2   | H.50.2      | H5022  | Inland freight water transport
+ isic_v4       | 51    | H.51       | H           | H51    | Air transport
+ isic_v4       | 511   | H.51.1     | H.51        | H511   | Passenger air transport
+ isic_v4       | 5110  | H.51.1.0   | H.51.1      | H5110  | Passenger air transport
+ isic_v4       | 512   | H.51.2     | H.51        | H512   | Freight air transport
+ isic_v4       | 5120  | H.51.2.0   | H.51.2      | H5120  | Freight air transport
+ isic_v4       | 52    | H.52       | H           | H52    | Warehousing and support activities for transportation
+ isic_v4       | 521   | H.52.1     | H.52        | H521   | Warehousing and storage
+ isic_v4       | 5210  | H.52.1.0   | H.52.1      | H5210  | Warehousing and storage
+ isic_v4       | 522   | H.52.2     | H.52        | H522   | Support activities for transportation
+ isic_v4       | 5221  | H.52.2.1   | H.52.2      | H5221  | Service activities incidental to land transportation
+ isic_v4       | 5222  | H.52.2.2   | H.52.2      | H5222  | Service activities incidental to water transportation
+ isic_v4       | 5223  | H.52.2.3   | H.52.2      | H5223  | Service activities incidental to air transportation
+ isic_v4       | 5224  | H.52.2.4   | H.52.2      | H5224  | Cargo handling
+ isic_v4       | 5229  | H.52.2.9   | H.52.2      | H5229  | Other transportation support activities
+ isic_v4       | 53    | H.53       | H           | H53    | Postal and courier activities
+ isic_v4       | 531   | H.53.1     | H.53        | H531   | Postal activities
+ isic_v4       | 5310  | H.53.1.0   | H.53.1      | H5310  | Postal activities
+ isic_v4       | 532   | H.53.2     | H.53        | H532   | Courier activities
+ isic_v4       | 5320  | H.53.2.0   | H.53.2      | H5320  | Courier activities
+ isic_v4       |       | I          |             | I      | Accommodation and food service activities
+ isic_v4       | 55    | I.55       | I           | I55    | Accommodation
+ isic_v4       | 551   | I.55.1     | I.55        | I551   | Short term accommodation activities
+ isic_v4       | 5510  | I.55.1.0   | I.55.1      | I5510  | Short term accommodation activities
+ isic_v4       | 552   | I.55.2     | I.55        | I552   | Camping grounds, recreational vehicle parks and trailer parks
+ isic_v4       | 5520  | I.55.2.0   | I.55.2      | I5520  | Camping grounds, recreational vehicle parks and trailer parks
+ isic_v4       | 559   | I.55.9     | I.55        | I559   | Other accommodation
+ isic_v4       | 5590  | I.55.9.0   | I.55.9      | I5590  | Other accommodation
+ isic_v4       | 56    | I.56       | I           | I56    | Food and beverage service activities
+ isic_v4       | 561   | I.56.1     | I.56        | I561   | Restaurants and mobile food service activities
+ isic_v4       | 5610  | I.56.1.0   | I.56.1      | I5610  | Restaurants and mobile food service activities
+ isic_v4       | 562   | I.56.2     | I.56        | I562   | Event catering and other food service activities
+ isic_v4       | 5621  | I.56.2.1   | I.56.2      | I5621  | Event catering
+ isic_v4       | 5629  | I.56.2.9   | I.56.2      | I5629  | Other food service activities
+ isic_v4       | 563   | I.56.3     | I.56        | I563   | Beverage serving activities
+ isic_v4       | 5630  | I.56.3.0   | I.56.3      | I5630  | Beverage serving activities
+ isic_v4       |       | J          |             | J      | Information and communication
+ isic_v4       | 58    | J.58       | J           | J58    | Publishing activities
+ isic_v4       | 581   | J.58.1     | J.58        | J581   | Publishing of books, periodicals and other publishing activities
+ isic_v4       | 5811  | J.58.1.1   | J.58.1      | J5811  | Book publishing
+ isic_v4       | 5812  | J.58.1.2   | J.58.1      | J5812  | Publishing of directories and mailing lists
+ isic_v4       | 5813  | J.58.1.3   | J.58.1      | J5813  | Publishing of newspapers, journals and periodicals
+ isic_v4       | 5819  | J.58.1.9   | J.58.1      | J5819  | Other publishing activities
+ isic_v4       | 582   | J.58.2     | J.58        | J582   | Software publishing
+ isic_v4       | 5820  | J.58.2.0   | J.58.2      | J5820  | Software publishing
+ isic_v4       | 59    | J.59       | J           | J59    | Motion picture, video and television programme production, sound recording and music publishing activities
+ isic_v4       | 591   | J.59.1     | J.59        | J591   | Motion picture, video and television programme activities
+ isic_v4       | 5911  | J.59.1.1   | J.59.1      | J5911  | Motion picture, video and television programme production activities
+ isic_v4       | 5912  | J.59.1.2   | J.59.1      | J5912  | Motion picture, video and television programme post-production activities
+ isic_v4       | 5913  | J.59.1.3   | J.59.1      | J5913  | Motion picture, video and television programme distribution activities
+ isic_v4       | 5914  | J.59.1.4   | J.59.1      | J5914  | Motion picture projection activities
+ isic_v4       | 592   | J.59.2     | J.59        | J592   | Sound recording and music publishing activities
+ isic_v4       | 5920  | J.59.2.0   | J.59.2      | J5920  | Sound recording and music publishing activities
+ isic_v4       | 60    | J.60       | J           | J60    | Programming and broadcasting activities
+ isic_v4       | 601   | J.60.1     | J.60        | J601   | Radio broadcasting
+ isic_v4       | 6010  | J.60.1.0   | J.60.1      | J6010  | Radio broadcasting
+ isic_v4       | 602   | J.60.2     | J.60        | J602   | Television programming and broadcasting activities
+ isic_v4       | 6020  | J.60.2.0   | J.60.2      | J6020  | Television programming and broadcasting activities
+ isic_v4       | 61    | J.61       | J           | J61    | Telecommunications
+ isic_v4       | 611   | J.61.1     | J.61        | J611   | Wired telecommunications activities
+ isic_v4       | 6110  | J.61.1.0   | J.61.1      | J6110  | Wired telecommunications activities
+ isic_v4       | 612   | J.61.2     | J.61        | J612   | Wireless telecommunications activities
+ isic_v4       | 6120  | J.61.2.0   | J.61.2      | J6120  | Wireless telecommunications activities
+ isic_v4       | 613   | J.61.3     | J.61        | J613   | Satellite telecommunications activities
+ isic_v4       | 6130  | J.61.3.0   | J.61.3      | J6130  | Satellite telecommunications activities
+ isic_v4       | 619   | J.61.9     | J.61        | J619   | Other telecommunications activities
+ isic_v4       | 6190  | J.61.9.0   | J.61.9      | J6190  | Other telecommunications activities
+ isic_v4       | 62    | J.62       | J           | J62    | Computer programming, consultancy and related activities
+ isic_v4       | 620   | J.62.0     | J.62        | J620   | Computer programming, consultancy and related activities
+ isic_v4       | 6201  | J.62.0.1   | J.62.0      | J6201  | Computer programming activities
+ isic_v4       | 6202  | J.62.0.2   | J.62.0      | J6202  | Computer consultancy and computer facilities management activities
+ isic_v4       | 6209  | J.62.0.9   | J.62.0      | J6209  | Other information technology and computer service activities
+ isic_v4       | 63    | J.63       | J           | J63    | Information service activities
+ isic_v4       | 631   | J.63.1     | J.63        | J631   | Data processing, hosting and related activities; web portals
+ isic_v4       | 6311  | J.63.1.1   | J.63.1      | J6311  | Data processing, hosting and related activities
+ isic_v4       | 6312  | J.63.1.2   | J.63.1      | J6312  | Web portals
+ isic_v4       | 63121 | J.63.1.2.1 | J.63.1.2    | J63121 | Statbus Software Custom
+ isic_v4       | 63122 | J.63.1.2.2 | J.63.1.2    | J63122 | Statbus UX
+ isic_v4       | 639   | J.63.9     | J.63        | J639   | Other information service activities
+ isic_v4       | 6391  | J.63.9.1   | J.63.9      | J6391  | News agency activities
+ isic_v4       | 6399  | J.63.9.9   | J.63.9      | J6399  | Other information service activities n.e.c.
+ isic_v4       |       | K          |             | K      | Financial and insurance activities
+ isic_v4       | 64    | K.64       | K           | K64    | Financial service activities, except insurance and pension funding
+ isic_v4       | 641   | K.64.1     | K.64        | K641   | Monetary intermediation
+ isic_v4       | 6411  | K.64.1.1   | K.64.1      | K6411  | Central banking
+ isic_v4       | 6419  | K.64.1.9   | K.64.1      | K6419  | Other monetary intermediation
+ isic_v4       | 642   | K.64.2     | K.64        | K642   | Activities of holding companies
+ isic_v4       | 6420  | K.64.2.0   | K.64.2      | K6420  | Activities of holding companies
+ isic_v4       | 643   | K.64.3     | K.64        | K643   | Trusts, funds and similar financial entities
+ isic_v4       | 6430  | K.64.3.0   | K.64.3      | K6430  | Trusts, funds and similar financial entities
+ isic_v4       | 649   | K.64.9     | K.64        | K649   | Other financial service activities, except insurance and pension funding activities
+ isic_v4       | 6491  | K.64.9.1   | K.64.9      | K6491  | Financial leasing
+ isic_v4       | 6492  | K.64.9.2   | K.64.9      | K6492  | Other credit granting
+ isic_v4       | 6499  | K.64.9.9   | K.64.9      | K6499  | Other financial service activities, except insurance and pension funding activities, n.e.c.
+ isic_v4       | 65    | K.65       | K           | K65    | Insurance, reinsurance and pension funding, except compulsory social security
+ isic_v4       | 651   | K.65.1     | K.65        | K651   | Insurance
+ isic_v4       | 6511  | K.65.1.1   | K.65.1      | K6511  | Life insurance
+ isic_v4       | 6512  | K.65.1.2   | K.65.1      | K6512  | Non-life insurance
+ isic_v4       | 652   | K.65.2     | K.65        | K652   | Reinsurance
+ isic_v4       | 6520  | K.65.2.0   | K.65.2      | K6520  | Reinsurance
+ isic_v4       | 653   | K.65.3     | K.65        | K653   | Pension funding
+ isic_v4       | 6530  | K.65.3.0   | K.65.3      | K6530  | Pension funding
+ isic_v4       | 66    | K.66       | K           | K66    | Activities auxiliary to financial service and insurance activities
+ isic_v4       | 661   | K.66.1     | K.66        | K661   | Activities auxiliary to financial service activities, except insurance and pension funding
+ isic_v4       | 6611  | K.66.1.1   | K.66.1      | K6611  | Administration of financial markets
+ isic_v4       | 6612  | K.66.1.2   | K.66.1      | K6612  | Security and commodity contracts brokerage
+ isic_v4       | 6619  | K.66.1.9   | K.66.1      | K6619  | Other activities auxiliary to financial service activities
+ isic_v4       | 662   | K.66.2     | K.66        | K662   | Activities auxiliary to insurance and pension funding
+ isic_v4       | 6621  | K.66.2.1   | K.66.2      | K6621  | Risk and damage evaluation
+ isic_v4       | 6622  | K.66.2.2   | K.66.2      | K6622  | Activities of insurance agents and brokers
+ isic_v4       | 6629  | K.66.2.9   | K.66.2      | K6629  | Other activities auxiliary to insurance and pension funding
+ isic_v4       | 663   | K.66.3     | K.66        | K663   | Fund management activities
+ isic_v4       | 6630  | K.66.3.0   | K.66.3      | K6630  | Fund management activities
+ isic_v4       |       | L          |             | L      | Real estate activities
+ isic_v4       | 68    | L.68       | L           | L68    | Real estate activities
+ isic_v4       | 681   | L.68.1     | L.68        | L681   | Real estate activities with own or leased property
+ isic_v4       | 6810  | L.68.1.0   | L.68.1      | L6810  | Real estate activities with own or leased property
+ isic_v4       | 682   | L.68.2     | L.68        | L682   | Real estate activities on a fee or contract basis
+ isic_v4       | 6820  | L.68.2.0   | L.68.2      | L6820  | Real estate activities on a fee or contract basis
+ isic_v4       |       | M          |             | M      | Professional, scientific and technical activities
+ isic_v4       | 69    | M.69       | M           | M69    | Legal and accounting activities
+ isic_v4       | 691   | M.69.1     | M.69        | M691   | Legal activities
+ isic_v4       | 6910  | M.69.1.0   | M.69.1      | M6910  | Legal activities
+ isic_v4       | 692   | M.69.2     | M.69        | M692   | Accounting, bookkeeping and auditing activities; tax consultancy
+ isic_v4       | 6920  | M.69.2.0   | M.69.2      | M6920  | Accounting, bookkeeping and auditing activities; tax consultancy
+ isic_v4       | 70    | M.70       | M           | M70    | Activities of head offices; management consultancy activities
+ isic_v4       | 701   | M.70.1     | M.70        | M701   | Activities of head offices
+ isic_v4       | 7010  | M.70.1.0   | M.70.1      | M7010  | Activities of head offices
+ isic_v4       | 702   | M.70.2     | M.70        | M702   | Management consultancy activities
+ isic_v4       | 7020  | M.70.2.0   | M.70.2      | M7020  | Management consultancy activities
+ isic_v4       | 71    | M.71       | M           | M71    | Architectural and engineering activities; technical testing and analysis
+ isic_v4       | 711   | M.71.1     | M.71        | M711   | Architectural and engineering activities and related technical consultancy
+ isic_v4       | 7110  | M.71.1.0   | M.71.1      | M7110  | Architectural and engineering activities and related technical consultancy
+ isic_v4       | 712   | M.71.2     | M.71        | M712   | Technical testing and analysis
+ isic_v4       | 7120  | M.71.2.0   | M.71.2      | M7120  | Technical testing and analysis
+ isic_v4       | 72    | M.72       | M           | M72    | Scientific research and development
+ isic_v4       | 721   | M.72.1     | M.72        | M721   | Research and experimental development on natural sciences and engineering
+ isic_v4       | 7210  | M.72.1.0   | M.72.1      | M7210  | Research and experimental development on natural sciences and engineering
+ isic_v4       | 722   | M.72.2     | M.72        | M722   | Research and experimental development on social sciences and humanities
+ isic_v4       | 7220  | M.72.2.0   | M.72.2      | M7220  | Research and experimental development on social sciences and humanities
+ isic_v4       | 73    | M.73       | M           | M73    | Advertising and market research
+ isic_v4       | 731   | M.73.1     | M.73        | M731   | Advertising
+ isic_v4       | 7310  | M.73.1.0   | M.73.1      | M7310  | Advertising
+ isic_v4       | 732   | M.73.2     | M.73        | M732   | Market research and public opinion polling
+ isic_v4       | 7320  | M.73.2.0   | M.73.2      | M7320  | Market research and public opinion polling
+ isic_v4       | 74    | M.74       | M           | M74    | Other professional, scientific and technical activities
+ isic_v4       | 741   | M.74.1     | M.74        | M741   | Specialized design activities
+ isic_v4       | 7410  | M.74.1.0   | M.74.1      | M7410  | Specialized design activities
+ isic_v4       | 742   | M.74.2     | M.74        | M742   | Photographic activities
+ isic_v4       | 7420  | M.74.2.0   | M.74.2      | M7420  | Photographic activities
+ isic_v4       | 749   | M.74.9     | M.74        | M749   | Other professional, scientific and technical activities n.e.c.
+ isic_v4       | 7490  | M.74.9.0   | M.74.9      | M7490  | Other professional, scientific and technical activities n.e.c.
+ isic_v4       | 75    | M.75       | M           | M75    | Veterinary activities
+ isic_v4       | 750   | M.75.0     | M.75        | M750   | Veterinary activities
+ isic_v4       | 7500  | M.75.0.0   | M.75.0      | M7500  | Veterinary activities
+ isic_v4       |       | N          |             | N      | Administrative and support service activities
+ isic_v4       | 77    | N.77       | N           | N77    | Rental and leasing activities
+ isic_v4       | 771   | N.77.1     | N.77        | N771   | Renting and leasing of motor vehicles
+ isic_v4       | 7710  | N.77.1.0   | N.77.1      | N7710  | Renting and leasing of motor vehicles
+ isic_v4       | 772   | N.77.2     | N.77        | N772   | Renting and leasing of personal and household goods
+ isic_v4       | 7721  | N.77.2.1   | N.77.2      | N7721  | Renting and leasing of recreational and sports goods
+ isic_v4       | 7722  | N.77.2.2   | N.77.2      | N7722  | Renting of video tapes and disks
+ isic_v4       | 7729  | N.77.2.9   | N.77.2      | N7729  | Renting and leasing of other personal and household goods
+ isic_v4       | 773   | N.77.3     | N.77        | N773   | Renting and leasing of other machinery, equipment and tangible goods
+ isic_v4       | 7730  | N.77.3.0   | N.77.3      | N7730  | Renting and leasing of other machinery, equipment and tangible goods
+ isic_v4       | 774   | N.77.4     | N.77        | N774   | Leasing of intellectual property and similar products, except copyrighted works
+ isic_v4       | 7740  | N.77.4.0   | N.77.4      | N7740  | Leasing of intellectual property and similar products, except copyrighted works
+ isic_v4       | 78    | N.78       | N           | N78    | Employment activities
+ isic_v4       | 781   | N.78.1     | N.78        | N781   | Activities of employment placement agencies
+ isic_v4       | 7810  | N.78.1.0   | N.78.1      | N7810  | Activities of employment placement agencies
+ isic_v4       | 782   | N.78.2     | N.78        | N782   | Temporary employment agency activities
+ isic_v4       | 7820  | N.78.2.0   | N.78.2      | N7820  | Temporary employment agency activities
+ isic_v4       | 783   | N.78.3     | N.78        | N783   | Other human resources provision
+ isic_v4       | 7830  | N.78.3.0   | N.78.3      | N7830  | Other human resources provision
+ isic_v4       | 79    | N.79       | N           | N79    | Travel agency, tour operator, reservation service and related activities
+ isic_v4       | 791   | N.79.1     | N.79        | N791   | Travel agency and tour operator activities
+ isic_v4       | 7911  | N.79.1.1   | N.79.1      | N7911  | Travel agency activities
+ isic_v4       | 7912  | N.79.1.2   | N.79.1      | N7912  | Tour operator activities
+ isic_v4       | 799   | N.79.9     | N.79        | N799   | Other reservation service and related activities
+ isic_v4       | 7990  | N.79.9.0   | N.79.9      | N7990  | Other reservation service and related activities
+ isic_v4       | 80    | N.80       | N           | N80    | Security and investigation activities
+ isic_v4       | 801   | N.80.1     | N.80        | N801   | Private security activities
+ isic_v4       | 8010  | N.80.1.0   | N.80.1      | N8010  | Private security activities
+ isic_v4       | 802   | N.80.2     | N.80        | N802   | Security systems service activities
+ isic_v4       | 8020  | N.80.2.0   | N.80.2      | N8020  | Security systems service activities
+ isic_v4       | 803   | N.80.3     | N.80        | N803   | Investigation activities
+ isic_v4       | 8030  | N.80.3.0   | N.80.3      | N8030  | Investigation activities
+ isic_v4       | 81    | N.81       | N           | N81    | Services to buildings and landscape activities
+ isic_v4       | 811   | N.81.1     | N.81        | N811   | Combined facilities support activities
+ isic_v4       | 8110  | N.81.1.0   | N.81.1      | N8110  | Combined facilities support activities
+ isic_v4       | 812   | N.81.2     | N.81        | N812   | Cleaning activities
+ isic_v4       | 8121  | N.81.2.1   | N.81.2      | N8121  | General cleaning of buildings
+ isic_v4       | 8129  | N.81.2.9   | N.81.2      | N8129  | Other building and industrial cleaning activities
+ isic_v4       | 813   | N.81.3     | N.81        | N813   | Landscape care and maintenance service activities
+ isic_v4       | 8130  | N.81.3.0   | N.81.3      | N8130  | Landscape care and maintenance service activities
+ isic_v4       | 82    | N.82       | N           | N82    | Office administrative, office support and other business support activities
+ isic_v4       | 821   | N.82.1     | N.82        | N821   | Office administrative and support activities
+ isic_v4       | 8211  | N.82.1.1   | N.82.1      | N8211  | Combined office administrative service activities
+ isic_v4       | 8219  | N.82.1.9   | N.82.1      | N8219  | Photocopying, document preparation and other specialized office support activities
+ isic_v4       | 822   | N.82.2     | N.82        | N822   | Activities of call centres
+ isic_v4       | 8220  | N.82.2.0   | N.82.2      | N8220  | Activities of call centres
+ isic_v4       | 823   | N.82.3     | N.82        | N823   | Organization of conventions and trade shows
+ isic_v4       | 8230  | N.82.3.0   | N.82.3      | N8230  | Organization of conventions and trade shows
+ isic_v4       | 829   | N.82.9     | N.82        | N829   | Business support service activities n.e.c.
+ isic_v4       | 8291  | N.82.9.1   | N.82.9      | N8291  | Activities of collection agencies and credit bureaus
+ isic_v4       | 8292  | N.82.9.2   | N.82.9      | N8292  | Packaging activities
+ isic_v4       | 8299  | N.82.9.9   | N.82.9      | N8299  | Other business support service activities n.e.c.
+ isic_v4       |       | O          |             | O      | Public administration and defence; compulsory social security
+ isic_v4       | 84    | O.84       | O           | O84    | Public administration and defence; compulsory social security
+ isic_v4       | 841   | O.84.1     | O.84        | O841   | Administration of the State and the economic and social policy of the community
+ isic_v4       | 8411  | O.84.1.1   | O.84.1      | O8411  | General public administration activities
+ isic_v4       | 8412  | O.84.1.2   | O.84.1      | O8412  | Regulation of the activities of providing health care, education, cultural services and other social services, excluding social security
+ isic_v4       | 8413  | O.84.1.3   | O.84.1      | O8413  | Regulation of and contribution to more efficient operation of businesses
+ isic_v4       | 842   | O.84.2     | O.84        | O842   | Provision of services to the community as a whole
+ isic_v4       | 8421  | O.84.2.1   | O.84.2      | O8421  | Foreign affairs
+ isic_v4       | 8422  | O.84.2.2   | O.84.2      | O8422  | Defence activities
+ isic_v4       | 8423  | O.84.2.3   | O.84.2      | O8423  | Public order and safety activities
+ isic_v4       | 843   | O.84.3     | O.84        | O843   | Compulsory social security activities
+ isic_v4       | 8430  | O.84.3.0   | O.84.3      | O8430  | Compulsory social security activities
+ isic_v4       |       | P          |             | P      | Education
+ isic_v4       | 85    | P.85       | P           | P85    | Education
+ isic_v4       | 851   | P.85.1     | P.85        | P851   | Pre-primary and primary education
+ isic_v4       | 8510  | P.85.1.0   | P.85.1      | P8510  | Pre-primary and primary education
+ isic_v4       | 852   | P.85.2     | P.85        | P852   | Secondary education
+ isic_v4       | 8521  | P.85.2.1   | P.85.2      | P8521  | General secondary education
+ isic_v4       | 8522  | P.85.2.2   | P.85.2      | P8522  | Technical and vocational secondary education
+ isic_v4       | 853   | P.85.3     | P.85        | P853   | Higher education
+ isic_v4       | 8530  | P.85.3.0   | P.85.3      | P8530  | Higher education
+ isic_v4       | 854   | P.85.4     | P.85        | P854   | Other education
+ isic_v4       | 8541  | P.85.4.1   | P.85.4      | P8541  | Sports and recreation education
+ isic_v4       | 8542  | P.85.4.2   | P.85.4      | P8542  | Cultural education
+ isic_v4       | 8549  | P.85.4.9   | P.85.4      | P8549  | Other education n.e.c.
+ isic_v4       | 855   | P.85.5     | P.85        | P855   | Educational support activities
+ isic_v4       | 8550  | P.85.5.0   | P.85.5      | P8550  | Educational support activities
+ isic_v4       |       | Q          |             | Q      | Human health and social work activities
+ isic_v4       | 86    | Q.86       | Q           | Q86    | Human health activities
+ isic_v4       | 861   | Q.86.1     | Q.86        | Q861   | Hospital activities
+ isic_v4       | 8610  | Q.86.1.0   | Q.86.1      | Q8610  | Hospital activities
+ isic_v4       | 862   | Q.86.2     | Q.86        | Q862   | Medical and dental practice activities
+ isic_v4       | 8620  | Q.86.2.0   | Q.86.2      | Q8620  | Medical and dental practice activities
+ isic_v4       | 869   | Q.86.9     | Q.86        | Q869   | Other human health activities
+ isic_v4       | 8690  | Q.86.9.0   | Q.86.9      | Q8690  | Other human health activities
+ isic_v4       | 87    | Q.87       | Q           | Q87    | Residential care activities
+ isic_v4       | 871   | Q.87.1     | Q.87        | Q871   | Residential nursing care facilities
+ isic_v4       | 8710  | Q.87.1.0   | Q.87.1      | Q8710  | Residential nursing care facilities
+ isic_v4       | 872   | Q.87.2     | Q.87        | Q872   | Residential care activities for mental retardation, mental health and substance abuse
+ isic_v4       | 8720  | Q.87.2.0   | Q.87.2      | Q8720  | Residential care activities for mental retardation, mental health and substance abuse
+ isic_v4       | 873   | Q.87.3     | Q.87        | Q873   | Residential care activities for the elderly and disabled
+ isic_v4       | 8730  | Q.87.3.0   | Q.87.3      | Q8730  | Residential care activities for the elderly and disabled
+ isic_v4       | 879   | Q.87.9     | Q.87        | Q879   | Other residential care activities
+ isic_v4       | 8790  | Q.87.9.0   | Q.87.9      | Q8790  | Other residential care activities
+ isic_v4       | 88    | Q.88       | Q           | Q88    | Social work activities without accommodation
+ isic_v4       | 881   | Q.88.1     | Q.88        | Q881   | Social work activities without accommodation for the elderly and disabled
+ isic_v4       | 8810  | Q.88.1.0   | Q.88.1      | Q8810  | Social work activities without accommodation for the elderly and disabled
+ isic_v4       | 889   | Q.88.9     | Q.88        | Q889   | Other social work activities without accommodation
+ isic_v4       | 8890  | Q.88.9.0   | Q.88.9      | Q8890  | Other social work activities without accommodation
+ isic_v4       |       | R          |             | R      | Arts, entertainment and recreation
+ isic_v4       | 90    | R.90       | R           | R90    | Creative, arts and entertainment activities
+ isic_v4       | 900   | R.90.0     | R.90        | R900   | Creative, arts and entertainment activities
+ isic_v4       | 9000  | R.90.0.0   | R.90.0      | R9000  | Creative, arts and entertainment activities
+ isic_v4       | 91    | R.91       | R           | R91    | Libraries, archives, museums and other cultural activities
+ isic_v4       | 910   | R.91.0     | R.91        | R910   | Libraries, archives, museums and other cultural activities
+ isic_v4       | 9101  | R.91.0.1   | R.91.0      | R9101  | Library and archives activities
+ isic_v4       | 9102  | R.91.0.2   | R.91.0      | R9102  | Museums activities and operation of historical sites and buildings
+ isic_v4       | 9103  | R.91.0.3   | R.91.0      | R9103  | Botanical and zoological gardens and nature reserves activities
+ isic_v4       | 92    | R.92       | R           | R92    | Gambling and betting activities
+ isic_v4       | 920   | R.92.0     | R.92        | R920   | Gambling and betting activities
+ isic_v4       | 9200  | R.92.0.0   | R.92.0      | R9200  | Gambling and betting activities
+ isic_v4       | 93    | R.93       | R           | R93    | Sports activities and amusement and recreation activities
+ isic_v4       | 931   | R.93.1     | R.93        | R931   | Sports activities
+ isic_v4       | 9311  | R.93.1.1   | R.93.1      | R9311  | Operation of sports facilities
+ isic_v4       | 9312  | R.93.1.2   | R.93.1      | R9312  | Activities of sports clubs
+ isic_v4       | 9319  | R.93.1.9   | R.93.1      | R9319  | Other sports activities
+ isic_v4       | 932   | R.93.2     | R.93        | R932   | Other amusement and recreation activities
+ isic_v4       | 9321  | R.93.2.1   | R.93.2      | R9321  | Activities of amusement parks and theme parks
+ isic_v4       | 9329  | R.93.2.9   | R.93.2      | R9329  | Other amusement and recreation activities n.e.c.
+ isic_v4       |       | S          |             | S      | Other service activities
+ isic_v4       | 94    | S.94       | S           | S94    | Activities of membership organizations
+ isic_v4       | 941   | S.94.1     | S.94        | S941   | Activities of business, employers and professional membership organizations
+ isic_v4       | 9411  | S.94.1.1   | S.94.1      | S9411  | Activities of business and employers membership organizations
+ isic_v4       | 9412  | S.94.1.2   | S.94.1      | S9412  | Activities of professional membership organizations
+ isic_v4       | 942   | S.94.2     | S.94        | S942   | Activities of trade unions
+ isic_v4       | 9420  | S.94.2.0   | S.94.2      | S9420  | Activities of trade unions
+ isic_v4       | 949   | S.94.9     | S.94        | S949   | Activities of other membership organizations
+ isic_v4       | 9491  | S.94.9.1   | S.94.9      | S9491  | Activities of religious organizations
+ isic_v4       | 9492  | S.94.9.2   | S.94.9      | S9492  | Activities of political organizations
+ isic_v4       | 9499  | S.94.9.9   | S.94.9      | S9499  | Activities of other membership organizations n.e.c.
+ isic_v4       | 95    | S.95       | S           | S95    | Repair of computers and personal and household goods
+ isic_v4       | 951   | S.95.1     | S.95        | S951   | Repair of computers and communication equipment
+ isic_v4       | 9511  | S.95.1.1   | S.95.1      | S9511  | Repair of computers and peripheral equipment
+ isic_v4       | 9512  | S.95.1.2   | S.95.1      | S9512  | Repair of communication equipment
+ isic_v4       | 952   | S.95.2     | S.95        | S952   | Repair of personal and household goods
+ isic_v4       | 9521  | S.95.2.1   | S.95.2      | S9521  | Repair of consumer electronics
+ isic_v4       | 9522  | S.95.2.2   | S.95.2      | S9522  | Repair of household appliances and home and garden equipment
+ isic_v4       | 9523  | S.95.2.3   | S.95.2      | S9523  | Repair of footwear and leather goods
+ isic_v4       | 9524  | S.95.2.4   | S.95.2      | S9524  | Repair of furniture and home furnishings
+ isic_v4       | 9529  | S.95.2.9   | S.95.2      | S9529  | Repair of other personal and household goods
+ isic_v4       | 96    | S.96       | S           | S96    | Other personal service activities
+ isic_v4       | 960   | S.96.0     | S.96        | S960   | Other personal service activities
+ isic_v4       | 9601  | S.96.0.1   | S.96.0      | S9601  | Washing and (dry-) cleaning of textile and fur products
+ isic_v4       | 9602  | S.96.0.2   | S.96.0      | S9602  | Hairdressing and other beauty treatment
+ isic_v4       | 9603  | S.96.0.3   | S.96.0      | S9603  | Funeral and related activities
+ isic_v4       | 9609  | S.96.0.9   | S.96.0      | S9609  | Other personal service activities n.e.c.
+ isic_v4       |       | T          |             | T      | Activities of households as employers; undifferentiated goods- and services-producing activities of households for own use
+ isic_v4       | 97    | T.97       | T           | T97    | Activities of households as employers of domestic personnel
+ isic_v4       | 970   | T.97.0     | T.97        | T970   | Activities of households as employers of domestic personnel
+ isic_v4       | 9700  | T.97.0.0   | T.97.0      | T9700  | Activities of households as employers of domestic personnel
+ isic_v4       | 98    | T.98       | T           | T98    | Undifferentiated goods- and services-producing activities of private households for own use
+ isic_v4       | 981   | T.98.1     | T.98        | T981   | Undifferentiated goods-producing activities of private households for own use
+ isic_v4       | 9810  | T.98.1.0   | T.98.1      | T9810  | Undifferentiated goods-producing activities of private households for own use
+ isic_v4       | 982   | T.98.2     | T.98        | T982   | Undifferentiated service-producing activities of private households for own use
+ isic_v4       | 9820  | T.98.2.0   | T.98.2      | T9820  | Undifferentiated service-producing activities of private households for own use
+ isic_v4       |       | U          |             | U      | Activities of extraterritorial organizations and bodies
+ isic_v4       | 99    | U.99       | U           | U99    | Activities of extraterritorial organizations and bodies
+ isic_v4       | 990   | U.99.0     | U.99        | U990   | Activities of extraterritorial organizations and bodies
+ isic_v4       | 9900  | U.99.0.0   | U.99.0      | U9900  | Activities of extraterritorial organizations and bodies
+(770 rows)
+
+\echo "User uploads the sample regions"
+"User uploads the sample regions"
+\copy public.region_upload(path, name) FROM 'app/public/demo/regions_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT path
+     , level
+     , label
+     , code
+     , name
+ FROM public.region
+ ORDER BY path;
+    path    | level |  label   |   code   |        name         
+------------+-------+----------+----------+---------------------
+ 1          |     1 | 1        | 1        | Europe
+ 1.030      |     2 | 1030     | 1030     | Greece
+ 1.031      |     2 | 1031     | 1031     | Netherlands
+ 1.032      |     2 | 1032     | 1032     | Belgium
+ 1.033      |     2 | 1033     | 1033     | France
+ 1.034      |     2 | 1034     | 1034     | Spain
+ 1.039      |     2 | 1039     | 1039     | Italy
+ 1.041      |     2 | 1041     | 1041     | Switzerland
+ 1.043      |     2 | 1043     | 1043     | Austria
+ 1.044      |     2 | 1044     | 1044     | UnitedKingdom
+ 1.045      |     2 | 1045     | 1045     | Denmark
+ 1.045.01   |     3 | 104501   | 104501   | Cophenhagen
+ 1.046      |     2 | 1046     | 1046     | Sweden
+ 1.046.01   |     3 | 104601   | 104601   | Stockholm
+ 1.047      |     2 | 1047     | 1047     | Norway
+ 1.047.0301 |     3 | 10470301 | 10470301 | Oslo
+ 1.047.3401 |     3 | 10473401 | 10473401 | Kongsvinger
+ 1.047.3907 |     3 | 10473907 | 10473907 | Sandefjord
+ 1.049      |     2 | 1049     | 1049     | Germany
+ 1.358      |     2 | 1358     | 1358     | Finland
+ 1.358.01   |     3 | 135801   | 135801   | Helsinki
+ 1.392      |     2 | 1392     | 1392     | NorthernCyprus
+ 2          |     1 | 2        | 2        | Africa
+ 2.020      |     2 | 2020     | 2020     | Egypt
+ 2.027      |     2 | 2027     | 2027     | SouthAfrica
+ 2.212      |     2 | 2212     | 2212     | Morocco
+ 2.212.1    |     3 | 22121    | 22121    | Tanger
+ 2.212.2    |     3 | 22122    | 22122    | Oriental
+ 2.212.3    |     3 | 22123    | 22123    | Fès-Meknès
+ 2.212.4    |     3 | 22124    | 22124    | Rabat-Salé-Kénitra
+ 2.212.5    |     3 | 22125    | 22125    | BéniMellal-Khénifra
+ 2.212.6    |     3 | 22126    | 22126    | Casablanca-Settat
+ 2.212.7    |     3 | 22127    | 22127    | Marrakech-Safi
+ 2.212.8    |     3 | 22128    | 22128    | Drâa-Tafilalet
+ 2.212.9    |     3 | 22129    | 22129    | Souss-Massa
+ 2.221      |     2 | 2221     | 2221     | Senegal
+ 2.230      |     2 | 2230     | 2230     | Mauritius
+ 2.233      |     2 | 2233     | 2233     | Ghana
+ 2.234      |     2 | 2234     | 2234     | Nigeria
+ 2.250      |     2 | 2250     | 2250     | Rwanda
+ 2.251      |     2 | 2251     | 2251     | Ethiopia
+ 2.251.01   |     3 | 225101   | 225101   | AddisAbeba
+ 2.254      |     2 | 2254     | 2254     | Kenya
+ 2.255      |     2 | 2255     | 2255     | Tanzania
+ 2.256      |     2 | 2256     | 2256     | Uganda
+ 2.256.02   |     3 | 225602   | 225602   | Kampala
+ 2.256.13   |     3 | 225613   | 225613   | Entebbe
+ 2.264      |     2 | 2264     | 2264     | Namibia
+ 2.265      |     2 | 2265     | 2265     | Malawi
+ 3          |     1 | 3        | 3        | Asia
+ 3.060      |     2 | 3060     | 3060     | Malaysia
+ 3.063      |     2 | 3063     | 3063     | Philippines
+ 3.065      |     2 | 3065     | 3065     | Singapore
+ 3.066      |     2 | 3066     | 3066     | Thailand
+ 3.081      |     2 | 3081     | 3081     | Japan
+ 3.082      |     2 | 3082     | 3082     | SouthKorea
+ 3.084      |     2 | 3084     | 3084     | Vietnam
+ 3.086      |     2 | 3086     | 3086     | China
+ 3.091      |     2 | 3091     | 3091     | India
+ 3.092      |     2 | 3092     | 3092     | Pakistan
+ 3.960      |     2 | 3960     | 3960     | Maldives
+ 3.962      |     2 | 3962     | 3962     | Jordan
+ 3.962.1    |     3 | 39621    | 39621    | Amman
+ 3.976      |     2 | 3976     | 3976     | Mongolia
+ 3.976.01   |     3 | 397601   | 397601   | Ulaanbaatar
+ 3.998      |     2 | 3998     | 3998     | Uzbekistan
+ 3.998.01   |     3 | 399801   | 399801   | Tasjkent
+ 4          |     1 | 4        | 4        | NorthAmerica
+ 4.001      |     2 | 4001     | 4001     | UnitedStates
+ 4.052      |     2 | 4052     | 4052     | Mexico
+ 4.502      |     2 | 4502     | 4502     | Guatemala
+ 4.504      |     2 | 4504     | 4504     | Honduras
+ 4.505      |     2 | 4505     | 4505     | Nicaragua
+ 4.507      |     2 | 4507     | 4507     | Panama
+ 5          |     1 | 5        | 5        | SouthAmerica
+ 5.051      |     2 | 5051     | 5051     | Peru
+ 5.054      |     2 | 5054     | 5054     | Argentina
+ 5.055      |     2 | 5055     | 5055     | Brazil
+ 5.056      |     2 | 5056     | 5056     | Chile
+ 5.057      |     2 | 5057     | 5057     | Colombia
+ 5.058      |     2 | 5058     | 5058     | Venezuela
+ 6          |     1 | 6        | 6        | Oceania
+ 6.061      |     2 | 6061     | 6061     | Australia
+ 6.062      |     2 | 6062     | 6062     | PapuaNewGuinea
+ 6.064      |     2 | 6064     | 6064     | NewZealand
+ 7          |     1 | 7        | 7        | Antarctica
+ 7.672      |     2 | 7672     | 7672     | Antarctica
+(87 rows)
+
+\echo "User uploads the sample legal forms"
+"User uploads the sample legal forms"
+\copy public.legal_form_custom_only(code,name) FROM 'app/public/demo/legal_forms_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT code
+     , name
+     , custom
+ FROM public.legal_form_available
+ ORDER BY code COLLATE "nb-NO-x-icu";
+ code |                          name                          | custom 
+------+--------------------------------------------------------+--------
+ 1    | Public limited company (SA)                            | t
+ 10   | Limited Partnership (SCS)                              | t
+ 11   | Limited Partnership by Share (SCA)                     | t
+ 12   | Civil and Real Estate Society (SCI)                    | t
+ 13   | Economic Interest Group (GIE)                          | t
+ 14   | De facto or Participation Company (SFP)                | t
+ 15   | Permanent Establishment of Non-Resident Companies      | t
+ 16   | Limited Liability Company A Sole Shareholder (SARL AU) | t
+ 2    | Limited Liability Company (SARL)                       | t
+ 20   | Other                                                  | t
+ 3    | Individual Company (EI)                                | t
+ 4    | Cooperative                                            | t
+ 5    | Collective Name Company (SNC)                          | t
+ 6    | Professional Civil Society (SCP)                       | t
+ 7    | Simplified Public Limited Company (SAS)                | t
+ 8    | Public Company (EP)                                    | t
+ 9    | Autonomous Authority (RA)                              | t
+(17 rows)
+
+\echo "User uploads the sample sectors"
+"User uploads the sample sectors"
+\copy public.sector_custom_only(path,name,description) FROM 'app/public/demo/sectors_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+SELECT path
+     , name
+     , custom
+ FROM public.sector_available;
+      path       |                                          name                                           | custom 
+-----------------+-----------------------------------------------------------------------------------------+--------
+ DOMESTIC        | Domestic sectorstop                                                                     | t
+ DOMESTIC.A      | Non-financial corporations                                                              | t
+ DOMESTIC.A.1110 | Public unincorporated enterprises owned by central government                           | t
+ DOMESTIC.A.1120 | Public incorporated enterprises owned by central government                             | t
+ DOMESTIC.A.1510 | Public unincorporated enterprises owned by local government                             | t
+ DOMESTIC.A.1520 | Public incorporated enterprises owned by local government                               | t
+ DOMESTIC.A.2100 | Private non-financial incorporated enterprises                                          | t
+ DOMESTIC.A.2300 | Private non-financial unincorporated enterprises                                        | t
+ DOMESTIC.A.2500 | Private non-profit institutions serving enterprises                                     | t
+ DOMESTIC.B      | Financial corporations                                                                  | t
+ DOMESTIC.B.3100 | National bank                                                                           | t
+ DOMESTIC.B.3200 | Banks                                                                                   | t
+ DOMESTIC.B.3500 | Mortgage companies                                                                      | t
+ DOMESTIC.B.3600 | Finance companies                                                                       | t
+ DOMESTIC.B.3900 | State lending institutions etc.                                                         | t
+ DOMESTIC.B.4100 | Financial holding companies                                                             | t
+ DOMESTIC.B.4300 | Mutual funds                                                                            | t
+ DOMESTIC.B.4500 | Investment trusts and private equity funds                                              | t
+ DOMESTIC.B.4900 | Other financial enterprises except insurance companies and pension funds                | t
+ DOMESTIC.B.5500 | Life insurance companies and pension funds                                              | t
+ DOMESTIC.B.5700 | Non-life insurance companies                                                            | t
+ DOMESTIC.C      | General government                                                                      | t
+ DOMESTIC.C.6100 | Central government                                                                      | t
+ DOMESTIC.C.6500 | Local government                                                                        | t
+ DOMESTIC.D      | Non-profit institutions serving households                                              | t
+ DOMESTIC.D.7000 | Non-profit institutions serving households                                              | t
+ DOMESTIC.E      | Households                                                                              | t
+ DOMESTIC.E.8200 | Unincorporated enterprises within households                                            | t
+ DOMESTIC.E.8300 | Housing cooperatives etc.                                                               | t
+ DOMESTIC.E.8500 | Employees recipients of property income pensions and social contributions students etc. | t
+ REST            | Rest of the world                                                                       | t
+ REST.F          | Rest of the world                                                                       | t
+ REST.F.9000     | Rest of the world                                                                       | t
+(33 rows)
+
+SAVEPOINT before_loading_units;
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                0 |                0
+(1 row)
+
+-- Create Import Job for Legal Units (Demo CSV, Block 1)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_current_year'),
+    'import_07_lu_curr_b1',
+    'Import LU Demo CSV B1 (07_load_demo_data.sql)',
+    'Import job for app/public/demo/legal_units_demo.csv using legal_unit_current_year definition.',
+    'Test data load (07_load_demo_data.sql)';
+\echo "User uploads the sample legal units (via import job: import_07_lu_curr_b1)"
+"User uploads the sample legal units (via import job: import_07_lu_curr_b1)"
+\copy public.import_07_lu_curr_b1_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Formal Establishments (Demo CSV, Block 1)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_current_year'),
+    'import_07_esflu_curr_b1',
+    'Import Formal ES Demo CSV B1 (07_load_demo_data.sql)',
+    'Import job for app/public/demo/formal_establishments_units_demo.csv using establishment_for_lu_current_year definition.',
+    'Test data load (07_load_demo_data.sql)';
+\echo "User uploads the sample formal establishments (via import job: import_07_esflu_curr_b1)"
+"User uploads the sample formal establishments (via import job: import_07_esflu_curr_b1)"
+\copy public.import_07_esflu_curr_b1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Informal Establishments (Demo CSV, Block 1)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_current_year'),
+    'import_07_eswlu_curr_b1',
+    'Import Informal ES Demo CSV B1 (07_load_demo_data.sql)',
+    'Import job for app/public/demo/informal_establishments_units_demo.csv using establishment_without_lu_current_year definition.',
+    'Test data load (07_load_demo_data.sql)';
+\echo "User uploads the sample informal establishments (via import job: import_07_eswlu_curr_b1)"
+"User uploads the sample informal establishments (via import job: import_07_eswlu_curr_b1)"
+\copy public.import_07_eswlu_curr_b1_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo Run worker processing for import jobs - Block 1
+Run worker processing for import jobs - Block 1
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | pending   |     7
+ import      | completed |    12
+ maintenance | pending   |     2
+(3 rows)
+
+\echo "Checking import job statuses for Block 1"
+"Checking import job statuses for Block 1"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b1' ORDER BY slug;
+          slug           |  state   | total_rows | imported_rows | has_error 
+-------------------------+----------+------------+---------------+-----------
+ import_07_esflu_curr_b1 | finished |         25 |            25 | f
+ import_07_eswlu_curr_b1 | finished |         25 |            25 | f
+ import_07_lu_curr_b1    | finished |         23 |            23 | f
+(3 rows)
+
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                  50 |               23 |               48
+(1 row)
+
+\echo Run worker processing for analytics tasks - Block 1
+Run worker processing for analytics tasks - Block 1
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |     9
+ import      | completed |    12
+ maintenance | pending   |     2
+(3 rows)
+
+\echo "Checking statistics"
+"Checking statistics"
+\x
+SELECT unit_type
+     , COUNT(DISTINCT unit_id)
+     , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
+     , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
+ FROM statistical_unit
+ WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ GROUP BY unit_type;
+-[ RECORD 1 ]-+-----------------------------------------------
+unit_type     | establishment
+count         | 50
+invalid_codes | 
+stats_summary | {                                             +
+              |     "turnover": {                             +
+              |         "max": 4400,                          +
+              |         "min": 0,                             +
+              |         "sum": 51036,                         +
+              |         "mean": 1020.72,                      +
+              |         "type": "number",                     +
+              |         "count": 50,                          +
+              |         "stddev": 1517.97,                    +
+              |         "variance": 2304235.88,               +
+              |         "sum_sq_diff": 112907558.08,          +
+              |         "coefficient_of_variation_pct": 148.72+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 5,                             +
+              |         "min": 0,                             +
+              |         "sum": 75,                            +
+              |         "mean": 1.50,                         +
+              |         "type": "number",                     +
+              |         "count": 50,                          +
+              |         "stddev": 1.82,                       +
+              |         "variance": 3.32,                     +
+              |         "sum_sq_diff": 162.50,                +
+              |         "coefficient_of_variation_pct": 121.41+
+              |     }                                         +
+              | }
+-[ RECORD 2 ]-+-----------------------------------------------
+unit_type     | legal_unit
+count         | 23
+invalid_codes | 
+stats_summary | {                                             +
+              |     "turnover": {                             +
+              |         "max": 90000000,                      +
+              |         "min": 0,                             +
+              |         "sum": 262610000,                     +
+              |         "mean": 5471041.67,                   +
+              |         "type": "number",                     +
+              |         "count": 48,                          +
+              |         "stddev": 15741429.18,                +
+              |         "variance": 247792592508865.25,       +
+              |         "sum_sq_diff": 11646251847916666.67,  +
+              |         "coefficient_of_variation_pct": 287.72+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 65,                            +
+              |         "min": 0,                             +
+              |         "sum": 172,                           +
+              |         "mean": 3.58,                         +
+              |         "type": "number",                     +
+              |         "count": 48,                          +
+              |         "stddev": 10.55,                      +
+              |         "variance": 111.31,                   +
+              |         "sum_sq_diff": 5231.67,               +
+              |         "coefficient_of_variation_pct": 294.43+
+              |     }                                         +
+              | }
+-[ RECORD 3 ]-+-----------------------------------------------
+unit_type     | enterprise
+count         | 48
+invalid_codes | 
+stats_summary | {                                             +
+              |     "turnover": {                             +
+              |         "max": 90000000,                      +
+              |         "min": 0,                             +
+              |         "sum": 262661036,                     +
+              |         "mean": 3598096.38,                   +
+              |         "type": "number",                     +
+              |         "count": 73,                          +
+              |         "stddev": 12983923.04,                +
+              |         "variance": 168582257517595.41,       +
+              |         "sum_sq_diff": 12137922541266869.26,  +
+              |         "coefficient_of_variation_pct": 360.86+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 65,                            +
+              |         "min": 0,                             +
+              |         "sum": 247,                           +
+              |         "mean": 3.38,                         +
+              |         "type": "number",                     +
+              |         "count": 73,                          +
+              |         "stddev": 8.57,                       +
+              |         "variance": 73.43,                    +
+              |         "sum_sq_diff": 5287.26,               +
+              |         "coefficient_of_variation_pct": 253.26+
+              |     }                                         +
+              | }
+
+\x
+ROLLBACK TO before_loading_units;
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                0 |                0
+(1 row)
+
+-- Create Import Job for Legal Units (Demo CSV, Block 2)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_current_year'),
+    'import_07_lu_curr_b2',
+    'Import LU Demo CSV B2 (07_load_demo_data.sql)',
+    'Import job for app/public/demo/legal_units_demo.csv using legal_unit_current_year definition.',
+    'Test data load (07_load_demo_data.sql)';
+\echo "User uploads the sample legal units (via import job: import_07_lu_curr_b2)"
+"User uploads the sample legal units (via import job: import_07_lu_curr_b2)"
+\copy public.import_07_lu_curr_b2_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+-- Create Import Job for Formal Establishments (Demo CSV, Block 2)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_current_year'),
+    'import_07_esflu_curr_b2',
+    'Import Formal ES Demo CSV B2 (07_load_demo_data.sql)',
+    'Import job for app/public/demo/formal_establishments_units_demo.csv using establishment_for_lu_current_year definition.',
+    'Test data load (07_load_demo_data.sql)';
+\echo "User uploads the sample formal establishments (via import job: import_07_esflu_curr_b2)"
+"User uploads the sample formal establishments (via import job: import_07_esflu_curr_b2)"
+\copy public.import_07_esflu_curr_b2_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,legal_unit_tax_ident,data_source_code) FROM 'app/public/demo/formal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo Run worker processing for import jobs - Block 2
+Run worker processing for import jobs - Block 2
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | pending   |     7
+ import      | completed |     8
+ maintenance | pending   |     2
+(3 rows)
+
+\echo "Checking import job statuses for Block 2"
+"Checking import job statuses for Block 2"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b2' ORDER BY slug;
+          slug           |  state   | total_rows | imported_rows | has_error 
+-------------------------+----------+------------+---------------+-----------
+ import_07_esflu_curr_b2 | finished |         25 |            25 | f
+ import_07_lu_curr_b2    | finished |         23 |            23 | f
+(2 rows)
+
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                  25 |               23 |               23
+(1 row)
+
+\echo Run worker processing for analytics tasks - Block 2
+Run worker processing for analytics tasks - Block 2
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |     9
+ import      | completed |     8
+ maintenance | pending   |     2
+(3 rows)
+
+\echo "Checking statistics"
+"Checking statistics"
+\x
+SELECT unit_type
+     , COUNT(DISTINCT unit_id)
+     , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
+     , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
+ FROM statistical_unit
+ WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ GROUP BY unit_type;
+-[ RECORD 1 ]-+-----------------------------------------------
+unit_type     | establishment
+count         | 25
+invalid_codes | 
+stats_summary | {                                             +
+              |     "turnover": {                             +
+              |         "max": 0,                             +
+              |         "min": 0,                             +
+              |         "sum": 0,                             +
+              |         "mean": 0.00,                         +
+              |         "type": "number",                     +
+              |         "count": 25,                          +
+              |         "stddev": 0.00,                       +
+              |         "variance": 0.00,                     +
+              |         "sum_sq_diff": 0.00,                  +
+              |         "coefficient_of_variation_pct": null  +
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 0,                             +
+              |         "min": 0,                             +
+              |         "sum": 0,                             +
+              |         "mean": 0.00,                         +
+              |         "type": "number",                     +
+              |         "count": 25,                          +
+              |         "stddev": 0.00,                       +
+              |         "variance": 0.00,                     +
+              |         "sum_sq_diff": 0.00,                  +
+              |         "coefficient_of_variation_pct": null  +
+              |     }                                         +
+              | }
+-[ RECORD 2 ]-+-----------------------------------------------
+unit_type     | legal_unit
+count         | 23
+invalid_codes | 
+stats_summary | {                                             +
+              |     "turnover": {                             +
+              |         "max": 90000000,                      +
+              |         "min": 0,                             +
+              |         "sum": 262610000,                     +
+              |         "mean": 5471041.67,                   +
+              |         "type": "number",                     +
+              |         "count": 48,                          +
+              |         "stddev": 15741429.18,                +
+              |         "variance": 247792592508865.25,       +
+              |         "sum_sq_diff": 11646251847916666.67,  +
+              |         "coefficient_of_variation_pct": 287.72+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 65,                            +
+              |         "min": 0,                             +
+              |         "sum": 172,                           +
+              |         "mean": 3.58,                         +
+              |         "type": "number",                     +
+              |         "count": 48,                          +
+              |         "stddev": 10.55,                      +
+              |         "variance": 111.31,                   +
+              |         "sum_sq_diff": 5231.67,               +
+              |         "coefficient_of_variation_pct": 294.43+
+              |     }                                         +
+              | }
+-[ RECORD 3 ]-+-----------------------------------------------
+unit_type     | enterprise
+count         | 23
+invalid_codes | 
+stats_summary | {                                             +
+              |     "turnover": {                             +
+              |         "max": 90000000,                      +
+              |         "min": 0,                             +
+              |         "sum": 262610000,                     +
+              |         "mean": 5471041.67,                   +
+              |         "type": "number",                     +
+              |         "count": 48,                          +
+              |         "stddev": 15741429.18,                +
+              |         "variance": 247792592508865.25,       +
+              |         "sum_sq_diff": 11646251847916666.67,  +
+              |         "coefficient_of_variation_pct": 287.72+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 65,                            +
+              |         "min": 0,                             +
+              |         "sum": 172,                           +
+              |         "mean": 3.58,                         +
+              |         "type": "number",                     +
+              |         "count": 48,                          +
+              |         "stddev": 10.55,                      +
+              |         "variance": 111.31,                   +
+              |         "sum_sq_diff": 5231.67,               +
+              |         "coefficient_of_variation_pct": 294.43+
+              |     }                                         +
+              | }
+
+\x
+ROLLBACK TO before_loading_units;
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                0 |                0
+(1 row)
+
+-- Create Import Job for Legal Units (Demo CSV, Block 3)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_current_year'),
+    'import_07_lu_curr_b3',
+    'Import LU Demo CSV B3 (07_load_demo_data.sql)',
+    'Import job for app/public/demo/legal_units_demo.csv using legal_unit_current_year definition.',
+    'Test data load (07_load_demo_data.sql)';
+\echo "User uploads the sample legal units (via import job: import_07_lu_curr_b3)"
+"User uploads the sample legal units (via import job: import_07_lu_curr_b3)"
+\copy public.import_07_lu_curr_b3_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo Run worker processing for import jobs - Block 3
+Run worker processing for import jobs - Block 3
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | pending   |     6
+ import      | completed |     4
+ maintenance | pending   |     2
+(3 rows)
+
+\echo "Checking import job statuses for Block 3"
+"Checking import job statuses for Block 3"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b3' ORDER BY slug;
+         slug         |  state   | total_rows | imported_rows | has_error 
+----------------------+----------+------------+---------------+-----------
+ import_07_lu_curr_b3 | finished |         23 |            23 | f
+(1 row)
+
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |               23 |               23
+(1 row)
+
+\echo Run worker processing for analytics tasks - Block 3
+Run worker processing for analytics tasks - Block 3
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |     8
+ import      | completed |     4
+ maintenance | pending   |     2
+(3 rows)
+
+\echo "Checking statistics"
+"Checking statistics"
+\x
+SELECT unit_type
+     , COUNT(DISTINCT unit_id)
+     , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
+     , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
+ FROM statistical_unit
+ WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ GROUP BY unit_type;
+-[ RECORD 1 ]-+-----------------------------------------------
+unit_type     | legal_unit
+count         | 23
+invalid_codes | 
+stats_summary | {                                             +
+              |     "turnover": {                             +
+              |         "max": 90000000,                      +
+              |         "min": 300000,                        +
+              |         "sum": 262610000,                     +
+              |         "mean": 11417826.09,                  +
+              |         "type": "number",                     +
+              |         "count": 23,                          +
+              |         "stddev": 21410030.35,                +
+              |         "variance": 458389399604743.08,       +
+              |         "sum_sq_diff": 10084566791304347.83,  +
+              |         "coefficient_of_variation_pct": 187.51+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 65,                            +
+              |         "min": 0,                             +
+              |         "sum": 172,                           +
+              |         "mean": 7.48,                         +
+              |         "type": "number",                     +
+              |         "count": 23,                          +
+              |         "stddev": 14.40,                      +
+              |         "variance": 207.35,                   +
+              |         "sum_sq_diff": 4561.74,               +
+              |         "coefficient_of_variation_pct": 192.55+
+              |     }                                         +
+              | }
+-[ RECORD 2 ]-+-----------------------------------------------
+unit_type     | enterprise
+count         | 23
+invalid_codes | 
+stats_summary | {                                             +
+              |     "turnover": {                             +
+              |         "max": 90000000,                      +
+              |         "min": 300000,                        +
+              |         "sum": 262610000,                     +
+              |         "mean": 11417826.09,                  +
+              |         "type": "number",                     +
+              |         "count": 23,                          +
+              |         "stddev": 21410030.35,                +
+              |         "variance": 458389399604743.08,       +
+              |         "sum_sq_diff": 10084566791304347.83,  +
+              |         "coefficient_of_variation_pct": 187.51+
+              |     },                                        +
+              |     "employees": {                            +
+              |         "max": 65,                            +
+              |         "min": 0,                             +
+              |         "sum": 172,                           +
+              |         "mean": 7.48,                         +
+              |         "type": "number",                     +
+              |         "count": 23,                          +
+              |         "stddev": 14.40,                      +
+              |         "variance": 207.35,                   +
+              |         "sum_sq_diff": 4561.74,               +
+              |         "coefficient_of_variation_pct": 192.55+
+              |     }                                         +
+              | }
+
+\x
+ROLLBACK TO before_loading_units;
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                   0 |                0 |                0
+(1 row)
+
+-- Create Import Job for Informal Establishments (Demo CSV, Block 4)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+SELECT
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_current_year'),
+    'import_07_eswlu_curr_b4',
+    'Import Informal ES Demo CSV B4 (07_load_demo_data.sql)',
+    'Import job for app/public/demo/informal_establishments_units_demo.csv using establishment_without_lu_current_year definition.',
+    'Test data load (07_load_demo_data.sql)';
+\echo "User uploads the sample informal establishments (via import job: import_07_eswlu_curr_b4)"
+"User uploads the sample informal establishments (via import job: import_07_eswlu_curr_b4)"
+\copy public.import_07_eswlu_curr_b4_upload(tax_ident,stat_ident,name,physical_region_code,physical_country_iso_2,primary_activity_category_code,employees,turnover,data_source_code) FROM 'app/public/demo/informal_establishments_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo Run worker processing for import jobs - Block 4
+Run worker processing for import jobs - Block 4
+CALL worker.process_tasks(p_queue => 'import');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | pending   |     6
+ import      | completed |     4
+ maintenance | pending   |     2
+(3 rows)
+
+\echo "Checking import job statuses for Block 4"
+"Checking import job statuses for Block 4"
+SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FROM public.import_job WHERE slug LIKE 'import_07_%_b4' ORDER BY slug;
+          slug           |  state   | total_rows | imported_rows | has_error 
+-------------------------+----------+------------+---------------+-----------
+ import_07_eswlu_curr_b4 | finished |         25 |            25 | f
+(1 row)
+
+SELECT
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.legal_unit) AS legal_unit_count,
+    (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
+ establishment_count | legal_unit_count | enterprise_count 
+---------------------+------------------+------------------
+                  25 |                0 |               25
+(1 row)
+
+\echo Run worker processing for analytics tasks - Block 4
+Run worker processing for analytics tasks - Block 4
+CALL worker.process_tasks(p_queue => 'analytics');
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+    queue    |   state   | count 
+-------------+-----------+-------
+ analytics   | completed |     8
+ import      | completed |     4
+ maintenance | pending   |     2
+(3 rows)
+
+\echo "Checking statistics"
+"Checking statistics"
+\x
+SELECT unit_type
+     , COUNT(DISTINCT unit_id)
+     , jsonb_agg(DISTINCT invalid_codes) FILTER (WHERE invalid_codes IS NOT NULL) AS invalid_codes
+     , jsonb_pretty(jsonb_stats_summary_merge_agg(stats_summary)) AS stats_summary
+ FROM statistical_unit
+ WHERE valid_after < CURRENT_DATE AND CURRENT_DATE <= valid_to
+ GROUP BY unit_type;
+-[ RECORD 1 ]-+----------------------------------------------
+unit_type     | establishment
+count         | 25
+invalid_codes | 
+stats_summary | {                                            +
+              |     "turnover": {                            +
+              |         "max": 4400,                         +
+              |         "min": 100,                          +
+              |         "sum": 51036,                        +
+              |         "mean": 2041.44,                     +
+              |         "type": "number",                    +
+              |         "count": 25,                         +
+              |         "stddev": 1591.83,                   +
+              |         "variance": 2533920.51,              +
+              |         "sum_sq_diff": 60814092.16,          +
+              |         "coefficient_of_variation_pct": 77.98+
+              |     },                                       +
+              |     "employees": {                           +
+              |         "max": 5,                            +
+              |         "min": 1,                            +
+              |         "sum": 75,                           +
+              |         "mean": 3.00,                        +
+              |         "type": "number",                    +
+              |         "count": 25,                         +
+              |         "stddev": 1.44,                      +
+              |         "variance": 2.08,                    +
+              |         "sum_sq_diff": 50.00,                +
+              |         "coefficient_of_variation_pct": 48.11+
+              |     }                                        +
+              | }
+-[ RECORD 2 ]-+----------------------------------------------
+unit_type     | enterprise
+count         | 25
+invalid_codes | 
+stats_summary | {                                            +
+              |     "turnover": {                            +
+              |         "max": 4400,                         +
+              |         "min": 100,                          +
+              |         "sum": 51036,                        +
+              |         "mean": 2041.44,                     +
+              |         "type": "number",                    +
+              |         "count": 25,                         +
+              |         "stddev": 1591.83,                   +
+              |         "variance": 2533920.51,              +
+              |         "sum_sq_diff": 60814092.16,          +
+              |         "coefficient_of_variation_pct": 77.98+
+              |     },                                       +
+              |     "employees": {                           +
+              |         "max": 5,                            +
+              |         "min": 1,                            +
+              |         "sum": 75,                           +
+              |         "mean": 3.00,                        +
+              |         "type": "number",                    +
+              |         "count": 25,                         +
+              |         "stddev": 1.44,                      +
+              |         "variance": 2.08,                    +
+              |         "sum_sq_diff": 50.00,                +
+              |         "coefficient_of_variation_pct": 48.11+
+              |     }                                        +
+              | }
+
+\x
+ROLLBACK;

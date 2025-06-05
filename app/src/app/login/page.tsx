@@ -1,47 +1,40 @@
-"use client";
+export const dynamic = 'force-dynamic';
+
 import React from "react";
 import Image from "next/image";
-import { useState } from "react";
 import logo from "@/../public/statbus-logo.png";
-import { useAuth } from "@/hooks/useAuth"; // Import the auth hook
-import { useRouter } from "next/navigation";
+import LoginForm from "./LoginForm";
+import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
+import { authStore } from "@/context/AuthStore";
 
-
-export default function LoginPage() {
-  const { isAuthenticated, refreshAuth } = useAuth();
-  const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
-
-  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const email = formData.get("email");
-    const password = formData.get("password");
-
-    const response = await fetch("/api/auth/login", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ email, password }),
-    });
-
-    if (!response.ok) {
-      const data = await response.json();
-      setError(data.error);
+export default async function LoginPage() {
+  try {
+    // Check authentication status server-side
+    console.log("LoginPage: Checking authentication status...");
+    const authStatus = await authStore.getAuthStatus();
+    console.log("LoginPage: Auth status:", JSON.stringify({
+      isAuthenticated: authStatus.isAuthenticated,
+      hasUser: !!authStatus.user,
+      userEmail: authStatus.user?.email || 'none'
+    }, null, 2));
+    
+    // If already authenticated, redirect to home
+    if (authStatus.isAuthenticated) {
+      console.log("LoginPage: User is authenticated, redirecting to home...");
+      redirect('/'); 
+      // Note: redirect() throws a special error NEXT_REDIRECT, 
+      // which is handled by Next.js and won't be caught below.
     } else {
-      window.location.href = "/";
+      console.log("LoginPage: User is not authenticated, showing login form");
     }
-  };
+  } catch (error) {
+    // This catch block will only handle errors from authStore.getAuthStatus()
+    console.error("Error checking authentication status:", error);
+    // If checking auth status fails, proceed to show the login form.
+  }
 
-  // Redirect if already authenticated
-  React.useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/");
-    }
-  }, [isAuthenticated, router]);
-
-  // Render the login form if not authenticated
+  // If not redirected (i.e., not authenticated or error during check), render the login page
   return (
     <main className="px-6 py-24 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">
@@ -58,70 +51,7 @@ export default function LoginPage() {
       </div>
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-        <form className="group space-y-6" onSubmit={handleSubmit} noValidate>
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium leading-6 text-gray-900"
-            >
-              Email address
-            </label>
-            <div className="mt-2">
-              <input
-                id="email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                required
-                placeholder="Enter your email address"
-                className="peer block w-full rounded-md border-0 px-2.5 py-1.5 text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 invalid:[&:not(:placeholder-shown):not(:focus):not(:autofill)]:ring-red-500"
-              />
-              <span className="mt-2 hidden text-sm text-red-500 peer-[&:not(:placeholder-shown):not(:focus):invalid]:block">
-                Please enter a valid email address
-              </span>
-            </div>
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between">
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium leading-6 text-gray-900"
-              >
-                Password
-              </label>
-            </div>
-            <div className="mt-2">
-              <input
-                id="password"
-                name="password"
-                type="password"
-                autoComplete="current-password"
-                required
-                placeholder="Enter your password"
-                pattern=".{3,}"
-                className="peer block w-full rounded-md border-0 px-2.5 py-1.5 text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 invalid:[&:not(:placeholder-shown):not(:focus):not(:autofill)]:ring-red-500"
-              />
-              <span className="mt-2 hidden text-sm text-red-500 peer-[&:not(:placeholder-shown):not(:focus):invalid]:block">
-                Please enter a valid password
-              </span>
-            </div>
-          </div>
-
-          <div>
-            {error && (
-              <div className="my-2 text-center text-sm text-red-500">
-                {error}
-              </div>
-            )}
-            <button
-              type="submit"
-              className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-xs hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 group-invalid:pointer-events-none group-invalid:opacity-30"
-            >
-              Sign in
-            </button>
-          </div>
-        </form>
+        <LoginForm />
       </div>
     </main>
   );

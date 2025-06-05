@@ -12,6 +12,7 @@
  legal_form_id                            | integer               |           |          | 
  physical_region_path                     | ltree                 |           |          | 
  physical_country_id                      | integer               |           |          | 
+ unit_size_id                             | integer               |           |          | 
  status_id                                | integer               |           |          | 
  count                                    | bigint                |           |          | 
  births                                   | bigint                |           |          | 
@@ -24,6 +25,7 @@
  physical_region_change_count             | bigint                |           |          | 
  physical_country_change_count            | bigint                |           |          | 
  physical_address_change_count            | bigint                |           |          | 
+ unit_size_change_count                   | bigint                |           |          | 
  status_change_count                      | bigint                |           |          | 
  stats_summary                            | jsonb                 |           |          | 
 

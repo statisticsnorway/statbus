@@ -1,5 +1,5 @@
 import { Tables } from "@/lib/database.types";
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 import { useState } from "react";
 import useSWR, { Fetcher } from "swr";
 
@@ -16,12 +16,12 @@ export type Queries = {
 };
 
 type ActivityCategoryResult = {
-  activityCategories: Tables<"region">[];
+  activityCategories: Tables<"activity_category_available">[];
   count: number;
 };
 
 const fetcher: Fetcher<ActivityCategoryResult, { pagination: Pagination; queries: Queries }> = async ({ pagination, queries }) => {
-  const client = await createSupabaseBrowserClientAsync();
+  const client = await getBrowserRestClient();
   let query = client.from('activity_category_available').select('*', { count: 'exact' });
 
   const offset = pagination.pageNumber && pagination.pageSize

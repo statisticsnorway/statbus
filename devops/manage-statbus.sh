@@ -43,19 +43,11 @@ case "$action" in
         ./devops/dotenv --file .env set VERSION=$VERSION
         set_profile_arg "$@"
 
-        # Conditionally add the --build argument if the profile is 'all' or 'required'
-        # since docker compose does not use the --profile to determine
-        # if a build is required.
-        build_arg=""
-        if [ "$profile" = "all" ] || [ "$profile" = "required" ]; then
-            build_arg="--build"
-        fi
-
-        eval docker compose $compose_profile_arg up $build_arg --detach
+        eval docker compose $compose_profile_arg up --build --detach
       ;;
     'stop' )
         set_profile_arg "$@"
-        eval docker compose $compose_profile_arg down
+        eval docker compose $compose_profile_arg down --remove-orphans
       ;;
     'logs' )
         eval docker compose logs --follow
@@ -117,7 +109,7 @@ case "$action" in
         ./devops/manage-statbus.sh test all > "$TEST_OUTPUT" 2>&1 || true
 
         # Check if the test output indicates failure
-        if grep -q "FAILED" "$TEST_OUTPUT"; then
+        if grep -q "not ok" "$TEST_OUTPUT" || grep -q "of .* tests failed" "$TEST_OUTPUT"; then
             echo "One or more tests failed."
             echo "Test summary:"
             grep -A 20 "======================" "$TEST_OUTPUT"
@@ -142,9 +134,16 @@ case "$action" in
       ;;
     'test' )
         eval $(./devops/manage-statbus.sh postgres-variables)
+        
+        # Extract PostgreSQL major version from Dockerfile
+        POSTGRESQL_MAJOR=$(grep -E "^ARG postgresql_major=" "$WORKSPACE/postgres/Dockerfile" | cut -d= -f2)
+        if [ -z "$POSTGRESQL_MAJOR" ]; then
+            echo "Error: Could not extract PostgreSQL major version from Dockerfile"
+            exit 1
+        fi
 
         PG_REGRESS_DIR="$WORKSPACE/test"
-        PG_REGRESS="/usr/lib/postgresql/15/lib/pgxs/src/test/regress/pg_regress"
+        PG_REGRESS="/usr/lib/postgresql/$POSTGRESQL_MAJOR/lib/pgxs/src/test/regress/pg_regress"
         CONTAINER_REGRESS_DIR="/statbus/test"
 
         for suffix in "sql" "expected" "results"; do
@@ -153,17 +152,65 @@ case "$action" in
             fi
         done
 
-        TEST_BASENAMES="$@"
-        if test -z "$TEST_BASENAMES"; then
+        # Store original arguments
+        ORIGINAL_ARGS=("$@")
+        
+        # Check if no arguments were provided
+        if [ ${#ORIGINAL_ARGS[@]} -eq 0 ]; then
             echo "Available tests:"
             echo "all"
             echo "failed"
             basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql
             exit 0
-        elif test "$TEST_BASENAMES" = "all"; then
-            TEST_BASENAMES=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
-        elif test "$TEST_BASENAMES" = "failed"; then
-            TEST_BASENAMES=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}')
+        fi
+        
+        # Check for special keywords
+        if [ "${ORIGINAL_ARGS[0]}" = "all" ]; then
+            # Get all tests
+            ALL_TESTS=$(basename -s .sql "$PG_REGRESS_DIR/sql"/*.sql)
+            
+            # Process exclusions (tests starting with -)
+            TEST_BASENAMES=""
+            for test in $ALL_TESTS; do
+                exclude=false
+                for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "all"
+                    if [ "$arg" = "-$test" ]; then
+                        exclude=true
+                        break
+                    fi
+                done
+                
+                if [ "$exclude" = "false" ]; then
+                    TEST_BASENAMES="$TEST_BASENAMES $test"
+                fi
+            done
+        elif [ "${ORIGINAL_ARGS[0]}" = "failed" ]; then
+            # Get failed tests
+            FAILED_TESTS=$(grep -E '^not ok' $WORKSPACE/test/regression.out | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
+            
+            # Process exclusions
+            TEST_BASENAMES=""
+            for test in $FAILED_TESTS; do
+                exclude=false
+                for arg in "${ORIGINAL_ARGS[@]:1}"; do  # Skip the first arg which is "failed"
+                    if [ "$arg" = "-$test" ]; then
+                        exclude=true
+                        break
+                    fi
+                done
+                
+                if [ "$exclude" = "false" ]; then
+                    TEST_BASENAMES="$TEST_BASENAMES $test"
+                fi
+            done
+        else
+            # Just use the provided test names, filtering out exclusions
+            TEST_BASENAMES=""
+            for arg in "${ORIGINAL_ARGS[@]}"; do
+                if [[ "$arg" != -* ]]; then
+                    TEST_BASENAMES="$TEST_BASENAMES $arg"
+                fi
+            done
         fi
 
         for test_basename in $TEST_BASENAMES; do
@@ -181,7 +228,7 @@ case "$action" in
         docker compose exec --workdir "/statbus" db \
             $PG_REGRESS $debug_arg \
             --use-existing \
-            --bindir='/usr/lib/postgresql/15/bin' \
+            --bindir="/usr/lib/postgresql/$POSTGRESQL_MAJOR/bin" \
             --inputdir=$CONTAINER_REGRESS_DIR \
             --outputdir=$CONTAINER_REGRESS_DIR \
             --dbname=$PGDATABASE \
@@ -194,8 +241,12 @@ case "$action" in
           exit 1
       fi
 
-      test=$(grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | head -n 1)
-      if [ -n "$test" ]; then
+      # Extract the full test name from the regression output
+      test_line=$(grep -E '^not ok' "$WORKSPACE/test/regression.out" | head -n 1)
+      if [ -n "$test_line" ]; then
+          # Extract the full test name (e.g., "01_load_web_examples")
+          test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
+          
           ui=${1:-tui}
           shift || true
           case $ui in
@@ -206,6 +257,10 @@ case "$action" in
               'tui')
                   echo "Running vimdiff for test: $test"
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
+                  ;;
+              'pipe')
+                  echo "Running diff for test: $test"
+                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
               *)
                   echo "Error: Unknown UI option '$ui'. Please use 'gui' or 'tui'."
@@ -222,24 +277,41 @@ case "$action" in
           exit 1
       fi
 
-      grep 'FAILED' $WORKSPACE/test/regression.out | awk 'BEGIN { FS = "[[:space:]]+" } {print $2}' | while read test; do
-          echo "Next test: $test"
-          echo "Press C to continue, s to skip, or b to break (default: C)"
-          read -n 1 -s input < /dev/tty
-          if [ "$input" = "b" ]; then
-              break
-          elif [ "$input" = "s" ]; then
-              continue
+      ui_choice=${1:-tui} # Get UI choice from the first argument to diff-fail-all, default to tui
+
+      grep -E '^not ok' "$WORKSPACE/test/regression.out" | while read test_line; do
+          # Extract the full test name (e.g., "01_load_web_examples")
+          test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
+          
+          if [ "$ui_choice" != "pipe" ]; then
+              echo "Next test: $test"
+              echo "Press C to continue, s to skip, or b to break (default: C)"
+              read -n 1 -s input < /dev/tty
+              if [ "$input" = "b" ]; then
+                  break
+              elif [ "$input" = "s" ]; then
+                  continue
+              fi
           fi
-          case "${2:-}" in
-              'ui')
+          
+          case $ui_choice in
+              'gui')
                   echo "Running opendiff for test: $test"
                   opendiff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out -merge $WORKSPACE/test/expected/$test.out
                   ;;
-              'text'|*)
+              'tui')
                   echo "Running vimdiff for test: $test"
                   vim -d $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty
                   ;;
+              'pipe')
+                  echo "Running diff for test: $test"
+                  # Note the pipe from /dev/tty to avoid the diff alias running an interactive program.
+                  diff $WORKSPACE/test/expected/$test.out $WORKSPACE/test/results/$test.out < /dev/tty || true
+                  ;;
+              *)
+                  echo "Error: Unknown UI option '$ui_choice'. Please use 'gui', 'tui', or 'pipe'."
+                  exit 1
+              ;;
           esac
       done
     ;;
@@ -249,7 +321,9 @@ case "$action" in
             exit 1
         fi
 
-        grep 'FAILED' "$WORKSPACE/test/regression.out" | awk '{print $2}' | while read -r test; do
+        grep -E '^not ok' "$WORKSPACE/test/regression.out" | while read -r test_line; do
+            # Extract the full test name (e.g., "01_load_web_examples")
+            test=$(echo "$test_line" | sed -E 's/not ok[[:space:]]+[0-9]+[[:space:]]+- ([^[:space:]]+).*/\1/')
             if [ -f "$WORKSPACE/test/results/$test.out" ]; then
                 echo "Copying results to expected for test: $test"
                 cp -f "$WORKSPACE/test/results/$test.out" "$WORKSPACE/test/expected/$test.out"
@@ -285,8 +359,13 @@ case "$action" in
         ./devops/manage-statbus.sh create-users
       ;;
     'create-db' )
-        ./devops/manage-statbus.sh start required_not_app
-        ./devops/manage-statbus.sh activate_sql_saga
+        ./devops/manage-statbus.sh start all_except_app
+        JWT_SECRET=$(./devops/dotenv --file .env.credentials get JWT_SECRET)
+        DEPLOYMENT_SLOT_CODE=$(./devops/dotenv --file .env.config get DEPLOYMENT_SLOT_CODE)
+        PGDATABASE=statbus_${DEPLOYMENT_SLOT_CODE:-dev}
+        ./devops/manage-statbus.sh psql -c "ALTER DATABASE $PGDATABASE SET app.settings.jwt_secret TO '$JWT_SECRET';"
+        ./devops/manage-statbus.sh psql -c "ALTER DATABASE $PGDATABASE SET app.settings.deployment_slot_code TO '$DEPLOYMENT_SLOT_CODE';"
+        ./devops/manage-statbus.sh psql -c "SELECT pg_reload_conf();"
         ./devops/manage-statbus.sh create-db-structure
         ./devops/manage-statbus.sh create-users
       ;;
@@ -297,36 +376,22 @@ case "$action" in
       ;;
     'delete-db' )
         ./devops/manage-statbus.sh stop all
-        # Define the directory path
-        DIRECTORY="$WORKSPACE/supabase_docker/volumes/db/data"
+        # Define the directory path for PostgreSQL volume
+        POSTGRES_DIRECTORY="$WORKSPACE/postgres/volumes/db/data"
 
-        # Check if the directory is accessible
-        if ! test -r "$DIRECTORY" || ! test -w "$DIRECTORY" || ! test -x "$DIRECTORY"; then
-          echo "Removing '$DIRECTORY' with sudo"
-          sudo rm -rf "$DIRECTORY"
-        else
-          echo "Removing '$DIRECTORY'"
-          rm -rf "$DIRECTORY"
+        # Check and remove PostgreSQL directory if it exists
+        if [ -d "$POSTGRES_DIRECTORY" ]; then
+          if ! test -r "$POSTGRES_DIRECTORY" || ! test -w "$POSTGRES_DIRECTORY" || ! test -x "$POSTGRES_DIRECTORY"; then
+            echo "Removing '$POSTGRES_DIRECTORY' with sudo"
+            sudo rm -rf "$POSTGRES_DIRECTORY"
+          else
+            echo "Removing '$POSTGRES_DIRECTORY'"
+            rm -rf "$POSTGRES_DIRECTORY"
+          fi
         fi
       ;;
     'create-users' )
-        ./cli/bin/statbus manage create-users
-      ;;
-     'upgrade_supabase' )
-        git reset supabase_docker
-        if test ! -d ../supabase; then
-            pushd ..
-            git clone https://github.com/supabase/supabase
-            popd
-        fi
-        pushd ../supabase
-        git pull
-        rsync -av docker/ ../statbus/supabase_docker
-        popd
-        git add supabase_docker
-        ./devops/manage-statbus.sh generate-docker-compose-adjustments
-        git add docker-compose.supabase_docker.*
-        git commit -m 'Upgraded Supabase Docker'
+        ./cli/bin/statbus manage create-users -v
       ;;
      'generate-config' )
         ./cli/bin/statbus manage generate-config
@@ -334,16 +399,13 @@ case "$action" in
      'postgres-variables' )
         PGHOST=127.0.0.1
         PGPORT=$(./devops/dotenv --file .env get DB_PUBLIC_LOCALHOST_PORT)
-        PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_DB)
+        PGDATABASE=$(./devops/dotenv --file .env get POSTGRES_APP_DB)
         # Preserve the USER if already setup, to allow overrides.
-        PGUSER=${PGUSER:-postgres}
-        PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_PASSWORD)
+        PGUSER=${PGUSER:-$(./devops/dotenv --file .env get POSTGRES_ADMIN_USER)}
+        PGPASSWORD=$(./devops/dotenv --file .env get POSTGRES_ADMIN_PASSWORD)
         cat <<EOS
 export PGHOST=$PGHOST PGPORT=$PGPORT PGDATABASE=$PGDATABASE PGUSER=$PGUSER PGPASSWORD=$PGPASSWORD
 EOS
-      ;;
-     'refresh' )
-        echo 'select statistical_unit_refresh_now();' | ./devops/manage-statbus.sh psql
       ;;
      'psql' )
         eval $(./devops/manage-statbus.sh postgres-variables)
@@ -354,10 +416,10 @@ EOS
         else
           if test -t 0 && test -t 1 && test ! -p /dev/stdin && test ! -f /dev/stdin; then
             # Interactive mode - use default TTY allocation
-            docker compose exec -w /statbus -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
+            docker compose exec -w /statbus -e PGPASSWORD -u postgres db psql -U $PGUSER $PGDATABASE "$@"
           else
             # Non-interactive mode - explicitly disable TTY allocation
-            docker compose exec -T -w /statbus -e PGPASSWORD db psql -U $PGUSER $PGDATABASE "$@"
+            docker compose exec -T -w /statbus -e PGPASSWORD -u postgres db psql -U $PGUSER $PGDATABASE "$@"
           fi
         fi
       ;;
@@ -437,7 +499,12 @@ EOS
           SELECT n.nspname || '.' || p.proname || '(' ||
             regexp_replace(
               regexp_replace(
-                pg_get_function_arguments(p.oid),
+                regexp_replace(
+                  pg_get_function_arguments(p.oid),
+                  'timestamp with time zone',
+                  'timestamptz',
+                  'g'
+                ),
                 ',?\s*OUT [^,\$]+|\s*DEFAULT [^,\$]+|IN (\w+\s+)|INOUT (\w+\s+)',
                 '\1',
                 'g'
@@ -465,7 +532,46 @@ EOS
               (n.nspname = 'public' AND p.proname LIKE 'gbtree%') OR
               (n.nspname = 'public' AND p.proname LIKE 'ltree%') OR
               (n.nspname = 'public' AND p.proname LIKE '%\_dist') OR
-              (n.nspname = 'public' AND p.proname LIKE 'gbt\_%')
+              (n.nspname = 'public' AND p.proname LIKE 'gbt\_%') OR
+              (n.nspname = 'public' AND p.proname = 'decode_error_level') OR
+              (n.nspname = 'public' AND p.proname LIKE 'decrypt%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'digest%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'encrypt%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'gen\_random\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'gen\_salt%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'get\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'gin\_%\_trgm%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'gtrgm\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'hash\_%') OR
+              (n.nspname = 'public' AND p.proname = 'histogram') OR
+              (n.nspname = 'public' AND p.proname LIKE 'hmac%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'http%') OR
+              (n.nspname = 'public' AND p.proname = 'dearmor') OR
+              (n.nspname = 'public' AND p.proname LIKE 'hypopg%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'id\_decode%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'id\_encode%') OR
+              (n.nspname = 'public' AND p.proname = 'index_advisor') OR
+              (n.nspname = 'public' AND p.proname LIKE 'pg\_stat\_monitor%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'pg\_stat\_statements%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'pgp\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'pgsm\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_check%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_coverage%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_profiler%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'plpgsql\_show%') OR
+              (n.nspname = 'public' AND p.proname = 'range') OR
+              (n.nspname = 'public' AND p.proname LIKE 'set\_limit%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'show\_%') OR
+              (n.nspname = 'public' AND p.proname = 'sign') OR
+              (n.nspname = 'public' AND p.proname LIKE 'similarity%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'strict\_word\_similarity%') OR
+              (n.nspname = 'public' AND p.proname = 'text_to_bytea') OR
+              (n.nspname = 'public' AND p.proname LIKE 'tri\_fkey%') OR
+              (n.nspname = 'public' AND p.proname = 'try_cast_double') OR
+              (n.nspname = 'public' AND p.proname LIKE 'url\_%') OR
+              (n.nspname = 'public' AND p.proname LIKE 'urlencode%') OR
+              (n.nspname = 'public' AND p.proname = 'verify') OR
+              (n.nspname = 'public' AND p.proname LIKE 'word\_similarity%')
           )
           ORDER BY 1;")
 
@@ -487,60 +593,24 @@ EOS
 
      'generate-types' )
         pushd $WORKSPACE/app
-        #nvm doesn' work in a script!
-        #if which fnm; then
-        #    fnm use
-        #else
-        #    nvm use
-        #fi
-        eval $($WORKSPACE/devops/manage-statbus.sh postgres-variables)
+        # Activate the Node.js version from .nvmrc using fnm
+        eval "$(fnm env --use-on-cd)" || { echo "Failed to set up fnm environment"; exit 1; }
+        fnm use || { echo "Failed to activate Node version from .nvmrc"; exit 1; }
+        
+        # Get database connection details
+        eval $($WORKSPACE/devops/manage-statbus.sh postgres-variables) || { echo "Failed to get database variables"; exit 1; }
         db_url="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE?sslmode=disable"
-        # Run interactively and say 'y' for installing the latest package
-        ~/.nvm/nvm-exec npx supabase@beta gen types typescript --db-url "$db_url"
-        # Update the types from the database.
-        ~/.nvm/nvm-exec npx supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
-      ;;
-     'generate-docker-compose-adjustments' )
-        echo Generating docker-compose.supabase_docker.erase-ports.yml
-        yq '(
-          .. | # recurse through all the nodes
-          select(has("ports")) | # match parents that have volume
-          (.ports) | # select those children
-          select(.) # filter out nulls
-          | . |= "!reset []"
-        ) as $i ireduce({};  # using that set of nodes, create a new result map
-          setpath($i | path; $i) # and put in each node, using its original path
-        ) ' supabase_docker/docker-compose.yml | tr -d "'" > docker-compose.supabase_docker.erase-ports.yml
-
-        echo Generating docker-compose.supabase_docker.erase-depends_on.yml
-        yq '(
-          .. | # recurse through all the nodes
-          select(has("depends_on")) | # match parents that have volume
-          (.depends_on) | # select those children
-          select(.) # filter out nulls
-          | . |= "!reset []"
-        ) as $i ireduce({};  # using that set of nodes, create a new result map
-          setpath($i | path; $i) # and put in each node, using its original path
-        ) ' supabase_docker/docker-compose.yml | tr -d "'" > docker-compose.supabase_docker.erase-depends_on.yml
-
-        echo Generating docker-compose.supabase_docker.customize-container_name.yml
-        yq '(
-          .. | # recurse through all the nodes
-          select(has("container_name")) |
-          .container_name = "${COMPOSE_INSTANCE_NAME:-statbus}-" + key |
-          (.container_name)
-        ) as $i ireduce({};  # using that set of nodes, create a new result map
-          setpath($i | path; $i) # and put in each node, using its original path
-        ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.customize-container_name.yml
-
-        echo Generating docker-compose.supabase_docker.add-all-profile.yml
-        yq '(
-          .services[] | # recurse through all service definitions
-          .profiles = ["all", "all_not_app"] | # set profiles
-          (.profiles) # Only retain profiles
-        ) as $i ireduce({};  # using that set of nodes, create a new result map
-          setpath($i | path; $i) # and put in each node, using its original path
-        ) ' supabase_docker/docker-compose.yml > docker-compose.supabase_docker.add-all-profile.yml
+        
+        # First run: This will prompt for package installation if needed
+        # When running for the first time, npx will ask for confirmation to install the package
+        # This interactive step cannot be redirected to a file
+        echo "Running initial command to handle any package installation prompts..."
+        npx supabase@beta gen types typescript --db-url "$db_url" || { echo "Failed to run supabase gen types"; exit 1; }
+        
+        # Second run: Now that the package is installed, we can redirect the output
+        # This run will not prompt for confirmation since the package is already installed
+        echo "Generating TypeScript types file..."
+        npx supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
       ;;
      * )
       echo "Unknown action '$action', select one of"

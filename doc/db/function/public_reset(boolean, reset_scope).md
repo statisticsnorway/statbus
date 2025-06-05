@@ -37,6 +37,58 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
+    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+        -- Apply pattern for 'contact'
+        WITH deleted_contact AS (
+            DELETE FROM public.contact WHERE id > 0 RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'contact', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_contact)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+        -- Apply pattern for 'person_for_unit'
+        WITH deleted_person_for_unit AS (
+            DELETE FROM public.person_for_unit WHERE id > 0 RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'person_for_unit', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_person_for_unit)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+        -- Add delete for public.person
+        WITH deleted_person AS (
+            DELETE FROM public.person WHERE id > 0 RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'person', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_person)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+        -- Apply pattern for 'tag_for_unit'
+        WITH deleted_tag_for_unit AS (
+            DELETE FROM public.tag_for_unit WHERE id > 0 RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'tag_for_unit', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_tag_for_unit)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
     CASE WHEN scope IN ('all') THEN
         -- Add delete for public.tag where type = 'custom'
         WITH deleted_tag AS (
@@ -249,12 +301,66 @@ BEGIN
         result := result || changed;
     ELSE END CASE;
 
-    SELECT jsonb_build_object(
-        'statistical_unit_refresh_now',jsonb_agg(data.*)
-      ) INTO changed
-      FROM public.statistical_unit_refresh_now() AS data;
-    result := result || changed;
+    CASE WHEN scope IN ('getting-started', 'all') THEN
+        -- Apply pattern for 'unit_size'
+        WITH deleted_unit_size AS (
+            DELETE FROM public.unit_size WHERE custom RETURNING *
+        ), changed_unit_size AS (
+            UPDATE public.unit_size
+               SET active = TRUE
+             WHERE NOT custom
+               AND NOT active
+             RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'unit_size', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_unit_size),
+                'changed_count', (SELECT COUNT(*) FROM changed_unit_size)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
 
+    CASE WHEN scope IN ('getting-started', 'all') THEN
+        -- Apply pattern for 'data_source'
+        WITH deleted_data_source AS (
+            DELETE FROM public.data_source WHERE custom RETURNING *
+        ), changed_data_source AS (
+            UPDATE public.data_source
+               SET active = TRUE
+             WHERE NOT custom
+               AND NOT active
+             RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'data_source', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_data_source),
+                'changed_count', (SELECT COUNT(*) FROM changed_data_source)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+
+    CASE WHEN scope IN ('getting-started', 'all') THEN
+        -- Apply pattern for 'status'
+        WITH deleted_status AS (
+            DELETE FROM public.status WHERE custom RETURNING *
+        ), changed_status AS (
+            UPDATE public.status
+               SET active = TRUE
+             WHERE NOT custom
+               AND NOT active
+             RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'status', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_status),
+                'changed_count', (SELECT COUNT(*) FROM changed_status)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+    
     RETURN result;
 END;
 $function$

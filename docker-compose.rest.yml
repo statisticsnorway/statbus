@@ -1,0 +1,37 @@
+# PostgREST API service configuration
+services:
+  rest:
+    container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-rest
+    image: postgrest/postgrest:v12.2.8
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_AUTHENTICATOR_PASSWORD:?POSTGRES_AUTHENTICATOR_PASSWORD must be set in the generated .env}@db:5432/statbus_${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
+      PGRST_DB_SCHEMAS: ${PGRST_DB_SCHEMAS:-public}
+      PGRST_DB_ANON_ROLE: anon
+      PGRST_DB_USE_LEGACY_GUCS: "false"
+      PGRST_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in the generated .env}
+      PGRST_APP_SETTINGS_JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in the generated .env}
+      # Access and refresh tokens use the same secret (PGRST_APP_SETTINGS_JWT_SECRET)
+      # JWT expiration time in seconds: 3600 = 1 hour
+      PGRST_APP_SETTINGS_ACCESS_JWT_EXP: ${ACCESS_JWT_EXPIRY:?ACCESS_JWT_EXPIRY must be set in the generated .env}
+      # Refresh token expiration time in seconds: 2592000 = 30 days
+      PGRST_APP_SETTINGS_REFRESH_JWT_EXP: ${REFRESH_JWT_EXPIRY:?REFRESH_JWT_EXPIRY must be set in the generated .env}
+      # Enable group by counting for getting the available filter values with counts
+      PGRST_DB_AGGREGATES_ENABLED: "true"
+      # JWT claims available in current_setting('request.jwt.claims')
+      PGRST_JWT_AUD: "statbus"
+      # Ensure OpenAPI documentation uses the right base url
+      PGRST_OPENAPI_SERVER_PROXY_URI: ${SITE_URL:?SITE_URL must be set in the generated .env}/postgrest
+      # Pass deployment slot code to database for cookie naming
+      PGRST_DB_CONFIG: app.settings.deployment_slot_code=${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
+      # Add pre-request function for API key revocation check
+      PGRST_DB_PRE_REQUEST: auth.check_api_key_revocation
+    ports:
+      - "${REST_BIND_ADDRESS:?REST_BIND_ADDRESS must be set in the generated .env}:3000"
+    profiles:
+      - "all"
+      - "all_except_app"
+    command: "postgrest"

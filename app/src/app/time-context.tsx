@@ -31,6 +31,7 @@ interface TimeContextProviderProps {
 }
 
 export function TimeContextProvider({ children }: TimeContextProviderProps) {
+  // Get time contexts from BaseDataStore via useBaseData hook
   const { timeContexts, defaultTimeContext, hasStatisticalUnits } = useBaseData();
   const { isAuthenticated } = useAuth();
   const pathname = usePathname();

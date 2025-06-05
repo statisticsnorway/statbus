@@ -1,5 +1,5 @@
 BEGIN;
 
-DELETE FROM public.stat_definition;
+DELETE FROM public.stat_definition WHERE TRUE;
 
 END;

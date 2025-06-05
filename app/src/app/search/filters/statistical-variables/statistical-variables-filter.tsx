@@ -1,9 +1,9 @@
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { getServerRestClient } from "@/context/RestClientStore";
 import StatisticalVariablesOptions from "@/app/search/filters/statistical-variables/statistical-variables-options";
 import { FilterWrapper } from "../../components/filter-wrapper";
 
 export default async function StatisticalVariablesFilter() {
-  const client = await createSupabaseSSRClient();
+  const client = await getServerRestClient();
   const statDefinitions = await client.from("stat_definition_active").select();
 
   return (

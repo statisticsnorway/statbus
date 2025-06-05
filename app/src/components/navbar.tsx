@@ -3,7 +3,7 @@ import ProfileAvatar from "@/components/profile-avatar";
 import Image from "next/image";
 import logo from "@/../public/statbus-logo.png";
 import Link from "next/link";
-import { BarChartHorizontal, Search } from "lucide-react";
+import { BarChartHorizontal, Search, Upload } from "lucide-react"; // Import Upload icon
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
@@ -11,6 +11,7 @@ import TimeContextSelector from "@/components/time-context-selector";
 import { useAuth } from "@/hooks/useAuth";
 import { useBaseData } from "@/app/BaseDataClient";
 import { useEffect, useState } from "react";
+import { usePathname } from "next/navigation"; // Import usePathname
 
 export function NavbarSkeleton() {
   return (
@@ -24,7 +25,9 @@ export function NavbarSkeleton() {
 
 export default function Navbar() {
   const { isAuthenticated } = useAuth();
-  const { hasStatisticalUnits } = useBaseData();
+  const { hasStatisticalUnits, workerStatus } = useBaseData();
+  const { isImporting, isDerivingUnits, isDerivingReports } = workerStatus;
+  const pathname = usePathname(); // Get current pathname
 
   const [isClient, setIsClient] = useState(false);
 
@@ -45,36 +48,72 @@ export default function Navbar() {
         >
           <Image src={logo} alt="Statbus Logo" className="h-9 w-9" />
         </Link>
-        <div className="flex-1 space-x-3 flex items-center justify-end">
+
+        {/* Center: Main Navigation Links / Mobile Menu Trigger */}
+        <div className="flex flex-1 justify-center space-x-3">
           {isAuthenticated && hasStatisticalUnits && (
             <>
-              <TimeContextSelector />
+              {/* Mobile Menu Trigger (Hamburger) */}
+              <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
+
+              {/* Import Link */}
               <Link
-                href="/reports"
+                href="/import"
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "sm" }),
-                  "space-x-2 hidden lg:flex"
+                  "space-x-2 hidden lg:flex",
+                  // Add active state class
+                  "border-1", // Base border class
+                  isImporting ? "border-yellow-400" : // Processing state overrides active state
+                  pathname.startsWith("/import") ? "border-white" : "border-transparent" // Active/Inactive state
                 )}
               >
-                <BarChartHorizontal size={16} />
-                <span>Reports</span>
+                <Upload size={16} />
+                <span>Import</span>
               </Link>
+              {/* Search Link */}
               <Link
                 href="/search"
                 className={cn(
                   buttonVariants({ variant: "ghost", size: "sm" }),
-                  "space-x-2 hidden lg:flex"
+                  "space-x-2 hidden lg:flex",
+                  // Add active state class
+                  "border-1", // Base border class
+                  isDerivingUnits ? "border-yellow-400" : // Processing state overrides active state
+                  pathname.startsWith("/search") ? "border-white" : "border-transparent" // Active/Inactive state
                 )}
               >
                 <Search size={16} />
                 <span>Statistical Units</span>
               </Link>
+              {/* Reports Link */}
+              <Link
+                href="/reports"
+                className={cn(
+                  buttonVariants({ variant: "ghost", size: "sm" }),
+                  "space-x-2 hidden lg:flex",
+                  // Add active state class
+                  "border-1", // Base border class
+                  isDerivingReports ? "border-yellow-400" : // Processing state overrides active state
+                  pathname.startsWith("/reports") ? "border-white" : "border-transparent" // Active/Inactive state
+                )}
+              >
+                <BarChartHorizontal size={16} />
+                <span>Reports</span>
+              </Link>
             </>
+          )}
+        </div>
+
+        {/* Right: Context/Profile/Mobile */}
+        <div className="flex items-center space-x-3">
+          {isAuthenticated && hasStatisticalUnits && (
+            <TimeContextSelector />
           )}
           {isAuthenticated && (
             <>
               <ProfileAvatar className="w-8 h-8 text-ssb-dark hidden lg:flex" />
-              <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
+              {/* Mobile menu button moved to the center section */}
             </>
           )}
         </div>

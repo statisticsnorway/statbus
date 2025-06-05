@@ -1,0 +1,153 @@
+-- Test file for SET LOCAL ROLE behavior
+-- Demonstrates interaction between transactions, savepoints, DO blocks, and SET LOCAL ROLE.
+-- Assumes test users from 60_auth.sql exist.
+\echo BEGIN: Demonstration of interaction between transaction and roles in the code
+BEGIN: Demonstration of interaction between transaction and roles in the code
+\echo Using a transaction block
+Using a transaction block
+SELECT current_user; -- postgres
+ current_user 
+--------------
+ postgres
+(1 row)
+
+BEGIN;
+  \echo Default current_user is postgres
+Default current_user is postgres
+  SELECT current_user; -- postgres
+ current_user 
+--------------
+ postgres
+(1 row)
+
+  \echo Switching to test.admin@example.com
+Switching to test.admin@example.com
+  SET LOCAL ROLE "test.admin@example.com";
+ERROR:  role "test.admin@example.com" does not exist
+  \echo After SET LOCAL ROLE current_user is test.admin@example.com
+After SET LOCAL ROLE current_user is test.admin@example.com
+  SELECT current_user; -- test.admin@example.com
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+END;
+\echo After transaction END current_user is postgres
+After transaction END current_user is postgres
+SELECT current_user; -- postgres
+ current_user 
+--------------
+ postgres
+(1 row)
+
+\echo Using a transaction block and subtransactions (savepoints)
+Using a transaction block and subtransactions (savepoints)
+SELECT current_user; -- postgres
+ current_user 
+--------------
+ postgres
+(1 row)
+
+BEGIN;
+  \echo Default current_user is postgres
+Default current_user is postgres
+  SELECT current_user; -- postgres
+ current_user 
+--------------
+ postgres
+(1 row)
+
+  SAVEPOINT before_switching;
+  \echo Switching to test.admin@example.com
+Switching to test.admin@example.com
+  SET LOCAL ROLE "test.admin@example.com";
+ERROR:  role "test.admin@example.com" does not exist
+  \echo After SET LOCAL ROLE current_user is test.admin@example.com
+After SET LOCAL ROLE current_user is test.admin@example.com
+  SELECT current_user; -- test.admin@example.com
+ERROR:  current transaction is aborted, commands ignored until end of transaction block
+  ROLLBACK TO SAVEPOINT before_switching;
+  \echo After RELEASE SAVEPOINT current_user is postgres
+After RELEASE SAVEPOINT current_user is postgres
+  SELECT current_user; -- postgres
+ current_user 
+--------------
+ postgres
+(1 row)
+
+END;
+\echo After transaction END current_user is postgres
+After transaction END current_user is postgres
+SELECT current_user; -- postgres
+ current_user 
+--------------
+ postgres
+(1 row)
+
+\echo Using a DO block
+Using a DO block
+SET client_min_messages TO NOTICE; -- To see the RAISE NOTICE in the DO block
+DO $$
+BEGIN
+  RAISE NOTICE 'Default current_user is %', current_user;
+  RAISE NOTICE 'Switching to test.admin@example.com';
+  ASSERT current_user = 'postgres';
+  SET LOCAL ROLE "test.admin@example.com";
+  RAISE NOTICE 'After SET LOCAL ROLE current_user is test.admin@example.com';
+  RAISE NOTICE 'current_user is %', current_user;
+  ASSERT current_user = 'test.admin@example.com';
+END;
+$$;
+NOTICE:  Default current_user is postgres
+NOTICE:  Switching to test.admin@example.com
+ERROR:  role "test.admin@example.com" does not exist
+CONTEXT:  SQL statement "SET LOCAL ROLE "test.admin@example.com""
+PL/pgSQL function inline_code_block line 6 at SQL statement
+\echo After transaction END current_user is postgres
+After transaction END current_user is postgres
+SELECT current_user; -- postgres
+ current_user 
+--------------
+ postgres
+(1 row)
+
+\echo Using a DO block with savepoints
+Using a DO block with savepoints
+SET client_min_messages TO NOTICE; -- To see the RAISE NOTICE in the DO block
+DO $$
+BEGIN
+  RAISE NOTICE 'Default current_user is %', current_user;
+  ASSERT current_user = 'postgres';
+  
+  -- Use a nested BEGIN/EXCEPTION block for implicit savepoint/rollback
+  BEGIN
+    RAISE NOTICE 'Switching to test.admin@example.com inside nested block';
+    SET LOCAL ROLE "test.admin@example.com";
+    RAISE NOTICE 'After SET LOCAL ROLE current_user is %', current_user;
+    ASSERT current_user = 'test.admin@example.com';
+    
+    -- Raise an exception to trigger the implicit rollback
+    RAISE EXCEPTION 'Simulating rollback via exception';
+    
+  EXCEPTION WHEN OTHERS THEN
+    -- Catch the exception
+    RAISE DEBUG 'Caught exception: %, implicit rollback occurred.', SQLERRM;
+  END;
+  
+  -- Verify that the role change was rolled back
+  RAISE NOTICE 'After nested block/exception, current_user is %', current_user;
+  ASSERT current_user = 'postgres', 'User should be postgres after implicit rollback';
+END;
+$$;
+NOTICE:  Default current_user is postgres
+NOTICE:  Switching to test.admin@example.com inside nested block
+NOTICE:  After nested block/exception, current_user is postgres
+\echo After DO block with exception-based rollback, current_user is postgres
+After DO block with exception-based rollback, current_user is postgres
+SELECT current_user; -- postgres
+ current_user 
+--------------
+ postgres
+(1 row)
+
+\echo END: Demonstration of interaction between transaction and roles in the code
+END: Demonstration of interaction between transaction and roles in the code
+\echo 'All SET LOCAL ROLE interaction tests completed successfully!'
+All SET LOCAL ROLE interaction tests completed successfully!

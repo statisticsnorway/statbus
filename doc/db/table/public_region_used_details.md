@@ -1,5 +1,5 @@
 ```sql
-                                      Materialized view "public.region_used"
+                                            Table "public.region_used"
  Column |       Type        | Collation | Nullable | Default | Storage  | Compression | Stats target | Description 
 --------+-------------------+-----------+----------+---------+----------+-------------+--------------+-------------
  id     | integer           |           |          |         | plain    |             |              | 
@@ -10,18 +10,17 @@
  name   | text              |           |          |         | extended |             |              | 
 Indexes:
     "region_used_key" UNIQUE, btree (path)
-View definition:
- SELECT r.id,
-    r.path,
-    r.level,
-    r.label,
-    r.code,
-    r.name
-   FROM region r
-  WHERE r.path @> (( SELECT array_agg(DISTINCT statistical_unit.physical_region_path) AS array_agg
-           FROM statistical_unit
-          WHERE statistical_unit.physical_region_path IS NOT NULL))
-  ORDER BY (nlevel(r.path)), r.path;
+Policies:
+    POLICY "region_used_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
+    POLICY "region_used_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "region_used_regular_user_read" FOR SELECT
+      TO regular_user
+      USING (true)
 Access method: heap
 
 ```

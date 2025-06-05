@@ -20,7 +20,6 @@ require "http/client"
 inputFileName = "30.csv"
 outputFileName = "activity_category_norway.csv"
 
-
 def download_file_if_not_exist(url : String, filepath : String) : String
   return filepath if File.exists?(filepath)
 
@@ -40,7 +39,7 @@ rescue ex
   raise "Failed to download or save file: #{ex.message}"
 end
 
-download_file_if_not_exist("https://data.ssb.no/api/klass/v1//versions/30.csv?language=nb",inputFileName)
+download_file_if_not_exist("https://data.ssb.no/api/klass/v1//versions/30.csv?language=nb", inputFileName)
 
 alias NaceRow = NamedTuple(
   code: String,
@@ -48,8 +47,7 @@ alias NaceRow = NamedTuple(
   level: Int32,
   name: String,
   shortName: String,
-  notes: String
-  )
+  notes: String)
 
 alias ActivityCategoryRow = NamedTuple(
   path: Array(String),
@@ -78,8 +76,8 @@ end
 inputRows.each do |inputRow|
   code = inputRow[:code]
   parents[code] = {
-    level:             inputRow[:level],
-    code:        inputRow[:code],
+    level:      inputRow[:level],
+    code:       inputRow[:code],
     parentCode: inputRow[:parentCode],
   }
   # puts "#{parents[code]}"
@@ -92,7 +90,7 @@ def get_short_code(code : String, parentCode : String?)
     code[parentCode.size..]
   else
     code
-  end.sub(".","")
+  end.sub(".", "")
 end
 
 parents.each do |code, details|
@@ -105,9 +103,9 @@ parents.each do |code, details|
     if parent_details
       parentCode = parent_details[:parentCode]
       short_code = get_short_code(code, parentCode)
-      #puts "code #{code} ~ short_code #{short_code}"
+      # puts "code #{code} ~ short_code #{short_code}"
       path.unshift(short_code) # prepend the short_code to the path
-      code = parentCode # Move to the next parent
+      code = parentCode        # Move to the next parent
     else
       break # No more parents, exit the loop
     end
@@ -122,7 +120,6 @@ inputRows.each do |inputRow|
   path = paths[code] || [] of String
   name = inputRow[:name]
 
-
   # Constructing markdown formatted description
   description = "### Shortname: #{inputRow[:shortName]}\n\n"
   description += "### Notes:\n#{inputRow[:notes]}\n\n" unless inputRow[:notes].empty?
@@ -136,10 +133,10 @@ inputRows.each do |inputRow|
   # puts outputRow
 end
 
-outputRows = outputRows.sort {|a,b| a[:path] <=> b[:path]}
+outputRows = outputRows.sort { |a, b| a[:path] <=> b[:path] }
 
 output = CSV.build(quoting: CSV::Builder::Quoting::ALL) do |csv|
-  csv.row ["path","name","description"]
+  csv.row ["path", "name", "description"]
   outputRows.each do |row|
     path = row[:path].join(".")
     name = row[:name]

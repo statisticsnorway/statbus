@@ -10,15 +10,15 @@
  created_at | timestamp with time zone |           |          |         | plain    | 
  updated_at | timestamp with time zone |           |          |         | plain    | 
 View definition:
- SELECT unit_size.id,
-    unit_size.code,
-    unit_size.name,
-    unit_size.active,
-    unit_size.custom,
-    unit_size.created_at,
-    unit_size.updated_at
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
    FROM unit_size
-  ORDER BY unit_size.code;
+  ORDER BY code;
 Options: security_invoker=on
 
 ```

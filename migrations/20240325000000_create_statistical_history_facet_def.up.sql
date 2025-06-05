@@ -14,8 +14,20 @@ WITH year_with_unit_basis AS (
          , su_curr.birth_date AS birth_date
          , su_curr.death_date AS death_date
          --
-         , COALESCE(range.curr_start <= su_curr.birth_date AND su_curr.birth_date <= range.curr_stop,false) AS born
-         , COALESCE(range.curr_start <= su_curr.death_date AND su_curr.death_date <= range.curr_stop,false) AS died
+         , COALESCE(
+             -- Unit is born in this period.
+             su_curr.birth_date BETWEEN range.curr_start AND range.curr_stop,
+             -- TODO: birth_date IS NULL and Unit started to exist in this period.
+             -- su_prev.unit_id IS NULL
+             false
+           ) AS born
+         , COALESCE(
+             -- Unit died in this period.
+             su_curr.death_date BETWEEN range.curr_start AND range.curr_stop,
+             -- TODO: death_date IS NULL and Unit ceased to exist in this period.
+             -- su_next.unit_id IS NULL
+             false
+           ) AS died
          --
          , su_prev.name                             AS prev_name
          , su_prev.primary_activity_category_path   AS prev_primary_activity_category_path
@@ -57,7 +69,7 @@ WITH year_with_unit_basis AS (
          , su_curr.stats AS stats
          , su_curr.stats_summary AS stats_summary
          --
-    FROM public.statistical_history_periods AS range
+    FROM public.get_statistical_history_periods('year'::public.history_resolution) AS range
     JOIN LATERAL (
       -- Within a range find the last row of each timeline
       SELECT *
@@ -65,7 +77,7 @@ WITH year_with_unit_basis AS (
         SELECT su_range.*
              , ROW_NUMBER() OVER (PARTITION BY su_range.unit_type, su_range.unit_id ORDER BY su_range.valid_from DESC) = 1 AS last_in_range
         FROM public.statistical_unit AS su_range
-        WHERE daterange(su_range.valid_from, su_range.valid_to, '[]') && daterange(range.curr_start,range.curr_stop,'[]')
+        WHERE from_to_overlaps(su_range.valid_from, su_range.valid_to, range.curr_start, range.curr_stop)
           -- Entries already dead entries are not relevant.
           AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date)
           -- Entries not yet born are not relevant.
@@ -74,12 +86,29 @@ WITH year_with_unit_basis AS (
       ) AS range_units
       WHERE last_in_range
     ) AS su_curr ON true
+    LEFT JOIN LATERAL (
+      -- Find the first entry after the current range
+      SELECT *
+      FROM public.statistical_unit AS su_range
+      WHERE su_range.unit_type = su_curr.unit_type AND su_range.unit_id = su_curr.unit_id
+        AND from_to_overlaps(su_range.valid_from, su_range.valid_to, range.curr_stop, range.curr_stop)
+        -- Entries already dead are not relevant.
+        AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date)
+        -- Entries not yet born are not relevant.
+        AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)
+        AND su_range.include_unit_in_reports
+      ORDER BY su_range.valid_from ASC
+      LIMIT 1
+    ) AS su_next ON true
     LEFT JOIN public.statistical_unit AS su_prev
       -- There may be a previous entry to compare with.
-      ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to
-      AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
+      ON su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
+      AND from_to_overlaps(su_prev.valid_from, su_prev.valid_to, range.prev_stop, range.prev_stop)
+      -- Entries already dead are not relevant.
+      AND (su_prev.death_date IS NULL OR range.curr_start <= su_prev.death_date)
+      -- Entries not yet born are not relevant.
+      AND (su_prev.birth_date IS NULL OR su_prev.birth_date <= range.curr_stop)
       AND su_prev.include_unit_in_reports
-    WHERE range.resolution = 'year'
 ), year_with_unit_derived AS (
     SELECT basis.*
          --
@@ -114,8 +143,20 @@ WITH year_with_unit_basis AS (
          , su_curr.birth_date AS birth_date
          , su_curr.death_date AS death_date
          --
-         , COALESCE(range.curr_start <= su_curr.birth_date AND su_curr.birth_date <= range.curr_stop,false) AS born
-         , COALESCE(range.curr_start <= su_curr.death_date AND su_curr.death_date <= range.curr_stop,false) AS died
+         , COALESCE(
+             -- Unit is born in this period.
+             su_curr.birth_date BETWEEN range.curr_start AND range.curr_stop,
+             -- TODO: birth_date IS NULL and Unit started to exist in this period.
+             -- su_prev.unit_id IS NULL
+             false
+           ) AS born
+         , COALESCE(
+             -- Unit died in this period.
+             su_curr.death_date BETWEEN range.curr_start AND range.curr_stop,
+             -- TODO: death_date IS NULL and Unit ceased to exist in this period.
+             -- su_next.unit_id IS NULL
+             false
+           ) AS died
          --
          , su_prev.name                             AS prev_name
          , su_prev.primary_activity_category_path   AS prev_primary_activity_category_path
@@ -157,7 +198,7 @@ WITH year_with_unit_basis AS (
          , su_curr.stats AS stats
          , su_curr.stats_summary AS stats_summary
          --
-    FROM public.statistical_history_periods AS range
+    FROM public.get_statistical_history_periods('year-month'::public.history_resolution) AS range
     JOIN LATERAL (
       -- Within a range find the last row of each timeline
       SELECT *
@@ -165,7 +206,7 @@ WITH year_with_unit_basis AS (
         SELECT su_range.*
              , ROW_NUMBER() OVER (PARTITION BY su_range.unit_type, su_range.unit_id ORDER BY su_range.valid_from DESC) = 1 AS last_in_range
         FROM public.statistical_unit AS su_range
-        WHERE daterange(su_range.valid_from, su_range.valid_to, '[]') && daterange(range.curr_start,range.curr_stop,'[]')
+        WHERE from_to_overlaps(su_range.valid_from, su_range.valid_to, range.curr_start, range.curr_stop)
           -- Entries already dead entries are not relevant.
           AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date)
           -- Entries not yet born are not relevant.
@@ -174,12 +215,29 @@ WITH year_with_unit_basis AS (
       ) AS range_units
       WHERE last_in_range
     ) AS su_curr ON true
+    LEFT JOIN LATERAL (
+      -- Find the first entry after the current range
+      SELECT *
+      FROM public.statistical_unit AS su_range
+      WHERE su_range.unit_type = su_curr.unit_type AND su_range.unit_id = su_curr.unit_id
+        AND from_to_overlaps(su_range.valid_from, su_range.valid_to, range.curr_stop, range.curr_stop)
+        -- Entries already dead are not relevant.
+        AND (su_range.death_date IS NULL OR range.curr_start <= su_range.death_date)
+        -- Entries not yet born are not relevant.
+        AND (su_range.birth_date IS NULL OR su_range.birth_date <= range.curr_stop)
+        AND su_range.include_unit_in_reports
+      ORDER BY su_range.valid_from ASC
+      LIMIT 1
+    ) AS su_next ON true
     LEFT JOIN public.statistical_unit AS su_prev
       -- There may be a previous entry to compare with.
-      ON su_prev.valid_from <= range.prev_stop AND range.prev_stop <= su_prev.valid_to
-      AND su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
+      ON su_prev.unit_type = su_curr.unit_type AND su_prev.unit_id = su_curr.unit_id
+      AND from_to_overlaps(su_prev.valid_from, su_prev.valid_to, range.prev_stop, range.prev_stop)
+      -- Entries already dead are not relevant.
+      AND (su_prev.death_date IS NULL OR range.curr_start <= su_prev.death_date)
+      -- Entries not yet born are not relevant.
+      AND (su_prev.birth_date IS NULL OR su_prev.birth_date <= range.curr_stop)
       AND su_prev.include_unit_in_reports
-    WHERE range.resolution = 'year-month'
 ), year_and_month_with_unit_derived AS (
     SELECT basis.*
          --

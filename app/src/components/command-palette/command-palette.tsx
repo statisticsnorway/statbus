@@ -14,6 +14,8 @@ import {
   Trash,
   Upload,
   User,
+  Database,
+  FileSpreadsheet,
 } from "lucide-react";
 
 import {
@@ -25,7 +27,6 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
 import { DialogDescription, DialogTitle } from "@radix-ui/react-dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 
@@ -66,35 +67,6 @@ export function CommandPalette() {
     document.dispatchEvent(event);
   };
 
-  const handleStatisticalUnitsRefresh = async () => {
-    setOpen(false);
-    try {
-      const client = await createSupabaseBrowserClientAsync();
-      const { data, error } = await client.rpc(
-        "statistical_unit_refresh_now"
-      );
-
-      if (data) {
-        console.table(data, [
-          "view_name",
-          "refresh_time_ms",
-        ]);
-      }
-
-      toast({
-        title: error ? "Statistical Units Refresh Failed" : "Statistical Units Refresh OK",
-        description: error?.message ?? "Statistical units have been refreshed.",
-      });
-
-    } catch (error) {
-      toast({
-        title: "Statistical Units Refresh Failed",
-        description: "An unexpected error occurred",
-      });
-    }
-  };
-
-
   const navigate = (path: string) => {
     setOpen(false);
     router.push(path);
@@ -114,18 +86,38 @@ export function CommandPalette() {
         <CommandInput placeholder="Type a command or search..." />
         <CommandList>
           <CommandEmpty>No results found.</CommandEmpty>
-          <CommandGroup heading="Pages">
+          <CommandGroup heading="Main Pages">
             <CommandItem onSelect={() => navigate("/")} value="Start page">
               <Home className="mr-2 h-4 w-4" />
               <span>Start page</span>
             </CommandItem>
             <CommandItem
+              onSelect={() => navigate("/import")}
+              value="Import"
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              <span>Import</span>
+            </CommandItem>
+            <CommandItem
               onSelect={() => navigate("/search")}
-              value="Search find statistical units"
+              value="Find statistical units"
             >
               <Search className="mr-2 h-4 w-4" />
               <span>Find statistical units</span>
             </CommandItem>
+            <CommandItem
+              onSelect={() => navigate("/reports")}
+              value="Reports"
+            >
+              <BarChartHorizontal className="mr-2 h-4 w-4" />
+              <span>Reports</span>
+            </CommandItem>
+            <CommandItem onSelect={() => navigate("/profile")} value="Profile">
+              <User className="mr-2 h-4 w-4" />
+              <span>Profile</span>
+            </CommandItem>
+          </CommandGroup>
+          <CommandGroup heading="Other Pages">
             <CommandItem
               onSelect={() => navigate("/getting-started")}
               value="Getting started"
@@ -199,16 +191,12 @@ export function CommandPalette() {
               <Upload className="mr-2 h-4 w-4" />
               <span>Upload Establishments Without Legal Unit</span>
             </CommandItem>
-            <CommandItem onSelect={() => navigate("/profile")} value="Profile">
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
-            </CommandItem>
             <CommandItem
-              onSelect={() => navigate("/reports")}
-              value="Reports drill drilldown"
+              onSelect={() => navigate("/import/jobs")}
+              value="Import Jobs"
             >
-              <BarChartHorizontal className="mr-2 h-4 w-4" />
-              <span>Reports</span>
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+              <span>Import Jobs</span>
             </CommandItem>
           </CommandGroup>
           <CommandSeparator />
@@ -220,9 +208,15 @@ export function CommandPalette() {
               <Trash className="mr-2 h-4 w-4" />
               <span>Reset..</span>
             </CommandItem>
-            <CommandItem onSelect={handleStatisticalUnitsRefresh}>
-              <ListRestart className="mr-2 h-4 w-4" />
-              <span>Refresh Statistical Units</span>
+            <CommandItem
+              onSelect={() => {
+                setOpen(false);
+                window.open('/pev2.html', '_blank');
+              }}
+              value="postgres explain visualizer pev2 query performance"
+            >
+              <Database className="mr-2 h-4 w-4" />
+              <span>Postgres Explain Visualizer</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>

@@ -246,9 +246,9 @@ ssh $DEPLOYMENT_USER@$HOST bash << UPDATE_SETTINGS
         echo "StatBus URL is already https://www.$DOMAIN"
     fi
 
-    current_supabase_url=\$(grep '^BROWSER_SUPABASE_URL=' .env.config | cut -d'=' -f2)
+    current_supabase_url=\$(grep '^BROWSER_REST_URL=' .env.config | cut -d'=' -f2)
     if [ "\$current_supabase_url" != "https://api.$DOMAIN" ]; then
-        sed -i "s#BROWSER_SUPABASE_URL=.*#BROWSER_SUPABASE_URL=https://api.$DOMAIN#" .env.config
+        sed -i "s#BROWSER_REST_URL=.*#BROWSER_REST_URL=https://api.$DOMAIN#" .env.config
         echo "Updated Supabase URL"
     else
         echo "Supabase URL is already https://api.$DOMAIN"

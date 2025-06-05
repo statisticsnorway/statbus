@@ -1,7 +1,12 @@
 "use client";
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
-import { SupabaseClient } from '@supabase/supabase-js';
+import { getBrowserRestClient } from "@/context/RestClientStore";
+import { PostgrestClient } from '@supabase/postgrest-js';
+import { Database } from '@/lib/database.types';
+import { authStore } from '@/context/AuthStore';
+
+// Define StatbusClient type locally
+type StatbusClient = PostgrestClient<Database>;
 
 interface GettingStartedState {
   activity_category_standard: { id: number, name: string } | null;
@@ -30,7 +35,7 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
     numberOfCustomLegalForms: null,
   });
 
-  const [client, setClient] = useState<SupabaseClient | null>(null);
+  const [client, setClient] = useState<StatbusClient | null>(null);
 
   const refreshActivityCategoryStandard = useCallback(async () => {
     if (!client) return;
@@ -106,16 +111,62 @@ export const GettingStartedProvider: React.FC<{ children: React.ReactNode }> = (
   ]);
 
   useEffect(() => {
+    let isMounted = true;
     const initializeClient = async () => {
-      const supabaseClient = await createSupabaseBrowserClientAsync();
-      setClient(supabaseClient);
+      try {
+        const postgrestClient = await getBrowserRestClient();
+        if (isMounted) {
+          setClient(postgrestClient);
+        }
+      } catch (error) {
+        console.error("Error initializing browser client in GettingStartedContext:", error);
+      }
     };
     initializeClient();
+    
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   useEffect(() => {
     if (client) {
-      refreshCounts();
+      let isMounted = true;
+      
+      const loadData = async () => {
+        try {
+          // Check authentication status first
+          const authenticated = await authStore.isAuthenticated();          
+          if (!authenticated || !isMounted) {
+            console.warn("Not authenticated or component unmounted, skipping data fetch");
+            return;
+          }
+          
+          // Pre-fetch base data to ensure it's cached (includes time contexts and other reference data)
+          try {
+            const { baseDataStore } = await import('@/context/BaseDataStore');
+            await baseDataStore.getBaseData(client);
+          } catch (error) {
+            console.warn('Failed to pre-fetch base data:', error);
+            // Continue anyway, as this is just optimization
+          }
+
+          if (isMounted) {
+            // Only try to access data if authenticated and test succeeded
+            await refreshCounts();
+          }
+        } catch (err) {
+          if (isMounted) {
+            console.error("Failed to load data:", err);
+          }
+        }
+      };
+      
+      loadData();
+      
+      return () => {
+        isMounted = false;
+      };
     }
   }, [client, refreshCounts]);
 

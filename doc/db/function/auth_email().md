@@ -4,10 +4,6 @@ CREATE OR REPLACE FUNCTION auth.email()
  LANGUAGE sql
  STABLE
 AS $function$
-  select 
-  coalesce(
-    nullif(current_setting('request.jwt.claim.email', true), ''),
-    (nullif(current_setting('request.jwt.claims', true), '')::jsonb ->> 'email')
-  )::text
+  SELECT current_user;
 $function$
 ```

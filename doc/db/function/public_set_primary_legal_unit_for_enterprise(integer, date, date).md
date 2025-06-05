@@ -11,8 +11,7 @@ BEGIN
     SELECT lu.* INTO legal_unit_row
     FROM public.legal_unit AS lu
     WHERE lu.id = legal_unit_id
-      AND daterange(lu.valid_from, lu.valid_to, '[]')
-       && daterange(valid_from_param, valid_to_param, '[]');
+      AND from_to_overlaps(lu.valid_from, lu.valid_to, valid_from_param, valid_to_param);
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Legal unit does not exist.';
     END IF;
@@ -31,8 +30,7 @@ BEGIN
         SET primary_for_enterprise = false
         WHERE primary_for_enterprise
           AND enterprise_id = legal_unit_row.enterprise_id
-          AND daterange(valid_from, valid_to, '[]')
-           && daterange(valid_from_param, valid_to_param, '[]')
+          AND from_to_overlaps(valid_from, valid_to, valid_from_param, valid_to_param)
         RETURNING id
     )
     SELECT jsonb_agg(jsonb_build_object('table', 'legal_unit', 'id', id)) INTO v_unset_ids FROM updated_rows;
@@ -42,8 +40,7 @@ BEGIN
         UPDATE public.legal_unit
         SET primary_for_enterprise = true
         WHERE id = legal_unit_row.id
-          AND daterange(valid_from, valid_to, '[]')
-           && daterange(valid_from_param, valid_to_param, '[]')
+          AND from_to_overlaps(valid_from, valid_to, valid_from_param, valid_to_param)
         RETURNING id
     )
     SELECT jsonb_build_object('table', 'legal_unit', 'id', id) INTO v_set_id FROM updated_row;

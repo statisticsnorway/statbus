@@ -12,13 +12,13 @@
  valid_from      | date                   |           |          |         | plain    | 
  valid_to        | date                   |           |          |         | plain    | 
 View definition:
- SELECT relative_period.id,
-    relative_period.code,
-    relative_period.name_when_query,
-    relative_period.name_when_input,
-    relative_period.scope,
-    relative_period.active,
-        CASE relative_period.code
+ SELECT id,
+    code,
+    name_when_query,
+    name_when_input,
+    scope,
+    active,
+        CASE code
             WHEN 'today'::relative_period_code THEN CURRENT_DATE::timestamp with time zone
             WHEN 'year_prev'::relative_period_code THEN date_trunc('year'::text, CURRENT_DATE::timestamp with time zone) - '1 day'::interval
             WHEN 'year_prev_only'::relative_period_code THEN date_trunc('year'::text, CURRENT_DATE::timestamp with time zone) - '1 day'::interval
@@ -60,7 +60,7 @@ View definition:
             WHEN 'start_of_decade_prev'::relative_period_code THEN (date_trunc('year'::text, CURRENT_DATE - '1 year'::interval * (EXTRACT(year FROM CURRENT_DATE)::integer % 10)::double precision) - '10 years'::interval)::timestamp with time zone
             ELSE NULL::timestamp with time zone
         END::date AS valid_on,
-        CASE relative_period.code
+        CASE code
             WHEN 'today'::relative_period_code THEN CURRENT_DATE
             WHEN 'year_prev'::relative_period_code THEN date_trunc('year'::text, CURRENT_DATE - '1 year'::interval)::date
             WHEN 'year_curr'::relative_period_code THEN date_trunc('year'::text, CURRENT_DATE::timestamp with time zone)::date
@@ -68,7 +68,7 @@ View definition:
             WHEN 'year_curr_only'::relative_period_code THEN date_trunc('year'::text, CURRENT_DATE::timestamp with time zone)::date
             ELSE NULL::date
         END AS valid_from,
-        CASE relative_period.code
+        CASE code
             WHEN 'today'::relative_period_code THEN 'infinity'::date::timestamp without time zone
             WHEN 'year_prev'::relative_period_code THEN 'infinity'::date::timestamp without time zone
             WHEN 'year_curr'::relative_period_code THEN 'infinity'::date::timestamp without time zone

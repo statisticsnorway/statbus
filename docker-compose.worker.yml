@@ -1,0 +1,29 @@
+services:
+  worker:
+    container_name: ${COMPOSE_INSTANCE_NAME:?COMPOSE_INSTANCE_NAME must be set in the generated .env}-worker
+    build:
+      context: ./cli
+    platform: linux/arm64
+    profiles:
+      - "all"
+      - "all_except_app"
+    environment:
+      # Docker environment detection
+      RUNNING_IN_DOCKER: "true"
+      # Only expose variables needed by the CLI config
+      POSTGRES_HOST: db
+      POSTGRES_PORT: 5432
+      POSTGRES_APP_DB: ${POSTGRES_APP_DB}
+      POSTGRES_ADMIN_USER: ${POSTGRES_ADMIN_USER}
+      POSTGRES_ADMIN_PASSWORD: ${POSTGRES_ADMIN_PASSWORD}
+      # Logging variables
+      SEQ_SERVER_URL: ${SEQ_SERVER_URL:-https://log.statbus.org}
+      SEQ_API_KEY: ${SEQ_API_KEY}
+      VERSION: ${VERSION}
+      # Debug flags from .env
+      VERBOSE: ${VERBOSE:-0}
+      DEBUG: ${DEBUG:-0}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy

@@ -1,9 +1,9 @@
 "use server";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { getServerRestClient } from "@/context/RestClientStore";
 import RegionOptions from "@/app/search/filters/region/region-options";
 
 export default async function RegionFilter() {
-  const client = await createSupabaseSSRClient();
+  const client = await getServerRestClient();
   const regions = await client.from("region_used").select();
 
   return (

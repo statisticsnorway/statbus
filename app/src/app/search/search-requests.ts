@@ -1,23 +1,29 @@
-import { SupabaseClient } from '@supabase/supabase-js';
+import { PostgrestClient } from '@supabase/postgrest-js';
+import { Database } from '@/lib/database.types';
 import { SearchResult } from './search';
-import { Fetch } from '@supabase/auth-js/src/lib/fetch';
+import { getServerRestClient } from '@/context/RestClientStore';
 
-export async function getStatisticalUnits(client: SupabaseClient, searchParams: URLSearchParams): Promise<SearchResult> {
-  // Inspect inside the client and get the correct url,
-  // as server side and client side code uses different urls.
-  // due to running inside docker containers.
-  const apiFetcher = (client as any).rest.fetch as Fetch;
-  const supabase_url = (client as any).rest.url as String
-  var response = await apiFetcher(
-    `${supabase_url}/statistical_unit?${searchParams}`,
-    {
-      method: "GET",
-      headers: {
-        Prefer: "count=exact",
-        "Range-Unit": "items",
-      },
-    }
-  ) as Response;
+export async function getStatisticalUnits(client: PostgrestClient<Database> | null = null, searchParams: URLSearchParams): Promise<SearchResult> {
+  // If no client is provided, get one from RestClientStore
+  if (!client) {
+    client = await getServerRestClient();
+  }
+  // Use the PostgrestClient directly, that searchParams that is properly formatted for PostgREST can be used directly.
+  // Ensure the base URL ends with a slash for proper URL construction
+  const baseUrl = client.url.endsWith('/') ? client.url : `${client.url}/`;
+  const url = new URL(`statistical_unit?${searchParams}`, baseUrl);
+  
+  // Use the fetch method with proper headers
+  const response = await fetch(url, {
+    method: "GET",
+    headers: {
+      Prefer: "count=exact",
+      "Range-Unit": "items",
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+    },
+    credentials: 'include', // Include cookies for auth
+  });
 
   if (!response.ok) {
     throw new Error(`Error: ${response.statusText} (Status: ${response.status})`);

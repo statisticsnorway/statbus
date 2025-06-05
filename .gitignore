@@ -60,6 +60,8 @@ app/.vscode/*
 !app/.vscode/tasks.json
 !app/.vscode/launch.json
 
+# Add this here for Aider
+app/.next
 
 ### Csharp ###
 ## Ignore Visual Studio temporary files, build results, and
@@ -479,9 +481,14 @@ key-*.xml
 .env.config
 .env.backup*
 .env.credentials
+.env.local
 .users.yml
-# Ignore deployment configuration for Caddy
-deployment.caddyfile
+
+# Ignore postgres data files
+/postgres/volumes/db/data
+
+# Ignore generated caddy configuration
+/caddy/config
 
 # Ignore aider AI tool files, except those useful.
 .aider*

@@ -23,8 +23,7 @@ BEGIN
     SELECT lu.enterprise_id, lu.primary_for_enterprise INTO old_enterprise_id, is_primary
     FROM public.legal_unit AS lu
     WHERE lu.id = legal_unit_id
-    AND daterange(valid_after_p, valid_to_p, '(]')
-     && daterange(lu.valid_after, lu.valid_to, '(]')
+    AND after_to_overlaps(valid_after_p, valid_to_p, lu.valid_after, lu.valid_to)
     ;
     IF NOT FOUND THEN
         RAISE EXCEPTION 'Legal Unit does not exist.';
@@ -45,8 +44,7 @@ BEGIN
         FROM public.legal_unit AS lu
         WHERE enterprise_id = old_enterprise_id
           AND lu.id <> legal_unit_id
-          AND daterange(valid_after_p, valid_to_p, '(]')
-           && daterange(lu.valid_after, lu.valid_to, '(]');
+          AND after_to_overlaps(valid_after_p, valid_to_p, lu.valid_after, lu.valid_to);
 
         -- If there is only one other legal unit, set it to primary.
         IF other_legal_units_count = 1 THEN
@@ -54,15 +52,13 @@ BEGIN
             FROM public.legal_unit AS lu
             WHERE lu.enterprise_id = old_enterprise_id
               AND lu.id <> legal_unit_id
-              AND daterange(valid_after_p, valid_to_p, '(]')
-               && daterange(lu.valid_after, lu.valid_to, '(]');
+              AND after_to_overlaps(valid_after_p, valid_to_p, lu.valid_after, lu.valid_to);
 
             -- TODO: Use update for portion instead.
             UPDATE public.legal_unit
             SET primary_for_enterprise = true
             WHERE id = new_primary_legal_unit_id
-              AND daterange(valid_after_p, valid_to_p, '(]')
-             && daterange(valid_after, valid_to, '(]');
+              AND after_to_overlaps(valid_after_p, valid_to_p, valid_after, valid_to);
         ELSIF other_legal_units_count > 1 THEN
             RAISE EXCEPTION 'Assign another primary legal_unit to existing enterprise first';
         END IF;
@@ -75,8 +71,7 @@ BEGIN
         FROM public.legal_unit AS lu
         WHERE lu.enterprise_id = enterprise_id
           AND lu.id != legal_unit_id
-          AND daterange(valid_after_p, valid_to_p, '(]') 
-           && daterange(lu.valid_after, lu.valid_to, '(]')
+          AND after_to_overlaps(valid_after_p, valid_to_p, lu.valid_after, lu.valid_to)
     ) INTO is_primary;
 
 
@@ -86,8 +81,7 @@ BEGIN
         SET enterprise_id = enterprise_id
           , primary_for_enterprise = is_primary
         WHERE lu.id = legal_unit_id
-          AND daterange(valid_after_p, valid_to_p, '(]')
-           && daterange(lu.valid_after, lu.valid_to, '(]')
+          AND after_to_overlaps(valid_after_p, valid_to_p, lu.valid_after, lu.valid_to)
         RETURNING lu.id
     )
     SELECT array_agg(id) INTO updated_legal_unit_ids FROM updated;

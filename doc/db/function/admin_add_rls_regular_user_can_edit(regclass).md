@@ -15,25 +15,31 @@ BEGIN
     -- Enable RLS
     EXECUTE format('ALTER TABLE %I.%I ENABLE ROW LEVEL SECURITY', schema_name_str, table_name_str);
 
+    -- Grant permissions to roles
+    -- SELECT for authenticated users
+    EXECUTE format('GRANT SELECT ON %I.%I TO authenticated', schema_name_str, table_name_str);
+    
+    -- ALL permissions for regular_user
+    EXECUTE format('GRANT ALL ON %I.%I TO regular_user', schema_name_str, table_name_str);
+    
+    -- ALL permissions for admin_user
+    EXECUTE format('GRANT ALL ON %I.%I TO admin_user', schema_name_str, table_name_str);
+
     -- Base authenticated read policy
     EXECUTE format(
         'CREATE POLICY %s_authenticated_read ON %I.%I FOR SELECT TO authenticated USING (true)',
         table_name_str, schema_name_str, table_name_str
     );
 
-    -- Regular user full access policy
+    -- Regular user full access policy - using native role system
     EXECUTE format(
-        'CREATE POLICY %s_regular_user_manage ON %I.%I FOR ALL TO authenticated
-         USING (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))
-         WITH CHECK (auth.has_statbus_role(auth.uid(), ''regular_user''::public.statbus_role_type))',
+        'CREATE POLICY %s_regular_user_manage ON %I.%I FOR ALL TO regular_user USING (true) WITH CHECK (true)',
         table_name_str, schema_name_str, table_name_str
     );
 
-    -- Super user full access policy
+    -- Admin user full access policy - using native role system
     EXECUTE format(
-        'CREATE POLICY %s_super_user_manage ON %I.%I FOR ALL TO authenticated
-         USING (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))
-         WITH CHECK (auth.has_statbus_role(auth.uid(), ''super_user''::public.statbus_role_type))',
+        'CREATE POLICY %s_admin_user_manage ON %I.%I FOR ALL TO admin_user USING (true) WITH CHECK (true)',
         table_name_str, schema_name_str, table_name_str
     );
 END;

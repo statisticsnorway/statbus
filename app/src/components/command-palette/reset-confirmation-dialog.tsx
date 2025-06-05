@@ -20,7 +20,7 @@ import {
 import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Enums } from "@/lib/database.types";
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
+import { getBrowserRestClient } from "@/context/RestClientStore";
 
 export function ResetConfirmationDialog() {
   const { toast } = useToast();
@@ -43,7 +43,7 @@ export function ResetConfirmationDialog() {
     e.preventDefault();
     setIsLoading(true);
     try {
-      const client = await createSupabaseBrowserClientAsync();
+      const client = await getBrowserRestClient();
       const { data: summary, error } = await client.rpc("reset", {
         scope: scope,
         confirmed: true,

@@ -1,84 +1,140 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { createSupabaseBrowserClientAsync } from "@/utils/supabase/client";
 import { Spinner } from "@/components/ui/spinner";
 import { useBaseData } from "@/app/BaseDataClient";
+import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
-type AnalysisState = "checking" | "refreshing" | "finished" | "failed";
+type AnalysisState = "checking_status" | "in_progress" | "finished" | "failed";
 
 export function StatisticalUnitsRefresher({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [state, setState] = useState("checking" as AnalysisState);
+  const [state, setState] = useState<AnalysisState>("checking_status");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const { hasStatisticalUnits, refreshHasStatisticalUnits } = useBaseData();
+  // Get status and refresh function directly from context
+  const { workerStatus, hasStatisticalUnits, refreshHasStatisticalUnits } = useBaseData();
 
+  // Effect to determine component state based on context status
   useEffect(() => {
-    const checkAndRefresh = async () => {
-      if (state == "checking") {
-        if (hasStatisticalUnits) {
+    const { isImporting, isDerivingUnits, isDerivingReports, isLoading, error } = workerStatus;
+
+    if (isLoading) {
+      setState("checking_status");
+      return;
+    }
+
+    if (error) {
+      setState("failed");
+      setErrorMessage(`Error checking derivation status: ${error}`);
+      return;
+    }
+
+    if (isImporting === true || isDerivingUnits === true || isDerivingReports === true) {
+      setState("in_progress");
+    } else {
+      // Import and Derivation are finished according to context, now check if units exist
+      const checkUnits = async () => {
+        const currentHasUnits = await refreshHasStatisticalUnits(); // Refresh and get latest
+        if (currentHasUnits) {
           setState("finished");
         } else {
-          setState("refreshing");
-        }
-      }
-
-      if (state == "refreshing") {
-        try {
-          const client = await createSupabaseBrowserClientAsync();
-          const { status, statusText, data, error } = await client.rpc(
-            "statistical_unit_refresh_now"
-          );
-
-          if (error) {
-            setState("failed");
-            setErrorMessage(error.message);
-          } else {
-            setState("finished");
-            refreshHasStatisticalUnits();
-          }
-        } catch (error) {
+          // Derivation finished, but no units found
           setState("failed");
-          setErrorMessage("Error refreshing statistical units");
+          setErrorMessage("Data analysis completed, but no statistical units were found.");
         }
-      }
-    };
+      };
+      checkUnits();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+       workerStatus.isImporting,
+       workerStatus.isDerivingUnits,
+       workerStatus.isDerivingReports,
+       workerStatus.isLoading,
+       workerStatus.error,
+       refreshHasStatisticalUnits
+     ]);
 
-    checkAndRefresh();
-  }, [state, hasStatisticalUnits, refreshHasStatisticalUnits]);
-
-  if (state == "checking") {
-    return <Spinner message="Checking data for Search and Reports...." />;
+  if (state === "checking_status") {
+    return <Spinner message="Checking status of data analysis..." />;
   }
 
-  if (state == "refreshing") {
-    return <Spinner message="Analysing data for Search and Reports...." />;
-  }
+  const { isImporting, isDerivingUnits, isDerivingReports } = workerStatus;
 
-  if (state == "failed") {
+  // Double-check: Ensure isActive strictly expects boolean
+  const renderStatusItem = (
+    label: string,
+    isActive: boolean,
+    isDone: boolean
+  ) => {
     return (
-      <div className="text-center">
-        <p className="text-gray-700">
-          Data analysis for Search and Reports Failed
-        </p>
-        <p className="text-red-500">{errorMessage}</p>
+      <div className="flex items-center space-x-3 py-2">
+        <div className="w-8">
+          {isActive ? (
+            <Spinner className="h-6 w-6" />
+          ) : isDone ? (
+            <CheckCircle className="h-6 w-6 text-green-500" />
+          ) : (
+            <div className="h-6 w-6 rounded-full border-2 border-gray-300" />
+          )}
+        </div>
+        <div className="flex-1">
+          <p className={`font-medium ${isActive ? "text-black" : "text-gray-600"}`}>
+            {label}
+          </p>
+        </div>
+      </div>
+    );
+  };
+
+  if (state === "in_progress" || state === "finished") {
+    // Determine which steps are done based on current state
+    // Ensure results are boolean, handling potential nulls from workerStatus
+    const importDone = !!(state === "finished" || (!isImporting && (isDerivingUnits || isDerivingReports)));
+    const unitsDone = !!(state === "finished" || (!isDerivingUnits && isDerivingReports));
+    const reportsDone = state === "finished"; // This is already boolean
+
+    return (
+      <div className="space-y-6">
+        <div className="bg-white rounded-lg border p-4 shadow-sm">
+          <h3 className="text-lg font-medium mb-4">Analysis Progress</h3>
+          
+          {renderStatusItem("Importing Data", isImporting ?? false, importDone)}
+          {renderStatusItem("Deriving Statistical Units", isDerivingUnits ?? false, unitsDone)}
+          {renderStatusItem("Generating Reports", isDerivingReports ?? false, reportsDone)}
+          
+          {state === "finished" && (
+            <div className="mt-4 pt-4 border-t border-gray-200 text-center">
+              <p className="text-green-600 font-medium">
+                All processes completed successfully
+              </p>
+            </div>
+          )}
+        </div>
+        
+        {state === "finished" && children}
       </div>
     );
   }
 
-  // state == "finished"
-  //Data analysis for Search and Reports completed.
-  return (
-    <>
-      <div className="text-center">
-        <p className="text-gray-700">
-          Data analysis for Search and Reports completed.
+  if (state === "failed") {
+    return (
+      <div className="bg-white rounded-lg border border-red-200 p-4 shadow-sm">
+        <div className="flex items-center space-x-3 text-red-600 mb-3">
+          <AlertCircle className="h-6 w-6" />
+          <h3 className="text-lg font-medium">Analysis Failed</h3>
+        </div>
+        <p className="text-gray-700 mb-2">
+          Data analysis for Search and Reports failed to complete.
         </p>
+        <p className="text-red-500 text-sm">{errorMessage}</p>
       </div>
-      {children}
-    </>
-  );
+    );
+  }
+
+  // Fallback (should not reach here)
+  return <Spinner message="Processing..." />;
 }

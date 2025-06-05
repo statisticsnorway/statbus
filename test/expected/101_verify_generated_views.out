@@ -1,0 +1,490 @@
+\d+ public.sector_ordered
+                                   View "public.sector_ordered"
+   Column    |           Type           | Collation | Nullable | Default | Storage  | Description 
+-------------+--------------------------+-----------+----------+---------+----------+-------------
+ id          | integer                  |           |          |         | plain    | 
+ path        | ltree                    |           |          |         | extended | 
+ parent_id   | integer                  |           |          |         | plain    | 
+ label       | character varying        |           |          |         | extended | 
+ code        | character varying        |           |          |         | extended | 
+ name        | text                     |           |          |         | extended | 
+ description | text                     |           |          |         | extended | 
+ active      | boolean                  |           |          |         | plain    | 
+ custom      | boolean                  |           |          |         | plain    | 
+ created_at  | timestamp with time zone |           |          |         | plain    | 
+ updated_at  | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    path,
+    parent_id,
+    label,
+    code,
+    name,
+    description,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM sector
+  ORDER BY path;
+Options: security_invoker=on
+
+\d+ public.sector_available
+                                  View "public.sector_available"
+   Column    |           Type           | Collation | Nullable | Default | Storage  | Description 
+-------------+--------------------------+-----------+----------+---------+----------+-------------
+ id          | integer                  |           |          |         | plain    | 
+ path        | ltree                    |           |          |         | extended | 
+ parent_id   | integer                  |           |          |         | plain    | 
+ label       | character varying        |           |          |         | extended | 
+ code        | character varying        |           |          |         | extended | 
+ name        | text                     |           |          |         | extended | 
+ description | text                     |           |          |         | extended | 
+ active      | boolean                  |           |          |         | plain    | 
+ custom      | boolean                  |           |          |         | plain    | 
+ created_at  | timestamp with time zone |           |          |         | plain    | 
+ updated_at  | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    path,
+    parent_id,
+    label,
+    code,
+    name,
+    description,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM sector_ordered
+  WHERE active;
+Options: security_invoker=on
+
+\d+ public.legal_form_ordered
+                                View "public.legal_form_ordered"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM legal_form
+  ORDER BY code;
+Options: security_invoker=on
+
+\d+ public.legal_form_available
+                               View "public.legal_form_available"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM legal_form_ordered
+  WHERE active;
+Options: security_invoker=on
+
+\d+ public.reorg_type_ordered
+                                 View "public.reorg_type_ordered"
+   Column    |           Type           | Collation | Nullable | Default | Storage  | Description 
+-------------+--------------------------+-----------+----------+---------+----------+-------------
+ id          | integer                  |           |          |         | plain    | 
+ code        | text                     |           |          |         | extended | 
+ name        | text                     |           |          |         | extended | 
+ description | text                     |           |          |         | extended | 
+ active      | boolean                  |           |          |         | plain    | 
+ custom      | boolean                  |           |          |         | plain    | 
+ created_at  | timestamp with time zone |           |          |         | plain    | 
+ updated_at  | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    description,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM reorg_type
+  ORDER BY code;
+Options: security_invoker=on
+
+\d+ public.reorg_type_available
+                                View "public.reorg_type_available"
+   Column    |           Type           | Collation | Nullable | Default | Storage  | Description 
+-------------+--------------------------+-----------+----------+---------+----------+-------------
+ id          | integer                  |           |          |         | plain    | 
+ code        | text                     |           |          |         | extended | 
+ name        | text                     |           |          |         | extended | 
+ description | text                     |           |          |         | extended | 
+ active      | boolean                  |           |          |         | plain    | 
+ custom      | boolean                  |           |          |         | plain    | 
+ created_at  | timestamp with time zone |           |          |         | plain    | 
+ updated_at  | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    description,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM reorg_type_ordered
+  WHERE active;
+Options: security_invoker=on
+
+\d+ public.foreign_participation_ordered
+                           View "public.foreign_participation_ordered"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM foreign_participation
+  ORDER BY code;
+Options: security_invoker=on
+
+\d+ public.foreign_participation_available
+                          View "public.foreign_participation_available"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM foreign_participation_ordered
+  WHERE active;
+Options: security_invoker=on
+
+\d+ public.data_source_ordered
+                                View "public.data_source_ordered"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM data_source
+  ORDER BY code;
+Options: security_invoker=on
+
+\d+ public.data_source_available
+                               View "public.data_source_available"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM data_source_ordered
+  WHERE active;
+Options: security_invoker=on
+
+\d+ public.unit_size_ordered
+                                 View "public.unit_size_ordered"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM unit_size
+  ORDER BY code;
+Options: security_invoker=on
+
+\d+ public.unit_size_available
+                                View "public.unit_size_available"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM unit_size_ordered
+  WHERE active;
+Options: security_invoker=on
+
+\d+ public.person_role_ordered
+                                View "public.person_role_ordered"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM person_role
+  ORDER BY code;
+Options: security_invoker=on
+
+\d+ public.person_role_available
+                               View "public.person_role_available"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM person_role_ordered
+  WHERE active;
+Options: security_invoker=on
+
+\d+ public.enterprise_group_type_ordered
+                           View "public.enterprise_group_type_ordered"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM enterprise_group_type
+  ORDER BY code;
+Options: security_invoker=on
+
+\d+ public.enterprise_group_type_available
+                          View "public.enterprise_group_type_available"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM enterprise_group_type_ordered
+  WHERE active;
+Options: security_invoker=on
+
+\d+ public.enterprise_group_role_ordered
+                           View "public.enterprise_group_role_ordered"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM enterprise_group_role
+  ORDER BY code;
+Options: security_invoker=on
+
+\d+ public.enterprise_group_role_available
+                          View "public.enterprise_group_role_available"
+   Column   |           Type           | Collation | Nullable | Default | Storage  | Description 
+------------+--------------------------+-----------+----------+---------+----------+-------------
+ id         | integer                  |           |          |         | plain    | 
+ code       | text                     |           |          |         | extended | 
+ name       | text                     |           |          |         | extended | 
+ active     | boolean                  |           |          |         | plain    | 
+ custom     | boolean                  |           |          |         | plain    | 
+ created_at | timestamp with time zone |           |          |         | plain    | 
+ updated_at | timestamp with time zone |           |          |         | plain    | 
+View definition:
+ SELECT id,
+    code,
+    name,
+    active,
+    custom,
+    created_at,
+    updated_at
+   FROM enterprise_group_role_ordered
+  WHERE active;
+Options: security_invoker=on
+
+BEGIN;
+SELECT admin.drop_table_views_for_batch_api('public.sector');
+ drop_table_views_for_batch_api 
+--------------------------------
+ 
+(1 row)
+
+SELECT admin.drop_table_views_for_batch_api('public.legal_form');
+ drop_table_views_for_batch_api 
+--------------------------------
+ 
+(1 row)
+
+SELECT admin.drop_table_views_for_batch_api('public.reorg_type');
+ drop_table_views_for_batch_api 
+--------------------------------
+ 
+(1 row)
+
+SELECT admin.drop_table_views_for_batch_api('public.foreign_participation');
+ drop_table_views_for_batch_api 
+--------------------------------
+ 
+(1 row)
+
+SELECT admin.drop_table_views_for_batch_api('public.data_source');
+ drop_table_views_for_batch_api 
+--------------------------------
+ 
+(1 row)
+
+SELECT admin.drop_table_views_for_batch_api('public.unit_size');
+ drop_table_views_for_batch_api 
+--------------------------------
+ 
+(1 row)
+
+SELECT admin.drop_table_views_for_batch_api('public.person_role');
+ drop_table_views_for_batch_api 
+--------------------------------
+ 
+(1 row)
+
+SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_type');
+ drop_table_views_for_batch_api 
+--------------------------------
+ 
+(1 row)
+
+SELECT admin.drop_table_views_for_batch_api('public.enterprise_group_role');
+ drop_table_views_for_batch_api 
+--------------------------------
+ 
+(1 row)
+
+ROLLBACK;

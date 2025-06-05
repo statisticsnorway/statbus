@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import React from "react";
 import CategoryStandardForm from "@/app/getting-started/activity-standard/category-standard-form";
 import {
@@ -6,14 +8,21 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { getServerRestClient } from "@/context/RestClientStore";
 
 export default async function ActivityStandardPage() {
-  const client = await createSupabaseSSRClient();
+  const client = await getServerRestClient();
 
-  const { data: standards } = await client
+  const { data: standards, error: standardsError } = await client
     .from("activity_category_standard")
-    .select();
+    .select()
+    .order("code");
+
+  if (standardsError) {
+    console.error("Activity category standards fetch error:", { 
+      error: standardsError
+    });
+  }
 
   const { data: settings } = await client.from("settings").select();
 

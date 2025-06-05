@@ -5,12 +5,12 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { createSupabaseSSRClient } from "@/utils/supabase/server";
+import { getServerRestClient } from "@/context/RestClientStore";
 import { ExternalIdentInputs } from "./external-ident-inputs";
 import { ActiveExternalIdentBadges } from "./active-external-ident-badges";
 
 export default async function ExternalIdentFilter() {
-  const client = await createSupabaseSSRClient();
+  const client = await getServerRestClient();
   const externalIdentTypes = await client
     .from("external_ident_type_active")
     .select();

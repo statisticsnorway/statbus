@@ -10,13 +10,13 @@
  active  | boolean |           |          |         | plain    | 
  custom  | boolean |           |          |         | plain    | 
 View definition:
- SELECT country.id,
-    country.iso_2,
-    country.iso_3,
-    country.iso_num,
-    country.name,
-    country.active,
-    country.custom
+ SELECT id,
+    iso_2,
+    iso_3,
+    iso_num,
+    name,
+    active,
+    custom
    FROM country;
 Triggers:
     delete_stale_country_view AFTER INSERT ON country_view FOR EACH STATEMENT EXECUTE FUNCTION admin.delete_stale_country()

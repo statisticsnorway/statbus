@@ -5,10 +5,10 @@
  code   | text |           |          |         | extended | 
  name   | text |           |          |         | extended | 
 View definition:
- SELECT foreign_participation_available.code,
-    foreign_participation_available.name
+ SELECT code,
+    name
    FROM foreign_participation_available
-  WHERE foreign_participation_available.custom = false;
+  WHERE custom = false;
 Triggers:
     upsert_foreign_participation_system INSTEAD OF INSERT ON foreign_participation_system FOR EACH ROW EXECUTE FUNCTION admin.upsert_foreign_participation_system()
 Options: security_invoker=on

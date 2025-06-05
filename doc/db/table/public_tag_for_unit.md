@@ -20,31 +20,31 @@ Indexes:
     "ix_tag_for_unit_establishment_id_id" btree (establishment_id)
     "ix_tag_for_unit_legal_unit_id_id" btree (legal_unit_id)
     "ix_tag_for_unit_tag_id" btree (tag_id)
-    "tag_for_unit_tag_id_enterprise_group_id_key" UNIQUE CONSTRAINT, btree (tag_id, enterprise_group_id)
-    "tag_for_unit_tag_id_enterprise_id_key" UNIQUE CONSTRAINT, btree (tag_id, enterprise_id)
-    "tag_for_unit_tag_id_establishment_id_key" UNIQUE CONSTRAINT, btree (tag_id, establishment_id)
-    "tag_for_unit_tag_id_legal_unit_id_key" UNIQUE CONSTRAINT, btree (tag_id, legal_unit_id)
+    "tag_for_unit_tag_id_enterprise_group_id_partial_key" UNIQUE, btree (tag_id, enterprise_group_id) WHERE enterprise_group_id IS NOT NULL
+    "tag_for_unit_tag_id_enterprise_id_partial_key" UNIQUE, btree (tag_id, enterprise_id) WHERE enterprise_id IS NOT NULL
+    "tag_for_unit_tag_id_establishment_id_partial_key" UNIQUE, btree (tag_id, establishment_id) WHERE establishment_id IS NOT NULL
+    "tag_for_unit_tag_id_legal_unit_id_partial_key" UNIQUE, btree (tag_id, legal_unit_id) WHERE legal_unit_id IS NOT NULL
 Check constraints:
     "One and only one statistical unit id must be set" CHECK (establishment_id IS NOT NULL AND legal_unit_id IS NULL AND enterprise_id IS NULL AND enterprise_group_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NOT NULL AND enterprise_id IS NULL AND enterprise_group_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NULL AND enterprise_id IS NOT NULL AND enterprise_group_id IS NULL OR establishment_id IS NULL AND legal_unit_id IS NULL AND enterprise_id IS NULL AND enterprise_group_id IS NOT NULL)
     "tag_for_unit_enterprise_group_id_check" CHECK (admin.enterprise_group_id_exists(enterprise_group_id))
     "tag_for_unit_establishment_id_check" CHECK (admin.establishment_id_exists(establishment_id))
     "tag_for_unit_legal_unit_id_check" CHECK (admin.legal_unit_id_exists(legal_unit_id))
 Foreign-key constraints:
-    "tag_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES statbus_user(id) ON DELETE RESTRICT
+    "tag_for_unit_edit_by_user_id_fkey" FOREIGN KEY (edit_by_user_id) REFERENCES auth."user"(id) ON DELETE RESTRICT
     "tag_for_unit_enterprise_id_fkey" FOREIGN KEY (enterprise_id) REFERENCES enterprise(id) ON DELETE CASCADE
     "tag_for_unit_tag_id_fkey" FOREIGN KEY (tag_id) REFERENCES tag(id) ON DELETE CASCADE
 Policies:
+    POLICY "tag_for_unit_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
     POLICY "tag_for_unit_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
     POLICY "tag_for_unit_regular_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'regular_user'::statbus_role_type))
-    POLICY "tag_for_unit_super_user_manage"
-      TO authenticated
-      USING (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
-      WITH CHECK (auth.has_statbus_role(auth.uid(), 'super_user'::statbus_role_type))
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
 Triggers:
     trigger_prevent_tag_for_unit_id_update BEFORE UPDATE OF id ON tag_for_unit FOR EACH ROW EXECUTE FUNCTION admin.prevent_id_update()
 

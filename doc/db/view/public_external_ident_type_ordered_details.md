@@ -10,14 +10,14 @@
  priority    | integer                |           |          |         | plain    | 
  archived    | boolean                |           |          |         | plain    | 
 View definition:
- SELECT external_ident_type.id,
-    external_ident_type.code,
-    external_ident_type.name,
-    external_ident_type.by_tag_id,
-    external_ident_type.description,
-    external_ident_type.priority,
-    external_ident_type.archived
+ SELECT id,
+    code,
+    name,
+    by_tag_id,
+    description,
+    priority,
+    archived
    FROM external_ident_type
-  ORDER BY external_ident_type.priority, external_ident_type.code;
+  ORDER BY priority, code;
 
 ```
