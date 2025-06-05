@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { Metadata } from "next";
 import Dashboard from "@/app/dashboard/page";
 import { deploymentSlotName } from "@/lib/deployment-variables";

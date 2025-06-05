@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import React from "react";
 import CategoryStandardForm from "@/app/getting-started/activity-standard/category-standard-form";
 import {

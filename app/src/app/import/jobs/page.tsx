@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useEffect, useState, useCallback, useRef } from "react"; // Add useRef
+export const dynamic = 'force-dynamic'; // Ensure this page is dynamically rendered
+
+import React, { useEffect, useState, useRef } from "react"; // Add useRef
 import useSWR, { useSWRConfig } from 'swr'; // Import useSWR and useSWRConfig for mutate
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
@@ -289,7 +291,7 @@ export default function ImportJobsPage() {
     };
   // This effect should run primarily when loading finishes.
   // It manages the connection lifecycle internally using refs.
-  }, [isLoading]); // Only depend on isLoading
+  }, [isLoading, mutate]); // Add mutate to dependencies
 
   // Use the actual type for state from the database schema
   const getStateBadge = (state: Tables<"import_job">["state"] | null | undefined) => {

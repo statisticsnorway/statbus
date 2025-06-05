@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { redirect } from "next/navigation";
 import LogoutForm from "./LogoutForm";
 import { logger } from "@/lib/client-logger";

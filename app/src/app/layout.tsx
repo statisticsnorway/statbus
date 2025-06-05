@@ -41,10 +41,27 @@ export default async function RootLayout({
       >
         <AuthProvider>
           <RootLayoutClient>
-            <ServerBaseDataProvider>
-              <Suspense fallback={<div>Loading...</div>}>
+            {/* Wrap ServerBaseDataProvider and its children in Suspense */}
+            <Suspense fallback={
+              <>
+                {/* This fallback will be rendered for the initial static shell 
+                    or while ServerBaseDataProvider is resolving on dynamic routes.
+                    It should include basic layout structure if possible, 
+                    or at least NavbarSkeleton and FooterSkeleton. */}
+                <NavbarSkeleton />
+                <div className="flex-grow p-4"><div>Loading application data...</div></div> {/* Placeholder for children */}
+                <FooterSkeleton />
+                <Toaster /> {/* Toaster can be outside if it doesn't depend on suspended data */}
+                <CommandPalette /> {/* CommandPalette might also be okay outside */}
+              </>
+            }>
+              <ServerBaseDataProvider>
+                {/* TimeContextProvider and its children depend on BaseDataContext from ServerBaseDataProvider */}
                 <TimeContextProvider>
                   <PopStateHandler />
+                  {/* Navbar and Footer are already Suspense-wrapped, which is good.
+                      They will use their own skeletons if ServerBaseDataProvider resolves 
+                      but their specific data is still loading. */}
                   <Suspense fallback={<NavbarSkeleton />}>
                     <Navbar />
                   </Suspense>
@@ -55,8 +72,8 @@ export default async function RootLayout({
                     <Footer />
                   </Suspense>
                 </TimeContextProvider>
-              </Suspense>
-            </ServerBaseDataProvider>
+              </ServerBaseDataProvider>
+            </Suspense>
           </RootLayoutClient>
           <GlobalErrorReporter />
         </AuthProvider>

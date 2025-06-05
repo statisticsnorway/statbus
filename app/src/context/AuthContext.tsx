@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, ReactNode, useCallback } from 'react';
 import { login as apiLogin, logout as apiLogout, refreshToken } from '@/services/auth';
 import { useRouter } from 'next/navigation';
 import { User, authStore } from '@/context/AuthStore';
@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   
-  const refreshAuth = async () => {
+  const refreshAuth = useCallback(async () => {
     try {
       setIsLoading(true);
       
@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [setIsLoading, setIsAuthenticated, setUser]); // Dependencies for refreshAuth
   
   const handleLogin = async (email: string, password: string) => {
     try {
@@ -79,7 +79,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  const handleLogout = async () => {
+  const handleLogout = useCallback(async () => {
     try {
       setIsLoading(true);
       await apiLogout();
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
       setIsLoading(false);
     }
-  };
+  }, [router, setIsLoading, setIsAuthenticated, setUser]); // Dependencies for handleLogout
   
   useEffect(() => {
     refreshAuth();
@@ -127,7 +127,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       window.removeEventListener('auth:401', handle401);
       window.removeEventListener('auth:logout', handleLogoutEvent as EventListener);
     };
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, router, refreshAuth, handleLogout]);
   
   return (
     <AuthContext.Provider

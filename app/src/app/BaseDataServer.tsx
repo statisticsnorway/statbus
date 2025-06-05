@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from 'next/headers'; // Import headers
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { Database } from '@/lib/database.types';
 import { getServerRestClient } from "@/context/RestClientStore";
@@ -104,6 +105,11 @@ export async function getBaseData(client: PostgrestClient<Database>): Promise<Ba
 
 // Server component to fetch and provide base data
 export const ServerBaseDataProvider = async ({ children }: { children: React.ReactNode }) => {
+  // Opt this specific server component into dynamic rendering.
+  // This is necessary because it will call getServerRestClient which uses cookies().
+  // The parent <Suspense> in layout.tsx will handle the fallback.
+  const nextHeaders = headers(); // This call makes this component dynamic.
+
   const client = await getServerRestClient();
   const baseData = await getBaseData(client);
 

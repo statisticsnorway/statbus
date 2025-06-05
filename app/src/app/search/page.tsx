@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 import { Metadata } from "next";
 import { SearchResults } from "@/app/search/SearchResults";
 import TableToolbar from "@/app/search/components/table-toolbar";
