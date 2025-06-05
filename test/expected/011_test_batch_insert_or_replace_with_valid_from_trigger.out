@@ -1,4 +1,4 @@
-NOTICE:  identifier "pg_regress/66_test_batch_insert_or_replace_with_valid_from_trigger" will be truncated to "pg_regress/66_test_batch_insert_or_replace_with_valid_from_trig"
+NOTICE:  identifier "pg_regress/011_test_batch_insert_or_replace_with_valid_from_trigger" will be truncated to "pg_regress/011_test_batch_insert_or_replace_with_valid_from_tri"
 BEGIN;
 \i test/setup.sql
 -- While the datestyle is set for the database, the pg_regress tool sets the MDY format

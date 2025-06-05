@@ -1,3 +1,4 @@
+NOTICE:  identifier "pg_regress/007_test_trigger_update_of_valid_from_and_valid_after" will be truncated to "pg_regress/007_test_trigger_update_of_valid_from_and_valid_afte"
 BEGIN;
 \i test/setup.sql
 -- While the datestyle is set for the database, the pg_regress tool sets the MDY format
