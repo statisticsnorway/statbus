@@ -16,6 +16,11 @@
     # Private mode settings
     # There is no https support when running privately behind another caddy
     auto_https off
+    # Configure all servers to trust headers from private ranges when in private mode,
+    # as this Caddy instance is expected to be behind another proxy.
+    servers {
+        trusted_proxies static private_ranges
+    }
 <% end %>
 }
 
