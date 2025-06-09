@@ -33,16 +33,12 @@
 # Reverse proxy with standard headers - args[0] is the target address
 (reverse_proxy_standard) {
     reverse_proxy {args[0]} {
-        header_up Host {host}
-        header_up X-Real-IP {remote}
     }
 }
 
 # Reverse proxy with auth token - args[0] is the target address
 (reverse_proxy_auth) {
     reverse_proxy {args[0]} {
-        header_up Host {host}
-        header_up X-Real-IP {remote}
         header_up Authorization "Bearer {http.request.cookie.statbus}"
     }
 }
@@ -63,8 +59,6 @@
     handle @auth_paths {
         uri strip_prefix /rest
         reverse_proxy {args[0]} {
-            header_up Host {host}
-            header_up X-Real-IP {remote}
         }
     }
 
@@ -85,14 +79,10 @@
         uri strip_prefix /rest
         
         reverse_proxy @has_auth_cookie_and_no_auth_header {args[0]} {
-            header_up Host {host}
-            header_up X-Real-IP {remote}
             header_up Authorization "Bearer {http.request.cookie.statbus}"
         }
         
         reverse_proxy {args[0]} {
-            header_up Host {host}
-            header_up X-Real-IP {remote}
         }
         
     }
