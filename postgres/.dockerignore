@@ -3,5 +3,3 @@ volumes/
 
 # Exclude files not needed for Docker build
 docker-compose.yml
-update-*.sh
-.dockerignore
