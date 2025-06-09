@@ -39,6 +39,7 @@ REVOKE EXECUTE ON FUNCTION auth.set_user_context_from_email(text) FROM authentic
 REVOKE EXECUTE ON FUNCTION auth.build_auth_response(text, text, auth.user) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.extract_refresh_token_from_cookies() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.set_auth_cookies(text, text, timestamptz, timestamptz) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION auth.clear_auth_cookies() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.use_jwt_claims_in_session(jsonb) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.build_jwt_claims(text, timestamptz, text, jsonb) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) FROM authenticator; -- Added
@@ -47,11 +48,11 @@ REVOKE EXECUTE ON FUNCTION auth.email() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.role() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.uid() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.sub() FROM authenticated, anon;
+REVOKE EXECUTE ON FUNCTION auth.get_request_ip() FROM authenticated, anon;
 
 -- 4. Revoke table/view/sequence grants
 REVOKE SELECT, INSERT, UPDATE (description, revoked_at), DELETE ON public.api_key FROM authenticated;
 REVOKE USAGE ON SEQUENCE auth.api_key_id_seq FROM authenticated;
-REVOKE SELECT, INSERT, UPDATE (description, revoked_at), DELETE ON auth.api_key FROM authenticated; -- Corrected/Consolidated
 REVOKE INSERT, UPDATE, DELETE ON auth.user FROM admin_user;
 REVOKE SELECT, UPDATE, DELETE ON auth.user FROM authenticated;
 REVOKE SELECT, UPDATE, DELETE ON auth.refresh_session FROM authenticated;
@@ -123,6 +124,10 @@ DROP FUNCTION IF EXISTS auth.build_jwt_claims(text, timestamptz, text, jsonb);
 DROP FUNCTION IF EXISTS auth.switch_role_from_jwt(text); -- Added
 DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
 DROP FUNCTION IF EXISTS auth.set_auth_cookies(text, text, timestamptz, timestamptz);
+-- Note: auth.clear_auth_cookies() is now explicitly dropped above if it was added to REVOKE list.
+-- If it wasn't added to REVOKE list, this explicit drop is still good.
+-- Ensuring it's dropped:
+DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
 DROP FUNCTION IF EXISTS auth.drop_user_role();
 DROP FUNCTION IF EXISTS auth.sync_user_credentials_and_roles();
 DROP FUNCTION IF EXISTS auth.check_role_permission();
@@ -132,6 +137,7 @@ DROP FUNCTION IF EXISTS auth.email();
 DROP FUNCTION IF EXISTS auth.role();
 DROP FUNCTION IF EXISTS auth.uid();
 DROP FUNCTION IF EXISTS auth.sub();
+DROP FUNCTION IF EXISTS auth.get_request_ip();
 
 -- 13. Drop indexes
 DROP INDEX IF EXISTS auth.api_key_user_id_idx; -- Added

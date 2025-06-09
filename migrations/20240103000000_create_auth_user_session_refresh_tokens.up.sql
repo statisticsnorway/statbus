@@ -85,6 +85,29 @@ $$;
 GRANT EXECUTE ON FUNCTION auth.sub() TO authenticated, anon;
 GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated, anon;
 
+-- Function to get the client's IP address from request headers
+CREATE OR REPLACE FUNCTION auth.get_request_ip()
+RETURNS inet
+LANGUAGE plpgsql
+STABLE
+AS $$
+DECLARE
+  raw_ip_text text;
+BEGIN
+  -- Extract the first IP from X-Forwarded-For header
+  raw_ip_text := split_part(nullif(current_setting('request.headers', true),'')::json->>'x-forwarded-for', ',', 1);
+  
+  IF raw_ip_text IS NOT NULL AND raw_ip_text != '' THEN
+    RETURN inet(raw_ip_text);
+  ELSE
+    RETURN NULL;
+  END IF;
+  -- Errors from inet() conversion (e.g., invalid IP format) will propagate.
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION auth.get_request_ip() TO authenticated, anon;
+
 
 -- Create a table for refresh sessions
 CREATE TABLE IF NOT EXISTS auth.refresh_session (
@@ -384,8 +407,8 @@ DECLARE
   current_headers jsonb;
   new_headers jsonb;
 BEGIN
-  -- Check if the request is using HTTPS by examining the X-Forwarded-Proto header
-  IF nullif(current_setting('request.headers', true), '')::json->>'x-forwarded-proto' IS NOT DISTINCT FROM 'https' THEN
+  -- Check if the request is using HTTPS by examining the X-Forwarded-Proto header (case-insensitive)
+  IF lower(nullif(current_setting('request.headers', true), '')::json->>'x-forwarded-proto') IS NOT DISTINCT FROM 'https' THEN
     secure := true;
   ELSE
     secure := false;
@@ -483,6 +506,7 @@ DECLARE
   refresh_session_jti uuid;
   user_ip inet;
   user_agent text;
+  -- raw_ip_text text; -- No longer needed here, handled by auth.get_request_ip()
   access_claims jsonb;
   refresh_claims jsonb;
 BEGIN
@@ -514,7 +538,7 @@ BEGIN
   refresh_expires := clock_timestamp() + (coalesce(nullif(current_setting('app.settings.refresh_jwt_exp', true),'')::int, 2592000) || ' seconds')::interval;
   
   -- Get client information
-  user_ip := inet(split_part(nullif(current_setting('request.headers', true),'')::json->>'x-forwarded-for', ',', 1));
+  user_ip := auth.get_request_ip();
   user_agent := nullif(current_setting('request.headers', true),'')::json->>'user-agent';
 
   -- Create a new refresh session
@@ -649,6 +673,7 @@ DECLARE
   refresh_session_jti uuid;
   current_ip inet;
   current_ua text;
+  -- raw_ip_text text; -- No longer needed here, handled by auth.get_request_ip()
   access_jwt text;
   refresh_jwt text;
   access_expires timestamptz;
@@ -686,8 +711,10 @@ BEGIN
   refresh_session_jti := (claims->>'jti')::uuid;
   
   -- Get current client information safely
-  current_ip := inet(split_part(nullif(current_setting('request.headers', true),'')::json->>'x-forwarded-for', ',', 1));
+  current_ip := auth.get_request_ip();
   current_ua := nullif(current_setting('request.headers', true),'')::json->>'user-agent';
+  
+  RAISE DEBUG '[public.refresh] current_ua before session update: %', current_ua; -- DEBUG
   
   -- Get the user
   SELECT u.* INTO _user
@@ -722,7 +749,8 @@ BEGIN
   SET refresh_version = refresh_version + 1,
       last_used_at = clock_timestamp(),
       expires_at = refresh_expires,
-      ip_address = current_ip  -- Update to current IP
+      ip_address = current_ip,  -- Update to current IP
+      user_agent = current_ua -- Update user agent
   WHERE id = _session.id
   RETURNING refresh_version INTO new_version;
 
@@ -1152,7 +1180,7 @@ BEGIN
   result.refresh_token := refresh_token_info;
   result.timestamp := clock_timestamp();
   result.deployment_slot := coalesce(current_setting('app.settings.deployment_slot_code', true), 'dev');
-  result.is_https := headers->>'x-forwarded-proto' = 'https';
+  result.is_https := lower(headers->>'x-forwarded-proto') = 'https'; -- Case-insensitive check
   
   RETURN result;
 END;
