@@ -68,91 +68,127 @@ BEGIN
 END;
 $$;
 
--- Test 0.1: Shared IP Extraction Function Test (auth.get_request_ip)
-\echo '=== Test 0.1: Shared IP Extraction Function Test ==='
+-- Test 2: Shared IP Extraction Function Test (auth.get_request_ip)
+\echo '=== Test 2: Shared IP Extraction Function Test ==='
 DO $$
 DECLARE
     extracted_ip inet;
 BEGIN
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior (Pattern A)
-        RAISE NOTICE 'Test 0.1.1: Valid IPv4 in x-forwarded-for';
+        RAISE NOTICE 'Test 2.1: Valid IPv4 in x-forwarded-for';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "1.2.3.4"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '1.2.3.4'::inet, 'Test 0.1.1 Failed';
-        RAISE NOTICE 'Test 0.1.1: PASSED';
+        ASSERT extracted_ip = '1.2.3.4'::inet, 'Test 2.1 Failed';
+        RAISE NOTICE 'Test 2.1: PASSED';
 
-        RAISE NOTICE 'Test 0.1.2: Valid IPv6 in x-forwarded-for';
+        RAISE NOTICE 'Test 2.2: Valid IPv6 in x-forwarded-for';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "2001:db8::c"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '2001:db8::c'::inet, 'Test 0.1.2 Failed';
-        RAISE NOTICE 'Test 0.1.2: PASSED';
+        ASSERT extracted_ip = '2001:db8::c'::inet, 'Test 2.2 Failed';
+        RAISE NOTICE 'Test 2.2: PASSED';
 
-        RAISE NOTICE 'Test 0.1.3: Valid IPv6 in x-forwarded-for (no port)';
+        RAISE NOTICE 'Test 2.3: Valid IPv6 in x-forwarded-for (no port)';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "2001:db8::d"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '2001:db8::d'::inet, 'Test 0.1.3 Failed';
-        RAISE NOTICE 'Test 0.1.3: PASSED';
+        ASSERT extracted_ip = '2001:db8::d'::inet, 'Test 2.3 Failed';
+        RAISE NOTICE 'Test 2.3: PASSED';
 
-        RAISE NOTICE 'Test 0.1.4: Multiple IPs in x-forwarded-for (takes first)';
+        RAISE NOTICE 'Test 2.4: Multiple IPs in x-forwarded-for (takes first)';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "1.2.3.4, 5.6.7.8"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '1.2.3.4'::inet, 'Test 0.1.4 Failed';
-        RAISE NOTICE 'Test 0.1.4: PASSED';
+        ASSERT extracted_ip = '1.2.3.4'::inet, 'Test 2.4 Failed';
+        RAISE NOTICE 'Test 2.4: PASSED';
 
-        RAISE NOTICE 'Test 0.1.5: x-forwarded-for missing (empty JSON headers)';
+        RAISE NOTICE 'Test 2.5: IPv4 with port in x-forwarded-for';
+        PERFORM set_config('request.headers', '{"x-forwarded-for": "1.2.3.4:8080"}', true);
+        extracted_ip := auth.get_request_ip();
+        ASSERT extracted_ip = '1.2.3.4'::inet, 'Test 2.5 Failed: IPv4 with port not stripped correctly';
+        RAISE NOTICE 'Test 2.5: PASSED';
+
+        RAISE NOTICE 'Test 2.6: IPv6 with brackets and port in x-forwarded-for';
+        PERFORM set_config('request.headers', '{"x-forwarded-for": "[2001:db8::a]:8080"}', true);
+        extracted_ip := auth.get_request_ip();
+        ASSERT extracted_ip = '2001:db8::a'::inet, 'Test 2.6 Failed: IPv6 with brackets and port not stripped correctly';
+        RAISE NOTICE 'Test 2.6: PASSED';
+
+        RAISE NOTICE 'Test 2.7: Non-standard IPv6 without brackets but with port in x-forwarded-for (robustness test)';
+        PERFORM set_config('request.headers', '{"x-forwarded-for": "2001:db8::b:8080"}', true);
+        extracted_ip := auth.get_request_ip();
+        ASSERT extracted_ip = '2001:db8::b'::inet, 'Test 2.7 Failed: Non-standard IPv6 (no brackets) with port not stripped correctly by robust parser';
+        RAISE NOTICE 'Test 2.7: PASSED';
+
+        RAISE NOTICE 'Test 2.8: x-forwarded-for missing (empty JSON headers)';
         PERFORM set_config('request.headers', '{}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip IS NULL, 'Test 0.1.5 Failed';
-        RAISE NOTICE 'Test 0.1.5: PASSED';
+        ASSERT extracted_ip IS NULL, 'Test 2.8 Failed';
+        RAISE NOTICE 'Test 2.8: PASSED';
 
-        RAISE NOTICE 'Test 0.1.6: x-forwarded-for missing (other headers present)';
+        RAISE NOTICE 'Test 2.9: x-forwarded-for missing (other headers present)';
         PERFORM set_config('request.headers', '{"user-agent": "test"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip IS NULL, 'Test 0.1.6 Failed';
-        RAISE NOTICE 'Test 0.1.6: PASSED';
+        ASSERT extracted_ip IS NULL, 'Test 2.9 Failed';
+        RAISE NOTICE 'Test 2.9: PASSED';
         
-        RAISE NOTICE 'Test 0.1.7: x-forwarded-for is empty string';
+        RAISE NOTICE 'Test 2.10: x-forwarded-for is empty string';
         PERFORM set_config('request.headers', '{"x-forwarded-for": ""}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip IS NULL, 'Test 0.1.7 Failed';
-        RAISE NOTICE 'Test 0.1.7: PASSED';
+        ASSERT extracted_ip IS NULL, 'Test 2.10 Failed';
+        RAISE NOTICE 'Test 2.10: PASSED';
 
-        RAISE NOTICE 'Test 0.1.8: x-forwarded-for is JSON null';
+        RAISE NOTICE 'Test 2.11: x-forwarded-for is JSON null';
         PERFORM set_config('request.headers', '{"x-forwarded-for": null}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip IS NULL, 'Test 0.1.8 Failed';
-        RAISE NOTICE 'Test 0.1.8: PASSED';
+        ASSERT extracted_ip IS NULL, 'Test 2.11 Failed';
+        RAISE NOTICE 'Test 2.11: PASSED';
 
-        RAISE NOTICE 'Test 0.1.9: request.headers GUC not set (is NULL)';
+        RAISE NOTICE 'Test 2.12: request.headers GUC not set (is NULL)';
         PERFORM set_config('request.headers', NULL, true); -- Simulate GUC not being set
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip IS NULL, 'Test 0.1.9 Failed';
-        RAISE NOTICE 'Test 0.1.9: PASSED';
+        ASSERT extracted_ip IS NULL, 'Test 2.12 Failed';
+        RAISE NOTICE 'Test 2.12: PASSED';
 
-        RAISE NOTICE 'Test 0.1.10: request.headers is invalid JSON (expect exception)';
+        RAISE NOTICE 'Test 2.13: request.headers is invalid JSON (expect exception)';
         BEGIN
             PERFORM set_config('request.headers', 'invalid json string', true);
             extracted_ip := auth.get_request_ip();
-            RAISE EXCEPTION 'Test 0.1.10 Failed: auth.get_request_ip() did not raise error for invalid JSON headers';
+            RAISE EXCEPTION 'Test 2.13 Failed: auth.get_request_ip() did not raise error for invalid JSON headers';
         EXCEPTION WHEN invalid_text_representation THEN -- Error from ::json cast
-            RAISE NOTICE 'Test 0.1.10: PASSED (Caught expected invalid_text_representation for JSON)';
+            RAISE NOTICE 'Test 2.13: PASSED (Caught expected invalid_text_representation for JSON)';
         END;
         
-        RAISE NOTICE 'Test 0.1.11: x-forwarded-for contains invalid IP string (expect exception)';
+        RAISE NOTICE 'Test 2.14: x-forwarded-for contains invalid IP string (expect exception)';
         BEGIN
             PERFORM set_config('request.headers', '{"x-forwarded-for": "invalid-ip"}', true);
             extracted_ip := auth.get_request_ip();
-            RAISE EXCEPTION 'Test 0.1.11 Failed: auth.get_request_ip() did not raise error for invalid IP in xff';
+            RAISE EXCEPTION 'Test 2.14 Failed: auth.get_request_ip() did not raise error for invalid IP in xff';
         EXCEPTION WHEN invalid_text_representation THEN -- Error from inet() conversion
-            RAISE NOTICE 'Test 0.1.11: PASSED (Caught expected invalid_text_representation for inet)';
+            RAISE NOTICE 'Test 2.14: PASSED (Caught expected invalid_text_representation for inet)';
         END;
 
-        RAISE NOTICE 'Test 0.1 (Shared IP Extraction Function Test) - Overall PASSED';
+        RAISE NOTICE 'Test 2.15: Simple IPv6 ::1 (no port, no brackets)';
+        PERFORM set_config('request.headers', '{"x-forwarded-for": "::1"}', true);
+        extracted_ip := auth.get_request_ip();
+        ASSERT extracted_ip = '::1'::inet, 'Test 2.15 Failed: Simple IPv6 ::1 not handled correctly';
+        RAISE NOTICE 'Test 2.15: PASSED';
+
+        RAISE NOTICE 'Test 2.16: IPv6 localhost with port, no brackets (::1:8080)';
+        PERFORM set_config('request.headers', '{"x-forwarded-for": "::1:8080"}', true);
+        extracted_ip := auth.get_request_ip();
+        ASSERT extracted_ip = '::1'::inet, 'Test 2.16 Failed: IPv6 ::1:8080 with port not stripped correctly';
+        RAISE NOTICE 'Test 2.16: PASSED';
+
+        RAISE NOTICE 'Test 2.17: IPv6 localhost with port, with brackets ([::1]:8080)';
+        PERFORM set_config('request.headers', '{"x-forwarded-for": "[::1]:8080"}', true);
+        extracted_ip := auth.get_request_ip();
+        ASSERT extracted_ip = '::1'::inet, 'Test 2.17 Failed: IPv6 [::1]:8080 with port and brackets not stripped correctly';
+        RAISE NOTICE 'Test 2.17: PASSED';
+
+        RAISE NOTICE 'Test 2 (Shared IP Extraction Function Test) - Overall PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 0.1 (Shared IP Extraction Function Test) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 2 (Shared IP Extraction Function Test) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 0.1 (Shared IP Extraction Function Test) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 2 (Shared IP Extraction Function Test) - FAILED: %', SQLERRM;
     END;
     -- Reset headers GUC to a sensible default after tests
     PERFORM set_config('request.headers', '{}', true);
@@ -363,8 +399,8 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- Test 1: User Login Success
-\echo '=== Test 1: User Login Success ==='
+-- Test 3: User Login Success
+\echo '=== Test 3: User Login Success ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -504,9 +540,9 @@ BEGIN
     ASSERT auth_status_result->>'is_authenticated' = 'true', 'Auth status should show authenticated';
     ASSERT auth_status_result->>'email' = 'test.regular@statbus.org', 'Auth status should have correct email';
 
-    RAISE NOTICE '--- Test 1.1: Initial Login and Auth Status Verification - PASSED ---';
+    RAISE NOTICE '--- Test 3.1: Initial Login and Auth Status Verification - PASSED ---';
 
-    RAISE NOTICE '--- Test 1.2: Header Variations for Login ---';
+    RAISE NOTICE '--- Test 3.2: Header Variations for Login ---';
     -- Scenario 1: HTTPS proxy (standard)
     PERFORM test.perform_login_and_verify(
         'test.regular@statbus.org', 'Regular#123!',
@@ -607,25 +643,25 @@ BEGIN
         '10.0.0.5'::inet, true, 'Case Agent' -- Expect Secure: true after case-insensitive fix
     );
 
-        RAISE NOTICE 'Test 1: User Login Success (including header variations) - PASSED';
-        -- End of original Test 1 logic
+        RAISE NOTICE 'Test 3: User Login Success (including header variations) - PASSED';
+        -- End of original Test 3 logic
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 1 (User Login Success) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 3 (User Login Success) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 1 (User Login Success) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 3 (User Login Success) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 2: User Login Failure - Wrong Password
-\echo '=== Test 2: User Login Failure - Wrong Password ==='
+-- Test 4: User Login Failure - Wrong Password
+\echo '=== Test 4: User Login Failure - Wrong Password ==='
 DO $$
 DECLARE
     login_result jsonb;
 BEGIN
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
-        -- Original Test 2 logic starts here
+        -- Original Test 4 logic starts here
         -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
         json_build_object(
@@ -645,19 +681,19 @@ BEGIN
     -- Verify login failed (result should be null or not contain uid)
     ASSERT (login_result IS NULL OR login_result ->> 'uid' IS NULL), 'Login with wrong password should return null or not contain uid';
     
-        RAISE NOTICE 'Test 2: User Login Failure - Wrong Password - PASSED';
-        -- End of original Test 2 logic
+        RAISE NOTICE 'Test 4: User Login Failure - Wrong Password - PASSED';
+        -- End of original Test 4 logic
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 2 (User Login Failure - Wrong Password) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 4 (User Login Failure - Wrong Password) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 2 (User Login Failure - Wrong Password) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 4 (User Login Failure - Wrong Password) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 3: User Login Failure - Unconfirmed Email
-\echo '=== Test 3: User Login Failure - Unconfirmed Email ==='
+-- Test 5: User Login Failure - Unconfirmed Email
+\echo '=== Test 5: User Login Failure - Unconfirmed Email ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -682,18 +718,18 @@ BEGIN
     -- Verify login failed (result should be null or not contain uid)
     ASSERT (login_result IS NULL OR login_result ->> 'uid' IS NULL), 'Login with unconfirmed email should return null or not contain uid';
     
-        RAISE NOTICE 'Test 3: User Login Failure - Unconfirmed Email - PASSED';
+        RAISE NOTICE 'Test 5: User Login Failure - Unconfirmed Email - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 3 (User Login Failure - Unconfirmed Email) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 5 (User Login Failure - Unconfirmed Email) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 3 (User Login Failure - Unconfirmed Email) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 5 (User Login Failure - Unconfirmed Email) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 4: Token Refresh
-\echo '=== Test 4: Token Refresh ==='
+-- Test 5: Token Refresh
+\echo '=== Test 5: Token Refresh ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -877,7 +913,7 @@ BEGIN
     PERFORM pg_sleep(1);
 
     -- Perform token refresh (Scenario 1: HTTPS headers during refresh)
-    RAISE NOTICE '--- Test 4.1: Refresh with HTTPS headers ---';
+    RAISE NOTICE '--- Test 5.1: Refresh with HTTPS headers ---';
     
     -- Set cookies for refresh call
     PERFORM set_config('request.cookies', 
@@ -1024,7 +1060,7 @@ BEGIN
     -- Update refresh_session_before to the state after the HTTPS refresh for the next comparison
     refresh_session_before := refresh_session_after;
 
-    RAISE NOTICE '--- Test 4.2: Refresh with HTTP headers ---';
+    RAISE NOTICE '--- Test 5.2: Refresh with HTTP headers ---';
     PERFORM pg_sleep(1); -- Ensure time progresses for new token iat
 
     -- Set cookies for the next refresh call (using the latest refresh_jwt)
@@ -1099,7 +1135,7 @@ BEGIN
         format('Session User Agent mismatch (HTTP refresh). Expected: %L, Got: %L. Request headers: %L, Session record after: %L', 'Refresh UA HTTP', refresh_session_after.user_agent, current_setting('request.headers', true)::jsonb, row_to_json(refresh_session_after));
 
     -- Final auth status check with the latest tokens from HTTP refresh
-    RAISE NOTICE '--- Test 4.3: Final Auth Status Check ---';
+    RAISE NOTICE '--- Test 5.3: Final Auth Status Check ---';
     PERFORM set_config('request.cookies', 
         json_build_object(
             'statbus', refresh_result->>'access_jwt',
@@ -1123,18 +1159,18 @@ BEGIN
     ASSERT auth_status_after->>'is_authenticated' = 'true', 'Final auth status should show authenticated';
     ASSERT auth_status_after->>'email' = 'test.admin@statbus.org', 'Final auth status should have correct email';
     
-        RAISE NOTICE 'Test 4: Token Refresh (including header variations) - PASSED';
+        RAISE NOTICE 'Test 5: Token Refresh (including header variations) - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 4 (Token Refresh) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 5 (Token Refresh) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 4 (Token Refresh) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 5 (Token Refresh) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 5: Logout
-\echo '=== Test 5: Logout ==='
+-- Test 6: Logout
+\echo '=== Test 6: Logout ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -1299,18 +1335,18 @@ BEGIN
     ASSERT auth_status_after->>'uid' IS NULL, 'Auth status should not include user info';
     ASSERT auth_status_after->>'email' IS NULL, 'Auth status should not have email';
     
-        RAISE NOTICE 'Test 5: Logout - PASSED';
+        RAISE NOTICE 'Test 6: Logout - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 5 (Logout) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 6 (Logout) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 5 (Logout) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 6 (Logout) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 6: Role Management
-\echo '=== Test 6: Role Management ==='
+-- Test 7: Role Management
+\echo '=== Test 7: Role Management ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -1518,18 +1554,18 @@ BEGIN
     RAISE DEBUG 'Final check: original role % is granted to user %: %', 
         original_role, user_email, role_granted;
     
-        RAISE NOTICE 'Test 6: Role Management - PASSED';
+        RAISE NOTICE 'Test 7: Role Management - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 6 (Role Management) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 7 (Role Management) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 6 (Role Management) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 7 (Role Management) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 7: Session Management
-\echo '=== Test 7: Session Management ==='
+-- Test 8: Session Management
+\echo '=== Test 8: Session Management ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -1626,19 +1662,19 @@ BEGIN
     ASSERT session_count_after = session_count_before - 1, 
         'One session should be deleted after revocation';
     
-        RAISE NOTICE 'Test 7: Session Management - PASSED';
+        RAISE NOTICE 'Test 8: Session Management - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 7 (Session Management) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 8 (Session Management) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 7 (Session Management) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 8 (Session Management) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
 
--- Test 8: JWT Claims Building
-\echo '=== Test 8: JWT Claims Building ==='
+-- Test 9: JWT Claims Building
+\echo '=== Test 9: JWT Claims Building ==='
 DO $$
 DECLARE
     claims jsonb;
@@ -1717,18 +1753,18 @@ BEGIN
     ASSERT jwt_payload->>'type' = 'refresh', 'JWT type should be refresh';
     ASSERT jwt_payload->>'custom_claim' = 'test_value', 'JWT should include custom claims';
 
-        RAISE NOTICE 'Test 8: JWT Claims Building - PASSED';
+        RAISE NOTICE 'Test 9: JWT Claims Building - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 8 (JWT Claims Building) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 9 (JWT Claims Building) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 8 (JWT Claims Building) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 9 (JWT Claims Building) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 9: JWT Tampering Detection
-\echo '=== Test 9: JWT Tampering Detection ==='
+-- Test 10: JWT Tampering Detection
+\echo '=== Test 10: JWT Tampering Detection ==='
 DO $$
 DECLARE
     login_result_admin jsonb;
@@ -2038,19 +2074,19 @@ BEGIN
             'Refresh with impersonation attempt should return an error';
     END;
     
-        RAISE NOTICE 'Test 9: JWT Tampering Detection - PASSED';
+        RAISE NOTICE 'Test 10: JWT Tampering Detection - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 9 (JWT Tampering Detection) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 10 (JWT Tampering Detection) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 9 (JWT Tampering Detection) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 10 (JWT Tampering Detection) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
 
--- Test 10: Auth Status Function
-\echo '=== Test 10: Auth Status Function ==='
+-- Test 11: Auth Status Function
+\echo '=== Test 11: Auth Status Function ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -2249,18 +2285,18 @@ BEGIN
         ASSERT invalid_status->>'email' IS NULL, 'Auth status should not have email';
     END;
     
-        RAISE NOTICE 'Test 10: Auth Status Function - PASSED';
+        RAISE NOTICE 'Test 11: Auth Status Function - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 10 (Auth Status Function) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 11 (Auth Status Function) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 10 (Auth Status Function) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 11 (Auth Status Function) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 11: Idempotent User Creation
-\echo '=== Test 11: Idempotent User Creation ==='
+-- Test 12: Idempotent User Creation
+\echo '=== Test 12: Idempotent User Creation ==='
 DO $$
 DECLARE
     first_creation_result record;
@@ -2337,18 +2373,18 @@ BEGIN
     -- Clean up
     DELETE FROM auth.user WHERE email = test_email;
     
-        RAISE NOTICE 'Test 11: Idempotent User Creation - PASSED';
+        RAISE NOTICE 'Test 12: Idempotent User Creation - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 11 (Idempotent User Creation) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 12 (Idempotent User Creation) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 11 (Idempotent User Creation) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 12 (Idempotent User Creation) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 12: Trigger Role Change Handling
-\echo '=== Test 12: Trigger Role Change Handling ==='
+-- Test 13: Trigger Role Change Handling
+\echo '=== Test 13: Trigger Role Change Handling ==='
 DO $$
 DECLARE
     test_email text := 'test.role.change@example.com';
@@ -2460,19 +2496,19 @@ BEGIN
     
     ASSERT NOT role_exists, 'PostgreSQL role should be dropped after user deletion';
     
-        RAISE NOTICE 'Test 12: Trigger Role Change Handling - PASSED';
+        RAISE NOTICE 'Test 13: Trigger Role Change Handling - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 12 (Trigger Role Change Handling) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 13 (Trigger Role Change Handling) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 12 (Trigger Role Change Handling) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 13 (Trigger Role Change Handling) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
 
--- Test 13: Session Context Management
-\echo '=== Test 13: Session Context Management ==='
+-- Test 14: Session Context Management
+\echo '=== Test 14: Session Context Management ==='
 DO $$
 DECLARE
     test_email text := 'test.external@statbus.org';
@@ -2552,19 +2588,19 @@ BEGIN
     ASSERT current_setting('request.jwt.claims', true) = '', 
         'Claims should be cleared';
     
-        RAISE NOTICE 'Test 13: Session Context Management - PASSED';
+        RAISE NOTICE 'Test 14: Session Context Management - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 13 (Session Context Management) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 14 (Session Context Management) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 13 (Session Context Management) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 14 (Session Context Management) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
 
--- Test 14: Password Change (User)
-\echo '=== Test 14: Password Change (User) ==='
+-- Test 15: Password Change (User)
+\echo '=== Test 15: Password Change (User) ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -2662,8 +2698,8 @@ BEGIN
 END;
 $$;
 
--- Test 15: Role Switching with SET LOCAL ROLE
-\echo '=== Test 15: Role Switching with SET LOCAL ROLE ==='
+-- Test 16: Role Switching with SET LOCAL ROLE
+\echo '=== Test 16: Role Switching with SET LOCAL ROLE ==='
 DO $$
 DECLARE
     admin_email text := 'test.admin@statbus.org';
@@ -2743,19 +2779,19 @@ BEGIN
         ASSERT current_user = 'postgres', 'Test 15.3: After SET LOCAL ROLE block, current_user should be postgres.';
         RAISE NOTICE 'Test 15.3: Restricted user permissions - PASSED';
         
-        RAISE NOTICE 'Test 15 (Role Switching with SET LOCAL ROLE) - Overall PASSED';
+        RAISE NOTICE 'Test 16 (Role Switching with SET LOCAL ROLE) - Overall PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 15 (Role Switching with SET LOCAL ROLE) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 16 (Role Switching with SET LOCAL ROLE) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 15 (Role Switching with SET LOCAL ROLE) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 16 (Role Switching with SET LOCAL ROLE) - FAILED: %', SQLERRM;
     END; -- End of outer BEGIN/EXCEPTION for Test 15
 END; -- End of DO block for Test 15
 $$;
 
 
--- Test 16: Password Change (Admin)
-\echo '=== Test 16: Password Change (Admin) ==='
+-- Test 17: Password Change (Admin)
+\echo '=== Test 17: Password Change (Admin) ==='
 DO $$
 DECLARE
     target_sub_for_test16 uuid;
@@ -2859,20 +2895,20 @@ BEGIN
         END; -- End of SET LOCAL ROLE block for 16.4
         RAISE DEBUG 'Test 16.4: After SET LOCAL ROLE block, current_user: %', current_user;
         ASSERT current_user = 'postgres', 'Test 16.4: Current user should be postgres after SET LOCAL ROLE block.';
-        RAISE NOTICE 'Test 16.4: Admin password change back operations - PASSED (transactionally).';
+        RAISE NOTICE 'Test 17.4: Admin password change back operations - PASSED (transactionally).';
 
-        RAISE NOTICE 'Test 16 (Password Change (Admin)) - Overall PASSED';
+        RAISE NOTICE 'Test 17 (Password Change (Admin)) - Overall PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 16 (Password Change (Admin)) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 17 (Password Change (Admin)) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 16 (Password Change (Admin)) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 17 (Password Change (Admin)) - FAILED: %', SQLERRM;
     END; -- End of outer BEGIN/EXCEPTION for Test 16
 END; -- End of DO block for Test 16
 $$;
 
--- Test 17: API Key Creation and Usage
-\echo '=== Test 17: API Key Creation and Usage ==='
+-- Test 18: API Key Creation and Usage
+\echo '=== Test 18: API Key Creation and Usage ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -2971,18 +3007,18 @@ BEGIN
         -- Catch the specific exception and log success
         RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
     END;
-        RAISE NOTICE 'Test 17 (API Key Creation and Usage) - PASSED';
+        RAISE NOTICE 'Test 18 (API Key Creation and Usage) - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 17 (API Key Creation and Usage) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 18 (API Key Creation and Usage) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 17 (API Key Creation and Usage) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 18 (API Key Creation and Usage) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 18: API Key Revocation
-\echo '=== Test 18: API Key Revocation ==='
+-- Test 19: API Key Revocation
+\echo '=== Test 19: API Key Revocation ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -3062,18 +3098,18 @@ BEGIN
         RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
     END;
         
-        RAISE NOTICE 'Test 18 (API Key Revocation) - PASSED';
+        RAISE NOTICE 'Test 19 (API Key Revocation) - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 18 (API Key Revocation) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 19 (API Key Revocation) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 18 (API Key Revocation) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 19 (API Key Revocation) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
 
--- Test 19: API Key Permissions and Boundaries
-\echo '=== Test 19: API Key Permissions and Boundaries ==='
+-- Test 20: API Key Permissions and Boundaries
+\echo '=== Test 20: API Key Permissions and Boundaries ==='
 DO $$
 DECLARE
     login_result jsonb;
@@ -3178,12 +3214,12 @@ BEGIN
         -- Catch the specific exception and log success
         RAISE DEBUG 'Caught simulated rollback exception, SET LOCAL ROLE was rolled back to %', current_user;
     END;
-        RAISE NOTICE 'Test 19 (API Key Permissions and Boundaries) - PASSED';
+        RAISE NOTICE 'Test 20 (API Key Permissions and Boundaries) - PASSED';
     EXCEPTION
         WHEN ASSERT_FAILURE THEN
-            RAISE NOTICE 'Test 19 (API Key Permissions and Boundaries) - FAILED (ASSERT): %', SQLERRM;
+            RAISE NOTICE 'Test 20 (API Key Permissions and Boundaries) - FAILED (ASSERT): %', SQLERRM;
         WHEN OTHERS THEN
-            RAISE NOTICE 'Test 19 (API Key Permissions and Boundaries) - FAILED: %', SQLERRM;
+            RAISE NOTICE 'Test 20 (API Key Permissions and Boundaries) - FAILED: %', SQLERRM;
     END;
 END;
 $$;
@@ -3203,5 +3239,3 @@ WHERE user_id IN (
 );
 DELETE FROM auth.user
 WHERE email LIKE 'test.%@statbus.org'; -- Updated domain
-
-\echo 'All auth tests completed successfully! (19 tests)'
