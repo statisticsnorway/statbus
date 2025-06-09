@@ -24,7 +24,7 @@ DROP FUNCTION IF EXISTS import.link_steps_to_definition(INT, TEXT[]);
 DROP FUNCTION IF EXISTS import.create_source_and_mappings_for_definition(INT, TEXT[]);
 
 -- Remove lifecycle callback
-CALL lifecycle_callbacks.remove('import_sync_default_definition_mappings');
+CALL lifecycle_callbacks.del('import_sync_default_definition_mappings');
 
 -- Drop procedures created by the UP migration
 DROP PROCEDURE IF EXISTS import.synchronize_definition_step_mappings(INT, TEXT);
