@@ -1,15 +1,25 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
 import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
-import { useCallback } from "react";
-import { LEGAL_FORM } from "@/app/search/filters/url-search-params"; // Removed unused import
+import { useCallback, useMemo } from "react"; // Added useMemo
+import { LEGAL_FORM } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../../search";
 
 export default function LegalFormOptions({options}: {
   readonly options: SearchFilterOption[];
 }) {
   const { searchState, updateFilters, executeSearch } = useSearch();
-  const selected = (searchState.filters[LEGAL_FORM] as (string | null)[]) || [];
+  // const selected = (searchState.filters[LEGAL_FORM] as (string | null)[]) || [];
+  const filterValue = searchState.filters[LEGAL_FORM];
+  const selected = useMemo(() => {
+    if (Array.isArray(filterValue)) {
+      return filterValue as (string | null)[];
+    }
+    if (typeof filterValue === 'string') {
+      return [filterValue];
+    }
+    return [];
+  }, [filterValue]);
 
   const toggle = useCallback(
     async ({ value }: SearchFilterOption) => {

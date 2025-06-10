@@ -2,6 +2,7 @@ import { useEffect } from "react";
 // import { SearchContextState } from "@/app/search/search-context"; // Removed
 import { useRouter } from "next/navigation";
 import { useSearch } from "@/atoms/hooks"; // Import useSearch for Jotai state
+import { SEARCH } from "./filters/url-search-params"; // AI: Import SEARCH constant
 
 // TODO: This hook needs to be re-evaluated.
 // It previously took SearchContextState. Now it should derive from Jotai's searchStateAtom.
@@ -9,53 +10,69 @@ import { useSearch } from "@/atoms/hooks"; // Import useSearch for Jotai state
 // searchState.filters, searchState.sorting, searchState.pagination from Jotai is different.
 export default function useDerivedUrlSearchParams(
   // searchState: SearchContextState // Old type, to be replaced
-  // For now, let's make it compatible with how SearchResults.tsx calls it,
-  // but acknowledge it needs a proper refactor or might be obsolete.
-  // The `ctx` object passed from SearchResults.tsx is the main issue.
-  // If SearchResults.tsx stops creating/passing `ctx`, this hook's signature and logic must change.
-  // For now, to fix the direct TS error, we remove the import and type.
-  // This will cause `appSearchParams`, `order`, `pagination` to be errors.
-  contextState: any // Temporary any to avoid breaking SearchResults.tsx call immediately
 ) {
   const router = useRouter();
   const { searchState: jotaiSearchState } = useSearch(); // Get Jotai search state
+  const isSearchStateInitialized = useAtomValue(searchStateInitializedAtom); // Get initialization status
 
   useEffect(() => {
-    // New logic based on jotaiSearchState
-    const params = new URLSearchParams();
+    if (!isSearchStateInitialized) {
+      return; // Don't update URL if Jotai state hasn't been initialized from URL yet
+    }
+
+    const newGeneratedParams = new URLSearchParams();
     
     // Handle query
-    if (jotaiSearchState.query) {
-      params.set("q", jotaiSearchState.query); // Assuming 'q' for query, adjust as needed
+    if (jotaiSearchState.query && jotaiSearchState.query.trim() !== '') {
+      newGeneratedParams.set(SEARCH, jotaiSearchState.query);
     }
 
     // Handle filters
     Object.entries(jotaiSearchState.filters).forEach(([name, values]) => {
       if (Array.isArray(values) && values.length > 0) {
-        params.set(name, values.join(","));
+        // Filter out null/empty strings if necessary, then join
+        const validValues = values.filter(v => v !== null && v !== '').join(",");
+        if (validValues.length > 0) {
+          newGeneratedParams.set(name, validValues);
+        }
       } else if (typeof values === 'string' && values.length > 0) {
-        params.set(name, values);
+        newGeneratedParams.set(name, values);
       } else if (values === null) {
-        params.set(name, "null");
+        // Explicitly setting "null" if that's the desired representation in URL for cleared filters
+        // Or, omit if null means the parameter should not be present.
+        // Based on current logic, it seems "null" is sometimes used.
+        // newGeneratedParams.set(name, "null"); // Let's assume null means absence for cleaner URLs unless specified
       }
     });
     
-    // Handle sorting
-    if (jotaiSearchState.sorting.field) {
-      params.set("order", `${jotaiSearchState.sorting.field}.${jotaiSearchState.sorting.direction}`);
+    // Handle sorting - only add if not default or if explicitly desired in URL
+    if (jotaiSearchState.sorting.field && 
+        (jotaiSearchState.sorting.field !== initialSearchStateValues.sorting.field || 
+         jotaiSearchState.sorting.direction !== initialSearchStateValues.sorting.direction)) {
+      newGeneratedParams.set("order", `${jotaiSearchState.sorting.field}.${jotaiSearchState.sorting.direction}`);
     }
 
-    // Handle pagination
-    if (jotaiSearchState.pagination.page) {
-      params.set("page", `${jotaiSearchState.pagination.page}`);
-      // pageSize is usually not in URL unless it's configurable by user via URL
-      // params.set("pageSize", `${jotaiSearchState.pagination.pageSize}`);
+    // Handle pagination - only add if not page 1
+    if (jotaiSearchState.pagination.page && jotaiSearchState.pagination.page !== 1) {
+      newGeneratedParams.set("page", `${jotaiSearchState.pagination.page}`);
     }
+    // pageSize is usually not in URL unless it's configurable and different from default.
+    // if (jotaiSearchState.pagination.pageSize !== initialSearchStateValues.pagination.pageSize) {
+    //   newGeneratedParams.set("pageSize", `${jotaiSearchState.pagination.pageSize}`);
+    // }
 
-    router.replace(params.size > 0 ? `?${params}` : window.location.pathname, {
-      scroll: false,
-    });
-  }, [jotaiSearchState, router]);
+    const currentUrlParams = new URLSearchParams(window.location.search);
+    
+    // Sort params for stable comparison, as URLSearchParams.toString() does.
+    newGeneratedParams.sort();
+    currentUrlParams.sort();
+
+    if (newGeneratedParams.toString() !== currentUrlParams.toString()) {
+      router.replace(newGeneratedParams.size > 0 ? `?${newGeneratedParams}` : window.location.pathname, {
+        scroll: false,
+      });
+    }
+  }, [jotaiSearchState, router, isSearchStateInitialized]); // Add isSearchStateInitialized to deps
 
   // Old logic (commented out, will be removed once new logic is confirmed)
   /*
@@ -88,3 +105,6 @@ export default function useDerivedUrlSearchParams(
   }, [appSearchParams, order, pagination, router]);
   */
 }
+// Helper to access initialSearchStateValues from Jotai atoms index
+import { initialSearchStateValues, searchStateInitializedAtom } from '@/atoms'; // Added searchStateInitializedAtom
+import { useAtomValue } from 'jotai'; // Added useAtomValue

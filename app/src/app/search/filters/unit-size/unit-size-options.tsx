@@ -2,7 +2,7 @@
 
 import { SearchFilterOption } from "../../search";
 import { OptionsFilter } from "../../components/options-filter";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react"; // Added useMemo
 import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import {
   UNIT_SIZE,
@@ -15,7 +15,17 @@ export default function UnitSizeOptions({
   readonly options: SearchFilterOption[];
 }) {
   const { searchState, updateFilters, executeSearch } = useSearch();
-  const selected = (searchState.filters[UNIT_SIZE] as (string | null)[]) || [];
+  // const selected = (searchState.filters[UNIT_SIZE] as (string | null)[]) || [];
+  const filterValue = searchState.filters[UNIT_SIZE];
+  const selected = useMemo(() => {
+    if (Array.isArray(filterValue)) {
+      return filterValue as (string | null)[];
+    }
+    if (typeof filterValue === 'string') {
+      return [filterValue];
+    }
+    return [];
+  }, [filterValue]);
 
   const toggle = useCallback(
     async ({ value }: SearchFilterOption) => {

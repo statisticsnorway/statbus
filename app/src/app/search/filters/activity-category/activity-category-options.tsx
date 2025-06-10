@@ -1,7 +1,7 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
 import { useSearch } from "@/atoms/hooks";
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react"; // Added useMemo
 import { ACTIVITY_CATEGORY_PATH } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../../search";
 
@@ -9,7 +9,17 @@ export default function ActivityCategoryOptions({options}: {
   readonly options: SearchFilterOption[];
 }) {
   const { searchState, updateFilters, executeSearch } = useSearch();
-  const selected = (searchState.filters[ACTIVITY_CATEGORY_PATH] as (string | null)[]) || [];
+  // const selected = (searchState.filters[ACTIVITY_CATEGORY_PATH] as (string | null)[]) || [];
+  const filterValue = searchState.filters[ACTIVITY_CATEGORY_PATH];
+  const selected = useMemo(() => {
+    if (Array.isArray(filterValue)) {
+      return filterValue as (string | null)[];
+    }
+    if (typeof filterValue === 'string') {
+      return [filterValue];
+    }
+    return [];
+  }, [filterValue]);
 
   const toggle = useCallback(
     async ({ value }: SearchFilterOption) => {
