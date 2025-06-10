@@ -19,7 +19,7 @@ export default function ImportPage() {
       }
       
       // Connect to SSE endpoint with empty job list to listen for new jobs
-      eventSource = new EventSource('/api/sse/import-jobs?ids=0');
+      eventSource = new EventSource('/api/sse/import-jobs');
       
       eventSource.onmessage = (event) => {
         try {
