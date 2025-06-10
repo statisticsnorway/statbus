@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useImportUnits } from "../import-units-context";
+import { useImportManager } from "@/atoms/hooks"; // Updated import
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
@@ -18,7 +18,7 @@ export function ImportJobCreator({ definitionSlug, uploadPath, unitType }: Impor
   const { 
     createImportJob, 
     timeContext: { selectedContext, useExplicitDates } 
-  } = useImportUnits();
+  } = useImportManager(); // Updated hook call
   const router = useRouter();
 
   const handleContinue = async () => {

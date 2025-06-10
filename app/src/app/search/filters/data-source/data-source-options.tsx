@@ -1,8 +1,8 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearchContext } from "@/app/search/use-search-context";
-import { useCallback } from "react";
-import { DATA_SOURCE, dataSourceDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params";
+import { useSearch } from "@/atoms/hooks";
+import { useCallback, useMemo } from "react"; // Added useMemo
+import { DATA_SOURCE } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../../search";
 import { Tables } from "@/lib/database.types";
 
@@ -14,27 +14,43 @@ export default function DataSourceOptions({
   readonly options: SearchFilterOption[];
   readonly dataSources: Tables<"data_source_used">[];
 }) {
-  const {
-    modifySearchState,
-    searchState: {
-      appSearchParams: { [DATA_SOURCE]: selected = [] },
-    },
-  } = useSearchContext();
+  const { searchState, updateFilters, executeSearch } = useSearch();
+  // const selected = (searchState.filters[DATA_SOURCE] as (string | null)[]) || [];
+  const filterValue = searchState.filters[DATA_SOURCE];
+  const selected = useMemo(() => {
+    if (Array.isArray(filterValue)) {
+      return filterValue as (string | null)[];
+    }
+    if (typeof filterValue === 'string') {
+      return [filterValue];
+    }
+    return [];
+  }, [filterValue]);
 
   const toggle = useCallback(
-    ({ value }: SearchFilterOption) => {
+    async ({ value }: SearchFilterOption) => {
       const values = selected.includes(value)
         ? selected.filter((v) => v !== value)
         : [...selected, value];
 
-      modifySearchState(dataSourceDeriveStateUpdateFromValues(values, dataSources));
+      const newFilters = {
+        ...searchState.filters,
+        [DATA_SOURCE]: values,
+      };
+      updateFilters(newFilters);
+      await executeSearch();
     },
-    [selected, modifySearchState, dataSources]
+    [selected, searchState.filters, updateFilters, executeSearch]
   );
 
-  const reset = useCallback(() => {
-    modifySearchState(dataSourceDeriveStateUpdateFromValues([], []));
-  }, [modifySearchState]);
+  const reset = useCallback(async () => {
+    const newFilters = {
+      ...searchState.filters,
+      [DATA_SOURCE]: [],
+    };
+    updateFilters(newFilters);
+    await executeSearch();
+  }, [searchState.filters, updateFilters, executeSearch]);
 
   return (
     <OptionsFilter

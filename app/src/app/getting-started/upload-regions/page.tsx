@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useGettingStarted } from "../GettingStartedContext";
+import { useGettingStartedManager as useGettingStarted } from '@/atoms/hooks';
 import {
   Accordion,
   AccordionContent,
@@ -14,7 +14,8 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 
 export default function UploadRegionsPage() {
-  const { numberOfRegions, refreshNumberOfRegions } = useGettingStarted();
+  const { dataState, refreshAllData } = useGettingStarted();
+  const { numberOfRegions } = dataState;
 
   return (
     <section className="space-y-8">
@@ -42,7 +43,7 @@ export default function UploadRegionsPage() {
       <UploadCSVForm
         uploadView="region_upload"
         nextPage="/getting-started/upload-custom-sectors"
-        refreshRelevantCounts={refreshNumberOfRegions}
+        refreshRelevantCounts={refreshAllData}
       />
 
       <Accordion type="single" collapsible>

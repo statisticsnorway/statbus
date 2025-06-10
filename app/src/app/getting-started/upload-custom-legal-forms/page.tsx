@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useGettingStarted } from "../GettingStartedContext";
+import { useGettingStartedManager as useGettingStarted } from '@/atoms/hooks';
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {
@@ -12,7 +12,8 @@ import {
 } from "@/components/ui/accordion";
 
 export default function UploadCustomSectorsPage() {
-  const { numberOfCustomLegalForms, refreshNumberOfCustomLegalForms } = useGettingStarted();
+  const { dataState, refreshAllData } = useGettingStarted();
+  const { numberOfCustomLegalForms } = dataState;
 
   return (
     <section className="space-y-8">
@@ -34,7 +35,7 @@ export default function UploadCustomSectorsPage() {
       <UploadCSVForm
         uploadView="legal_form_custom_only"
         nextPage="/getting-started/summary"
-        refreshRelevantCounts={refreshNumberOfCustomLegalForms}
+        refreshRelevantCounts={refreshAllData}
       />
 
       <Accordion type="single" collapsible>

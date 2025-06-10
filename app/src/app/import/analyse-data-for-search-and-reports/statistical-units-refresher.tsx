@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { useBaseData } from "@/app/BaseDataClient";
+import { useBaseData } from "@/atoms/hooks";
+import { useSetAtom } from 'jotai';
+import { refreshHasStatisticalUnitsAtomAction } from '@/atoms/index';
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 type AnalysisState = "checking_status" | "in_progress" | "finished" | "failed";
@@ -14,14 +16,16 @@ export function StatisticalUnitsRefresher({
 }) {
   const [state, setState] = useState<AnalysisState>("checking_status");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // Get status and refresh function directly from context
-  const { workerStatus, hasStatisticalUnits, refreshHasStatisticalUnits } = useBaseData();
+  // Get status from Jotai hook
+  const { workerStatus, hasStatisticalUnits } = useBaseData();
+  // Get setter for the action atom
+  const doRefreshHasStatisticalUnits = useSetAtom(refreshHasStatisticalUnitsAtomAction);
 
   // Effect to determine component state based on context status
   useEffect(() => {
-    const { isImporting, isDerivingUnits, isDerivingReports, isLoading, error } = workerStatus;
+    const { isImporting, isDerivingUnits, isDerivingReports, loading, error } = workerStatus;
 
-    if (isLoading) {
+    if (loading) {
       setState("checking_status");
       return;
     }
@@ -37,7 +41,7 @@ export function StatisticalUnitsRefresher({
     } else {
       // Import and Derivation are finished according to context, now check if units exist
       const checkUnits = async () => {
-        const currentHasUnits = await refreshHasStatisticalUnits(); // Refresh and get latest
+        const currentHasUnits = await doRefreshHasStatisticalUnits(); // Refresh and get latest
         if (currentHasUnits) {
           setState("finished");
         } else {
@@ -49,14 +53,7 @@ export function StatisticalUnitsRefresher({
       checkUnits();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-       workerStatus.isImporting,
-       workerStatus.isDerivingUnits,
-       workerStatus.isDerivingReports,
-       workerStatus.isLoading,
-       workerStatus.error,
-       refreshHasStatisticalUnits
-     ]);
+  }, [workerStatus, doRefreshHasStatisticalUnits]);
 
   if (state === "checking_status") {
     return <Spinner message="Checking status of data analysis..." />;

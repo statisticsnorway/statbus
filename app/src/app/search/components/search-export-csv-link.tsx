@@ -3,13 +3,14 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-import { useSearchContext } from "@/app/search/use-search-context";
+import { useAtomValue } from 'jotai';
+import { searchResultAtom, derivedApiSearchParamsAtom } from '@/atoms';
 
 export function ExportCSVLink() {
-  const { searchResult, derivedApiSearchParams: searchParams } = useSearchContext();
+  const searchResult = useAtomValue(searchResultAtom);
+  const searchParams = useAtomValue(derivedApiSearchParamsAtom);
 
-  if (!searchResult?.count) {
+  if (!searchResult?.total) {
     return null;
   }
 
@@ -17,7 +18,7 @@ export function ExportCSVLink() {
     <Link
       target="_blank"
       prefetch={false}
-      href={`/api/search/export?${searchParams}`}
+      href={`/api/search/export?${searchParams.toString()}`}
       className={cn(
         buttonVariants({ variant: "secondary", size: "sm" }),
         "flex items-center space-x-2"

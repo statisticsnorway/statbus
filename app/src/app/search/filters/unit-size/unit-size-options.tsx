@@ -2,11 +2,11 @@
 
 import { SearchFilterOption } from "../../search";
 import { OptionsFilter } from "../../components/options-filter";
-import { useCallback } from "react";
-import { useSearchContext } from "../../use-search-context";
+import { useCallback, useMemo } from "react"; // Added useMemo
+import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import {
   UNIT_SIZE,
-  unitSizeDeriveStateUpdateFromValues,
+  // unitSizeDeriveStateUpdateFromValues, // Removed
 } from "../url-search-params";
 
 export default function UnitSizeOptions({
@@ -14,27 +14,43 @@ export default function UnitSizeOptions({
 }: {
   readonly options: SearchFilterOption[];
 }) {
-  const {
-    modifySearchState,
-    searchState: {
-      appSearchParams: { [UNIT_SIZE]: selected = [] },
-    },
-  } = useSearchContext();
+  const { searchState, updateFilters, executeSearch } = useSearch();
+  // const selected = (searchState.filters[UNIT_SIZE] as (string | null)[]) || [];
+  const filterValue = searchState.filters[UNIT_SIZE];
+  const selected = useMemo(() => {
+    if (Array.isArray(filterValue)) {
+      return filterValue as (string | null)[];
+    }
+    if (typeof filterValue === 'string') {
+      return [filterValue];
+    }
+    return [];
+  }, [filterValue]);
 
   const toggle = useCallback(
-    ({ value }: SearchFilterOption) => {
-      const values = selected.includes(value)
+    async ({ value }: SearchFilterOption) => {
+      const newSelectedValues = selected.includes(value)
         ? selected.filter((v) => v !== value)
         : [...selected, value];
 
-      modifySearchState(unitSizeDeriveStateUpdateFromValues(values));
+      const newFilters = {
+        ...searchState.filters,
+        [UNIT_SIZE]: newSelectedValues,
+      };
+      updateFilters(newFilters);
+      await executeSearch();
     },
-    [selected, modifySearchState]
+    [selected, searchState.filters, updateFilters, executeSearch]
   );
 
-  const reset = useCallback(() => {
-    modifySearchState(unitSizeDeriveStateUpdateFromValues([]));
-  }, [modifySearchState]);
+  const reset = useCallback(async () => {
+    const newFilters = {
+      ...searchState.filters,
+      [UNIT_SIZE]: [],
+    };
+    updateFilters(newFilters);
+    await executeSearch();
+  }, [searchState.filters, updateFilters, executeSearch]);
 
   return (
     <OptionsFilter

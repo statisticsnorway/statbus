@@ -1,6 +1,6 @@
 "use client";
 
-import { useTableColumns } from "../table-columns";
+import { useTableColumnsManager as useTableColumns } from '@/atoms/hooks';
 import { TableColumn } from "../search";
 
 interface FilterWrapperProps {

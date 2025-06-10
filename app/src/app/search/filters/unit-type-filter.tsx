@@ -1,33 +1,45 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearchContext } from "@/app/search/use-search-context";
-import { useCallback } from "react";
-import { UNIT_TYPE, unitTypeDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params";
+// import { useSearchContext } from "@/app/search/use-search-context"; // Removed
+import { useSearch } from "@/atoms/hooks"; // Using Jotai's useSearch
+import { useCallback, useMemo } from "react"; // Added useMemo
+import { UNIT_TYPE } from "@/app/search/filters/url-search-params"; // Removed unused unitTypeDeriveStateUpdateFromValues
 import { SearchFilterOption } from "../search";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 
 export default function UnitTypeFilter() {
-  const {
-    modifySearchState,
-    searchState: {
-      appSearchParams: { [UNIT_TYPE]: selected = [] },
-    },
-  } = useSearchContext();
+  const { searchState, updateFilters, executeSearch } = useSearch(); // Added executeSearch
+  const filterValue = searchState.filters[UNIT_TYPE];
+  const selected = useMemo(() => {
+    if (Array.isArray(filterValue)) {
+      return filterValue as string[];
+    }
+    if (typeof filterValue === 'string') {
+      return [filterValue];
+    }
+    return [];
+  }, [filterValue]);
+
 
   const toggle = useCallback(
-    ({ value }: SearchFilterOption) => {
-      const values = selected.includes(value)
-        ? selected.filter((v) => v !== value)
-        : [...selected, value];
-
-      modifySearchState(unitTypeDeriveStateUpdateFromValues(values));
+    async ({ value }: SearchFilterOption) => { // Made async
+      const currentValues = selected; // Use the memoized selected value
+      const newValues = currentValues.includes(value as string)
+        ? currentValues.filter((v) => v !== value)
+        : [...currentValues, value as string];
+      
+      updateFilters({ ...searchState.filters, [UNIT_TYPE]: newValues });
+      await executeSearch(); // Added executeSearch
     },
-    [modifySearchState, selected]
+    [selected, searchState.filters, updateFilters, executeSearch] // Added executeSearch to deps
   );
 
-  const reset = useCallback(() => {
-    modifySearchState(unitTypeDeriveStateUpdateFromValues([]));
-  }, [modifySearchState]);
+  const reset = useCallback(async () => { // Made async
+    const newFilters = { ...searchState.filters };
+    delete newFilters[UNIT_TYPE]; // Or set to [] if that's preferred for consistency
+    updateFilters(newFilters);
+    await executeSearch(); // Added executeSearch
+  }, [searchState.filters, updateFilters, executeSearch]); // Added executeSearch to deps
 
   return (
     <OptionsFilter

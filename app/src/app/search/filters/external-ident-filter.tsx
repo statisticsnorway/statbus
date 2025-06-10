@@ -1,25 +1,30 @@
 "use client";
 import { Input } from "@/components/ui/input";
-import { useSearchContext } from "@/app/search/use-search-context";
+import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import { useCallback } from "react";
-import { useBaseData } from "@/app/BaseDataClient";
-import { externalIdentDeriveStateUpdateFromValues } from "./url-search-params";
+import { useBaseData } from "@/atoms/hooks";
+// import { externalIdentDeriveStateUpdateFromValues } from "./url-search-params"; // Removed
 
 export default function ExternalIdentFilter() {
   const { externalIdentTypes } = useBaseData();
   const maybeDefaultExternalIdentType = externalIdentTypes?.[0];
-  const { modifySearchState, searchState } = useSearchContext();
-  const selected = maybeDefaultExternalIdentType ? searchState.appSearchParams[maybeDefaultExternalIdentType.code!] ?? [] : [];
+  const { searchState, updateFilters, executeSearch } = useSearch();
+  const currentValue = maybeDefaultExternalIdentType ? (searchState.filters[maybeDefaultExternalIdentType.code!] as string | undefined) ?? "" : "";
 
   const update = useCallback(
-    (app_param_value: string) => {
+    async (app_param_value: string) => {
       if (maybeDefaultExternalIdentType) {
-        modifySearchState(
-          externalIdentDeriveStateUpdateFromValues(maybeDefaultExternalIdentType, app_param_value)
-          );
+        const newFilters = { ...searchState.filters };
+        if (app_param_value && app_param_value.trim() !== '') {
+          newFilters[maybeDefaultExternalIdentType.code!] = app_param_value;
+        } else {
+          delete newFilters[maybeDefaultExternalIdentType.code!];
+        }
+        updateFilters(newFilters);
+        await executeSearch();
       }
     },
-    [modifySearchState, maybeDefaultExternalIdentType]
+    [searchState.filters, updateFilters, executeSearch, maybeDefaultExternalIdentType]
   );
 
   return maybeDefaultExternalIdentType ? (
@@ -29,7 +34,7 @@ export default function ExternalIdentFilter() {
       className="h-9 w-full md:max-w-[200px]"
       id="external-ident-search"
       name="external-ident-search"
-      value={selected[0] ?? ""}
+      value={currentValue}
       onChange={(e) => update(e.target.value)}
     />
   ) : null;

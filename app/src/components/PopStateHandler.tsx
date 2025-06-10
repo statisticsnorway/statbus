@@ -1,11 +1,17 @@
 "use client";
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useTimeContext } from "@/app/time-context";
+import { useTimeContext } from '@/atoms/hooks';
 
 export default function PopStateHandler() {
   const searchParams = useSearchParams();
-  const { setSelectedTimeContextFromIdent } = useTimeContext();
+  // const { setSelectedTimeContextFromIdent } = useTimeContext(); // Original
+  // The new useTimeContext returns: selectedTimeContext, setSelectedTimeContext, timeContexts, defaultTimeContext
+  // Need to adapt setSelectedTimeContextFromIdent.
+  // For now, let's assume setSelectedTimeContext can take an ident or the object.
+  // The original setSelectedTimeContextFromIdent likely found the TC object by ident.
+  const { setSelectedTimeContext, timeContexts } = useTimeContext();
+
 
   useEffect(() => {
     const handlePopState = () => {
@@ -13,7 +19,15 @@ export default function PopStateHandler() {
       const tcQueryParam = query.get("tc");
 
       if (tcQueryParam) {
-        setSelectedTimeContextFromIdent(tcQueryParam);
+        // setSelectedTimeContextFromIdent(tcQueryParam); // Original
+        // New logic: find time context by ident and set it
+        const targetTimeContext = timeContexts.find(tc => tc.ident === tcQueryParam);
+        if (targetTimeContext) {
+          setSelectedTimeContext(targetTimeContext);
+        } else {
+          // Fallback or error handling if tcQueryParam is invalid
+          setSelectedTimeContext(null); 
+        }
       }
     };
 
@@ -21,7 +35,7 @@ export default function PopStateHandler() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [searchParams, setSelectedTimeContextFromIdent]);
+  }, [searchParams, setSelectedTimeContext, timeContexts]);
 
   return null;
 }

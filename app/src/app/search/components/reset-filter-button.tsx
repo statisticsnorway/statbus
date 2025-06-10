@@ -2,17 +2,18 @@
 import { Button } from "@/components/ui/button";
 import { SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useSearchContext } from "@/app/search/use-search-context";
+import { useSetAtom } from 'jotai';
+import { resetSearchStateAtom } from '@/atoms'; // Assuming index.ts is resolved by default
 
 interface ResetFilterButtonProps {
   className?: string;
 }
 
 export const ResetFilterButton = ({ className }: ResetFilterButtonProps) => {
-  const { modifySearchState } = useSearchContext();
+  const resetSearch = useSetAtom(resetSearchStateAtom);
   return (
     <Button
-      onClick={() => modifySearchState({ type: "reset_all" })}
+      onClick={resetSearch}
       type="button"
       variant="secondary"
       className={cn("flex items-center space-x-2 h-9 p-2", className)}

@@ -302,14 +302,21 @@ export function statisticalVariableParse(rawValue: string | null): { operator: s
     return { operator: inMatch.groups.operator, operand: inMatch.groups.operand };
   }
 
-  // Regex for standard 'operator.operand' format
-  const standardRegex = /^(?<operator>[^.]+)\.(?<operand>[^()]+)$/;
-  const standardMatch = rawValue.match(standardRegex);
-  if (standardMatch?.groups) {
-    return { operator: standardMatch.groups.operator, operand: standardMatch.groups.operand };
-  }
+  // Regex for standard 'operator.operand' format (used by API, but not for app state string)
+  // const standardDotRegex = /^(?<operator>[^.]+)\.(?<operand>[^()]+)$/;
+  // const standardDotMatch = rawValue.match(standardDotRegex);
+  // if (standardDotMatch?.groups) {
+  //   return { operator: standardDotMatch.groups.operator, operand: standardDotMatch.groups.operand };
+  // }
 
-  // Return null if no regex matches
+  // Regex for 'operator:operand' format (used in app state for statistical variables)
+  const colonRegex = /^(?<operator>[^:]+):(?<operand>.+)$/;
+  const colonMatch = rawValue.match(colonRegex);
+  if (colonMatch?.groups) {
+    return { operator: colonMatch.groups.operator, operand: colonMatch.groups.operand };
+  }
+  
+  // Return null if no regex matches the expected formats for parsing from app state string
   return null;
 }
 

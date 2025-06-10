@@ -9,9 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import PopStateHandler from "@/components/PopStateHandler";
-import { ServerBaseDataProvider } from "@/app/BaseDataServer";
-import { AuthProvider } from "@/context/AuthContext";
-import { TimeContextProvider } from "@/app/time-context";
+import { JotaiAppProvider, AtomDevtools } from '@/atoms/JotaiAppProvider';
 import { deploymentSlotName } from "@/lib/deployment-variables";
 import RootLayoutClient from "./RootLayoutClient";
 
@@ -39,15 +37,12 @@ export default async function RootLayout({
           inter.className
         )}
       >
-        <AuthProvider>
+        <JotaiAppProvider>
           <RootLayoutClient>
-            {/* Wrap ServerBaseDataProvider and its children in Suspense */}
+            {/* Main application content, now under Jotai's Provider and Suspense */}
             <Suspense fallback={
               <>
-                {/* This fallback will be rendered for the initial static shell 
-                    or while ServerBaseDataProvider is resolving on dynamic routes.
-                    It should include basic layout structure if possible, 
-                    or at least NavbarSkeleton and FooterSkeleton. */}
+                {/* This fallback is for the initial static shell or while JotaiAppProvider's Suspense is active. */}
                 <NavbarSkeleton />
                 <div className="flex-grow p-4"><div>Loading application data...</div></div> {/* Placeholder for children */}
                 <FooterSkeleton />
@@ -55,28 +50,25 @@ export default async function RootLayout({
                 <CommandPalette /> {/* CommandPalette might also be okay outside */}
               </>
             }>
-              <ServerBaseDataProvider>
-                {/* TimeContextProvider and its children depend on BaseDataContext from ServerBaseDataProvider */}
-                <TimeContextProvider>
-                  <PopStateHandler />
-                  {/* Navbar and Footer are already Suspense-wrapped, which is good.
-                      They will use their own skeletons if ServerBaseDataProvider resolves 
-                      but their specific data is still loading. */}
-                  <Suspense fallback={<NavbarSkeleton />}>
-                    <Navbar />
-                  </Suspense>
-                  {children}
-                  <CommandPalette />
-                  <Toaster />
-                  <Suspense fallback={<FooterSkeleton />}>
-                    <Footer />
-                  </Suspense>
-                </TimeContextProvider>
-              </ServerBaseDataProvider>
+              {/* ServerBaseDataProvider and TimeContextProvider have been removed. 
+                  State management and initialization are now handled by JotaiAppProvider. */}
+              <PopStateHandler />
+              {/* Navbar and Footer are already Suspense-wrapped, which is good.
+                  They will use their own skeletons if ServerBaseDataProvider resolves 
+                  but their specific data is still loading. */}
+              <Suspense fallback={<NavbarSkeleton />}>
+                <Navbar />
+              </Suspense>
+              {children}
+              <CommandPalette />
+              <Toaster />
+              <Suspense fallback={<FooterSkeleton />}>
+                <Footer />
+              </Suspense>
             </Suspense>
           </RootLayoutClient>
           <GlobalErrorReporter />
-        </AuthProvider>
+        </JotaiAppProvider>
       </body>
     </html>
   );

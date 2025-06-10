@@ -1,7 +1,7 @@
 "use client";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useSearchContext } from "@/app/search/use-search-context";
+import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import { Tables } from "@/lib/database.types";
 
 interface ActiveExternalIdentBadgesProps {
@@ -9,14 +9,25 @@ interface ActiveExternalIdentBadgesProps {
 }
 
 export function ActiveExternalIdentBadges({ externalIdentTypes }: ActiveExternalIdentBadgesProps) {
-  const { searchState: { appSearchParams } } = useSearchContext();
+  const { searchState } = useSearch(); // Use Jotai hook
+  const { filters } = searchState;
 
   const activeFilters = externalIdentTypes
-    .filter(type => (appSearchParams[type.code!]?.length ?? 0) > 0)
-    .map(type => ({
-      code: type.code,
-      value: appSearchParams[type.code!]?.[0]
-    }));
+    .map(type => {
+      const filterValue = filters[type.code!];
+      // Assuming filterValue is a string or an array of strings.
+      // If it's an array, take the first element. If string, take the string.
+      // Ensure it's a non-empty string to be considered active.
+      const displayValue = Array.isArray(filterValue) ? filterValue[0] : filterValue;
+      if (displayValue && String(displayValue).length > 0) {
+        return {
+          code: type.code,
+          value: String(displayValue) // Ensure it's a string for display
+        };
+      }
+      return null;
+    })
+    .filter(Boolean) as { code: string; value: string }[]; // Type assertion after filtering nulls
 
   if (activeFilters.length === 0) return null;
 

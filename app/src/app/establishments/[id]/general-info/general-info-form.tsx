@@ -1,6 +1,6 @@
 "use client";
 import { FormField } from "@/components/form/form-field";
-import { useBaseData } from "@/app/BaseDataClient";
+import { useBaseData } from "@/atoms/hooks";
 
 export default function GeneralInfoForm({
   establishment,

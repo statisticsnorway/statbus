@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { BarChartHorizontal, Search, Upload } from "lucide-react";
-import { useBaseData } from "@/app/BaseDataClient";
+import { useBaseData } from "@/atoms/hooks";
 
 export function NavbarStatusVisualizer() {
   const { workerStatus } = useBaseData();

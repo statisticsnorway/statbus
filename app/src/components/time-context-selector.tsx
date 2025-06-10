@@ -15,9 +15,8 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { useTimeContext } from "@/app/time-context";
+import { useTimeContext } from "@/atoms/hooks";
 import { useState } from "react";
-import { useBaseData } from "@/app/BaseDataClient"; // Import the useBaseData hook
 
 export default function TimeContextSelector({
   className,
@@ -26,9 +25,8 @@ export default function TimeContextSelector({
   readonly className?: string;
   readonly title?: string;
 }) {
-  const { selectedTimeContext, setSelectedTimeContext } = useTimeContext();
+  const { selectedTimeContext, setSelectedTimeContext, timeContexts } = useTimeContext();
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-  const { timeContexts } = useBaseData(); // Use the useBaseData hook to get timeContexts
 
 
   return (

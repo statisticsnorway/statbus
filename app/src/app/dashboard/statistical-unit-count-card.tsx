@@ -2,7 +2,7 @@
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
-import { useTimeContext } from "@/app/time-context";
+import { useTimeContext } from '@/atoms/hooks';
 import { useEffect, useState } from "react";
 import { PostgrestError } from "@supabase/postgrest-js";
 

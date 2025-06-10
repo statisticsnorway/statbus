@@ -1,9 +1,9 @@
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import SortableTableHead from "@/app/search/components/sortable-table-head";
-import { useBaseData } from "@/app/BaseDataClient";
+import { useBaseData } from "@/atoms/hooks";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useTableColumns } from "../table-columns";
+import { useTableColumnsManager } from "@/atoms/hooks"; // Updated import
 
 interface StatisticalUnitTableHeaderProps {
   regionLevel: number;
@@ -18,7 +18,7 @@ export function StatisticalUnitTableHeader({
 }: StatisticalUnitTableHeaderProps) {
   const { statDefinitions, externalIdentTypes } = useBaseData();
   const { visibleColumns, headerRowSuffix, headerCellSuffix } =
-    useTableColumns();
+    useTableColumnsManager(); // Updated hook call
 
   return (
     <TableHeader className="bg-gray-50">

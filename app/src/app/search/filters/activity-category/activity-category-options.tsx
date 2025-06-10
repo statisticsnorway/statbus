@@ -1,31 +1,47 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearchContext } from "@/app/search/use-search-context";
-import { useCallback } from "react";
-import { ACTIVITY_CATEGORY_PATH, activityCategoryDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params";
+import { useSearch } from "@/atoms/hooks";
+import { useCallback, useMemo } from "react"; // Added useMemo
+import { ACTIVITY_CATEGORY_PATH } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../../search";
 
 export default function ActivityCategoryOptions({options}: {
   readonly options: SearchFilterOption[];
 }) {
-  const {
-    modifySearchState,
-    searchState: {
-      appSearchParams: { [ACTIVITY_CATEGORY_PATH]: selected = [] },
-    },
-  } = useSearchContext();
+  const { searchState, updateFilters, executeSearch } = useSearch();
+  // const selected = (searchState.filters[ACTIVITY_CATEGORY_PATH] as (string | null)[]) || [];
+  const filterValue = searchState.filters[ACTIVITY_CATEGORY_PATH];
+  const selected = useMemo(() => {
+    if (Array.isArray(filterValue)) {
+      return filterValue as (string | null)[];
+    }
+    if (typeof filterValue === 'string') {
+      return [filterValue];
+    }
+    return [];
+  }, [filterValue]);
 
   const toggle = useCallback(
-    ({ value }: SearchFilterOption) => {
+    async ({ value }: SearchFilterOption) => {
       const toggledValues = selected.includes(value) ? [] : [value];
-      modifySearchState(activityCategoryDeriveStateUpdateFromValues(toggledValues));
+      const newFilters = {
+        ...searchState.filters,
+        [ACTIVITY_CATEGORY_PATH]: toggledValues,
+      };
+      updateFilters(newFilters);
+      await executeSearch();
     },
-    [modifySearchState, selected]
+    [searchState.filters, updateFilters, executeSearch, selected]
   );
 
-  const reset = useCallback(() => {
-    modifySearchState(activityCategoryDeriveStateUpdateFromValues([]));
-  }, [modifySearchState]);
+  const reset = useCallback(async () => {
+    const newFilters = {
+      ...searchState.filters,
+      [ACTIVITY_CATEGORY_PATH]: [],
+    };
+    updateFilters(newFilters);
+    await executeSearch();
+  }, [searchState.filters, updateFilters, executeSearch]);
 
   return (
     <OptionsFilter

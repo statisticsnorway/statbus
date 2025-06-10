@@ -1,24 +1,24 @@
 "use client";
 import { Input } from "@/components/ui/input";
-import { useSearchContext } from "@/app/search/use-search-context";
+import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import { useCallback, useEffect, useState } from "react";
-import { SEARCH, fullTextSearchDeriveStateUpdateFromValue } from "@/app/search/filters/url-search-params";
+// SEARCH and fullTextSearchDeriveStateUpdateFromValue are no longer needed
 
 export default function FullTextSearchFilter() {
-  const {
-    modifySearchState,
-    searchState: {
-      appSearchParams: { [SEARCH]: selected = [] },
-    },
-  } = useSearchContext();
+  const { searchState, updateSearchQuery, executeSearch } = useSearch();
+  const [debouncedValue, setDebouncedValue] = useState<string>(searchState.query);
 
-  const [debouncedValue, setDebouncedValue] = useState<string>(selected[0] ?? '');
+  // Synchronize local debouncedValue with global searchState.query if it changes externally
+  useEffect(() => {
+    setDebouncedValue(searchState.query);
+  }, [searchState.query]);
 
   const update = useCallback(
-    (value: string) => {
-      modifySearchState(fullTextSearchDeriveStateUpdateFromValue(value));
+    async (value: string) => {
+      updateSearchQuery(value);
+      await executeSearch();
     },
-    [modifySearchState]
+    [updateSearchQuery, executeSearch]
   );
 
   useEffect(() => {

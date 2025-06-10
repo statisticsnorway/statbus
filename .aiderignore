@@ -1,5 +1,7 @@
 # Lots of legacy code - ignore to avoid confusion.
-legacy/*
-legacy-reports/*
+/legacy/*
+/legacy-reports/*
 # A mirror of supabase code - not for editing.
-supabase_docker/*
+/supabase_docker/*
+# Any internal .nextjs code
+/app/.next

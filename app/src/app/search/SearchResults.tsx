@@ -1,91 +1,63 @@
 "use client";
 
-import { ReactNode, useMemo, useReducer } from "react";
-import { useTimeContext } from "@/app/time-context";
+import { ReactNode, useMemo, useEffect } from "react";
+import { useTimeContext, useBaseData, useSearch } from "@/atoms/hooks";
+import { useSetAtom, useAtomValue } from 'jotai';
 import useSWR from "swr";
-import { modifySearchStateReducer } from "@/app/search/search-filter-reducer";
 import useDerivedUrlSearchParams from "@/app/search/use-derived-url-search-params";
-import { useBaseData } from "@/app/BaseDataClient";
-import { SearchContext, SearchContextState } from "@/app/search/search-context";
-import { TableColumnsProvider } from "./table-columns";
-import { SearchResult, SearchOrder, SearchPagination, SearchState, SearchAction } from "./search.d";
+// import { SearchContext, SearchContextState } from "./search-context"; // Removed as per migration
+import { SearchResult as ApiSearchResultType, SearchOrder, SearchPagination } from "./search.d";
+import { searchResultAtom, derivedApiSearchParamsAtom, searchStateAtom, setSearchPageDataAtom, searchStateInitializedAtom } from '@/atoms'; // AI: Added searchStateInitializedAtom
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { getStatisticalUnits } from "./search-requests";
 import {
-  activityCategoryDeriveStateUpdateFromSearchParams,
-  dataSourceDeriveStateUpdateFromSearchParams,
-  externalIdentDeriveStateUpdateFromSearchParams,
+  SEARCH,
+  UNIT_TYPE,
+  // AI: Moved the misplaced import block here
   fullTextSearchDeriveStateUpdateFromSearchParams,
+  unitTypeDeriveStateUpdateFromSearchParams,
   invalidCodesDeriveStateUpdateFromSearchParams,
   legalFormDeriveStateUpdateFromSearchParams,
   regionDeriveStateUpdateFromSearchParams,
   sectorDeriveStateUpdateFromSearchParams,
-  statisticalVariablesDeriveStateUpdateFromSearchParams,
+  activityCategoryDeriveStateUpdateFromSearchParams,
   statusDeriveStateUpdateFromSearchParams,
   unitSizeDeriveStateUpdateFromSearchParams,
-  unitTypeDeriveStateUpdateFromSearchParams,
+  dataSourceDeriveStateUpdateFromSearchParams,
+  externalIdentDeriveStateUpdateFromSearchParams,
+  statisticalVariablesDeriveStateUpdateFromSearchParams,
+  // End of moved block
+  INVALID_CODES,
+  LEGAL_FORM,
+  REGION,
+  SECTOR,
+  ACTIVITY_CATEGORY_PATH,
+  STATUS,
+  UNIT_SIZE,
+  DATA_SOURCE,
+  // No need for the individual `*DeriveStateUpdateFromSearchParams` functions here
+  // as we'll call Jotai setters directly.
 } from "./filters/url-search-params";
+import { SearchAction } from "./search.d"; // AI: Moved this import too
+import { useAtom } from "jotai"; // AI: Moved this import too
 
-const fetcher = async (derivedApiSearchParams: URLSearchParams) => {
-  // Use getBrowserRestClient instead of createPostgRESTBrowserClient
-  // This ensures we're using the singleton pattern correctly
+// SWR Fetcher - kept local as it's specific to SWR's usage here
+const fetcherForSWR = async (paramsString: string) => {
   const client = await getBrowserRestClient();
+  if (!client) throw new Error("REST client not available for SWR search");
   try {
-    const response = await getStatisticalUnits(client, derivedApiSearchParams);
-    return response
+    // paramsString already includes the leading '?' from `/api/search?${...}`
+    // so we create URLSearchParams from the part after '?'
+    const actualParams = new URLSearchParams(paramsString.substring(paramsString.indexOf('?') + 1));
+    const response = await getStatisticalUnits(client, actualParams);
+    return response;
   } catch (error) {
-    console.error("Failed to fetch data:", error);
+    console.error("SWR fetcher failed for search:", error);
     throw error;
   }
 };
-
-/**
- * Extract values from URLSearchParams and initialize search state.
- * This avoid a double fetch during loading, because the useEffect of all
- * the filters are triggered after the useEffect of SearchResults, so their
- * initial state changes must be incorporated here.
- */
-function initializeSearchStateFromUrlSearchParams(
-  modifySearchStateReducer: (
-    state: SearchState,
-    action: SearchAction
-  ) => SearchState,
-  emptySearchState: SearchState,
-  initialUrlSearchParams: URLSearchParams,
-  maybeDefaultExternalIdentType: Tables<"external_ident_type_ordered">,
-  statDefinitions: Tables<"stat_definition_ordered">[],
-  allDataSources: Tables<"data_source">[]
-): SearchState {
-  let actions = [
-    fullTextSearchDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-    unitTypeDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-    invalidCodesDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-    legalFormDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-    regionDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-    sectorDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-    activityCategoryDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-    statusDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-    unitSizeDeriveStateUpdateFromSearchParams(initialUrlSearchParams),
-    dataSourceDeriveStateUpdateFromSearchParams(
-      initialUrlSearchParams,
-      allDataSources
-    ),
-    externalIdentDeriveStateUpdateFromSearchParams(
-      maybeDefaultExternalIdentType,
-      initialUrlSearchParams
-    ),
-  ].concat(
-    statisticalVariablesDeriveStateUpdateFromSearchParams(
-      statDefinitions,
-      initialUrlSearchParams
-    )
-  );
-  let result = actions.reduce(modifySearchStateReducer, emptySearchState);
-  result = { ...result, pagination: emptySearchState.pagination };
-  return result;
-}
 
 interface SearchResultsProps {
   readonly children: ReactNode;
@@ -100,6 +72,7 @@ interface SearchResultsProps {
 }
 
 
+
 export function SearchResults({
   children,
   initialOrder,
@@ -112,107 +85,158 @@ export function SearchResults({
   initialUrlSearchParamsDict,
 }: SearchResultsProps) {
   const { selectedTimeContext } = useTimeContext();
-  const initialUrlSearchParams = toURLSearchParams(initialUrlSearchParamsDict);
+  const initialUrlSearchParams = useMemo(() => toURLSearchParams(initialUrlSearchParamsDict), [initialUrlSearchParamsDict]);
   const { externalIdentTypes, statDefinitions } = useBaseData();
+  const setSearchPageData = useSetAtom(setSearchPageDataAtom);
+  const [, setSearchState] = useAtom(searchStateAtom); // Get the setter for the entire searchStateAtom
 
-  let emptySearchState = {
-    order: initialOrder,
-    pagination: initialPagination,
-    apiSearchParams: {},
-    valid_on: selectedTimeContext !== null ? selectedTimeContext?.valid_on : new Date().toISOString().split('T')[0],
-    appSearchParams: {},
-  } as SearchState
+  // const {
+  //   searchState: jotaiSearchState, // Not needed directly if we set the whole state
+  //   updateSearchQuery, // Not needed if setting whole state
+  //   updateFilters, // Not needed if setting whole state
+  //   updatePagination, // Not needed if setting whole state
+  //   updateSorting, // Not needed if setting whole state
+  //   executeSearch, // Still needed if we want to trigger explicit search after init
+  // } = useSearch(); // We might not need to destructure all of these if setting state directly
 
-  let initialSearchState = initializeSearchStateFromUrlSearchParams(
-    modifySearchStateReducer,
-    emptySearchState,
-    initialUrlSearchParams,
-    externalIdentTypes?.[0],
-    statDefinitions,
-    allDataSources,
-  );
+  const setGlobalSearchResult = useSetAtom(searchResultAtom);
+  const derivedApiParamsFromJotai = useAtomValue(derivedApiSearchParamsAtom);
+  const setSearchStateInitialized = useSetAtom(searchStateInitializedAtom);
 
-  const [searchState, modifySearchState] = useReducer(modifySearchStateReducer, initialSearchState);
+  // Initialize Jotai search state from props and URL on mount
+  useEffect(() => {
+    setSearchStateInitialized(false); // Reset initialization flag
 
+    // 1. Gather all SearchActions from URL parameters
+    const ftsAction = fullTextSearchDeriveStateUpdateFromSearchParams(initialUrlSearchParams);
+    const unitTypeAction = unitTypeDeriveStateUpdateFromSearchParams(initialUrlSearchParams);
+    const invalidCodesAction = invalidCodesDeriveStateUpdateFromSearchParams(initialUrlSearchParams);
+    const legalFormAction = legalFormDeriveStateUpdateFromSearchParams(initialUrlSearchParams);
+    const regionAction = regionDeriveStateUpdateFromSearchParams(initialUrlSearchParams);
+    const sectorAction = sectorDeriveStateUpdateFromSearchParams(initialUrlSearchParams);
+    const activityCategoryAction = activityCategoryDeriveStateUpdateFromSearchParams(initialUrlSearchParams);
+    const statusAction = statusDeriveStateUpdateFromSearchParams(initialUrlSearchParams);
+    const unitSizeAction = unitSizeDeriveStateUpdateFromSearchParams(initialUrlSearchParams);
+    // Pass allDataSources (from props) to dataSourceDeriveStateUpdateFromSearchParams
+    const dataSourceAction = dataSourceDeriveStateUpdateFromSearchParams(initialUrlSearchParams, allDataSources);
 
-  const { order, pagination, apiSearchParams } = searchState;
+    const externalIdentActions = externalIdentTypes.map(extType =>
+      externalIdentDeriveStateUpdateFromSearchParams(extType, initialUrlSearchParams)
+    );
+    const statVarActions = statisticalVariablesDeriveStateUpdateFromSearchParams(statDefinitions, initialUrlSearchParams);
 
-  const derivedApiSearchParams = useMemo(() => {
-    const params = new URLSearchParams();
-    Object.entries(apiSearchParams).forEach(([key, value]) => {
-      if (value) params.set(key, value);
+    const allActions = [
+      ftsAction, unitTypeAction, invalidCodesAction, legalFormAction, regionAction,
+      sectorAction, activityCategoryAction, statusAction, unitSizeAction, dataSourceAction,
+      ...externalIdentActions, ...statVarActions
+    ].filter(Boolean) as SearchAction[];
+
+    // 2. Construct initial query and filters for Jotai state
+    let newInitialQuery = '';
+    const newInitialFilters: Record<string, any> = {};
+
+    allActions.forEach(action => {
+      const { app_param_name, app_param_values } = action.payload;
+      if (app_param_name === SEARCH) {
+        newInitialQuery = app_param_values[0] || '';
+      } else {
+        const isExternalIdent = externalIdentTypes.some(et => et.code === app_param_name);
+        const isStatVar = statDefinitions.some(sd => sd.code === app_param_name);
+
+        if (isExternalIdent) {
+          // External idents are stored as single strings in searchState.filters
+          newInitialFilters[app_param_name] = app_param_values[0] || undefined;
+        } else if (isStatVar) {
+          // Stat vars are "op:val" strings in searchState.filters.
+          // app_param_values from SearchAction is ["op.val"].
+          const val = app_param_values[0];
+          if (val) {
+            newInitialFilters[app_param_name] = val.replace('.', ':');
+          } else {
+            newInitialFilters[app_param_name] = undefined;
+          }
+        } else {
+          // Other filters (UNIT_TYPE, REGION, etc.) are stored as string arrays.
+          // app_param_values is already (string | null)[].
+          // Filter out nulls if the specific filter doesn't expect them, or keep if it does (e.g. "Missing" option)
+          newInitialFilters[app_param_name] = app_param_values.filter(v => v !== ''); // Filter empty strings, keep nulls for "Missing"
+        }
+      }
     });
 
-    if (selectedTimeContext) {
-      params.set("valid_from", `lte.${selectedTimeContext.valid_on}`);
-      params.set("valid_to", `gte.${selectedTimeContext.valid_on}`);
-    }
+    // 3. Construct the full initial search state
+    const newFullInitialSearchState: SearchState = {
+      query: newInitialQuery,
+      filters: newInitialFilters,
+      pagination: { page: initialPagination.pageNumber, pageSize: initialPagination.pageSize },
+      sorting: { field: initialOrder.name, direction: initialOrder.direction },
+    };
 
-    if (order.name) {
-      const externalIdentType = externalIdentTypes.find(type => type.code === order.name);
-      const statDefinition = statDefinitions.find(identifier => identifier.code === order.name);
+    // 4. Set the entire searchStateAtom once
+    setSearchState(newFullInitialSearchState);
+    setSearchStateInitialized(true); // Signal that initialization is complete
 
-      if (externalIdentType) {
-        params.set("order", `external_idents->>${order.name}.${order.direction}`);
-      } else if (statDefinition) {
-        params.set("order", `stats_summary->${order.name}->sum.${order.direction}`);
-      } else {
-        params.set("order", `${order.name}.${order.direction}`);
-      }
-    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    initialUrlSearchParams, initialOrder.name, initialOrder.direction,
+    initialPagination.pageNumber, initialPagination.pageSize,
+    externalIdentTypes, statDefinitions, allDataSources, // Added allDataSources
+    setSearchState, setSearchStateInitialized // Jotai setters
+  ]);
 
-    if (pagination.pageNumber && pagination.pageSize) {
-      const offset = (pagination.pageNumber - 1) * pagination.pageSize;
-      params.set("limit", `${pagination.pageSize}`);
-      params.set("offset", `${offset}`);
-    }
-    return params;
-  }, [apiSearchParams, externalIdentTypes, order.direction, order.name, pagination.pageNumber, pagination.pageSize, selectedTimeContext, statDefinitions]);
-
-  const { data: searchResult, error, isLoading } = useSWR<SearchResult>(
-    `/api/search?${derivedApiSearchParams}`,
-    (url) => fetcher(derivedApiSearchParams),
-    { keepPreviousData: true, revalidateOnFocus: false }
-  );
-
-  const ctx: SearchContextState = useMemo(
-    () =>
-      ({
-        searchState,
-        modifySearchState,
-        searchResult,
-        derivedApiSearchParams,
-        allRegions: allRegions ?? [],
-        allActivityCategories: allActivityCategories ?? [],
-        allStatuses: allStatuses ?? [],
-        allUnitSizes: allUnitSizes ?? [],
-        allDataSources: allDataSources ?? [],
-        selectedTimeContext,
-        isLoading,
-        error,
-      }) as SearchContextState,
-    [
-      searchState,
-      searchResult,
-      derivedApiSearchParams,
+  // Effect to set the initial allXxx data into Jotai state
+  useEffect(() => {
+    setSearchPageData({
       allRegions,
       allActivityCategories,
       allStatuses,
       allUnitSizes,
       allDataSources,
-      selectedTimeContext,
-      isLoading,
-      error,
-    ]
-  );
+    });
+  }, [allRegions, allActivityCategories, allStatuses, allUnitSizes, allDataSources, setSearchPageData]);
 
-  useDerivedUrlSearchParams(ctx);
+  // SWR for data fetching, key is derived from Jotai's derivedApiSearchParamsAtom
+  const derivedApiParamsString = derivedApiParamsFromJotai.toString();
+  const swrKey = derivedApiParamsString ? `/api/search?${derivedApiParamsString}` : null; // Prevent fetch if params are empty initially
+
+  const { data: swrData, error: swrError, isLoading: swrIsLoading } = useSWR<ApiSearchResultType>(
+    swrKey, // SWR key now depends on Jotai state via derivedApiParamsFromJotai
+    fetcherForSWR, // Use the local fetcher for SWR
+    { keepPreviousData: true, revalidateOnFocus: false }
+  );
+  
+  // Effect to sync SWR state to global Jotai searchResultAtom
+  useEffect(() => {
+    if (swrIsLoading) {
+      setGlobalSearchResult(prev => ({ ...prev, loading: true, error: null }));
+    } else if (swrError) {
+      setGlobalSearchResult(prev => ({ 
+        data: prev.data, // Optionally keep stale data on error
+        total: prev.total, 
+        loading: false, 
+        error: (swrError as Error).message || 'Failed to fetch search results' 
+      }));
+    } else if (swrData) {
+      setGlobalSearchResult({ 
+        data: swrData.statisticalUnits, 
+        total: swrData.count, 
+        loading: false, 
+        error: null 
+      });
+    }
+  }, [swrData, swrError, swrIsLoading, setGlobalSearchResult]);
+
+  const currentGlobalSearchResult = useAtomValue(searchResultAtom);
+
+  // The ctx object and SearchContextState are remnants of the old context system and are no longer needed.
+  // Consumers should use the useSearch() hook and other Jotai atoms/hooks directly.
+  useDerivedUrlSearchParams(); // AI: Uncommented and call without arguments
 
   return (
-    <SearchContext.Provider value={ctx}>
-      <TableColumnsProvider>
-        {children}
-      </TableColumnsProvider>
-    </SearchContext.Provider>
+    // <SearchContext.Provider value={ctx}> // Removed as per migration
+    <>
+      {children}
+    </>
+    // </SearchContext.Provider>
   );
 }
