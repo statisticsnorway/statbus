@@ -44,6 +44,7 @@
     "cmdk": "^1.1.1",
     "date-fns": "^4.1.0",
     "highcharts": "^12.1.2",
+    "jotai": "^2.12.5",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.483.0",
     "moderndash": "^4.0.0",
