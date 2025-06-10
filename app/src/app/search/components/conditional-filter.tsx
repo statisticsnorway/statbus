@@ -39,6 +39,7 @@ export function ConditionalFilter({
   onReset,
   className,
 }: ITableFilterCustomProps) {
+  const [isPopoverOpen, setIsPopoverOpen] = useState(false); // AI: Added state for popover
   const [operator, setOperator] = useState<string | null>(
     selected?.operator ?? "eq"
   );
@@ -49,6 +50,7 @@ export function ConditionalFilter({
   const updateFilter = useCallback(() => {
     if (!operand || !operator) return;
     onChange({ operator, operand: operand });
+    setIsPopoverOpen(false); // AI: Close popover on OK
   }, [operator, operand, onChange]);
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export function ConditionalFilter({
   }, [selected]);
 
   return (
-    <Popover>
+    <Popover open={isPopoverOpen} onOpenChange={setIsPopoverOpen}> {/* AI: Control popover state */}
       <PopoverTrigger asChild>
         <Button
           variant="outline"
