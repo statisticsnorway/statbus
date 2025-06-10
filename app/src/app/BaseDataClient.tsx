@@ -3,6 +3,7 @@
 import React, { createContext, useContext, ReactNode, useState, useEffect, useCallback } from 'react';
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { PostgrestClient } from '@supabase/postgrest-js';
+import { useAuth } from '@/hooks/useAuth'; // Import useAuth hook
 import { Database } from '@/lib/database.types';
 import { BaseData, baseDataStore } from '@/context/BaseDataStore'; // Import type and store instance
 import { authStore, User } from '@/context/AuthStore';
@@ -81,6 +82,21 @@ export const ClientBaseDataProvider = ({
     initializeClient();
   }, []);
 
+  // Effect to synchronize auth state from AuthContext into local baseData state
+  useEffect(() => {
+    setBaseData(prev => {
+      // Update local baseData if AuthContext state differs
+      if (prev.isAuthenticated !== authContextIsAuthenticated || prev.user !== authContextUser) {
+        return {
+          ...prev,
+          isAuthenticated: authContextIsAuthenticated,
+          user: authContextUser,
+        };
+      }
+      return prev; // No change needed
+    });
+  }, [authContextIsAuthenticated, authContextUser]);
+
   // Effect to subscribe to BaseDataStore worker status changes
   useEffect(() => {
     const handleStatusChange = () => {
@@ -96,57 +112,60 @@ export const ClientBaseDataProvider = ({
 
   // Effect to manage the SSE connection for 'check' notifications
   useEffect(() => {
-    console.log("[SSE] BaseDataClient: Setting up EventSource listener for /api/sse/worker-check");
-    const eventSource = new EventSource('/api/sse/worker-check'); // Updated route path
-    setSseConnectionError(null); // Reset error on new connection attempt
+    let eventSource: EventSource | null = null;
 
-    eventSource.onopen = () => {
-      console.log('[SSE] BaseDataClient: Connection opened successfully.');
-      setSseConnectionError(null);
-    };
+    if (baseData.isAuthenticated) {
+      console.log("[SSE] BaseDataClient: User authenticated. Setting up EventSource listener for /api/sse/worker-check");
+      eventSource = new EventSource('/api/sse/worker-check'); // Updated route path
+      setSseConnectionError(null); // Reset error on new connection attempt
 
-    // Generic message handler for debugging - helps catch messages sent without 'event: check'
-    eventSource.onmessage = (event) => {
-      console.warn('[SSE] BaseDataClient: Received generic message (without specific event type):', event);
-      // You might want to inspect event.data here to see if it contains expected payload
-    };
+      eventSource.onopen = () => {
+        console.log('[SSE] BaseDataClient: Connection opened successfully.');
+        setSseConnectionError(null);
+      };
 
-    eventSource.addEventListener('check', (event) => {
-      console.log('[SSE] BaseDataClient: Received "check" event:', event);
-      try {
-        const functionName = event.data; // Expects string like 'is_importing'
-        console.log('[SSE] BaseDataClient: Received check hint payload:', functionName);
-        
-        // Only check the specific function mentioned in the notification
-        if (functionName === 'is_importing' || 
-            functionName === 'is_deriving_statistical_units' || 
-            functionName === 'is_deriving_reports') {
-          console.log(`[SSE] BaseDataClient: Checking function: ${functionName}`);
-          baseDataStore.refreshWorkerStatus(functionName);
-        } else {
-          console.warn(`[SSE] BaseDataClient: Unknown function name: ${functionName}`);
+      // Generic message handler for debugging
+      eventSource.onmessage = (event) => {
+        console.warn('[SSE] BaseDataClient: Received generic message (without specific event type):', event);
+      };
+
+      eventSource.addEventListener('check', (event) => {
+        console.log('[SSE] BaseDataClient: Received "check" event:', event);
+        try {
+          const functionName = event.data;
+          console.log('[SSE] BaseDataClient: Received check hint payload:', functionName);
+          
+          if (functionName === 'is_importing' || 
+              functionName === 'is_deriving_statistical_units' || 
+              functionName === 'is_deriving_reports') {
+            console.log(`[SSE] BaseDataClient: Checking function: ${functionName}`);
+            baseDataStore.refreshWorkerStatus(functionName);
+          } else {
+            console.warn(`[SSE] BaseDataClient: Unknown function name: ${functionName}`);
+          }
+        } catch (err) {
+          console.error('[SSE] BaseDataClient: Error processing check SSE message:', err);
+          setSseConnectionError('Error processing status check hint.');
         }
-      } catch (err) {
-        console.error('[SSE] BaseDataClient: Error processing check SSE message:', err);
-        setSseConnectionError('Error processing status check hint.');
-      }
-    });
+      });
 
-    eventSource.onerror = (err) => {
-      // Note: The 'error' event object itself might not be very informative in browsers
-      // It often just indicates a connection failure. Check the network tab for more details.
-      console.error('[SSE] BaseDataClient: EventSource encountered an error:', err);
-      setSseConnectionError('Connection error. Status updates may be unavailable. Check browser console/network tab.');
-      eventSource.close(); // Close the connection on error
-      // TODO: Consider adding retry logic here with backoff?
-    };
+      eventSource.onerror = (err) => {
+        console.error('[SSE] BaseDataClient: EventSource encountered an error:', err);
+        setSseConnectionError('Connection error. Status updates may be unavailable. Check browser console/network tab.');
+        if (eventSource) eventSource.close(); // Close the connection on error
+      };
+    } else {
+      console.log("[SSE] BaseDataClient: User not authenticated or auth state not ready. SSE connection not started.");
+    }
 
-    // Cleanup function: close the connection when the component unmounts
+    // Cleanup function
     return () => {
-      console.log('[SSE] BaseDataClient: Closing EventSource connection.');
-      eventSource.close();
+      if (eventSource) {
+        console.log('[SSE] BaseDataClient: Closing EventSource connection (due to unmount or auth change).');
+        eventSource.close();
+      }
     };
-  }, []); // Run only once on mount
+  }, [baseData.isAuthenticated]); // Re-run when isAuthenticated changes
 
   // --- Callback functions provided by context ---
 
