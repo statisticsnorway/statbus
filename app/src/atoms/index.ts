@@ -362,6 +362,21 @@ export const unitCountsAtom = atom<UnitCounts>({
   establishmentsWithoutLegalUnit: null,
 });
 
+// Pending Import Jobs (Generalized)
+export interface PendingJobsData { // Renamed for clarity
+  jobs: Tables<'import_job'>[];
+  loading: boolean;
+  error: string | null;
+  lastFetched: number | null;
+}
+
+export interface AllPendingJobsState {
+  [slugPattern: string]: PendingJobsData | undefined; // Store data per slug pattern
+}
+
+// Atom to store all pending jobs, keyed by their definition slug pattern
+export const allPendingJobsStateAtom = atom<AllPendingJobsState>({});
+
 // ============================================================================
 // ASYNC ACTION ATOMS - For handling side effects
 // ============================================================================
@@ -416,6 +431,60 @@ export const refreshAllUnitCountsAtom = atom(
     await set(refreshUnitCountAtom, 'establishmentsWithLegalUnit');
     await set(refreshUnitCountAtom, 'establishmentsWithoutLegalUnit');
     console.log("refreshAllUnitCountsAtom: Finished refreshing unit counts.");
+  }
+);
+
+// Action atom to fetch pending import jobs by slug pattern
+export const refreshPendingJobsByPatternAtom = atom(
+  null,
+  async (get, set, slugPattern: string) => {
+    const client = get(restClientAtom);
+    if (!client) {
+      console.error(`refreshPendingJobsByPatternAtom (${slugPattern}): No client available.`);
+      set(allPendingJobsStateAtom, (prev) => ({
+        ...prev,
+        [slugPattern]: { ...(prev[slugPattern] || { jobs: [], error: null, lastFetched: null }), loading: false, error: "Client not available" },
+      }));
+      return;
+    }
+
+    // Set loading state for the specific slugPattern
+    set(allPendingJobsStateAtom, (prev) => ({
+      ...prev,
+      [slugPattern]: { ...(prev[slugPattern] || { jobs: [], error: null, lastFetched: null }), loading: true, error: null },
+    }));
+
+    try {
+      const { data, error } = await client
+        .from("import_job")
+        .select("*, import_definition!inner(*)")
+        .eq("state", "waiting_for_upload")
+        .like("import_definition.slug", slugPattern) // Use the provided pattern
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      // Update state for the specific slugPattern
+      set(allPendingJobsStateAtom, (prev) => ({
+        ...prev,
+        [slugPattern]: {
+          jobs: data || [],
+          loading: false,
+          error: null,
+          lastFetched: Date.now(),
+        },
+      }));
+    } catch (error: any) {
+      console.error(`Failed to refresh pending jobs for pattern ${slugPattern}:`, error);
+      set(allPendingJobsStateAtom, (prev) => ({
+        ...prev,
+        [slugPattern]: {
+          ...(prev[slugPattern] || { jobs: [], loading: false, lastFetched: null }),
+          loading: false,
+          error: error.message || `Failed to fetch pending jobs for ${slugPattern}`,
+        },
+      }));
+    }
   }
 );
 
@@ -1418,6 +1487,8 @@ export const atoms = {
   setImportSelectedTimeContextAtom,
   setImportUseExplicitDatesAtom,
   createImportJobAtom,
+  allPendingJobsStateAtom, // Renamed
+  refreshPendingJobsByPatternAtom, // Renamed
   
   // Computed
   appReadyAtom,

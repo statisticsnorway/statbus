@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useImportManager } from "@/atoms/hooks"; // Updated import
+import { useImportManager, usePendingJobsByPattern } from "@/atoms/hooks"; // Updated import
 import { ImportJobCreator } from "../components/import-job-creator";
 import { TimeContextSelector } from "../components/time-context-selector";
 import { Spinner } from "@/components/ui/spinner";
@@ -19,47 +19,23 @@ import { InfoBox } from "@/components/info-box";
 
 export default function LegalUnitsPage() {
   const router = useRouter();
-  // No longer need importState here
-  const { counts } = useImportManager(); // Updated hook call
-  const [isLoading, setIsLoading] = useState(true);
-  const [pendingJobs, setPendingJobs] = useState<Tables<"import_job">[]>([]);
+  const { counts } = useImportManager();
+  // Use the generalized hook with the specific slug pattern for legal units
+  const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByPattern("%legal_unit%");
 
-  // Check for existing jobs
-  useEffect(() => {
-    const checkExistingJobs = async () => {
-      // Removed redirection based on importState.currentJob
-      
-      try {
-        // Check for any pending legal unit import jobs (state = 'waiting_for_upload')
-        const client = await getBrowserRestClient();
-        if (!client) throw new Error("Failed to get browser REST client");
-        
-        const { data, error } = await client
-          .from("import_job")
-          .select("*, import_definition!inner(*)")
-          .eq("state", "waiting_for_upload")
-          .like("import_definition.slug", "%legal_unit%")
-          .order("created_at", { ascending: false });
-        
-        if (error) throw error;
-        
-        // Use the filtered data directly from the query
-        const legalUnitJobs = data || [];
-        
-        setPendingJobs(legalUnitJobs);
-      } catch (error) {
-        console.error("Error checking for existing import jobs:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  // The useEffect in usePendingJobsByPattern handles initial fetch.
+  // If a manual refresh on mount is still desired for some reason, it can be added here,
+  // but typically the hook's internal logic should suffice.
+  // useEffect(() => {
+  //   refreshJobs();
+  // }, [refreshJobs]); // This might cause a double fetch if the hook also fetches.
 
-    checkExistingJobs();
-    // Removed importState.currentJob from dependencies
-  }, [router]); 
-
-  if (isLoading) {
+  if (isLoading && pendingJobs.length === 0) {
     return <Spinner message="Checking for existing import jobs..." />;
+  }
+
+  if (error) {
+    return <InfoBox variant="error"><p>Error loading pending jobs: {error}</p></InfoBox>;
   }
 
   return (

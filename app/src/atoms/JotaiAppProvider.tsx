@@ -21,6 +21,7 @@ import {
   initializeTableColumnsAtom, // Added for table column initialization
   refreshAllGettingStartedDataAtom, // Added for Getting Started data
   refreshAllUnitCountsAtom, // Added for Import Units counts
+  // refreshPendingLegalUnitJobsAtom, // Removed - handled by page-specific hooks now
 } from './index'
 
 // ============================================================================
@@ -35,6 +36,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const initializeTableColumns = useSetAtom(initializeTableColumnsAtom); // Added
   const refreshGettingStartedData = useSetAtom(refreshAllGettingStartedDataAtom); // Added
   const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom); // Added
+  // const refreshPendingLegalJobs = useSetAtom(refreshPendingLegalUnitJobsAtom); // Removed
   
   // Initialize REST client
   useEffect(() => {
@@ -81,6 +83,9 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
         // Fetch Import Unit Counts
         refreshUnitCounts();
 
+        // Pending jobs are now fetched by their respective pages, not globally on init.
+        // refreshPendingLegalJobs(); // Removed
+
         // Fetch worker status
         await refreshWorkerStatus()
         
@@ -96,7 +101,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false
     }
-  }, [isAuthenticated, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts])
+  }, [isAuthenticated, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts]) // Removed refreshPendingLegalJobs from deps
   
   return <>{children}</>
 }

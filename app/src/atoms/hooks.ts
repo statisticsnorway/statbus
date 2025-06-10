@@ -82,6 +82,10 @@ import {
   setImportSelectedTimeContextAtom,
   setImportUseExplicitDatesAtom,
   createImportJobAtom,
+  allPendingJobsStateAtom, // Renamed
+  refreshPendingJobsByPatternAtom, // Renamed
+  type AllPendingJobsState, // Renamed
+  type PendingJobsData, // Added
 } from './index'
 import type { TableColumn, AdaptableTableColumn, ColumnProfile } from '../app/search/search.d'; // Added for new table column types
 import type { Tables } from '@/lib/database.types'; // For Tables<'statistical_unit'> and Tables<'import_job'>
@@ -303,13 +307,23 @@ export const useAppInitialization = () => {
   const refreshBaseData = useSetAtom(refreshBaseDataAtom)
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const isAuthenticated = useAtomValue(isAuthenticatedAtom)
+  const restClient = useAtomValue(restClientAtom) // Get the REST client state
   
   useEffect(() => {
     let mounted = true
     
     const initializeApp = async () => {
-      if (!isAuthenticated) return
+      // Ensure both authentication is true and REST client is available
+      if (!isAuthenticated) {
+        // console.log("useAppInitialization: Not authenticated, skipping data initialization.");
+        return;
+      }
+      if (!restClient) {
+        // console.log("useAppInitialization: REST client not yet available, deferring data initialization.");
+        return;
+      }
       
+      console.log("useAppInitialization: Authenticated and REST client ready, proceeding.");
       try {
         // Initialize base data
         await refreshBaseData()
@@ -329,7 +343,7 @@ export const useAppInitialization = () => {
     return () => {
       mounted = false
     }
-  }, [isAuthenticated, refreshBaseData, refreshWorkerStatus])
+  }, [isAuthenticated, restClient, refreshBaseData, refreshWorkerStatus]) // Add restClient to dependency array
 }
 
 /**
@@ -503,12 +517,24 @@ export const useImportManager = () => {
   const doCreateJob = useSetAtom(createImportJobAtom);
 
   const availableImportTimeContexts = useMemo<Tables<'time_context'>[]>(() => {
-    if (!allTimeContextsFromBase) return [];
+    // allTimeContextsFromBase is Tables<'time_context'>[], so it's an array (possibly empty)
+    // The check `!allTimeContextsFromBase` is not strictly necessary as an empty array is not falsy,
+    // but it doesn't harm. The main thing is that .filter on an empty array is safe.
+    if (!allTimeContextsFromBase) return []; 
     // Filter time contexts for import scope, similar to original provider
     return allTimeContextsFromBase.filter(
       tc => tc.scope === "input" || tc.scope === "input_and_query"
     );
   }, [allTimeContextsFromBase]);
+
+  // Removing previous diagnostic log as we have a new lead.
+  // The root cause seems to be that baseDataAtom.timeContexts is empty,
+  // likely because server-side auth check fails, preventing base data fetch.
+  // useEffect(() => {
+  //   // Diagnostic log to check the state of time contexts within useImportManager
+  //   console.log('[useImportManager Debug] allTimeContextsFromBase (from baseDataAtom):', JSON.stringify(allTimeContextsFromBase, null, 2));
+  //   console.log('[useImportManager Debug] availableImportTimeContexts (after filtering for import scope):', JSON.stringify(availableImportTimeContexts, null, 2));
+  // }, [allTimeContextsFromBase, availableImportTimeContexts]);
 
   const selectedImportTimeContextObject = useMemo<Tables<'time_context'> | null>(() => {
     if (!currentImportState.selectedImportTimeContextIdent || !availableImportTimeContexts) return null;
@@ -558,6 +584,33 @@ export const useImportManager = () => {
 
     // Raw import state (for progress, errors, etc.)
     importState: currentImportState,
+  };
+};
+
+export const usePendingJobsByPattern = (slugPattern: string) => {
+  const allJobsState = useAtomValue(allPendingJobsStateAtom);
+  const refreshJobsForPattern = useSetAtom(refreshPendingJobsByPatternAtom);
+
+  // Memoize the selection of state for the specific slugPattern
+  const state: PendingJobsData = useMemo(() => {
+    return allJobsState[slugPattern] || { jobs: [], loading: false, error: null, lastFetched: null };
+  }, [allJobsState, slugPattern]);
+
+  // Memoize the refresh function for this specific pattern
+  const refreshJobs = useCallback(() => {
+    refreshJobsForPattern(slugPattern);
+  }, [refreshJobsForPattern, slugPattern]);
+
+  // Effect to fetch jobs if they haven't been fetched for this pattern yet
+  useEffect(() => {
+    if (state.jobs.length === 0 && !state.loading && state.lastFetched === null) {
+      refreshJobs();
+    }
+  }, [state.jobs.length, state.loading, state.lastFetched, refreshJobs]); // Dependencies ensure this runs when state for this pattern changes
+
+  return {
+    ...state, // jobs, loading, error, lastFetched for the specific pattern
+    refreshJobs, // The memoized refresh function for this pattern
   };
 };
 

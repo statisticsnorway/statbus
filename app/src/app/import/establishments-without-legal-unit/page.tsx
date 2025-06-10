@@ -6,9 +6,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react"; // Removed useState
 import { InfoBox } from "@/components/info-box";
-import { useImportManager } from "@/atoms/hooks"; // Updated import
+import { useImportManager, usePendingJobsByPattern } from "@/atoms/hooks"; // Updated import
 import { TimeContextSelector } from "../components/time-context-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";
@@ -19,47 +19,18 @@ import { useRouter } from "next/navigation";
 
 export default function UploadEstablishmentsWithoutLegalUnitPage() {
   const router = useRouter();
-  // No longer need importState here
-  const { counts: { establishmentsWithoutLegalUnit } } = useImportManager(); // Updated hook call
-  const [isLoading, setIsLoading] = useState(true);
-  const [pendingJobs, setPendingJobs] = useState<Tables<"import_job">[]>([]);
+  const { counts: { establishmentsWithoutLegalUnit } } = useImportManager();
+  // Use the generalized hook with the specific slug pattern for establishments without LU
+  const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByPattern("%establishment_without_lu%");
 
-  // Check for existing jobs
-  useEffect(() => {
-    const checkExistingJobs = async () => {
-      // Removed redirection based on importState.currentJob
+  // The useEffect in usePendingJobsByPattern handles initial fetch.
 
-      try {
-        // Check for any pending establishment without legal unit import jobs (state = 'waiting_for_upload')
-        const client = await getBrowserRestClient();
-        if (!client) throw new Error("Failed to get browser REST client");
-        
-        const { data, error } = await client
-          .from("import_job")
-          .select("*, import_definition!inner(*)")
-          .eq("state", "waiting_for_upload")
-          .like("import_definition.slug", "%establishment_without_lu%")
-          .order("created_at", { ascending: false });
-        
-        if (error) throw error;
-        
-        // Use the filtered data directly from the query
-        const establishmentJobs = data || [];
-        
-        setPendingJobs(establishmentJobs);
-      } catch (error) {
-        console.error("Error checking for existing import jobs:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkExistingJobs();
-    // Removed importState.currentJob from dependencies
-  }, [router]); 
-
-  if (isLoading) {
+  if (isLoading && pendingJobs.length === 0) {
     return <Spinner message="Checking for existing import jobs..." />;
+  }
+
+  if (error) {
+    return <InfoBox variant="error"><p>Error loading pending jobs: {error}</p></InfoBox>;
   }
 
   return (
