@@ -438,6 +438,16 @@ export const refreshAllUnitCountsAtom = atom(
 export const refreshPendingJobsByPatternAtom = atom(
   null,
   async (get, set, slugPattern: string) => {
+    const isAuthenticated = get(isAuthenticatedAtom);
+    if (!isAuthenticated) {
+      // console.log(`refreshPendingJobsByPatternAtom (${slugPattern}): User not authenticated. Skipping fetch.`);
+      set(allPendingJobsStateAtom, (prev) => ({
+        ...prev,
+        [slugPattern]: { ...(prev[slugPattern] || { jobs: [], error: null, lastFetched: null }), loading: false, error: "Not authenticated" },
+      }));
+      return;
+    }
+
     const client = get(restClientAtom);
     if (!client) {
       console.error(`refreshPendingJobsByPatternAtom (${slugPattern}): No client available.`);
