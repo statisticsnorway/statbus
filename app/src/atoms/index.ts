@@ -384,6 +384,9 @@ export const allPendingJobsStateAtom = atom<AllPendingJobsState>({});
 // Atom to track if the initial auth status check has been performed
 export const authStatusInitiallyCheckedAtom = atom(false);
 
+// Atom to track if search state has been initialized from URL params
+export const searchStateInitializedAtom = atom(false);
+
 // ============================================================================
 // ASYNC ACTION ATOMS - For handling side effects
 // ============================================================================
@@ -1398,7 +1401,15 @@ export const derivedApiSearchParamsAtom = atom((get) => {
 
     switch (appParamName) {
       case UNIT_TYPE:
-        actionPayload = unitTypeDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        let unitTypeValues: (string | null)[] = [];
+        if (Array.isArray(appParamValue)) {
+          unitTypeValues = appParamValue as (string | null)[];
+        } else if (typeof appParamValue === 'string' && appParamValue.trim().length > 0) {
+          unitTypeValues = [appParamValue.trim()];
+        }
+        // If appParamValue is null, undefined, or an empty string, unitTypeValues remains [].
+        // unitTypeDeriveStateUpdateFromValues will correctly handle an empty array by setting api_param_value to null.
+        actionPayload = unitTypeDeriveStateUpdateFromValues(unitTypeValues).payload;
         break;
       case INVALID_CODES:
         // appParamValue is ["yes"] or [] from searchState.filters
@@ -1412,13 +1423,37 @@ export const derivedApiSearchParamsAtom = atom((get) => {
         actionPayload = legalFormDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
         break;
       case REGION:
-        actionPayload = regionDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        let regionValues: (string | null)[] = [];
+        if (Array.isArray(appParamValue)) {
+          regionValues = appParamValue as (string | null)[];
+        } else if (typeof appParamValue === 'string' && appParamValue.trim().length > 0) {
+          regionValues = [appParamValue.trim()];
+        } else if (appParamValue === null) { // Handle explicit null for "Missing"
+          regionValues = [null];
+        }
+        actionPayload = regionDeriveStateUpdateFromValues(regionValues).payload;
         break;
       case SECTOR:
-        actionPayload = sectorDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        let sectorValues: (string | null)[] = [];
+        if (Array.isArray(appParamValue)) {
+          sectorValues = appParamValue as (string | null)[];
+        } else if (typeof appParamValue === 'string' && appParamValue.trim().length > 0) {
+          sectorValues = [appParamValue.trim()];
+        } else if (appParamValue === null) { // Handle explicit null for "Missing"
+          sectorValues = [null];
+        }
+        actionPayload = sectorDeriveStateUpdateFromValues(sectorValues).payload;
         break;
       case ACTIVITY_CATEGORY_PATH:
-        actionPayload = activityCategoryDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        let activityCategoryValues: (string | null)[] = [];
+        if (Array.isArray(appParamValue)) {
+          activityCategoryValues = appParamValue as (string | null)[];
+        } else if (typeof appParamValue === 'string' && appParamValue.trim().length > 0) {
+          activityCategoryValues = [appParamValue.trim()];
+        } else if (appParamValue === null) { // Handle explicit null for "Missing"
+          activityCategoryValues = [null];
+        }
+        actionPayload = activityCategoryDeriveStateUpdateFromValues(activityCategoryValues).payload;
         break;
       case STATUS:
         actionPayload = statusDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
@@ -1596,6 +1631,7 @@ export const atoms = {
   // App Initialization State
   authStatusInitiallyCheckedAtom,
   fetchAndSetAuthStatusAtom, // Added for explicit export
+  searchStateInitializedAtom, // Export the new atom
   
   // Loadable
   baseDataLoadableAtom,
