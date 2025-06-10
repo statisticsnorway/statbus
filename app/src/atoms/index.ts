@@ -378,6 +378,13 @@ export interface AllPendingJobsState {
 export const allPendingJobsStateAtom = atom<AllPendingJobsState>({});
 
 // ============================================================================
+// APP INITIALIZATION STATE ATOMS
+// ============================================================================
+
+// Atom to track if the initial auth status check has been performed
+export const authStatusInitiallyCheckedAtom = atom(false);
+
+// ============================================================================
 // ASYNC ACTION ATOMS - For handling side effects
 // ============================================================================
 
@@ -423,14 +430,12 @@ export const refreshAllUnitCountsAtom = atom(
     const currentUnitCounts = get(unitCountsAtom);
     // Example check: if counts are already populated, maybe don't refetch all.
     // if (currentUnitCounts.legalUnits !== null && currentUnitCounts.establishmentsWithLegalUnit !== null) {
-    //   console.log("refreshAllUnitCountsAtom: Unit counts seem to be present, consider if refetch is needed.");
+    //   // console.log("refreshAllUnitCountsAtom: Unit counts seem to be present, consider if refetch is needed.");
     //   // return; // Or proceed to refresh
     // }
-    console.log("refreshAllUnitCountsAtom: Refreshing all unit counts...");
     await set(refreshUnitCountAtom, 'legalUnits');
     await set(refreshUnitCountAtom, 'establishmentsWithLegalUnit');
     await set(refreshUnitCountAtom, 'establishmentsWithoutLegalUnit');
-    console.log("refreshAllUnitCountsAtom: Finished refreshing unit counts.");
   }
 );
 
@@ -439,6 +444,8 @@ export const refreshPendingJobsByPatternAtom = atom(
   null,
   async (get, set, slugPattern: string) => {
     const isAuthenticated = get(isAuthenticatedAtom);
+    const client = get(restClientAtom);
+
     if (!isAuthenticated) {
       // console.log(`refreshPendingJobsByPatternAtom (${slugPattern}): User not authenticated. Skipping fetch.`);
       set(allPendingJobsStateAtom, (prev) => ({
@@ -448,7 +455,6 @@ export const refreshPendingJobsByPatternAtom = atom(
       return;
     }
 
-    const client = get(restClientAtom);
     if (!client) {
       console.error(`refreshPendingJobsByPatternAtom (${slugPattern}): No client available.`);
       set(allPendingJobsStateAtom, (prev) => ({
@@ -710,7 +716,6 @@ export const refreshAllGettingStartedDataAtom = atom(
     //   // return; // Or proceed to refresh if that's desired behavior
     // }
 
-    console.log("refreshAllGettingStartedDataAtom: Refreshing all getting started data points...");
     // Trigger all individual refresh actions
     // The `set` function in a write-only atom can accept another atom (or a value).
     // If it's an action atom, it executes it.
@@ -719,7 +724,6 @@ export const refreshAllGettingStartedDataAtom = atom(
     await set(refreshNumberOfCustomActivityCategoryCodesAtom);
     await set(refreshNumberOfCustomSectorsAtom);
     await set(refreshNumberOfCustomLegalFormsAtom);
-    console.log("refreshAllGettingStartedDataAtom: Finished refreshing data points.");
   }
 );
 
@@ -730,11 +734,13 @@ export const refreshAllGettingStartedDataAtom = atom(
 // Auth actions
 
 // Helper to fetch and set auth status
-const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
+export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
   const client = get(restClientAtom);
   if (!client) {
     console.error("fetchAndSetAuthStatusAtom: No client available to fetch auth status.");
     set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+    // Even if client is not available, we mark the check as attempted to avoid loops if client init fails.
+    set(authStatusInitiallyCheckedAtom, true); 
     return;
   }
   try {
@@ -767,17 +773,20 @@ const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
     set(authStatusAtom, newStatus);
 
     // If authenticated, trigger refresh of other dependent data
-    if (newStatus.isAuthenticated) {
-      set(refreshBaseDataAtom);
-      set(refreshWorkerStatusAtom);
-      set(initializeTableColumnsAtom); // Re-initialize table columns which might depend on user-specific settings or base data
-      set(refreshAllGettingStartedDataAtom);
-      set(refreshAllUnitCountsAtom);
-    }
+    // This is now handled by AppInitializer effect based on isAuthenticated and initialAuthCheckDone
+    // if (newStatus.isAuthenticated) {
+    //   set(refreshBaseDataAtom);
+    //   set(refreshWorkerStatusAtom);
+    //   set(initializeTableColumnsAtom); 
+    //   set(refreshAllGettingStartedDataAtom);
+    //   set(refreshAllUnitCountsAtom);
+    // }
 
   } catch (e) {
     console.error("Error fetching auth status after action:", e);
     set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+  } finally {
+    set(authStatusInitiallyCheckedAtom, true);
   }
 });
 
@@ -903,7 +912,6 @@ export const refreshBaseDataAtom = atom(
     }
     
     try {
-      console.log("refreshBaseDataAtom: Requesting base data from store...");
       // Import BaseDataStore for the actual data fetching logic.
       // The baseDataStore.getBaseData() method contains its own caching and
       // request deduplication logic.
@@ -911,7 +919,6 @@ export const refreshBaseDataAtom = atom(
       const freshData = await baseDataStore.getBaseData(client);
       
       set(baseDataAtom, freshData);
-      console.log("refreshBaseDataAtom: Base data (potentially from cache or new fetch) set in atom.");
     } catch (error) {
       console.error('Failed to refresh base data:', error);
       // Optionally set an error state in an atom
@@ -1502,6 +1509,10 @@ export const atoms = {
   
   // Computed
   appReadyAtom,
+
+  // App Initialization State
+  authStatusInitiallyCheckedAtom,
+  fetchAndSetAuthStatusAtom, // Added for explicit export
   
   // Loadable
   baseDataLoadableAtom,

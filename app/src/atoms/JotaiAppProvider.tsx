@@ -21,6 +21,8 @@ import {
   initializeTableColumnsAtom, // Added for table column initialization
   refreshAllGettingStartedDataAtom, // Added for Getting Started data
   refreshAllUnitCountsAtom, // Added for Import Units counts
+  fetchAndSetAuthStatusAtom, // Added to trigger initial auth check
+  authStatusInitiallyCheckedAtom, // Added to track if initial check is done
   // refreshPendingLegalUnitJobsAtom, // Removed - handled by page-specific hooks now
 } from './index'
 
@@ -30,6 +32,9 @@ import {
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
   const isAuthenticated = useAtomValue(isAuthenticatedAtom)
+  const initialAuthCheckDone = useAtomValue(authStatusInitiallyCheckedAtom);
+  const restClient = useAtomValue(restClientAtom); // Get the actual client value
+  const triggerFetchAuthStatus = useSetAtom(fetchAndSetAuthStatusAtom);
   const refreshBaseData = useSetAtom(refreshBaseDataAtom)
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setRestClient = useSetAtom(restClientAtom)
@@ -41,7 +46,6 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // Initialize REST client
   useEffect(() => {
     let mounted = true
-    
     const initializeClient = async () => {
       try {
         // Import your existing RestClientStore
@@ -52,7 +56,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
           setRestClient(client)
         }
       } catch (error) {
-        console.error('Failed to initialize REST client:', error)
+        console.error('AppInitializer: Failed to initialize REST client:', error)
       }
     }
     
@@ -62,13 +66,29 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
       mounted = false
     }
   }, [setRestClient])
+
+  // Effect to fetch initial authentication status once REST client is ready
+  useEffect(() => {
+    if (restClient && !initialAuthCheckDone) {
+      triggerFetchAuthStatus(); 
+    }
+  }, [restClient, initialAuthCheckDone, triggerFetchAuthStatus]);
   
-  // Initialize app data when authenticated
+  // Initialize app data when authenticated and client is ready
   useEffect(() => {
     let mounted = true
     
     const initializeApp = async () => {
-      if (!isAuthenticated) return
+      // Ensure initial auth check is done before proceeding with auth-dependent data
+      if (!initialAuthCheckDone) {
+        return;
+      }
+      if (!isAuthenticated) {
+        return;
+      }
+      if (!restClient) { // Check the actual client from component scope
+        return;
+      }
       
       try {
         // Fetch base data
@@ -91,7 +111,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
         
       } catch (error) {
         if (mounted) {
-          console.error('App initialization failed:', error)
+          console.error('AppInitializer: App initialization failed:', error)
         }
       }
     }
@@ -101,7 +121,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false
     }
-  }, [isAuthenticated, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts]) // Removed refreshPendingLegalJobs from deps
+  }, [isAuthenticated, restClient, initialAuthCheckDone, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts]) // Added initialAuthCheckDone and restClient to deps
   
   return <>{children}</>
 }
@@ -128,7 +148,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource = new EventSource('/api/sse/worker-check')
         
         eventSource.onopen = () => {
-          console.log('SSE connection established')
+          // console.log('SSE connection established')
           reconnectAttempts = 0
         }
         

@@ -590,6 +590,7 @@ export const useImportManager = () => {
 export const usePendingJobsByPattern = (slugPattern: string) => {
   const allJobsState = useAtomValue(allPendingJobsStateAtom);
   const refreshJobsForPattern = useSetAtom(refreshPendingJobsByPatternAtom);
+  const isAuthenticated = useAtomValue(isAuthenticatedAtom); // Get auth state here too
 
   // Memoize the selection of state for the specific slugPattern
   const state: PendingJobsData = useMemo(() => {
@@ -603,10 +604,10 @@ export const usePendingJobsByPattern = (slugPattern: string) => {
 
   // Effect to fetch jobs if they haven't been fetched for this pattern yet
   useEffect(() => {
-    if (state.jobs.length === 0 && !state.loading && state.lastFetched === null) {
+    if (isAuthenticated && state.jobs.length === 0 && !state.loading && state.lastFetched === null) {
       refreshJobs();
     }
-  }, [state.jobs.length, state.loading, state.lastFetched, refreshJobs]); // Dependencies ensure this runs when state for this pattern changes
+  }, [isAuthenticated, state.jobs.length, state.loading, state.lastFetched, refreshJobs, slugPattern]);
 
   return {
     ...state, // jobs, loading, error, lastFetched for the specific pattern

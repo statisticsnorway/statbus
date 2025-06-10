@@ -84,7 +84,7 @@ class BaseDataStore {
     
     // If a fetch is already in progress, return the existing promise
     if (this.status === 'loading' && this.fetchPromise) {
-      console.log('Reusing in-progress base data fetch');
+      // console.log('Reusing in-progress base data fetch');
       return this.fetchPromise;
     }
     
@@ -97,12 +97,12 @@ class BaseDataStore {
       this.data = result;
       this.status = 'success';
       this.lastFetchTime = Date.now();
-      console.log('Base data fetch completed successfully', {
-        statDefinitionsCount: result.statDefinitions.length,
-        externalIdentTypesCount: result.externalIdentTypes.length,
-        statbusUsersCount: result.statbusUsers.length,
-        hasStatisticalUnits: result.hasStatisticalUnits
-      });
+      // console.log('Base data fetch completed successfully', {
+      //   statDefinitionsCount: result.statDefinitions.length,
+      //   externalIdentTypesCount: result.externalIdentTypes.length,
+      //   statbusUsersCount: result.statbusUsers.length,
+      //   hasStatisticalUnits: result.hasStatisticalUnits
+      // });
       return result;
     } catch (error) {
       this.status = 'error';
@@ -137,7 +137,7 @@ class BaseDataStore {
     // If a specific function is requested and it's loading, or if a general refresh is ongoing.
     const logFunctionName = functionName || "all";
     if (this.workerStatusLoading && now - this.lastWorkerStatusFetchTime < 5000) { 
-        console.log(`Worker status refresh for ${logFunctionName} already in progress or recently completed.`);
+        // console.log(`Worker status refresh for ${logFunctionName} already in progress or recently completed.`);
         return { isImporting: this.isImporting, isDerivingUnits: this.isDerivingUnits, isDerivingReports: this.isDerivingReports };
     }
 
@@ -174,7 +174,7 @@ class BaseDataStore {
         if (name === 'is_importing') this.isImporting = rpcResult.data ?? null;
         else if (name === 'is_deriving_statistical_units') this.isDerivingUnits = rpcResult.data ?? null;
         else if (name === 'is_deriving_reports') this.isDerivingReports = rpcResult.data ?? null;
-        console.log(`Worker status refreshed: ${name}=${rpcResult.data ?? null}`);
+        // console.log(`Worker status refreshed: ${name}=${rpcResult.data ?? null}`);
       };
 
       if (functionName) {
@@ -186,13 +186,13 @@ class BaseDataStore {
         }
       } else {
         // Refresh all statuses if no functionName is provided
-        console.log("Refreshing all worker statuses...");
+        // console.log("Refreshing all worker statuses...");
         await Promise.all([
           refreshSingleStatus('is_importing'),
           refreshSingleStatus('is_deriving_statistical_units'),
           refreshSingleStatus('is_deriving_reports')
         ]);
-        console.log("All worker statuses refreshed.");
+        // console.log("All worker statuses refreshed.");
       }
       
       return { 
@@ -314,7 +314,7 @@ class BaseDataStore {
       // Update the cached data
       this.data.hasStatisticalUnits = hasStatisticalUnits;
       
-      console.log(`Statistical units check: ${hasStatisticalUnits ? 'Found' : 'None found'}`);
+      // console.log(`Statistical units check: ${hasStatisticalUnits ? 'Found' : 'None found'}`);
       return hasStatisticalUnits;
     } catch (error) {
       console.error('Error checking for statistical units:', error);
@@ -388,7 +388,7 @@ class BaseDataStore {
       type: typeof window !== 'undefined' ? 'browser' : 'server'
     };
     
-    console.log('BaseDataStore client debug info:', clientDebugInfo);
+    // console.log('BaseDataStore client debug info:', clientDebugInfo);
     
     try {
       // Fetch all the data in parallel using Promise.all      
@@ -509,13 +509,13 @@ class BaseDataStore {
       }
       
       // Log the results
-      console.log('Base data fetch results:', {
-        statDefinitions: maybeStatDefinitions?.length || 0,
-        externalIdentTypes: maybeExternalIdentTypes?.length || 0,
-        statbusUsers: maybeStatbusUsers?.length || 0,
-        timeContexts: timeContextData.timeContexts?.length || 0,
-        hasStatisticalUnits: maybeStatisticalUnit !== null && Array.isArray(maybeStatisticalUnit) && maybeStatisticalUnit.length > 0
-      });
+      // console.log('Base data fetch results:', {
+      //   statDefinitions: maybeStatDefinitions?.length || 0,
+      //   externalIdentTypes: maybeExternalIdentTypes?.length || 0,
+      //   statbusUsers: maybeStatbusUsers?.length || 0,
+      //   timeContexts: timeContextData.timeContexts?.length || 0,
+      //   hasStatisticalUnits: maybeStatisticalUnit !== null && Array.isArray(maybeStatisticalUnit) && maybeStatisticalUnit.length > 0
+      // });
       
       // Return the base data
       return {
