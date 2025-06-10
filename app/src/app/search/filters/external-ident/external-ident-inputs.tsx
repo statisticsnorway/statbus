@@ -35,15 +35,38 @@ export function ExternalIdentInputs({
     );
   }, [filters, externalIdentTypes]);
 
-  const updateIdentifier = useCallback(async (identType: Tables<"external_ident_type_ordered">, value: string) => {
-    const newFilters = { ...filters };
-    if (value && value.trim() !== '') {
-      newFilters[identType.code!] = value;
-    } else {
-      delete newFilters[identType.code!];
+  const updateIdentifier = useCallback(async (identType: Tables<"external_ident_type_ordered">, localValue: string) => {
+    const code = identType.code!;
+    // Get the current value from global state (searchState.filters)
+    // Ensure consistent handling: if filters[code] is an array, take first, otherwise take as is. Default to undefined.
+    const globalFilterEntry = filters[code];
+    const currentGlobalFilterValue = (Array.isArray(globalFilterEntry) ? globalFilterEntry[0] : globalFilterEntry) as string | undefined;
+
+    const trimmedLocalValue = localValue.trim(); // Value from the input field, after debounce
+
+    let needsUpdate = false;
+
+    if (trimmedLocalValue !== '') { // User wants to set a non-empty value
+      if (currentGlobalFilterValue !== trimmedLocalValue) {
+        needsUpdate = true;
+      }
+    } else { // User wants to clear the value (trimmedLocalValue is empty)
+      // Only needs update if there was a non-empty value before in global state
+      if (filters.hasOwnProperty(code) && currentGlobalFilterValue && currentGlobalFilterValue.trim() !== '') {
+        needsUpdate = true;
+      }
     }
-    updateFilters(newFilters);
-    await executeSearch();
+
+    if (needsUpdate) {
+      const newFilters = { ...filters };
+      if (trimmedLocalValue !== '') {
+        newFilters[code] = trimmedLocalValue;
+      } else {
+        delete newFilters[code];
+      }
+      updateFilters(newFilters);
+      await executeSearch();
+    }
   }, [filters, updateFilters, executeSearch]);
 
   // Add reset function to clear all external identifier inputs
