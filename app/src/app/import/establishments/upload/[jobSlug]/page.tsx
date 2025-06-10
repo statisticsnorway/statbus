@@ -8,6 +8,8 @@ import { use } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Tables } from "@/lib/database.types";
+import { useSetAtom } from "jotai"; // AI: Added import
+import { refreshHasStatisticalUnitsAtomAction } from "@/atoms/index"; // AI: Added import
 
 type ImportJob = Tables<"import_job">;
 type ImportDefinition = Tables<"import_definition">;
@@ -19,6 +21,7 @@ export default function EstablishmentsUploadPage({
 }) {
   // Only get refreshUnitCount from context
   const { refreshUnitCount } = useImportUnits(); 
+  const doRefreshHasStatisticalUnits = useSetAtom(refreshHasStatisticalUnitsAtomAction); // AI: Added setter
   const { jobSlug } = use(params);
 
   // Local state for job, definition, loading, and error
@@ -246,7 +249,10 @@ export default function EstablishmentsUploadPage({
         jobSlug={jobSlug}
         job={job} // Pass local job state
         nextPage="/import/establishments-without-legal-unit"
-        refreshRelevantCounts={() => refreshUnitCount('establishmentsWithLegalUnit')}
+        refreshRelevantCounts={async () => { // AI: Made async and added refreshHasStatisticalUnits
+          await refreshUnitCount('establishmentsWithLegalUnit');
+          await doRefreshHasStatisticalUnits();
+        }}
       />
     </section>
   );
