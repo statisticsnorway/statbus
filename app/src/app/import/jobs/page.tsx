@@ -51,7 +51,7 @@ const fetcher = async (key: string): Promise<ImportJob[]> => {
     // Fetching list of all jobs
     const { data, error } = await client
       .from("import_job")
-      .select("*, import_definition:import_definition_id(slug, name, description)")
+      .select("*, import_definition(slug, name)")
       .order("created_at", { ascending: false }); // Default sort for list view
     if (error) {
       console.error("SWR Fetcher error (list jobs):", error);
