@@ -1537,15 +1537,6 @@ export const appReadyAtom = atom((get) => {
   }
 })
 
-// Search with filters applied
-export const filteredSearchResultsAtom = atom((get) => {
-  const results = get(searchResultAtom)
-  const searchState = get(searchStateAtom)
-  
-  // Apply any additional client-side filtering here
-  return results
-})
-
 // Export all atoms for easy importing
 export const atoms = {
   // Auth
@@ -1581,7 +1572,7 @@ export const atoms = {
   searchStateAtom,
   searchResultAtom,
   performSearchAtom,
-  filteredSearchResultsAtom,
+  // filteredSearchResultsAtom, // Removed as unused
   resetSearchStateAtom, // Export the reset action
   initialSearchStateValues, // Export the initial values
   derivedApiSearchParamsAtom, // Export derived search params
