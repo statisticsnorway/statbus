@@ -22,7 +22,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const router = useRouter();
   
-  const refreshAuth = useCallback(async () => {
+  const refreshAuth = useCallback(async (): Promise<AuthStatus> => { // Return AuthStatus
     try {
       setIsLoading(true);
       
@@ -54,6 +54,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       console.error('Error refreshing auth:', error);
       setIsAuthenticated(false);
       setUser(null);
+      // Ensure a consistent return type on error
+      return { isAuthenticated: false, user: null, tokenExpiring: false };
     } finally {
       setIsLoading(false);
     }
@@ -62,17 +64,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleLogin = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const result = await apiLogin(email, password);
+      const result = await apiLogin(email, password); // This calls the backend login
       
       if (result && result.error) {
         throw new Error(result.error);
       }
       
-      // Update auth state after successful login
-      await refreshAuth();
+      // If login is successful, cookies should have been set by the server response
+      // to apiLogin. Clear client-side caches. The subsequent hard redirect in
+      // LoginForm.tsx will cause a new page load, and AuthProvider on that
+      // page will perform a fresh auth check.
+      authStore.clearAllCaches();
+      
       return result;
     } catch (error) {
       console.error('Login failed:', error);
+      // No need to call refreshAuth() on login failure here,
+      // as auth state likely hasn't changed or is irrelevant to the failure.
+      // The LoginForm will display the error.
       throw error;
     } finally {
       setIsLoading(false);
@@ -105,10 +114,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     
     // Add event listener for 401 errors
     const handle401 = async () => {
-      await refreshAuth();
+      // Call refreshAuth and get the latest status directly from its result
+      const currentAuthStatus = await refreshAuth();
       
       // If still not authenticated after refresh attempt, redirect to login
-      if (!isAuthenticated) {
+      if (!currentAuthStatus.isAuthenticated) {
         router.push('/login');
       }
     };
