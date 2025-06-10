@@ -1,7 +1,7 @@
 "use client";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
-import { useBaseData } from "@/app/BaseDataClient";
-import { useImportUnits } from "../import-units-context";
+import { useBaseData } from "@/atoms/hooks";
+import { useImportManager } from "@/atoms/hooks"; // Updated import
 import { Spinner } from "@/components/ui/spinner";
 import { FileText, BarChart2, Building2, Store, Building } from "lucide-react";
 
@@ -13,7 +13,7 @@ export default function ImportStatus() {
       establishmentsWithoutLegalUnit,
     },
     // No longer need importState here
-  } = useImportUnits();
+  } = useImportManager(); // Updated hook call
   const { hasStatisticalUnits, workerStatus } = useBaseData();
 
   // Determine if any import process is active using workerStatus only

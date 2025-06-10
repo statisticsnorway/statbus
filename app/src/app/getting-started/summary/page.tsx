@@ -3,16 +3,17 @@
 import React from "react";
 import Link from "next/link";
 import { Check, Minus, X } from "lucide-react";
-import { useGettingStarted } from "../GettingStartedContext";
+import { useGettingStartedManager as useGettingStarted } from '@/atoms/hooks';
 
 export default function OnboardingCompletedPage() {
+  const { dataState } = useGettingStarted();
   const {
     activity_category_standard,
     numberOfRegions,
     numberOfCustomSectors,
     numberOfCustomLegalForms,
     numberOfCustomActivityCategoryCodes,
-  } = useGettingStarted();
+  } = dataState;
 
   return (
     <div className="space-y-8">

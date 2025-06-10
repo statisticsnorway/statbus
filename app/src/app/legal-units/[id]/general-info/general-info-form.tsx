@@ -4,7 +4,7 @@ import React, { useActionState } from "react";
 import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { FormField } from "@/components/form/form-field";
-import { useBaseData } from "@/app/BaseDataClient";
+import { useBaseData } from "@/atoms/hooks";
 
 export default function GeneralInfoForm({
   id,

@@ -1,15 +1,16 @@
 "use client";
-import { useGettingStarted } from "../GettingStartedContext";
+import { useGettingStartedManager as useGettingStarted } from '@/atoms/hooks';
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
 
 export default function SetupStatus() {
+  const { dataState } = useGettingStarted();
   const {
     activity_category_standard,
     numberOfRegions,
     numberOfCustomActivityCategoryCodes,
     numberOfCustomSectors,
     numberOfCustomLegalForms,
-  } = useGettingStarted();
+  } = dataState;
 
   return (
     <nav>

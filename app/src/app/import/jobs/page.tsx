@@ -39,19 +39,48 @@ const getJobSWRKey = (id: number | string) => `/api/import-jobs/${id}`;
 
 // --- Fetcher Function (assuming one exists or define it) ---
 // Example fetcher using the browser client
-const fetcher = async (key: string) => {
+// Simplified to always return Promise<ImportJob[]>
+const fetcher = async (key: string): Promise<ImportJob[]> => {
   const client = await getBrowserRestClient();
   if (!client) throw new Error("REST client not available");
-  
-  // Basic fetcher example, adjust based on actual API structure if needed
-  // This example assumes the key directly maps to the resource path
-  const { data, error } = await client.from("import_job").select("*").order("priority"); // Adjust query as needed
-  
-  if (error) {
-    console.error("SWR Fetcher error:", error);
-    throw error;
+
+  const listMatch = key.match(/^\/api\/import-jobs\/?$/);
+  const singleMatch = key.match(/^\/api\/import-jobs\/([^/]+)$/);
+
+  if (listMatch) {
+    // Fetching list of all jobs
+    const { data, error } = await client
+      .from("import_job")
+      .select("*, import_definition:import_definition_id(slug, name, description)")
+      .order("created_at", { ascending: false }); // Default sort for list view
+    if (error) {
+      console.error("SWR Fetcher error (list jobs):", error);
+      throw error;
+    }
+    // Assuming ImportJob type can accommodate the nested import_definition
+    return data as ImportJob[];
+  } else if (singleMatch) {
+    // Fetching a single job
+    const jobIdOrSlug = singleMatch[1];
+    // Determine if jobIdOrSlug is numeric (ID) or string (slug)
+    const columnToFilter = /^\d+$/.test(jobIdOrSlug) ? "id" : "slug";
+    const valueToFilter = columnToFilter === "id" ? parseInt(jobIdOrSlug, 10) : jobIdOrSlug;
+
+    const { data, error } = await client
+      .from("import_job")
+      .select("*, import_definition:import_definition_id(slug, name, description)")
+      .eq(columnToFilter, valueToFilter)
+      .maybeSingle();
+    if (error) {
+      console.error(`SWR Fetcher error (single job ${jobIdOrSlug}):`, error);
+      throw error;
+    }
+    // Return as an array (list of 0 or 1 item)
+    return data ? [data as ImportJob] : [];
+  } else {
+    console.error(`SWR Fetcher error: Unrecognized key pattern: ${key}`);
+    throw new Error(`Unrecognized SWR key pattern: ${key}`);
   }
-  return data as ImportJob[]; // Adjust type assertion if needed
 };
 // --- Component ---
 export default function ImportJobsPage() {
@@ -171,8 +200,8 @@ export default function ImportJobsPage() {
             return (currentData ?? []).filter(job => job.id !== deletedJobId);
           }, { revalidate: false }); // Optimistic update for the list
 
-          // Mutate the individual job: Set data to undefined to indicate deletion
-          mutate(getJobSWRKey(deletedJobId), undefined, { revalidate: false });
+          // Mutate the individual job: Set data to an empty array to indicate deletion/not found
+          mutate(getJobSWRKey(deletedJobId), [], { revalidate: false });
 
           return; // Exit after handling delete
         }
@@ -190,8 +219,8 @@ export default function ImportJobsPage() {
         console.log(`Processing ${verb} for job ${jobId}`, updatedJobData);
 
         // --- Mutate Individual Job Cache ---
-        // Update the specific job's cache first. Pass the full new data.
-        mutate(getJobSWRKey(jobId), updatedJobData, { revalidate: false });
+        // Update the specific job's cache first. Pass the full new data as an array.
+        mutate(getJobSWRKey(jobId), [updatedJobData], { revalidate: false });
 
         // --- Mutate List Cache ---
         mutate(SWR_KEY_IMPORT_JOBS, (currentData: ImportJob[] | undefined): ImportJob[] => {
@@ -259,12 +288,17 @@ export default function ImportJobsPage() {
       reconnectTimeout = setTimeout(() => {
         console.log("Attempting to reconnect SSE now...");
         reconnectTimeout = null;
-        // Set status back to idle to allow the effect to try connecting again
-        sseStatusRef.current = 'idle';
-        // Force a re-render if needed, or rely on other state changes.
-        // A simple way is to have a dummy state update, but often not necessary.
-        // For now, we assume the effect will re-run due to other state changes or manually trigger.
-        // If reconnection doesn't happen, we might need a state variable to force re-run.
+        // The SSE connection logic will re-initiate connection if source.onerror is called
+        // and the main useEffect re-runs due to its dependencies (e.g., isLoading changing)
+        // or if we manually re-trigger the effect by changing a dependency.
+        // For now, the existing logic will attempt to reconnect when source.onerror is hit
+        // and the effect re-runs. The setSseReconnectTrigger was an explicit way to force this.
+        // We can rely on the natural re-run or SWR's own mechanisms if isLoading changes.
+        // If a more direct re-trigger is needed, a different state/ref could be used.
+        // For now, removing the direct call to setSseReconnectTrigger.
+        // The original effect structure will handle re-connection attempts.
+        // The main useEffect will re-run if isLoading changes, or if other dependencies were added.
+        // The current structure of the useEffect for SSE connection is self-contained for retries.
       }, reconnectDelay);
     };
 

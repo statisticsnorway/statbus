@@ -2,11 +2,11 @@
 import { Table, TableBody } from "@/components/ui/table";
 import { StatisticalUnitTableRow } from "@/app/search/components/statistical-unit-table-row";
 import SearchBulkActionButton from "@/app/search/components/search-bulk-action-button";
-import { useSelectionContext } from "@/app/search/use-selection-context";
+import { useSelection } from "@/atoms/hooks"; // Changed to Jotai hook
 import { useRegionLevel } from "@/app/search/hooks/useRegionLevel";
 
 export const Selection = () => {
-  const { selected } = useSelectionContext();
+  const { selected } = useSelection(); // Use Jotai hook
   const { regionLevel } = useRegionLevel();
 
   if (selected.length === 0) return null;

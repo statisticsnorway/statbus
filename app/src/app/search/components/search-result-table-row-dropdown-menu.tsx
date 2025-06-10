@@ -9,17 +9,16 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
-import { StatisticalUnit } from "@/app/types";
 import { MoreHorizontal, ShoppingBasket } from "lucide-react";
-
-import { useSelectionContext } from "@/app/search/use-selection-context";
+import { StatisticalUnit } from "@/atoms/index"; 
+import { useSelection } from "@/atoms/hooks"; // Changed to Jotai hook
 
 export default function SearchResultTableRowDropdownMenu({
   unit,
 }: {
   readonly unit: StatisticalUnit;
 }) {
-  const { toggle, selected } = useSelectionContext();
+  const { toggle, selected } = useSelection(); // Use Jotai hook
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
   );

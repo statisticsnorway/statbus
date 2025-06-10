@@ -3,8 +3,8 @@
 import React from "react";
 import Link from "next/link";
 import { Check, X } from "lucide-react";
-import { useBaseData } from "@/app/BaseDataClient";
-import { useImportUnits } from "../import-units-context";
+import { useBaseData } from "@/atoms/hooks";
+import { useImportManager } from "@/atoms/hooks"; // Updated import
 
 export default function ImportCompletedPage() {
   const {
@@ -13,7 +13,7 @@ export default function ImportCompletedPage() {
       establishmentsWithLegalUnit,
       establishmentsWithoutLegalUnit
     }
-  } = useImportUnits();
+  } = useImportManager(); // Updated hook call
   const { hasStatisticalUnits } = useBaseData();
   return (
     <div className="space-y-8">

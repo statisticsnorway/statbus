@@ -1,33 +1,37 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearchContext } from "@/app/search/use-search-context";
+// import { useSearchContext } from "@/app/search/use-search-context"; // Removed
+import { useSearch } from "@/atoms/hooks"; // Using Jotai's useSearch
 import { useCallback } from "react";
-import { UNIT_TYPE, unitTypeDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params";
+import { UNIT_TYPE, unitTypeDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params"; // This might need update
 import { SearchFilterOption } from "../search";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 
 export default function UnitTypeFilter() {
-  const {
-    modifySearchState,
-    searchState: {
-      appSearchParams: { [UNIT_TYPE]: selected = [] },
-    },
-  } = useSearchContext();
+  const { searchState, updateFilters } = useSearch();
+  // TODO: Adapt logic for selected values and updating filters
+  // const selected = searchState.filters[UNIT_TYPE] || []; // Example adaptation
+  const selected: (string | null)[] = (searchState.filters[UNIT_TYPE] as string[]) || [];
+
 
   const toggle = useCallback(
     ({ value }: SearchFilterOption) => {
-      const values = selected.includes(value)
-        ? selected.filter((v) => v !== value)
-        : [...selected, value];
-
-      modifySearchState(unitTypeDeriveStateUpdateFromValues(values));
+      const currentValues = Array.isArray(searchState.filters[UNIT_TYPE]) ? searchState.filters[UNIT_TYPE] as string[] : [];
+      const newValues = currentValues.includes(value as string)
+        ? currentValues.filter((v) => v !== value)
+        : [...currentValues, value as string];
+      
+      // updateFilters should be called with the entire filters object
+      updateFilters({ ...searchState.filters, [UNIT_TYPE]: newValues });
     },
-    [modifySearchState, selected]
+    [searchState.filters, updateFilters]
   );
 
   const reset = useCallback(() => {
-    modifySearchState(unitTypeDeriveStateUpdateFromValues([]));
-  }, [modifySearchState]);
+    const newFilters = { ...searchState.filters };
+    delete newFilters[UNIT_TYPE];
+    updateFilters(newFilters);
+  }, [searchState.filters, updateFilters]);
 
   return (
     <OptionsFilter

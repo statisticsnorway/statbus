@@ -5,7 +5,7 @@ import { StatisticalUnitDetailsLinkWithSubPath } from "@/components/statistical-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Asterisk } from "lucide-react";
 import { thousandSeparator } from "@/lib/number-utils";
-import { useBaseData } from "@/app/BaseDataClient";
+import { useBaseData } from '@/atoms/hooks';
 
 interface TopologyItemProps {
   readonly active?: boolean;

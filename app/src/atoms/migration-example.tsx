@@ -17,6 +17,7 @@ import {
   useAppInitialization,
   useSSEConnection,
 } from './hooks'
+import { type StatisticalUnit } from "@/atoms/index";
 
 // ============================================================================
 // BEFORE: Complex Context Provider Pattern
@@ -57,7 +58,7 @@ const MyComplexComponent = () => {
     let eventSource: EventSource | null = null
     
     if (isAuthenticated) {
-      eventSource = new EventSource('/api/sse')
+      eventSource = new EventSource('/api/sse/worker-check') // Use specific endpoint for worker status
       eventSource.onmessage = (event) => {
         // Handle messages and trigger multiple state updates
         const data = JSON.parse(event.data)
@@ -120,8 +121,8 @@ const MySimpleComponent = () => {
   // App initialization handled by a single hook
   useAppInitialization()
   
-  // SSE connection handled by a single hook
-  useSSEConnection('/api/sse')
+  // SSE connection handled by a single hook for worker status
+  useSSEConnection('/api/sse/worker-check')
   
   return (
     <div>
@@ -129,7 +130,7 @@ const MySimpleComponent = () => {
       <p>User: {auth.user?.email}</p>
       <p>Stat Definitions: {baseData.statDefinitions.length}</p>
       <p>Worker Status: {baseData.workerStatus.isImporting ? 'Importing' : 'Idle'}</p>
-      <p>Selected Time Context: {timeContext.selectedTimeContext?.id}</p>
+      <p>Selected Time Context: {timeContext.selectedTimeContext?.ident}</p>
       <p>Selected Units: {selection.count}</p>
       <p>Search Query: {search.searchState.query}</p>
       
@@ -178,14 +179,14 @@ const TimeContextMigrationExample = () => {
   
   return (
     <select 
-      value={selectedTimeContext?.id || ''} 
+      value={selectedTimeContext?.ident || ''} 
       onChange={(e) => {
-        const tc = timeContexts.find(tc => tc.id === parseInt(e.target.value))
+        const tc = timeContexts.find(tc => tc.ident === e.target.value)
         if (tc) setSelectedTimeContext(tc)
       }}
     >
       {timeContexts.map(tc => (
-        <option key={tc.id} value={tc.id}>{tc.year}</option>
+        <option key={tc.ident} value={tc.ident!}>{tc.valid_on}</option>
       ))}
     </select>
   )
@@ -209,7 +210,7 @@ const SelectionMigrationExample = () => {
   // AFTER: Simple hooks
   const selection = useSelection()
   
-  const handleUnitClick = (unit: { id: number; name: string }) => {
+  const handleUnitClick = (unit: StatisticalUnit) => {
     selection.toggle(unit)
   }
   
@@ -268,7 +269,7 @@ const SearchMigrationExample = () => {
 const PerformanceComparisonExample = () => {
   // With Jotai, only components using specific atoms re-render
   // This component only re-renders when auth status changes
-  const isAuthenticated = useAtomValue(useAuth().authStatusAtom)
+  const isAuthenticated = useAuth().isAuthenticated;
   
   console.log('PerformanceExample re-rendered') // This will only log when auth changes
   

@@ -4,9 +4,10 @@ import { headers } from 'next/headers'; // Import headers
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { Database } from '@/lib/database.types';
 import { getServerRestClient } from "@/context/RestClientStore";
-import { ClientBaseDataProvider } from "./BaseDataClient";
-import { BaseData } from '@/context/BaseDataStore';
-import { authStore, AuthenticationError, User } from '@/context/AuthStore';
+// import { ClientBaseDataProvider } from "./BaseDataClient"; // Removed
+import type { BaseData, User } from "@/atoms"; // Assuming types are exported from atoms/index.ts
+import { authStore, AuthenticationError } from '@/context/AuthStore'; // authStore still used in getBaseData
+import { InitialStateHydrator } from "./InitialStateHydrator"; // Added
 
 export async function getBaseData(client: PostgrestClient<Database>): Promise<BaseData & { isAuthenticated: boolean; user: User | null }> {
   try {
@@ -111,14 +112,19 @@ export const ServerBaseDataProvider = async ({ children }: { children: React.Rea
   const nextHeaders = headers(); // This call makes this component dynamic.
 
   const client = await getServerRestClient();
-  const baseData = await getBaseData(client);
+  const baseDataWithAuth = await getBaseData(client);
 
+  // ClientBaseDataProvider is removed.
+  // We pass the initial server-fetched data to InitialStateHydrator,
+  // which is a client component responsible for setting the initial Jotai atom states.
   return (
-    <ClientBaseDataProvider initalBaseData={baseData}>
+    <InitialStateHydrator initialData={baseDataWithAuth}>
       {children}
-    </ClientBaseDataProvider>
+    </InitialStateHydrator>
   );
 };
 
-// Re-export the BaseData type from BaseDataStore for convenience
-export type { BaseData } from '@/context/BaseDataStore';
+// Re-export the BaseData type (if still needed directly by consumers of this file)
+// Or consider removing if all consumers now get BaseData type from @/atoms
+// For now, let's assume the type export might still be used elsewhere.
+export type { BaseData } from '@/atoms'; // Assuming type is exported from atoms/index.ts

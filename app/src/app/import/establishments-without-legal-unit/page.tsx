@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import React, { useState, useEffect } from "react";
 import { InfoBox } from "@/components/info-box";
-import { useImportUnits } from "../import-units-context";
+import { useImportManager } from "@/atoms/hooks"; // Updated import
 import { TimeContextSelector } from "../components/time-context-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,7 +20,7 @@ import { useRouter } from "next/navigation";
 export default function UploadEstablishmentsWithoutLegalUnitPage() {
   const router = useRouter();
   // No longer need importState here
-  const { counts: { establishmentsWithoutLegalUnit } } = useImportUnits(); 
+  const { counts: { establishmentsWithoutLegalUnit } } = useImportManager(); // Updated hook call
   const [isLoading, setIsLoading] = useState(true);
   const [pendingJobs, setPendingJobs] = useState<Tables<"import_job">[]>([]);
 

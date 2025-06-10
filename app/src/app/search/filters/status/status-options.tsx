@@ -3,10 +3,10 @@
 import { SearchFilterOption } from "../../search";
 import { OptionsFilter } from "../../components/options-filter";
 import { useCallback } from "react";
-import { useSearchContext } from "../../use-search-context";
+import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import {
   STATUS,
-  statusDeriveStateUpdateFromValues,
+  // statusDeriveStateUpdateFromValues, // Removed
 } from "../url-search-params";
 
 export default function StatusOptions({
@@ -14,27 +14,33 @@ export default function StatusOptions({
 }: {
   readonly options: SearchFilterOption[];
 }) {
-  const {
-    modifySearchState,
-    searchState: {
-      appSearchParams: { [STATUS]: selected = [] },
-    },
-  } = useSearchContext();
+  const { searchState, updateFilters, executeSearch } = useSearch();
+  const selected = (searchState.filters[STATUS] as (string | null)[]) || [];
 
   const toggle = useCallback(
-    ({ value }: SearchFilterOption) => {
-      const values = selected.includes(value)
+    async ({ value }: SearchFilterOption) => {
+      const newSelectedValues = selected.includes(value)
         ? selected.filter((v) => v !== value)
         : [...selected, value];
 
-      modifySearchState(statusDeriveStateUpdateFromValues(values));
+      const newFilters = {
+        ...searchState.filters,
+        [STATUS]: newSelectedValues,
+      };
+      updateFilters(newFilters);
+      await executeSearch();
     },
-    [selected, modifySearchState]
+    [selected, searchState.filters, updateFilters, executeSearch]
   );
 
-  const reset = useCallback(() => {
-    modifySearchState(statusDeriveStateUpdateFromValues([]));
-  }, [modifySearchState]);
+  const reset = useCallback(async () => {
+    const newFilters = {
+      ...searchState.filters,
+      [STATUS]: [],
+    };
+    updateFilters(newFilters);
+    await executeSearch();
+  }, [searchState.filters, updateFilters, executeSearch]);
 
   return (
     <OptionsFilter

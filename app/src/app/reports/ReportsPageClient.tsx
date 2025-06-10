@@ -7,7 +7,7 @@ import { BreadCrumb } from "@/app/reports/bread-crumb";
 import { DrillDownChart } from "@/app/reports/drill-down-chart";
 import { SearchLink } from "@/app/reports/search-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useBaseData } from "@/app/BaseDataClient";
+import { useBaseData } from "@/atoms/hooks";
 
 export default function ReportsPageClient({
 }) {

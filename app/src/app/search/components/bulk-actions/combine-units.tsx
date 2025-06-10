@@ -5,11 +5,11 @@ import { CommandItem } from "@/components/ui/command";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import logger from "@/lib/client-logger";
-import { useSelectionContext } from "@/app/search/use-selection-context";
+import { useSelection } from "@/atoms/hooks"; // Changed to Jotai hook
 
 export default function CombineUnits() {
   const router = useRouter();
-  const { selected } = useSelectionContext();
+  const { selected } = useSelection(); // Use Jotai hook
 
   const isEligibleForCombination =
     selected.length === 2 &&

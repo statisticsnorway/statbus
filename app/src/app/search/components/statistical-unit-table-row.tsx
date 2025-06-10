@@ -5,15 +5,15 @@ import { cn } from "@/lib/utils";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 import { StatisticalUnitDetailsLink } from "@/components/statistical-unit-details-link";
 import SearchResultTableRowDropdownMenu from "@/app/search/components/search-result-table-row-dropdown-menu";
-import { useSelectionContext } from "@/app/search/use-selection-context";
-import { useSearchContext } from "@/app/search/use-search-context";
 import { thousandSeparator } from "@/lib/number-utils";
-import { useBaseData } from "@/app/BaseDataClient";
-import { StatisticalUnit } from "@/app/types";
+//import { StatisticalUnit } from "@/app/types";
 import { InvalidCodes } from "./invalid-codes";
 import { Popover, PopoverContent } from "@/components/ui/popover";
 import { PopoverTrigger } from "@radix-ui/react-popover";
-import { useTableColumns } from "../table-columns";
+import { useSelection } from "@/atoms/hooks";
+import { useBaseData } from "@/atoms/hooks";
+import { useTableColumnsManager, useSearch } from "@/atoms/hooks";
+import { StatisticalUnit } from "@/atoms/index";
 
 interface SearchResultTableRowProps {
   unit: StatisticalUnit;
@@ -31,11 +31,11 @@ export const StatisticalUnitTableRow = ({
     allStatuses,
     allUnitSizes,
     allDataSources,
-  } = useSearchContext();
+  } = useSearch(); // useSearch now provides these from Jotai state
 
   const { externalIdentTypes, statbusUsers } = useBaseData();
-  const { selected } = useSelectionContext();
-  const { columns, bodyRowSuffix, bodyCellSuffix } = useTableColumns();
+  const { selected } = useSelection();
+  const { columns, bodyRowSuffix, bodyCellSuffix } = useTableColumnsManager(); // Updated hook call
 
   const isInBasket = selected.some(
     (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
@@ -299,7 +299,20 @@ export const StatisticalUnitTableRow = ({
                   key={`cell-${bodyCellSuffix(unit, column)}`}
                   className={getCellClassName(column)}
                 >
-                  {thousandSeparator(unit.stats_summary[column.stat_code]?.sum)}
+                  {(() => {
+                    const metric = unit.stats_summary[column.stat_code];
+                    let valueToDisplay: number | string | null = null;
+
+                    if (metric && metric.type === "number") {
+                      // metric is NumberStatMetric, sum is number | undefined
+                      valueToDisplay = metric.sum !== undefined ? metric.sum : null;
+                    } else {
+                      // For other types or if metric is undefined, display a placeholder
+                      // as we are only asked to display 'sum' from 'number' type metrics.
+                      valueToDisplay = "-"; // Or null for an empty cell
+                    }
+                    return thousandSeparator(valueToDisplay);
+                  })()}
                 </TableCell>
               );
             }

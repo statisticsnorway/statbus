@@ -16,10 +16,10 @@ import {
 } from "@/components/ui/command";
 import * as React from "react";
 import CombineUnits from "@/app/search/components/bulk-actions/combine-units";
-import { useSelectionContext } from "@/app/search/use-selection-context";
+import { useSelection } from "@/atoms/hooks"; // Changed to Jotai hook
 
 export default function SearchBulkActionButton() {
-  const { selected, clearSelected } = useSelectionContext();
+  const { selected, clear } = useSelection(); // Use Jotai hook
 
   return (
     <Popover>
@@ -46,7 +46,7 @@ export default function SearchBulkActionButton() {
               <CombineUnits />
             </CommandGroup>
             <CommandGroup>
-              <CommandItem onSelect={clearSelected} className="space-x-2">
+              <CommandItem onSelect={clear} className="space-x-2">
                 <Trash className="h-4 w-4" />
                 <span>Clear selection</span>
               </CommandItem>

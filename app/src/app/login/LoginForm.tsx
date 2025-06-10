@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/atoms/hooks";
 import { useRouter } from "next/navigation";
 
 export default function LoginForm() {
@@ -20,12 +20,8 @@ export default function LoginForm() {
     const password = formData.get("password") as string;
 
     try {
-      // Use the login function from auth context
-      const result = await login(email, password);
-      
-      if (result && result.error) {
-        throw new Error(result.error);
-      }
+      // Use the login function from the Jotai atom
+      await login({ email, password });
       
       // If login successful, use window.location for a hard redirect
       // This ensures a full page refresh which will update auth state everywhere
@@ -98,7 +94,7 @@ export default function LoginForm() {
         <button
           type="submit"
           disabled={isLoading}
-          className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-xs hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 group-invalid:pointer-events-none group-invalid:opacity-30 disabled:opacity-50"
+          className="flex w-full justify-center rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-semibold leading-6 text-white shadow-xs hover:bg-indigo-500 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600 group-invalid:pointer-events-none group-invalid:opacity-30 disabled:opacity-50"
         >
           {isLoading ? "Signing in..." : "Sign in"}
         </button>

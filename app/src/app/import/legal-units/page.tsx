@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useImportUnits } from "../import-units-context";
+import { useImportManager } from "@/atoms/hooks"; // Updated import
 import { ImportJobCreator } from "../components/import-job-creator";
 import { TimeContextSelector } from "../components/time-context-selector";
 import { Spinner } from "@/components/ui/spinner";
@@ -20,7 +20,7 @@ import { InfoBox } from "@/components/info-box";
 export default function LegalUnitsPage() {
   const router = useRouter();
   // No longer need importState here
-  const { counts } = useImportUnits(); 
+  const { counts } = useImportManager(); // Updated hook call
   const [isLoading, setIsLoading] = useState(true);
   const [pendingJobs, setPendingJobs] = useState<Tables<"import_job">[]>([]);
 

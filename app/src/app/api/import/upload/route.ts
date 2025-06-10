@@ -111,7 +111,9 @@ export async function POST(request: NextRequest) {
           reader.releaseLock(); 
           break; // Stop reading chunks
         }
-        // If buffer gets too large without finding a newline, assume error or single-line file
+        // Safety break: If buffer grows excessively large without finding a newline,
+        // it indicates a potential issue (e.g., very long line, binary data, or no newline).
+        // Throw an error to prevent excessive memory usage.
         if (buffer.length > 1024 * 10) { // e.g., 10KB limit for header line
            reader.releaseLock();
            throw new Error("Could not find header row within the first 10KB.");

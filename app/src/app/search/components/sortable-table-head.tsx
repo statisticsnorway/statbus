@@ -2,7 +2,7 @@
 import { TableHead } from "@/components/ui/table";
 import { ReactNode, ThHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { useSearchContext } from "@/app/search/use-search-context";
+import { useSearch } from "@/atoms/hooks";
 
 interface SortableTableHeadProps
   extends ThHTMLAttributes<HTMLTableCellElement> {
@@ -17,15 +17,23 @@ export default function SortableTableHead({
   label,
   ...props
 }: SortableTableHeadProps) {
-  const {
-    searchState: { order },
-    modifySearchState,
-  } = useSearchContext();
+  const { searchState, updateSorting, executeSearch } = useSearch();
+  const { sorting } = searchState;
+
+  const handleSort = async () => {
+    let newDirection: 'asc' | 'desc' = 'asc';
+    if (sorting.field === name) {
+      newDirection = sorting.direction === 'asc' ? 'desc' : 'asc';
+    }
+    updateSorting(name, newDirection);
+    await executeSearch();
+  };
+
   return (
     <TableHead {...props}>
       <button
-        onClick={() => modifySearchState({ type: "set_order", payload: { name } })}
-        className={cn("p-0", order.name === name ? "underline" : "")}
+        onClick={handleSort}
+        className={cn("p-0", sorting.field === name ? "underline" : "")}
       >
         {label}
       </button>

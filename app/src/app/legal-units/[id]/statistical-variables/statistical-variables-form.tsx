@@ -1,5 +1,5 @@
 "use client";
-import { useBaseData } from "@/app/BaseDataClient";
+import { useBaseData } from "@/atoms/hooks";
 import { FormField } from "@/components/form/form-field";
 
 export default function StatisticalVariablesForm({

@@ -8,8 +8,7 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
 import TimeContextSelector from "@/components/time-context-selector";
-import { useAuth } from "@/hooks/useAuth";
-import { useBaseData } from "@/app/BaseDataClient";
+import { useAuth, useBaseData } from "@/atoms/hooks";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation"; // Import usePathname
 
@@ -24,7 +23,7 @@ export function NavbarSkeleton() {
 }
 
 export default function Navbar() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth(); // Destructure user as well
   const { hasStatisticalUnits, workerStatus } = useBaseData();
   const { isImporting, isDerivingUnits, isDerivingReports } = workerStatus;
   const pathname = usePathname(); // Get current pathname
@@ -110,7 +109,8 @@ export default function Navbar() {
           {isAuthenticated && hasStatisticalUnits && (
             <TimeContextSelector />
           )}
-          {isAuthenticated && (
+          {/* Render ProfileAvatar only if authenticated and user object is available */}
+          {isAuthenticated && user && ( 
             <>
               <ProfileAvatar className="w-8 h-8 text-ssb-dark hidden lg:flex" />
               {/* Mobile menu button moved to the center section */}

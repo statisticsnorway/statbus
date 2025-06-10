@@ -1,8 +1,8 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearchContext } from "@/app/search/use-search-context";
+import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import { useCallback } from "react";
-import { SECTOR, sectorDeriveStateUpdateFromValues } from "@/app/search/filters/url-search-params";
+import { SECTOR } from "@/app/search/filters/url-search-params"; // Removed unused import
 import { SearchFilterOption } from "../../search";
 
 export default function SectorOptions({
@@ -10,23 +10,31 @@ export default function SectorOptions({
 }: {
   readonly options: SearchFilterOption[];
 }) {
-  const {
-    modifySearchState,
-    searchState: {
-      appSearchParams: { [SECTOR]: selected = [] },
-    },
-  } = useSearchContext();
+  const { searchState, updateFilters, executeSearch } = useSearch();
+  const selected = (searchState.filters[SECTOR] as (string | null)[]) || [];
+
   const toggle = useCallback(
-    ({ value }: SearchFilterOption) => {
-      const values = selected.includes(value) ? [] : [value];
-      modifySearchState(sectorDeriveStateUpdateFromValues(values));
+    async ({ value }: SearchFilterOption) => {
+      // Assuming this filter behaves like a single-choice toggle (or clear)
+      const newSelectedValues = selected.includes(value) ? [] : [value];
+      const newFilters = {
+        ...searchState.filters,
+        [SECTOR]: newSelectedValues,
+      };
+      updateFilters(newFilters);
+      await executeSearch();
     },
-    [modifySearchState, selected]
+    [searchState.filters, updateFilters, executeSearch, selected]
   );
 
-  const reset = useCallback(() => {
-    modifySearchState(sectorDeriveStateUpdateFromValues([]));
-  }, [modifySearchState]);
+  const reset = useCallback(async () => {
+    const newFilters = {
+      ...searchState.filters,
+      [SECTOR]: [],
+    };
+    updateFilters(newFilters);
+    await executeSearch();
+  }, [searchState.filters, updateFilters, executeSearch]);
 
   return (
     <OptionsFilter

@@ -1,7 +1,7 @@
 "use client";
 import { User } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useAuth } from "@/hooks/useAuth";
+import { useAuth } from "@/atoms/hooks";
 
 export default function ProfileAvatar({
   className,

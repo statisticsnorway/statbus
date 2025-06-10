@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { useImportUnits } from "../import-units-context";
+import { useImportManager } from "@/atoms/hooks"; // Updated import
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -17,7 +17,7 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
     timeContext: { availableContexts, selectedContext, useExplicitDates },
     setSelectedTimeContext, 
     setUseExplicitDates
-  } = useImportUnits();
+  } = useImportManager(); // Updated hook call
 
   // Pass the ident string directly to the context setter
   const handleTimeContextChange = (value: string) => {

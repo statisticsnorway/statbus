@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { ImportJobUpload } from "../../../components/import-job-upload";
 import { ImportJobDetails } from "../../../components/import-job-details";
-import { useImportUnits } from "../../../import-units-context";
+import { useImportManager as useImportUnits } from '@/atoms/hooks';
 import { use } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { getBrowserRestClient } from "@/context/RestClientStore";

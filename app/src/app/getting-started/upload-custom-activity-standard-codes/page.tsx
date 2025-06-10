@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect } from "react";
-import { useGettingStarted } from "../GettingStartedContext";
+import { useGettingStartedManager as useGettingStarted } from '@/atoms/hooks';
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {
@@ -14,10 +14,8 @@ import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 
 export default function UploadCustomActivityCategoryCodesPage() {
-  const {
-    numberOfCustomActivityCategoryCodes,
-    refreshNumberOfCustomActivityCategoryCodes,
-  } = useGettingStarted();
+  const { dataState, refreshAllData } = useGettingStarted();
+  const { numberOfCustomActivityCategoryCodes } = dataState;
 
   return (
     <section className="space-y-8">
@@ -51,7 +49,7 @@ export default function UploadCustomActivityCategoryCodesPage() {
       <UploadCSVForm
         uploadView="activity_category_available_custom"
         nextPage="/getting-started/upload-regions"
-        refreshRelevantCounts={refreshNumberOfCustomActivityCategoryCodes}
+        refreshRelevantCounts={refreshAllData}
       />
 
       <Accordion type="single" collapsible>

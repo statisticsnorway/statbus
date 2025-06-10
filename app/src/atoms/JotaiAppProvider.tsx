@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * JotaiAppProvider - Simple replacement for complex Provider nesting
  * 
@@ -16,6 +18,9 @@ import {
   refreshWorkerStatusAtom,
   workerStatusAtom,
   isAuthenticatedAtom,
+  initializeTableColumnsAtom, // Added for table column initialization
+  refreshAllGettingStartedDataAtom, // Added for Getting Started data
+  refreshAllUnitCountsAtom, // Added for Import Units counts
 } from './index'
 
 // ============================================================================
@@ -27,6 +32,9 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const refreshBaseData = useSetAtom(refreshBaseDataAtom)
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setRestClient = useSetAtom(restClientAtom)
+  const initializeTableColumns = useSetAtom(initializeTableColumnsAtom); // Added
+  const refreshGettingStartedData = useSetAtom(refreshAllGettingStartedDataAtom); // Added
+  const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom); // Added
   
   // Initialize REST client
   useEffect(() => {
@@ -64,6 +72,15 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
         // Fetch base data
         await refreshBaseData()
         
+        // Initialize table columns (depends on base data, e.g., statDefinitions)
+        initializeTableColumns();
+
+        // Fetch "Getting Started" data
+        refreshGettingStartedData();
+
+        // Fetch Import Unit Counts
+        refreshUnitCounts();
+
         // Fetch worker status
         await refreshWorkerStatus()
         
@@ -79,7 +96,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false
     }
-  }, [isAuthenticated, refreshBaseData, refreshWorkerStatus])
+  }, [isAuthenticated, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts])
   
   return <>{children}</>
 }
@@ -102,8 +119,8 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
     
     const connect = () => {
       try {
-        // Adjust this URL to match your SSE endpoint
-        eventSource = new EventSource('/api/sse')
+        // Connect to the specific SSE endpoint for worker status checks
+        eventSource = new EventSource('/api/sse/worker-check')
         
         eventSource.onopen = () => {
           console.log('SSE connection established')

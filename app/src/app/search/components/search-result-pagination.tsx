@@ -9,19 +9,22 @@ import {
   PaginationLast,
 } from "@/components/ui/pagination";
 
-import { useSearchContext } from "@/app/search/use-search-context";
+import { useSearch } from "@/atoms/hooks";
 
 export default function SearchResultPagination() {
   const {
-    searchState: { pagination },
-    modifySearchState,
+    searchState,
     searchResult,
-  } = useSearchContext();
-  const totalResults = searchResult?.count || 0;
+    updatePagination,
+    executeSearch,
+  } = useSearch();
+  const { pagination } = searchState;
+  const totalResults = searchResult?.total || 0;
   const totalPages = Math.ceil(totalResults / pagination.pageSize);
 
-  const handlePageChange = (newPage: number) => {
-    modifySearchState({ type: "set_page", payload: { pageNumber: newPage } });
+  const handlePageChange = async (newPage: number) => {
+    updatePagination(newPage);
+    await executeSearch();
   };
 
   if (!totalResults) return null;
@@ -31,28 +34,28 @@ export default function SearchResultPagination() {
       <PaginationContent>
         <PaginationItem>
           <PaginationFirst
-            disabled={pagination.pageNumber == 1}
+            disabled={pagination.page == 1}
             onClick={() => handlePageChange(1)}
           />
         </PaginationItem>
         <PaginationItem>
           <PaginationPrevious
-            disabled={pagination.pageNumber == 1}
-            onClick={() => handlePageChange(pagination.pageNumber - 1)}
+            disabled={pagination.page == 1}
+            onClick={() => handlePageChange(pagination.page - 1)}
           />
         </PaginationItem>
         <li className="mx-2">
-          Page {pagination.pageNumber} of {totalPages}
+          Page {pagination.page} of {totalPages}
         </li>
         <PaginationItem>
           <PaginationNext
-            disabled={pagination.pageNumber == totalPages}
-            onClick={() => handlePageChange(pagination.pageNumber + 1)}
+            disabled={pagination.page == totalPages}
+            onClick={() => handlePageChange(pagination.page + 1)}
           />
         </PaginationItem>
         <PaginationItem>
           <PaginationLast
-            disabled={pagination.pageNumber == totalPages}
+            disabled={pagination.page == totalPages}
             onClick={() => handlePageChange(totalPages)}
           />
         </PaginationItem>

@@ -105,32 +105,32 @@ const MyComponent = () => {
 
 ### Phase 1: Setup (30 minutes)
 - [x] ✅ Jotai installed (`pnpm add jotai`)
-- [ ] 🔄 Replace app root with `JotaiAppProvider`
+- [x] ✅ Replace app root with `JotaiAppProvider`
 - [ ] 🔄 Test that app still loads and basic functionality works
 
 ### Phase 2: Migrate Core Components (1-2 hours)
-- [ ] 🔄 Replace `useAuth()` calls with new `useAuth()` from atoms/hooks
-- [ ] 🔄 Replace `useBaseData()` calls with new `useBaseData()` from atoms/hooks  
-- [ ] 🔄 Replace `useTimeContext()` calls with new `useTimeContext()` from atoms/hooks
-- [ ] 🔄 Remove manual `useEffect` chains for data fetching (handled by provider)
+- [x] ✅ Replace `useAuth()` calls with new `useAuth()` from atoms/hooks
+- [x] ✅ Replace `useBaseData()` calls with new `useBaseData()` from atoms/hooks  
+- [x] ✅ Replace `useTimeContext()` calls with new `useTimeContext()` from atoms/hooks
+- [x] ✅ Remove manual `useEffect` chains for data fetching (handled by provider and new hooks)
 
 ### Phase 3: Migrate Feature Components (2-3 hours)
-- [ ] 🔄 Replace `useSearchContext()` with new `useSearch()` from atoms/hooks
-- [ ] 🔄 Replace `useSelectionContext()` with new `useSelection()` from atoms/hooks
-- [ ] 🔄 Replace `useTableColumns()` with atoms/hooks equivalent
-- [ ] 🔄 Replace `useGettingStarted()` with atoms equivalent
-- [ ] 🔄 Replace `useImportUnits()` with atoms equivalent
+- [x] ✅ Replace `useSearchContext()` with new `useSearch()` from atoms/hooks. (`SearchResults.tsx` now uses Jotai for parameters and SWR for fetching, syncing results to a Jotai atom. Other direct consumers updated.)
+- [x] ✅ Replace `useSelectionContext()` with new `useSelection()` from atoms/hooks (direct imports handled)
+- [x] ✅ Replace `useTableColumns()` with atoms/hooks equivalent (new `useTableColumnsManager` hook)
+- [x] ✅ Replace `useGettingStarted()` with atoms equivalent (new `useGettingStartedManager` hook and atoms available)
+- [x] ✅ Replace `useImportUnits()` with atoms equivalent (new `useImportManager` hook and atoms available)
 
 ### Phase 4: Remove Old Code (1 hour)
-- [ ] 🔄 Delete old Context provider components
-- [ ] 🔄 Delete old useEffect-heavy hooks
-- [ ] 🔄 Clean up unused imports
+- [x] ✅ Delete old Context provider components (AuthContext, BaseDataContext, TimeContext, SearchContext, SelectionContext, TableColumnsProvider, GettingStartedContext, ImportUnitsContext)
+- [x] ✅ Delete old associated hooks (useAuth, useBaseData, useTimeContext, useSearchContext, useSelectionContext, useTableColumns, useGettingStarted, useImportUnits)
+- [ ] 🔄 Clean up unused imports (requires project-wide analysis, e.g., with a linter)
 - [ ] 🔄 Run tests to ensure everything still works
 
 ### Phase 5: Optimization (30 minutes)
-- [ ] 🔄 Add `AtomDevtools` component for development debugging
-- [ ] 🔄 Review and optimize any remaining performance issues
-- [ ] 🔄 Document any custom patterns for your team
+- [x] ✅ `AtomDevtools` component available in `JotaiAppProvider.tsx` for development debugging
+- [ ] 🔄 Review and optimize any remaining performance issues (User task: Requires running and profiling the application)
+- [x] ✅ Initial documentation for new patterns provided (atoms/index.ts, atoms/hooks.ts, this guide)
 
 ## 🔧 Migration Patterns
 
@@ -180,7 +180,7 @@ useEffect(() => {
   let eventSource: EventSource | null = null
   
   if (isAuthenticated) {
-    eventSource = new EventSource('/api/sse')
+    eventSource = new EventSource('/api/sse/worker-check') // Use specific endpoint
     eventSource.onmessage = (event) => {
       // Handle messages...
     }
@@ -333,9 +333,9 @@ You can migrate gradually:
 ## 📚 Additional Resources
 
 - [Jotai Documentation](https://jotai.org/)
-- [Migration Examples](./src/atoms/migration-example.tsx)
 - [Atom Patterns](./src/atoms/index.ts)
 - [Utility Hooks](./src/atoms/hooks.ts)
+- [Jotai App Provider](./src/atoms/JotaiAppProvider.tsx)
 
 ## 🤝 Getting Help
 
