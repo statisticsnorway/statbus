@@ -540,10 +540,10 @@ export const createImportJobAtom = atom<null, [string], Promise<Tables<'import_j
       throw new Error("Time context for import not properly specified.");
     }
 
-    // Get definition ID
+    // Get definition ID and time_context_ident
     const { data: definitionData, error: definitionError } = await client
       .from("import_definition")
-      .select("id")
+      .select("id, time_context_ident") // Also fetch time_context_ident
       .eq("slug", definitionSlug)
       .maybeSingle();
 
@@ -567,7 +567,9 @@ export const createImportJobAtom = atom<null, [string], Promise<Tables<'import_j
         upload_table_name: null!
     };
 
-    if (!importState.useExplicitDates && selectedFullTimeContext) {
+    // Only set default_valid_from/to if the definition doesn't have its own time_context_ident,
+    // and explicit dates are not being used, and a time context is selected.
+    if (!definitionData.time_context_ident && !importState.useExplicitDates && selectedFullTimeContext) {
       insertJobData.default_valid_from = selectedFullTimeContext.valid_from;
       insertJobData.default_valid_to = selectedFullTimeContext.valid_to;
     }

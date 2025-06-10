@@ -502,9 +502,16 @@ class BaseDataStore {
       
       // Process time contexts
       if (maybeTimeContexts && maybeTimeContexts.length > 0) {
+        let chosenDefault: Tables<"time_context"> | null = null;
+
+        // The time_context view is pre-ordered, so the first entry is the default.
+        if (maybeTimeContexts.length > 0) {
+          chosenDefault = maybeTimeContexts[0] as Tables<"time_context">;
+        }
+        
         timeContextData = {
-          timeContexts: maybeTimeContexts as Tables<"time_context">[],
-          defaultTimeContext: maybeTimeContexts[0] as Tables<"time_context">
+          timeContexts: maybeTimeContexts as Tables<"time_context">[], // Keep original order for the main list
+          defaultTimeContext: chosenDefault // This can be null if maybeTimeContexts is empty
         };
       }
       

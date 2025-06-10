@@ -509,6 +509,7 @@ export const useImportManager = () => {
   const currentImportState = useAtomValue(importStateAtom);
   const currentUnitCounts = useAtomValue(unitCountsAtom);
   const allTimeContextsFromBase = useAtomValue(timeContextsAtom); // These are Tables<'time_context'>[]
+  const defaultTimeContextFromBase = useAtomValue(defaultTimeContextAtom); // Global default
 
   const doRefreshUnitCount = useSetAtom(refreshUnitCountAtom);
   const doRefreshAllUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
@@ -535,6 +536,38 @@ export const useImportManager = () => {
   //   console.log('[useImportManager Debug] allTimeContextsFromBase (from baseDataAtom):', JSON.stringify(allTimeContextsFromBase, null, 2));
   //   console.log('[useImportManager Debug] availableImportTimeContexts (after filtering for import scope):', JSON.stringify(availableImportTimeContexts, null, 2));
   // }, [allTimeContextsFromBase, availableImportTimeContexts]);
+
+  // Effect to set a default selectedImportTimeContextIdent if none is set
+  useEffect(() => {
+    // Only set if no import-specific time context is selected yet and there are available contexts
+    if (currentImportState.selectedImportTimeContextIdent === null && availableImportTimeContexts.length > 0) {
+      let newDefaultIdent: string | null = null;
+
+      // Try to use the global defaultTimeContext if it's available for import
+      if (defaultTimeContextFromBase) {
+        const globalDefaultIsAvailableForImport = availableImportTimeContexts.find(
+          (tc) => tc.ident === defaultTimeContextFromBase.ident
+        );
+        if (globalDefaultIsAvailableForImport) {
+          newDefaultIdent = globalDefaultIsAvailableForImport.ident;
+        }
+      }
+
+      // If global default is not suitable or not set, pick the first from available import contexts
+      if (!newDefaultIdent && availableImportTimeContexts.length > 0) {
+        newDefaultIdent = availableImportTimeContexts[0].ident;
+      }
+      
+      if (newDefaultIdent) {
+        doSetSelectedTimeContextIdent(newDefaultIdent);
+      }
+    }
+  }, [
+    availableImportTimeContexts, 
+    currentImportState.selectedImportTimeContextIdent, 
+    doSetSelectedTimeContextIdent,
+    defaultTimeContextFromBase // Ensure effect re-runs if global default changes
+  ]);
 
   const selectedImportTimeContextObject = useMemo<Tables<'time_context'> | null>(() => {
     if (!currentImportState.selectedImportTimeContextIdent || !availableImportTimeContexts) return null;
