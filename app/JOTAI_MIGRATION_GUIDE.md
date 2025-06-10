@@ -116,8 +116,9 @@ const MyComponent = () => {
 
 ### Phase 3: Migrate Feature Components (2-3 hours)
 - [x] ✅ Replace `useSearchContext()` with new `useSearch()` from atoms/hooks. (`SearchResults.tsx` now uses Jotai for parameters and SWR for fetching, syncing results to a Jotai atom. Other direct consumers updated.)
+- [ ] 🔄 **Critical**: Ensure `derivedApiSearchParamsAtom` (in `src/atoms/index.ts`) correctly uses transformation logic from `src/app/search/filters/url-search-params.ts` for all filter types (FTS, unit type, external idents, statistical variables, etc.) to generate API-compatible query parameters. The initial migration might have oversimplified this by directly mapping application state to API parameters. This step is crucial for correct API interaction.
 - [x] ✅ Replace `useSelectionContext()` with new `useSelection()` from atoms/hooks (direct imports handled)
-- [x] ✅ Replace `useTableColumns()` with atoms/hooks equivalent (new `useTableColumnsManager` hook)
+- [x_ ✅ Replace `useTableColumns()` with atoms/hooks equivalent (new `useTableColumnsManager` hook)
 - [x] ✅ Replace `useGettingStarted()` with atoms equivalent (new `useGettingStartedManager` hook and atoms available)
 - [x] ✅ Replace `useImportUnits()` with atoms equivalent (new `useImportManager` hook and atoms available)
 
@@ -131,6 +132,7 @@ const MyComponent = () => {
 - [x] ✅ `AtomDevtools` component available in `JotaiAppProvider.tsx` for development debugging
 - [ ] 🔄 Review and optimize any remaining performance issues (User task: Requires running and profiling the application)
 - [x] ✅ Initial documentation for new patterns provided (atoms/index.ts, atoms/hooks.ts, this guide)
+- [ ] ⚠️ **Verify API Parameter Transformation**: A key part of the search functionality relies on transforming user-friendly filter values (e.g., "Morocco" for full-text search) into API-specific query parameters (e.g., "fts(simple).Morocco"). The `derivedApiSearchParamsAtom` in `src/atoms/index.ts` is responsible for this. Ensure it correctly utilizes the functions from `src/app/search/filters/url-search-params.ts` for *all* filter types to maintain correct API communication. This includes full-text search, unit types, external identifiers, statistical variables, and all other filterable fields.
 
 ## 🔧 Migration Patterns
 

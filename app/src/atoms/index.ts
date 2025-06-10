@@ -1343,63 +1343,139 @@ export const setTableColumnProfileAtom = atom(null, (get, set, profile: ColumnPr
 });
 
 
+// Import transformation functions and constants from url-search-params
+import {
+  fullTextSearchDeriveStateUpdateFromValue,
+  unitTypeDeriveStateUpdateFromValues,
+  invalidCodesDeriveStateUpdateFromValues,
+  legalFormDeriveStateUpdateFromValues,
+  regionDeriveStateUpdateFromValues,
+  sectorDeriveStateUpdateFromValues,
+  activityCategoryDeriveStateUpdateFromValues,
+  statusDeriveStateUpdateFromValues,
+  unitSizeDeriveStateUpdateFromValues,
+  dataSourceDeriveStateUpdateFromValues,
+  externalIdentDeriveStateUpdateFromValues,
+  statisticalVariableDeriveStateUpdateFromValue,
+  // statisticalVariableParse, // Not directly needed here if we parse "op:val" manually
+  SEARCH, // FTS app param name
+  UNIT_TYPE,
+  INVALID_CODES,
+  LEGAL_FORM,
+  REGION,
+  SECTOR,
+  ACTIVITY_CATEGORY_PATH,
+  STATUS,
+  UNIT_SIZE,
+  DATA_SOURCE,
+} from '../app/search/filters/url-search-params';
+import { SearchAction } from '@/app/search/search';
+
+
 // Atom to derive API search parameters
 export const derivedApiSearchParamsAtom = atom((get) => {
   const searchState = get(searchStateAtom);
   const selectedTimeContext = get(selectedTimeContextAtom);
-  const externalIdentTypes = get(externalIdentTypesAtom);
-  const statDefinitions = get(statDefinitionsAtom);
+  const externalIdentTypes = get(externalIdentTypesAtom); // from baseDataAtom
+  const statDefinitions = get(statDefinitionsAtom); // from baseDataAtom
+  const { allDataSources } = get(searchPageDataAtom); // for dataSourceDeriveStateUpdateFromValues
 
   const params = new URLSearchParams();
-  
-  // Add full-text search query
-  // Assuming 'SEARCH' is the constant for the query parameter name, e.g., "search" or "q"
-  // You might need to import it if it's defined elsewhere, e.g. import { SEARCH } from './filters/url-search-params';
-  const FTS_PARAM_NAME = "search"; // Or use an imported constant
+
+  // 1. Full-text search query
   if (searchState.query && searchState.query.trim().length > 0) {
-    params.set(FTS_PARAM_NAME, searchState.query.trim());
+    // The SEARCH constant from url-search-params.ts is the app_param_name for FTS.
+    // fullTextSearchDeriveStateUpdateFromValue handles generating the api_param_name and api_param_value.
+    const ftsAction = fullTextSearchDeriveStateUpdateFromValue(searchState.query.trim());
+    if (ftsAction.payload.api_param_name && ftsAction.payload.api_param_value) {
+      params.set(ftsAction.payload.api_param_name, ftsAction.payload.api_param_value);
+    }
   }
 
-  // Add filters
-  if (searchState.filters) {
-    Object.entries(searchState.filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null) {
-        if (Array.isArray(value)) {
-          // For array values, append each item if it's non-empty
-          value.forEach(item => {
-            if (item !== undefined && item !== null && String(item).trim().length > 0) {
-              params.append(key, String(item).trim());
-            }
-          });
-        } else if (String(value).trim().length > 0) {
-          // For single string values, set if non-empty
-          params.set(key, String(value).trim());
+  // 2. Filters from searchState.filters
+  Object.entries(searchState.filters).forEach(([appParamName, appParamValue]) => {
+    let actionPayload: SearchAction['payload'] | null = null;
+
+    switch (appParamName) {
+      case UNIT_TYPE:
+        actionPayload = unitTypeDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        break;
+      case INVALID_CODES:
+        actionPayload = invalidCodesDeriveStateUpdateFromValues(appParamValue as string | null).payload;
+        break;
+      case LEGAL_FORM:
+        actionPayload = legalFormDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        break;
+      case REGION:
+        actionPayload = regionDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        break;
+      case SECTOR:
+        actionPayload = sectorDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        break;
+      case ACTIVITY_CATEGORY_PATH:
+        actionPayload = activityCategoryDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        break;
+      case STATUS:
+        actionPayload = statusDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        break;
+      case UNIT_SIZE:
+        actionPayload = unitSizeDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        break;
+      case DATA_SOURCE:
+        actionPayload = dataSourceDeriveStateUpdateFromValues(appParamValue as (string | null)[], allDataSources).payload;
+        break;
+      default:
+        const extIdentType = externalIdentTypes.find(type => type.code === appParamName);
+        if (extIdentType) {
+          actionPayload = externalIdentDeriveStateUpdateFromValues(extIdentType, appParamValue as string | null).payload;
+          break;
         }
-      }
-    });
-  }
+        const statDef = statDefinitions.find(def => def.code === appParamName);
+        if (statDef) {
+          let parsedStatVarValue: { operator: string; operand: string } | null = null;
+          if (typeof appParamValue === 'string' && appParamValue.includes(':')) {
+            const [op, val] = appParamValue.split(':', 2);
+            parsedStatVarValue = { operator: op, operand: val };
+          } else if (appParamValue === null) {
+            // This case means the filter was cleared
+            parsedStatVarValue = null;
+          }
+          // If appParamValue is not a string "op:val" or null, it's an invalid state for stat var,
+          // statisticalVariableDeriveStateUpdateFromValue will handle `null` by not setting the param.
+          actionPayload = statisticalVariableDeriveStateUpdateFromValue(statDef, parsedStatVarValue).payload;
+          break;
+        }
+    }
 
+    if (actionPayload && actionPayload.api_param_name && actionPayload.api_param_value) {
+      params.set(actionPayload.api_param_name, actionPayload.api_param_value);
+    }
+    // If api_param_value is null, the parameter is intentionally not added.
+  });
+
+  // 3. Time context
   if (selectedTimeContext && selectedTimeContext.valid_on) {
     params.set("valid_from", `lte.${selectedTimeContext.valid_on}`);
     params.set("valid_to", `gte.${selectedTimeContext.valid_on}`);
   }
 
+  // 4. Sorting
   if (searchState.sorting.field) {
     const orderName = searchState.sorting.field;
     const orderDirection = searchState.sorting.direction;
     const externalIdentType = externalIdentTypes.find(type => type.code === orderName);
-    const statDefinition = statDefinitions.find(identifier => identifier.code === orderName);
+    const statDefinition = statDefinitions.find(def => def.code === orderName);
 
     if (externalIdentType) {
       params.set("order", `external_idents->>${orderName}.${orderDirection}`);
     } else if (statDefinition) {
-      // Assuming stats_summary structure for sorting
       params.set("order", `stats_summary->${orderName}->sum.${orderDirection}`);
     } else {
       params.set("order", `${orderName}.${orderDirection}`);
     }
   }
 
+  // 5. Pagination
   if (searchState.pagination.page && searchState.pagination.pageSize) {
     const offset = (searchState.pagination.page - 1) * searchState.pagination.pageSize;
     params.set("limit", `${searchState.pagination.pageSize}`);
