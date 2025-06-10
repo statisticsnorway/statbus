@@ -1401,7 +1401,12 @@ export const derivedApiSearchParamsAtom = atom((get) => {
         actionPayload = unitTypeDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
         break;
       case INVALID_CODES:
-        actionPayload = invalidCodesDeriveStateUpdateFromValues(appParamValue as string | null).payload;
+        // appParamValue is ["yes"] or [] from searchState.filters
+        // invalidCodesDeriveStateUpdateFromValues expects "yes" or null.
+        const invalidCodesValue = Array.isArray(appParamValue) && appParamValue.length > 0 && appParamValue[0] === "yes" 
+                                  ? "yes" 
+                                  : null;
+        actionPayload = invalidCodesDeriveStateUpdateFromValues(invalidCodesValue).payload;
         break;
       case LEGAL_FORM:
         actionPayload = legalFormDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
