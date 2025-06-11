@@ -87,6 +87,7 @@ The application is containerized using Docker Compose, orchestrating several ser
     *   Defined in `docker-compose.app.yml`.
     *   The main user-facing web application built from the `./app` directory.
     *   Configured with Supabase connection details and deployment slot information.
+    *   Client-side state management is handled by Jotai.
     *   Environment variables include:
         *   Server-side PostgREST URL (`SERVER_REST_URL`)
         *   Logging configuration (`SEQ_SERVER_URL`, `SEQ_API_KEY`)
@@ -103,107 +104,95 @@ The application is containerized using Docker Compose, orchestrating several ser
 
 ## Authentication Flow
 
-Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, with direct API calls from the browser.
+Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, with direct API calls from the browser. Client-side authentication state is managed using Jotai atoms.
 
 1.  **Login:**
     *   User submits email/password to the Next.js app.
-    *   App directly POSTs to `/postgrest/rpc/login` using the `auth.login()` function.
+    *   App directly POSTs to `/postgrest/rpc/login` using a direct `fetch` call (via `loginAtom` in Jotai).
     *   PostgREST executes the `public.login(email, password)` function as the `anon` role.
     *   `public.login`:
         *   Verifies credentials against `auth.users`.
         *   Creates a record in `auth.refresh_sessions`.
-        *   Generates an access token JWT with these critical claims:
-            *   `role`: Set to the user's email (matches PostgreSQL role name)
-            *   `statbus_role`: User's application role (admin_user, regular_user, etc.) as text
-            *   `sub`: User's UUID as text
-            *   `uid`: User's integer ID (from `auth.user.id`)
-            *   `email`: User's email address
-            *   `type`: "access"
-            *   `iat`: Issued at timestamp
-            *   `exp`: Expiration timestamp
-        *   Generates a refresh token JWT with similar claims plus:
-            *   `jti`: Session UUID as text
-            *   `version`: Session version (for invalidation)
-            *   `ip`: Client IP address
-            *   `ua_hash`: User agent hash (for verification)
-        *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the access token (`statbus-<slot>`) and refresh token (`statbus-<slot>-refresh`). The `<slot>` is determined by `app.settings.deployment_slot_code`.
-        *   Returns tokens and user info in the JSON response body.
+        *   Generates an access token JWT and a refresh token JWT.
+        *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the access token (`statbus-<slot>`) and refresh token (`statbus-<slot>-refresh`).
+        *   Returns an `auth.auth_response` object (containing user info and authentication status) in the JSON response body.
     *   The browser stores the cookies automatically.
+    *   The Next.js app (via `loginAtom`) parses the `auth_response` from the `/rpc/login` call and updates the global `authStatusAtom` (Jotai state).
 
 2.  **Authenticated Requests:**
     *   **Client-Side Requests (Browser):**
         *   The browser automatically includes `statbus-<slot>` and `statbus-<slot>-refresh` cookies with requests to the API origin (`/postgrest/*`) due to `credentials: 'include'`.
-        *   The `fetchWithAuthRefresh` utility (used by `getBrowserRestClient`) wraps `fetch`:
+        *   The `fetchWithAuthRefresh` utility (in `RestClientStore.ts`, used by `getBrowserRestClient`) wraps `fetch`:
             *   It relies on the browser sending cookies automatically.
-            *   If a 401 response is received, it calls `AuthStore.refreshTokenIfNeeded()` (which calls `/rpc/refresh`).
-            *   If refresh is successful, it retries the original request.
+            *   If a 401 response is received, it *internally and directly* calls the `/rpc/refresh` endpoint. The browser automatically sends the `statbus-<slot>-refresh` cookie with this internal call.
+            *   If the internal refresh call is successful (PostgREST's `public.refresh` function sets new cookies via `Set-Cookie` headers and returns an `auth_response`), `fetchWithAuthRefresh` retries the original request. The `auth_response` from the internal refresh call is *not* directly used by `fetchWithAuthRefresh` to update Jotai state; the primary goal is cookie update. Jotai state (`authStatusAtom`) is typically updated by other mechanisms like `AppInitializer` or proactive checks.
     *   **Server-Side Requests (Next.js Server Components/Actions/Middleware):**
         *   The Next.js middleware (`app/src/middleware.ts`) runs first:
             *   It calls `AuthStore.handleServerAuth()` to check the status using the incoming request cookies.
-            *   If the access token is invalid/missing but a refresh token exists, `handleServerAuth` attempts to refresh by calling `/rpc/refresh` directly.
+            *   If the access token is invalid/missing but a refresh token exists, `handleServerAuth` attempts to refresh by calling `/rpc/refresh` directly. The `public.refresh` function returns an `auth_response`.
+            *   `handleServerAuth` parses this `auth_response` to determine the new authentication status.
             *   If refresh is successful, the middleware updates the request headers (specifically the `cookie` header) for subsequent handlers within the *same request* and sets `Set-Cookie` headers on the outgoing response to update the browser's cookies.
             *   If authentication (initial or after refresh) fails, the middleware redirects to login.
         *   When code later calls `getServerRestClient()`:
-            *   It reads the (potentially updated by middleware) `statbus` cookie from the current request context via `next/headers`.
+            *   It reads the (potentially updated by middleware) `statbus` cookie from the current request context (e.g., via `next/headers` or passed cookies).
             *   It sets the `Authorization: Bearer <token>` header on the outgoing request to PostgREST.
     *   **PostgREST Processing:**
         *   PostgREST receives the request (either with cookies from the browser or an `Authorization` header from the Next.js server).
-        *   It validates the JWT (from header primarily, or potentially cookies if configured, though header is standard). If valid, it:
+        *   It validates the JWT. If valid, it:
             *   Reads the `role` claim (user's email).
             *   Executes `SET LOCAL ROLE <email>` for the PostgreSQL transaction.
-        *   Makes the JWT claims available via `current_setting('request.jwt.claims')`
+        *   Makes the JWT claims available via `current_setting('request.jwt.claims')`.
     *   The database operation proceeds with the permissions of the assigned role.
-    *   Functions like `auth.uid()` (reads `uid` claim), `auth.sub()` (reads `sub` claim), `auth.email()` (reads `email` claim), and `auth.statbus_role()` (reads `statbus_role` claim) can access JWT claims directly.
+    *   Functions like `auth.uid()`, `auth.sub()`, `auth.email()`, and `auth.statbus_role()` can access JWT claims directly.
 
 3.  **Logout:**
-    *   App directly calls `/postgrest/rpc/logout` using the `auth.logout()` function.
+    *   App directly calls `/postgrest/rpc/logout` using a direct `fetch` call (via `logoutAtom` in Jotai).
     *   PostgREST executes `public.logout()` as the authenticated user.
     *   `public.logout`:
-        *   Retrieves the user ID and possibly session ID from the current JWT claims (`current_setting('request.jwt.claims', true)`).
-        *   If it's a refresh token, deletes the specific session from `auth.refresh_session`.
-        *   If it's an access token, optionally deletes all sessions for the user.
+        *   Retrieves the user ID and possibly session ID from the current JWT claims.
+        *   Deletes the relevant session(s) from `auth.refresh_session`.
         *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers that clear the auth cookies.
+        *   Returns an `auth.auth_response` object (indicating unauthenticated status).
     *   The browser clears the cookies automatically.
+    *   The Next.js app (via `logoutAtom`) parses the `auth_response` from the `/rpc/logout` call and updates the global `authStatusAtom`.
 
 4.  **Token Refresh:**
     *   Token refresh is handled differently on client and server:
-        *   **Client-Side (Browser - Reactive):**
+        *   **Client-Side (Browser - Reactive on 401):**
             *   Triggered when `fetchWithAuthRefresh` (used by `getBrowserRestClient`) receives a 401 Unauthorized response.
-            *   `fetchWithAuthRefresh` calls `AuthStore.refreshTokenIfNeeded()`.
-            *   `AuthStore.refreshTokenIfNeeded()` calls the `/rpc/refresh` endpoint. The browser automatically sends the `statbus-<slot>-refresh` cookie.
-            *   PostgREST executes `public.refresh()`.
-            *   If successful, PostgREST responds with `Set-Cookie` headers for the new tokens. The browser automatically updates its cookies.
-            *   `fetchWithAuthRefresh` retries the original request.
+            *   `fetchWithAuthRefresh` *internally and directly* calls the `/rpc/refresh` endpoint. The browser automatically sends the `statbus-<slot>-refresh` cookie.
+            *   PostgREST executes `public.refresh()`. This function sets new cookies via `Set-Cookie` headers and returns an `auth_response` object.
+            *   The browser automatically updates its cookies based on the `Set-Cookie` headers.
+            *   `fetchWithAuthRefresh` retries the original request. The `auth_response` from the internal refresh call is not used by `fetchWithAuthRefresh` to update Jotai state.
         *   **Server-Side (Middleware - Proactive/Reactive within Request):**
             *   Triggered within `app/src/middleware.ts` when `AuthStore.handleServerAuth()` is called and finds an invalid/missing access token but a valid refresh token cookie exists in the incoming request.
             *   `AuthStore.handleServerAuth()` directly `fetch`es the `/rpc/refresh` endpoint, manually adding the `Cookie: statbus-<slot>-refresh=...` header.
-            *   PostgREST executes `public.refresh()`.
-            *   If successful, PostgREST responds with `Set-Cookie` headers.
-            *   `AuthStore.handleServerAuth()` parses these headers and uses the `response.cookies.set()` method (provided by the middleware) to stage the new cookies for the outgoing response to the browser.
+            *   PostgREST executes `public.refresh()`, which returns an `auth_response`.
+            *   `AuthStore.handleServerAuth()` parses this `auth_response` and, if successful, uses the `response.cookies.set()` method (provided by the middleware) to stage the new cookies for the outgoing response to the browser.
             *   The middleware updates the *current request's* headers to reflect the new access token for subsequent processing within the same request lifecycle.
-        *   **Proactive Refresh (Client-Side - Optional):** A mechanism like a timer in a React context (`DirectAuthContext` mentioned, but not shown) could periodically check token expiry (`authStatus.tokenExpiring`) and call `AuthStore.refreshTokenIfNeeded()` before the token actually expires.
+        *   **Proactive Refresh (Client-Side - Jotai):**
+            *   The `clientSideRefreshAtom` (Jotai action atom) can be called to proactively refresh tokens.
+            *   It calls the `/rpc/refresh` endpoint using the browser's `PostgrestClient` (which uses `fetchWithAuthRefresh`).
+            *   PostgREST executes `public.refresh()`, returning an `auth_response`.
+            *   The `clientSideRefreshAtom` parses this `auth_response` and updates the global `authStatusAtom`.
     *   The `public.refresh` PostgreSQL function:
-        *   Extracts the refresh token:
-            *   **Server-Side Call:** Relies on the `Cookie: statbus-<slot>-refresh=...` header being manually set by the caller (`AuthStore.handleServerAuth`). It uses `auth.extract_refresh_token_from_cookies` which reads `current_setting('request.cookies', true)`. This works because the manual `Cookie` header *is* passed into this setting for the duration of the function call initiated by `fetch`.
-            *   **Client-Side Call:** Relies on the browser automatically sending the cookie. PostgREST likely needs configuration (e.g., `PGRST_DB_PRE_REQUEST`) to make this cookie available via `request.cookies` for the `auth.extract_refresh_token_from_cookies` function to work in this scenario, *or* the function needs modification to accept the token as an argument passed from a pre-request function. *Current implementation might implicitly work if PostgREST passes cookies for anonymous calls to `/rpc/refresh`.*
-        *   Validates the token and extracts claims.
-        *   Verifies the session exists in `auth.refresh_session` with matching user ID and version.
-        *   Verifies the user agent hash matches.
-        *   Increments the session version and updates last used time and expiry.
-        *   Generates a *new* access token JWT and a *new* refresh token JWT with updated version.
+        *   Extracts the refresh token (from cookies or passed argument).
+        *   Validates the token, session, and user.
+        *   Increments session version, updates timestamps.
+        *   Generates a *new* access token JWT and a *new* refresh token JWT.
         *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the *new* tokens.
-        *   The browser updates the cookies automatically.
-        *   **Password Change Invalidation:** If the user's password has been changed via `public.change_password` or `public.admin_change_password`, all their existing refresh sessions are deleted from `auth.refresh_session`, causing subsequent refresh attempts with old tokens to fail (session not found).
+        *   Returns an `auth.auth_response` object.
+        *   **Password Change Invalidation:** If the user's password has been changed, all their existing refresh sessions are deleted, causing subsequent refresh attempts with old tokens to fail.
 
 ## Key Configuration Points
 
-*   **JWT Secrets:** 
+*   **JWT Secrets:**
     * JWT secret must be consistent between PostgREST and PostgreSQL.
     * PostgREST uses `PGRST_JWT_SECRET` for JWT validation.
     * PostgREST passes the JWT secret to PostgreSQL via `PGRST_APP_SETTINGS_JWT_SECRET`, which becomes available as `app.settings.jwt_secret` in the database.
     * Both access and refresh tokens use the same JWT secret for consistency, as configured in `docker-compose.rest.yml`.
     * The JWT secret is passed from the environment variable `JWT_SECRET` to both PostgreSQL and PostgREST.
-    * Default expiry times: 
+    * Default expiry times:
       * Access token: 3600 seconds (1 hour) via `app.settings.access_jwt_exp`
       * Refresh token: 2592000 seconds (30 days) via `app.settings.refresh_jwt_exp`
 *   **JWT Claims Structure:**
@@ -211,7 +200,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     * The `statbus_role` claim must be cast to text when included in the JWT.
     * All UUID values must be converted to text strings in the JWT.
     * PostgREST uses the `role` claim directly (default behavior) to set the PostgreSQL role.
-*   **Roles:** 
+*   **Roles:**
     * `authenticator` (PostgREST connection)
     * `anon` (unauthenticated API access)
     * `authenticated` (base logged-in access)
