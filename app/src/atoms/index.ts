@@ -1372,7 +1372,7 @@ import {
   UNIT_SIZE,
   DATA_SOURCE,
 } from '../app/search/filters/url-search-params';
-import { SearchAction } from '@/app/search/search';
+import { SearchAction, type SetQuery } from '@/app/search/search'; // Added SetQuery import
 
 
 // Atom to derive API search parameters
@@ -1390,14 +1390,15 @@ export const derivedApiSearchParamsAtom = atom((get) => {
     // The SEARCH constant from url-search-params.ts is the app_param_name for FTS.
     // fullTextSearchDeriveStateUpdateFromValue handles generating the api_param_name and api_param_value.
     const ftsAction = fullTextSearchDeriveStateUpdateFromValue(searchState.query.trim());
-    if (ftsAction.payload.api_param_name && ftsAction.payload.api_param_value) {
+    // Type guard for payload by checking action type
+    if (ftsAction.type === 'set_query' && ftsAction.payload.api_param_name && ftsAction.payload.api_param_value) {
       params.set(ftsAction.payload.api_param_name, ftsAction.payload.api_param_value);
     }
   }
 
   // 2. Filters from searchState.filters
   Object.entries(searchState.filters).forEach(([appParamName, appParamValue]) => {
-    let actionPayload: SearchAction['payload'] | null = null;
+    let actionPayloadPart: SetQuery['payload'] | null = null; // More specific type for the payload part
 
     switch (appParamName) {
       case UNIT_TYPE:
@@ -1409,7 +1410,8 @@ export const derivedApiSearchParamsAtom = atom((get) => {
         }
         // If appParamValue is null, undefined, or an empty string, unitTypeValues remains [].
         // unitTypeDeriveStateUpdateFromValues will correctly handle an empty array by setting api_param_value to null.
-        actionPayload = unitTypeDeriveStateUpdateFromValues(unitTypeValues).payload;
+        const unitTypeAction = unitTypeDeriveStateUpdateFromValues(unitTypeValues);
+        if (unitTypeAction.type === 'set_query') actionPayloadPart = unitTypeAction.payload;
         break;
       case INVALID_CODES:
         // appParamValue is ["yes"] or [] from searchState.filters
@@ -1417,10 +1419,15 @@ export const derivedApiSearchParamsAtom = atom((get) => {
         const invalidCodesValue = Array.isArray(appParamValue) && appParamValue.length > 0 && appParamValue[0] === "yes" 
                                   ? "yes" 
                                   : null;
-        actionPayload = invalidCodesDeriveStateUpdateFromValues(invalidCodesValue).payload;
+        const invalidCodesAction = invalidCodesDeriveStateUpdateFromValues(invalidCodesValue);
+        if (invalidCodesAction.type === 'set_query') actionPayloadPart = invalidCodesAction.payload;
         break;
       case LEGAL_FORM:
-        actionPayload = legalFormDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        const ensuredLegalFormValues = Array.isArray(appParamValue)
+          ? appParamValue.map(v => v == null ? null : String(v))
+          : (appParamValue != null ? [String(appParamValue)] : []);
+        const legalFormAction = legalFormDeriveStateUpdateFromValues(ensuredLegalFormValues);
+        if (legalFormAction.type === 'set_query') actionPayloadPart = legalFormAction.payload;
         break;
       case REGION:
         let regionValues: (string | null)[] = [];
@@ -1431,7 +1438,8 @@ export const derivedApiSearchParamsAtom = atom((get) => {
         } else if (appParamValue === null) { // Handle explicit null for "Missing"
           regionValues = [null];
         }
-        actionPayload = regionDeriveStateUpdateFromValues(regionValues).payload;
+        const regionAction = regionDeriveStateUpdateFromValues(regionValues);
+        if (regionAction.type === 'set_query') actionPayloadPart = regionAction.payload;
         break;
       case SECTOR:
         let sectorValues: (string | null)[] = [];
@@ -1442,7 +1450,8 @@ export const derivedApiSearchParamsAtom = atom((get) => {
         } else if (appParamValue === null) { // Handle explicit null for "Missing"
           sectorValues = [null];
         }
-        actionPayload = sectorDeriveStateUpdateFromValues(sectorValues).payload;
+        const sectorAction = sectorDeriveStateUpdateFromValues(sectorValues);
+        if (sectorAction.type === 'set_query') actionPayloadPart = sectorAction.payload;
         break;
       case ACTIVITY_CATEGORY_PATH:
         let activityCategoryValues: (string | null)[] = [];
@@ -1453,21 +1462,35 @@ export const derivedApiSearchParamsAtom = atom((get) => {
         } else if (appParamValue === null) { // Handle explicit null for "Missing"
           activityCategoryValues = [null];
         }
-        actionPayload = activityCategoryDeriveStateUpdateFromValues(activityCategoryValues).payload;
+        const activityCategoryAction = activityCategoryDeriveStateUpdateFromValues(activityCategoryValues);
+        if (activityCategoryAction.type === 'set_query') actionPayloadPart = activityCategoryAction.payload;
         break;
       case STATUS:
-        actionPayload = statusDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        const ensuredStatusValues = Array.isArray(appParamValue)
+          ? appParamValue.map(v => v == null ? null : String(v))
+          : (appParamValue != null ? [String(appParamValue)] : []);
+        const statusAction = statusDeriveStateUpdateFromValues(ensuredStatusValues);
+        if (statusAction.type === 'set_query') actionPayloadPart = statusAction.payload;
         break;
       case UNIT_SIZE:
-        actionPayload = unitSizeDeriveStateUpdateFromValues(appParamValue as (string | null)[]).payload;
+        const ensuredUnitSizeValues = Array.isArray(appParamValue)
+          ? appParamValue.map(v => v == null ? null : String(v))
+          : (appParamValue != null ? [String(appParamValue)] : []);
+        const unitSizeAction = unitSizeDeriveStateUpdateFromValues(ensuredUnitSizeValues);
+        if (unitSizeAction.type === 'set_query') actionPayloadPart = unitSizeAction.payload;
         break;
       case DATA_SOURCE:
-        actionPayload = dataSourceDeriveStateUpdateFromValues(appParamValue as (string | null)[], allDataSources).payload;
+        const ensuredDataSourceValues = Array.isArray(appParamValue)
+          ? appParamValue.map(v => v == null ? null : String(v))
+          : (appParamValue != null ? [String(appParamValue)] : []);
+        const dataSourceAction = dataSourceDeriveStateUpdateFromValues(ensuredDataSourceValues, allDataSources);
+        if (dataSourceAction.type === 'set_query') actionPayloadPart = dataSourceAction.payload;
         break;
       default:
         const extIdentType = externalIdentTypes.find(type => type.code === appParamName);
         if (extIdentType) {
-          actionPayload = externalIdentDeriveStateUpdateFromValues(extIdentType, appParamValue as string | null).payload;
+          const externalIdentAction = externalIdentDeriveStateUpdateFromValues(extIdentType, appParamValue as string | null);
+          if (externalIdentAction.type === 'set_query') actionPayloadPart = externalIdentAction.payload;
           break;
         }
         const statDef = statDefinitions.find(def => def.code === appParamName);
@@ -1482,13 +1505,14 @@ export const derivedApiSearchParamsAtom = atom((get) => {
           }
           // If appParamValue is not a string "op:val" or null, it's an invalid state for stat var,
           // statisticalVariableDeriveStateUpdateFromValue will handle `null` by not setting the param.
-          actionPayload = statisticalVariableDeriveStateUpdateFromValue(statDef, parsedStatVarValue).payload;
+          const statisticalVariableAction = statisticalVariableDeriveStateUpdateFromValue(statDef, parsedStatVarValue);
+          if (statisticalVariableAction.type === 'set_query') actionPayloadPart = statisticalVariableAction.payload;
           break;
         }
     }
 
-    if (actionPayload && actionPayload.api_param_name && actionPayload.api_param_value) {
-      params.set(actionPayload.api_param_name, actionPayload.api_param_value);
+    if (actionPayloadPart && actionPayloadPart.api_param_name && actionPayloadPart.api_param_value) {
+      params.set(actionPayloadPart.api_param_name, actionPayloadPart.api_param_value);
     }
     // If api_param_value is null, the parameter is intentionally not added.
   });

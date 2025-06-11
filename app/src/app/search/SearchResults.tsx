@@ -7,7 +7,7 @@ import useSWR from "swr";
 import useDerivedUrlSearchParams from "@/app/search/use-derived-url-search-params";
 // import { SearchContext, SearchContextState } from "./search-context"; // Removed as per migration
 import { SearchResult as ApiSearchResultType, SearchOrder, SearchPagination } from "./search.d";
-import { searchResultAtom, derivedApiSearchParamsAtom, searchStateAtom, setSearchPageDataAtom, searchStateInitializedAtom } from '@/atoms'; // AI: Added searchStateInitializedAtom
+import { searchResultAtom, derivedApiSearchParamsAtom, searchStateAtom, setSearchPageDataAtom, searchStateInitializedAtom, type SearchState } from '@/atoms'; // AI: Added searchStateInitializedAtom and SearchState
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 import { getBrowserRestClient } from "@/context/RestClientStore";
@@ -136,32 +136,37 @@ export function SearchResults({
     const newInitialFilters: Record<string, any> = {};
 
     allActions.forEach(action => {
-      const { app_param_name, app_param_values } = action.payload;
-      if (app_param_name === SEARCH) {
-        newInitialQuery = app_param_values[0] || '';
-      } else {
-        const isExternalIdent = externalIdentTypes.some(et => et.code === app_param_name);
-        const isStatVar = statDefinitions.some(sd => sd.code === app_param_name);
-
-        if (isExternalIdent) {
-          // External idents are stored as single strings in searchState.filters
-          newInitialFilters[app_param_name] = app_param_values[0] || undefined;
-        } else if (isStatVar) {
-          // Stat vars are "op:val" strings in searchState.filters.
-          // app_param_values from SearchAction is ["op.val"].
-          const val = app_param_values[0];
-          if (val) {
-            newInitialFilters[app_param_name] = val.replace('.', ':');
-          } else {
-            newInitialFilters[app_param_name] = undefined;
-          }
+      // Type guard for payload by checking action type
+      if (action.type === 'set_query') {
+        const { app_param_name, app_param_values } = action.payload;
+        if (app_param_name === SEARCH) {
+          newInitialQuery = app_param_values[0] || '';
         } else {
-          // Other filters (UNIT_TYPE, REGION, etc.) are stored as string arrays.
-          // app_param_values is already (string | null)[].
-          // Filter out nulls if the specific filter doesn't expect them, or keep if it does (e.g. "Missing" option)
-          newInitialFilters[app_param_name] = app_param_values.filter(v => v !== ''); // Filter empty strings, keep nulls for "Missing"
+          const isExternalIdent = externalIdentTypes.some(et => et.code === app_param_name);
+          const isStatVar = statDefinitions.some(sd => sd.code === app_param_name);
+
+          if (isExternalIdent) {
+            // External idents are stored as single strings in searchState.filters
+            newInitialFilters[app_param_name] = app_param_values[0] || undefined;
+          } else if (isStatVar) {
+            // Stat vars are "op:val" strings in searchState.filters.
+            // app_param_values from SearchAction is ["op.val"].
+            const val = app_param_values[0];
+            if (val) {
+              newInitialFilters[app_param_name] = val.replace('.', ':');
+            } else {
+              newInitialFilters[app_param_name] = undefined;
+            }
+          } else {
+            // Other filters (UNIT_TYPE, REGION, etc.) are stored as string arrays.
+            // app_param_values is already (string | null)[].
+            // Filter out nulls if the specific filter doesn't expect them, or keep if it does (e.g. "Missing" option)
+            newInitialFilters[app_param_name] = app_param_values.filter((v: string | null) => v !== ''); // Filter empty strings, keep nulls for "Missing"
+          }
         }
       }
+      // Other action types (ResetAll, SetOrder, SetPage) don't have app_param_name / app_param_values
+      // and are handled when constructing newFullInitialSearchState or by direct Jotai setters.
     });
 
     // 3. Construct the full initial search state

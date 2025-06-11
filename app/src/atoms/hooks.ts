@@ -17,6 +17,7 @@ import {
   
   // Base data atoms
   baseDataAtom,
+  restClientAtom, // Added missing import for restClientAtom
   statDefinitionsAtom,
   externalIdentTypesAtom,
   timeContextsAtom,
@@ -307,7 +308,7 @@ export const useAppInitialization = () => {
   const refreshBaseData = useSetAtom(refreshBaseDataAtom)
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const isAuthenticated = useAtomValue(isAuthenticatedAtom)
-  const restClient = useAtomValue(restClientAtom) // Get the REST client state
+  const client = useAtomValue(restClientAtom) // Get the REST client state, renamed to avoid conflict
   
   useEffect(() => {
     let mounted = true
@@ -318,7 +319,7 @@ export const useAppInitialization = () => {
         // console.log("useAppInitialization: Not authenticated, skipping data initialization.");
         return;
       }
-      if (!restClient) {
+      if (!client) {
         // console.log("useAppInitialization: REST client not yet available, deferring data initialization.");
         return;
       }
@@ -343,7 +344,7 @@ export const useAppInitialization = () => {
     return () => {
       mounted = false
     }
-  }, [isAuthenticated, restClient, refreshBaseData, refreshWorkerStatus]) // Add restClient to dependency array
+  }, [isAuthenticated, client, refreshBaseData, refreshWorkerStatus]) // Add client to dependency array
 }
 
 /**
