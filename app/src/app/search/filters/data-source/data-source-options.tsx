@@ -15,7 +15,6 @@ export default function DataSourceOptions({
   readonly dataSources: Tables<"data_source_used">[];
 }) {
   const { searchState, updateFilters, executeSearch } = useSearch();
-  // const selected = (searchState.filters[DATA_SOURCE] as (string | null)[]) || [];
   const filterValue = searchState.filters[DATA_SOURCE];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {

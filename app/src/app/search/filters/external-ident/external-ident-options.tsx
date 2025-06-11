@@ -3,7 +3,6 @@ import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import { useCallback, useMemo } from "react";
 import { ConditionalFilter } from "@/app/search/components/conditional-filter";
 import { Tables } from "@/lib/database.types";
-// import { externalIdentDeriveStateUpdateFromValues } from "../url-search-params"; // Removed
 
 export default function ExternalIdentOptions({ externalIdentType }: {
   readonly externalIdentType: Tables<"external_ident_type_ordered">;

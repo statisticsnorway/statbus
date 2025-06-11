@@ -18,7 +18,7 @@ export function StatisticalUnitTableHeader({
 }: StatisticalUnitTableHeaderProps) {
   const { statDefinitions, externalIdentTypes } = useBaseData();
   const { visibleColumns, headerRowSuffix, headerCellSuffix } =
-    useTableColumnsManager(); // Updated hook call
+    useTableColumnsManager();
 
   return (
     <TableHeader className="bg-gray-50">

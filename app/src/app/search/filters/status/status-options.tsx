@@ -3,10 +3,9 @@
 import { SearchFilterOption } from "../../search";
 import { OptionsFilter } from "../../components/options-filter";
 import { useCallback, useMemo } from "react"; // Added useMemo
-import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSearch } from "@/atoms/hooks";
 import {
   STATUS,
-  // statusDeriveStateUpdateFromValues, // Removed
 } from "../url-search-params";
 
 export default function StatusOptions({
@@ -15,7 +14,6 @@ export default function StatusOptions({
   readonly options: SearchFilterOption[];
 }) {
   const { searchState, updateFilters, executeSearch } = useSearch();
-  // const selected = (searchState.filters[STATUS] as (string | null)[]) || [];
   const filterValue = searchState.filters[STATUS];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {

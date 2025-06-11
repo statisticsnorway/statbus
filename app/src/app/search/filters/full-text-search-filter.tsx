@@ -1,8 +1,7 @@
 "use client";
 import { Input } from "@/components/ui/input";
-import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSearch } from "@/atoms/hooks";
 import { useCallback, useEffect, useState } from "react";
-// SEARCH and fullTextSearchDeriveStateUpdateFromValue are no longer needed
 
 export default function FullTextSearchFilter() {
   const { searchState, updateSearchQuery, executeSearch } = useSearch();

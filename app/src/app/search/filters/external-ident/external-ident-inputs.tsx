@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label";
 import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import { useCallback, useEffect, useState } from "react";
 import { Tables } from "@/lib/database.types";
-// import { externalIdentDeriveStateUpdateFromValues } from "../url-search-params"; // Removed
 import { Button } from "@/components/ui/button";
 
 export function ExternalIdentInputs({

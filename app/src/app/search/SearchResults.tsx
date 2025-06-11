@@ -5,9 +5,8 @@ import { useTimeContext, useBaseData, useSearch } from "@/atoms/hooks";
 import { useSetAtom, useAtomValue } from 'jotai';
 import useSWR from "swr";
 import useDerivedUrlSearchParams from "@/app/search/use-derived-url-search-params";
-// import { SearchContext, SearchContextState } from "./search-context"; // Removed as per migration
 import { SearchResult as ApiSearchResultType, SearchOrder, SearchPagination } from "./search.d";
-import { searchResultAtom, derivedApiSearchParamsAtom, searchStateAtom, setSearchPageDataAtom, searchStateInitializedAtom, type SearchState } from '@/atoms'; // AI: Added searchStateInitializedAtom and SearchState
+import { searchResultAtom, derivedApiSearchParamsAtom, searchStateAtom, setSearchPageDataAtom, searchStateInitializedAtom, type SearchState } from '@/atoms';
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 import { getBrowserRestClient } from "@/context/RestClientStore";
@@ -15,7 +14,6 @@ import { getStatisticalUnits } from "./search-requests";
 import {
   SEARCH,
   UNIT_TYPE,
-  // AI: Moved the misplaced import block here
   fullTextSearchDeriveStateUpdateFromSearchParams,
   unitTypeDeriveStateUpdateFromSearchParams,
   invalidCodesDeriveStateUpdateFromSearchParams,
@@ -28,7 +26,6 @@ import {
   dataSourceDeriveStateUpdateFromSearchParams,
   externalIdentDeriveStateUpdateFromSearchParams,
   statisticalVariablesDeriveStateUpdateFromSearchParams,
-  // End of moved block
   INVALID_CODES,
   LEGAL_FORM,
   REGION,
@@ -37,11 +34,9 @@ import {
   STATUS,
   UNIT_SIZE,
   DATA_SOURCE,
-  // No need for the individual `*DeriveStateUpdateFromSearchParams` functions here
-  // as we'll call Jotai setters directly.
 } from "./filters/url-search-params";
-import { SearchAction } from "./search.d"; // AI: Moved this import too
-import { useAtom } from "jotai"; // AI: Moved this import too
+import { SearchAction } from "./search.d";
+import { useAtom } from "jotai";
 
 // SWR Fetcher - kept local as it's specific to SWR's usage here
 const fetcherForSWR = async (paramsString: string) => {
@@ -88,16 +83,7 @@ export function SearchResults({
   const initialUrlSearchParams = useMemo(() => toURLSearchParams(initialUrlSearchParamsDict), [initialUrlSearchParamsDict]);
   const { externalIdentTypes, statDefinitions } = useBaseData();
   const setSearchPageData = useSetAtom(setSearchPageDataAtom);
-  const [, setSearchState] = useAtom(searchStateAtom); // Get the setter for the entire searchStateAtom
-
-  // const {
-  //   searchState: jotaiSearchState, // Not needed directly if we set the whole state
-  //   updateSearchQuery, // Not needed if setting whole state
-  //   updateFilters, // Not needed if setting whole state
-  //   updatePagination, // Not needed if setting whole state
-  //   updateSorting, // Not needed if setting whole state
-  //   executeSearch, // Still needed if we want to trigger explicit search after init
-  // } = useSearch(); // We might not need to destructure all of these if setting state directly
+  const [, setSearchState] = useAtom(searchStateAtom);
 
   const setGlobalSearchResult = useSetAtom(searchResultAtom);
   const derivedApiParamsFromJotai = useAtomValue(derivedApiSearchParamsAtom);
@@ -232,16 +218,12 @@ export function SearchResults({
   }, [swrData, swrError, swrIsLoading, setGlobalSearchResult]);
 
   const currentGlobalSearchResult = useAtomValue(searchResultAtom);
-
-  // The ctx object and SearchContextState are remnants of the old context system and are no longer needed.
-  // Consumers should use the useSearch() hook and other Jotai atoms/hooks directly.
-  useDerivedUrlSearchParams(); // AI: Uncommented and call without arguments
+  const initialUrlSearchParamsString = useMemo(() => initialUrlSearchParams.toString(), [initialUrlSearchParams]);
+  useDerivedUrlSearchParams(initialUrlSearchParamsString);
 
   return (
-    // <SearchContext.Provider value={ctx}> // Removed as per migration
     <>
       {children}
     </>
-    // </SearchContext.Provider>
   );
 }

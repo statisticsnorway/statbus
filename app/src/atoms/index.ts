@@ -1596,7 +1596,6 @@ export const atoms = {
   searchStateAtom,
   searchResultAtom,
   performSearchAtom,
-  // filteredSearchResultsAtom, // Removed as unused
   resetSearchStateAtom, // Export the reset action
   initialSearchStateValues, // Export the initial values
   derivedApiSearchParamsAtom, // Export derived search params

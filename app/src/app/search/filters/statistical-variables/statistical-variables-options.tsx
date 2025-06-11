@@ -3,7 +3,7 @@ import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import { ConditionalFilter } from "@/app/search/components/conditional-filter";
 import { useCallback, useMemo } from "react";
 import { Tables } from "@/lib/database.types";
-import { statisticalVariableParse } from "../url-search-params"; // Removed unused import
+import { statisticalVariableParse } from "../url-search-params";
 
 export default function StatisticalVariablesOptions({ statDefinition }:
   {

@@ -9,7 +9,6 @@ export default function LegalFormOptions({options}: {
   readonly options: SearchFilterOption[];
 }) {
   const { searchState, updateFilters, executeSearch } = useSearch();
-  // const selected = (searchState.filters[LEGAL_FORM] as (string | null)[]) || [];
   const filterValue = searchState.filters[LEGAL_FORM];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {

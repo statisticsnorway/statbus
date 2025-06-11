@@ -3,10 +3,9 @@
 import { SearchFilterOption } from "../../search";
 import { OptionsFilter } from "../../components/options-filter";
 import { useCallback, useMemo } from "react"; // Added useMemo
-import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSearch } from "@/atoms/hooks";
 import {
   UNIT_SIZE,
-  // unitSizeDeriveStateUpdateFromValues, // Removed
 } from "../url-search-params";
 
 export default function UnitSizeOptions({
@@ -15,7 +14,6 @@ export default function UnitSizeOptions({
   readonly options: SearchFilterOption[];
 }) {
   const { searchState, updateFilters, executeSearch } = useSearch();
-  // const selected = (searchState.filters[UNIT_SIZE] as (string | null)[]) || [];
   const filterValue = searchState.filters[UNIT_SIZE];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {

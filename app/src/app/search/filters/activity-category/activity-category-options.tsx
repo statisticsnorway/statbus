@@ -9,7 +9,6 @@ export default function ActivityCategoryOptions({options}: {
   readonly options: SearchFilterOption[];
 }) {
   const { searchState, updateFilters, executeSearch } = useSearch();
-  // const selected = (searchState.filters[ACTIVITY_CATEGORY_PATH] as (string | null)[]) || [];
   const filterValue = searchState.filters[ACTIVITY_CATEGORY_PATH];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {

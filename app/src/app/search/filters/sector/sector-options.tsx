@@ -11,7 +11,6 @@ export default function SectorOptions({
   readonly options: SearchFilterOption[];
 }) {
   const { searchState, updateFilters, executeSearch } = useSearch();
-  // const selected = (searchState.filters[SECTOR] as (string | null)[]) || [];
   const filterValue = searchState.filters[SECTOR];
   const selected = useMemo(() => {
     if (Array.isArray(filterValue)) {

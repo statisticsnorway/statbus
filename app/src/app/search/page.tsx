@@ -8,8 +8,7 @@ import { SearchResultCount } from "@/app/search/components/search-result-count";
 import SearchResultPagination from "@/app/search/components/search-result-pagination";
 import { ExportCSVLink } from "@/app/search/components/search-export-csv-link";
 import { Selection } from "@/app/search/components/selection";
-// import { SelectionProvider } from "@/app/search/selection-provider"; // Removed
-import { getServerRestClient } from "@/context/RestClientStore"; // Use server client
+import { getServerRestClient } from "@/context/RestClientStore";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 import { defaultOrder } from "./search-filter-reducer";
 import { SearchOrder } from "./search";
@@ -76,10 +75,9 @@ export default async function SearchPage(props: { searchParams: Promise<URLSearc
             Search for statistical units
           </h1>
           <div className="flex flex-wrap items-center p-1 lg:p-0 *:mb-2 *:mx-1 w-full"></div>
-          {/* <SelectionProvider> */}
-            <section className="space-y-3">
-              <TableToolbar
-                initialUrlSearchParamsDict={initialUrlSearchParamsDict}
+          <section className="space-y-3">
+            <TableToolbar
+              initialUrlSearchParamsDict={initialUrlSearchParamsDict}
               />
               <div className="rounded-md border min-w-[300px] overflow-auto">
                 <SearchResultTable />
@@ -95,7 +93,6 @@ export default async function SearchPage(props: { searchParams: Promise<URLSearc
             <section className="mt-8">
               <Selection />
             </section>
-          {/* </SelectionProvider> */}
         </div>
       </main>
     </SearchResults>
