@@ -17,7 +17,7 @@ services:
       - "app"
     environment:
       NEXT_PUBLIC_BROWSER_REST_URL: ${NEXT_PUBLIC_BROWSER_REST_URL}
-      SERVER_REST_URL: "http://caddy:80"
+      SERVER_REST_URL: "http://proxy:80"
       SEQ_SERVER_URL: ${SEQ_SERVER_URL:-https://log.statbus.org}
       SEQ_API_KEY: ${SEQ_API_KEY:?SEQ_API_KEY must be set in the generated .env}
       NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME: ${DEPLOYMENT_SLOT_NAME:?DEPLOYMENT_SLOT_NAME must be set in the generated .env}

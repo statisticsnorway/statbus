@@ -278,8 +278,8 @@ module Statbus
             statbus_url: config_env.generate("STATBUS_URL") { "http://localhost:3010" },
             # This needs to be replaced by the publicly available DNS name i.e. statbus-api.example.org
             browser_api_url: config_env.generate("BROWSER_REST_URL") { "http://localhost:3011" },
-            # This is hardcoded for docker containers, as the name caddy always resolves for the backend app.
-            server_api_url: config_env.generate("SERVER_REST_URL") { "http://caddy:80" },
+            # This is hardcoded for docker containers, as the name proxy always resolves for the backend app.
+            server_api_url: config_env.generate("SERVER_REST_URL") { "http://proxy:80" },
             seq_server_url: config_env.generate("SEQ_SERVER_URL") { "https://log.statbus.org" },
             # This must be provided and entered manually.
             seq_api_key: config_env.generate("SEQ_API_KEY") { "secret_seq_api_key" },
