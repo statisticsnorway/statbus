@@ -740,61 +740,58 @@ export const refreshAllGettingStartedDataAtom = atom(
 
 // Helper to fetch and set auth status
 export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
-  console.log('[STATBUS_DEBUG] fetchAndSetAuthStatusAtom: Action triggered.');
   const client = get(restClientAtom);
-
   if (!client) {
-    console.error("[STATBUS_DEBUG] fetchAndSetAuthStatusAtom: No client available.");
+    console.error("fetchAndSetAuthStatusAtom: No client available to fetch auth status.");
     set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
-    set(authStatusInitiallyCheckedAtom, true);
-    console.log('[STATBUS_DEBUG] fetchAndSetAuthStatusAtom: Set authStatusInitiallyCheckedAtom to true (no client).');
+    // Even if client is not available, we mark the check as attempted to avoid loops if client init fails.
+    set(authStatusInitiallyCheckedAtom, true); 
     return;
   }
-
   try {
-    // @ts-ignore
-    const clientHeaders = client.headers || (client.options ? client.options.headers : {});
-    console.log('[STATBUS_DEBUG] fetchAndSetAuthStatusAtom: Calling client.rpc("auth_status"). Current client headers:', JSON.stringify(clientHeaders));
-    const { data, error, status, statusText, count } = await client.rpc("auth_status"); // Capture more response details
-    console.log('[STATBUS_DEBUG] fetchAndSetAuthStatusAtom: client.rpc("auth_status") response. Status:', status, statusText, 'Error:', error, 'Data:', data, 'Count:', count);
-
-    if (error) { // This typically means PostgREST returned an error structure (e.g., for 4xx, 5xx)
-      console.error(`[STATBUS_DEBUG] fetchAndSetAuthStatusAtom: Auth status check failed (RPC error object present). Code: ${error.code}, Message: ${error.message}, Details: ${error.details}, Hint: ${error.hint}`);
+    const { data, error } = await client.rpc("auth_status");
+    if (error) {
+      console.error("Auth status check failed after action:", error);
       set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
-      // No return here, finally will run
-    } else if (status && status >= 400) { // Handle cases where error object might be null but status indicates failure
-        console.error(`[STATBUS_DEBUG] fetchAndSetAuthStatusAtom: Auth status check failed (HTTP error status ${status}).`);
-        set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
-    } else {
-      const authData = data as any; // Type cast based on expected RPC response
-      const newStatus: AuthStatus = authData === null || !authData.is_authenticated
-        ? {
-            isAuthenticated: false,
-            user: null,
-            tokenExpiring: false,
-          }
-        : {
-            isAuthenticated: authData.is_authenticated,
-            tokenExpiring: authData.token_expiring === true,
-            user: authData.uid ? {
-              uid: authData.uid,
-              sub: authData.sub,
-              email: authData.email,
-              role: authData.role,
-              statbus_role: authData.statbus_role,
-              last_sign_in_at: authData.last_sign_in_at,
-              created_at: authData.created_at,
-            } : null,
-          };
-      console.log('[STATBUS_DEBUG] fetchAndSetAuthStatusAtom: Setting authStatusAtom to:', newStatus);
-      set(authStatusAtom, newStatus);
+      return;
     }
-  } catch (e: any) { // Catch network errors or other exceptions from client.rpc() itself
-    console.error("[STATBUS_DEBUG] fetchAndSetAuthStatusAtom: Exception during auth status fetch:", e, "Stack:", e?.stack);
+    const authData = data as any; // Type cast based on expected RPC response
+    const newStatus: AuthStatus = authData === null || !authData.is_authenticated
+      ? {
+          isAuthenticated: false,
+          user: null,
+          tokenExpiring: false,
+        }
+      : {
+          isAuthenticated: authData.is_authenticated,
+          tokenExpiring: authData.token_expiring === true,
+          user: authData.uid ? {
+            uid: authData.uid,
+            sub: authData.sub,
+            email: authData.email,
+            role: authData.role,
+            statbus_role: authData.statbus_role,
+            last_sign_in_at: authData.last_sign_in_at,
+            created_at: authData.created_at,
+          } : null,
+        };
+    set(authStatusAtom, newStatus);
+
+    // If authenticated, trigger refresh of other dependent data
+    // This is now handled by AppInitializer effect based on isAuthenticated and initialAuthCheckDone
+    // if (newStatus.isAuthenticated) {
+    //   set(refreshBaseDataAtom);
+    //   set(refreshWorkerStatusAtom);
+    //   set(initializeTableColumnsAtom); 
+    //   set(refreshAllGettingStartedDataAtom);
+    //   set(refreshAllUnitCountsAtom);
+    // }
+
+  } catch (e) {
+    console.error("Error fetching auth status after action:", e);
     set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
   } finally {
     set(authStatusInitiallyCheckedAtom, true);
-    console.log('[STATBUS_DEBUG] fetchAndSetAuthStatusAtom: Set authStatusInitiallyCheckedAtom to true (in finally).');
   }
 });
 
