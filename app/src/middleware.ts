@@ -18,13 +18,12 @@ export async function middleware(request: NextRequest) {
   }
 
   // --- Authentication Check and Refresh via AuthStore ---
-  let response = NextResponse.next(); // Prepare a default response
-  
-  // Call AuthStore to handle auth check and potential refresh
-  // Pass the request cookies for reading refresh token, and response cookies for setting new tokens
+  // Create a response object that we will modify and eventually return.
+  let response = NextResponse.next();
+
   const { status: authStatus, modifiedRequestHeaders } = await authStore.handleServerAuth(
-    request.cookies, 
-    response.cookies // Pass the mutable cookies object from the response
+    request.cookies,
+    response.cookies // authStore modifies response.cookies directly
   );
 
   // --- Handle Auth Result ---
@@ -32,49 +31,67 @@ export async function middleware(request: NextRequest) {
     // If still not authenticated after check/refresh attempt, redirect to login
     console.log("Middleware: AuthStore reported unauthenticated, redirecting to login.");
     const loginUrl = new URL('/login', request.url);
-    // Ensure response object used for redirect has cleared cookies (AuthStore might have done this)
-    response = NextResponse.redirect(loginUrl); 
-    response.cookies.delete('statbus'); // Explicitly clear just in case
-    response.cookies.delete('statbus-refresh');
-    return response;
+    // Create a new response for redirect.
+    const redirectResponse = NextResponse.redirect(loginUrl);
+    
+    // Determine if the connection is secure for cookie options
+    const isSecure = request.headers.get('x-forwarded-proto')?.toLowerCase() === 'https';
+    const cookieOptions = { path: '/', httpOnly: true, sameSite: 'strict' as const, secure: isSecure };
+
+    // Explicitly clear cookies with attributes consistent with backend's clear_auth_cookies
+    // The delete method expects a single object with 'name' and other options, or just the name.
+    redirectResponse.cookies.delete({ name: 'statbus', ...cookieOptions });
+    redirectResponse.cookies.delete({ name: 'statbus-refresh', ...cookieOptions });
+    return redirectResponse;
   }
 
   // --- Prepare Response for Authenticated User ---
-  let finalRequest = request; // Use original request by default
+  // At this point, 'response.cookies' (from the initial NextResponse.next())
+  // contains any new cookies set by authStore.handleServerAuth.
 
-  // If AuthStore signaled that headers were modified (due to refresh)
+  let requestForNextHandler = request; // This will be the request object for subsequent handlers/page.
+
+  // If AuthStore signaled that headers were modified (e.g., due to token refresh)
   if (modifiedRequestHeaders?.has('X-Statbus-Refreshed-Token')) {
       console.log("Middleware: AuthStore signaled refresh, modifying request headers for subsequent handlers.");
-      const newAccessToken = modifiedRequestHeaders.get('X-Statbus-Refreshed-Token')!;
       
-      // Create new headers based on the original request
+      // Create new headers for the requestForNextHandler.
       const newHeaders = new Headers(request.headers);
       
-      // Reconstruct the cookie header string *using the cookies set on the response object*
+      // Reconstruct the 'cookie' header string using the cookies now set on `response.cookies`.
+      // This ensures that `requestForNextHandler` has the most up-to-date cookies.
       const newCookieHeader = Array.from(response.cookies.getAll()).map(c => `${c.name}=${c.value}`).join('; ');
-      newHeaders.set('cookie', newCookieHeader); 
+      newHeaders.set('cookie', newCookieHeader);
       
-      // Create the request object that subsequent handlers will see
-      finalRequest = new NextRequest(request.nextUrl, { headers: newHeaders });
+      // If AuthStore provides the new access token directly (e.g., via X-Statbus-Refreshed-Token),
+      // you might also set a custom header like 'X-Statbus-Access-Token' on newHeaders here
+      // if RestClientStore is adapted to use it for server-side client initialization.
+      // Example: newHeaders.set('X-Statbus-Access-Token', modifiedRequestHeaders.get('X-Statbus-Refreshed-Token')!);
+
+      requestForNextHandler = new NextRequest(request.nextUrl, { headers: newHeaders });
       
-      // Ensure the response allows the request to proceed with these new headers
-      response = NextResponse.next({
-          request: {
-              headers: newHeaders,
-          },
+      // Create a new response object that will use `requestForNextHandler` for server-side rendering.
+      // Note: NextResponse.next({ request: ... }) creates a *new* response instance.
+      const newResponseForPage = NextResponse.next({
+          request: requestForNextHandler,
       });
-      // Re-apply the cookies set by AuthStore to this *new* response object
-      const refreshedAccessToken = response.cookies.get('statbus');
-      const refreshedRefreshToken = response.cookies.get('statbus-refresh');
-      if(refreshedAccessToken) response.cookies.set(refreshedAccessToken);
-      if(refreshedRefreshToken) response.cookies.set(refreshedRefreshToken);
+      
+      // Copy all cookies from our current `response` (which authStore modified)
+      // to `newResponseForPage` so they are sent to the browser.
+      response.cookies.getAll().forEach(cookie => {
+          newResponseForPage.cookies.set(cookie);
+      });
+      
+      response = newResponseForPage; // This is now the response we will return.
   }
   
   // --- App Setup Checks (only if authenticated) ---
-  // Use the finalRequest object which has potentially updated headers
-  const client = await getServerRestClient(); // Reads headers from finalRequest context
+  // Pass the cookies from requestForNextHandler to ensure the client used for these
+  // setup checks has the most up-to-date authentication context, especially if a
+  // token refresh occurred during authStore.handleServerAuth.
+  const client = await getServerRestClient({ cookies: requestForNextHandler.cookies });
 
-  if (finalRequest.nextUrl.pathname === "/") {
+  if (requestForNextHandler.nextUrl.pathname === "/") {
       // Check if settings exist
       const { data: settings, error: settingsError } = await client
           .from("settings")

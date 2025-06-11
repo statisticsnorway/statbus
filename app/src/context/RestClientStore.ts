@@ -56,11 +56,14 @@ class RestClientStore {
    * Get a PostgREST client for the specified context
    * This method deduplicates requests - multiple calls will share the same Promise
    */
-  public async getRestClient(type: ClientType): Promise<PostgrestClient<Database>> {
+  public async getRestClient(
+    type: ClientType,
+    serverRequestCookies?: import('next/dist/server/web/spec-extension/cookies').RequestCookies | Readonly<import('next/dist/server/web/spec-extension/cookies').RequestCookies>
+  ): Promise<PostgrestClient<Database>> {
     if (type === 'server') {
       // Server client: Directly initialize. Caching is handled by the exported getServerRestClient.
       try {
-        const client = await this.initializeClient('server');
+        const client = await this.initializeClient('server', serverRequestCookies);
         // Log moved back to initializeClient to see raw initialization calls
         return client;
       } catch (error) {
@@ -171,44 +174,64 @@ class RestClientStore {
   /**
    * Internal method to initialize a client
    */
-  private async initializeClient(type: ClientType): Promise<PostgrestClient<Database>> {
+  private async initializeClient(
+    type: ClientType,
+    serverRequestCookies?: import('next/dist/server/web/spec-extension/cookies').RequestCookies | Readonly<import('next/dist/server/web/spec-extension/cookies').RequestCookies>
+  ): Promise<PostgrestClient<Database>> {
     try {
       if (type === 'server') {
         // Create server client
-        const apiBaseUrl = process.env.SERVER_REST_URL;        
+        const apiBaseUrl = process.env.SERVER_REST_URL;
         if (!apiBaseUrl) {
           throw new Error('SERVER_REST_URL environment variable is not defined');
         }
         const apiUrl = apiBaseUrl + '/rest';
-        
+
         // Add a timeout to prevent hanging
         const timeoutPromise = new Promise<never>((_, reject) => {
           setTimeout(() => reject(new Error('Client initialization timed out')), 10000);
         });
-        
+
         // Create a new PostgrestClient with auth headers from cookies
         const createClient = async () => {
-          // Get auth token from cookies for server components
           let headers: Record<string, string> = {
             'Content-Type': 'application/json',
           };
-          
-          try {
-            const { cookies } = await import("next/headers");
-            const cookieStore = await cookies();
-            const token = cookieStore.get("statbus");
-            
-            if (token) {
-              // Add the token as an Authorization header
-              headers['Authorization'] = `Bearer ${token.value}`;              
+          let tokenValue: string | undefined = undefined;
+
+          if (serverRequestCookies) {
+            // Use provided cookies if available
+            const tokenCookie = serverRequestCookies.get("statbus");
+            tokenValue = tokenCookie?.value;
+            if (process.env.NODE_ENV === 'development' && tokenValue) {
+              console.log(`RestClientStore: Using token from provided serverRequestCookies for server client.`);
             }
-          } catch (error) {
-            console.error('Error getting cookies for server client:', error);
+          } else {
+            // Fallback to next/headers
+            try {
+              const { cookies: nextCookiesFn } = await import("next/headers");
+              const cookieStore = await nextCookiesFn();
+              const tokenCookie = cookieStore.get("statbus");
+              tokenValue = tokenCookie?.value;
+              if (process.env.NODE_ENV === 'development' && tokenValue) {
+                console.log(`RestClientStore: Using token from next/headers for server client.`);
+              }
+            } catch (error) {
+              console.warn('RestClientStore: Could not import or use next/headers.cookies() for server client. Proceeding without Authorization header from this source.', error);
+            }
+          }
+
+          if (tokenValue) {
+            headers['Authorization'] = `Bearer ${tokenValue}`;
+          } else {
+            if (process.env.NODE_ENV === 'development') {
+              console.log(`RestClientStore: No 'statbus' token found for server client. Client will be unauthenticated.`);
+            }
           }
           
           return new PostgrestClient<Database>(apiUrl, { headers });
         };
-        
+
         const client = await Promise.race([
           createClient(),
           timeoutPromise
@@ -379,9 +402,13 @@ export const clientStore = RestClientStore.getInstance();
 
 // Export convenience methods for accessing PostgREST clients
 // Use React.cache on the exported function to memoize per request
-export const getServerRestClient = cache(async (): Promise<PostgrestClient<Database>> => {
-  return clientStore.getRestClient('server');
-});
+export const getServerRestClient = cache(
+  async (
+    requestContext?: { cookies: import('next/dist/server/web/spec-extension/cookies').RequestCookies | Readonly<import('next/dist/server/web/spec-extension/cookies').RequestCookies> }
+  ): Promise<PostgrestClient<Database>> => {
+    return clientStore.getRestClient('server', requestContext?.cookies);
+  }
+);
 
 export async function getBrowserRestClient(): Promise<PostgrestClient<Database>> {
   return clientStore.getRestClient('browser');
