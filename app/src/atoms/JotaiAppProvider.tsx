@@ -220,8 +220,15 @@ const ErrorBoundary = ({ children }: { children: ReactNode }) => {
   const [hasError, setHasError] = React.useState(false)
   
   useEffect(() => {
-    const handleError = (error: ErrorEvent) => {
-      console.error('Global error caught:', error)
+    const handleError = (event: ErrorEvent) => {
+      // Log more details from the ErrorEvent
+      console.error('Global error caught by ErrorBoundary:', {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        errorObject: event.error, // This often contains the actual Error object
+      });
       setHasError(true)
     }
     
@@ -359,12 +366,27 @@ export const useManualInit = () => {
  * Only renders in development mode
  */
 export const AtomDevtools = () => {
+  const [mounted, setMounted] = React.useState(false);
   const authStatus = useAtomValue(authStatusAtom)
   const baseData = useAtomValue(baseDataAtom)
   const workerStatus = useAtomValue(workerStatusAtom)
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
   
   if (process.env.NODE_ENV !== 'development') {
     return null
+  }
+
+  // Render a placeholder or nothing until mounted to avoid hydration mismatch for dynamic content
+  if (!mounted) {
+    return (
+      <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-4 rounded-lg text-xs max-w-md">
+        <h3 className="font-bold mb-2">Atom States (Dev Only)</h3>
+        <div>Loading devtools...</div>
+      </div>
+    );
   }
   
   return (
