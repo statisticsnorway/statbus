@@ -30,31 +30,57 @@ import {
 // ============================================================================
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom)
-  const initialAuthCheckDone = useAtomValue(authStatusInitiallyCheckedAtom);
-  const restClient = useAtomValue(restClientAtom); // Get the actual client value
+  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
+  const initialAuthCheckDoneValue = useAtomValue(authStatusInitiallyCheckedAtom); // Renamed for clarity in logs
+  const restClientValue = useAtomValue(restClientAtom); // Renamed for clarity in logs
   const triggerFetchAuthStatus = useSetAtom(fetchAndSetAuthStatusAtom);
-  const refreshBaseData = useSetAtom(refreshBaseDataAtom)
+  const refreshBaseData = useSetAtom(refreshBaseDataAtom);
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setRestClient = useSetAtom(restClientAtom)
   const initializeTableColumns = useSetAtom(initializeTableColumnsAtom);
   const refreshGettingStartedData = useSetAtom(refreshAllGettingStartedDataAtom);
   const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
+
+  // Log mount/unmount
+  useEffect(() => {
+    console.log('[STATBUS_DEBUG] AppInitializer: Mounted');
+    return () => {
+      console.log('[STATBUS_DEBUG] AppInitializer: Unmounted');
+    };
+  }, []);
+
+  // Log when REST client is initialized
+  useEffect(() => {
+    if (restClientValue) {
+      console.log('[STATBUS_DEBUG] AppInitializer: REST client is now available via restClientValue.');
+    } else {
+      console.log('[STATBUS_DEBUG] AppInitializer: restClientValue is null/undefined.');
+    }
+  }, [restClientValue]);
+
+  // Log when initialAuthCheckDoneValue changes
+  useEffect(() => {
+    console.log('[STATBUS_DEBUG] AppInitializer: initialAuthCheckDoneValue changed to:', initialAuthCheckDoneValue);
+  }, [initialAuthCheckDoneValue]);
   
   // Initialize REST client
   useEffect(() => {
     let mounted = true
     const initializeClient = async () => {
       try {
+        console.log('[STATBUS_DEBUG] AppInitializer: Initializing REST client...');
         // Import your existing RestClientStore
         const { getBrowserRestClient } = await import('@/context/RestClientStore')
         const client = await getBrowserRestClient()
+        console.log('[STATBUS_DEBUG] AppInitializer: REST client fetched.', client);
         
         if (mounted) {
           setRestClient(client)
+        } else {
+          console.log('[STATBUS_DEBUG] AppInitializer: Component unmounted before setting REST client.');
         }
       } catch (error) {
-        console.error('AppInitializer: Failed to initialize REST client:', error)
+        console.error('[STATBUS_DEBUG] AppInitializer: Failed to initialize REST client:', error)
       }
     }
     
@@ -67,30 +93,37 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 
   // Effect to fetch initial authentication status once REST client is ready
   useEffect(() => {
-    if (restClient && !initialAuthCheckDone) {
+    console.log('[STATBUS_DEBUG] AppInitializer: Auth check effect. restClientValue available:', !!restClientValue, 'initialAuthCheckDoneValue:', initialAuthCheckDoneValue);
+    if (restClientValue && !initialAuthCheckDoneValue) {
+      console.log('[STATBUS_DEBUG] AppInitializer: Triggering fetchAndSetAuthStatusAtom.');
       triggerFetchAuthStatus(); 
     }
-  }, [restClient, initialAuthCheckDone, triggerFetchAuthStatus]);
+  }, [restClientValue, initialAuthCheckDoneValue, triggerFetchAuthStatus]);
   
   // Initialize app data when authenticated and client is ready
   useEffect(() => {
     let mounted = true
     
     const initializeApp = async () => {
+      console.log('[STATBUS_DEBUG] AppInitializer: Initialize app data effect. isAuthenticated:', isAuthenticated, 'initialAuthCheckDoneValue:', initialAuthCheckDoneValue, 'restClientValue available:', !!restClientValue);
       // Ensure initial auth check is done before proceeding with auth-dependent data
-      if (!initialAuthCheckDone) {
+      if (!initialAuthCheckDoneValue) {
+        console.log('[STATBUS_DEBUG] AppInitializer: Skipping app data initialization - initialAuthCheckDoneValue is false.');
         return;
       }
       if (!isAuthenticated) {
+        console.log('[STATBUS_DEBUG] AppInitializer: Skipping app data initialization - not authenticated.');
         return;
       }
-      if (!restClient) { // Check the actual client from component scope
+      if (!restClientValue) { // Check the actual client from component scope
+        console.log('[STATBUS_DEBUG] AppInitializer: Skipping app data initialization - restClientValue not available.');
         return;
       }
       
       try {
+        console.log('[STATBUS_DEBUG] AppInitializer: Proceeding with app data initialization.');
         // Fetch base data
-        await refreshBaseData()
+        await refreshBaseData();
         
         // Initialize table columns (depends on base data, e.g., statDefinitions)
         initializeTableColumns();
@@ -104,11 +137,12 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
         // Pending jobs are now fetched by their respective pages, not globally on init.
 
         // Fetch worker status
-        await refreshWorkerStatus()
+        await refreshWorkerStatus();
+        console.log('[STATBUS_DEBUG] AppInitializer: App data initialization complete.');
         
       } catch (error) {
         if (mounted) {
-          console.error('AppInitializer: App initialization failed:', error)
+          console.error('[STATBUS_DEBUG] AppInitializer: App initialization failed:', error);
         }
       }
     }
@@ -118,7 +152,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false
     }
-  }, [isAuthenticated, restClient, initialAuthCheckDone, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts])
+  }, [isAuthenticated, restClientValue, initialAuthCheckDoneValue, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts]) // Added Value to deps
   
   return <>{children}</>
 }
