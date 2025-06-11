@@ -18,6 +18,11 @@ Core conventions for the Next.js (v15) application. For project-wide, SQL, or in
     - Complete Refactoring: When refactoring, fully migrate without lingering compatibility layers.
     - Readability: Prioritize clear code over excessive comments for explaining logic. Internal thought-process comments should be removed.
     - Think from first principles.
+    - Clean Code and Commenting:
+        - Strive for self-documenting code. Well-named variables, functions, and classes can often make the code's purpose clear without needing comments.
+        - Git for Change Tracking: Git is our tool for tracking the history of *what* changes were made, *who* made them, and *when*. Commit messages should be descriptive and explain the "what" and "why" of a change set.
+        - Purpose of Comments: Comments in the code should primarily explain *why* a particular piece of code exists or *why* a certain approach was taken, especially if it's non-obvious. They can also be used to organize code (e.g., section headers) or to leave TODOs/FIXMEs.
+        - Avoid Redundant Comments: Do not add comments that merely restate what the code is doing (e.g., `// increment i` for `i++`). Similarly, comments detailing trivial changes like "removed line X" or "added import Y" are redundant as Git tracks these. Such comments add noise and reduce readability.
 
 ## State Management (Jotai)
 - **Primary Library**: Jotai is used for client-side global state management.
