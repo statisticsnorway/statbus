@@ -299,14 +299,38 @@ class RestClientStore {
    * and retry the original request
    */
   public async fetchWithAuthRefresh(
-    url: string, 
+    url: string,
     options: RequestInit = {}
   ): Promise<Response> {
-    // Log request in development mode
-    if (process.env.NODE_ENV === 'development' && !url.includes('/auth/token')) {
-      console.debug(`Request to: ${url}`);
+    // const callStack = new Error().stack?.split('\n').slice(2, 5).join('\n'); // Get a snippet of the call stack
+    if (process.env.NODE_ENV === 'development') {
+      // console.log(`[RestClientStore.fetchWithAuthRefresh ENTRY] URL: ${url}, Options:`, JSON.stringify(options), `\nCaller: ${callStack}`);
+      console.debug(`[RestClientStore.fetchWithAuthRefresh] URL: ${url}`); // Keep a less verbose debug log
+    }
+
+    // Special handling for login/logout to ensure Set-Cookie is processed correctly by the browser.
+    // These calls manage their own session setup/teardown and don't need the 401 refresh logic.
+    // They also need the most direct path for Set-Cookie headers to be effective.
+    if (url.endsWith("/rest/rpc/login") || url.endsWith("/rest/rpc/logout")) {
+      if (process.env.NODE_ENV === 'development') {
+        console.debug(`[RestClientStore.fetchWithAuthRefresh SIMPLIFIED_PATH] For ${url}.`);
+      }
+      const fetchOptions = {
+        ...options,
+        credentials: 'include' as RequestCredentials
+      };
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log(`[RestClientStore.fetchWithAuthRefresh SIMPLIFIED_PATH] Native fetch options for ${url}:`, JSON.stringify(fetchOptions));
+      // }
+      const response = await fetch(url, fetchOptions);
+      if (process.env.NODE_ENV === 'development') {
+        const setCookieHeader = response.headers.get('Set-Cookie');
+        console.debug(`[RestClientStore.fetchWithAuthRefresh SIMPLIFIED_PATH] Response for ${url}: Status ${response.status}. Set-Cookie present: ${!!setCookieHeader}`);
+      }
+      return response;
     }
         
+    // Original logic for other API calls (data fetching, etc.):
     // Get auth token from cookies
     let headers: Record<string, string> = {
       'Content-Type': typeof options.headers === 'object' && options.headers 
@@ -321,8 +345,8 @@ class RestClientStore {
     try {
       if (typeof window === 'undefined') {
         // Server-side: Get token from next/headers
-        const { cookies } = require('next/headers');
-        const cookieStore = await cookies();
+        const { cookies: getNextCookies } = require('next/headers');
+        const cookieStore = getNextCookies(); // Corrected: cookies() is not async
         const token = cookieStore.get("statbus");
         
         if (token) {
@@ -342,54 +366,88 @@ class RestClientStore {
     }
     
     // First attempt with current token
-    let response = await fetch(url, {
+    const initialFetchOptions = {
       ...options,
-      credentials: 'include', // Always include cookies
+      credentials: 'include' as RequestCredentials,
       headers
-    });
+    };
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log(`[RestClientStore.fetchWithAuthRefresh MAIN_PATH_INITIAL_ATTEMPT] Native fetch options for ${url}:`, JSON.stringify(initialFetchOptions));
+    // }
+    let response = await fetch(url, initialFetchOptions);
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log(`[RestClientStore.fetchWithAuthRefresh MAIN_PATH_INITIAL_ATTEMPT] Response for ${url}: Status ${response.status}`);
+    //   const responseHeaders: Record<string, string> = {};
+    //   response.headers.forEach((value, key) => { responseHeaders[key] = value; });
+    //   console.log(`[RestClientStore.fetchWithAuthRefresh MAIN_PATH_INITIAL_ATTEMPT] Response headers for ${url}:`, JSON.stringify(responseHeaders));
+    // }
     
     // If we get a 401 Unauthorized, try to refresh the token *only on the browser*
     // Server-side 401s should typically be handled by initial auth checks or middleware
     if (response.status === 401 && typeof window !== 'undefined') {
+      console.log("RestClientStore.fetchWithAuthRefresh: Received 401. Attempting token refresh via RPC.");
       try {
-        // Import the AuthStore dynamically to avoid circular dependencies
-        const { authStore } = await import('@/context/AuthStore');
-        
-        // Try to refresh the token
-        const refreshResult = await authStore.refreshTokenIfNeeded();
-        const refreshResponse = { error: !refreshResult.success };
-        
-        if (!refreshResponse.error) {
-          // Retry the original request with the new token
-          response = await fetch(url, {
-            ...options,
-            credentials: 'include',
-            headers: {
-              ...options.headers,
-              'Content-Type': typeof options.headers === 'object' && options.headers 
-                ? (options.headers as Record<string, string>)['Content-Type'] || 'application/json'
-                : 'application/json',
-              'Accept': typeof options.headers === 'object' && options.headers
-                ? (options.headers as Record<string, string>)['Accept'] || 'application/json'
-                : 'application/json',
-            }
-          });
-        } else {
-          // If refresh failed, dispatch an event for the auth context to handle
-          if (typeof window !== 'undefined') {
-            window.dispatchEvent(new CustomEvent('auth:logout', { 
-              detail: { reason: 'refresh_failed' } 
-            }));
-          }
+        // Directly call the refresh RPC using a plain fetch to avoid recursion
+        // and to ensure cookies are handled correctly for this specific call.
+        const refreshApiUrl = `${process.env.NEXT_PUBLIC_BROWSER_REST_URL || ''}/rest/rpc/refresh`;
+        const refreshFetchOptions = {
+          method: 'POST' as const,
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          credentials: 'include' as RequestCredentials
+        };
+        // if (process.env.NODE_ENV === 'development') {
+        //   console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Native fetch options for ${refreshApiUrl}:`, JSON.stringify(refreshFetchOptions));
+        // }
+        const refreshApiResponse = await fetch(refreshApiUrl, refreshFetchOptions);
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Response for ${refreshApiUrl}: Status ${refreshApiResponse.status}`);
+          // const refreshResponseHeaders: Record<string, string> = {};
+          // refreshApiResponse.headers.forEach((value, key) => { refreshResponseHeaders[key] = value; });
+          // console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Response headers for ${refreshApiUrl}:`, JSON.stringify(refreshResponseHeaders));
         }
+
+        if (!refreshApiResponse.ok) {
+          // Attempt to parse error from refreshApiResponse if possible
+          let errorDetail = `Refresh RPC failed with status: ${refreshApiResponse.status}`;
+          try {
+            const errorJson = await refreshApiResponse.json();
+            errorDetail = errorJson.message || errorDetail;
+          } catch (e) { /* ignore if not json */ }
+
+          console.error(`RestClientStore.fetchWithAuthRefresh: Token refresh RPC failed: ${errorDetail}`);
+          window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'refresh_rpc_failed', error: new Error(errorDetail) } }));
+          return response; // Return original 401 response
+        }
+        
+        // Refresh RPC was successful. Cookies should have been updated by Set-Cookie headers from refreshApiResponse.
+        // The body of refreshApiResponse is the new auth_status_response, but we don't parse it here.
+        // The primary goal here is that the browser's cookie jar is updated.
+        console.log("RestClientStore.fetchWithAuthRefresh: Token refresh RPC successful. Retrying original request.");
+
+        // Retry the original request. It should now use the new cookies.
+        const retryFetchOptions = {
+          ...options,
+          credentials: 'include' as RequestCredentials,
+          headers // Original headers (or updated if needed, but usually not for retry)
+        };
+        // if (process.env.NODE_ENV === 'development') {
+        //   console.log(`[RestClientStore.fetchWithAuthRefresh RETRY_AFTER_REFRESH] Native fetch options for ${url}:`, JSON.stringify(retryFetchOptions));
+        // }
+        response = await fetch(url, retryFetchOptions);
+        if (process.env.NODE_ENV === 'development') {
+          console.debug(`[RestClientStore.fetchWithAuthRefresh RETRY_AFTER_REFRESH] Response for ${url}: Status ${response.status}`);
+          // const retryResponseHeaders: Record<string, string> = {};
+          // response.headers.forEach((value, key) => { retryResponseHeaders[key] = value; });
+          // console.log(`[RestClientStore.fetchWithAuthRefresh RETRY_AFTER_REFRESH] Response headers for ${url}:`, JSON.stringify(retryResponseHeaders));
+        }
+        
       } catch (error) {
-        console.error('Error refreshing token:', error);
-        // Dispatch an event for the auth context to handle
-        if (typeof window !== 'undefined') {
-          window.dispatchEvent(new CustomEvent('auth:logout', { 
-            detail: { reason: 'refresh_error', error } 
-          }));
-        }
+        console.error('[RestClientStore.fetchWithAuthRefresh REFRESH_EXCEPTION] Error during token refresh attempt:', error);
+        window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'refresh_attempt_exception', error } }));
+        return response; // Return original 401 response if refresh attempt itself throws
       }
     }
     
@@ -415,7 +473,7 @@ export async function getBrowserRestClient(): Promise<PostgrestClient<Database>>
 }
 
 // Export the fetch function with auth refresh handling
-export async function fetchWithAuth(
+export async function fetchWithAuthRefresh( // Renamed for clarity and consistency
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {

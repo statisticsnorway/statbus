@@ -11,6 +11,7 @@
 import { getRestClient, getServerRestClient } from "@/context/RestClientStore";
 import type { NextRequest, NextResponse } from 'next/server';
 import * as setCookie from 'set-cookie-parser';
+import { _parseAuthStatusRpcResponseToAuthStatus } from '@/atoms/index'; 
 
 /**
  * User type definition for authentication
@@ -32,7 +33,7 @@ export interface AuthStatus {
   isAuthenticated: boolean;
   tokenExpiring: boolean;
   user: User | null;
-}
+} // This AuthStatus is AuthStore's internal, matches Jotai's AuthStatus type via _parseAuthStatusRpcResponseToAuthStatus
 
 
 /**
@@ -195,51 +196,53 @@ class AuthStore {
    * Check if a token needs refresh and refresh it if needed
    * Returns success status
    */
+  // This method is being deprecated in favor of clientSideRefreshAtom for Jotai-integrated proactive refresh.
+  // If RestClientStore.fetchWithAuthRefresh was the only caller, it can be removed.
+  // For now, commenting out as its direct Jotai update capability is limited.
+  /*
   public async refreshTokenIfNeeded(): Promise<{
     success: boolean;
+    // newStatus?: AuthStatus; // If it were to return the new status
   }> {
-    // Server-side refresh is handled by middleware, this function is only for browser-side.
+    // This method, if kept, would be for non-Jotai callers or specific scenarios.
+    // It cannot directly update Jotai's authStatusAtom.
+    // The clientSideRefreshAtom in app/src/atoms/index.ts is preferred for Jotai environments.
     if (typeof window === 'undefined') {
-      console.warn("AuthStore.refreshTokenIfNeeded called on server, returning false. Middleware should handle refresh.");
+      console.warn("AuthStore.refreshTokenIfNeeded called on server. This is unexpected for client-side refresh logic.");
       return { success: false };
     }
       
     try {
-      // Always fetch fresh auth status (on the browser)
-      const authStatus = await this.fetchAuthStatus();
-
-      // If not authenticated at all, no point in refreshing
-      if (!authStatus.isAuthenticated) {
+      const client = await getRestClient(); // Assumes getRestClient is available
+        
+      const { data, error } = await client.rpc("refresh"); // RPC now returns AuthStatus directly
+      
+      if (error) {
+        console.error("AuthStore.refreshTokenIfNeeded: Token refresh RPC failed:", error);
         return { success: false };
       }
+      
+      // data is the new AuthStatus object from the RPC
+      const newParsedStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
+      
+      // Update AuthStore's internal status
+      this.status = newParsedStatus;
+      this.fetchStatus = "success"; // Mark as success
+      this.lastFetchTime = Date.now();
 
-      // If token is not expiring, no need to refresh
-      if (!authStatus.tokenExpiring) {
-        return { success: true };
+      if (process.env.NODE_ENV === "development") {
+        console.log("AuthStore.refreshTokenIfNeeded: Token refreshed successfully (AuthStore internal state updated).");
       }
-
-      // Get the appropriate client based on environment
-      const { getRestClient } = await import("@/context/RestClientStore");
-      
-      // Client-side or server-side refresh using the appropriate client
-      const client = await getRestClient();
-        
-      const { data, error } = await client.rpc("refresh");
-      
-      if (!error) {
-        if (process.env.NODE_ENV === "development") {
-          console.log("Token refreshed successfully");
-        }
-        return { success: true };
-      }
-      
-      console.error("Token refresh failed:", error);
-      return { success: false };
+      // IMPORTANT: This does NOT update the Jotai authStatusAtom.
+      // Callers needing Jotai state update should use clientSideRefreshAtom.
+      return { success: true // , newStatus: newParsedStatus 
+      }; 
     } catch (error) {
-      console.error("Error in refreshTokenIfNeeded:", error);
+      console.error("Error in AuthStore.refreshTokenIfNeeded:", error);
       return { success: false };
     }
   }
+  */
 
   /**
    * Get the current fetch status
@@ -282,28 +285,9 @@ class AuthStore {
       }
       
       // Map the response to our AuthStatus format
-      const authData = data as any;
+      // Map the response to our AuthStatus format using the shared helper
+      const result = _parseAuthStatusRpcResponseToAuthStatus(data);
       
-      const result = authData === null
-        ? {
-            isAuthenticated: false,
-            user: null,
-            tokenExpiring: false,
-          }
-        : {
-            isAuthenticated: authData.is_authenticated,
-            tokenExpiring: authData.token_expiring === true,
-            user: authData.uid ? {
-              uid: authData.uid,
-              sub: authData.sub,
-              email: authData.email,
-              role: authData.role,
-              statbus_role: authData.statbus_role,
-              last_sign_in_at: authData.last_sign_in_at,
-              created_at: authData.created_at
-            } : null
-          };
-
       return result;
     } catch (error) {
       console.error("AuthStore.fetchAuthStatus: Error checking auth status:", error);
@@ -367,74 +351,72 @@ class AuthStore {
             console.error("AuthStore.handleServerAuth: Failed to read error response body:", readError);
           }
           console.error(`AuthStore.handleServerAuth: Refresh fetch failed: ${refreshResponse.status} ${refreshResponse.statusText}. Body: ${errorBody}`);
-          // Clear potentially invalid cookies on the response
           responseCookies.delete('statbus');
           responseCookies.delete('statbus-refresh');
           return { status: { isAuthenticated: false, user: null, tokenExpiring: false } };
         }
 
         // --- Process Successful Refresh ---
-        // Use getSetCookie() to handle multiple Set-Cookie headers correctly
-        const setCookieHeaders = refreshResponse.headers.getSetCookie(); // Returns string[]
-        if (!setCookieHeaders || setCookieHeaders.length === 0) {
-           console.error("AuthStore.handleServerAuth: Refresh succeeded but no Set-Cookie headers received.");
-           // Return unauthenticated status, clear potentially stale cookies
-           responseCookies.delete('statbus');
-           responseCookies.delete('statbus-refresh');
-           return { status: { isAuthenticated: false, user: null, tokenExpiring: false } };
-        }
+        const refreshData = await refreshResponse.json(); // RPC response is now auth_status_response
+        currentStatus = _parseAuthStatusRpcResponseToAuthStatus(refreshData);
 
-        // Parse the Set-Cookie headers using the library
-        // Pass the array of headers directly to the parser
-        const parsedCookies = setCookie.parse(setCookieHeaders, { map: true });
-        const newAccessToken = parsedCookies['statbus']?.value;
-        const newRefreshToken = parsedCookies['statbus-refresh']?.value;
-
-
-        if (newAccessToken && newRefreshToken) {
-          console.log("AuthStore.handleServerAuth: Refresh successful.");
+        // Cookies are set by the Set-Cookie headers from refreshResponse.
+        // We need to parse them and apply to the outgoing `responseCookies`
+        // that the middleware will use.
+        const setCookieHeaders = refreshResponse.headers.getSetCookie(); 
+        if (setCookieHeaders && setCookieHeaders.length > 0) {
+          const parsedSetCookies = setCookie.parse(setCookieHeaders, { map: true });
           
-          // Stage Set-Cookie headers on the response object provided by the middleware
-          const cookieOptions = { 
-            httpOnly: true, 
-            secure: process.env.NODE_ENV !== 'development', 
-            path: '/', 
-            sameSite: 'lax' as const 
-          };
-          responseCookies.set('statbus', newAccessToken, cookieOptions);
-          responseCookies.set('statbus-refresh', newRefreshToken, cookieOptions);
+          const newAccessTokenCookie = parsedSetCookies['statbus'];
+          const newRefreshTokenCookie = parsedSetCookies['statbus-refresh'];
 
-          // Prepare modified headers for the *ongoing* request
-          // We need the original request headers to clone them
-          // This part is tricky as AuthStore doesn't have the full NextRequest
-          // We will return the new tokens and let middleware handle header modification
-          modifiedRequestHeaders = new Headers(); // Placeholder - middleware will construct this
-          modifiedRequestHeaders.set('X-Statbus-Refreshed-Token', newAccessToken); // Signal new token
+          if (newAccessTokenCookie?.value) {
+            responseCookies.set('statbus', newAccessTokenCookie.value, {
+              httpOnly: newAccessTokenCookie.httpOnly,
+              secure: newAccessTokenCookie.secure ?? (process.env.NODE_ENV !== 'development'), 
+              path: newAccessTokenCookie.path || '/',
+              sameSite: (newAccessTokenCookie.sameSite as 'lax' | 'strict' | 'none') || 'lax',
+              expires: newAccessTokenCookie.expires,
+              maxAge: newAccessTokenCookie.maxAge,
+            });
+            if (!modifiedRequestHeaders) modifiedRequestHeaders = new Headers();
+            modifiedRequestHeaders.set('X-Statbus-Refreshed-Token', newAccessTokenCookie.value);
+          } else {
+             console.warn("AuthStore.handleServerAuth: No 'statbus' access token in Set-Cookie after refresh.");
+          }
 
-          // Re-check auth status *conceptually* with the new token
-          // In reality, the next call to getAuthStatus in the *same request* 
-          // needs the modified headers passed via middleware.
-          // For now, we optimistically assume authentication is successful.
-          // A more robust approach might involve fetching user details here.
-          currentStatus = { 
-              isAuthenticated: true, 
-              // User details might be stale here, ideally fetch them
-              user: null, // Mark as potentially stale or fetch user info
-              tokenExpiring: false // Assume new token is not immediately expiring
-          }; 
+          if (newRefreshTokenCookie?.value) {
+            responseCookies.set('statbus-refresh', newRefreshTokenCookie.value, {
+              httpOnly: newRefreshTokenCookie.httpOnly,
+              secure: newRefreshTokenCookie.secure ?? (process.env.NODE_ENV !== 'development'),
+              path: newRefreshTokenCookie.path || '/',
+              sameSite: (newRefreshTokenCookie.sameSite as 'lax' | 'strict' | 'none') || 'lax',
+              expires: newRefreshTokenCookie.expires,
+              maxAge: newRefreshTokenCookie.maxAge,
+            });
+          } else {
+            console.warn("AuthStore.handleServerAuth: No 'statbus-refresh' token in Set-Cookie after refresh.");
+          }
           
-          console.log("AuthStore.handleServerAuth: Staging new cookies and signaling modified headers.");
+          // If the new status from RPC indicates authenticated AND we got an access token cookie, it's a success.
+          if (currentStatus.isAuthenticated && newAccessTokenCookie?.value) {
+             console.log("AuthStore.handleServerAuth: Refresh successful, new auth status parsed, cookies staged.");
+          } else {
+            // If RPC says authenticated but no access token cookie, or RPC says not authenticated
+            console.error("AuthStore.handleServerAuth: Refresh issue. RPC status:", currentStatus.isAuthenticated, "Access token cookie present:", !!newAccessTokenCookie?.value);
+            currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false }; // Force unauthenticated
+            responseCookies.delete('statbus'); 
+            responseCookies.delete('statbus-refresh');
+          }
 
         } else {
-           console.error("AuthStore.handleServerAuth: Refresh succeeded but failed to parse new tokens from Set-Cookie headers:", setCookieHeaders);
-           // Clear potentially invalid cookies if parsing failed
+           console.error("AuthStore.handleServerAuth: Refresh succeeded (RPC returned auth status) but no Set-Cookie headers received from refreshResponse.");
+           currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false };
            responseCookies.delete('statbus');
            responseCookies.delete('statbus-refresh');
-           currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false };
         }
-
       } catch (error) {
-        console.error("AuthStore.handleServerAuth: Error during refresh fetch:", error);
+        console.error("AuthStore.handleServerAuth: Error during refresh fetch or processing:", error);
         responseCookies.delete('statbus');
         responseCookies.delete('statbus-refresh');
         currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false };

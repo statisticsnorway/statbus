@@ -1,5 +1,5 @@
 "use server";
-import { getServerRestClient, fetchWithAuth } from "@/context/RestClientStore";
+import { getServerRestClient, fetchWithAuthRefresh } from "@/context/RestClientStore";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
@@ -35,7 +35,7 @@ export async function uploadFile(
     const postgrestUrl = client.url;
     
     // We need to use the full URL here because uploadView is a view name, not a relative path
-    const response = await fetchWithAuth(
+    const response = await fetchWithAuthRefresh(
       `${postgrestUrl}/${uploadView}`,
       {
         method: "POST",

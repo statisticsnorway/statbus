@@ -11,7 +11,6 @@ import GlobalErrorReporter from "@/app/global-error-reporter";
 import PopStateHandler from "@/components/PopStateHandler";
 import { JotaiAppProvider, AtomDevtools } from '@/atoms/JotaiAppProvider';
 import { deploymentSlotName } from "@/lib/deployment-variables";
-import RootLayoutClient from "./RootLayoutClient";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -38,11 +37,11 @@ export default async function RootLayout({
         )}
       >
         <JotaiAppProvider>
-          <RootLayoutClient>
-            {/* Main application content, now under Jotai's Provider and Suspense */}
-            <Suspense fallback={
-              <>
-                {/* This fallback is for the initial static shell or while JotaiAppProvider's Suspense is active. */}
+          {/* RootLayoutClient wrapper removed, its children are now direct children of JotaiAppProvider */}
+          {/* Main application content, now under Jotai's Provider and Suspense */}
+          <Suspense fallback={
+            <>
+              {/* This fallback is for the initial static shell or while JotaiAppProvider's Suspense is active. */}
                 <NavbarSkeleton />
                 <div className="flex-grow p-4"><div>Loading application data...</div></div> {/* Placeholder for children */}
                 <FooterSkeleton />
@@ -63,9 +62,9 @@ export default async function RootLayout({
                 <Footer />
               </Suspense>
             </Suspense>
-          </RootLayoutClient>
+          {/* End of content previously in RootLayoutClient */}
           <GlobalErrorReporter />
-          {/* AtomDevtools can be conditionally rendered here or inside RootLayoutClient if needed for dev */}
+          {/* AtomDevtools can be conditionally rendered here */}
           {process.env.NODE_ENV === 'development' && (
             <Suspense fallback={null}> {/* Suspense for AtomDevtools if it has async aspects or for consistency */}
               <AtomDevtools />

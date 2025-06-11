@@ -20,14 +20,22 @@ export default function LoginForm() {
     const password = formData.get("password") as string;
 
     try {
-      // Use the login function from the Jotai atom
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log('[LoginForm] Calling login atom...');
+      // }
       await login({ email, password });
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log('[LoginForm] Login atom completed.');
+      // }
       
       // If login successful, use window.location for a hard redirect
       // This ensures a full page refresh which will update auth state everywhere
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log('[LoginForm] Redirecting to / ...');
+      // }
       window.location.href = "/";
     } catch (error) {
-      console.error("LoginForm: Login error:", error);
+      console.error("LoginForm: Login error caught in handleSubmit:", error); // Keep error log
       setError(error instanceof Error ? error.message : "Login failed. Please check your credentials.");
     } finally {
       setIsLoading(false);

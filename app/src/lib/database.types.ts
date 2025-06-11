@@ -5929,13 +5929,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["physical_region_id"]
-            isOneToOne: false
-            referencedRelation: "region"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_region_id_fkey"
             columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region"
@@ -5944,13 +5937,20 @@ export type Database = {
           {
             foreignKeyName: "location_region_id_fkey"
             columns: ["physical_region_id"]
+            isOneToOne: false
+            referencedRelation: "region"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_region_id_fkey"
+            columns: ["postal_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_region_id_fkey"
-            columns: ["postal_region_id"]
+            columns: ["physical_region_id"]
             isOneToOne: false
             referencedRelation: "region_used_def"
             referencedColumns: ["id"]
@@ -6122,13 +6122,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country"
@@ -6138,7 +6131,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used_def"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -6151,13 +6144,20 @@ export type Database = {
           {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
+            isOneToOne: false
+            referencedRelation: "country_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]

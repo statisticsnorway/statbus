@@ -739,12 +739,39 @@ export const refreshAllGettingStartedDataAtom = atom(
 // Auth actions
 
 // Helper to fetch and set auth status
+
+/**
+ * Parses the raw response from auth_status, login, or refresh RPCs into the AuthStatus interface.
+ * @param rpcResponseData The raw data from the RPC call.
+ * @returns AuthStatus object.
+ */
+export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponseData: any): AuthStatus => {
+  return rpcResponseData === null || !rpcResponseData.is_authenticated
+    ? {
+        isAuthenticated: false,
+        user: null,
+        tokenExpiring: false,
+      }
+    : {
+        isAuthenticated: rpcResponseData.is_authenticated,
+        tokenExpiring: rpcResponseData.token_expiring === true,
+        user: rpcResponseData.uid ? {
+          uid: rpcResponseData.uid,
+          sub: rpcResponseData.sub,
+          email: rpcResponseData.email,
+          role: rpcResponseData.role,
+          statbus_role: rpcResponseData.statbus_role,
+          last_sign_in_at: rpcResponseData.last_sign_in_at,
+          created_at: rpcResponseData.created_at,
+        } : null,
+      };
+};
+
 export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
   const client = get(restClientAtom);
   if (!client) {
     console.error("fetchAndSetAuthStatusAtom: No client available to fetch auth status.");
     set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
-    // Even if client is not available, we mark the check as attempted to avoid loops if client init fails.
     set(authStatusInitiallyCheckedAtom, true); 
     return;
   }
@@ -755,37 +782,8 @@ export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
       set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
       return;
     }
-    const authData = data as any; // Type cast based on expected RPC response
-    const newStatus: AuthStatus = authData === null || !authData.is_authenticated
-      ? {
-          isAuthenticated: false,
-          user: null,
-          tokenExpiring: false,
-        }
-      : {
-          isAuthenticated: authData.is_authenticated,
-          tokenExpiring: authData.token_expiring === true,
-          user: authData.uid ? {
-            uid: authData.uid,
-            sub: authData.sub,
-            email: authData.email,
-            role: authData.role,
-            statbus_role: authData.statbus_role,
-            last_sign_in_at: authData.last_sign_in_at,
-            created_at: authData.created_at,
-          } : null,
-        };
+    const newStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
     set(authStatusAtom, newStatus);
-
-    // If authenticated, trigger refresh of other dependent data
-    // This is now handled by AppInitializer effect based on isAuthenticated and initialAuthCheckDone
-    // if (newStatus.isAuthenticated) {
-    //   set(refreshBaseDataAtom);
-    //   set(refreshWorkerStatusAtom);
-    //   set(initializeTableColumnsAtom); 
-    //   set(refreshAllGettingStartedDataAtom);
-    //   set(refreshAllUnitCountsAtom);
-    // }
 
   } catch (e) {
     console.error("Error fetching auth status after action:", e);
@@ -795,90 +793,138 @@ export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
   }
 });
 
+// import { fetchWithAuth } from '@/context/RestClientStore'; // Reverted for login/logout
+
 export const loginAtom = atom(
   null,
   async (get, set, credentials: { email: string; password: string }) => {
-    // Determine API URL (relative for client-side)
-    const apiUrl = ''; // The /rest API is transparently proxied from the same url as the frontend, so use a relative path for API calls from browser
+    const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
+    const loginUrl = `${apiUrl}/rest/rpc/login`;
+
+    // if (process.env.NODE_ENV === 'development') {
+    //   console.log('[loginAtom ENTRY] Credentials:', credentials.email);
+    // }
 
     try {
-      const response = await fetch(`${apiUrl}/rest/rpc/login`, {
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log(`[loginAtom] Calling fetch for ${loginUrl}`);
+      // }
+      const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
         body: JSON.stringify({ email: credentials.email, password: credentials.password }),
-        credentials: 'include' // Essential for cookie-based auth
+        credentials: 'include'
       });
 
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log(`[loginAtom] Fetch response for ${loginUrl}: Status ${response.status}, OK: ${response.ok}`);
+      //   const responseHeaders: Record<string, string> = {};
+      //   response.headers.forEach((value, key) => { responseHeaders[key] = value; });
+      //   console.log(`[loginAtom] Fetch response headers for ${loginUrl}:`, JSON.stringify(responseHeaders));
+      // }
+
+      const responseData = await response.json();
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log('[loginAtom] Response data:', JSON.stringify(responseData));
+      // }
+
       if (!response.ok) {
-        let errorData = { message: `Login failed with status: ${response.status}` };
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          // Ignore if response is not JSON
-        }
-        throw new Error(errorData.message || `Login failed with status: ${response.status}`);
+        const errorMessage = responseData?.message || `Login failed with status: ${response.status}`;
+        console.error('[loginAtom] Login fetch not OK:', errorMessage); // Keep error log
+        throw new Error(errorMessage);
       }
       
-      // Login call was successful, cookies should be set by the server.
-      // Now, fetch the new auth status to update user details and app state.
-      await set(fetchAndSetAuthStatusAtom);
-
-      // Note: The original AuthContext used authStore.clearAllCaches().
-      // With Jotai, setting authStatusAtom triggers re-evaluation.
-      // The hard redirect in LoginForm.tsx (`window.location.href = "/";`)
-      // will cause a full app re-initialization, including RestClientStore,
-      // which is generally a good approach after login/logout.
+      const newStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
+      // if (process.env.NODE_ENV === 'development') {
+      //   console.log('[loginAtom] Parsed new auth status:', JSON.stringify(newStatus));
+      // }
+      set(authStatusAtom, newStatus);
 
     } catch (error) {
-      console.error('Login failed:', error);
-      // Ensure authStatusAtom reflects unauthenticated state on error
+      console.error('[loginAtom] Catch block error:', error); // Keep error log
       set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
-      throw error; // Re-throw for the UI to handle
-    }
+      throw error;
+    } 
+    // finally {
+    //   if (process.env.NODE_ENV === 'development') {
+    //     console.log('[loginAtom EXIT]');
+    //   }
+    // }
   }
 )
+
+export const clientSideRefreshAtom = atom<
+  null, 
+  [], 
+  Promise<{ success: boolean; newStatus?: AuthStatus }>
+>(null, async (get, set) => {
+  const client = get(restClientAtom);
+  if (!client) {
+    console.error("clientSideRefreshAtom: No client available.");
+    return { success: false };
+  }
+  try {
+    const { data, error } = await client.rpc('refresh');
+    if (error) {
+      console.error("Client-side refresh RPC failed:", error);
+      // Optionally set authStatus to unauthenticated if refresh fails critically
+      set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+      return { success: false };
+    }
+    // data is now the auth_status_response
+    const newStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
+    set(authStatusAtom, newStatus);
+    return { success: true, newStatus };
+  } catch (e) {
+    console.error("Error during client-side refresh:", e);
+    set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+    return { success: false };
+  }
+});
 
 export const logoutAtom = atom(
   null,
   async (get, set) => {
-    const apiUrl = ''; // The /rest API is transparently proxied from the same url as the frontend, so use a relative path for API calls from browser
+    const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || ''; // Use NEXT_PUBLIC_ for client-side
+    const logoutUrl = `${apiUrl}/rest/rpc/logout`;
 
     try {
-      const response = await fetch(`${apiUrl}/rest/rpc/logout`, {
+      const response = await fetch(logoutUrl, { // Using direct fetch
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        credentials: 'include'
+        credentials: 'include' // Crucial for Set-Cookie to work and be stored/cleared
       });
 
+      // The logout RPC now returns an auth_status_response.
+      // We expect this response to indicate an unauthenticated state.
+      const responseData = await response.json();
+
       if (!response.ok) {
-        let errorData = { message: `Logout failed with status: ${response.status}` };
-        try {
-          errorData = await response.json();
-        } catch (e) {
-          // Ignore if response is not JSON
-        }
-        // Don't throw for logout, just log and proceed to clear state
-        console.error(errorData.message || `Logout failed with status: ${response.status}`);
+        // Even if not ok, responseData might contain an error message from the server.
+        const errorMessage = responseData?.message || `Logout failed with status: ${response.status}`;
+        console.error(errorMessage);
+        // Fallback to setting a default unauthenticated status if parsing fails or response is unexpected
+        set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+      } else {
+        // Parse the auth_status_response from the successful logout call
+        const newStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
+        set(authStatusAtom, newStatus); // This should reflect unauthenticated state
       }
+
     } catch (error) {
       console.error('Error during logout API call:', error);
-      // Proceed to clear client-side state even if API call fails
+      // Ensure auth state is cleared on any error during logout API call
+      set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
     }
     
-    // Clear client-side auth state
-    set(authStatusAtom, {
-      isAuthenticated: false,
-      user: null,
-      tokenExpiring: false,
-    });
-    
-    // Clear other sensitive data
+    // Clear other sensitive data regardless of API call success/failure details,
+    // as the intent is to log out. The authStatusAtom is already set above.
     set(baseDataAtom, {
       statDefinitions: [],
       externalIdentTypes: [],
@@ -1646,6 +1692,9 @@ export const atoms = {
   authStatusInitiallyCheckedAtom,
   fetchAndSetAuthStatusAtom,
   searchStateInitializedAtom,
+
+  // Client-side refresh action
+  clientSideRefreshAtom,
   
   // Loadable
   baseDataLoadableAtom,

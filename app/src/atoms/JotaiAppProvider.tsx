@@ -169,22 +169,34 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
           }
         }
         
-        eventSource.onerror = (error) => {
-          console.error('SSE connection error:', error)
+        eventSource.onerror = (event) => { // The 'error' is an Event object
+          // Log the type of event and the readyState of the EventSource
+          const readyState = eventSource?.readyState;
+          let readyStateString = "UNKNOWN";
+          if (readyState === EventSource.CONNECTING) readyStateString = "CONNECTING";
+          else if (readyState === EventSource.OPEN) readyStateString = "OPEN";
+          else if (readyState === EventSource.CLOSED) readyStateString = "CLOSED";
+
+          console.error(`SSE connection error. Event type: ${event.type}, EventSource readyState: ${readyStateString}. Attempting to reconnect...`, event);
+          
           eventSource?.close()
           
           // Implement exponential backoff for reconnection
           if (reconnectAttempts < maxReconnectAttempts) {
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000)
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Max 30 seconds
+            console.log(`SSE: Scheduling reconnect attempt ${reconnectAttempts + 1} in ${delay / 1000}s.`);
             reconnectTimeout = setTimeout(() => {
-              reconnectAttempts++
-              connect()
-            }, delay)
+              reconnectAttempts++;
+              connect();
+            }, delay);
+          } else {
+            console.error(`SSE: Max reconnect attempts (${maxReconnectAttempts}) reached. Giving up.`);
           }
         }
         
       } catch (error) {
-        console.error('Failed to establish SSE connection:', error)
+        console.error('SSE: Failed to establish initial SSE connection:', error);
+        // Optionally, you could try to schedule a reconnect here too if initial connect fails
       }
     }
     
