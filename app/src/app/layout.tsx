@@ -46,16 +46,13 @@ export default async function RootLayout({
                 <NavbarSkeleton />
                 <div className="flex-grow p-4"><div>Loading application data...</div></div> {/* Placeholder for children */}
                 <FooterSkeleton />
-                <Toaster /> {/* Toaster can be outside if it doesn't depend on suspended data */}
-                <CommandPalette /> {/* CommandPalette might also be okay outside */}
+                <Toaster />
+                <CommandPalette />
               </>
             }>
-              {/* ServerBaseDataProvider and TimeContextProvider have been removed. 
-                  State management and initialization are now handled by JotaiAppProvider. */}
+              {/* ServerBaseDataProvider has been removed.
+                  State management and initialization are now handled by JotaiAppProvider's client-side logic. */}
               <PopStateHandler />
-              {/* Navbar and Footer are already Suspense-wrapped, which is good.
-                  They will use their own skeletons if ServerBaseDataProvider resolves 
-                  but their specific data is still loading. */}
               <Suspense fallback={<NavbarSkeleton />}>
                 <Navbar />
               </Suspense>
@@ -68,6 +65,12 @@ export default async function RootLayout({
             </Suspense>
           </RootLayoutClient>
           <GlobalErrorReporter />
+          {/* AtomDevtools can be conditionally rendered here or inside RootLayoutClient if needed for dev */}
+          {process.env.NODE_ENV === 'development' && (
+            <Suspense fallback={null}> {/* Suspense for AtomDevtools if it has async aspects or for consistency */}
+              <AtomDevtools />
+            </Suspense>
+          )}
         </JotaiAppProvider>
       </body>
     </html>

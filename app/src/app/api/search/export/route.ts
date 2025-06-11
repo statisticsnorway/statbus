@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getStatisticalUnits } from "@/app/search/search-requests";
 import { toCSV } from "@/lib/csv-utils";
 import { getServerRestClient } from "@/context/RestClientStore";
-import { getBaseData } from "@/app/BaseDataServer";
+import { baseDataStore } from "@/context/BaseDataStore";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -18,7 +18,8 @@ export async function GET(request: NextRequest) {
   const isEstablishment = unitType === "establishment";
 
   const client = await getServerRestClient();
-  const { externalIdentTypes, statDefinitions } = await getBaseData(client);
+  // Use baseDataStore to get actual data
+  const { externalIdentTypes, statDefinitions } = await baseDataStore.getBaseData(client);
 
   const externalIdentColumns = externalIdentTypes.map(({ code }) => `${code}:external_idents->>${code}`);
   const statDefinitionColumns = statDefinitions.map(({ code }) => `${code}:stats_summary->${code}->sum`);

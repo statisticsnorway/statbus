@@ -17,7 +17,7 @@ import {
   
   // Base data atoms
   baseDataAtom,
-  restClientAtom, // Added missing import for restClientAtom
+  restClientAtom,
   statDefinitionsAtom,
   externalIdentTypesAtom,
   timeContextsAtom,
@@ -56,7 +56,7 @@ import {
   type WorkerStatus,
   type SearchState,
   type SearchDirection,
-  type StatMetric, // Export new metric types
+  type StatMetric,
   type NumberStatMetric,
   type CountsStatMetric,
   
@@ -83,13 +83,13 @@ import {
   setImportSelectedTimeContextAtom,
   setImportUseExplicitDatesAtom,
   createImportJobAtom,
-  allPendingJobsStateAtom, // Renamed
-  refreshPendingJobsByPatternAtom, // Renamed
-  type AllPendingJobsState, // Renamed
-  type PendingJobsData, // Added
+  allPendingJobsStateAtom,
+  refreshPendingJobsByPatternAtom,
+  type AllPendingJobsState,
+  type PendingJobsData,
 } from './index'
-import type { TableColumn, AdaptableTableColumn, ColumnProfile } from '../app/search/search.d'; // Added for new table column types
-import type { Tables } from '@/lib/database.types'; // For Tables<'statistical_unit'> and Tables<'import_job'>
+import type { TableColumn, AdaptableTableColumn, ColumnProfile } from '../app/search/search.d';
+import type { Tables } from '@/lib/database.types';
 
 // ============================================================================
 // AUTH HOOKS - Replace useAuth and AuthContext patterns

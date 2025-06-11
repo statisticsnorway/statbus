@@ -9,6 +9,7 @@ export default function RootLayoutClient({ children }: { readonly children: Reac
     setupGlobalErrorHandler();
     // This effect should only run once on mount
   }, []);
-  
+
+  // InitialStateHydrator wrapper removed.
   return <>{children}</>;
 }

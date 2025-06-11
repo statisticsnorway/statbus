@@ -7,9 +7,9 @@
 
 import { atom } from 'jotai'
 import { atomWithStorage, loadable } from 'jotai/utils'
-import type { Database, Tables, TablesInsert } from '@/lib/database.types' // Added TablesInsert
+import type { Database, Tables, TablesInsert } from '@/lib/database.types'
 import type { PostgrestClient } from '@supabase/postgrest-js'
-import type { TableColumn, AdaptableTableColumn, ColumnProfile } from '../app/search/search.d'; // Added for new table column types
+import type { TableColumn, AdaptableTableColumn, ColumnProfile } from '../app/search/search.d';
 
 // ============================================================================
 // AUTH ATOMS - Replace AuthStore + AuthContext
@@ -332,8 +332,8 @@ export interface ImportState {
   currentFile: string | null
   errors: string[]
   completed: boolean
-  useExplicitDates: boolean; // Added
-  selectedImportTimeContextIdent: string | null; // Added
+  useExplicitDates: boolean;
+  selectedImportTimeContextIdent: string | null;
 }
 
 export const importStateAtom = atom<ImportState>({
@@ -342,8 +342,8 @@ export const importStateAtom = atom<ImportState>({
   currentFile: null,
   errors: [],
   completed: false,
-  useExplicitDates: false, // Added default
-  selectedImportTimeContextIdent: null, // Added default
+  useExplicitDates: false,
+  selectedImportTimeContextIdent: null,
 })
 
 // ============================================================================
@@ -363,7 +363,7 @@ export const unitCountsAtom = atom<UnitCounts>({
 });
 
 // Pending Import Jobs (Generalized)
-export interface PendingJobsData { // Renamed for clarity
+export interface PendingJobsData {
   jobs: Tables<'import_job'>[];
   loading: boolean;
   error: string | null;
@@ -371,7 +371,7 @@ export interface PendingJobsData { // Renamed for clarity
 }
 
 export interface AllPendingJobsState {
-  [slugPattern: string]: PendingJobsData | undefined; // Store data per slug pattern
+  [slugPattern: string]: PendingJobsData | undefined;
 }
 
 // Atom to store all pending jobs, keyed by their definition slug pattern
@@ -1372,7 +1372,7 @@ import {
   UNIT_SIZE,
   DATA_SOURCE,
 } from '../app/search/filters/url-search-params';
-import { SearchAction, type SetQuery } from '@/app/search/search'; // Added SetQuery import
+import { SearchAction, type SetQuery } from '@/app/search/search';
 
 
 // Atom to derive API search parameters
@@ -1645,8 +1645,8 @@ export const atoms = {
 
   // App Initialization State
   authStatusInitiallyCheckedAtom,
-  fetchAndSetAuthStatusAtom, // Added for explicit export
-  searchStateInitializedAtom, // Export the new atom
+  fetchAndSetAuthStatusAtom,
+  searchStateInitializedAtom,
   
   // Loadable
   baseDataLoadableAtom,

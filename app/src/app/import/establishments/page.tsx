@@ -6,9 +6,9 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import React, { useEffect } from "react"; // Removed useState
+import React, { useEffect } from "react";
 import { InfoBox } from "@/components/info-box";
-import { useImportManager, usePendingJobsByPattern } from "@/atoms/hooks"; // Updated import
+import { useImportManager, usePendingJobsByPattern } from "@/atoms/hooks";
 import { TimeContextSelector } from "../components/time-context-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";

@@ -1,7 +1,9 @@
-import { getServerRestClient } from "@/context/RestClientStore";
+"use client";
+
 import Link from "next/link";
 import { Github, Globe } from "lucide-react";
 import { CommandPaletteTriggerButton } from "@/components/command-palette/command-palette-trigger-button";
+import { useAuth } from "@/atoms/hooks";
 
 export function FooterSkeleton() {
   return (
@@ -13,11 +15,9 @@ export function FooterSkeleton() {
   );
 }
 
-export default async function Footer() {
-  // Check if user is authenticated using AuthStore
-  const { authStore } = await import('@/context/AuthStore');
-  const authStatus = await authStore.getAuthStatus();
-  const isAuthenticated = authStatus.isAuthenticated;
+export default function Footer() {
+  // Use Jotai hook to get authentication status
+  const { isAuthenticated } = useAuth();
 
   return (
     <footer className="border-t-2 border-gray-100 bg-ssb-dark">

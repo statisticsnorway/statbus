@@ -18,12 +18,11 @@ import {
   refreshWorkerStatusAtom,
   workerStatusAtom,
   isAuthenticatedAtom,
-  initializeTableColumnsAtom, // Added for table column initialization
-  refreshAllGettingStartedDataAtom, // Added for Getting Started data
-  refreshAllUnitCountsAtom, // Added for Import Units counts
-  fetchAndSetAuthStatusAtom, // Added to trigger initial auth check
-  authStatusInitiallyCheckedAtom, // Added to track if initial check is done
-  // refreshPendingLegalUnitJobsAtom, // Removed - handled by page-specific hooks now
+  initializeTableColumnsAtom,
+  refreshAllGettingStartedDataAtom,
+  refreshAllUnitCountsAtom,
+  fetchAndSetAuthStatusAtom,
+  authStatusInitiallyCheckedAtom,
 } from './index'
 
 // ============================================================================
@@ -38,10 +37,9 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const refreshBaseData = useSetAtom(refreshBaseDataAtom)
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setRestClient = useSetAtom(restClientAtom)
-  const initializeTableColumns = useSetAtom(initializeTableColumnsAtom); // Added
-  const refreshGettingStartedData = useSetAtom(refreshAllGettingStartedDataAtom); // Added
-  const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom); // Added
-  // const refreshPendingLegalJobs = useSetAtom(refreshPendingLegalUnitJobsAtom); // Removed
+  const initializeTableColumns = useSetAtom(initializeTableColumnsAtom);
+  const refreshGettingStartedData = useSetAtom(refreshAllGettingStartedDataAtom);
+  const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
   
   // Initialize REST client
   useEffect(() => {
@@ -104,7 +102,6 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
         refreshUnitCounts();
 
         // Pending jobs are now fetched by their respective pages, not globally on init.
-        // refreshPendingLegalJobs(); // Removed
 
         // Fetch worker status
         await refreshWorkerStatus()
@@ -121,7 +118,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false
     }
-  }, [isAuthenticated, restClient, initialAuthCheckDone, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts]) // Added initialAuthCheckDone and restClient to deps
+  }, [isAuthenticated, restClient, initialAuthCheckDone, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts])
   
   return <>{children}</>
 }
