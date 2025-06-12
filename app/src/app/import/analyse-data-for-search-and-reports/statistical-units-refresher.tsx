@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useBaseData } from "@/atoms/hooks";
 import { useSetAtom } from 'jotai';
-import { refreshHasStatisticalUnitsAtomAction } from '@/atoms/index';
+import { refreshBaseDataAtom } from '@/atoms/index'; // Changed import
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 type AnalysisState = "checking_status" | "in_progress" | "finished" | "failed";
@@ -17,9 +17,9 @@ export function StatisticalUnitsRefresher({
   const [state, setState] = useState<AnalysisState>("checking_status");
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // Get status from Jotai hook
-  const { workerStatus, hasStatisticalUnits } = useBaseData();
+  const { workerStatus, hasStatisticalUnits, refreshBaseData } = useBaseData(); // Added refreshBaseData
   // Get setter for the action atom
-  const doRefreshHasStatisticalUnits = useSetAtom(refreshHasStatisticalUnitsAtomAction);
+  // const doRefreshHasStatisticalUnits = useSetAtom(refreshHasStatisticalUnitsAtomAction); // Removed
 
   // Effect to determine component state based on context status
   useEffect(() => {
@@ -41,8 +41,11 @@ export function StatisticalUnitsRefresher({
     } else {
       // Import and Derivation are finished according to context, now check if units exist
       const checkUnits = async () => {
-        const currentHasUnits = await doRefreshHasStatisticalUnits(); // Refresh and get latest
-        if (currentHasUnits) {
+        await refreshBaseData(); // Refresh base data which includes hasStatisticalUnits
+        // hasStatisticalUnits from useBaseData() will be updated once baseDataAtom re-evaluates.
+        // The useEffect dependency on hasStatisticalUnits will cause a re-run if it changes.
+        // For this specific checkUnits call, we rely on the subsequent re-render/re-evaluation.
+        if (hasStatisticalUnits) { // Use the hasStatisticalUnits from useBaseData after refresh
           setState("finished");
         } else {
           // Derivation finished, but no units found
@@ -53,7 +56,7 @@ export function StatisticalUnitsRefresher({
       checkUnits();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workerStatus, doRefreshHasStatisticalUnits]);
+  }, [workerStatus, refreshBaseData, hasStatisticalUnits]); // Added hasStatisticalUnits to deps
 
   if (state === "checking_status") {
     return <Spinner message="Checking status of data analysis..." />;

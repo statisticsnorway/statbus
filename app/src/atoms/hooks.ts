@@ -96,15 +96,15 @@ import type { Tables } from '@/lib/database.types';
 // ============================================================================
 
 export const useAuth = () => {
-  const authStatus = useAtomValue(authStatusAtom)
-  const login = useSetAtom(loginAtom)
-  const logout = useSetAtom(logoutAtom)
+  const authStatusValue = useAtomValue(authStatusAtom); // This is the synchronous derived atom
+  const login = useSetAtom(loginAtom);
+  const logout = useSetAtom(logoutAtom);
   
   return {
-    ...authStatus,
+    ...authStatusValue, // authStatusValue is of type AuthStatus (object)
     login,
     logout,
-  }
+  };
 }
 
 export const useUser = (): User | null => {
@@ -136,9 +136,9 @@ export const useBaseData = () => {
         throw error
       }
     }, [refreshBaseData]),
-    refreshWorkerStatus: useCallback(async (functionName?: string) => {
+    refreshWorkerStatus: useCallback(async () => { // Removed functionName parameter
       try {
-        await refreshWorkerStatus(functionName)
+        await refreshWorkerStatus() // Call without arguments
       } catch (error) {
         console.error('Failed to refresh worker status:', error)
         throw error
@@ -168,7 +168,8 @@ export const useHasStatisticalUnits = () => {
 }
 
 export const useWorkerStatus = (): WorkerStatus => {
-  return useAtomValue(workerStatusAtom)
+  // workerStatusAtom (the synchronous wrapper) is explicitly typed as returning WorkerStatus
+  return useAtomValue(workerStatusAtom); 
 }
 
 // ============================================================================

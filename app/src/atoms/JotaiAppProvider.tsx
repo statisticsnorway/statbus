@@ -18,6 +18,9 @@ import {
   refreshBaseDataAtom,
   refreshWorkerStatusAtom,
   workerStatusAtom,
+  authStatusLoadableAtom, // Added import
+  baseDataLoadableAtom, // Added import
+  workerStatusLoadableAtom, // Added import
   // isAuthenticatedAtom, // We'll use authStatusAtom directly for more clarity on loading vs authenticated
   initializeTableColumnsAtom,
   // refreshAllGettingStartedDataAtom, // Removed
@@ -34,7 +37,7 @@ import {
 // ============================================================================
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
-  const authStatus = useAtomValue(authStatusAtom); // Use the full authStatus object to access loading state
+  const authLoadableValue = useAtomValue(authStatusLoadableAtom); // Renamed to avoid conflict if authLoadable is declared later
   const initialAuthCheckDone = useAtomValue(authStatusInitiallyCheckedAtom);
   const restClient = useAtomValue(restClientAtom);
   const triggerFetchAuthStatus = useSetAtom(fetchAndSetAuthStatusAtom);
@@ -79,10 +82,10 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 
   // Effect to fetch initial authentication status once REST client is ready and auth is not already loading
   useEffect(() => {
-    if (restClient && !initialAuthCheckDone && !authStatus.loading) {
+    if (restClient && !initialAuthCheckDone && authLoadableValue.state !== 'loading') {
       triggerFetchAuthStatus(); 
     }
-  }, [restClient, initialAuthCheckDone, authStatus.loading, triggerFetchAuthStatus]);
+  }, [restClient, initialAuthCheckDone, authLoadableValue.state, triggerFetchAuthStatus]);
   
   const [appDataInitialized, setAppDataInitialized] = useState(false);
 
@@ -91,18 +94,21 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     let mounted = true;
 
     const initializeApp = async () => {
+      const currentAuthIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
+      const isAuthCurrentlyLoading = authLoadableValue.state === 'loading';
+
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.log("AppInitializer: Checking conditions for app data initialization...", {
           appDataInitialized,
           initialAuthCheckDone,
-          isAuthLoading: authStatus.loading,
-          isAuthenticated: authStatus.isAuthenticated,
+          authLoadableState: authLoadableValue.state,
+          isAuthenticated: currentAuthIsAuthenticated,
           isRestClientReady: !!restClient,
         });
       }
 
       // Core conditions: auth must be checked, user authenticated, client ready.
-      if (!initialAuthCheckDone || !authStatus.isAuthenticated || !restClient || authStatus.loading) {
+      if (!initialAuthCheckDone || !currentAuthIsAuthenticated || !restClient || isAuthCurrentlyLoading) {
         return;
       }
 
@@ -145,13 +151,14 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
       mounted = false;
     };
   }, [
-    authStatus.isAuthenticated, // Re-run if auth status changes (e.g., logout then login)
-    authStatus.loading,         // Wait for auth loading to complete
-    restClient,                 // Wait for REST client to be available
-    initialAuthCheckDone,       // Wait for initial auth check
-    appDataInitialized,         // Prevent re-run if already initialized
-    // Removed action atoms from dependencies as they don't change and shouldn't trigger re-runs of this effect.
-    // The functions themselves (refreshBaseData, etc.) are stable if created by useSetAtom.
+    authLoadableValue, // Depend on the whole loadable value
+    restClient,                
+    initialAuthCheckDone,      
+    appDataInitialized,        
+    refreshBaseData,            
+    refreshUnitCounts,         
+    refreshWorkerStatus,       
+    initializeTableColumns     
   ]);
 
   // "Getting Started" redirect logic is removed.
@@ -164,9 +171,12 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     let mounted = true;
     if (!mounted) return;
 
+    const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
+    const isAuthLoading = authLoadableValue.state === 'loading';
+
     // Early exit if critical conditions are not met or already redirecting
-    if (isRedirectingToSetup || pathname !== '/' || !authStatus.isAuthenticated || authStatus.loading || !initialAuthCheckDone || !restClient) {
-      if (pathname !== '/' || !authStatus.isAuthenticated) {
+    if (isRedirectingToSetup || pathname !== '/' || !currentIsAuthenticated || isAuthLoading || !initialAuthCheckDone || !restClient) {
+      if (pathname !== '/' || !currentIsAuthenticated ) { 
         setIsRedirectingToSetup(false);
       }
       return;
@@ -222,12 +232,11 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     };
   }, [
     pathname,
-    authStatus.isAuthenticated,
-    authStatus.loading,
+    authLoadableValue, // Depend on the whole loadable value
     initialAuthCheckDone,
     restClient,
     activityStandard,
-    numberOfRegions, // Add numberOfRegions to dependency array
+    numberOfRegions,
     baseData.hasStatisticalUnits, 
     baseData.statDefinitions.length, 
     router,
@@ -242,12 +251,15 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 // ============================================================================
 
 const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
-  const authStatus = useAtomValue(authStatusAtom); // Use full authStatus to access loading state
+  const authLoadableValue = useAtomValue(authStatusLoadableAtom); // Correctly use authStatusLoadableAtom
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   
   useEffect(() => {
     // Connect SSE only if authenticated and not in a loading state
-    if (!authStatus.isAuthenticated || authStatus.loading) return
+    const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
+    const isAuthLoading = authLoadableValue.state === 'loading';
+
+    if (!currentIsAuthenticated || isAuthLoading) return
     
     let eventSource: EventSource | null = null
     let reconnectTimeout: NodeJS.Timeout | null = null
@@ -273,7 +285,10 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
             // Handle different SSE message types
             switch (data.type) {
               case 'function_status_change':
-                refreshWorkerStatus(data.functionName)
+                // refreshWorkerStatusAtom no longer takes functionName.
+                // A full refresh is triggered. If targeted refresh is critical,
+                // workerStatusCoreAtom would need a more complex write function.
+                refreshWorkerStatus() 
                 break
               case 'worker_status_update':
                 refreshWorkerStatus()
@@ -331,7 +346,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource.close()
       }
     }
-  }, [authStatus.isAuthenticated, authStatus.loading, refreshWorkerStatus])
+  }, [authLoadableValue, refreshWorkerStatus])  // Depend on the whole loadable value
   
   return <>{children}</>
 }
@@ -500,9 +515,9 @@ export const useManualInit = () => {
  */
 export const AtomDevtools = () => {
   const [mounted, setMounted] = React.useState(false);
-  const authStatus = useAtomValue(authStatusAtom)
-  const baseData = useAtomValue(baseDataAtom)
-  const workerStatus = useAtomValue(workerStatusAtom)
+  const authLoadableValue = useAtomValue(authStatusLoadableAtom); 
+  const baseDataLoadableValue = useAtomValue(baseDataLoadableAtom); 
+  const workerStatusLoadableValue = useAtomValue(workerStatusLoadableAtom); 
 
   useEffect(() => {
     setMounted(true);
@@ -528,21 +543,41 @@ export const AtomDevtools = () => {
       <h3 className="font-bold mb-2">Atom States (Dev Only)</h3>
       <div className="space-y-2">
         <div>
-          <strong>Auth:</strong> {authStatus.isAuthenticated ? 'Yes' : 'No'}
+          <strong>Auth State:</strong> {authLoadableValue.state}
         </div>
+        {authLoadableValue.state === 'hasData' && (
+          <>
+            <div>
+              <strong>Auth:</strong> {authLoadableValue.data.isAuthenticated ? 'Yes' : 'No'}
+            </div>
+            <div>
+              <strong>User:</strong> {authLoadableValue.data.user?.email || 'None'}
+            </div>
+          </>
+        )}
+        {authLoadableValue.state === 'hasError' && <div><strong>Auth Error:</strong> Present</div>}
         <div>
-          <strong>User:</strong> {authStatus.user?.email || 'None'}
+          <strong>Base Data State:</strong> {baseDataLoadableValue.state}
         </div>
+        {baseDataLoadableValue.state === 'hasData' && (
+          <div>
+            <strong>Base Data Loaded:</strong> {baseDataLoadableValue.data.statDefinitions.length} stat definitions
+          </div>
+        )}
+        {baseDataLoadableValue.state === 'hasError' && <div><strong>Base Data Error:</strong> Present</div>}
         <div>
-          <strong>Base Data:</strong> {baseData.statDefinitions.length} stat definitions
+          <strong>Worker Status State:</strong> {workerStatusLoadableValue.state}
         </div>
-        <div>
-          <strong>Worker Status:</strong> 
-          {workerStatus.isImporting ? ' Importing' : ''}
-          {workerStatus.isDerivingUnits ? ' Deriving Units' : ''}
-          {workerStatus.isDerivingReports ? ' Deriving Reports' : ''}
-          {!workerStatus.isImporting && !workerStatus.isDerivingUnits && !workerStatus.isDerivingReports ? ' Idle' : ''}
-        </div>
+        {workerStatusLoadableValue.state === 'hasData' && (
+          <div>
+            <strong>Worker Status:</strong>
+            {workerStatusLoadableValue.data.isImporting ? ' Importing' : ''}
+            {workerStatusLoadableValue.data.isDerivingUnits ? ' Deriving Units' : ''}
+            {workerStatusLoadableValue.data.isDerivingReports ? ' Deriving Reports' : ''}
+            {!workerStatusLoadableValue.data.isImporting && !workerStatusLoadableValue.data.isDerivingUnits && !workerStatusLoadableValue.data.isDerivingReports ? ' Idle' : ''}
+          </div>
+        )}
+        {workerStatusLoadableValue.state === 'hasError' && <div><strong>Worker Status Error:</strong> Present</div>}
       </div>
     </div>
   )

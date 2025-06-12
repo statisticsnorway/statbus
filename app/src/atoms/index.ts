@@ -32,18 +32,61 @@ export interface AuthStatus {
   user: User | null
 }
 
-// Base auth atom - starts unauthenticated and not loading
-export const authStatusAtom = atom<AuthStatus>({
-  loading: false, // Initialize loading to false
-  isAuthenticated: false,
-  tokenExpiring: false,
-  user: null,
-})
+// Base auth atom - now an async atom
+export const authStatusCoreAtom = atomWithRefresh(async (get) => {
+  const client = get(restClientAtom);
+  // This atom should only attempt to fetch if the client is available.
+  // Initial state before client is ready might be handled by AppInitializer or initial value of loadable.
+  if (!client) {
+    // Return a default unauthenticated state if client isn't ready
+    // This helps avoid errors if this atom is read before client initialization.
+    return { isAuthenticated: false, user: null, tokenExpiring: false };
+  }
+  try {
+    const { data, error } = await client.rpc("auth_status");
+    if (error) {
+      console.error("authStatusCoreAtom: Auth status check failed:", error);
+      return { isAuthenticated: false, user: null, tokenExpiring: false };
+    }
+    return _parseAuthStatusRpcResponseToAuthStatus(data);
+  } catch (e) {
+    console.error("authStatusCoreAtom: Error fetching auth status:", e);
+    return { isAuthenticated: false, user: null, tokenExpiring: false };
+  }
+});
 
-// Derived atoms for easier access
-export const isAuthenticatedAtom = atom((get) => get(authStatusAtom).isAuthenticated)
-export const currentUserAtom = atom((get) => get(authStatusAtom).user)
-export const tokenExpiringAtom = atom((get) => get(authStatusAtom).tokenExpiring)
+export const authStatusLoadableAtom = loadable(authStatusCoreAtom);
+
+import type { Loadable } from 'jotai/vanilla/utils/loadable'; // Import Loadable type
+
+// Derived atoms for easier access, now from the loadable atom's data
+export const authStatusAtom = atom<AuthStatus>(
+  (get): AuthStatus => { // Explicit return type for the getter
+    const loadableState: Loadable<Omit<AuthStatus, 'loading'>> = get(authStatusLoadableAtom);
+    if (loadableState.state === 'loading') {
+      return { loading: true, isAuthenticated: false, user: null, tokenExpiring: false };
+    }
+    if (loadableState.state === 'hasError') {
+      return { loading: false, isAuthenticated: false, user: null, tokenExpiring: false };
+    }
+    // loadableState.data is Omit<AuthStatus, 'loading'>
+    const data: Omit<AuthStatus, 'loading'> = loadableState.data; // No need for ?? if hasData implies data exists
+    return { loading: false, ...data };
+  }
+);
+
+export const isAuthenticatedAtom = atom((get) => {
+  const loadableState: Loadable<Omit<AuthStatus, 'loading'>> = get(authStatusLoadableAtom);
+  return loadableState.state === 'hasData' && loadableState.data.isAuthenticated;
+});
+export const currentUserAtom = atom((get) => {
+  const loadableState: Loadable<Omit<AuthStatus, 'loading'>> = get(authStatusLoadableAtom);
+  return loadableState.state === 'hasData' ? loadableState.data.user : null;
+});
+export const tokenExpiringAtom = atom((get) => {
+  const loadableState: Loadable<Omit<AuthStatus, 'loading'>> = get(authStatusLoadableAtom);
+  return loadableState.state === 'hasData' ? loadableState.data.tokenExpiring : false;
+});
 
 // ============================================================================
 // BASE DATA ATOMS - Replace BaseDataStore + BaseDataContext
@@ -59,17 +102,86 @@ export interface BaseData {
 }
 
 // Base data atom
-export const baseDataAtom = atom<BaseData>({
+
+const initialBaseData: BaseData = {
   statDefinitions: [],
   externalIdentTypes: [],
   statbusUsers: [],
   timeContexts: [],
   defaultTimeContext: null,
   hasStatisticalUnits: false,
-})
+};
 
-// Atom to track loading state for base data
-export const baseDataLoadingAtom = atom(false);
+export const baseDataCoreAtom = atomWithRefresh(async (get): Promise<BaseData> => {
+  const isAuthenticated = get(isAuthenticatedAtom);
+  if (!isAuthenticated) return initialBaseData;
+
+  const client = get(restClientAtom);
+  if (!client) {
+    console.error("baseDataCoreAtom: No client available.");
+    return initialBaseData;
+  }
+
+  try {
+    const [
+      statDefinitionsResult,
+      externalIdentTypesResult,
+      statbusUsersResult,
+      statisticalUnitResult,
+      timeContextsResult
+    ] = await Promise.all([
+      client.from("stat_definition_active").select(),
+      client.from("external_ident_type_active").select(),
+      client.from("user").select(), // Consider if all users are needed or just current user's info
+      client.from("statistical_unit").select("*", { count: "exact", head: true }), // Check existence efficiently
+      client.from("time_context").select("*") // Fetches all, view is ordered by default
+    ]);
+
+    if (statDefinitionsResult.error) console.error('Error fetching stat definitions:', statDefinitionsResult.error);
+    if (externalIdentTypesResult.error) console.error('Error fetching external ident types:', externalIdentTypesResult.error);
+    if (statbusUsersResult.error) console.error('Error fetching statbus users:', statbusUsersResult.error);
+    if (statisticalUnitResult.error) console.error('Error checking for statistical units:', statisticalUnitResult.error); // This error might still occur if other issues arise, but the query itself is fixed.
+    if (timeContextsResult.error) console.error('Error fetching time contexts:', timeContextsResult.error);
+    
+    let defaultTimeContext: Tables<"time_context"> | null = null;
+    if (timeContextsResult.data && timeContextsResult.data.length > 0) {
+      // The time_context view is pre-ordered by priority, then valid_on descending.
+      // The first one is the default.
+      defaultTimeContext = timeContextsResult.data[0] as Tables<"time_context">;
+    }
+
+    return {
+      statDefinitions: statDefinitionsResult.data || [],
+      externalIdentTypes: externalIdentTypesResult.data || [],
+      statbusUsers: statbusUsersResult.data || [],
+      timeContexts: timeContextsResult.data || [],
+      defaultTimeContext: defaultTimeContext,
+      hasStatisticalUnits: !!statisticalUnitResult.count && statisticalUnitResult.count > 0,
+    };
+  } catch (error) {
+    console.error("baseDataCoreAtom: Failed to fetch base data:", error);
+    return initialBaseData;
+  }
+});
+
+export const baseDataLoadableAtom = loadable(baseDataCoreAtom);
+
+export const baseDataAtom = atom<BaseData & { loading: boolean; error: string | null }>(
+  (get): BaseData & { loading: boolean; error: string | null } => {
+    const loadableState = get(baseDataLoadableAtom);
+    switch (loadableState.state) {
+      case 'loading':
+        return { ...initialBaseData, loading: true, error: null };
+      case 'hasError':
+        const error = loadableState.error;
+        return { ...initialBaseData, loading: false, error: error instanceof Error ? error.message : String(error) };
+      case 'hasData':
+        return { ...loadableState.data, loading: false, error: null };
+      default: // Should not happen with loadable
+        return { ...initialBaseData, loading: false, error: 'Unknown loadable state' };
+    }
+  }
+);
 
 // Derived atoms for individual data pieces
 export const statDefinitionsAtom = atom((get) => get(baseDataAtom).statDefinitions)
@@ -83,21 +195,80 @@ export const hasStatisticalUnitsAtom = atom((get) => get(baseDataAtom).hasStatis
 // WORKER STATUS ATOMS - Replace BaseDataStore worker status
 // ============================================================================
 
-export interface WorkerStatus {
-  isImporting: boolean | null
-  isDerivingUnits: boolean | null
-  isDerivingReports: boolean | null
-  loading: boolean
-  error: string | null
+export interface WorkerStatusData { // Renamed to avoid potential naming conflicts
+  isImporting: boolean | null;
+  isDerivingUnits: boolean | null;
+  isDerivingReports: boolean | null;
 }
 
-export const workerStatusAtom = atom<WorkerStatus>({
+const initialWorkerStatusData: WorkerStatusData = {
   isImporting: null,
   isDerivingUnits: null,
   isDerivingReports: null,
-  loading: false,
-  error: null,
-})
+};
+
+// Core async atom for worker status
+export const workerStatusCoreAtom = atomWithRefresh(async (get): Promise<WorkerStatusData> => {
+  const isAuthenticated = get(isAuthenticatedAtom);
+  // Do not fetch if not authenticated, but also don't return error, just initial state.
+  // Components consuming this should ideally also check auth if behavior needs to differ.
+  if (!isAuthenticated) return initialWorkerStatusData;
+
+  const client = get(restClientAtom);
+  if (!client) {
+    // console.error("workerStatusCoreAtom: No client available."); // Logged by restClientAtom if needed
+    return initialWorkerStatusData;
+  }
+
+  try {
+    const [importRes, unitsRes, reportsRes] = await Promise.all([
+      client.rpc('is_importing'),
+      client.rpc('is_deriving_statistical_units'),
+      client.rpc('is_deriving_reports'),
+    ]);
+
+    // Errors are logged by the RPC calls themselves if they fail at client level.
+    // Here we just process data or default to null if data isn't as expected.
+    return {
+      isImporting: importRes.data ?? null,
+      isDerivingUnits: unitsRes.data ?? null,
+      isDerivingReports: reportsRes.data ?? null,
+    };
+  } catch (error) {
+    console.error("workerStatusCoreAtom: Failed to fetch worker statuses:", error);
+    return initialWorkerStatusData; // Return initial state on error
+  }
+});
+
+export const workerStatusLoadableAtom = loadable(workerStatusCoreAtom);
+
+// Interface for the synchronous view of worker status, including loading/error states
+export interface WorkerStatus {
+  isImporting: boolean | null;
+  isDerivingUnits: boolean | null;
+  isDerivingReports: boolean | null;
+  loading: boolean;
+  error: string | null;
+}
+
+// Compatibility workerStatusAtom (synchronous view)
+export const workerStatusAtom = atom<WorkerStatus>(
+  (get): WorkerStatus => { // Explicit return type for the getter
+    const loadableState: Loadable<WorkerStatusData> = get(workerStatusLoadableAtom);
+    switch (loadableState.state) {
+      case 'loading':
+        return { ...initialWorkerStatusData, loading: true, error: null };
+      case 'hasError':
+        const error = loadableState.error;
+        return { ...initialWorkerStatusData, loading: false, error: error instanceof Error ? error.message : String(error) };
+      case 'hasData':
+        // loadableState.data is WorkerStatusData
+        return { ...loadableState.data, loading: false, error: null };
+      default: // Should not happen with loadable
+        return { ...initialWorkerStatusData, loading: false, error: 'Unknown loadable state' };
+    }
+  }
+);
 
 // ============================================================================
 // REST CLIENT ATOM - Replace RestClientStore
@@ -727,30 +898,22 @@ export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponseData: any): O
 };
 
 export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
-  set(authStatusAtom, prev => ({ ...prev, loading: true }));
-  const client = get(restClientAtom);
-  if (!client) {
-    console.error("fetchAndSetAuthStatusAtom: No client available to fetch auth status.");
-    set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
-    set(authStatusInitiallyCheckedAtom, true); 
-    return;
-  }
+  // Now, this atom simply triggers a refresh of the core async atom.
+  // The loadable atom will handle the loading state.
+  set(authStatusCoreAtom); // Corrected: Refresh atomWithRefresh
+  // Wait for the refresh to complete if needed, or let components react to loadable state.
+  // For simplicity, we'll assume components will react to the loadable state.
+  // The authStatusInitiallyCheckedAtom is still important.
+  
+  // We need a way to know when the async atom has finished.
+  // A common pattern is to read it until it's not loading, but that can be complex here.
+  // For now, let's assume the refresh is triggered and components will update.
+  // The `authStatusInitiallyCheckedAtom` will be set after the first attempt.
   try {
-    const { data, error } = await client.rpc("auth_status");
-    if (error) {
-      console.error("Auth status check failed after action:", error);
-      set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
-      return;
-    }
-    const coreStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
-    set(authStatusAtom, { ...coreStatus, loading: false });
-
+    await get(authStatusCoreAtom); 
   } catch (e) {
-    console.error("Error fetching auth status after action:", e);
-    set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
+    // Error is handled by authStatusCoreAtom's internal try/catch and reflected in loadableState
   } finally {
-    // Ensure loading is false even if an early return happened or error wasn't caught by try/catch
-    set(authStatusAtom, prev => ({ ...prev, loading: false }));
     set(authStatusInitiallyCheckedAtom, true);
   }
 });
@@ -760,13 +923,8 @@ export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
 export const loginAtom = atom(
   null,
   async (get, set, credentials: { email: string; password: string }) => {
-    set(authStatusAtom, prev => ({ 
-      ...prev, 
-      isAuthenticated: false, // Explicitly set to unauthenticated before login attempt
-      user: null, 
-      tokenExpiring: false, 
-      loading: true 
-    }));
+    // No need to manually set loading states on authStatusAtom now.
+    // Components will observe authStatusLoadableAtom.
     const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
     const loginUrl = `${apiUrl}/rest/rpc/login`;
 
@@ -799,58 +957,66 @@ export const loginAtom = atom(
         throw new Error(errorMessage);
       }
       
-      const coreStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
-      set(authStatusAtom, { ...coreStatus, loading: false });
+      // After successful login, the backend sets cookies.
+      // We need to refresh our authStatusCoreAtom to read the new state.
+      set(authStatusCoreAtom); 
+      await get(authStatusCoreAtom); // Ensure it re-fetches and updates.
+      // The authStatusLoadableAtom will reflect the new state.
 
     } catch (error) {
       console.error('[loginAtom] Catch block error:', error);
-      set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
+      // Refresh to ensure we have the latest (likely unauthenticated) status.
+      set(authStatusCoreAtom); 
+      await get(authStatusCoreAtom);
       throw error;
-    } finally {
-      // Ensure loading is false if an unhandled exception occurred before explicit set
-      set(authStatusAtom, prev => ({ ...prev, loading: false }));
+    }
     //   if (process.env.NODE_ENV === 'development') {
     //     console.log('[loginAtom EXIT]');
     //   }
-    } // This closing brace for 'finally' was missing
   }
 )
 
 export const clientSideRefreshAtom = atom<
   null, 
   [], 
-  Promise<{ success: boolean; newStatus?: Omit<AuthStatus, 'loading'> }> // newStatus won't include loading
+  Promise<{ success: boolean; newStatus?: Omit<AuthStatus, 'loading'> }>
 >(null, async (get, set) => {
-  set(authStatusAtom, prev => ({ ...prev, loading: true }));
+  // This atom's purpose is to call the /rpc/refresh and then update auth state.
+  // It should now just refresh the authStatusCoreAtom.
   const client = get(restClientAtom);
   if (!client) {
     console.error("clientSideRefreshAtom: No client available.");
-    set(authStatusAtom, prev => ({ ...prev, loading: false })); // Ensure loading is reset
     return { success: false };
   }
   try {
+    // The actual refresh RPC call is implicitly handled by authStatusCoreAtom's read function
+    // if it were designed to attempt refresh on 401.
+    // However, our authStatusCoreAtom just fetches /rpc/auth_status.
+    // For an explicit client-side refresh, we still need to call the /rpc/refresh endpoint.
     const { data, error } = await client.rpc('refresh');
     if (error) {
       console.error("Client-side refresh RPC failed:", error);
-      set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
+      set(authStatusCoreAtom); 
+      await get(authStatusCoreAtom);
       return { success: false };
     }
-    const coreStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
-    set(authStatusAtom, { ...coreStatus, loading: false });
-    return { success: true, newStatus: coreStatus };
+    // After successful RPC refresh, cookies are updated by the server.
+    // Refresh our authStatusCoreAtom to reflect the new state.
+    set(authStatusCoreAtom); 
+    const newCoreStatus = await get(authStatusCoreAtom);
+    return { success: true, newStatus: newCoreStatus };
   } catch (e) {
     console.error("Error during client-side refresh:", e);
-    set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
+    set(authStatusCoreAtom); 
+    await get(authStatusCoreAtom);
     return { success: false };
-  } finally {
-    set(authStatusAtom, prev => ({ ...prev, loading: false }));
   }
 });
 
 export const logoutAtom = atom(
   null,
   async (get, set) => {
-    set(authStatusAtom, prev => ({ ...prev, loading: true }));
+    // No need to manually set loading states on authStatusAtom now.
     const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
     const logoutUrl = `${apiUrl}/rest/rpc/logout`;
 
@@ -868,41 +1034,26 @@ export const logoutAtom = atom(
       // We expect this response to indicate an unauthenticated state.
       const responseData = await response.json();
 
-      if (!response.ok) {
-        // Even if not ok, responseData might contain an error message from the server.
-        const errorMessage = responseData?.message || `Logout failed with status: ${response.status}`;
-        console.error(errorMessage);
-        set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
-      } else {
-        const coreStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
-        set(authStatusAtom, { ...coreStatus, loading: false }); 
-      }
+      // The logout RPC clears cookies on the server.
+      // We need to refresh our authStatusCoreAtom to reflect the unauthenticated state.
+      set(authStatusCoreAtom); 
+      await get(authStatusCoreAtom); // Ensure it re-fetches and updates.
+      // The authStatusLoadableAtom will reflect the new state.
 
     } catch (error) {
       console.error('Error during logout API call:', error);
-      set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
-    } finally {
-      // Ensure loading is false and state is cleared, even if an error occurred before explicit set
-      // This also handles the case where the try block completes successfully.
-      set(authStatusAtom, { 
-        loading: false, 
-        isAuthenticated: false, 
-        user: null, 
-        tokenExpiring: false 
-      });
+      // Refresh to ensure we have the latest (likely unauthenticated) status.
+      set(authStatusCoreAtom); 
+      await get(authStatusCoreAtom);
     }
     
-    // Clear other sensitive data. authStatusAtom is already set to unauthenticated and not loading.
-    set(baseDataAtom, {
-      statDefinitions: [],
-      externalIdentTypes: [],
-      statbusUsers: [],
-      timeContexts: [],
-      defaultTimeContext: null,
-      hasStatisticalUnits: false,
-    });
+    // Clear other sensitive data. authStatusCoreAtom is now reset.
+    set(baseDataCoreAtom); // Refresh baseDataCoreAtom.
+    set(workerStatusCoreAtom); // Refresh workerStatusCoreAtom.
+    // The synchronous wrapper atoms will reflect the initial/empty state after their core atoms resolve.
+    
     // Reset other relevant atoms to their initial/empty state
-    set(workerStatusAtom, { isImporting: null, isDerivingUnits: null, isDerivingReports: null, loading: false, error: null });
+    // set(workerStatusAtom, { isImporting: null, isDerivingUnits: null, isDerivingReports: null, loading: false, error: null }); // No longer needed to set wrapper directly
     set(searchStateAtom, initialSearchStateValues);
     set(searchResultAtom, { data: [], total: 0, loading: false, error: null });
     set(selectedUnitsAtom, []);
@@ -911,108 +1062,26 @@ export const logoutAtom = atom(
     // set(gettingStartedDataAtom, { activity_category_standard: null, numberOfRegions: null, numberOfCustomActivityCategoryCodes: null, numberOfCustomSectors: null, numberOfCustomLegalForms: null }); // Removed
     set(importStateAtom, { isImporting: false, progress: 0, currentFile: null, errors: [], completed: false, useExplicitDates: false, selectedImportTimeContextIdent: null });
     set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
-
-
     // Note: Similar to login, a hard redirect (`window.location.href = "/login";`
     // in LogoutForm.tsx) will ensure a full app re-initialization.
   }
 )
 
 // Base data actions
-export const refreshBaseDataAtom = atom(
-  null,
-  async (get, set) => {
-    set(baseDataLoadingAtom, true); // Set loading true
-    const client = get(restClientAtom);
-    if (!client) {
-      console.error("refreshBaseDataAtom: No client available, skipping fetch.");
-      set(baseDataLoadingAtom, false); // Reset loading
-      return;
-    }
-    
-    try {
-      // Import BaseDataStore for the actual data fetching logic.
-      // The baseDataStore.getBaseData() method contains its own caching and
-      // request deduplication logic.
-      const { baseDataStore } = await import('@/context/BaseDataStore');
-      const freshData = await baseDataStore.getBaseData(client);
-      
-      set(baseDataAtom, freshData);
-    } catch (error) {
-      console.error('Failed to refresh base data:', error);
-      // Optionally set an error state in an atom or baseDataAtom itself
-      throw error; 
-    } finally {
-      set(baseDataLoadingAtom, false); // Reset loading in finally block
-    }
-  }
-)
+export const refreshBaseDataAtom = atom(null, (_get, set) => { // get is not used
+  set(baseDataCoreAtom);
+});
 
-export const refreshHasStatisticalUnitsAtomAction = atom<null, [], Promise<boolean>>(
-  null,
-  async (get, set) => {
-    const client = get(restClientAtom)
-    if (!client) {
-      console.error('No REST client available for refreshing statistical units status.')
-      throw new Error('No REST client available')
-    }
-    
-    try {
-      // Import BaseDataStore for the actual data fetching logic
-      const { baseDataStore } = await import('@/context/BaseDataStore')
-      const hasUnits = await baseDataStore.refreshHasStatisticalUnits(client)
-      
-      // Update the baseDataAtom with the new hasStatisticalUnits status
-      set(baseDataAtom, (prevData) => ({
-        ...prevData,
-        hasStatisticalUnits: hasUnits,
-      }))
-      
-      return hasUnits
-    } catch (error) {
-      console.error('Failed to refresh hasStatisticalUnits:', error)
-      throw error
-    }
-  }
-)
+// refreshHasStatisticalUnitsAtomAction is removed.
+// To refresh hasStatisticalUnits, refresh baseDataCoreAtom.
+// The hasStatisticalUnitsAtom derived atom will update accordingly.
 
-export const refreshWorkerStatusAtom = atom(
-  null,
-  async (get, set, functionName?: string) => {
-    const client = get(restClientAtom)
-    if (!client) throw new Error('No client available')
-    
-    try {
-      set(workerStatusAtom, prev => ({ ...prev, loading: true, error: null }))
-      
-      // Import BaseDataStore for worker status logic
-      const { baseDataStore } = await import('@/context/BaseDataStore');
-      if (typeof functionName === 'string' && functionName.length > 0) {
-        await baseDataStore.refreshWorkerStatus(functionName);
-      } else {
-        // Assumes calling refreshWorkerStatus without a specific functionName
-        // (or with undefined/null) refreshes all relevant statuses.
-        await baseDataStore.refreshWorkerStatus();
-      }
-      
-      // Get updated status and set it
-      const status = baseDataStore.getWorkerStatus()
-      set(workerStatusAtom, {
-        isImporting: status.isImporting,
-        isDerivingUnits: status.isDerivingUnits,
-        isDerivingReports: status.isDerivingReports,
-        loading: false,
-        error: status.error,
-      })
-    } catch (error) {
-      set(workerStatusAtom, prev => ({
-        ...prev,
-        loading: false,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      }))
-    }
-  }
-)
+// The refreshWorkerStatusAtom now just resets the core atom.
+// The functionName parameter is no longer supported by this simplified refresh.
+// SSEConnectionManager will need to adapt to this if it was using functionName.
+export const refreshWorkerStatusAtom = atom(null, (get, set, _functionName?: string) => {
+  set(workerStatusCoreAtom);
+});
 
 // Selection actions
 export const toggleSelectionAtom = atom(
@@ -1110,10 +1179,10 @@ export const resetSearchStateAtom = atom(
 // LOADABLE ATOMS - For async data with loading states
 // ============================================================================
 
-// Loadable versions of async atoms that don't require Suspense
-export const baseDataLoadableAtom = loadable(baseDataAtom)
-export const authStatusLoadableAtom = loadable(authStatusAtom)
-export const workerStatusLoadableAtom = loadable(workerStatusAtom)
+// These are now defined near their core atoms. This section can be removed or kept as a comment.
+// export const baseDataLoadableAtom = loadable(baseDataCoreAtom) // Now defined earlier
+// export const authStatusLoadableAtom = loadable(authStatusCoreAtom); // Now defined earlier
+// export const workerStatusLoadableAtom = loadable(workerStatusCoreAtom); // Now defined earlier
 
 // ============================================================================
 // COMPUTED/DERIVED ATOMS (Including Table Column Logic)
@@ -1566,21 +1635,20 @@ export const derivedApiSearchParamsAtom = atom((get) => {
 
 // Combined authentication and base data status
 export const appReadyAtom = atom((get) => {
-  const auth = get(authStatusAtom);
+  const authLoadable = get(authStatusLoadableAtom);
   const initialAuthCheckDone = get(authStatusInitiallyCheckedAtom);
 
   const baseD = get(baseDataAtom);
-  const isLoadingBaseD = get(baseDataLoadingAtom);
-
-  // gettingStartedDataAtom and its loading state are removed.
-  // const gettingStartedD = get(gettingStartedDataAtom);
-  // const isLoadingGettingStartedD = get(gettingStartedDataLoadingAtom);
+  const isLoadingBaseD = get(baseDataLoadableAtom).state === 'loading'; // Corrected
 
   // Authentication is considered ready once the initial check is done and not currently loading.
-  const isAuthProcessComplete = initialAuthCheckDone && !auth.loading;
-  const isAuthenticatedUser = auth.isAuthenticated;
+  const isAuthLoading = authLoadable.state === 'loading';
+  const isAuthProcessComplete = initialAuthCheckDone && !isAuthLoading;
+  const isAuthenticatedUser = authLoadable.state === 'hasData' && authLoadable.data.isAuthenticated;
+  const currentUser = authLoadable.state === 'hasData' ? authLoadable.data.user : null;
 
   // Base data is considered ready if not loading and has essential data (e.g., stat definitions).
+  // This part will change when baseDataAtom is refactored.
   const isBaseDataProcessComplete = !isLoadingBaseD && baseD.statDefinitions.length > 0;
 
   // "Getting Started" data and its loading/completion status are no longer tracked globally here.
@@ -1599,20 +1667,19 @@ export const appReadyAtom = atom((get) => {
   // it could be derived from baseDataAtom.hasStatisticalUnits, but it won't gate the dashboard rendering here.
 
   return {
-    isLoadingAuth: auth.loading,
-    isLoadingBaseData: isLoadingBaseD,
-    // isLoadingGettingStartedData: false, // Removed
+    isLoadingAuth: isAuthLoading, // Corrected: use isAuthLoading from authLoadable.state
+    isLoadingBaseData: isLoadingBaseD, // This will be updated when baseDataAtom is refactored
 
     isAuthProcessComplete,
     isAuthenticated: isAuthenticatedUser,
     
-    isBaseDataLoaded: isBaseDataProcessComplete,
+    isBaseDataLoaded: isBaseDataProcessComplete, // This will be updated
     // isGettingStartedDataLoaded: true, // Removed, or assume true if not gating
 
     // isSetupComplete, // Removed from here
     isReadyToRenderDashboard,
 
-    user: auth.user,
+    user: currentUser, // Corrected: use currentUser from authLoadable.data
   };
 });
 
@@ -1635,10 +1702,12 @@ export const atoms = {
   defaultTimeContextAtom,
   hasStatisticalUnitsAtom,
   refreshBaseDataAtom,
-  refreshHasStatisticalUnitsAtomAction,
+  // refreshHasStatisticalUnitsAtomAction, // Removed
   
   // Worker Status
-  workerStatusAtom,
+  workerStatusAtom, // Compatibility synchronous atom
+  workerStatusLoadableAtom, // New loadable atom
+  workerStatusCoreAtom, // New core async atom
   refreshWorkerStatusAtom,
   
   // Rest Client
@@ -1715,8 +1784,8 @@ export const atoms = {
   clientSideRefreshAtom,
   
   // Loadable
-  baseDataLoadableAtom,
+  baseDataLoadableAtom, // Ensured definition and export
   authStatusLoadableAtom,
-  workerStatusLoadableAtom,
-  baseDataLoadingAtom,
+  // workerStatusLoadableAtom, // Removed duplicate
+  // baseDataLoadingAtom, // Removed
 }

@@ -1,9 +1,9 @@
 "use client";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
-import { useBaseData } from "@/atoms/hooks";
-import { useImportManager } from "@/atoms/hooks"; // Updated import
+import { useBaseData, useImportManager } from "@/atoms/hooks";
 import { Spinner } from "@/components/ui/spinner";
 import { FileText, BarChart2, Building2, Store, Building } from "lucide-react";
+import type { WorkerStatus } from "@/atoms/index"; // Import the type
 
 export default function ImportStatus() {
   const {
@@ -16,10 +16,13 @@ export default function ImportStatus() {
   } = useImportManager(); // Updated hook call
   const { hasStatisticalUnits, workerStatus } = useBaseData();
 
+  // Explicitly type workerStatus if inference is failing
+  const typedWorkerStatus = workerStatus as WorkerStatus;
+
   // Determine if any import process is active using workerStatus only
-  const isImporting = workerStatus.isImporting ?? false;
+  const isImporting = typedWorkerStatus.isImporting ?? false;
   const isDeriving =
-    (workerStatus.isDerivingUnits || workerStatus.isDerivingReports) ?? false;
+    (typedWorkerStatus.isDerivingUnits || typedWorkerStatus.isDerivingReports) ?? false;
 
   return (
     <nav>
