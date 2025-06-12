@@ -617,6 +617,7 @@ BEGIN
   IF login.password IS NULL THEN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true); -- Unauthorized
     RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb);
   END IF;
 
@@ -625,6 +626,7 @@ BEGIN
      OR NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true); -- Unauthorized
     RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb);
   END IF;
 

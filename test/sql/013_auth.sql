@@ -705,6 +705,7 @@ BEGIN
     ASSERT login_result IS NOT NULL, format('Login with wrong password should return a non-null auth_status_response. Got: %s', login_result);
     ASSERT (login_result->>'is_authenticated')::boolean IS FALSE, format('Login with wrong password should result in is_authenticated = false. Got: %L. Full response: %s', login_result->>'is_authenticated', login_result);
     ASSERT login_result->>'uid' IS NULL, format('Login with wrong password should result in uid = NULL. Got: %L. Full response: %s', login_result->>'uid', login_result);
+    RAISE NOTICE 'Test 4: public.login is expected to set HTTP status 401 for wrong password.';
     
         RAISE NOTICE 'Test 4: User Login Failure - Wrong Password - PASSED';
         -- End of original Test 4 logic
@@ -745,6 +746,7 @@ BEGIN
     ASSERT login_result IS NOT NULL, format('Login with unconfirmed email should return a non-null auth_status_response. Got: %s', login_result);
     ASSERT (login_result->>'is_authenticated')::boolean IS FALSE, format('Login with unconfirmed email should result in is_authenticated = false. Got: %L. Full response: %s', login_result->>'is_authenticated', login_result);
     ASSERT login_result->>'uid' IS NULL, format('Login with unconfirmed email should result in uid = NULL. Got: %L. Full response: %s', login_result->>'uid', login_result);
+    RAISE NOTICE 'Test 5: public.login is expected to set HTTP status 401 for unconfirmed email.';
     
         RAISE NOTICE 'Test 5: User Login Failure - Unconfirmed Email - PASSED';
     EXCEPTION
