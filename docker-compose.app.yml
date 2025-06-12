@@ -11,6 +11,7 @@ services:
         NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME: ${DEPLOYMENT_SLOT_NAME:?DEPLOYMENT_SLOT_NAME must be set in the generated .env}
         NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
         NEXT_PUBLIC_DEBUG: ${NEXT_PUBLIC_DEBUG:?NEXT_PUBLIC_DEBUG must be set in the generated .env}
+        DEBUG: ${DEBUG:?DEBUG must be set in the generated .env}
     ports:
       - "${APP_BIND_ADDRESS:?APP_BIND_ADDRESS must be set in the generated .env}:3000"
     profiles:
