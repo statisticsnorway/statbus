@@ -11,6 +11,8 @@ import TimeContextSelector from "@/components/time-context-selector";
 import { useAuth, useBaseData } from "@/atoms/hooks";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation"; // Import usePathname
+import { isAuthenticatedAtom, currentUserAtom } from "@/atoms";
+import { useAtomValue } from "jotai";
 
 export function NavbarSkeleton() {
   return (
@@ -23,7 +25,8 @@ export function NavbarSkeleton() {
 }
 
 export default function Navbar() {
-  const { isAuthenticated, user } = useAuth(); // Destructure user as well
+  const isAuthenticated = useAtomValue(isAuthenticatedAtom); // Use derived atom
+  const currentUser = useAtomValue(currentUserAtom); // Use derived atom
   const { hasStatisticalUnits, workerStatus } = useBaseData();
   const { isImporting, isDerivingUnits, isDerivingReports } = workerStatus;
   const pathname = usePathname(); // Get current pathname
@@ -34,9 +37,42 @@ export default function Navbar() {
     setIsClient(true);
   }, []);
 
-  if (!isClient) {
-    return <NavbarSkeleton />;
+  // isAuthenticatedAtom is false if auth is loading, so !isAuthenticated covers both cases
+  if (!isClient || !isAuthenticated) { 
+    // If not client-side rendered yet, or if auth is loading or user is not authenticated,
+    // show a simpler Navbar or skeleton.
+    // For now, if not authenticated (which includes loading), we show a minimal navbar.
+    // If truly not authenticated, many links won't be shown anyway.
+    // If loading, this prevents showing links that depend on auth state prematurely.
+    if (!isAuthenticated && isClient) { // Not authenticated (and not loading, or loading treated as not_auth)
+      // Minimal navbar for non-authenticated users or during auth load
+      return (
+        <header className="bg-ssb-dark text-white">
+          <div className="mx-auto flex max-w-(--breakpoint-xl) items-center justify-between gap-4 p-2 lg:px-4">
+            <Link
+              href="/"
+              className="flex items-center space-x-3 rtl:space-x-reverse"
+            >
+              <Image src={logo} alt="Statbus Logo" className="h-9 w-9" />
+            </Link>
+            {/* Placeholder for spacing if needed, or remove if logo should be left-aligned */}
+            <div className="flex-1"></div> 
+            <div className="flex items-center space-x-3">
+              {/* No profile avatar or context selector if not authenticated */}
+            </div>
+          </div>
+        </header>
+      );
+    }
+    // If still SSR or initial client render before isAuth status is definitively known (and not false due to loading)
+    // or if auth is loading (isAuthenticatedAtom will be false), show skeleton.
+    // This condition simplifies to: if !isClient or (isClient && !isAuthenticated which implies loading or truly not auth)
+    // The above block handles (isClient && !isAuthenticated). So this is for !isClient.
+    if (!isClient) {
+       return <NavbarSkeleton />;
+    }
   }
+  // At this point, isClient is true AND isAuthenticated is true (meaning not loading and authenticated)
 
   return (
     <header className="bg-ssb-dark text-white">
@@ -50,7 +86,7 @@ export default function Navbar() {
 
         {/* Center: Main Navigation Links / Mobile Menu Trigger */}
         <div className="flex flex-1 justify-center space-x-3">
-          {isAuthenticated && hasStatisticalUnits && (
+          {isAuthenticated && hasStatisticalUnits && ( // isAuthenticated implies not loading and authenticated
             <>
               {/* Mobile Menu Trigger (Hamburger) */}
               <CommandPaletteTriggerMobileMenuButton className="lg:hidden" />
@@ -106,11 +142,11 @@ export default function Navbar() {
 
         {/* Right: Context/Profile/Mobile */}
         <div className="flex items-center space-x-3">
-          {isAuthenticated && hasStatisticalUnits && (
+          {isAuthenticated && hasStatisticalUnits && ( // isAuthenticated implies not loading and authenticated
             <TimeContextSelector />
           )}
           {/* Render ProfileAvatar only if authenticated and user object is available */}
-          {isAuthenticated && user && ( 
+          {isAuthenticated && currentUser && (  // isAuthenticated implies not loading and authenticated
             <>
               <ProfileAvatar className="w-8 h-8 text-ssb-dark hidden lg:flex" />
               {/* Mobile menu button moved to the center section */}

@@ -30,9 +30,9 @@ import {
 // ============================================================================
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom)
+  const authStatus = useAtomValue(authStatusAtom); // Use the full authStatus object to access loading state
   const initialAuthCheckDone = useAtomValue(authStatusInitiallyCheckedAtom);
-  const restClient = useAtomValue(restClientAtom); // Get the actual client value
+  const restClient = useAtomValue(restClientAtom);
   const triggerFetchAuthStatus = useSetAtom(fetchAndSetAuthStatusAtom);
   const refreshBaseData = useSetAtom(refreshBaseDataAtom)
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
@@ -65,26 +65,23 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     }
   }, [setRestClient])
 
-  // Effect to fetch initial authentication status once REST client is ready
+  // Effect to fetch initial authentication status once REST client is ready and auth is not already loading
   useEffect(() => {
-    if (restClient && !initialAuthCheckDone) {
+    if (restClient && !initialAuthCheckDone && !authStatus.loading) {
       triggerFetchAuthStatus(); 
     }
-  }, [restClient, initialAuthCheckDone, triggerFetchAuthStatus]);
+  }, [restClient, initialAuthCheckDone, authStatus.loading, triggerFetchAuthStatus]);
   
-  // Initialize app data when authenticated and client is ready
+  // Initialize app data when authenticated, not loading, and client is ready
   useEffect(() => {
     let mounted = true
     
     const initializeApp = async () => {
-      // Ensure initial auth check is done before proceeding with auth-dependent data
-      if (!initialAuthCheckDone) {
+      // Ensure initial auth check is done, auth is not loading, and user is authenticated
+      if (!initialAuthCheckDone || authStatus.loading || !authStatus.isAuthenticated) {
         return;
       }
-      if (!isAuthenticated) {
-        return;
-      }
-      if (!restClient) { // Check the actual client from component scope
+      if (!restClient) {
         return;
       }
       
@@ -118,7 +115,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false
     }
-  }, [isAuthenticated, restClient, initialAuthCheckDone, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts])
+  }, [authStatus.isAuthenticated, authStatus.loading, restClient, initialAuthCheckDone, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts])
   
   return <>{children}</>
 }
@@ -128,11 +125,12 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 // ============================================================================
 
 const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom)
+  const authStatus = useAtomValue(authStatusAtom); // Use full authStatus to access loading state
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   
   useEffect(() => {
-    if (!isAuthenticated) return
+    // Connect SSE only if authenticated and not in a loading state
+    if (!authStatus.isAuthenticated || authStatus.loading) return
     
     let eventSource: EventSource | null = null
     let reconnectTimeout: NodeJS.Timeout | null = null
@@ -210,7 +208,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource.close()
       }
     }
-  }, [isAuthenticated, refreshWorkerStatus])
+  }, [authStatus.isAuthenticated, authStatus.loading, refreshWorkerStatus])
   
   return <>{children}</>
 }

@@ -126,8 +126,12 @@ const MySimpleComponent = () => {
   
   return (
     <div>
-      <h1>Auth Status: {auth.isAuthenticated ? 'Logged In' : 'Logged Out'}</h1>
-      <p>User: {auth.user?.email}</p>
+      {auth.loading ? (
+        <h1>Auth Status: Loading auth...</h1>
+      ) : (
+        <h1>Auth Status: {auth.isAuthenticated ? 'Logged In' : 'Logged Out'}</h1>
+      )}
+      <p>User: {auth.loading ? '...' : auth.user?.email || 'None'}</p>
       <p>Stat Definitions: {baseData.statDefinitions.length}</p>
       <p>Worker Status: {baseData.workerStatus.isImporting ? 'Importing' : 'Idle'}</p>
       <p>Selected Time Context: {timeContext.selectedTimeContext?.ident}</p>

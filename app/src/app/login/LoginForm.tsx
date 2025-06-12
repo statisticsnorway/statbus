@@ -20,22 +20,12 @@ export default function LoginForm() {
     const password = formData.get("password") as string;
 
     try {
-      // if (process.env.NODE_ENV === 'development') {
-      //   console.log('[LoginForm] Calling login atom...');
-      // }
       await login({ email, password });
-      // if (process.env.NODE_ENV === 'development') {
-      //   console.log('[LoginForm] Login atom completed.');
-      // }
       
-      // If login successful, use window.location for a hard redirect
-      // This ensures a full page refresh which will update auth state everywhere
-      // if (process.env.NODE_ENV === 'development') {
-      //   console.log('[LoginForm] Redirecting to / ...');
-      // }
-      window.location.href = "/";
+      // Client-side navigation after successful login
+      router.push('/'); 
     } catch (error) {
-      console.error("LoginForm: Login error caught in handleSubmit:", error); // Keep error log
+      console.error("LoginForm: Login error caught in handleSubmit:", error);
       setError(error instanceof Error ? error.message : "Login failed. Please check your credentials.");
     } finally {
       setIsLoading(false);

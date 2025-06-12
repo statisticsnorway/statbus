@@ -30,10 +30,11 @@ export interface User {
  * Authentication status type
  */
 export interface AuthStatus {
+  // AuthStore's version of AuthStatus doesn't need 'loading' as it's about the fetched state.
   isAuthenticated: boolean;
   tokenExpiring: boolean;
   user: User | null;
-} // This AuthStatus is AuthStore's internal, matches Jotai's AuthStatus type via _parseAuthStatusRpcResponseToAuthStatus
+}
 
 
 /**
@@ -103,7 +104,7 @@ class AuthStore {
 
       // Always return a fresh unauthenticated state on error
       console.log("AuthStore.getAuthStatus: Returning unauthenticated state due to error");
-      return { isAuthenticated: false, user: null, tokenExpiring: false };
+      return { isAuthenticated: false, user: null, tokenExpiring: false }; // loading is implicitly false for a resolved state
     }
   }
 
@@ -281,13 +282,13 @@ class AuthStore {
       
       if (error) {
         console.error("Auth status check failed:", error);
-        return { isAuthenticated: false, user: null, tokenExpiring: false };
+        return { isAuthenticated: false, user: null, tokenExpiring: false }; // loading is implicitly false
       }
-      
-      // Map the response to our AuthStatus format
-      // Map the response to our AuthStatus format using the shared helper
-      const result = _parseAuthStatusRpcResponseToAuthStatus(data);
-      
+    
+      // _parseAuthStatusRpcResponseToAuthStatus returns Omit<JotaiAuthStatus, 'loading'>
+      // which matches AuthStore's AuthStatus interface.
+      const result = _parseAuthStatusRpcResponseToAuthStatus(data); 
+    
       return result;
     } catch (error) {
       console.error("AuthStore.fetchAuthStatus: Error checking auth status:", error);
@@ -298,7 +299,7 @@ class AuthStore {
           stack: error.stack,
         });
       }
-      return { isAuthenticated: false, user: null, tokenExpiring: false };
+      return { isAuthenticated: false, user: null, tokenExpiring: false }; // loading is implicitly false
     }
   }
   
@@ -353,11 +354,13 @@ class AuthStore {
           console.error(`AuthStore.handleServerAuth: Refresh fetch failed: ${refreshResponse.status} ${refreshResponse.statusText}. Body: ${errorBody}`);
           responseCookies.delete('statbus');
           responseCookies.delete('statbus-refresh');
+          // AuthStore's AuthStatus doesn't have 'loading', it's implicitly false for a resolved state.
           return { status: { isAuthenticated: false, user: null, tokenExpiring: false } };
         }
 
         // --- Process Successful Refresh ---
-        const refreshData = await refreshResponse.json(); // RPC response is now auth_status_response
+        const refreshData = await refreshResponse.json(); 
+        // _parseAuthStatusRpcResponseToAuthStatus returns the core fields, matching AuthStore's AuthStatus
         currentStatus = _parseAuthStatusRpcResponseToAuthStatus(refreshData);
 
         // Cookies are set by the Set-Cookie headers from refreshResponse.
@@ -404,7 +407,7 @@ class AuthStore {
           } else {
             // If RPC says authenticated but no access token cookie, or RPC says not authenticated
             console.error("AuthStore.handleServerAuth: Refresh issue. RPC status:", currentStatus.isAuthenticated, "Access token cookie present:", !!newAccessTokenCookie?.value);
-            currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false }; // Force unauthenticated
+            currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false }; 
             responseCookies.delete('statbus'); 
             responseCookies.delete('statbus-refresh');
           }

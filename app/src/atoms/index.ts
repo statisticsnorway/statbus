@@ -26,13 +26,15 @@ export interface User {
 }
 
 export interface AuthStatus {
+  loading: boolean; // Added loading state
   isAuthenticated: boolean
   tokenExpiring: boolean
   user: User | null
 }
 
-// Base auth atom - starts unauthenticated
+// Base auth atom - starts unauthenticated and not loading
 export const authStatusAtom = atom<AuthStatus>({
+  loading: false, // Initialize loading to false
   isAuthenticated: false,
   tokenExpiring: false,
   user: null,
@@ -65,6 +67,9 @@ export const baseDataAtom = atom<BaseData>({
   defaultTimeContext: null,
   hasStatisticalUnits: false,
 })
+
+// Atom to track loading state for base data
+export const baseDataLoadingAtom = atom(false);
 
 // Derived atoms for individual data pieces
 export const statDefinitionsAtom = atom((get) => get(baseDataAtom).statDefinitions)
@@ -745,7 +750,8 @@ export const refreshAllGettingStartedDataAtom = atom(
  * @param rpcResponseData The raw data from the RPC call.
  * @returns AuthStatus object.
  */
-export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponseData: any): AuthStatus => {
+export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponseData: any): Omit<AuthStatus, 'loading'> => {
+  // This helper returns the core status fields; 'loading' is managed by the calling action atom.
   return rpcResponseData === null || !rpcResponseData.is_authenticated
     ? {
         isAuthenticated: false,
@@ -768,10 +774,11 @@ export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponseData: any): A
 };
 
 export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
+  set(authStatusAtom, prev => ({ ...prev, loading: true }));
   const client = get(restClientAtom);
   if (!client) {
     console.error("fetchAndSetAuthStatusAtom: No client available to fetch auth status.");
-    set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+    set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
     set(authStatusInitiallyCheckedAtom, true); 
     return;
   }
@@ -779,16 +786,18 @@ export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
     const { data, error } = await client.rpc("auth_status");
     if (error) {
       console.error("Auth status check failed after action:", error);
-      set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+      set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
       return;
     }
-    const newStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
-    set(authStatusAtom, newStatus);
+    const coreStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
+    set(authStatusAtom, { ...coreStatus, loading: false });
 
   } catch (e) {
     console.error("Error fetching auth status after action:", e);
-    set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+    set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
   } finally {
+    // Ensure loading is false even if an early return happened or error wasn't caught by try/catch
+    set(authStatusAtom, prev => ({ ...prev, loading: false }));
     set(authStatusInitiallyCheckedAtom, true);
   }
 });
@@ -798,17 +807,17 @@ export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
 export const loginAtom = atom(
   null,
   async (get, set, credentials: { email: string; password: string }) => {
+    set(authStatusAtom, prev => ({ 
+      ...prev, 
+      isAuthenticated: false, // Explicitly set to unauthenticated before login attempt
+      user: null, 
+      tokenExpiring: false, 
+      loading: true 
+    }));
     const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
     const loginUrl = `${apiUrl}/rest/rpc/login`;
 
-    // if (process.env.NODE_ENV === 'development') {
-    //   console.log('[loginAtom ENTRY] Credentials:', credentials.email);
-    // }
-
     try {
-      // if (process.env.NODE_ENV === 'development') {
-      //   console.log(`[loginAtom] Calling fetch for ${loginUrl}`);
-      // }
       const response = await fetch(loginUrl, {
         method: 'POST',
         headers: {
@@ -833,66 +842,67 @@ export const loginAtom = atom(
 
       if (!response.ok) {
         const errorMessage = responseData?.message || `Login failed with status: ${response.status}`;
-        console.error('[loginAtom] Login fetch not OK:', errorMessage); // Keep error log
+        console.error('[loginAtom] Login fetch not OK:', errorMessage);
         throw new Error(errorMessage);
       }
       
-      const newStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
-      // if (process.env.NODE_ENV === 'development') {
-      //   console.log('[loginAtom] Parsed new auth status:', JSON.stringify(newStatus));
-      // }
-      set(authStatusAtom, newStatus);
+      const coreStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
+      set(authStatusAtom, { ...coreStatus, loading: false });
 
     } catch (error) {
-      console.error('[loginAtom] Catch block error:', error); // Keep error log
-      set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+      console.error('[loginAtom] Catch block error:', error);
+      set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
       throw error;
-    } 
-    // finally {
+    } finally {
+      // Ensure loading is false if an unhandled exception occurred before explicit set
+      set(authStatusAtom, prev => ({ ...prev, loading: false }));
     //   if (process.env.NODE_ENV === 'development') {
     //     console.log('[loginAtom EXIT]');
     //   }
-    // }
+    } // This closing brace for 'finally' was missing
   }
 )
 
 export const clientSideRefreshAtom = atom<
   null, 
   [], 
-  Promise<{ success: boolean; newStatus?: AuthStatus }>
+  Promise<{ success: boolean; newStatus?: Omit<AuthStatus, 'loading'> }> // newStatus won't include loading
 >(null, async (get, set) => {
+  set(authStatusAtom, prev => ({ ...prev, loading: true }));
   const client = get(restClientAtom);
   if (!client) {
     console.error("clientSideRefreshAtom: No client available.");
+    set(authStatusAtom, prev => ({ ...prev, loading: false })); // Ensure loading is reset
     return { success: false };
   }
   try {
     const { data, error } = await client.rpc('refresh');
     if (error) {
       console.error("Client-side refresh RPC failed:", error);
-      // Optionally set authStatus to unauthenticated if refresh fails critically
-      set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+      set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
       return { success: false };
     }
-    // data is now the auth_status_response
-    const newStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
-    set(authStatusAtom, newStatus);
-    return { success: true, newStatus };
+    const coreStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
+    set(authStatusAtom, { ...coreStatus, loading: false });
+    return { success: true, newStatus: coreStatus };
   } catch (e) {
     console.error("Error during client-side refresh:", e);
-    set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+    set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
     return { success: false };
+  } finally {
+    set(authStatusAtom, prev => ({ ...prev, loading: false }));
   }
 });
 
 export const logoutAtom = atom(
   null,
   async (get, set) => {
-    const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || ''; // Use NEXT_PUBLIC_ for client-side
+    set(authStatusAtom, prev => ({ ...prev, loading: true }));
+    const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
     const logoutUrl = `${apiUrl}/rest/rpc/logout`;
 
     try {
-      const response = await fetch(logoutUrl, { // Using direct fetch
+      const response = await fetch(logoutUrl, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -909,22 +919,27 @@ export const logoutAtom = atom(
         // Even if not ok, responseData might contain an error message from the server.
         const errorMessage = responseData?.message || `Logout failed with status: ${response.status}`;
         console.error(errorMessage);
-        // Fallback to setting a default unauthenticated status if parsing fails or response is unexpected
-        set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+        set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
       } else {
-        // Parse the auth_status_response from the successful logout call
-        const newStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
-        set(authStatusAtom, newStatus); // This should reflect unauthenticated state
+        const coreStatus = _parseAuthStatusRpcResponseToAuthStatus(responseData);
+        set(authStatusAtom, { ...coreStatus, loading: false }); 
       }
 
     } catch (error) {
       console.error('Error during logout API call:', error);
-      // Ensure auth state is cleared on any error during logout API call
-      set(authStatusAtom, { isAuthenticated: false, user: null, tokenExpiring: false });
+      set(authStatusAtom, { loading: false, isAuthenticated: false, user: null, tokenExpiring: false });
+    } finally {
+      // Ensure loading is false and state is cleared, even if an error occurred before explicit set
+      // This also handles the case where the try block completes successfully.
+      set(authStatusAtom, { 
+        loading: false, 
+        isAuthenticated: false, 
+        user: null, 
+        tokenExpiring: false 
+      });
     }
     
-    // Clear other sensitive data regardless of API call success/failure details,
-    // as the intent is to log out. The authStatusAtom is already set above.
+    // Clear other sensitive data. authStatusAtom is already set to unauthenticated and not loading.
     set(baseDataAtom, {
       statDefinitions: [],
       externalIdentTypes: [],
@@ -954,11 +969,11 @@ export const logoutAtom = atom(
 export const refreshBaseDataAtom = atom(
   null,
   async (get, set) => {
+    set(baseDataLoadingAtom, true); // Set loading true
     const client = get(restClientAtom);
     if (!client) {
       console.error("refreshBaseDataAtom: No client available, skipping fetch.");
-      // Optionally set an error state or specific loading state for baseDataAtom if desired
-      // For now, just log and return, preventing an attempt to fetch without a client.
+      set(baseDataLoadingAtom, false); // Reset loading
       return;
     }
     
@@ -972,8 +987,10 @@ export const refreshBaseDataAtom = atom(
       set(baseDataAtom, freshData);
     } catch (error) {
       console.error('Failed to refresh base data:', error);
-      // Optionally set an error state in an atom
-      throw error; // Or handle more gracefully
+      // Optionally set an error state in an atom or baseDataAtom itself
+      throw error; 
+    } finally {
+      set(baseDataLoadingAtom, false); // Reset loading in finally block
     }
   }
 )
@@ -1596,15 +1613,23 @@ export const derivedApiSearchParamsAtom = atom((get) => {
 
 // Combined authentication and base data status
 export const appReadyAtom = atom((get) => {
-  const auth = get(authStatusAtom)
-  const baseData = get(baseDataAtom)
+  const auth = get(authStatusAtom);
+  const baseData = get(baseDataAtom);
+  const isLoadingBaseData = get(baseDataLoadingAtom);
   
+  // App is ready only if auth is not loading, user is authenticated, 
+  // AND base data is not loading and has been fetched.
+  const isAuthReady = !auth.loading && auth.isAuthenticated;
+  const isBaseDataReady = !isLoadingBaseData && baseData.statDefinitions.length > 0;
+
   return {
-    isReady: auth.isAuthenticated && baseData.statDefinitions.length > 0,
-    isAuthenticated: auth.isAuthenticated,
-    hasBaseData: baseData.statDefinitions.length > 0,
-    user: auth.user,
-  }
+    isReady: isAuthReady && isBaseDataReady,
+    isAuthenticated: isAuthReady, 
+    hasBaseData: isBaseDataReady, // Reflects that base data is loaded and present
+    user: auth.loading ? null : auth.user,
+    isLoadingAuth: auth.loading,
+    isLoadingBaseData: isLoadingBaseData, // Expose base data loading state
+  };
 })
 
 // Export all atoms for easy importing
@@ -1700,4 +1725,5 @@ export const atoms = {
   baseDataLoadableAtom,
   authStatusLoadableAtom,
   workerStatusLoadableAtom,
+  baseDataLoadingAtom, // Export the new loading atom
 }
