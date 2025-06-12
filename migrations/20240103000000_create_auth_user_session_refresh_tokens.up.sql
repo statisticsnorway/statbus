@@ -19,7 +19,11 @@ CREATE TYPE auth.login_error_code AS ENUM (
   'USER_NOT_CONFIRMED_EMAIL',
   'USER_DELETED',
   'USER_MISSING_PASSWORD',
-  'WRONG_PASSWORD'
+  'WRONG_PASSWORD',
+  'REFRESH_NO_TOKEN_COOKIE',
+  'REFRESH_INVALID_TOKEN_TYPE',
+  'REFRESH_USER_NOT_FOUND_OR_DELETED',
+  'REFRESH_SESSION_INVALID_OR_SUPERSEDED'
 );
 
 -- Create statbus role type for reference
@@ -99,7 +103,7 @@ GRANT EXECUTE ON FUNCTION auth.uid() TO authenticated, anon;
 CREATE OR REPLACE FUNCTION auth.get_request_ip()
 RETURNS inet
 LANGUAGE plpgsql
-STABLE
+VOLATILE -- Changed from STABLE to ensure it re-evaluates based on current GUCs
 AS $$
 DECLARE
   raw_ip_text text;
@@ -827,7 +831,8 @@ BEGIN
       -- No valid refresh token found in cookies
       PERFORM auth.clear_auth_cookies();
       PERFORM auth.reset_session_context(); -- Ensure context is cleared
-      RAISE EXCEPTION 'No valid refresh token found in cookies';
+      PERFORM set_config('response.status', '401', true);
+      RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'REFRESH_NO_TOKEN_COOKIE'::auth.login_error_code);
     END IF;
     
     -- Decode the JWT to get the claims
@@ -839,7 +844,8 @@ BEGIN
   IF claims->>'type' != 'refresh' THEN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
-    RAISE EXCEPTION 'Invalid token type';
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'REFRESH_INVALID_TOKEN_TYPE'::auth.login_error_code);
   END IF;
   
   -- Extract claims
@@ -861,7 +867,8 @@ BEGIN
   IF NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
-    RAISE EXCEPTION 'User not found';
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'REFRESH_USER_NOT_FOUND_OR_DELETED'::auth.login_error_code);
   END IF;
   
   -- Get the session
@@ -874,7 +881,8 @@ BEGIN
   IF NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
-    RAISE EXCEPTION 'Invalid session or token has been superseded';
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'REFRESH_SESSION_INVALID_OR_SUPERSEDED'::auth.login_error_code);
   END IF;
   
   

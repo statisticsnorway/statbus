@@ -186,13 +186,23 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
             *   PostgREST executes `public.refresh()`, returning an `auth_response`.
             *   The `clientSideRefreshAtom` parses this `auth_response` and updates the global `authStatusAtom`.
     *   The `public.refresh` PostgreSQL function:
-        *   Extracts the refresh token (from cookies or passed argument).
+        *   Extracts the refresh token from cookies.
         *   Validates the token, session, and user.
-        *   Increments session version, updates timestamps.
-        *   Generates a *new* access token JWT and a *new* refresh token JWT.
-        *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the *new* tokens.
-        *   Returns an `auth.auth_response` object.
-        *   **Password Change Invalidation:** If the user's password has been changed, all their existing refresh sessions are deleted, causing subsequent refresh attempts with old tokens to fail.
+        *   If any validation fails (e.g., no token, invalid token type, user not found, session invalid/superseded):
+            *   It clears authentication cookies using `auth.clear_auth_cookies()`.
+            *   It resets the session context using `auth.reset_session_context()`.
+            *   It sets the HTTP response status to 401 using `PERFORM set_config('response.status', '401', true);`.
+            *   It returns an `auth.auth_response` object with `is_authenticated: false` and a specific `error_code` (from `auth.login_error_code` enum):
+                *   `REFRESH_NO_TOKEN_COOKIE`
+                *   `REFRESH_INVALID_TOKEN_TYPE`
+                *   `REFRESH_USER_NOT_FOUND_OR_DELETED`
+                *   `REFRESH_SESSION_INVALID_OR_SUPERSEDED`
+        *   If validation is successful:
+            *   Increments session version, updates timestamps, IP address, and user agent in `auth.refresh_session`.
+            *   Generates a *new* access token JWT and a *new* refresh token JWT.
+            *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the *new* tokens.
+            *   Returns an `auth.auth_response` object indicating successful authentication and providing new user/token details.
+        *   **Password Change Invalidation:** If the user's password has been changed, all their existing refresh sessions are deleted. Subsequent refresh attempts with old tokens will fail, typically resulting in `REFRESH_SESSION_INVALID_OR_SUPERSEDED`.
 
 ## Key Configuration Points
 
@@ -259,8 +269,8 @@ This layered approach ensures that even with direct database connections, users 
 4. **Emergency Access**: If the API layer is unavailable, authorized users can still access data.
 
 ### How It Works
-
-1. When a user is created in `auth.user`, a trigger function (`auth.create_user_role()`) automatically:
+    
+1. When a user is created in `auth.user`, a trigger function (`auth.sync_user_credentials_and_roles()`) automatically:
    * Creates a PostgreSQL role with the same name as the user's email
    * Grants the `authenticated` role to this user role
    * Grants the appropriate statbus role (`admin_user`, `regular_user`, etc.) to the user role
@@ -305,9 +315,9 @@ For scenarios requiring non-interactive access (e.g., scripts, external services
     *   **Revocation Check:** Before executing the main API query, PostgREST calls the `auth.check_api_key_revocation` function (configured via `PGRST_DB_PRE_REQUEST`). This function checks if the token type is `api_key` and if the corresponding record in `auth.api_key` (matched by `jti`) has been marked as revoked (`revoked_at IS NOT NULL`). If revoked, the function raises an error, blocking the request.
 
 3.  **Management:**
-    *   Users can list their own keys using `public.list_api_key()`.
+    *   Users can list their own keys using the `public.api_key` view.
     *   Users can revoke their own keys using `public.revoke_api_key(key_jti uuid)`. This sets the `revoked_at` timestamp in the `auth.api_key` table, immediately invalidating the key for future requests.
-    *   Row-Level Security policies on `auth.api_key` ensure users can only manage their own keys.
+    *   Row-Level Security policies on `auth.api_key` (and the `security_invoker` property of the `public.api_key` view) ensure users can only manage their own keys.
 
 4.  **Security:**
     *   API keys grant the same permissions as the user who created them.
@@ -315,7 +325,7 @@ For scenarios requiring non-interactive access (e.g., scripts, external services
     *   Consider using shorter durations if possible and generating new keys periodically.
     *   Access to the `create_api_key` function can be restricted further by modifying the `GRANT EXECUTE` statement in the migration if needed (e.g., grant only to `admin_user`).
     *   Changing a user's password does *not* invalidate their existing API keys.
-    *   **Restricted Privileges:** API keys are designed for programmatic access. They cannot be used to perform sensitive account management actions like changing the user's password or generating additional API keys. This is enforced by checks within the relevant PostgreSQL functions (`public.change_password`, `public.create_api_key`) which require a standard 'access' token type.
+    *   **Restricted Privileges:** API keys are designed for programmatic access. They cannot be used to perform sensitive account management actions like changing the user's password. This is enforced by a check within `public.change_password` which requires a standard 'access' token type. Currently, `public.create_api_key` does not enforce such a check, meaning an API key could potentially be used to create other API keys if its associated user role has execute permission on `public.create_api_key`.
 
 ## Password Management
 
