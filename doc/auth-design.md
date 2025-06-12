@@ -112,12 +112,22 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     *   PostgREST executes the `public.login(email, password)` function as the `anon` role.
     *   `public.login`:
         *   Verifies credentials against `auth.users`.
-        *   Creates a record in `auth.refresh_sessions`.
-        *   Generates an access token JWT and a refresh token JWT.
-        *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the access token (`statbus-<slot>`) and refresh token (`statbus-<slot>-refresh`).
-        *   Returns an `auth.auth_response` object (containing user info and authentication status) in the JSON response body.
-    *   The browser stores the cookies automatically.
-    *   The Next.js app (via `loginAtom`) parses the `auth_response` from the `/rpc/login` call and updates the global `authStatusAtom` (Jotai state).
+        *   If login fails (e.g., user not found, wrong password, email not confirmed, user deleted, null password submitted), it sets the HTTP response status to 401 using `PERFORM set_config('response.status', '401', true);`.
+        *   If login is successful:
+            *   Creates a record in `auth.refresh_sessions`.
+            *   Generates an access token JWT and a refresh token JWT.
+            *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the access token (`statbus-<slot>`) and refresh token (`statbus-<slot>-refresh`).
+        *   Returns an `auth.auth_response` object in the JSON response body. This object contains:
+            *   `is_authenticated` (boolean)
+            *   User information (uid, sub, email, role, statbus_role, etc.) if authenticated.
+            *   `error_code` (enum `auth.login_error_code`): This field is `NULL` on successful login. On failure, it contains one of the following values:
+                *   `USER_NOT_FOUND`: The provided email does not correspond to an existing user.
+                *   `USER_NOT_CONFIRMED_EMAIL`: The user exists but their email address has not been confirmed.
+                *   `USER_DELETED`: The user account has been marked as deleted.
+                *   `USER_MISSING_PASSWORD`: A null password was submitted.
+                *   `WRONG_PASSWORD`: The password provided does not match the stored password for the user.
+    *   The browser stores the cookies automatically if set.
+    *   The Next.js app (via `loginAtom`) parses the `auth_response` from the `/rpc/login` call (including the `error_code` if present) and updates the global `authStatusAtom` (Jotai state).
 
 2.  **Authenticated Requests:**
     *   **Client-Side Requests (Browser):**

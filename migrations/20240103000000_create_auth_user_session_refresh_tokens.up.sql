@@ -12,6 +12,16 @@ END$$;
 -- Create auth schema
 CREATE SCHEMA IF NOT EXISTS auth;
 
+-- Create login error code enum
+DROP TYPE IF EXISTS auth.login_error_code CASCADE; -- Drop if exists to recreate with new values
+CREATE TYPE auth.login_error_code AS ENUM (
+  'USER_NOT_FOUND',
+  'USER_NOT_CONFIRMED_EMAIL',
+  'USER_DELETED',
+  'USER_MISSING_PASSWORD',
+  'WRONG_PASSWORD'
+);
+
 -- Create statbus role type for reference
 CREATE TYPE public.statbus_role AS ENUM('admin_user','regular_user', 'restricted_user', 'external_user');
 
@@ -518,6 +528,7 @@ END;
 $clear_auth_cookies$;
 
 -- Create auth response type
+DROP TYPE IF EXISTS auth.auth_response CASCADE; -- Drop if exists to recreate with new field
 CREATE TYPE auth.auth_response AS (
   is_authenticated boolean,
   token_expiring boolean,
@@ -527,14 +538,16 @@ CREATE TYPE auth.auth_response AS (
   role text,
   statbus_role public.statbus_role,
   last_sign_in_at timestamptz,
-  created_at timestamptz
+  created_at timestamptz,
+  error_code auth.login_error_code -- New field for login error details
 );
 
 
 -- Helper function to build the standard authentication response object
 CREATE OR REPLACE FUNCTION auth.build_auth_response(
   p_user_record auth.user DEFAULT NULL,
-  p_claims jsonb DEFAULT NULL
+  p_claims jsonb DEFAULT NULL,
+  p_error_code auth.login_error_code DEFAULT NULL -- New parameter for error code
 )
 RETURNS auth.auth_response
 LANGUAGE plpgsql
@@ -555,6 +568,7 @@ BEGIN
     result.statbus_role := NULL;
     result.last_sign_in_at := NULL;
     result.created_at := NULL;
+    result.error_code := p_error_code; -- Assign the passed error code
   ELSE
     result.is_authenticated := true;
     result.uid := p_user_record.id;
@@ -564,6 +578,7 @@ BEGIN
     result.statbus_role := p_user_record.statbus_role;
     result.last_sign_in_at := p_user_record.last_sign_in_at;
     result.created_at := p_user_record.created_at;
+    result.error_code := NULL; -- Explicitly NULL on success
 
     -- Check token_expiring only if claims are provided and user is authenticated
     IF p_claims IS NOT NULL AND p_claims->>'exp' IS NOT NULL THEN
@@ -579,7 +594,7 @@ BEGIN
 END;
 $build_auth_response$;
 
-GRANT EXECUTE ON FUNCTION auth.build_auth_response(auth.user, jsonb) TO authenticated, anon; -- Grant to roles that will call definer functions
+GRANT EXECUTE ON FUNCTION auth.build_auth_response(auth.user, jsonb, auth.login_error_code) TO authenticated, anon; -- Grant to roles that will call definer functions
 
 
 -- Create login function that returns JWT token
@@ -597,37 +612,59 @@ DECLARE
   refresh_session_jti uuid;
   user_ip inet;
   user_agent text;
-  -- raw_ip_text text; -- No longer needed here, handled by auth.get_request_ip()
   access_claims jsonb;
   refresh_claims jsonb;
 BEGIN
-  -- Find user first
-  SELECT u.* INTO _user
-  FROM auth.user u
-  WHERE (login.email IS NOT NULL AND u.email = login.email)
-    AND u.deleted_at IS NULL
-    AND u.email_confirmed_at IS NOT NULL;
-
-  -- Set a fallback password hash if user not found to prevent timing attacks
-  IF NOT FOUND THEN
-    _user.encrypted_password := '$2a$10$0000000000000000000000000000000000000000000000000000';
-  END IF;
-
   -- Reject NULL passwords immediately
   IF login.password IS NULL THEN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
     PERFORM set_config('response.status', '401', true); -- Unauthorized
-    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb);
+    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'USER_MISSING_PASSWORD'::auth.login_error_code);
   END IF;
 
-  -- Always verify password to maintain constant-time operation
-  IF crypt(login.password, _user.encrypted_password) IS DISTINCT FROM _user.encrypted_password
-     OR NOT FOUND THEN
+  -- Find user by email
+  SELECT u.* INTO _user
+  FROM auth.user u
+  WHERE u.email = login.email;
+
+  -- If user not found
+  IF NOT FOUND THEN
+    -- Perform dummy crypt for timing resistance if email was provided
+    IF login.email IS NOT NULL THEN
+       PERFORM crypt(login.password, '$2a$10$0000000000000000000000000000000000000000000000000000');
+    END IF;
+    PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'USER_NOT_FOUND'::auth.login_error_code);
+  END IF;
+
+  -- If user is deleted
+  IF _user.deleted_at IS NOT NULL THEN
+    PERFORM crypt(login.password, _user.encrypted_password); -- Perform for timing
+    PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'USER_DELETED'::auth.login_error_code);
+  END IF;
+
+  -- If user email is not confirmed
+  IF _user.email_confirmed_at IS NULL THEN
+    PERFORM crypt(login.password, _user.encrypted_password); -- Perform for timing
+    PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'USER_NOT_CONFIRMED_EMAIL'::auth.login_error_code);
+  END IF;
+
+  -- At this point, user exists, is not deleted, and email is confirmed.
+  -- Now, verify password.
+  IF crypt(login.password, _user.encrypted_password) IS DISTINCT FROM _user.encrypted_password THEN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
     PERFORM set_config('response.status', '401', true); -- Unauthorized
-    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb);
+    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'WRONG_PASSWORD'::auth.login_error_code);
   END IF;
 
   -- Set expiration times
@@ -693,7 +730,7 @@ BEGIN
   -- The returned auth_response is the source of truth for the new state.
   -- The client will use the new token for subsequent requests,
   -- at which point PostgREST's pre-request hook will set request.jwt.claims.
-  RETURN auth.build_auth_response(_user, access_claims);
+  RETURN auth.build_auth_response(_user, access_claims, NULL::auth.login_error_code);
 END;
 $login$;
 
@@ -888,7 +925,7 @@ BEGIN
 
   -- Return the authentication response
   -- Note: We are no longer setting request.jwt.claims here.
-  RETURN auth.build_auth_response(_user, access_claims);
+  RETURN auth.build_auth_response(_user, access_claims, NULL::auth.login_error_code);
 END;
 $refresh$;
 
@@ -940,7 +977,7 @@ BEGIN
 
   -- Reset session context and return the "not authenticated" status
   PERFORM auth.reset_session_context();
-  RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb);
+  RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, NULL::auth.login_error_code);
 END;
 $logout$;
 
@@ -1117,7 +1154,7 @@ BEGIN
     -- If user found, build response with user and claims
     IF FOUND THEN
       RAISE DEBUG '[auth_status] User found: %. Building authenticated response.', row_to_json(user_record);
-      RETURN auth.build_auth_response(user_record, claims);
+      RETURN auth.build_auth_response(user_record, claims, NULL::auth.login_error_code);
     ELSE
       RAISE DEBUG '[auth_status] User with sub % NOT FOUND.', user_sub;
     END IF;
@@ -1127,7 +1164,7 @@ BEGIN
   
   -- If no valid claims, or user not found, return unauthenticated status
   RAISE DEBUG '[auth_status] Building unauthenticated response.';
-  RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb);
+  RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, NULL::auth.login_error_code);
 END;
 $auth_status$;
 

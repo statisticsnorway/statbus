@@ -41,7 +41,7 @@ REVOKE EXECUTE ON FUNCTION auth.set_auth_cookies(text, text, timestamptz, timest
 REVOKE EXECUTE ON FUNCTION auth.clear_auth_cookies() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.use_jwt_claims_in_session(jsonb) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.build_jwt_claims(text, timestamptz, text, jsonb) FROM authenticated;
-REVOKE EXECUTE ON FUNCTION auth.build_auth_response(auth.user, jsonb) FROM authenticated, anon;
+REVOKE EXECUTE ON FUNCTION auth.build_auth_response(auth.user, jsonb, auth.login_error_code) FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) FROM authenticator; -- Added
 REVOKE EXECUTE ON FUNCTION auth.statbus_role() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.email() FROM authenticated, anon;
@@ -52,6 +52,7 @@ REVOKE EXECUTE ON FUNCTION auth.get_request_ip() FROM authenticated, anon;
 
 -- 4. Revoke table/view/sequence grants
 REVOKE SELECT, INSERT, UPDATE (description, revoked_at), DELETE ON public.api_key FROM authenticated;
+REVOKE SELECT, INSERT, UPDATE (description, revoked_at), DELETE ON auth.api_key FROM authenticated; -- Corrected: Revoke from the table
 REVOKE USAGE ON SEQUENCE auth.api_key_id_seq FROM authenticated;
 REVOKE INSERT, UPDATE, DELETE ON auth.user FROM admin_user;
 REVOKE SELECT, UPDATE, DELETE ON auth.user FROM authenticated;
@@ -126,8 +127,7 @@ DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
 DROP FUNCTION IF EXISTS auth.set_auth_cookies(text, text, timestamptz, timestamptz);
 -- Note: auth.clear_auth_cookies() is now explicitly dropped above if it was added to REVOKE list.
 -- If it wasn't added to REVOKE list, this explicit drop is still good.
--- Ensuring it's dropped:
-DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
+-- Ensuring it's dropped (removed duplicate from here):
 DROP FUNCTION IF EXISTS auth.drop_user_role();
 DROP FUNCTION IF EXISTS auth.sync_user_credentials_and_roles();
 DROP FUNCTION IF EXISTS auth.check_role_permission();
@@ -154,6 +154,7 @@ DROP TYPE IF EXISTS auth.auth_test_response;
 DROP TYPE IF EXISTS auth.token_info;
 DROP TYPE IF EXISTS auth.auth_response;
 DROP TYPE IF EXISTS auth.session_info;
+DROP TYPE IF EXISTS auth.logout_response;
 
 -- Find and drop all user-specific roles created by the system
 DO $$
