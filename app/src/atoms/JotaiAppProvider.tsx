@@ -7,9 +7,10 @@
  * and handles app initialization without complex useEffect chains.
  */
 
-import React, { Suspense, useEffect, ReactNode } from 'react'
-import { Provider } from 'jotai'
-import { useAtomValue, useSetAtom } from 'jotai'
+import React, { Suspense, useEffect, ReactNode } from 'react';
+import { Provider } from 'jotai';
+import { useAtomValue, useSetAtom } from 'jotai';
+import { useRouter, usePathname } from 'next/navigation';
 import {
   authStatusAtom,
   baseDataAtom,
@@ -17,13 +18,14 @@ import {
   refreshBaseDataAtom,
   refreshWorkerStatusAtom,
   workerStatusAtom,
-  isAuthenticatedAtom,
+  // isAuthenticatedAtom, // We'll use authStatusAtom directly for more clarity on loading vs authenticated
   initializeTableColumnsAtom,
   refreshAllGettingStartedDataAtom,
   refreshAllUnitCountsAtom,
   fetchAndSetAuthStatusAtom,
   authStatusInitiallyCheckedAtom,
-} from './index'
+  gettingStartedDataAtom, // For checking setup data
+} from './index';
 
 // ============================================================================
 // APP INITIALIZER - Handles startup logic
@@ -40,6 +42,11 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const initializeTableColumns = useSetAtom(initializeTableColumnsAtom);
   const refreshGettingStartedData = useSetAtom(refreshAllGettingStartedDataAtom);
   const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
+
+  const router = useRouter();
+  const pathname = usePathname();
+  const gettingStartedData = useAtomValue(gettingStartedDataAtom);
+  const baseData = useAtomValue(baseDataAtom);
   
   // Initialize REST client
   useEffect(() => {
@@ -115,7 +122,54 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     return () => {
       mounted = false
     }
-  }, [authStatus.isAuthenticated, authStatus.loading, restClient, initialAuthCheckDone, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts])
+  }, [authStatus.isAuthenticated, authStatus.loading, restClient, initialAuthCheckDone, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts]);
+
+  // Effect for "Getting Started" redirects
+  useEffect(() => {
+    let mounted = true;
+    if (!mounted) return; // Avoid running if component unmounted quickly
+
+    // Ensure all necessary states are stable and data is available
+    if (
+      pathname === '/' &&
+      restClient && // Ensure client is initialized
+      initialAuthCheckDone && // Ensure initial auth check has happened
+      !authStatus.loading && // Ensure auth status is not loading
+      authStatus.isAuthenticated && // Ensure user is authenticated
+      baseData.statDefinitions.length > 0 && // Basic check that baseData is loaded
+      gettingStartedData.activity_category_standard !== undefined // Basic check that gettingStartedData is loaded (even if null)
+    ) {
+      // Perform checks in order
+      if (gettingStartedData.activity_category_standard === null) {
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          console.log("AppInitializer: No activity category standard found, redirecting to /getting-started/activity-standard");
+        }
+        router.push('/getting-started/activity-standard');
+      } else if (gettingStartedData.numberOfRegions === null || gettingStartedData.numberOfRegions === 0) {
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          console.log("AppInitializer: No regions found, redirecting to /getting-started/upload-regions");
+        }
+        router.push('/getting-started/upload-regions');
+      } else if (baseData.hasStatisticalUnits === false) {
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          console.log("AppInitializer: No statistical units found, redirecting to /import");
+        }
+        router.push('/import');
+      }
+    }
+    return () => {
+      mounted = false;
+    };
+  }, [
+    pathname,
+    authStatus.isAuthenticated,
+    authStatus.loading,
+    initialAuthCheckDone,
+    restClient,
+    gettingStartedData,
+    baseData,
+    router,
+  ]);
   
   return <>{children}</>
 }

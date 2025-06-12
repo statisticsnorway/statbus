@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authStore } from '@/context/AuthStore';
-import { getServerRestClient } from '@/context/RestClientStore';
 
 
 export async function middleware(request: NextRequest) {
@@ -85,59 +84,6 @@ export async function middleware(request: NextRequest) {
       response = newResponseForPage; // This is now the response we will return.
   }
   
-  // --- App Setup Checks (only if authenticated) ---
-  // Pass the cookies from requestForNextHandler to ensure the client used for these
-  // setup checks has the most up-to-date authentication context, especially if a
-  // token refresh occurred during authStore.handleServerAuth.
-  const client = await getServerRestClient({ cookies: requestForNextHandler.cookies });
-
-  // This allows disabling these middleware redirects for testing alternative client-side/page-level logic.
-  if (requestForNextHandler.nextUrl.pathname === "/") { // Checks will run if path is "/"
-      if (process.env.DEBUG === 'true') {
-        console.log("[Middleware] Running app setup checks for '/' route.");
-      }
-      // Check if settings exist
-      const { data: settings, error: settingsError } = await client
-          .from("settings")
-          .select("id")
-          .limit(1);
-          
-        if (!settings?.length) {
-          return NextResponse.redirect(
-            `${request.nextUrl.origin}/getting-started/activity-standard`
-          );
-        }
-
-        // Check if regions exist
-        const { data: regions, error: regionsError } = await client
-          .from("region")
-          .select("id")
-          .limit(1);
-          
-        if (!regions?.length) {
-          return NextResponse.redirect(
-            `${request.nextUrl.origin}/getting-started/upload-regions`
-          );
-        }
-
-        // Check if units exist
-        const { data: legalUnits, error: legalUnitsError } = await client
-          .from("legal_unit")
-          .select("id")
-          .limit(1);
-          
-        const { data: establishments, error: establishmentsError } = await client
-          .from("establishment")
-          .select("id")
-          .limit(1);
-        if (!legalUnits?.length && !establishments?.length) {
-          if (process.env.DEBUG === 'true') {
-            console.log("[Middleware] No legal units or establishments found. Redirecting to /import.");
-          }
-          return NextResponse.redirect(`${request.nextUrl.origin}/import`);
-        }
-    } // End of app setup checks for "/"
-
     // All checks passed, return the response (which might have new cookies set and request headers modified)
     return response;
 }
