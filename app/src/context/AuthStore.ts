@@ -368,6 +368,48 @@ class AuthStore {
           console.log(`[AuthStore.handleServerAuth] Refresh API response status: ${refreshResponse.status}`);
         }
 
+        // ALWAYS process Set-Cookie headers from the refreshResponse first.
+        // This ensures that whatever public.refresh decided about cookies (set new, clear old)
+        // is staged to be sent back to the browser.
+        const setCookieHeaders = refreshResponse.headers.getSetCookie();
+        if (setCookieHeaders && setCookieHeaders.length > 0) {
+          const parsedSetCookies = setCookie.parse(setCookieHeaders); // Get as array of objects
+          
+          parsedSetCookies.forEach(cookieObject => {
+            const options: Parameters<typeof responseCookies.set>[2] = {
+              httpOnly: cookieObject.httpOnly,
+              secure: cookieObject.secure ?? (process.env.NODE_ENV !== 'development'),
+              path: cookieObject.path || '/',
+              sameSite: (cookieObject.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none' | undefined) || 'lax',
+              expires: cookieObject.expires,
+              maxAge: cookieObject.maxAge,
+            };
+            // Remove undefined options to avoid issues with Next.js cookie setting
+            Object.keys(options).forEach(keyStr => {
+              const key = keyStr as keyof typeof options;
+              if (options[key] === undefined) {
+                delete options[key];
+              }
+            });
+
+            responseCookies.set(cookieObject.name, cookieObject.value, options);
+
+            if (cookieObject.name === 'statbus' && cookieObject.value) {
+              if (!modifiedRequestHeaders) modifiedRequestHeaders = new Headers();
+              // Store the new access token to be available for the current request processing if needed.
+              modifiedRequestHeaders.set('X-Statbus-Refreshed-Token', cookieObject.value);
+            }
+          });
+          if (process.env.DEBUG === 'true') {
+            console.log("[AuthStore.handleServerAuth] Applied Set-Cookie headers from refresh response to outgoing response cookies.");
+          }
+        } else {
+          if (process.env.DEBUG === 'true') {
+            console.log("[AuthStore.handleServerAuth] No Set-Cookie headers received from refresh response.");
+          }
+        }
+
+        // Now, determine the application's view of the auth status based on the response body and HTTP status.
         if (!refreshResponse.ok) {
           let errorBodyText = 'Could not read error body';
           let parsedErrorBody: any = null;
@@ -382,111 +424,45 @@ class AuthStore {
             console.error("AuthStore.handleServerAuth: Failed to parse JSON from error response body:", parseError, "Raw error body:", errorBodyText);
           }
           
-          console.error(`AuthStore.handleServerAuth: Refresh fetch failed: ${refreshResponse.status} ${refreshResponse.statusText}. Error Code: ${errorCodeFromServer || 'N/A'}. Body: ${errorBodyText}`);
-          responseCookies.delete('statbus');
-          responseCookies.delete('statbus-refresh');
-          // Return the specific error_code from the server if available, otherwise a generic one.
-          return { status: { isAuthenticated: false, user: null, tokenExpiring: false, error_code: errorCodeFromServer || 'REFRESH_HTTP_ERROR' } };
+          console.error(`AuthStore.handleServerAuth: Refresh fetch failed (HTTP status not OK): ${refreshResponse.status} ${refreshResponse.statusText}. Error Code: ${errorCodeFromServer || 'N/A'}. Body: ${errorBodyText}`);
+          // Backend is responsible for cookie clearing via Set-Cookie, so no direct delete here.
+          currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false, error_code: errorCodeFromServer || 'REFRESH_HTTP_ERROR' };
+          return { status: currentStatus, modifiedRequestHeaders }; // Return early as body processing below is not relevant for error status
         }
 
-        // --- Process Successful Refresh ---
+        // --- Process Successful HTTP Refresh (status OK) ---
         let refreshData;
         let rawResponseText = ''; 
         try {
-          // Read the response body as text first.
           rawResponseText = await refreshResponse.text(); 
 
           if (!rawResponseText) {
-            // If the response body is empty, even for a 200 OK, treat it as a failure
-            // because we expect a JSON payload (auth.auth_response).
-            console.error(`AuthStore.handleServerAuth: Refresh response body is empty. Status: ${refreshResponse.status}. This indicates an issue with the /rpc/refresh endpoint not returning the expected auth_response JSON.`);
-            responseCookies.delete('statbus');
-            responseCookies.delete('statbus-refresh');
-            return { status: { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_EMPTY_RESPONSE' } };
+            console.error(`AuthStore.handleServerAuth: Refresh response body is empty despite HTTP ${refreshResponse.status}. This indicates an issue with the /rpc/refresh endpoint not returning the expected auth_response JSON.`);
+            // Backend is responsible for cookie clearing. If it sent 200 OK with empty body and didn't clear cookies, that's a backend issue.
+            currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_EMPTY_RESPONSE' };
+          } else {
+            refreshData = JSON.parse(rawResponseText);
+            currentStatus = _parseAuthStatusRpcResponseToAuthStatus(refreshData);
           }
-
-          // If we have a non-empty body, try to parse it as JSON.
-          refreshData = JSON.parse(rawResponseText);
         } catch (jsonError: any) {
-          console.error(`AuthStore.handleServerAuth: Failed to parse JSON from refresh response. Status: ${refreshResponse.status}. Raw response text: "${rawResponseText}"`, jsonError);
-          // If JSON parsing fails, treat as an error in refresh logic
-          responseCookies.delete('statbus');
-          responseCookies.delete('statbus-refresh');
-          return { status: { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_JSON_PARSE_ERROR' } };
+          console.error(`AuthStore.handleServerAuth: Failed to parse JSON from refresh response (HTTP status ${refreshResponse.status}). Raw response text: "${rawResponseText}"`, jsonError);
+          // Backend is responsible for cookie clearing.
+          currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_JSON_PARSE_ERROR' };
         }
         
-        // _parseAuthStatusRpcResponseToAuthStatus returns the core fields, matching AuthStore's AuthStatus
-        currentStatus = _parseAuthStatusRpcResponseToAuthStatus(refreshData); // This now includes error_code
         if (process.env.DEBUG === 'true') {
-          console.log("[AuthStore.handleServerAuth] Status after parsing refresh response:", JSON.stringify(currentStatus));
+          console.log("[AuthStore.handleServerAuth] Status after parsing refresh response body:", JSON.stringify(currentStatus));
         }
 
         if (!currentStatus.isAuthenticated && currentStatus.error_code && process.env.DEBUG === 'true') {
           console.warn(`[AuthStore.handleServerAuth] Refresh RPC returned unauthenticated with error_code: ${currentStatus.error_code}`);
         }
+        // The success of the refresh in terms of application state is now in currentStatus.
+        // Cookie management has been handled by processing Set-Cookie headers.
 
-        // Cookies are set by the Set-Cookie headers from refreshResponse.
-        // We need to parse them and apply to the outgoing `responseCookies`
-        // that the middleware will use.
-        const setCookieHeaders = refreshResponse.headers.getSetCookie(); 
-        if (setCookieHeaders && setCookieHeaders.length > 0) {
-          const parsedSetCookies = setCookie.parse(setCookieHeaders, { map: true });
-          
-          const newAccessTokenCookie = parsedSetCookies['statbus'];
-          const newRefreshTokenCookie = parsedSetCookies['statbus-refresh'];
-
-          if (newAccessTokenCookie?.value) {
-            responseCookies.set('statbus', newAccessTokenCookie.value, {
-              httpOnly: newAccessTokenCookie.httpOnly,
-              secure: newAccessTokenCookie.secure ?? (process.env.NODE_ENV !== 'development'), 
-              path: newAccessTokenCookie.path || '/',
-              sameSite: (newAccessTokenCookie.sameSite as 'lax' | 'strict' | 'none') || 'lax',
-              expires: newAccessTokenCookie.expires,
-              maxAge: newAccessTokenCookie.maxAge,
-            });
-            if (!modifiedRequestHeaders) modifiedRequestHeaders = new Headers();
-            modifiedRequestHeaders.set('X-Statbus-Refreshed-Token', newAccessTokenCookie.value);
-          } else {
-             console.warn("AuthStore.handleServerAuth: No 'statbus' access token in Set-Cookie after refresh.");
-          }
-
-          if (newRefreshTokenCookie?.value) {
-            responseCookies.set('statbus-refresh', newRefreshTokenCookie.value, {
-              httpOnly: newRefreshTokenCookie.httpOnly,
-              secure: newRefreshTokenCookie.secure ?? (process.env.NODE_ENV !== 'development'),
-              path: newRefreshTokenCookie.path || '/',
-              sameSite: (newRefreshTokenCookie.sameSite as 'lax' | 'strict' | 'none') || 'lax',
-              expires: newRefreshTokenCookie.expires,
-              maxAge: newRefreshTokenCookie.maxAge,
-            });
-          } else {
-            console.warn("AuthStore.handleServerAuth: No 'statbus-refresh' token in Set-Cookie after refresh.");
-          }
-          
-          // If the new status from RPC indicates authenticated AND we got an access token cookie, it's a success.
-          if (currentStatus.isAuthenticated && newAccessTokenCookie?.value) {
-            if (process.env.DEBUG === 'true') {
-              console.log("AuthStore.handleServerAuth: Refresh successful, new auth status parsed, cookies staged.");
-            }
-          } else {
-            // If RPC says authenticated but no access token cookie, or RPC says not authenticated
-            console.error(`AuthStore.handleServerAuth: Refresh issue. RPC status: ${currentStatus.isAuthenticated}, Access token cookie present: ${!!newAccessTokenCookie?.value}, Error code: ${currentStatus.error_code}`);
-            // Preserve error_code if available from the parsed refreshData
-            currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false, error_code: currentStatus.error_code || 'REFRESH_POST_PROCESS_FAIL' }; 
-            responseCookies.delete('statbus'); 
-            responseCookies.delete('statbus-refresh');
-          }
-
-        } else {
-           console.error("AuthStore.handleServerAuth: Refresh RPC response processed, but no Set-Cookie headers received from refreshResponse. This is unexpected if refresh was successful and returned authenticated.");
-           currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_NO_SET_COOKIE' };
-           responseCookies.delete('statbus');
-           responseCookies.delete('statbus-refresh');
-        }
-      } catch (error) {
-        console.error("AuthStore.handleServerAuth: Error during refresh fetch or processing:", error);
-        responseCookies.delete('statbus');
-        responseCookies.delete('statbus-refresh');
+      } catch (error) { // This outer catch handles errors from the fetch call itself or initial Set-Cookie processing.
+        console.error("AuthStore.handleServerAuth: Error during refresh fetch or initial processing:", error);
+        // Backend is responsible for cookie clearing. If fetch fails, cookies on browser are unchanged by this attempt.
         currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_EXCEPTION' };
       }
     }
