@@ -88,7 +88,6 @@ class BaseDataStore {
       return this.fetchPromise;
     }
     
-    // Start a new fetch
     this.status = 'loading';
     this.fetchPromise = this.fetchBaseData(client);
     
@@ -108,7 +107,6 @@ class BaseDataStore {
       this.status = 'error';
       console.error('Failed to fetch base data:', error);
       
-      // Add more detailed error logging
       if (error instanceof Error) {
         console.error('Error details:', {
           name: error.name,
@@ -178,14 +176,12 @@ class BaseDataStore {
       };
 
       if (functionName) {
-        // Refresh specific function if name is provided
         if (functionName === 'is_importing' || functionName === 'is_deriving_statistical_units' || functionName === 'is_deriving_reports') {
           await refreshSingleStatus(functionName);
         } else {
           console.warn(`refreshWorkerStatus called with unknown functionName: ${functionName}`);
         }
       } else {
-        // Refresh all statuses if no functionName is provided
         // console.log("Refreshing all worker statuses...");
         await Promise.all([
           refreshSingleStatus('is_importing'),
@@ -391,8 +387,7 @@ class BaseDataStore {
     // console.log('BaseDataStore client debug info:', clientDebugInfo);
     
     try {
-      // Fetch all the data in parallel using Promise.all      
-      // Define all the fetch operations
+      // Fetch all the data in parallel using Promise.all
       const fetchStatDefinitions = async () => {
         try {
           const result = await client.from("stat_definition_active").select();
@@ -443,7 +438,6 @@ class BaseDataStore {
         }
       };
       
-      // Execute all fetch operations in parallel
       const [
         statDefinitionsResult,
         externalIdentTypesResult,
@@ -458,7 +452,6 @@ class BaseDataStore {
         fetchTimeContexts()
       ]);
       
-      // Extract results
       const maybeStatDefinitions = statDefinitionsResult.data;
       const statDefinitionsError = statDefinitionsResult.error;
       
@@ -474,7 +467,6 @@ class BaseDataStore {
       const maybeTimeContexts = timeContextsResult.data;
       const timeContextsError = timeContextsResult.error;
       
-      // Check for errors
       if (statDefinitionsError) {
         console.error('Error fetching stat definitions:', statDefinitionsError);
       }
@@ -491,7 +483,6 @@ class BaseDataStore {
         console.error('Error fetching time contexts:', timeContextsError);
       }
       
-      // Initialize time context data
       let timeContextData: {
         timeContexts: Tables<"time_context">[];
         defaultTimeContext: Tables<"time_context"> | null;
@@ -500,7 +491,6 @@ class BaseDataStore {
         defaultTimeContext: null
       };
       
-      // Process time contexts
       if (maybeTimeContexts && maybeTimeContexts.length > 0) {
         let chosenDefault: Tables<"time_context"> | null = null;
 
@@ -515,7 +505,6 @@ class BaseDataStore {
         };
       }
       
-      // Log the results
       // console.log('Base data fetch results:', {
       //   statDefinitions: maybeStatDefinitions?.length || 0,
       //   externalIdentTypes: maybeExternalIdentTypes?.length || 0,
@@ -524,7 +513,6 @@ class BaseDataStore {
       //   hasStatisticalUnits: maybeStatisticalUnit !== null && Array.isArray(maybeStatisticalUnit) && maybeStatisticalUnit.length > 0
       // });
       
-      // Return the base data
       return {
         statDefinitions: maybeStatDefinitions || [],
         externalIdentTypes: maybeExternalIdentTypes || [],

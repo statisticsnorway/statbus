@@ -101,7 +101,7 @@ export const useAuth = () => {
   const logout = useSetAtom(logoutAtom);
   
   return {
-    ...authStatusValue, // authStatusValue is of type AuthStatus (object)
+    ...authStatusValue,
     login,
     logout,
   };
@@ -136,9 +136,9 @@ export const useBaseData = () => {
         throw error
       }
     }, [refreshBaseData]),
-    refreshWorkerStatus: useCallback(async () => { // Removed functionName parameter
+    refreshWorkerStatus: useCallback(async () => {
       try {
-        await refreshWorkerStatus() // Call without arguments
+        await refreshWorkerStatus()
       } catch (error) {
         console.error('Failed to refresh worker status:', error)
         throw error
@@ -248,7 +248,6 @@ export const useSearch = () => {
     updatePagination,
     updateSorting,
     executeSearch,
-    // Expose search page data (allRegions, etc.)
     ...searchPageData,
   }
 }
@@ -512,8 +511,8 @@ export const useTableColumnsManager = () => {
 export const useImportManager = () => {
   const currentImportState = useAtomValue(importStateAtom);
   const currentUnitCounts = useAtomValue(unitCountsAtom);
-  const allTimeContextsFromBase = useAtomValue(timeContextsAtom); // These are Tables<'time_context'>[]
-  const defaultTimeContextFromBase = useAtomValue(defaultTimeContextAtom); // Global default
+  const allTimeContextsFromBase = useAtomValue(timeContextsAtom);
+  const defaultTimeContextFromBase = useAtomValue(defaultTimeContextAtom);
 
   const doRefreshUnitCount = useSetAtom(refreshUnitCountAtom);
   const doRefreshAllUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
@@ -627,7 +626,7 @@ export const useImportManager = () => {
 export const usePendingJobsByPattern = (slugPattern: string) => {
   const allJobsState = useAtomValue(allPendingJobsStateAtom);
   const refreshJobsForPattern = useSetAtom(refreshPendingJobsByPatternAtom);
-  const isAuthenticated = useAtomValue(isAuthenticatedAtom); // Get auth state here too
+  const isAuthenticated = useAtomValue(isAuthenticatedAtom);
 
   // Memoize the selection of state for the specific slugPattern
   const state: PendingJobsData = useMemo(() => {

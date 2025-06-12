@@ -10,7 +10,6 @@ import { authStore } from "@/context/AuthStore";
 
 export default async function LoginPage() {
   try {
-    // Check authentication status server-side
     console.log("LoginPage: Checking authentication status...");
     const authStatus = await authStore.getAuthStatus();
     console.log("LoginPage: Auth status:", JSON.stringify({

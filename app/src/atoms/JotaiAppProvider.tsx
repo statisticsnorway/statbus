@@ -7,7 +7,7 @@
  * and handles app initialization without complex useEffect chains.
  */
 
-import React, { Suspense, useEffect, ReactNode, useState } from 'react'; // Added useState
+import React, { Suspense, useEffect, ReactNode, useState } from 'react';
 import { Provider } from 'jotai';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useRouter, usePathname } from 'next/navigation';
@@ -18,19 +18,17 @@ import {
   refreshBaseDataAtom,
   refreshWorkerStatusAtom,
   workerStatusAtom,
-  authStatusLoadableAtom, // Added import
-  baseDataLoadableAtom, // Added import
-  workerStatusLoadableAtom, // Added import
-  // isAuthenticatedAtom, // We'll use authStatusAtom directly for more clarity on loading vs authenticated
+  authStatusLoadableAtom,
+  baseDataLoadableAtom,
+  workerStatusLoadableAtom,
   initializeTableColumnsAtom,
-  // refreshAllGettingStartedDataAtom, // Removed
   refreshAllUnitCountsAtom,
   // fetchAndSetAuthStatusAtom, // Removed
   authStatusInitiallyCheckedAtom,
-  initialAuthCheckEffectAtom, // Added
+  initialAuthCheckDoneEffect,
   // gettingStartedDataAtom, // Removed
-  activityCategoryStandardSettingAtomAsync, // Import the atom
-  numberOfRegionsAtomAsync, // Import the regions atom
+  activityCategoryStandardSettingAtomAsync,
+  numberOfRegionsAtomAsync,
   restClientAtom as importedRestClientAtom, // Alias to avoid conflict with local restClient variable
 } from './index';
 
@@ -39,25 +37,22 @@ import {
 // ============================================================================
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
-  const authLoadableValue = useAtomValue(authStatusLoadableAtom); // Renamed to avoid conflict if authLoadable is declared later
+  const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const initialAuthCheckDone = useAtomValue(authStatusInitiallyCheckedAtom);
   const restClient = useAtomValue(restClientAtom);
-  // const triggerFetchAuthStatus = useSetAtom(fetchAndSetAuthStatusAtom); // Removed
-  useAtomValue(initialAuthCheckEffectAtom); // Use the effect atom to manage initialAuthCheckDone
+  useAtomValue(initialAuthCheckDoneEffect); // Activate the effect atom
   const refreshBaseData = useSetAtom(refreshBaseDataAtom)
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setRestClient = useSetAtom(restClientAtom)
-  const initializeTableColumnsAction = useSetAtom(initializeTableColumnsAtom); // Renamed for clarity
-  // const refreshGettingStartedData = useSetAtom(refreshAllGettingStartedDataAtom); // Removed
+  const initializeTableColumnsAction = useSetAtom(initializeTableColumnsAtom);
   const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
 
   const router = useRouter();
   const pathname = usePathname();
-  // const gettingStartedData = useAtomValue(gettingStartedDataAtom); // Removed
   const baseData = useAtomValue(baseDataAtom);
   const { statDefinitions } = baseData; // Specifically get statDefinitions for the new effect
-  const activityStandard = useAtomValue(activityCategoryStandardSettingAtomAsync); // Consume the atom
-  const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync); // Consume the regions atom
+  const activityStandard = useAtomValue(activityCategoryStandardSettingAtomAsync);
+  const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync);
   const [isRedirectingToSetup, setIsRedirectingToSetup] = useState(false); // Flag to prevent double redirect
   
   // Initialize REST client
@@ -85,13 +80,10 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   }, [setRestClient])
 
   // Effect to fetch initial authentication status once REST client is ready and auth is not already loading
-  // This effect is removed. authStatusCoreAtom will fetch when restClient is ready due to its dependency,
-  // and initialAuthCheckEffectAtom will set initialAuthCheckDone.
-  // useEffect(() => {
-  //   if (restClient && !initialAuthCheckDone && authLoadableValue.state !== 'loading') {
-  //     triggerFetchAuthStatus(); 
-  //   }
-  // }, [restClient, initialAuthCheckDone, authLoadableValue.state, triggerFetchAuthStatus]);
+  // This effect is removed. authStatusCoreAtom will fetch when restClient is ready due to its dependency.
+  
+  // The useEffect that previously set authStatusInitiallyCheckedAtom is removed.
+  // Its logic is now handled by initialAuthCheckDoneEffect from jotai-effect.
   
   const [appDataInitialized, setAppDataInitialized] = useState(false);
 
@@ -132,13 +124,10 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
         // Base data will be fetched by baseDataCoreAtom when its dependencies (auth, client) are met.
         
         // Table columns will be initialized by the new useEffect below, reacting to statDefinitions.
-        // initializeTableColumns(); // Removed from here
 
-        // Fetch Import Unit Counts
         refreshUnitCounts();
 
         // Worker status will be fetched by workerStatusCoreAtom when its dependencies (auth, client) are met.
-        // No explicit refreshWorkerStatus() call needed here.
         
       } catch (error) {
         if (mounted) {
@@ -156,14 +145,11 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
       mounted = false;
     };
   }, [
-    authLoadableValue, // Depend on the whole loadable value
+    authLoadableValue,
     restClient,                
     initialAuthCheckDone,      
     appDataInitialized,        
-    // refreshBaseData, // No longer explicitly called
     refreshUnitCounts         
-    // refreshWorkerStatus, // No longer explicitly called
-    // initializeTableColumns // Action atom itself is not a dependency here anymore
   ]);
 
   // "Getting Started" redirect logic is removed.
@@ -247,7 +233,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     };
   }, [
     pathname,
-    authLoadableValue, // Depend on the whole loadable value
+    authLoadableValue,
     initialAuthCheckDone,
     restClient,
     activityStandard,
@@ -266,7 +252,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 // ============================================================================
 
 const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
-  const authLoadableValue = useAtomValue(authStatusLoadableAtom); // Correctly use authStatusLoadableAtom
+  const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   
   useEffect(() => {
@@ -297,7 +283,6 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
           try {
             const data = JSON.parse(event.data)
             
-            // Handle different SSE message types
             switch (data.type) {
               case 'function_status_change':
                 // refreshWorkerStatusAtom no longer takes functionName.
@@ -318,8 +303,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
           }
         }
         
-        eventSource.onerror = (event) => { // The 'error' is an Event object
-          // Log the type of event and the readyState of the EventSource
+        eventSource.onerror = (event) => {
           const readyState = eventSource?.readyState;
           let readyStateString = "UNKNOWN";
           if (readyState === EventSource.CONNECTING) readyStateString = "CONNECTING";
@@ -330,9 +314,8 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
           
           eventSource?.close()
           
-          // Implement exponential backoff for reconnection
           if (reconnectAttempts < maxReconnectAttempts) {
-            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Max 30 seconds
+            const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
             if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
               console.log(`SSE: Scheduling reconnect attempt ${reconnectAttempts + 1} in ${delay / 1000}s.`);
             }
@@ -361,7 +344,7 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource.close()
       }
     }
-  }, [authLoadableValue, refreshWorkerStatus])  // Depend on the whole loadable value
+  }, [authLoadableValue, refreshWorkerStatus])
   
   return <>{children}</>
 }
@@ -384,7 +367,6 @@ const ErrorBoundary = ({ children }: { children: ReactNode }) => {
   
   useEffect(() => {
     const handleError = (event: ErrorEvent) => {
-      // Log more details from the ErrorEvent
       console.error('Global error caught by ErrorBoundary:', {
         message: event.message,
         filename: event.filename,

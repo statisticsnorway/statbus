@@ -26,14 +26,14 @@ export interface User {
 }
 
 export interface AuthStatus {
-  loading: boolean; // Added loading state
+  loading: boolean;
   isAuthenticated: boolean
   tokenExpiring: boolean
   user: User | null
-  error_code: string | null; // Added error_code
+  error_code: string | null;
 }
 
-// Base auth atom - now an async atom
+// Base auth atom
 export const authStatusCoreAtom = atomWithRefresh(async (get) => {
   const client = get(restClientAtom);
   // This atom should only attempt to fetch if the client is available.
@@ -58,11 +58,11 @@ export const authStatusCoreAtom = atomWithRefresh(async (get) => {
 
 export const authStatusLoadableAtom = loadable(authStatusCoreAtom);
 
-import type { Loadable } from 'jotai/vanilla/utils/loadable'; // Import Loadable type
+import type { Loadable } from 'jotai/vanilla/utils/loadable';
 
-// Derived atoms for easier access, now from the loadable atom's data
+// Derived atoms for easier access
 export const authStatusAtom = atom<AuthStatus>(
-  (get): AuthStatus => { // Explicit return type for the getter
+  (get): AuthStatus => {
     const loadableState: Loadable<Omit<AuthStatus, 'loading'>> = get(authStatusLoadableAtom);
     if (loadableState.state === 'loading') {
       return { loading: true, isAuthenticated: false, user: null, tokenExpiring: false, error_code: null };
@@ -72,9 +72,8 @@ export const authStatusAtom = atom<AuthStatus>(
       // For simplicity, setting a generic error_code here.
       return { loading: false, isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'LOADABLE_ERROR' };
     }
-    // loadableState.data is Omit<AuthStatus, 'loading'>
     const data: Omit<AuthStatus, 'loading'> = loadableState.data; // No need for ?? if hasData implies data exists
-    return { loading: false, ...data }; // error_code will be part of ...data
+    return { loading: false, ...data };
   }
 );
 
@@ -103,8 +102,6 @@ export interface BaseData {
   defaultTimeContext: Tables<"time_context"> | null
   hasStatisticalUnits: boolean
 }
-
-// Base data atom
 
 const initialBaseData: BaseData = {
   statDefinitions: [],
@@ -198,7 +195,7 @@ export const hasStatisticalUnitsAtom = atom((get) => get(baseDataAtom).hasStatis
 // WORKER STATUS ATOMS - Replace BaseDataStore worker status
 // ============================================================================
 
-export interface WorkerStatusData { // Renamed to avoid potential naming conflicts
+export interface WorkerStatusData {
   isImporting: boolean | null;
   isDerivingUnits: boolean | null;
   isDerivingReports: boolean | null;
@@ -256,7 +253,7 @@ export interface WorkerStatus {
 
 // Compatibility workerStatusAtom (synchronous view)
 export const workerStatusAtom = atom<WorkerStatus>(
-  (get): WorkerStatus => { // Explicit return type for the getter
+  (get): WorkerStatus => {
     const loadableState: Loadable<WorkerStatusData> = get(workerStatusLoadableAtom);
     switch (loadableState.state) {
       case 'loading':
@@ -265,7 +262,6 @@ export const workerStatusAtom = atom<WorkerStatus>(
         const error = loadableState.error;
         return { ...initialWorkerStatusData, loading: false, error: error instanceof Error ? error.message : String(error) };
       case 'hasData':
-        // loadableState.data is WorkerStatusData
         return { ...loadableState.data, loading: false, error: null };
       default: // Should not happen with loadable
         return { ...initialWorkerStatusData, loading: false, error: 'Unknown loadable state' };
@@ -490,7 +486,7 @@ export const gettingStartedUIStateAtom = atomWithStorage<GettingStartedUIState>(
 // will now be fetched by individual dashboard cards or components as needed.
 
 // --- Individual Async Atoms for "Getting Started" Metrics ---
-import { RESET, atomWithRefresh } from 'jotai/utils'; // Import RESET and atomWithRefresh
+import { RESET, atomWithRefresh } from 'jotai/utils';
 
 // Activity Category Standard Setting
 export const activityCategoryStandardSettingAtomAsync = atomWithRefresh(async (get) => {
@@ -648,19 +644,26 @@ export const allPendingJobsStateAtom = atom<AllPendingJobsState>({});
 // Atom to track if the initial auth status check has been performed
 export const authStatusInitiallyCheckedAtom = atom(false);
 
-// Effect atom to update authStatusInitiallyCheckedAtom once the initial auth load is complete
-export const initialAuthCheckEffectAtom = atom(null, (get, set) => {
+// Atom to track if search state has been initialized from URL params
+export const searchStateInitializedAtom = atom(false);
+
+// Effect atom using jotai-effect to update authStatusInitiallyCheckedAtom
+// This will run when its dependencies (authStatusLoadableAtom, authStatusInitiallyCheckedAtom) change,
+// or when the effect atom is mounted.
+import { atomEffect } from 'jotai-effect';
+
+export const initialAuthCheckDoneEffect = atomEffect((get, set) => {
   const authLoadable = get(authStatusLoadableAtom);
   const alreadyChecked = get(authStatusInitiallyCheckedAtom);
 
   // Check if not already marked as checked to avoid unnecessary sets
   if (authLoadable.state !== 'loading' && !alreadyChecked) {
     set(authStatusInitiallyCheckedAtom, true);
+    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      console.log("initialAuthCheckDoneEffect (jotai-effect): authStatusInitiallyCheckedAtom set to true.");
+    }
   }
 });
-
-// Atom to track if search state has been initialized from URL params
-export const searchStateInitializedAtom = atom(false);
 
 // ============================================================================
 // ASYNC ACTION ATOMS - For handling side effects
@@ -1010,7 +1013,7 @@ export const loginAtom = atom(
       await get(authStatusCoreAtom); // Ensure it re-fetches and updates.
       // The authStatusLoadableAtom will reflect the new state.
 
-    } catch (error) { // Catches errors from fetch, response.json(), or explicitly thrown errors above
+    } catch (error) {
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.error('[loginAtom] Catch block error. Refreshing auth status and re-throwing.', error);
       } else {
@@ -1067,7 +1070,7 @@ export const clientSideRefreshAtom = atom<
     // After successful RPC refresh AND if it indicates authenticated state, cookies are updated by the server.
     // Refresh our authStatusCoreAtom to reflect the new state.
     set(authStatusCoreAtom); 
-    const newCoreStatus = await get(authStatusCoreAtom); // This will be Omit<AuthStatus, 'loading'>
+    const newCoreStatus = await get(authStatusCoreAtom);
     return { success: true, newStatus: newCoreStatus };
 
   } catch (e) {
@@ -1118,13 +1121,11 @@ export const logoutAtom = atom(
     // The synchronous wrapper atoms will reflect the initial/empty state after their core atoms resolve.
     
     // Reset other relevant atoms to their initial/empty state
-    // set(workerStatusAtom, { isImporting: null, isDerivingUnits: null, isDerivingReports: null, loading: false, error: null }); // No longer needed to set wrapper directly
     set(searchStateAtom, initialSearchStateValues);
     set(searchResultAtom, { data: [], total: 0, loading: false, error: null });
     set(selectedUnitsAtom, []);
     set(tableColumnsAtom, []); // This will be re-initialized on next load if needed
     set(gettingStartedUIStateAtom, { currentStep: 0, completedSteps: [], isVisible: true });
-    // set(gettingStartedDataAtom, { activity_category_standard: null, numberOfRegions: null, numberOfCustomActivityCategoryCodes: null, numberOfCustomSectors: null, numberOfCustomLegalForms: null }); // Removed
     set(importStateAtom, { isImporting: false, progress: 0, currentFile: null, errors: [], completed: false, useExplicitDates: false, selectedImportTimeContextIdent: null });
     set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
     // Note: Similar to login, a hard redirect (`window.location.href = "/login";`
@@ -1540,7 +1541,6 @@ export const derivedApiSearchParamsAtom = atom((get) => {
     // The SEARCH constant from url-search-params.ts is the app_param_name for FTS.
     // fullTextSearchDeriveStateUpdateFromValue handles generating the api_param_name and api_param_value.
     const ftsAction = fullTextSearchDeriveStateUpdateFromValue(searchState.query.trim());
-    // Type guard for payload by checking action type
     if (ftsAction.type === 'set_query' && ftsAction.payload.api_param_name && ftsAction.payload.api_param_value) {
       params.set(ftsAction.payload.api_param_name, ftsAction.payload.api_param_value);
     }
@@ -1548,7 +1548,7 @@ export const derivedApiSearchParamsAtom = atom((get) => {
 
   // 2. Filters from searchState.filters
   Object.entries(searchState.filters).forEach(([appParamName, appParamValue]) => {
-    let actionPayloadPart: SetQuery['payload'] | null = null; // More specific type for the payload part
+    let actionPayloadPart: SetQuery['payload'] | null = null;
 
     switch (appParamName) {
       case UNIT_TYPE:
@@ -1726,19 +1726,19 @@ export const appReadyAtom = atom((get) => {
   // it could be derived from baseDataAtom.hasStatisticalUnits, but it won't gate the dashboard rendering here.
 
   return {
-    isLoadingAuth: isAuthLoading, // Corrected: use isAuthLoading from authLoadable.state
-    isLoadingBaseData: isLoadingBaseD, // This will be updated when baseDataAtom is refactored
+    isLoadingAuth: isAuthLoading,
+    isLoadingBaseData: isLoadingBaseD,
 
     isAuthProcessComplete,
     isAuthenticated: isAuthenticatedUser,
     
-    isBaseDataLoaded: isBaseDataProcessComplete, // This will be updated
+    isBaseDataLoaded: isBaseDataProcessComplete,
     // isGettingStartedDataLoaded: true, // Removed, or assume true if not gating
 
     // isSetupComplete, // Removed from here
     isReadyToRenderDashboard,
 
-    user: currentUser, // Corrected: use currentUser from authLoadable.data
+    user: currentUser,
   };
 });
 
@@ -1761,12 +1761,11 @@ export const atoms = {
   defaultTimeContextAtom,
   hasStatisticalUnitsAtom,
   refreshBaseDataAtom,
-  // refreshHasStatisticalUnitsAtomAction, // Removed
   
   // Worker Status
-  workerStatusAtom, // Compatibility synchronous atom
-  workerStatusLoadableAtom, // New loadable atom
-  workerStatusCoreAtom, // New core async atom
+  workerStatusAtom,
+  workerStatusLoadableAtom,
+  workerStatusCoreAtom,
   refreshWorkerStatusAtom,
   
   // Rest Client
@@ -1779,11 +1778,11 @@ export const atoms = {
   searchStateAtom,
   searchResultAtom,
   performSearchAtom,
-  resetSearchStateAtom, // Export the reset action
-  initialSearchStateValues, // Export the initial values
-  derivedApiSearchParamsAtom, // Export derived search params
-  searchPageDataAtom, // Export search page static data
-  setSearchPageDataAtom, // Export action to set search page data
+  resetSearchStateAtom,
+  initialSearchStateValues,
+  derivedApiSearchParamsAtom,
+  searchPageDataAtom,
+  setSearchPageDataAtom,
   
   // Selection
   selectedUnitsAtom,
@@ -1802,23 +1801,13 @@ export const atoms = {
   setTableColumnProfileAtom,
   
   // Getting Started
-  gettingStartedUIStateAtom, // Retained for potential wizard UI
+  gettingStartedUIStateAtom,
   activityCategoryStandardSettingAtomAsync,
-  // refreshActivityCategoryStandardSettingAtom, // Removed (use atomWithRefresh)
   numberOfRegionsAtomAsync,
-  // refreshNumberOfRegionsAtom, // Removed (use atomWithRefresh)
   numberOfCustomActivityCodesAtomAsync,
-  // refreshNumberOfCustomActivityCodesAtom, // Removed (use atomWithRefresh)
   numberOfCustomSectorsAtomAsync,
-  // refreshNumberOfCustomSectorsAtom, // Removed (use atomWithRefresh)
   numberOfCustomLegalFormsAtomAsync,
-  // refreshNumberOfCustomLegalFormsAtom, // Removed (use atomWithRefresh)
-  numberOfTotalActivityCodesAtomAsync, // Added new atom
-  // Old global "getting started" atoms are removed
-  // refreshNumberOfCustomActivityCategoryCodesAtom, // Removed
-  // refreshNumberOfCustomSectorsAtom, // Removed
-  // refreshNumberOfCustomLegalFormsAtom, // Removed
-  // refreshAllGettingStartedDataAtom, // Removed
+  numberOfTotalActivityCodesAtomAsync,
   
   // Import
   importStateAtom,
@@ -1828,8 +1817,8 @@ export const atoms = {
   setImportSelectedTimeContextAtom,
   setImportUseExplicitDatesAtom,
   createImportJobAtom,
-  allPendingJobsStateAtom, // Renamed
-  refreshPendingJobsByPatternAtom, // Renamed
+  allPendingJobsStateAtom,
+  refreshPendingJobsByPatternAtom,
   
   // Computed
   appReadyAtom,
@@ -1837,15 +1826,13 @@ export const atoms = {
   // App Initialization State
   authStatusInitiallyCheckedAtom,
   // fetchAndSetAuthStatusAtom, // Removed
-  initialAuthCheckEffectAtom, // Added
+  initialAuthCheckDoneEffect,
   searchStateInitializedAtom,
 
   // Client-side refresh action
   clientSideRefreshAtom,
   
   // Loadable
-  baseDataLoadableAtom, // Ensured definition and export
+  baseDataLoadableAtom,
   authStatusLoadableAtom,
-  // workerStatusLoadableAtom, // Removed duplicate
-  // baseDataLoadingAtom, // Removed
 }

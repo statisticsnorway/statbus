@@ -50,7 +50,7 @@ export default function LoginForm() {
       // A better way would be for loginAtom to return the full auth_response.
       // For now, I'll proceed as if `error.cause` might contain the error_code.
 
-      await login({ email, password }); // This will call the loginAtom
+      await login({ email, password });
       
       // If loginAtom completes without error, it means the /rpc/login was successful (2xx)
       // AND the subsequent refresh of authStatusCoreAtom (via /rpc/auth_status) also indicated authenticated.

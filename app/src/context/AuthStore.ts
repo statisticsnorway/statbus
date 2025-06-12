@@ -30,11 +30,10 @@ export interface User {
  * Authentication status type
  */
 export interface AuthStatus {
-  // AuthStore's version of AuthStatus doesn't need 'loading' as it's about the fetched state.
   isAuthenticated: boolean;
   tokenExpiring: boolean;
   user: User | null;
-  error_code: string | null; // Added error_code
+  error_code: string | null;
 }
 
 
@@ -95,7 +94,6 @@ class AuthStore {
       this.fetchStatus = "error";
       console.error("AuthStore.getAuthStatus: Failed to fetch auth status:", error);
 
-      // Add more detailed error logging
       if (error instanceof Error) {
         console.error("AuthStore.getAuthStatus: Error details:", {
           name: error.name,
@@ -114,7 +112,6 @@ class AuthStore {
 
   /**
    * Force refresh the auth status
-   * (Now identical to getAuthStatus since caching is removed)
    */
   public async refreshAuthStatus(): Promise<AuthStatus> {
     return this.getAuthStatus();
@@ -231,9 +228,8 @@ class AuthStore {
       // data is the new AuthStatus object from the RPC
       const newParsedStatus = _parseAuthStatusRpcResponseToAuthStatus(data);
       
-      // Update AuthStore's internal status
       this.status = newParsedStatus;
-      this.fetchStatus = "success"; // Mark as success
+      this.fetchStatus = "success";
       this.lastFetchTime = Date.now();
 
       if (process.env.NODE_ENV === "development") {
@@ -282,7 +278,6 @@ class AuthStore {
       const { getRestClient } = await import("@/context/RestClientStore");
       const client = await getRestClient();
       
-      // Call the auth_status RPC function with type assertion
       const { data, error } = await client.rpc("auth_status");
       
       if (error) {
@@ -373,7 +368,7 @@ class AuthStore {
         // is staged to be sent back to the browser.
         const setCookieHeaders = refreshResponse.headers.getSetCookie();
         if (setCookieHeaders && setCookieHeaders.length > 0) {
-          const parsedSetCookies = setCookie.parse(setCookieHeaders); // Get as array of objects
+          const parsedSetCookies = setCookie.parse(setCookieHeaders);
           
           parsedSetCookies.forEach(cookieObject => {
             const options: Parameters<typeof responseCookies.set>[2] = {
@@ -467,10 +462,8 @@ class AuthStore {
       }
     }
 
-    // Return the determined status and any modifications needed
     return { status: currentStatus, modifiedRequestHeaders };
   }
 }
 
-// Export a singleton instance
 export const authStore = AuthStore.getInstance();
