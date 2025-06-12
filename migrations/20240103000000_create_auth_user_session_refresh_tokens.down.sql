@@ -36,12 +36,12 @@ REVOKE EXECUTE ON FUNCTION auth.extract_access_token_from_cookies() FROM authent
 REVOKE EXECUTE ON FUNCTION auth.generate_jwt(jsonb) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.reset_session_context() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.set_user_context_from_email(text) FROM authenticated;
-REVOKE EXECUTE ON FUNCTION auth.build_auth_response(text, text, auth.user) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.extract_refresh_token_from_cookies() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.set_auth_cookies(text, text, timestamptz, timestamptz) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.clear_auth_cookies() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.use_jwt_claims_in_session(jsonb) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.build_jwt_claims(text, timestamptz, text, jsonb) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION auth.build_auth_response(auth.user, jsonb) FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) FROM authenticator; -- Added
 REVOKE EXECUTE ON FUNCTION auth.statbus_role() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.email() FROM authenticated, anon;
@@ -117,10 +117,10 @@ DROP FUNCTION IF EXISTS auth.extract_access_token_from_cookies();
 DROP FUNCTION IF EXISTS auth.reset_session_context();
 DROP FUNCTION IF EXISTS auth.generate_jwt(jsonb);
 DROP FUNCTION IF EXISTS auth.set_user_context_from_email(text);
-DROP FUNCTION IF EXISTS auth.build_auth_response(text, text, auth.user);
 DROP FUNCTION IF EXISTS auth.extract_refresh_token_from_cookies();
 DROP FUNCTION IF EXISTS auth.use_jwt_claims_in_session(jsonb);
 DROP FUNCTION IF EXISTS auth.build_jwt_claims(text, timestamptz, text, jsonb);
+DROP FUNCTION IF EXISTS auth.build_auth_response(auth.user, jsonb);
 DROP FUNCTION IF EXISTS auth.switch_role_from_jwt(text); -- Added
 DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
 DROP FUNCTION IF EXISTS auth.set_auth_cookies(text, text, timestamptz, timestamptz);
@@ -152,10 +152,8 @@ DROP TABLE IF EXISTS auth.user; -- Drops auth.user type implicitly
 -- 15. Drop auth types
 DROP TYPE IF EXISTS auth.auth_test_response;
 DROP TYPE IF EXISTS auth.token_info;
-DROP TYPE IF EXISTS auth.auth_status_response;
-DROP TYPE IF EXISTS auth.session_info;
-DROP TYPE IF EXISTS auth.logout_response;
 DROP TYPE IF EXISTS auth.auth_response;
+DROP TYPE IF EXISTS auth.session_info;
 
 -- Find and drop all user-specific roles created by the system
 DO $$
@@ -291,5 +289,9 @@ DROP DOMAIN IF EXISTS "application/json";
 
 -- 20. Drop schema
 DROP SCHEMA IF EXISTS auth;
+
+-- Drop test-specific schema and functions
+DROP FUNCTION IF EXISTS auth_test.reset_request_gucs();
+DROP SCHEMA IF EXISTS auth_test;
 
 COMMIT;

@@ -11,6 +11,24 @@ SET LOCAL "app.settings.deployment_slot_code" TO 'test';
 
 \i test/setup.sql
 
+-- Create a test-specific schema for helper functions
+CREATE SCHEMA IF NOT EXISTS auth_test;
+
+-- Helper function to reset common request GUCs for tests
+CREATE OR REPLACE FUNCTION auth_test.reset_request_gucs()
+RETURNS void
+LANGUAGE plpgsql
+AS $$
+BEGIN
+    PERFORM set_config('response.headers', '[]', true); -- Clear response headers
+    PERFORM set_config('request.cookies', '{}', true); -- Clear request cookies
+    PERFORM set_config('request.jwt.claims', '', true); -- Clear request claims
+END;
+$$;
+
+-- Grant execute to the current user (test runner)
+GRANT EXECUTE ON FUNCTION auth_test.reset_request_gucs() TO CURRENT_USER;
+
 -- Create additional test users not covered by setup.sql, using the @statbus.org domain for consistency.
 SELECT * FROM public.user_create('test.external@statbus.org', 'external_user'::statbus_role, 'External#123!');
 SELECT * FROM public.user_create('test.unconfirmed@statbus.org', 'regular_user'::statbus_role, 'Unconfirmed#123!');
@@ -26,12 +44,12 @@ BEGIN
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior (Pattern A)
         RAISE NOTICE 'Test 0.1: Valid IPv4';
         test_ip := inet('192.168.1.1');
-        ASSERT test_ip = '192.168.1.1'::inet, 'Test 0.1 Failed: IPv4 parsing error';
+        ASSERT test_ip = '192.168.1.1'::inet, format('Test 0.1 Failed: IPv4 parsing error. Expected %L, Got %L', '192.168.1.1'::inet, test_ip);
         RAISE NOTICE 'Test 0.1: PASSED';
 
         RAISE NOTICE 'Test 0.2: Valid IPv6';
         test_ip := inet('2001:db8::a');
-        ASSERT test_ip = '2001:db8::a'::inet, 'Test 0.2 Failed: IPv6 parsing error';
+        ASSERT test_ip = '2001:db8::a'::inet, format('Test 0.2 Failed: IPv6 parsing error. Expected %L, Got %L', '2001:db8::a'::inet, test_ip);
         RAISE NOTICE 'Test 0.2: PASSED';
 
         -- Test 0.3 and 0.4 removed as inet() does not parse ports,
@@ -39,7 +57,7 @@ BEGIN
 
         RAISE NOTICE 'Test 0.5: NULL input';
         test_ip := inet(NULL);
-        ASSERT test_ip IS NULL, 'Test 0.5 Failed: inet(NULL) should be NULL';
+        ASSERT test_ip IS NULL, format('Test 0.5 Failed: inet(NULL) should be NULL, Got %L', test_ip);
         RAISE NOTICE 'Test 0.5: PASSED';
 
         RAISE NOTICE 'Test 0.6: Invalid IP string (expect exception)';
@@ -78,73 +96,73 @@ BEGIN
         RAISE NOTICE 'Test 2.1: Valid IPv4 in x-forwarded-for';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "1.2.3.4"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '1.2.3.4'::inet, 'Test 2.1 Failed';
+        ASSERT extracted_ip = '1.2.3.4'::inet, format('Test 2.1 Failed. Expected %L, Got %L', '1.2.3.4'::inet, extracted_ip);
         RAISE NOTICE 'Test 2.1: PASSED';
 
         RAISE NOTICE 'Test 2.2: Valid IPv6 in x-forwarded-for';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "2001:db8::c"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '2001:db8::c'::inet, 'Test 2.2 Failed';
+        ASSERT extracted_ip = '2001:db8::c'::inet, format('Test 2.2 Failed. Expected %L, Got %L', '2001:db8::c'::inet, extracted_ip);
         RAISE NOTICE 'Test 2.2: PASSED';
 
         RAISE NOTICE 'Test 2.3: Valid IPv6 in x-forwarded-for (no port)';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "2001:db8::d"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '2001:db8::d'::inet, 'Test 2.3 Failed';
+        ASSERT extracted_ip = '2001:db8::d'::inet, format('Test 2.3 Failed. Expected %L, Got %L', '2001:db8::d'::inet, extracted_ip);
         RAISE NOTICE 'Test 2.3: PASSED';
 
         RAISE NOTICE 'Test 2.4: Multiple IPs in x-forwarded-for (takes first)';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "1.2.3.4, 5.6.7.8"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '1.2.3.4'::inet, 'Test 2.4 Failed';
+        ASSERT extracted_ip = '1.2.3.4'::inet, format('Test 2.4 Failed. Expected %L, Got %L', '1.2.3.4'::inet, extracted_ip);
         RAISE NOTICE 'Test 2.4: PASSED';
 
         RAISE NOTICE 'Test 2.5: IPv4 with port in x-forwarded-for';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "1.2.3.4:8080"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '1.2.3.4'::inet, 'Test 2.5 Failed: IPv4 with port not stripped correctly';
+        ASSERT extracted_ip = '1.2.3.4'::inet, format('Test 2.5 Failed: IPv4 with port not stripped correctly. Expected %L, Got %L', '1.2.3.4'::inet, extracted_ip);
         RAISE NOTICE 'Test 2.5: PASSED';
 
         RAISE NOTICE 'Test 2.6: IPv6 with brackets and port in x-forwarded-for';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "[2001:db8::a]:8080"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '2001:db8::a'::inet, 'Test 2.6 Failed: IPv6 with brackets and port not stripped correctly';
+        ASSERT extracted_ip = '2001:db8::a'::inet, format('Test 2.6 Failed: IPv6 with brackets and port not stripped correctly. Expected %L, Got %L', '2001:db8::a'::inet, extracted_ip);
         RAISE NOTICE 'Test 2.6: PASSED';
 
         RAISE NOTICE 'Test 2.7: Non-standard IPv6 without brackets but with port in x-forwarded-for (robustness test)';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "2001:db8::b:8080"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '2001:db8::b'::inet, 'Test 2.7 Failed: Non-standard IPv6 (no brackets) with port not stripped correctly by robust parser';
+        ASSERT extracted_ip = '2001:db8::b'::inet, format('Test 2.7 Failed: Non-standard IPv6 (no brackets) with port not stripped correctly by robust parser. Expected %L, Got %L', '2001:db8::b'::inet, extracted_ip);
         RAISE NOTICE 'Test 2.7: PASSED';
 
         RAISE NOTICE 'Test 2.8: x-forwarded-for missing (empty JSON headers)';
         PERFORM set_config('request.headers', '{}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip IS NULL, 'Test 2.8 Failed';
+        ASSERT extracted_ip IS NULL, format('Test 2.8 Failed. Expected NULL, Got %L', extracted_ip);
         RAISE NOTICE 'Test 2.8: PASSED';
 
         RAISE NOTICE 'Test 2.9: x-forwarded-for missing (other headers present)';
         PERFORM set_config('request.headers', '{"user-agent": "test"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip IS NULL, 'Test 2.9 Failed';
+        ASSERT extracted_ip IS NULL, format('Test 2.9 Failed. Expected NULL, Got %L', extracted_ip);
         RAISE NOTICE 'Test 2.9: PASSED';
         
         RAISE NOTICE 'Test 2.10: x-forwarded-for is empty string';
         PERFORM set_config('request.headers', '{"x-forwarded-for": ""}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip IS NULL, 'Test 2.10 Failed';
+        ASSERT extracted_ip IS NULL, format('Test 2.10 Failed. Expected NULL, Got %L', extracted_ip);
         RAISE NOTICE 'Test 2.10: PASSED';
 
         RAISE NOTICE 'Test 2.11: x-forwarded-for is JSON null';
         PERFORM set_config('request.headers', '{"x-forwarded-for": null}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip IS NULL, 'Test 2.11 Failed';
+        ASSERT extracted_ip IS NULL, format('Test 2.11 Failed. Expected NULL, Got %L', extracted_ip);
         RAISE NOTICE 'Test 2.11: PASSED';
 
         RAISE NOTICE 'Test 2.12: request.headers GUC not set (is NULL)';
         PERFORM set_config('request.headers', NULL, true); -- Simulate GUC not being set
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip IS NULL, 'Test 2.12 Failed';
+        ASSERT extracted_ip IS NULL, format('Test 2.12 Failed. Expected NULL, Got %L', extracted_ip);
         RAISE NOTICE 'Test 2.12: PASSED';
 
         RAISE NOTICE 'Test 2.13: request.headers is invalid JSON (expect exception)';
@@ -168,19 +186,19 @@ BEGIN
         RAISE NOTICE 'Test 2.15: Simple IPv6 ::1 (no port, no brackets)';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "::1"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '::1'::inet, 'Test 2.15 Failed: Simple IPv6 ::1 not handled correctly';
+        ASSERT extracted_ip = '::1'::inet, format('Test 2.15 Failed: Simple IPv6 ::1 not handled correctly. Expected %L, Got %L', '::1'::inet, extracted_ip);
         RAISE NOTICE 'Test 2.15: PASSED';
 
         RAISE NOTICE 'Test 2.16: IPv6 localhost with port, no brackets (::1:8080)';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "::1:8080"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '::1'::inet, 'Test 2.16 Failed: IPv6 ::1:8080 with port not stripped correctly';
+        ASSERT extracted_ip = '::1'::inet, format('Test 2.16 Failed: IPv6 ::1:8080 with port not stripped correctly. Expected %L, Got %L', '::1'::inet, extracted_ip);
         RAISE NOTICE 'Test 2.16: PASSED';
 
         RAISE NOTICE 'Test 2.17: IPv6 localhost with port, with brackets ([::1]:8080)';
         PERFORM set_config('request.headers', '{"x-forwarded-for": "[::1]:8080"}', true);
         extracted_ip := auth.get_request_ip();
-        ASSERT extracted_ip = '::1'::inet, 'Test 2.17 Failed: IPv6 [::1]:8080 with port and brackets not stripped correctly';
+        ASSERT extracted_ip = '::1'::inet, format('Test 2.17 Failed: IPv6 [::1]:8080 with port and brackets not stripped correctly. Expected %L, Got %L', '::1'::inet, extracted_ip);
         RAISE NOTICE 'Test 2.17: PASSED';
 
         RAISE NOTICE 'Test 2 (Shared IP Extraction Function Test) - Overall PASSED';
@@ -327,14 +345,17 @@ BEGIN
     response_headers := nullif(current_setting('response.headers', true), '')::jsonb;
     RAISE DEBUG 'Response headers for scenario "%": %', p_scenario_name, response_headers;
 
-    ASSERT login_result IS NOT NULL AND login_result ? 'access_jwt', 
-        format('Login should succeed and return access_jwt for scenario %L', p_scenario_name);
-    access_token := login_result->>'access_jwt';
-    refresh_jwt := login_result->>'refresh_jwt';
+    ASSERT login_result IS NOT NULL, format('Login result should not be NULL for scenario %L. Login result: %s', p_scenario_name, login_result);
+    ASSERT (login_result->>'is_authenticated')::boolean IS TRUE,
+        format('Login should succeed and return is_authenticated=true for scenario %L. Got is_authenticated=%L. Full login_result: %s', p_scenario_name, login_result->>'is_authenticated', login_result);
+    
+    SELECT cv.cookie_value INTO access_token FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    SELECT cv.cookie_value INTO refresh_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus-refresh';
 
-    -- Verify cookies were set and check Secure flag
+    ASSERT access_token IS NOT NULL, format('Access token cookie (statbus) not found after login for scenario %L. Cookies found: %s', p_scenario_name, (SELECT json_agg(jec) FROM test.extract_cookies() jec));
+    ASSERT refresh_jwt IS NOT NULL, format('Refresh token cookie (statbus-refresh) not found after login for scenario %L. Cookies found: %s', p_scenario_name, (SELECT json_agg(jrc) FROM test.extract_cookies() jrc));
     ASSERT response_headers IS NOT NULL AND jsonb_array_length(response_headers) > 0,
-        format('Response headers should contain Set-Cookie directives for scenario %L', p_scenario_name);
+        format('Response headers should contain Set-Cookie directives for scenario %L. Headers: %s', p_scenario_name, response_headers);
 
     FOR header_obj IN SELECT * FROM jsonb_array_elements(response_headers) LOOP
         IF header_obj ? 'Set-Cookie' THEN
@@ -343,31 +364,30 @@ BEGIN
                 has_access_cookie := true;
                 IF p_expected_secure_flag THEN
                     ASSERT cookie_value_text LIKE '%Secure%', 
-                        format('Access cookie should have Secure flag for scenario %L with headers %L', p_scenario_name, p_request_headers::text);
+                        format('Access cookie should have Secure flag for scenario %L with headers %L. Cookie: %L', p_scenario_name, p_request_headers::text, cookie_value_text);
                 ELSE
                     ASSERT cookie_value_text NOT LIKE '%Secure%', 
-                        format('Access cookie should NOT have Secure flag for scenario %L with headers %L', p_scenario_name, p_request_headers::text);
+                        format('Access cookie should NOT have Secure flag for scenario %L with headers %L. Cookie: %L', p_scenario_name, p_request_headers::text, cookie_value_text);
                 END IF;
             END IF;
             IF cookie_value_text LIKE 'statbus-refresh=%' THEN
                 has_refresh_cookie := true;
                 IF p_expected_secure_flag THEN
                     ASSERT cookie_value_text LIKE '%Secure%', 
-                        format('Refresh cookie should have Secure flag for scenario %L with headers %L', p_scenario_name, p_request_headers::text);
+                        format('Refresh cookie should have Secure flag for scenario %L with headers %L. Cookie: %L', p_scenario_name, p_request_headers::text, cookie_value_text);
                 ELSE
                     ASSERT cookie_value_text NOT LIKE '%Secure%', 
-                        format('Refresh cookie should NOT have Secure flag for scenario %L with headers %L', p_scenario_name, p_request_headers::text);
+                        format('Refresh cookie should NOT have Secure flag for scenario %L with headers %L. Cookie: %L', p_scenario_name, p_request_headers::text, cookie_value_text);
                 END IF;
             END IF;
         END IF;
     END LOOP;
     
-    ASSERT has_access_cookie, format('Access cookie was not set for scenario %L', p_scenario_name);
-    ASSERT has_refresh_cookie, format('Refresh cookie was not set for scenario %L', p_scenario_name);
+    ASSERT has_access_cookie, format('Access cookie was not set for scenario %L. Response headers: %s', p_scenario_name, response_headers);
+    ASSERT has_refresh_cookie, format('Refresh cookie was not set for scenario %L. Response headers: %s', p_scenario_name, response_headers);
 
     -- Verify session was created in database with correct IP and User Agent
-    -- Decode the refresh JWT from the login result to get the session JTI
-    SELECT payload::jsonb INTO refresh_jwt_payload 
+    SELECT payload::jsonb INTO refresh_jwt_payload
     FROM verify(refresh_jwt, 'test-jwt-secret-for-testing-only', 'HS256');
     
     session_jti := (refresh_jwt_payload->>'jti')::uuid;
@@ -378,22 +398,22 @@ BEGIN
     FROM auth.refresh_session rs
     WHERE rs.jti = session_jti;
 
-    ASSERT FOUND, format('Session with JTI %L not found for scenario %L', session_jti, p_scenario_name);
+    ASSERT FOUND, format('Session with JTI %L not found for scenario %L. Refresh token payload: %s', session_jti, p_scenario_name, refresh_jwt_payload);
 
     IF p_expected_ip IS NOT NULL THEN
         ASSERT session_record.ip_address = p_expected_ip, 
-            format('Session IP address mismatch for scenario %L. Expected: %s, Got: %s', p_scenario_name, p_expected_ip, session_record.ip_address);
+            format('Session IP address mismatch for scenario %L. Expected: %L, Got: %L. Session record: %s', p_scenario_name, p_expected_ip, session_record.ip_address, row_to_json(session_record));
     ELSE
         ASSERT session_record.ip_address IS NULL,
-            format('Session IP address should be NULL for scenario %L. Got: %s', p_scenario_name, session_record.ip_address);
+            format('Session IP address should be NULL for scenario %L. Got: %L. Session record: %s', p_scenario_name, session_record.ip_address, row_to_json(session_record));
     END IF;
     
     IF p_expected_user_agent IS NOT NULL THEN
          ASSERT session_record.user_agent = p_expected_user_agent, 
-            format('Session User Agent mismatch for scenario %L. Expected: %L, Got: %L', p_scenario_name, p_expected_user_agent, session_record.user_agent);
+            format('Session User Agent mismatch for scenario %L. Expected: %L, Got: %L. Session record: %s', p_scenario_name, p_expected_user_agent, session_record.user_agent, row_to_json(session_record));
     ELSE
         ASSERT session_record.user_agent IS NULL,
-            format('Session User Agent should be NULL for scenario %L. Got: %L', p_scenario_name, session_record.user_agent);
+            format('Session User Agent should be NULL for scenario %L. Got: %L. Session record: %s', p_scenario_name, session_record.user_agent, row_to_json(session_record));
     END IF;
     RAISE DEBUG 'Login scenario %L passed all checks.', p_scenario_name; -- Changed %s to %L for RAISE DEBUG as well for consistency, though it's less critical here.
 END;
@@ -412,6 +432,7 @@ DECLARE
     has_refresh_cookie boolean := false;
     auth_status_result jsonb;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
         -- Original Test 1 logic starts here
         -- Set up headers to simulate a browser
@@ -427,22 +448,23 @@ BEGIN
     -- Perform login
     SELECT to_json(source.*) INTO login_result FROM public.login('test.regular@statbus.org', 'Regular#123!') AS source;
     
-    -- Debug the login result
     RAISE DEBUG 'Login result: %', login_result;
-    
-    -- Debug the returned headers from the login function
     RAISE DEBUG 'Response headers after login: %', nullif(current_setting('response.headers', true), '')::jsonb;
     
-    -- Verify login result contains expected fields
-    ASSERT login_result ? 'access_jwt', 'Login result should contain access_jwt';
-    ASSERT login_result ? 'refresh_jwt', 'Login result should contain refresh_jwt';
-    ASSERT login_result ? 'uid', 'Login result should contain uid';
-    ASSERT login_result ? 'role', 'Login result should contain role';
-    ASSERT login_result ? 'statbus_role', 'Login result should contain statbus_role';
-    ASSERT login_result ? 'email', 'Login result should contain email';
+    ASSERT (login_result->>'is_authenticated')::boolean IS TRUE, format('Login result should indicate authentication. Got: %L. Full login_result: %s', login_result->>'is_authenticated', login_result);
+    ASSERT login_result ? 'uid', format('Login result should contain uid. Full login_result: %s', login_result);
+    ASSERT login_result ? 'role', format('Login result should contain role. Full login_result: %s', login_result);
+    ASSERT login_result ? 'statbus_role', format('Login result should contain statbus_role. Full login_result: %s', login_result);
+    ASSERT login_result ? 'email', format('Login result should contain email. Full login_result: %s', login_result);
+
+    -- Extract tokens from cookies
+    SELECT cv.cookie_value INTO access_token FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    SELECT cv.cookie_value INTO refresh_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus-refresh';
+
+    ASSERT access_token IS NOT NULL, format('Access token cookie not found after login. Cookies found: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
+    ASSERT refresh_jwt IS NOT NULL, format('Refresh token cookie not found after login. Cookies found: %s', (SELECT json_agg(jrc) FROM test.extract_cookies() jrc));
     
     -- Verify token claims
-    access_token := login_result->>'access_jwt';
     expected_claims := jsonb_build_object(
         'role', 'test.regular@statbus.org',
         'statbus_role', 'regular_user',
@@ -450,11 +472,10 @@ BEGIN
         'type', 'access'
     );
     
-    ASSERT test.verify_jwt_claims(access_token, expected_claims), 
-        'Access token claims do not match expected values';
+    ASSERT test.verify_jwt_claims(access_token, expected_claims),
+        format('Access token claims do not match expected values. Token: %L, Expected: %s', access_token, expected_claims);
     
     -- Verify refresh token claims
-    refresh_jwt := login_result->>'refresh_jwt';
     expected_claims := jsonb_build_object(
         'role', 'test.regular@statbus.org',
         'statbus_role', 'regular_user',
@@ -462,23 +483,23 @@ BEGIN
         'type', 'refresh'
     );
     
-    ASSERT test.verify_jwt_claims(refresh_jwt, expected_claims), 
-        'Refresh token claims do not match expected values';
+    ASSERT test.verify_jwt_claims(refresh_jwt, expected_claims),
+        format('Refresh token claims do not match expected values. Token: %L, Expected: %s', refresh_jwt, expected_claims);
     
     -- Verify cookies were set
     FOR cookies IN SELECT * FROM test.extract_cookies()
     LOOP
         IF cookies.cookie_name = 'statbus' THEN
             has_access_cookie := true;
-            ASSERT cookies.cookie_value = access_token, 'Access cookie value does not match token';
+            ASSERT cookies.cookie_value = access_token, format('Access cookie value does not match token. Expected: %L, Got: %L', access_token, cookies.cookie_value);
         ELSIF cookies.cookie_name = 'statbus-refresh' THEN
             has_refresh_cookie := true;
-            ASSERT cookies.cookie_value = refresh_jwt, 'Refresh cookie value does not match token';
+            ASSERT cookies.cookie_value = refresh_jwt, format('Refresh cookie value does not match token. Expected: %L, Got: %L', refresh_jwt, cookies.cookie_value);
         END IF;
     END LOOP;
     
-    ASSERT has_access_cookie, 'Access cookie was not set';
-    ASSERT has_refresh_cookie, 'Refresh cookie was not set';
+    ASSERT has_access_cookie, format('Access cookie was not set. Cookies found: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
+    ASSERT has_refresh_cookie, format('Refresh cookie was not set. Cookies found: %s', (SELECT json_agg(jrc) FROM test.extract_cookies() jrc));
 
     -- Verify Secure flag in cookies
     DECLARE
@@ -498,8 +519,8 @@ BEGIN
                 END IF;
             END IF;
         END LOOP;
-        ASSERT access_cookie_secure, 'Access cookie should have Secure flag when x-forwarded-proto is https';
-        ASSERT refresh_cookie_secure, 'Refresh cookie should have Secure flag when x-forwarded-proto is https';
+        ASSERT access_cookie_secure, format('Access cookie should have Secure flag when x-forwarded-proto is https. Headers: %s', response_headers);
+        ASSERT refresh_cookie_secure, format('Refresh cookie should have Secure flag when x-forwarded-proto is https. Headers: %s', response_headers);
     END;
     
     -- Verify session was created in database with correct IP and User Agent
@@ -512,16 +533,17 @@ BEGIN
         WHERE u.email = 'test.regular@statbus.org'
         ORDER BY rs.created_at DESC LIMIT 1;
 
-        ASSERT session_record.ip_address = '127.0.0.1'::inet, 'Session IP address mismatch';
-        ASSERT session_record.user_agent = 'Test User Agent', 'Session User Agent mismatch';
+        ASSERT session_record.ip_address = '127.0.0.1'::inet, format('Session IP address mismatch. Expected %L, Got %L. Session: %s', '127.0.0.1'::inet, session_record.ip_address, row_to_json(session_record));
+        ASSERT session_record.user_agent = 'Test User Agent', format('Session User Agent mismatch. Expected %L, Got %L. Session: %s', 'Test User Agent', session_record.user_agent, row_to_json(session_record));
     END;
     
     -- Verify last_sign_in_at was updated
-    ASSERT (
-        SELECT last_sign_in_at > now() - interval '1 minute'
-        FROM auth.user
-        WHERE email = 'test.regular@statbus.org'
-    ), 'last_sign_in_at was not updated';
+    DECLARE last_signin timestamptz;
+    BEGIN
+        SELECT last_sign_in_at INTO last_signin FROM auth.user WHERE email = 'test.regular@statbus.org';
+        ASSERT last_signin > now() - interval '1 minute',
+            format('last_sign_in_at was not updated. Expected > %L, Got %L', now() - interval '1 minute', last_signin);
+    END;
     
     -- Now test auth_status using the cookies from the first login
     -- Set up cookies to simulate browser cookies
@@ -537,8 +559,8 @@ BEGIN
     
     SELECT to_json(source.*) INTO auth_status_result FROM public.auth_status() AS source;
     RAISE DEBUG 'Auth status result (after initial login): %', auth_status_result;
-    ASSERT auth_status_result->>'is_authenticated' = 'true', 'Auth status should show authenticated';
-    ASSERT auth_status_result->>'email' = 'test.regular@statbus.org', 'Auth status should have correct email';
+    ASSERT auth_status_result->>'is_authenticated' = 'true', format('Auth status should show authenticated. Got: %L. Full auth_status_result: %s', auth_status_result->>'is_authenticated', auth_status_result);
+    ASSERT auth_status_result->>'email' = 'test.regular@statbus.org', format('Auth status should have correct email. Expected %L, Got %L. Full auth_status_result: %s', 'test.regular@statbus.org', auth_status_result->>'email', auth_status_result);
 
     RAISE NOTICE '--- Test 3.1: Initial Login and Auth Status Verification - PASSED ---';
 
@@ -660,6 +682,7 @@ DO $$
 DECLARE
     login_result jsonb;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
         -- Original Test 4 logic starts here
         -- Set up headers to simulate a browser
@@ -678,8 +701,10 @@ BEGIN
     -- Debug the login result
     RAISE DEBUG 'Login result (should be null): %', login_result;
     
-    -- Verify login failed (result should be null or not contain uid)
-    ASSERT (login_result IS NULL OR login_result ->> 'uid' IS NULL), 'Login with wrong password should return null or not contain uid';
+    -- Verify login failed (result should be an auth_status_response indicating not authenticated)
+    ASSERT login_result IS NOT NULL, format('Login with wrong password should return a non-null auth_status_response. Got: %s', login_result);
+    ASSERT (login_result->>'is_authenticated')::boolean IS FALSE, format('Login with wrong password should result in is_authenticated = false. Got: %L. Full response: %s', login_result->>'is_authenticated', login_result);
+    ASSERT login_result->>'uid' IS NULL, format('Login with wrong password should result in uid = NULL. Got: %L. Full response: %s', login_result->>'uid', login_result);
     
         RAISE NOTICE 'Test 4: User Login Failure - Wrong Password - PASSED';
         -- End of original Test 4 logic
@@ -698,6 +723,7 @@ DO $$
 DECLARE
     login_result jsonb;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
         -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
@@ -715,8 +741,10 @@ BEGIN
     -- Debug the login result
     RAISE DEBUG 'Login result (should be null): %', login_result;
     
-    -- Verify login failed (result should be null or not contain uid)
-    ASSERT (login_result IS NULL OR login_result ->> 'uid' IS NULL), 'Login with unconfirmed email should return null or not contain uid';
+    -- Verify login failed (result should be an auth_status_response indicating not authenticated)
+    ASSERT login_result IS NOT NULL, format('Login with unconfirmed email should return a non-null auth_status_response. Got: %s', login_result);
+    ASSERT (login_result->>'is_authenticated')::boolean IS FALSE, format('Login with unconfirmed email should result in is_authenticated = false. Got: %L. Full response: %s', login_result->>'is_authenticated', login_result);
+    ASSERT login_result->>'uid' IS NULL, format('Login with unconfirmed email should result in uid = NULL. Got: %L. Full response: %s', login_result->>'uid', login_result);
     
         RAISE NOTICE 'Test 5: User Login Failure - Unconfirmed Email - PASSED';
     EXCEPTION
@@ -734,8 +762,10 @@ DO $$
 DECLARE
     login_result jsonb;
     refresh_result jsonb;
-    refresh_jwt text;
-    access_jwt text;
+    access_jwt_from_login text;
+    refresh_jwt_from_login text;
+    access_jwt_from_refresh text;
+    refresh_jwt_from_refresh text;
     refresh_session_before record;
     refresh_session_after record;
     auth_status_before jsonb;
@@ -760,11 +790,8 @@ BEGIN
     -- First login
     SELECT to_json(source.*) INTO login_result FROM public.login('test.admin@statbus.org', 'Admin#123!') AS source;
     RAISE DEBUG 'Login result: %', login_result;
-    
-    -- Debug the returned headers from the login function
     RAISE DEBUG 'Response headers after login: %', nullif(current_setting('response.headers', true), '')::jsonb;
     
-    -- Extract and verify response headers for Secure, HttpOnly, SameSite
     DECLARE
         response_headers jsonb;
         header_obj jsonb;
@@ -797,70 +824,67 @@ BEGIN
         
         ASSERT access_cookie_found, 'Access cookie not found in login response headers';
         ASSERT refresh_cookie_found, 'Refresh cookie not found in login response headers';
-        ASSERT access_cookie_attrs_valid, 'Access cookie missing required security attributes (HttpOnly, SameSite, Secure)';
-        ASSERT refresh_cookie_attrs_valid, 'Refresh cookie missing required security attributes (HttpOnly, SameSite, Secure)';
+        ASSERT access_cookie_attrs_valid, format('Access cookie missing required security attributes (HttpOnly, SameSite, Secure). Headers: %s', response_headers);
+        ASSERT refresh_cookie_attrs_valid, format('Refresh cookie missing required security attributes (HttpOnly, SameSite, Secure). Headers: %s', response_headers);
         
         RAISE DEBUG 'Login cookie validation passed: Access and refresh cookies have required security attributes.';
     END;
         
-    -- Assert login result contains expected fields
-    ASSERT login_result->>'role' = 'test.admin@statbus.org', 'Role should match email';
-    ASSERT login_result->>'email' = 'test.admin@statbus.org', 'Email should be returned correctly';
-    ASSERT login_result->>'access_jwt' IS NOT NULL, 'Access token should be present';
-    ASSERT login_result->>'statbus_role' = 'admin_user', 'Statbus role should be admin_user';
+    ASSERT (login_result->>'is_authenticated')::boolean IS TRUE, format('Login should be successful. Got: %L. Full login_result: %s', login_result->>'is_authenticated', login_result);
+    ASSERT login_result->>'role' = 'test.admin@statbus.org', format('Role should match email. Expected %L, Got %L. Full login_result: %s', 'test.admin@statbus.org', login_result->>'role', login_result);
+    ASSERT login_result->>'email' = 'test.admin@statbus.org', format('Email should be returned correctly. Expected %L, Got %L. Full login_result: %s', 'test.admin@statbus.org', login_result->>'email', login_result);
+    ASSERT login_result->>'statbus_role' = 'admin_user', format('Statbus role should be admin_user. Expected %L, Got %L. Full login_result: %s', 'admin_user', login_result->>'statbus_role', login_result);
+
+    SELECT cv.cookie_value INTO access_jwt_from_login FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    SELECT cv.cookie_value INTO refresh_jwt_from_login FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus-refresh';
+    ASSERT access_jwt_from_login IS NOT NULL, format('Access token cookie not found after login. Cookies: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
+    ASSERT refresh_jwt_from_login IS NOT NULL, format('Refresh token cookie not found after login. Cookies: %s', (SELECT json_agg(jrc) FROM test.extract_cookies() jrc));
     
     -- Decode the access token and display it
     DECLARE
-        access_jwt_str text;
         access_jwt_payload jsonb;
         token_verification record;
     BEGIN
-        access_jwt_str := login_result->>'access_jwt';
-        SELECT * INTO token_verification FROM verify(access_jwt_str, 'test-jwt-secret-for-testing-only', 'HS256');
+        SELECT * INTO token_verification FROM verify(access_jwt_from_login, 'test-jwt-secret-for-testing-only', 'HS256');
         access_jwt_payload := token_verification.payload::jsonb;
-        RAISE DEBUG 'Decoded access token: %', access_jwt_payload;
+        RAISE DEBUG 'Decoded access token (from login): %', access_jwt_payload;
         
         -- Verify deterministic keys in the access token payload
-        ASSERT access_jwt_payload->>'role' = 'test.admin@statbus.org', 'Role in token should match email';
-        ASSERT access_jwt_payload->>'email' = 'test.admin@statbus.org', 'Email in token should be correct';
-        ASSERT access_jwt_payload->>'type' = 'access', 'Token type should be access';
-        ASSERT access_jwt_payload->>'statbus_role' = 'admin_user', 'Statbus role should be admin_user';
+        ASSERT access_jwt_payload->>'role' = 'test.admin@statbus.org', format('Role in token should match email. Expected %L, Got %L. Payload: %s', 'test.admin@statbus.org', access_jwt_payload->>'role', access_jwt_payload);
+        ASSERT access_jwt_payload->>'email' = 'test.admin@statbus.org', format('Email in token should be correct. Expected %L, Got %L. Payload: %s', 'test.admin@statbus.org', access_jwt_payload->>'email', access_jwt_payload);
+        ASSERT access_jwt_payload->>'type' = 'access', format('Token type should be access. Got %L. Payload: %s', access_jwt_payload->>'type', access_jwt_payload);
+        ASSERT access_jwt_payload->>'statbus_role' = 'admin_user', format('Statbus role should be admin_user. Got %L. Payload: %s', access_jwt_payload->>'statbus_role', access_jwt_payload);
         
         -- Verify dynamic values are present and not null
-        ASSERT access_jwt_payload->>'exp' IS NOT NULL, 'Expiration time should be present';
-        ASSERT access_jwt_payload->>'iat' IS NOT NULL, 'Issued at time should be present';
-        ASSERT access_jwt_payload->>'jti' IS NOT NULL, 'JWT ID should be present';
-        ASSERT access_jwt_payload->>'sub' IS NOT NULL, 'Subject should be present';
-        ASSERT access_jwt_payload->>'uid' IS NOT NULL, 'User ID (uid) should be present';
+        ASSERT access_jwt_payload->>'exp' IS NOT NULL, format('Expiration time should be present. Payload: %s', access_jwt_payload);
+        ASSERT access_jwt_payload->>'iat' IS NOT NULL, format('Issued at time should be present. Payload: %s', access_jwt_payload);
+        ASSERT access_jwt_payload->>'jti' IS NOT NULL, format('JWT ID should be present. Payload: %s', access_jwt_payload);
+        ASSERT access_jwt_payload->>'sub' IS NOT NULL, format('Subject should be present. Payload: %s', access_jwt_payload);
+        ASSERT access_jwt_payload->>'uid' IS NOT NULL, format('User ID (uid) should be present. Payload: %s', access_jwt_payload);
     END;
     
     -- Decode the refresh token and display it
     DECLARE
-        refresh_jwt_str text;
         refresh_jwt_payload jsonb;
         refresh_token_verification record;
     BEGIN
-        refresh_jwt_str := login_result->>'refresh_jwt';
-        SELECT * INTO refresh_token_verification FROM verify(refresh_jwt_str, 'test-jwt-secret-for-testing-only', 'HS256');
+        SELECT * INTO refresh_token_verification FROM verify(refresh_jwt_from_login, 'test-jwt-secret-for-testing-only', 'HS256');
         refresh_jwt_payload := refresh_token_verification.payload::jsonb;
-        RAISE DEBUG 'Decoded refresh token: %', refresh_jwt_payload;
+        RAISE DEBUG 'Decoded refresh token (from login): %', refresh_jwt_payload;
         
         -- Verify deterministic keys in the refresh token payload
-        ASSERT refresh_jwt_payload->>'role' = 'test.admin@statbus.org', 'Role in refresh token should match email';
-        ASSERT refresh_jwt_payload->>'email' = 'test.admin@statbus.org', 'Email in refresh token should be correct';
-        ASSERT refresh_jwt_payload->>'type' = 'refresh', 'Token type should be refresh';
-        ASSERT refresh_jwt_payload->>'statbus_role' = 'admin_user', 'Statbus role should be admin_user';
+        ASSERT refresh_jwt_payload->>'role' = 'test.admin@statbus.org', format('Role in refresh token should match email. Expected %L, Got %L. Payload: %s', 'test.admin@statbus.org', refresh_jwt_payload->>'role', refresh_jwt_payload);
+        ASSERT refresh_jwt_payload->>'email' = 'test.admin@statbus.org', format('Email in refresh token should be correct. Expected %L, Got %L. Payload: %s', 'test.admin@statbus.org', refresh_jwt_payload->>'email', refresh_jwt_payload);
+        ASSERT refresh_jwt_payload->>'type' = 'refresh', format('Token type should be refresh. Got %L. Payload: %s', refresh_jwt_payload->>'type', refresh_jwt_payload);
+        ASSERT refresh_jwt_payload->>'statbus_role' = 'admin_user', format('Statbus role should be admin_user. Got %L. Payload: %s', refresh_jwt_payload->>'statbus_role', refresh_jwt_payload);
         
         -- Verify dynamic values are present and not null
-        ASSERT refresh_jwt_payload->>'exp' IS NOT NULL, 'Expiration time should be present';
-        ASSERT refresh_jwt_payload->>'iat' IS NOT NULL, 'Issued at time should be present';
-        ASSERT refresh_jwt_payload->>'jti' IS NOT NULL, 'JWT ID should be present';
-        ASSERT refresh_jwt_payload->>'sub' IS NOT NULL, 'Subject should be present';
-        ASSERT refresh_jwt_payload->>'version' IS NOT NULL, 'Version should be present';
+        ASSERT refresh_jwt_payload->>'exp' IS NOT NULL, format('Expiration time should be present in refresh token. Payload: %s', refresh_jwt_payload);
+        ASSERT refresh_jwt_payload->>'iat' IS NOT NULL, format('Issued at time should be present in refresh token. Payload: %s', refresh_jwt_payload);
+        ASSERT refresh_jwt_payload->>'jti' IS NOT NULL, format('JWT ID should be present in refresh token. Payload: %s', refresh_jwt_payload);
+        ASSERT refresh_jwt_payload->>'sub' IS NOT NULL, format('Subject should be present in refresh token. Payload: %s', refresh_jwt_payload);
+        ASSERT refresh_jwt_payload->>'version' IS NOT NULL, format('Version should be present in refresh token. Payload: %s', refresh_jwt_payload);
     END;
-        
-    access_jwt := login_result->>'access_jwt';
-    refresh_jwt := login_result->>'refresh_jwt';
     
     -- Store session info before refresh
     SELECT rs.*, u.id AS user_id, u.sub AS user_sub INTO refresh_session_before
@@ -870,20 +894,17 @@ BEGIN
     ORDER BY rs.created_at DESC
     LIMIT 1;
     
-    -- Debug the refresh session before refresh
     RAISE DEBUG 'Refresh session before refresh: %', row_to_json(refresh_session_before);
-
-    -- Verify initial session IP and User Agent
-    ASSERT refresh_session_before.ip_address = '127.0.0.1'::inet, 'Initial session IP address mismatch';
-    ASSERT refresh_session_before.user_agent = 'Test User Agent', 'Initial session User Agent mismatch';
+    ASSERT refresh_session_before.ip_address = '127.0.0.1'::inet, format('Initial session IP address mismatch. Expected %L, Got %L. Session: %s', '127.0.0.1'::inet, refresh_session_before.ip_address, row_to_json(refresh_session_before));
+    ASSERT refresh_session_before.user_agent = 'Test User Agent', format('Initial session User Agent mismatch. Expected %L, Got %L. Session: %s', 'Test User Agent', refresh_session_before.user_agent, row_to_json(refresh_session_before));
     
     -- Check auth status before refresh
     -- Set cookies properly in request.cookies instead of request.headers.cookie
-    PERFORM set_config('request.cookies', 
+    PERFORM set_config('request.cookies',
         json_build_object(
-            'statbus', access_jwt,
-            'statbus-refresh', refresh_jwt
-        )::text, 
+            'statbus', access_jwt_from_login,
+            'statbus-refresh', refresh_jwt_from_login
+        )::text,
         true
     );
     
@@ -904,10 +925,9 @@ BEGIN
     SELECT to_json(source.*) INTO auth_status_before FROM public.auth_status() AS source;
     RAISE DEBUG 'Auth status before refresh: %', auth_status_before;
     
-    -- Verify auth status before refresh
-    ASSERT auth_status_before->>'is_authenticated' = 'true', 'Auth status should show authenticated';
-    ASSERT auth_status_before->'uid' IS NOT NULL, 'Auth status should include user info';
-    ASSERT auth_status_before->>'email' = 'test.admin@statbus.org', 'Auth status should have correct email';
+    ASSERT auth_status_before->>'is_authenticated' = 'true', format('Auth status should show authenticated. Got: %L. Full auth_status_before: %s', auth_status_before->>'is_authenticated', auth_status_before);
+    ASSERT auth_status_before->'uid' IS NOT NULL, format('Auth status should include user info (uid). Full auth_status_before: %s', auth_status_before);
+    ASSERT auth_status_before->>'email' = 'test.admin@statbus.org', format('Auth status should have correct email. Expected %L, Got %L. Full auth_status_before: %s', 'test.admin@statbus.org', auth_status_before->>'email', auth_status_before);
         
     -- Sleep 1 second, to ensure the iat will increase, because it counts in whole seconds.
     PERFORM pg_sleep(1);
@@ -916,10 +936,10 @@ BEGIN
     RAISE NOTICE '--- Test 5.1: Refresh with HTTPS headers ---';
     
     -- Set cookies for refresh call
-    PERFORM set_config('request.cookies', 
+    PERFORM set_config('request.cookies',
         json_build_object(
-            'statbus-refresh', refresh_jwt
-        )::text, 
+            'statbus-refresh', refresh_jwt_from_login
+        )::text,
         true
     );
     -- Set headers for refresh call
@@ -937,6 +957,7 @@ BEGIN
     SELECT to_json(source.*) INTO refresh_result FROM public.refresh() AS source;
     RAISE DEBUG 'Refresh result (HTTPS): %', refresh_result;
     
+    -- Verify Secure flag for cookies set by HTTPS refresh
     DECLARE
         response_headers_refresh jsonb;
         header_obj jsonb;
@@ -948,7 +969,7 @@ BEGIN
     BEGIN
         response_headers_refresh := nullif(current_setting('response.headers', true), '')::jsonb;
         RAISE DEBUG 'Response headers after HTTPS refresh: %', response_headers_refresh;
-        ASSERT response_headers_refresh IS NOT NULL, 'Response headers should not be null after HTTPS refresh';
+        ASSERT response_headers_refresh IS NOT NULL, format('Response headers should not be null after HTTPS refresh. Got: %s', response_headers_refresh);
 
         FOR header_obj IN SELECT * FROM jsonb_array_elements(response_headers_refresh) LOOP
             IF header_obj ? 'Set-Cookie' THEN
@@ -967,23 +988,27 @@ BEGIN
                 END IF;
             END IF;
         END LOOP;
-        ASSERT access_cookie_found_https, 'Access cookie from HTTPS refresh should be set';
-        ASSERT refresh_cookie_found_https, 'Refresh cookie from HTTPS refresh should be set';
-        ASSERT access_cookie_is_secure, 'Access cookie from HTTPS refresh should have Secure flag';
-        ASSERT refresh_cookie_is_secure, 'Refresh cookie from HTTPS refresh should have Secure flag';
+        ASSERT access_cookie_found_https, format('Access cookie from HTTPS refresh should be set. Headers: %s', response_headers_refresh);
+        ASSERT refresh_cookie_found_https, format('Refresh cookie from HTTPS refresh should be set. Headers: %s', response_headers_refresh);
+        ASSERT access_cookie_is_secure, format('Access cookie from HTTPS refresh should have Secure flag. Headers: %s', response_headers_refresh);
+        ASSERT refresh_cookie_is_secure, format('Refresh cookie from HTTPS refresh should have Secure flag. Headers: %s', response_headers_refresh);
     END;
     
-    -- Verify refresh result contains expected fields for HTTPS refresh
-    ASSERT refresh_result ? 'access_jwt', 'Refresh result should contain access_jwt';
-    ASSERT refresh_result ? 'refresh_jwt', 'Refresh result should contain refresh_jwt';
-    ASSERT refresh_result ? 'uid', 'Refresh result should contain user_id';
-    ASSERT refresh_result ? 'role', 'Refresh result should contain role';
-    ASSERT refresh_result ? 'statbus_role', 'Refresh result should contain statbus_role';
-    ASSERT refresh_result ? 'email', 'Refresh result should contain email';
+    ASSERT (refresh_result->>'is_authenticated')::boolean IS TRUE, format('Refresh result should indicate authentication. Got: %L. Full refresh_result: %s', refresh_result->>'is_authenticated', refresh_result);
+    ASSERT refresh_result ? 'uid', format('Refresh result should contain user_id. Full refresh_result: %s', refresh_result);
+    ASSERT refresh_result ? 'role', format('Refresh result should contain role. Full refresh_result: %s', refresh_result);
+    ASSERT refresh_result ? 'statbus_role', format('Refresh result should contain statbus_role. Full refresh_result: %s', refresh_result);
+    ASSERT refresh_result ? 'email', format('Refresh result should contain email. Full refresh_result: %s', refresh_result);
+
+    -- Extract new tokens from cookies set by refresh()
+    SELECT cv.cookie_value INTO access_jwt_from_refresh FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    SELECT cv.cookie_value INTO refresh_jwt_from_refresh FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus-refresh';
+    ASSERT access_jwt_from_refresh IS NOT NULL, format('Access token cookie not found after refresh. Cookies: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
+    ASSERT refresh_jwt_from_refresh IS NOT NULL, format('Refresh token cookie not found after refresh. Cookies: %s', (SELECT json_agg(jrc) FROM test.extract_cookies() jrc));
         
     -- Debug information to help identify token issues
-    RAISE DEBUG 'Original access token: %', login_result->>'access_jwt';
-    RAISE DEBUG 'New access token: %', refresh_result->>'access_jwt';
+    RAISE DEBUG 'Original access token (from login cookie): %', access_jwt_from_login;
+    RAISE DEBUG 'New access token (from refresh cookie): %', access_jwt_from_refresh;
     
     -- Decode tokens to compare their contents
     DECLARE
@@ -993,51 +1018,37 @@ BEGIN
         refresh_access_jwt_verification record;
     BEGIN
         -- Decode the tokens
-        SELECT * INTO login_access_jwt_verification FROM verify(login_result->>'access_jwt', 'test-jwt-secret-for-testing-only', 'HS256');
-        SELECT * INTO refresh_access_jwt_verification FROM verify(refresh_result->>'access_jwt', 'test-jwt-secret-for-testing-only', 'HS256');
+        SELECT * INTO login_access_jwt_verification FROM verify(access_jwt_from_login, 'test-jwt-secret-for-testing-only', 'HS256');
+        SELECT * INTO refresh_access_jwt_verification FROM verify(access_jwt_from_refresh, 'test-jwt-secret-for-testing-only', 'HS256');
         
         -- Convert payloads to jsonb
         login_access_jwt_payload := login_access_jwt_verification.payload::jsonb;
         refresh_access_jwt_payload := refresh_access_jwt_verification.payload::jsonb;
         
-        -- Debug the token payloads
         RAISE DEBUG 'Original access jwt payload: %', login_access_jwt_payload;
         RAISE DEBUG 'New access jwt payload: %', refresh_access_jwt_payload;
         
-        -- Verify token properties
-        -- Check that exp (expiration time) increases
         ASSERT (refresh_access_jwt_payload->>'exp')::numeric > (login_access_jwt_payload->>'exp')::numeric,
-            'New access jwt should have a later expiration time';
-            
-        -- Check that iat (issued at time) increases or stays the same
+            format('New access jwt should have a later expiration time. Old exp: %L, New exp: %L', login_access_jwt_payload->>'exp', refresh_access_jwt_payload->>'exp');
         ASSERT (refresh_access_jwt_payload->>'iat')::numeric >= (login_access_jwt_payload->>'iat')::numeric,
-            'New access jwt should have same or later issued at time';
-            
-        -- Check that sub (subject) remains the same
+            format('New access jwt should have same or later issued at time. Old iat: %L, New iat: %L', login_access_jwt_payload->>'iat', refresh_access_jwt_payload->>'iat');
         ASSERT refresh_access_jwt_payload->>'sub' = login_access_jwt_payload->>'sub',
-            'Subject should remain the same across token refreshes';
-            
-        -- Check that jti (JWT ID) is different for access tokens
-        -- Access tokens should have unique JTIs
+            format('Subject should remain the same across token refreshes. Old sub: %L, New sub: %L', login_access_jwt_payload->>'sub', refresh_access_jwt_payload->>'sub');
         ASSERT refresh_access_jwt_payload->>'jti' <> login_access_jwt_payload->>'jti',
-            'Access tokens should have different JTIs';
-            
-        -- Check that fixed value fields remain the same
+            format('Access tokens should have different JTIs. Old jti: %L, New jti: %L', login_access_jwt_payload->>'jti', refresh_access_jwt_payload->>'jti');
         ASSERT refresh_access_jwt_payload->>'role' = login_access_jwt_payload->>'role',
-            'Role should remain the same';
+            format('Role should remain the same. Old role: %L, New role: %L', login_access_jwt_payload->>'role', refresh_access_jwt_payload->>'role');
         ASSERT refresh_access_jwt_payload->>'email' = login_access_jwt_payload->>'email',
-            'Email should remain the same';
+            format('Email should remain the same. Old email: %L, New email: %L', login_access_jwt_payload->>'email', refresh_access_jwt_payload->>'email');
         ASSERT refresh_access_jwt_payload->>'type' = login_access_jwt_payload->>'type',
-            'Token type should remain the same';
+            format('Token type should remain the same. Old type: %L, New type: %L', login_access_jwt_payload->>'type', refresh_access_jwt_payload->>'type');
         ASSERT refresh_access_jwt_payload->>'statbus_role' = login_access_jwt_payload->>'statbus_role',
-            'Statbus role should remain the same';
+            format('Statbus role should remain the same. Old statbus_role: %L, New statbus_role: %L', login_access_jwt_payload->>'statbus_role', refresh_access_jwt_payload->>'statbus_role');
     END;
     
-    -- Compare tokens
-    ASSERT refresh_result->>'access_jwt' <> login_result->>'access_jwt', 'New access token should be different';
-    ASSERT refresh_result->>'refresh_jwt' <> login_result->>'refresh_jwt', 'New refresh token should be different';
+    ASSERT access_jwt_from_refresh <> access_jwt_from_login, format('New access token should be different. Old: %L, New: %L', access_jwt_from_login, access_jwt_from_refresh);
+    ASSERT refresh_jwt_from_refresh <> refresh_jwt_from_login, format('New refresh token should be different. Old: %L, New: %L', refresh_jwt_from_login, refresh_jwt_from_refresh);
     
-    -- Verify session was updated (HTTPS refresh)
     SELECT rs.* INTO refresh_session_after
     FROM auth.refresh_session rs
     JOIN auth.user u ON rs.user_id = u.id
@@ -1055,19 +1066,17 @@ BEGIN
     ASSERT refresh_session_after.user_agent = 'Refresh UA HTTPS', 
         format('Session User Agent mismatch (HTTPS refresh). Expected: %L, Got: %L. Request headers: %L, Session record after: %L', 'Refresh UA HTTPS', refresh_session_after.user_agent, current_setting('request.headers', true)::jsonb, row_to_json(refresh_session_after));
 
-    -- Store the new refresh token for the next scenario
-    refresh_jwt := refresh_result->>'refresh_jwt'; 
     -- Update refresh_session_before to the state after the HTTPS refresh for the next comparison
     refresh_session_before := refresh_session_after;
 
     RAISE NOTICE '--- Test 5.2: Refresh with HTTP headers ---';
     PERFORM pg_sleep(1); -- Ensure time progresses for new token iat
 
-    -- Set cookies for the next refresh call (using the latest refresh_jwt)
-    PERFORM set_config('request.cookies', 
-        json_build_object('statbus-refresh', refresh_jwt)::text, true);
+    -- Set cookies for the next refresh call (using the latest refresh_jwt from the previous refresh)
+    PERFORM set_config('request.cookies',
+        json_build_object('statbus-refresh', refresh_jwt_from_refresh)::text, true);
     -- Set headers for HTTP refresh call
-    PERFORM set_config('request.headers', 
+    PERFORM set_config('request.headers',
         json_build_object(
             'x-forwarded-for', '172.16.0.5',     -- Different IP for HTTP refresh
             'user-agent', 'Refresh UA HTTP',    -- Different UA
@@ -1081,6 +1090,7 @@ BEGIN
     SELECT to_json(source.*) INTO refresh_result FROM public.refresh() AS source;
     RAISE DEBUG 'Refresh result (HTTP): %', refresh_result;
 
+    -- Verify Secure flag (or lack thereof) for cookies set by HTTP refresh
     DECLARE
         response_headers_http_refresh jsonb;
         header_obj_http jsonb;
@@ -1092,7 +1102,7 @@ BEGIN
     BEGIN
         response_headers_http_refresh := nullif(current_setting('response.headers', true), '')::jsonb;
         RAISE DEBUG 'Response headers after HTTP refresh: %', response_headers_http_refresh;
-        ASSERT response_headers_http_refresh IS NOT NULL, 'Response headers should not be null after HTTP refresh';
+        ASSERT response_headers_http_refresh IS NOT NULL, format('Response headers should not be null after HTTP refresh. Got: %s', response_headers_http_refresh);
 
         FOR header_obj_http IN SELECT * FROM jsonb_array_elements(response_headers_http_refresh) LOOP
             IF header_obj_http ? 'Set-Cookie' THEN
@@ -1111,13 +1121,12 @@ BEGIN
                 END IF;
             END IF;
         END LOOP;
-        ASSERT access_cookie_found_http, 'Access cookie from HTTP refresh should be set';
-        ASSERT refresh_cookie_found_http, 'Refresh cookie from HTTP refresh should be set';
-        ASSERT access_cookie_is_not_secure, 'Access cookie from HTTP refresh should NOT have Secure flag';
-        ASSERT refresh_cookie_is_not_secure, 'Refresh cookie from HTTP refresh should NOT have Secure flag';
+        ASSERT access_cookie_found_http, format('Access cookie from HTTP refresh should be set. Headers: %s', response_headers_http_refresh);
+        ASSERT refresh_cookie_found_http, format('Refresh cookie from HTTP refresh should be set. Headers: %s', response_headers_http_refresh);
+        ASSERT access_cookie_is_not_secure, format('Access cookie from HTTP refresh should NOT have Secure flag. Headers: %s', response_headers_http_refresh);
+        ASSERT refresh_cookie_is_not_secure, format('Refresh cookie from HTTP refresh should NOT have Secure flag. Headers: %s', response_headers_http_refresh);
     END;
 
-    -- Verify session was updated (HTTP refresh)
     SELECT rs.* INTO refresh_session_after
     FROM auth.refresh_session rs
     WHERE rs.jti = (refresh_session_before.jti) -- refresh_session_before now holds state after HTTPS refresh
@@ -1135,12 +1144,18 @@ BEGIN
         format('Session User Agent mismatch (HTTP refresh). Expected: %L, Got: %L. Request headers: %L, Session record after: %L', 'Refresh UA HTTP', refresh_session_after.user_agent, current_setting('request.headers', true)::jsonb, row_to_json(refresh_session_after));
 
     -- Final auth status check with the latest tokens from HTTP refresh
+    -- (Need to extract these tokens from cookies again after the second refresh)
+    SELECT cv.cookie_value INTO access_jwt_from_refresh FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    SELECT cv.cookie_value INTO refresh_jwt_from_refresh FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus-refresh';
+    ASSERT access_jwt_from_refresh IS NOT NULL, format('Access token cookie not found after second refresh. Cookies: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
+    ASSERT refresh_jwt_from_refresh IS NOT NULL, format('Refresh token cookie not found after second refresh. Cookies: %s', (SELECT json_agg(jrc) FROM test.extract_cookies() jrc));
+
     RAISE NOTICE '--- Test 5.3: Final Auth Status Check ---';
-    PERFORM set_config('request.cookies', 
+    PERFORM set_config('request.cookies',
         json_build_object(
-            'statbus', refresh_result->>'access_jwt',
-            'statbus-refresh', refresh_result->>'refresh_jwt'
-        )::text, 
+            'statbus', access_jwt_from_refresh,
+            'statbus-refresh', refresh_jwt_from_refresh
+        )::text,
         true
     );
     -- Use headers corresponding to the last refresh (HTTP)
@@ -1156,8 +1171,8 @@ BEGIN
     
     SELECT to_json(source.*) INTO auth_status_after FROM public.auth_status() AS source;
     RAISE DEBUG 'Auth status after all refreshes: %', auth_status_after;
-    ASSERT auth_status_after->>'is_authenticated' = 'true', 'Final auth status should show authenticated';
-    ASSERT auth_status_after->>'email' = 'test.admin@statbus.org', 'Final auth status should have correct email';
+    ASSERT auth_status_after->>'is_authenticated' = 'true', format('Final auth status should show authenticated. Got: %L. Full auth_status_after: %s', auth_status_after->>'is_authenticated', auth_status_after);
+    ASSERT auth_status_after->>'email' = 'test.admin@statbus.org', format('Final auth status should have correct email. Expected %L, Got %L. Full auth_status_after: %s', 'test.admin@statbus.org', auth_status_after->>'email', auth_status_after);
     
         RAISE NOTICE 'Test 5: Token Refresh (including header variations) - PASSED';
     EXCEPTION
@@ -1185,6 +1200,9 @@ DECLARE
     auth_status_before jsonb;
     auth_status_after jsonb;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
+    RAISE DEBUG '[Test 6 Setup] Initializing Test 6: Logout';
+
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
         -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
@@ -1199,15 +1217,15 @@ BEGIN
     -- First login to create a session
     SELECT to_json(source.*) INTO login_result FROM public.login('test.restricted@statbus.org', 'Restricted#123!') AS source;
     RAISE DEBUG 'Login result: %', login_result;
+    ASSERT (login_result->>'is_authenticated')::boolean IS TRUE, format('Login should be successful for logout test setup. Got: %L. Full login_result: %s', login_result->>'is_authenticated', login_result);
     
-    -- Extract tokens from login result
-    access_jwt := login_result->>'access_jwt';
-    refresh_jwt := login_result->>'refresh_jwt';
+    SELECT cv.cookie_value INTO access_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    SELECT cv.cookie_value INTO refresh_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus-refresh';
+    ASSERT access_jwt IS NOT NULL, format('Access token cookie not found after login for logout test. Cookies: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
+    ASSERT refresh_jwt IS NOT NULL, format('Refresh token cookie not found after login for logout test. Cookies: %s', (SELECT json_agg(jrc) FROM test.extract_cookies() jrc));
     
-    -- Debug the returned headers from the login function
     RAISE DEBUG 'Response headers after login: %', nullif(current_setting('response.headers', true), '')::jsonb;
     
-    -- Count sessions before logout
     SELECT COUNT(*) INTO session_count_before
     FROM auth.refresh_session rs
     JOIN auth.user u ON rs.user_id = u.id
@@ -1216,11 +1234,11 @@ BEGIN
     RAISE DEBUG 'Session count before logout: %', session_count_before;
     
     -- Check auth status before logout
-    PERFORM set_config('request.cookies', 
+    PERFORM set_config('request.cookies',
         json_build_object(
             'statbus', access_jwt,
             'statbus-refresh', refresh_jwt
-        )::text, 
+        )::text,
         true
     );
     
@@ -1236,22 +1254,23 @@ BEGIN
     
     -- Reset JWT claims to ensure we're using cookies
     PERFORM set_config('request.jwt.claims', '', true);
+    RAISE DEBUG '[Test 6] Before calling public.auth_status (pre-logout): request.cookies: %, request.jwt.claims: %', nullif(current_setting('request.cookies', true), ''), nullif(current_setting('request.jwt.claims', true), '');
+    RAISE DEBUG '[Test 6] access_jwt var: %, refresh_jwt var: %', access_jwt, refresh_jwt;
     
     -- Get auth status before logout
     SELECT to_json(source.*) INTO auth_status_before FROM public.auth_status() AS source;
-    RAISE DEBUG 'Auth status before logout: %', auth_status_before;
+    RAISE DEBUG '[Test 6] Auth status before logout (auth_status_before): %', auth_status_before;
     
-    -- Verify auth status before logout
-    ASSERT auth_status_before->>'is_authenticated' = 'true', 'Auth status should show authenticated';
-    ASSERT auth_status_before->'uid' IS NOT NULL, 'Auth status should include user info';
-    ASSERT auth_status_before->>'email' = 'test.restricted@statbus.org', 'Auth status should have correct email';
+    ASSERT auth_status_before->>'is_authenticated' = 'true', format('Auth status before logout should show authenticated. Got: %L. Full auth_status_before: %s', auth_status_before->>'is_authenticated', auth_status_before);
+    ASSERT auth_status_before->'uid' IS NOT NULL, format('Auth status before logout should include user info (uid). Full auth_status_before: %s', auth_status_before);
+    ASSERT auth_status_before->>'email' = 'test.restricted@statbus.org', format('Auth status before logout should have correct email. Expected %L, Got %L. Full auth_status_before: %s', 'test.restricted@statbus.org', auth_status_before->>'email', auth_status_before);
     
     -- Set cookies to simulate browser cookies for logout
-    PERFORM set_config('request.cookies', 
+    PERFORM set_config('request.cookies',
         json_build_object(
             'statbus', access_jwt,
             'statbus-refresh', refresh_jwt
-        )::text, 
+        )::text,
         true
     );
     
@@ -1268,14 +1287,13 @@ BEGIN
     -- Perform logout
     SELECT to_json(source.*) INTO logout_result FROM public.logout() AS source;
     RAISE DEBUG 'Logout result: %', logout_result;
-    
-    -- Debug the returned headers from the logout function
     RAISE DEBUG 'Response headers after logout: %', nullif(current_setting('response.headers', true), '')::jsonb;
     
-    -- Verify logout result
-    ASSERT logout_result->>'success' = 'true', 'Logout should return success: true';
+    -- Verify logout result (should be an auth_status_response indicating not authenticated)
+    ASSERT logout_result IS NOT NULL, format('Logout should return a non-null auth_status_response. Got: %s', logout_result);
+    ASSERT (logout_result->>'is_authenticated')::boolean IS FALSE, format('Logout should result in is_authenticated = false. Got: %L. Full response: %s', logout_result->>'is_authenticated', logout_result);
+    ASSERT logout_result->>'uid' IS NULL, format('Logout should result in uid = NULL. Got: %L. Full response: %s', logout_result->>'uid', logout_result);
     
-    -- Count sessions after logout
     SELECT COUNT(*) INTO session_count_after
     FROM auth.refresh_session rs
     JOIN auth.user u ON rs.user_id = u.id
@@ -1284,8 +1302,8 @@ BEGIN
     RAISE DEBUG 'Session count after logout: %', session_count_after;
     
     -- Verify exactly one session was deleted
-    ASSERT session_count_after = session_count_before - 1, 
-        format('Exactly one session should be deleted after logout. Before: %s, After: %s', session_count_before, session_count_after);
+    ASSERT session_count_after = session_count_before - 1,
+        format('Exactly one session should be deleted after logout. Expected count: %s, Got: %s. (Before: %s, After: %s)', session_count_before - 1, session_count_after, session_count_before, session_count_after);
     
     -- Verify cookies were cleared
     FOR cookies IN SELECT * FROM test.extract_cookies()
@@ -1300,8 +1318,8 @@ BEGIN
         END IF;
     END LOOP;
     
-    ASSERT has_cleared_access_cookie, 'Access cookie was not cleared';
-    ASSERT has_cleared_refresh_cookie, 'Refresh cookie was not cleared';
+    ASSERT has_cleared_access_cookie, format('Access cookie was not cleared. Cookies found: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
+    ASSERT has_cleared_refresh_cookie, format('Refresh cookie was not cleared. Cookies found: %s', (SELECT json_agg(jrc) FROM test.extract_cookies() jrc));
     
     -- Check auth status after logout
     -- Use the cleared cookies
@@ -1330,10 +1348,9 @@ BEGIN
     SELECT to_json(source.*) INTO auth_status_after FROM public.auth_status() AS source;
     RAISE DEBUG 'Auth status after logout: %', auth_status_after;
     
-    -- Verify auth status after logout
-    ASSERT auth_status_after->>'is_authenticated' = 'false', 'Auth status should show not authenticated';
-    ASSERT auth_status_after->>'uid' IS NULL, 'Auth status should not include user info';
-    ASSERT auth_status_after->>'email' IS NULL, 'Auth status should not have email';
+    ASSERT auth_status_after->>'is_authenticated' = 'false', format('Auth status after logout should show not authenticated. Got: %L. Full auth_status_after: %s', auth_status_after->>'is_authenticated', auth_status_after);
+    ASSERT auth_status_after->>'uid' IS NULL, format('Auth status after logout should not include user info (uid). Got: %L. Full auth_status_after: %s', auth_status_after->>'uid', auth_status_after);
+    ASSERT auth_status_after->>'email' IS NULL, format('Auth status after logout should not have email. Got: %L. Full auth_status_after: %s', auth_status_after->>'email', auth_status_after);
     
         RAISE NOTICE 'Test 6: Logout - PASSED';
     EXCEPTION
@@ -1360,6 +1377,7 @@ DECLARE
     role_exists boolean;
     role_granted boolean;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
         -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
@@ -1394,27 +1412,29 @@ BEGIN
         WHERE r1.rolname = original_role::text AND r2.rolname = user_email
     ) INTO role_granted;
     
-    RAISE DEBUG 'Original role % is granted to user %: %', 
+    RAISE DEBUG 'Original role % is granted to user %: %',
         original_role, user_email, role_granted;
     
     -- First login as admin to get valid JWT
     SELECT to_json(source.*) INTO login_result FROM public.login('test.admin@statbus.org', 'Admin#123!') AS source;
     RAISE DEBUG 'Login result: %', login_result;
+    ASSERT (login_result->>'is_authenticated')::boolean IS TRUE, format('Admin login failed for role management test. Got: %L. Full login_result: %s', login_result->>'is_authenticated', login_result);
     
-    -- Extract access token from login result
-    access_jwt := login_result->>'access_jwt';
+    -- Extract access token from cookies set by login()
+    SELECT cv.cookie_value INTO access_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    ASSERT access_jwt IS NOT NULL, format('Access token cookie not found after admin login for role management test. Cookies: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
     
     -- Set up JWT claims using the actual token
-    PERFORM set_config('request.jwt.claims', 
+    PERFORM set_config('request.jwt.claims',
         (SELECT payload::text FROM verify(access_jwt, 'test-jwt-secret-for-testing-only')),
         true
     );
     
     -- Set cookies to simulate browser cookies
-    PERFORM set_config('request.cookies', 
+    PERFORM set_config('request.cookies',
         jsonb_build_object(
             'statbus', access_jwt
-        )::text, 
+        )::text,
         true
     );
     
@@ -1461,11 +1481,11 @@ BEGIN
         WHERE r1.rolname = 'restricted_user' AND r2.rolname = user_email
     ) INTO role_granted;
     
-    RAISE DEBUG 'After grant: restricted_user role is granted to user %: %', 
+    RAISE DEBUG 'After grant: restricted_user role is granted to user %: %',
         user_email, role_granted;
     
     -- Verify grant was successful
-    ASSERT grant_result.statbus_role = 'restricted_user', 'Grant role should return true';
+    ASSERT grant_result.statbus_role = 'restricted_user', format('Grant role should return restricted_user. Got: %L. Full grant_result: %s', grant_result.statbus_role, to_jsonb(grant_result));
     
     -- Verify role was updated in database
     SELECT statbus_role INTO new_role
@@ -1474,8 +1494,8 @@ BEGIN
     
     RAISE DEBUG 'User role in database after grant: %', new_role;
     
-    ASSERT new_role = 'restricted_user', 
-        'User role should be updated to restricted_user';
+    ASSERT new_role = 'restricted_user',
+        format('User role should be updated to restricted_user. Got: %L', new_role);
     
     -- Check if regular_user role exists
     SELECT EXISTS (
@@ -1511,11 +1531,11 @@ BEGIN
         WHERE r1.rolname = 'regular_user' AND r2.rolname = user_email
     ) INTO role_granted;
     
-    RAISE DEBUG 'After revoke: regular_user role is granted to user %: %', 
+    RAISE DEBUG 'After revoke: regular_user role is granted to user %: %',
         user_email, role_granted;
     
     -- Verify revoke was successful
-    ASSERT grant_result.statbus_role = 'regular_user', 'Revoke role (set to regular_user) should return true and correct role';
+    ASSERT grant_result.statbus_role = 'regular_user', format('Revoke role (set to regular_user) should return regular_user. Got: %L. Full grant_result: %s', grant_result.statbus_role, to_jsonb(grant_result));
     
     -- Verify role was reset to regular_user
     SELECT statbus_role INTO new_role
@@ -1524,8 +1544,8 @@ BEGIN
     
     RAISE DEBUG 'User role in database after revoke: %', new_role;
     
-    ASSERT new_role = 'regular_user', 
-        'User role should be reset to regular_user';
+    ASSERT new_role = 'regular_user',
+        format('User role should be reset to regular_user. Got: %L', new_role);
     
     -- Reset to original role
     RAISE DEBUG 'Resetting user % to original role: %', user_email, original_role;
@@ -1534,7 +1554,7 @@ BEGIN
     WHERE sub = user_sub
     RETURNING * INTO grant_result;
     RAISE DEBUG 'Reset role result: %', to_jsonb(grant_result);
-    ASSERT grant_result.statbus_role = original_role, 'Resetting role should return true and correct role';
+    ASSERT grant_result.statbus_role = original_role, format('Resetting role should return original_role. Got: %L. Full grant_result: %s', grant_result.statbus_role, to_jsonb(grant_result));
     
     -- Verify final role state
     SELECT statbus_role INTO new_role
@@ -1551,7 +1571,7 @@ BEGIN
         WHERE r1.rolname = original_role::text AND r2.rolname = user_email
     ) INTO role_granted;
     
-    RAISE DEBUG 'Final check: original role % is granted to user %: %', 
+    RAISE DEBUG 'Final check: original role % is granted to user %: %',
         original_role, user_email, role_granted;
     
         RAISE NOTICE 'Test 7: Role Management - PASSED';
@@ -1578,6 +1598,9 @@ DECLARE
     access_jwt text;
     jwt_claims json;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
+    RAISE DEBUG '[Test 8 Setup] Initializing Test 8: Session Management';
+
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
         -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
@@ -1591,23 +1614,25 @@ BEGIN
 
     -- First login to create a session
     SELECT to_json(source.*) INTO login_result FROM public.login('test.regular@statbus.org', 'Regular#123!') AS source;
+    ASSERT (login_result->>'is_authenticated')::boolean IS TRUE, format('Login failed for session management test. Got: %L. Full login_result: %s', login_result->>'is_authenticated', login_result);
     
-    -- Extract access token from login result
-    access_jwt := login_result->>'access_jwt';
+    -- Extract access token from cookies set by login()
+    SELECT cv.cookie_value INTO access_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    ASSERT access_jwt IS NOT NULL, format('Access token cookie not found after login for session management test. Cookies: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
     
     -- Set up JWT claims using the actual token
-    SELECT payload::json INTO jwt_claims 
+    SELECT payload::json INTO jwt_claims
     FROM verify(access_jwt, 'test-jwt-secret-for-testing-only');
     
     PERFORM set_config('request.jwt.claims', jwt_claims::text, true);
     
     -- Set cookies in request.cookies and headers for list_active_sessions
-    PERFORM set_config('request.cookies', 
+    PERFORM set_config('request.cookies',
         json_build_object(
-            'statbus', access_jwt 
+            'statbus', access_jwt
             -- list_active_sessions uses request.jwt.claims, so cookie content doesn't strictly matter here
             -- as long as claims are set.
-        )::text, 
+        )::text,
         true
     );
     PERFORM set_config('request.headers', 
@@ -1627,7 +1652,7 @@ BEGIN
     RAISE DEBUG 'Active sessions: %', sessions_result;
     
     -- Verify sessions were returned
-    ASSERT array_length(sessions_result, 1) > 0, 'Should have at least one active session';
+    ASSERT array_length(sessions_result, 1) > 0, format('Should have at least one active session. Got %s sessions. Full result: %s', array_length(sessions_result, 1), sessions_result);
     
     -- Get session ID for revocation
     SELECT (sessions_result[1]->>'id')::integer INTO session_id;
@@ -1636,6 +1661,7 @@ BEGIN
     SELECT jti INTO session_jti
     FROM auth.refresh_session
     WHERE id = session_id;
+    RAISE DEBUG '[Test 8] Session JTI to be revoked: % (from session_id: %)', session_jti, session_id;
     
     -- Count sessions before revocation
     SELECT COUNT(*) INTO session_count_before
@@ -1644,13 +1670,14 @@ BEGIN
     WHERE u.email = 'test.regular@statbus.org';
     
     -- Revoke a specific session
+    RAISE DEBUG '[Test 8] Before calling public.revoke_session for JTI %: request.jwt.claims: %', session_jti, nullif(current_setting('request.jwt.claims', true), '');
     SELECT public.revoke_session(session_jti) INTO revoke_result;
     
     -- Debug the revoke result
-    RAISE DEBUG 'Revoke session result: %', revoke_result;
+    RAISE DEBUG '[Test 8] Revoke session result: %', revoke_result;
     
     -- Verify revocation was successful
-    ASSERT revoke_result = true, 'Revoke session should return true';
+    ASSERT revoke_result = true, format('Revoke session should return true. Got: %L', revoke_result);
     
     -- Count sessions after revocation
     SELECT COUNT(*) INTO session_count_after
@@ -1659,8 +1686,8 @@ BEGIN
     WHERE u.email = 'test.regular@statbus.org';
     
     -- Verify session was deleted
-    ASSERT session_count_after = session_count_before - 1, 
-        'One session should be deleted after revocation';
+    ASSERT session_count_after = session_count_before - 1,
+        format('One session should be deleted after revocation. Expected count: %s, Got: %s. (Before: %s, After: %s)', session_count_before - 1, session_count_after, session_count_before, session_count_after);
     
         RAISE NOTICE 'Test 8: Session Management - PASSED';
     EXCEPTION
@@ -1701,22 +1728,22 @@ BEGIN
     RAISE DEBUG 'Basic JWT claims: %', claims;
     
     -- Verify basic claims
-    ASSERT claims ? 'role', 'Claims should contain role';
-    ASSERT claims ? 'statbus_role', 'Claims should contain statbus_role';
-    ASSERT claims ? 'sub', 'Claims should contain sub';
-    ASSERT claims ? 'email', 'Claims should contain email';
-    ASSERT claims ? 'type', 'Claims should contain type';
-    ASSERT claims ? 'iat', 'Claims should contain iat';
-    ASSERT claims ? 'exp', 'Claims should contain exp';
-    ASSERT claims ? 'jti', 'Claims should contain jti';
-    ASSERT claims ? 'uid', 'Claims should contain uid';
+    ASSERT claims ? 'role', format('Claims should contain role. Claims: %s', claims);
+    ASSERT claims ? 'statbus_role', format('Claims should contain statbus_role. Claims: %s', claims);
+    ASSERT claims ? 'sub', format('Claims should contain sub. Claims: %s', claims);
+    ASSERT claims ? 'email', format('Claims should contain email. Claims: %s', claims);
+    ASSERT claims ? 'type', format('Claims should contain type. Claims: %s', claims);
+    ASSERT claims ? 'iat', format('Claims should contain iat. Claims: %s', claims);
+    ASSERT claims ? 'exp', format('Claims should contain exp. Claims: %s', claims);
+    ASSERT claims ? 'jti', format('Claims should contain jti. Claims: %s', claims);
+    ASSERT claims ? 'uid', format('Claims should contain uid. Claims: %s', claims);
 
     -- Verify claim values
-    ASSERT claims->>'role' = test_email, 'role claim should match email';
-    ASSERT claims->>'statbus_role' = test_role::text, 'statbus_role claim should match user role';
-    ASSERT claims->>'sub' = test_sub::text, 'sub claim should match user sub';
-    ASSERT claims->>'email' = test_email, 'email claim should match email';
-    ASSERT claims->>'type' = 'access', 'type claim should be access by default';
+    ASSERT claims->>'role' = test_email, format('role claim should match email. Expected %L, Got %L. Claims: %s', test_email, claims->>'role', claims);
+    ASSERT claims->>'statbus_role' = test_role::text, format('statbus_role claim should match user role. Expected %L, Got %L. Claims: %s', test_role::text, claims->>'statbus_role', claims);
+    ASSERT claims->>'sub' = test_sub::text, format('sub claim should match user sub. Expected %L, Got %L. Claims: %s', test_sub::text, claims->>'sub', claims);
+    ASSERT claims->>'email' = test_email, format('email claim should match email. Expected %L, Got %L. Claims: %s', test_email, claims->>'email', claims);
+    ASSERT claims->>'type' = 'access', format('type claim should be access by default. Got %L. Claims: %s', claims->>'type', claims);
     
     -- Build claims with additional parameters
     claims := auth.build_jwt_claims(
@@ -1730,10 +1757,10 @@ BEGIN
     RAISE DEBUG 'Advanced JWT claims: %', claims;
     
     -- Verify additional parameters
-    ASSERT claims->>'type' = 'refresh', 'type claim should be refresh';
-    ASSERT claims->>'custom_claim' = 'test_value', 'custom claim should be included';
-    ASSERT (claims->>'exp')::numeric = extract(epoch from test_expires_at)::integer, 
-        'exp claim should match provided expiration time';
+    ASSERT claims->>'type' = 'refresh', format('type claim should be refresh. Got %L. Claims: %s', claims->>'type', claims);
+    ASSERT claims->>'custom_claim' = 'test_value', format('custom claim should be included. Got %L. Claims: %s', claims->>'custom_claim', claims);
+    ASSERT (claims->>'exp')::numeric = extract(epoch from test_expires_at)::integer,
+        format('exp claim should match provided expiration time. Expected %L, Got %L. Claims: %s', extract(epoch from test_expires_at)::integer, claims->>'exp', claims);
     
     -- Test generating a JWT from claims
     SELECT auth.generate_jwt(claims) INTO test_jwt;
@@ -1749,9 +1776,9 @@ BEGIN
     RAISE DEBUG 'Decoded JWT payload: %', jwt_payload;
     
     -- Verify JWT payload matches claims
-    ASSERT jwt_payload->>'role' = claims->>'role', 'JWT role should match claims';
-    ASSERT jwt_payload->>'type' = 'refresh', 'JWT type should be refresh';
-    ASSERT jwt_payload->>'custom_claim' = 'test_value', 'JWT should include custom claims';
+    ASSERT jwt_payload->>'role' = claims->>'role', format('JWT role should match claims. Expected %L, Got %L. JWT Payload: %s, Original Claims: %s', claims->>'role', jwt_payload->>'role', jwt_payload, claims);
+    ASSERT jwt_payload->>'type' = 'refresh', format('JWT type should be refresh. Expected %L, Got %L. JWT Payload: %s', 'refresh', jwt_payload->>'type', jwt_payload);
+    ASSERT jwt_payload->>'custom_claim' = 'test_value', format('JWT should include custom claims. Expected %L, Got %L. JWT Payload: %s', 'test_value', jwt_payload->>'custom_claim', jwt_payload);
 
         RAISE NOTICE 'Test 9: JWT Claims Building - PASSED';
     EXCEPTION
@@ -1797,19 +1824,23 @@ BEGIN
 
     -- First login as admin to get valid tokens
     SELECT to_json(source.*) INTO login_result_admin FROM public.login(admin_email, 'Admin#123!') AS source;
-    admin_access_jwt := login_result_admin->>'access_jwt';
-    admin_refresh_jwt := login_result_admin->>'refresh_jwt';
+    ASSERT (login_result_admin->>'is_authenticated')::boolean IS TRUE, format('Admin login failed for JWT tampering test. Got: %L. Full login_result_admin: %s', login_result_admin->>'is_authenticated', login_result_admin);
+    SELECT cv.cookie_value INTO admin_access_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    SELECT cv.cookie_value INTO admin_refresh_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus-refresh';
+    ASSERT admin_access_jwt IS NOT NULL AND admin_refresh_jwt IS NOT NULL, format('Admin tokens not found in cookies. Access: %L, Refresh: %L. Cookies: %s', admin_access_jwt, admin_refresh_jwt, (SELECT json_agg(jec) FROM test.extract_cookies() jec));
     
     -- Get admin token claims
-    SELECT payload::jsonb INTO admin_claims 
+    SELECT payload::jsonb INTO admin_claims
     FROM verify(admin_access_jwt, 'test-jwt-secret-for-testing-only');
     
     -- Login as regular user to get valid tokens
     SELECT to_json(source.*) INTO login_result_regular FROM public.login(regular_email, 'Regular#123!') AS source;
-    regular_access_jwt := login_result_regular->>'access_jwt';
+    ASSERT (login_result_regular->>'is_authenticated')::boolean IS TRUE, format('Regular user login failed for JWT tampering test. Got: %L. Full login_result_regular: %s', login_result_regular->>'is_authenticated', login_result_regular);
+    SELECT cv.cookie_value INTO regular_access_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    ASSERT regular_access_jwt IS NOT NULL, format('Regular user access token not found in cookies. Cookies: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
     
     -- Get regular user token claims
-    SELECT payload::jsonb INTO regular_claims 
+    SELECT payload::jsonb INTO regular_claims
     FROM verify(regular_access_jwt, 'test-jwt-secret-for-testing-only');
     
     -- Test 1: Tamper with access JWT to change role without changing signature
@@ -1983,8 +2014,8 @@ BEGIN
         RAISE DEBUG 'Refresh result with non-existent session: %', tampered_refresh_result;
         
         -- Verify the refresh was rejected
-        ASSERT tampered_refresh_result ? 'error', 
-            'Refresh with non-existent session should return an error';
+        ASSERT tampered_refresh_result ? 'error',
+            format('Refresh with non-existent session should return an error. Got: %s', tampered_refresh_result);
     END;
     
     -- Test 4: Try to impersonate another user with a valid refresh token
@@ -2070,8 +2101,8 @@ BEGIN
         RAISE DEBUG 'Refresh result with impersonation attempt: %', impersonation_result;
         
         -- Verify the refresh was rejected
-        ASSERT impersonation_result ? 'error', 
-            'Refresh with impersonation attempt should return an error';
+        ASSERT impersonation_result ? 'error',
+            format('Refresh with impersonation attempt should return an error. Got: %s', impersonation_result);
     END;
     
         RAISE NOTICE 'Test 10: JWT Tampering Detection - PASSED';
@@ -2098,6 +2129,7 @@ DECLARE
     test_email text := 'test.admin@statbus.org';
     test_sub uuid;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
         -- Set up headers to simulate a browser
     PERFORM set_config('request.headers', 
@@ -2128,27 +2160,27 @@ BEGIN
     
     SELECT to_json(source.*) INTO auth_status_unauthenticated FROM public.auth_status() AS source;
     
-    -- Debug the unauthenticated status
     RAISE DEBUG 'Auth status (unauthenticated): %', auth_status_unauthenticated;
     
-    -- Verify unauthenticated status
-    ASSERT auth_status_unauthenticated->>'is_authenticated' = 'false', 'Auth status should show not authenticated';
-    ASSERT auth_status_unauthenticated->>'uid' IS NULL, 'Auth status should not include user info';
-    ASSERT auth_status_unauthenticated->>'email' IS NULL, 'Auth status should not have email';
+    ASSERT auth_status_unauthenticated->>'is_authenticated' = 'false', format('Auth status should show not authenticated. Got: %L. Full response: %s', auth_status_unauthenticated->>'is_authenticated', auth_status_unauthenticated);
+    ASSERT auth_status_unauthenticated->>'uid' IS NULL, format('Auth status should not include user info (uid). Got: %L. Full response: %s', auth_status_unauthenticated->>'uid', auth_status_unauthenticated);
+    ASSERT auth_status_unauthenticated->>'email' IS NULL, format('Auth status should not have email. Got: %L. Full response: %s', auth_status_unauthenticated->>'email', auth_status_unauthenticated);
     
     -- Now login to get a valid token
     SELECT to_json(source.*) INTO login_result FROM public.login(test_email, 'Admin#123!') AS source;
+    ASSERT (login_result->>'is_authenticated')::boolean IS TRUE, format('Login failed for auth status test. Got: %L. Full login_result: %s', login_result->>'is_authenticated', login_result);
     
-    -- Extract tokens from login result
-    access_jwt := login_result->>'access_jwt';
-    refresh_jwt := login_result->>'refresh_jwt';
+    -- Extract tokens from cookies set by login()
+    SELECT cv.cookie_value INTO access_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+    SELECT cv.cookie_value INTO refresh_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus-refresh';
+    ASSERT access_jwt IS NOT NULL AND refresh_jwt IS NOT NULL, format('Tokens not found in cookies for auth status test. Access: %L, Refresh: %L. Cookies: %s', access_jwt, refresh_jwt, (SELECT json_agg(jec) FROM test.extract_cookies() jec));
     
     -- Set up cookies to simulate browser cookies
-    PERFORM set_config('request.cookies', 
+    PERFORM set_config('request.cookies',
         json_build_object(
             'statbus', access_jwt,
             'statbus-refresh', refresh_jwt
-        )::text, 
+        )::text,
         true
     );
     
@@ -2168,13 +2200,11 @@ BEGIN
     -- Check authenticated status using cookies
     SELECT to_json(source.*) INTO auth_status_result FROM public.auth_status() AS source;
     
-    -- Debug the authenticated status
     RAISE DEBUG 'Auth status (authenticated via cookies): %', auth_status_result;
     
-    -- Verify authenticated status
-    ASSERT auth_status_result->>'is_authenticated' = 'true', 'Auth status should show authenticated';
-    ASSERT auth_status_result->'uid' IS NOT NULL, 'Auth status should include user info';
-    ASSERT auth_status_result->>'email' = test_email, 'Auth status should have correct email';
+    ASSERT auth_status_result->>'is_authenticated' = 'true', format('Auth status should show authenticated. Got: %L. Full response: %s', auth_status_result->>'is_authenticated', auth_status_result);
+    ASSERT auth_status_result->'uid' IS NOT NULL, format('Auth status should include user info (uid). Full response: %s', auth_status_result);
+    ASSERT auth_status_result->>'email' = test_email, format('Auth status should have correct email. Expected %L, Got %L. Full response: %s', test_email, auth_status_result->>'email', auth_status_result);
     
     -- Test with an expiring token (modify the token to make it expire soon)
     DECLARE
@@ -2183,7 +2213,7 @@ BEGIN
         expiring_status jsonb;
     BEGIN
         -- Get the claims from the token
-        SELECT payload::json INTO jwt_claims 
+        SELECT payload::json INTO jwt_claims
         FROM verify(access_jwt, 'test-jwt-secret-for-testing-only');
         
         -- Create a copy of the claims with an expiration time 4 minutes from now
@@ -2197,11 +2227,11 @@ BEGIN
         SELECT sign(expiring_claims, 'test-jwt-secret-for-testing-only') INTO expiring_jwt;
         
         -- Set the cookie with the expiring token
-        PERFORM set_config('request.cookies', 
+        PERFORM set_config('request.cookies',
             json_build_object(
                 'statbus', expiring_jwt,
-                'statbus-refresh', refresh_jwt
-            )::text, 
+                'statbus-refresh', refresh_jwt -- Use original refresh token
+            )::text,
             true
         );
         
@@ -2221,13 +2251,11 @@ BEGIN
         -- Check status with expiring token
         SELECT to_json(source.*) INTO expiring_status FROM public.auth_status() AS source;
         
-        -- Debug the expiring status
         RAISE DEBUG 'Auth status (expiring token): %', expiring_status;
         
-        -- Verify expiring token status
-        ASSERT expiring_status->>'is_authenticated' = 'true', 'Auth status should show authenticated';
-        ASSERT expiring_status->'uid' IS NOT NULL, 'Auth status should include user info';
-        ASSERT expiring_status->>'email' = test_email, 'Auth status should have correct email';
+        ASSERT expiring_status->>'is_authenticated' = 'true', format('Auth status with expiring token should show authenticated. Got: %L. Full response: %s', expiring_status->>'is_authenticated', expiring_status);
+        ASSERT expiring_status->'uid' IS NOT NULL, format('Auth status with expiring token should include user info (uid). Full response: %s', expiring_status);
+        ASSERT expiring_status->>'email' = test_email, format('Auth status with expiring token should have correct email. Expected %L, Got %L. Full response: %s', test_email, expiring_status->>'email', expiring_status);
     END;
     
     -- Test with an invalid user sub (user not found)
@@ -2238,7 +2266,7 @@ BEGIN
         random_uuid uuid := gen_random_uuid();
     BEGIN
         -- Get the claims from the token
-        SELECT payload::json INTO jwt_claims 
+        SELECT payload::json INTO jwt_claims
         FROM verify(access_jwt, 'test-jwt-secret-for-testing-only');
         
         -- Create a copy of the claims with an invalid user sub
@@ -2252,11 +2280,11 @@ BEGIN
         SELECT sign(invalid_claims, 'test-jwt-secret-for-testing-only') INTO invalid_jwt;
         
         -- Set the cookie with the invalid token
-        PERFORM set_config('request.cookies', 
+        PERFORM set_config('request.cookies',
             json_build_object(
                 'statbus', invalid_jwt,
-                'statbus-refresh', refresh_jwt
-            )::text, 
+                'statbus-refresh', refresh_jwt -- Use original refresh token
+            )::text,
             true
         );
         
@@ -2276,13 +2304,11 @@ BEGIN
         -- Check status with invalid user
         SELECT to_json(source.*) INTO invalid_status FROM public.auth_status() AS source;
         
-        -- Debug the invalid status
         RAISE DEBUG 'Auth status (invalid user): %', invalid_status;
         
-        -- Verify invalid user status
-        ASSERT invalid_status->>'is_authenticated' = 'false', 'Auth status should show not authenticated';
-        ASSERT invalid_status->>'uid' IS NULL, 'Auth status should not include user info';
-        ASSERT invalid_status->>'email' IS NULL, 'Auth status should not have email';
+        ASSERT invalid_status->>'is_authenticated' = 'false', format('Auth status with invalid user should show not authenticated. Got: %L. Full response: %s', invalid_status->>'is_authenticated', invalid_status);
+        ASSERT invalid_status->>'uid' IS NULL, format('Auth status with invalid user should not include user info (uid). Got: %L. Full response: %s', invalid_status->>'uid', invalid_status);
+        ASSERT invalid_status->>'email' IS NULL, format('Auth status with invalid user should not have email. Got: %L. Full response: %s', invalid_status->>'email', invalid_status);
     END;
     
         RAISE NOTICE 'Test 11: Auth Status Function - PASSED';
@@ -2309,6 +2335,9 @@ DECLARE
     old_encrypted_password text;
     new_encrypted_password text;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
+    RAISE DEBUG '[Test 12 Setup] Initializing Test 12: Idempotent User Creation';
+
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
         -- Count users with this email before
     SELECT COUNT(*) INTO user_count_before
@@ -2316,37 +2345,39 @@ BEGIN
     WHERE email = test_email;
     
     -- First creation
+    RAISE DEBUG '[Test 12] Calling public.user_create for the first time with email: %, role: %, password: (hidden)', test_email, test_role;
     SELECT * INTO first_creation_result 
     FROM public.user_create(test_email, test_role, test_password);
     
     -- Debug the first creation result
-    RAISE DEBUG 'First creation result: %', first_creation_result;
+    RAISE DEBUG '[Test 12] First creation result: %', first_creation_result;
     
     -- Verify first creation
-    ASSERT first_creation_result.email = test_email, 'First creation should return correct email';
-    ASSERT first_creation_result.password = test_password, 'First creation should return correct password';
+    ASSERT first_creation_result.email = test_email, format('First creation should return correct email. Expected %L, Got %L', test_email, first_creation_result.email);
+    ASSERT first_creation_result.password = test_password, format('First creation should return correct password. Expected %L, Got %L', test_password, first_creation_result.password);
     
     -- Verify user exists in database
     ASSERT EXISTS (
         SELECT 1 FROM auth.user WHERE email = test_email
-    ), 'User should exist after first creation';
+    ), format('User %L should exist after first creation.', test_email);
     
     -- Store the old encrypted password before updating
     SELECT encrypted_password INTO old_encrypted_password
     FROM auth.user
     WHERE email = test_email;
-    RAISE DEBUG 'Old encrypted password: %', old_encrypted_password;
+    RAISE DEBUG '[Test 12] Old encrypted password: %', old_encrypted_password;
     
     -- Second creation with same email but different password and role
+    RAISE DEBUG '[Test 12] Calling public.user_create for the second time with email: %, role: admin_user, password: (hidden)', test_email;
     SELECT * INTO second_creation_result 
     FROM public.user_create(test_email, 'admin_user'::public.statbus_role, 'newpassword123');
     
     -- Debug the second creation result
-    RAISE DEBUG 'Second creation result: %', second_creation_result;
+    RAISE DEBUG '[Test 12] Second creation result: %', second_creation_result;
     
     -- Verify second creation
-    ASSERT second_creation_result.email = test_email, 'Second creation should return correct email';
-    ASSERT second_creation_result.password = 'newpassword123', 'Second creation should return new password';
+    ASSERT second_creation_result.email = test_email, format('Second creation should return correct email. Expected %L, Got %L', test_email, second_creation_result.email);
+    ASSERT second_creation_result.password = 'newpassword123', format('Second creation should return new password. Expected %L, Got %L', 'newpassword123', second_creation_result.password);
     
     -- Count users with this email after
     SELECT COUNT(*) INTO user_count_after
@@ -2354,12 +2385,14 @@ BEGIN
     WHERE email = test_email;
     
     -- Verify only one user exists (idempotent)
-    ASSERT user_count_after = 1, 'Should still have only one user after second creation';
+    ASSERT user_count_after = 1, format('Should still have only one user after second creation. Expected 1, Got %s', user_count_after);
     
     -- Verify user was updated with new role and password
-    ASSERT (
-        SELECT statbus_role FROM auth.user WHERE email = test_email
-    ) = 'admin_user'::public.statbus_role, 'User role should be updated';
+    DECLARE current_statbus_role public.statbus_role;
+    BEGIN
+        SELECT statbus_role INTO current_statbus_role FROM auth.user WHERE email = test_email;
+        ASSERT current_statbus_role = 'admin_user'::public.statbus_role, format('User role should be updated to admin_user. Got %L', current_statbus_role);
+    END;
     
     -- Verify the encrypted password has changed
     SELECT encrypted_password INTO new_encrypted_password
@@ -2367,8 +2400,8 @@ BEGIN
     WHERE email = test_email;
     RAISE DEBUG 'New encrypted password: %', new_encrypted_password;
     
-    ASSERT old_encrypted_password IS DISTINCT FROM new_encrypted_password, 
-        'Encrypted password should change after update';
+    ASSERT old_encrypted_password IS DISTINCT FROM new_encrypted_password,
+        format('Encrypted password should change after update. Old: %L, New: %L', old_encrypted_password, new_encrypted_password);
     
     -- Clean up
     DELETE FROM auth.user WHERE email = test_email;
@@ -2383,7 +2416,6 @@ BEGIN
 END;
 $$;
 
--- Test 13: Trigger Role Change Handling
 \echo '=== Test 13: Trigger Role Change Handling ==='
 DO $$
 DECLARE
@@ -2405,7 +2437,7 @@ BEGIN
         SELECT 1 FROM pg_roles WHERE rolname = test_email
     ) INTO role_exists;
     
-    ASSERT role_exists, 'PostgreSQL role should exist for the user';
+    ASSERT role_exists, format('PostgreSQL role %L should exist for the user. Got: %L', test_email, role_exists);
     
     -- Verify regular_user role is granted
     SELECT EXISTS (
@@ -2415,7 +2447,7 @@ BEGIN
         WHERE r1.rolname = 'regular_user' AND r2.rolname = test_email
     ) INTO role_granted;
     
-    ASSERT role_granted, 'regular_user role should be granted initially';
+    ASSERT role_granted, format('regular_user role should be granted initially for %L. Got: %L', test_email, role_granted);
     
     -- Change role directly in the database (this should trigger the role change)
     UPDATE auth.user SET statbus_role = 'admin_user' WHERE email = test_email;
@@ -2428,7 +2460,7 @@ BEGIN
         WHERE r1.rolname = 'admin_user' AND r2.rolname = test_email
     ) INTO role_granted;
     
-    ASSERT role_granted, 'admin_user role should be granted after update';
+    ASSERT role_granted, format('admin_user role should be granted after update for %L. Got: %L', test_email, role_granted);
     
     -- Verify regular_user role is no longer granted
     SELECT EXISTS (
@@ -2438,7 +2470,7 @@ BEGIN
         WHERE r1.rolname = 'regular_user' AND r2.rolname = test_email
     ) INTO role_granted;
     
-    ASSERT NOT role_granted, 'regular_user role should be revoked after update';
+    ASSERT NOT role_granted, format('regular_user role should be revoked after update for %L. Got: %L', test_email, role_granted);
     
     -- Change to restricted_user
     UPDATE auth.user SET statbus_role = 'restricted_user' WHERE email = test_email;
@@ -2451,7 +2483,7 @@ BEGIN
         WHERE r1.rolname = 'restricted_user' AND r2.rolname = test_email
     ) INTO role_granted;
     
-    ASSERT role_granted, 'restricted_user role should be granted after update';
+    ASSERT role_granted, format('restricted_user role should be granted after update for %L. Got: %L', test_email, role_granted);
     
     -- Verify admin_user role is no longer granted
     SELECT EXISTS (
@@ -2461,7 +2493,7 @@ BEGIN
         WHERE r1.rolname = 'admin_user' AND r2.rolname = test_email
     ) INTO role_granted;
     
-    ASSERT NOT role_granted, 'admin_user role should be revoked after update';
+    ASSERT NOT role_granted, format('admin_user role should be revoked after update for %L. Got: %L', test_email, role_granted);
     
     -- Change to external_user
     UPDATE auth.user SET statbus_role = 'external_user' WHERE email = test_email;
@@ -2474,7 +2506,7 @@ BEGIN
         WHERE r1.rolname = 'external_user' AND r2.rolname = test_email
     ) INTO role_granted;
     
-    ASSERT role_granted, 'external_user role should be granted after update';
+    ASSERT role_granted, format('external_user role should be granted after update for %L. Got: %L', test_email, role_granted);
     
     -- Verify restricted_user role is no longer granted
     SELECT EXISTS (
@@ -2484,7 +2516,7 @@ BEGIN
         WHERE r1.rolname = 'restricted_user' AND r2.rolname = test_email
     ) INTO role_granted;
     
-    ASSERT NOT role_granted, 'restricted_user role should be revoked after update';
+    ASSERT NOT role_granted, format('restricted_user role should be revoked after update for %L. Got: %L', test_email, role_granted);
     
     -- Clean up
     DELETE FROM auth.user WHERE email = test_email;
@@ -2494,7 +2526,7 @@ BEGIN
         SELECT 1 FROM pg_roles WHERE rolname = test_email
     ) INTO role_exists;
     
-    ASSERT NOT role_exists, 'PostgreSQL role should be dropped after user deletion';
+    ASSERT NOT role_exists, format('PostgreSQL role %L should be dropped after user deletion. Got: %L', test_email, role_exists);
     
         RAISE NOTICE 'Test 13: Trigger Role Change Handling - PASSED';
     EXCEPTION
@@ -2543,15 +2575,15 @@ BEGIN
     -- Debug the claims after
     RAISE DEBUG 'Claims after: %', claims_after;
     
-    ASSERT claims_after <> claims_before, 'Claims should be updated';
-    ASSERT claims_json->>'email' = test_email, 'Claims should contain the correct email';
-    ASSERT claims_json->>'role' = test_email, 'Claims should set role to email';
-    ASSERT claims_json->>'statbus_role' = test_role::text, 'Claims should contain correct statbus_role';
-    ASSERT claims_json->>'sub' = test_sub::text, 'Claims should contain correct sub';
-    ASSERT claims_json->>'type' = 'access', 'Claims should have type=access';
-    ASSERT claims_json ? 'iat', 'Claims should contain iat';
-    ASSERT claims_json ? 'exp', 'Claims should contain exp';
-    ASSERT claims_json ? 'jti', 'Claims should contain jti';
+    ASSERT claims_after <> claims_before, format('Claims should be updated. Before: %L, After: %L', claims_before, claims_after);
+    ASSERT claims_json->>'email' = test_email, format('Claims should contain the correct email. Expected %L, Got %L. Claims: %s', test_email, claims_json->>'email', claims_json);
+    ASSERT claims_json->>'role' = test_email, format('Claims should set role to email. Expected %L, Got %L. Claims: %s', test_email, claims_json->>'role', claims_json);
+    ASSERT claims_json->>'statbus_role' = test_role::text, format('Claims should contain correct statbus_role. Expected %L, Got %L. Claims: %s', test_role::text, claims_json->>'statbus_role', claims_json);
+    ASSERT claims_json->>'sub' = test_sub::text, format('Claims should contain correct sub. Expected %L, Got %L. Claims: %s', test_sub::text, claims_json->>'sub', claims_json);
+    ASSERT claims_json->>'type' = 'access', format('Claims should have type=access. Got %L. Claims: %s', claims_json->>'type', claims_json);
+    ASSERT claims_json ? 'iat', format('Claims should contain iat. Claims: %s', claims_json);
+    ASSERT claims_json ? 'exp', format('Claims should contain exp. Claims: %s', claims_json);
+    ASSERT claims_json ? 'jti', format('Claims should contain jti. Claims: %s', claims_json);
     
     -- Test using JWT claims in session
     DECLARE
@@ -2574,8 +2606,8 @@ BEGIN
         RAISE DEBUG 'Using test claims in session: %', test_claims;
         
         -- Verify claims were set correctly
-        ASSERT (current_setting('request.jwt.claims', true)::jsonb)->>'role' = test_email, 
-            'use_jwt_claims_in_session should set role correctly';
+        ASSERT (current_setting('request.jwt.claims', true)::jsonb)->>'role' = test_email,
+            format('use_jwt_claims_in_session should set role correctly. Expected %L, Got %L. Current claims: %s', test_email, (current_setting('request.jwt.claims', true)::jsonb)->>'role', current_setting('request.jwt.claims', true));
     END;
     
     -- Reset session context
@@ -2585,8 +2617,8 @@ BEGIN
     RAISE DEBUG 'Session context after reset: %', current_setting('request.jwt.claims', true);
     
     -- Verify claims were cleared
-    ASSERT current_setting('request.jwt.claims', true) = '', 
-        'Claims should be cleared';
+    ASSERT current_setting('request.jwt.claims', true) = '',
+        format('Claims should be cleared. Got: %L', current_setting('request.jwt.claims', true));
     
         RAISE NOTICE 'Test 14: Session Context Management - PASSED';
     EXCEPTION
@@ -2605,27 +2637,26 @@ DO $$
 DECLARE
     login_result jsonb;
     test_email text := 'test.regular@statbus.org';
-    old_password text := 'Regular#123!'; -- Original password for test.regular@statbus.org
+    old_password text := 'Regular#123!';
     new_password text := 'newRegularPass456';
     access_jwt text;
-    refresh_jwt text;
     session_count_before integer;
     session_count_after integer;
-    -- change_result boolean; -- This variable was declared but not used in the original 14.1
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior for the entire Test 14
         
-        -- Setup part of Test 14
         RAISE NOTICE 'Test 14: Setup - Logging in user and checking initial session count.';
         SELECT to_jsonb(source.*) INTO login_result FROM public.login(test_email, old_password) AS source;
         RAISE DEBUG 'Logged in user %: %', test_email, login_result;
-        ASSERT login_result IS NOT NULL AND login_result->>'access_jwt' IS NOT NULL, 'Setup: Login failed for user ' || test_email;
-        access_jwt := login_result->>'access_jwt';
-        refresh_jwt := login_result->>'refresh_jwt';
+        ASSERT login_result IS NOT NULL AND (login_result->>'is_authenticated')::boolean IS TRUE, format('Setup: Login failed for user %L. Got: %L. Full login_result: %s', test_email, login_result->>'is_authenticated', login_result);
+        
+        SELECT cv.cookie_value INTO access_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+        ASSERT access_jwt IS NOT NULL, format('Access token not found in cookies after login for setup for user %L. Cookies: %s', test_email, (SELECT json_agg(jec) FROM test.extract_cookies() jec));
 
         SELECT COUNT(*) INTO session_count_before FROM auth.refresh_session
         WHERE user_id = (SELECT id FROM auth.user WHERE email = test_email);
-        ASSERT session_count_before > 0, 'Setup: User ' || test_email || ' should have at least one session before password change.';
+        ASSERT session_count_before > 0, format('Setup: User %L should have at least one session before password change. Found %s sessions.', test_email, session_count_before);
         RAISE NOTICE 'Test 14: Password Change (User) - Setup complete. User has % sessions.', session_count_before;
 
         -- Test 14.1: Change password as user (simulating user-initiated action)
@@ -2633,7 +2664,7 @@ BEGIN
         BEGIN -- Nested block for SET LOCAL ROLE and its specific rollback simulation
             EXECUTE format('SET LOCAL ROLE %I', test_email); -- Use %I for identifiers
             RAISE DEBUG 'Test 14.1: Switched to role % (current_user: %)', test_email, current_user;
-            ASSERT current_user = test_email, 'Test 14.1: Failed to switch role to ' || test_email;
+            ASSERT current_user = test_email, format('Test 14.1: Failed to switch role to %L. Current user: %L', test_email, current_user);
 
             -- Set JWT claims as if an access token was used for this operation
             PERFORM set_config('request.jwt.claims', (SELECT payload::text FROM verify(access_jwt, 'test-jwt-secret-for-testing-only')), true);
@@ -2644,22 +2675,21 @@ BEGIN
             SELECT COUNT(*) INTO session_count_after FROM auth.refresh_session
             WHERE user_id = (SELECT id FROM auth.user WHERE email = test_email);
             RAISE DEBUG 'Test 14.1: Session count for user % after password change: %', test_email, session_count_after;
-            ASSERT session_count_after = 0, 'Test 14.1: All sessions for user ' || test_email || ' should be deleted after password change.';
+            ASSERT session_count_after = 0, format('Test 14.1: All sessions for user %L should be deleted after password change. Found %s sessions.', test_email, session_count_after);
             
             -- Verify password was updated (try logging in with new password)
             DECLARE
-                login_result_verify record;
-                -- old_password_verify text := 'regular123'; -- Use outer scope old_password
+                login_result_verify jsonb;
             BEGIN
                 RAISE DEBUG 'Test 14.1: Verifying login with new password for %', test_email;
-                SELECT * INTO login_result_verify FROM public.login(test_email, new_password);
-                RAISE DEBUG 'Test 14.1: Login result with new password (access_jwt): %', login_result_verify.access_jwt;
-                ASSERT login_result_verify IS NOT NULL AND login_result_verify.access_jwt IS NOT NULL, 'Test 14.1: Login with new password for ' || test_email || ' should succeed.';
+                SELECT to_jsonb(source.*) INTO login_result_verify FROM public.login(test_email, new_password) AS source;
+                RAISE DEBUG 'Test 14.1: Login result with new password: %', login_result_verify;
+                ASSERT login_result_verify IS NOT NULL AND (login_result_verify->>'is_authenticated')::boolean IS TRUE, format('Test 14.1: Login with new password for %L should succeed. Got: %L. Full response: %s', test_email, login_result_verify->>'is_authenticated', login_result_verify);
 
                 RAISE DEBUG 'Test 14.1: Verifying login with old password for % fails', test_email;
-                SELECT * INTO login_result_verify FROM public.login(test_email, old_password);
-                RAISE DEBUG 'Test 14.1: Login result with old password (access_jwt): %', login_result_verify.access_jwt;
-                ASSERT login_result_verify IS NULL OR login_result_verify.access_jwt IS NULL, 'Test 14.1: Login with old password for ' || test_email || ' should fail.';
+                SELECT to_jsonb(source.*) INTO login_result_verify FROM public.login(test_email, old_password) AS source;
+                RAISE DEBUG 'Test 14.1: Login result with old password: %', login_result_verify;
+                ASSERT login_result_verify IS NULL OR (login_result_verify->>'is_authenticated')::boolean IS FALSE, format('Test 14.1: Login with old password for %L should fail. Got: %L. Full response: %s', test_email, login_result_verify->>'is_authenticated', login_result_verify);
             END;
             
             RAISE NOTICE 'Test 14.1: Password change and immediate verification successful for role %.', test_email;
@@ -2670,21 +2700,21 @@ BEGIN
         END; -- End of SET LOCAL ROLE block
 
         RAISE DEBUG 'Test 14.1: After SET LOCAL ROLE block, current_user: %', current_user;
-        ASSERT current_user = 'postgres', 'Test 14.1: After SET LOCAL ROLE block, current_user should be reverted to postgres (or the original test runner role).';
+        ASSERT current_user = 'postgres', format('Test 14.1: After SET LOCAL ROLE block, current_user should be reverted to postgres (or original). Got: %L', current_user);
                 
         RAISE NOTICE 'Test 14.1: Change password as user and verify - PASSED (within its own transactional context)';
         
         -- Since the SET LOCAL ROLE block was rolled back, the password change is also rolled back.
         -- Verify that the password is back to the original.
         DECLARE
-            login_reverify record;
+            login_reverify jsonb;
         BEGIN
             RAISE DEBUG 'Test 14: Verifying password reverted to original due to sub-transaction rollback for %', test_email;
-            SELECT * INTO login_reverify FROM public.login(test_email, old_password) AS source;
-            ASSERT login_reverify IS NOT NULL AND login_reverify.access_jwt IS NOT NULL, 'Test 14: Login with original password should succeed after simulated rollback.';
+            SELECT to_jsonb(source.*) INTO login_reverify FROM public.login(test_email, old_password) AS source;
+            ASSERT login_reverify IS NOT NULL AND (login_reverify->>'is_authenticated')::boolean IS TRUE, format('Test 14: Login with original password for %L should succeed after simulated rollback. Got: %L. Full response: %s', test_email, login_reverify->>'is_authenticated', login_reverify);
 
-            SELECT * INTO login_reverify FROM public.login(test_email, new_password) AS source;
-            ASSERT login_reverify IS NULL OR login_reverify.access_jwt IS NULL, 'Test 14: Login with new password should fail after simulated rollback.';
+            SELECT to_jsonb(source.*) INTO login_reverify FROM public.login(test_email, new_password) AS source;
+            ASSERT login_reverify IS NULL OR (login_reverify->>'is_authenticated')::boolean IS FALSE, format('Test 14: Login with new password for %L should fail after simulated rollback. Got: %L. Full response: %s', test_email, login_reverify->>'is_authenticated', login_reverify);
             RAISE NOTICE 'Test 14: Password correctly reverted to original for % due to transaction rollback.', test_email;
         END;
 
@@ -2709,6 +2739,7 @@ DECLARE
     restricted_email text := 'test.restricted@statbus.org';
     restricted_can_see_count integer;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
     BEGIN -- Outer BEGIN/EXCEPTION/END for the entire Test 15 (Pattern A)
         
         -- Test 15.1: Admin role permissions
@@ -2716,17 +2747,17 @@ BEGIN
         BEGIN -- Nested BEGIN/EXCEPTION for SET LOCAL ROLE simulation
             EXECUTE format('SET LOCAL ROLE %I', admin_email);
             RAISE DEBUG 'Test 15.1: Inside SET LOCAL ROLE block, current_user=%', current_user;
-            ASSERT current_user = admin_email, 'Test 15.1: Current user should be admin_email.';
+            ASSERT current_user = admin_email, format('Test 15.1: Current user should be admin_email. Got: %L', current_user);
             
             SELECT COUNT(*) INTO admin_can_see_count FROM auth.user;
-            ASSERT admin_can_see_count > 0, 'Test 15.1: Admin should be able to see users.';
+            ASSERT admin_can_see_count > 0, format('Test 15.1: Admin should be able to see users. Found %s users.', admin_can_see_count);
             
             RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE (Test 15.1)' USING ERRCODE = 'P0001';
         EXCEPTION WHEN SQLSTATE 'P0001' THEN
             RAISE DEBUG 'Test 15.1: Caught simulated rollback for SET LOCAL ROLE. Current user: %', current_user;
         END; -- End of SET LOCAL ROLE block for 15.1
         RAISE DEBUG 'Test 15.1: After SET LOCAL ROLE block, current_user=%', current_user;
-        ASSERT current_user = 'postgres', 'Test 15.1: After SET LOCAL ROLE block, current_user should be postgres (or original test runner).';
+        ASSERT current_user = 'postgres', format('Test 15.1: After SET LOCAL ROLE block, current_user should be postgres. Got: %L', current_user);
         RAISE NOTICE 'Test 15.1: Admin role permissions - PASSED';
 
         -- Test 15.2: Regular user permissions
@@ -2734,16 +2765,16 @@ BEGIN
         BEGIN -- Nested BEGIN/EXCEPTION for SET LOCAL ROLE simulation
             EXECUTE format('SET LOCAL ROLE %I', regular_email);
             RAISE DEBUG 'Test 15.2: Inside SET LOCAL ROLE block, current_user=%', current_user;
-            ASSERT current_user = regular_email, 'Test 15.2: Current user should be regular_email.';
+            ASSERT current_user = regular_email, format('Test 15.2: Current user should be regular_email. Got: %L', current_user);
             
             BEGIN -- Sub-block to catch potential insufficient_privilege for COUNT(*)
                 SELECT COUNT(*) INTO regular_can_see_count FROM auth.user;
-                ASSERT regular_can_see_count = 1, 'Test 15.2: Regular user should only see their own user record.';
+                ASSERT regular_can_see_count = 1, format('Test 15.2: Regular user should only see their own user record. Saw %s records.', regular_can_see_count);
             EXCEPTION WHEN insufficient_privilege THEN
                 RAISE NOTICE 'Test 15.2: Caught insufficient_privilege when regular user tried to count all users, this might be expected depending on RLS. Count set to 0.';
                 regular_can_see_count := 0; -- Or handle as appropriate for the test's intent
             END;
-            ASSERT EXISTS (SELECT 1 FROM auth.user WHERE email = regular_email), 'Test 15.2: Regular user should see their own record via direct query.';
+            ASSERT EXISTS (SELECT 1 FROM auth.user WHERE email = regular_email), format('Test 15.2: Regular user %L should see their own record via direct query.', regular_email);
             ASSERT EXISTS (SELECT 1 FROM public.country LIMIT 1), 'Test 15.2: Regular user should be able to see public data.';
             
             RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE (Test 15.2)' USING ERRCODE = 'P0001';
@@ -2751,7 +2782,7 @@ BEGIN
             RAISE DEBUG 'Test 15.2: Caught simulated rollback for SET LOCAL ROLE. Current user: %', current_user;
         END; -- End of SET LOCAL ROLE block for 15.2
         RAISE DEBUG 'Test 15.2: After SET LOCAL ROLE block, current_user=%', current_user;
-        ASSERT current_user = 'postgres', 'Test 15.2: After SET LOCAL ROLE block, current_user should be postgres.';
+        ASSERT current_user = 'postgres', format('Test 15.2: After SET LOCAL ROLE block, current_user should be postgres. Got: %L', current_user);
         RAISE NOTICE 'Test 15.2: Regular user permissions - PASSED';
 
         -- Test 15.3: Restricted user permissions
@@ -2759,16 +2790,16 @@ BEGIN
         BEGIN -- Nested BEGIN/EXCEPTION for SET LOCAL ROLE simulation
             EXECUTE format('SET LOCAL ROLE %I', restricted_email);
             RAISE DEBUG 'Test 15.3: Inside SET LOCAL ROLE block, current_user=%', current_user;
-            ASSERT current_user = restricted_email, 'Test 15.3: Current user should be restricted_email.';
+            ASSERT current_user = restricted_email, format('Test 15.3: Current user should be restricted_email. Got: %L', current_user);
 
             BEGIN -- Sub-block to catch potential insufficient_privilege for COUNT(*)
                 SELECT COUNT(*) INTO restricted_can_see_count FROM auth.user;
-                ASSERT restricted_can_see_count = 1, 'Test 15.3: Restricted user should only see their own user record.';
+                ASSERT restricted_can_see_count = 1, format('Test 15.3: Restricted user should only see their own user record. Saw %s records.', restricted_can_see_count);
             EXCEPTION WHEN insufficient_privilege THEN
                 RAISE NOTICE 'Test 15.3: Caught insufficient_privilege when restricted user tried to count all users. Count set to 0.';
                 restricted_can_see_count := 0;
             END;
-            ASSERT EXISTS (SELECT 1 FROM auth.user WHERE email = restricted_email), 'Test 15.3: Restricted user should see their own record.';
+            ASSERT EXISTS (SELECT 1 FROM auth.user WHERE email = restricted_email), format('Test 15.3: Restricted user %L should see their own record.', restricted_email);
             ASSERT EXISTS (SELECT 1 FROM public.country LIMIT 1), 'Test 15.3: Restricted user should be able to see public data.';
             
             RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE (Test 15.3)' USING ERRCODE = 'P0001';
@@ -2776,7 +2807,7 @@ BEGIN
             RAISE DEBUG 'Test 15.3: Caught simulated rollback for SET LOCAL ROLE. Current user: %', current_user;
         END; -- End of SET LOCAL ROLE block for 15.3
         RAISE DEBUG 'Test 15.3: After SET LOCAL ROLE block, current_user=%', current_user;
-        ASSERT current_user = 'postgres', 'Test 15.3: After SET LOCAL ROLE block, current_user should be postgres.';
+        ASSERT current_user = 'postgres', format('Test 15.3: After SET LOCAL ROLE block, current_user should be postgres. Got: %L', current_user);
         RAISE NOTICE 'Test 15.3: Restricted user permissions - PASSED';
         
         RAISE NOTICE 'Test 16 (Role Switching with SET LOCAL ROLE) - Overall PASSED';
@@ -2799,32 +2830,35 @@ DECLARE
     original_password_for_test16 text := 'External#123!';
     target_email_for_test16 text := 'test.external@statbus.org';
     target_refresh_jwt_for_test16 text;
-    admin_email text := 'test.admin@statbus.org'; -- Hoisted for use across sub-tests
-    target_login_result jsonb; -- Hoisted
-    session_count_before integer; -- Hoisted
+    admin_email text := 'test.admin@statbus.org';
+    target_login_result jsonb;
+    session_count_before integer;
     session_count_after integer; -- Hoisted
     refresh_result record; -- Hoisted
 BEGIN
+    -- PERFORM auth_test.reset_request_gucs(); -- This was already called at the top of the DO block for Test 17
     BEGIN -- Outer BEGIN/EXCEPTION/END for the entire Test 16 (Pattern A)
-        -- Initialize GUCs for Test 16 to ensure a clean state
+        -- Initialize GUCs for Test 17 to ensure a clean state
+        -- First, reset all common GUCs
+        PERFORM auth_test.reset_request_gucs();
+        -- Then, set specific headers needed for this test
         PERFORM set_config('request.headers', json_build_object('x-forwarded-proto', 'https')::text, true);
-        PERFORM set_config('request.cookies', '{}'::text, true); -- Initialize if not set by a specific step
-        PERFORM set_config('response.headers', '[]'::text, true); -- Initialize response headers
-        PERFORM set_config('request.jwt.claims', '', true);
         
         -- Test 16.1: Setup and initial state
         RAISE NOTICE 'Test 16.1: Setup - Getting target user and logging them in.';
         SELECT sub INTO target_sub_for_test16 FROM auth.user WHERE email = target_email_for_test16;
         RAISE DEBUG 'Test 16.1: Target user % sub: %', target_email_for_test16, target_sub_for_test16;
-        ASSERT target_sub_for_test16 IS NOT NULL, 'Test 16.1: Target user ' || target_email_for_test16 || ' not found.';
+        ASSERT target_sub_for_test16 IS NOT NULL, format('Test 16.1: Target user %L not found.', target_email_for_test16);
 
         SELECT to_jsonb(source.*) INTO target_login_result FROM public.login(target_email_for_test16, original_password_for_test16) AS source;
-        ASSERT target_login_result IS NOT NULL AND target_login_result->>'access_jwt' IS NOT NULL, 'Test 16.1: Login failed for target user ' || target_email_for_test16;
-        target_refresh_jwt_for_test16 := target_login_result->>'refresh_jwt';
+        ASSERT target_login_result IS NOT NULL AND (target_login_result->>'is_authenticated')::boolean IS TRUE, format('Test 16.1: Login failed for target user %L. Got: %L. Full response: %s', target_email_for_test16, target_login_result->>'is_authenticated', target_login_result);
+        
+        SELECT cv.cookie_value INTO target_refresh_jwt_for_test16 FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus-refresh';
+        ASSERT target_refresh_jwt_for_test16 IS NOT NULL, format('Refresh token not found in cookies for target user login (Test 16.1). Cookies: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
 
         SELECT COUNT(*) INTO session_count_before FROM auth.refresh_session
         WHERE user_id = (SELECT id FROM auth.user WHERE sub = target_sub_for_test16);
-        ASSERT session_count_before > 0, 'Test 16.1: Target user ' || target_email_for_test16 || ' should have at least one session.';
+        ASSERT session_count_before > 0, format('Test 16.1: Target user %L should have at least one session. Found %s sessions.', target_email_for_test16, session_count_before);
         RAISE NOTICE 'Test 16.1: Setup and initial state - PASSED. Target user has % sessions.', session_count_before;
 
         -- Test 16.2 & 16.3: Admin changes user password and verifies
@@ -2832,7 +2866,7 @@ BEGIN
         BEGIN -- Nested BEGIN/EXCEPTION for SET LOCAL ROLE simulation
             EXECUTE format('SET LOCAL ROLE %I', admin_email);
             RAISE DEBUG 'Test 16.2: Switched to admin role % (current_user: %)', admin_email, current_user;
-            ASSERT current_user = admin_email, 'Test 16.2: Failed to switch to admin role.';
+            ASSERT current_user = admin_email, format('Test 16.2: Failed to switch to admin role. Expected %L, Got %L', admin_email, current_user);
 
             PERFORM public.admin_change_password(target_sub_for_test16, new_password_for_test16);
             RAISE DEBUG 'Test 16.2: public.admin_change_password executed for target % by admin %.', target_sub_for_test16, admin_email;
@@ -2840,15 +2874,15 @@ BEGIN
             SELECT COUNT(*) INTO session_count_after FROM auth.refresh_session
             WHERE user_id = (SELECT id FROM auth.user WHERE sub = target_sub_for_test16);
             RAISE DEBUG 'Test 16.2: Session count for target user % after admin password change: %', target_email_for_test16, session_count_after;
-            ASSERT session_count_after = 0, 'Test 16.2: All sessions for target user ' || target_email_for_test16 || ' should be deleted after admin password change.';
+            ASSERT session_count_after = 0, format('Test 16.2: All sessions for target user %L should be deleted after admin password change. Found %s sessions.', target_email_for_test16, session_count_after);
             
             -- Test 16.3: Verify password was changed (within this transaction)
             RAISE NOTICE 'Test 16.3: Verifying password change for user %.', target_email_for_test16;
             SELECT to_jsonb(source.*) INTO target_login_result FROM public.login(target_email_for_test16, new_password_for_test16) AS source;
-            ASSERT target_login_result IS NOT NULL AND target_login_result->>'access_jwt' IS NOT NULL, 'Test 16.3: Login with new password for target user ' || target_email_for_test16 || ' should succeed.';
+            ASSERT target_login_result IS NOT NULL AND (target_login_result->>'is_authenticated')::boolean IS TRUE, format('Test 16.3: Login with new password for target user %L should succeed. Got: %L. Full response: %s', target_email_for_test16, target_login_result->>'is_authenticated', target_login_result);
 
             SELECT to_jsonb(source.*) INTO target_login_result FROM public.login(target_email_for_test16, original_password_for_test16) AS source;
-            ASSERT target_login_result IS NULL OR target_login_result->>'access_jwt' IS NULL, 'Test 16.3: Login with old password for target user ' || target_email_for_test16 || ' should fail.';
+            ASSERT target_login_result IS NULL OR (target_login_result->>'is_authenticated')::boolean IS FALSE, format('Test 16.3: Login with old password for target user %L should fail. Got: %L. Full response: %s', target_email_for_test16, target_login_result->>'is_authenticated', target_login_result);
 
             PERFORM set_config('request.cookies', jsonb_build_object('statbus-refresh', target_refresh_jwt_for_test16)::text, true);
             PERFORM set_config('request.jwt.claims', '', true);
@@ -2858,7 +2892,7 @@ BEGIN
                 SELECT * INTO refresh_result FROM public.refresh();
                 RAISE EXCEPTION 'Test 16.3: Refresh with target user invalidated session token should have failed but got %', refresh_result;
             EXCEPTION WHEN OTHERS THEN
-                ASSERT SQLERRM LIKE '%Invalid session or token has been superseded%', 'Test 16.3: Error should indicate invalid session for old refresh token.';
+                ASSERT SQLERRM LIKE '%Invalid session or token has been superseded%', format('Test 16.3: Error should indicate invalid session for old refresh token. Got: %L', SQLERRM);
             END;
             RAISE NOTICE 'Test 16.3: Password change verification - PASSED.';
             
@@ -2867,7 +2901,7 @@ BEGIN
             RAISE DEBUG 'Test 16.2/16.3: Caught simulated rollback for SET LOCAL ROLE. Current user: %', current_user;
         END; -- End of SET LOCAL ROLE block for 16.2/16.3
         RAISE DEBUG 'Test 16.2/16.3: After SET LOCAL ROLE block, current_user: %', current_user;
-        ASSERT current_user = 'postgres', 'Test 16.2/16.3: Current user should be postgres after SET LOCAL ROLE block.';
+        ASSERT current_user = 'postgres', format('Test 16.2/16.3: Current user should be postgres after SET LOCAL ROLE block. Got: %L', current_user);
         RAISE NOTICE 'Test 16.2: Admin changes user password - PASSED (transactionally, change rolled back).';
 
         -- Test 16.4: Verify password reverted and test admin changing it back via UPDATE public.user
@@ -2875,11 +2909,11 @@ BEGIN
         BEGIN -- Nested BEGIN/EXCEPTION for SET LOCAL ROLE for 16.4
             EXECUTE format('SET LOCAL ROLE %I', admin_email);
             RAISE DEBUG 'Test 16.4: Switched to admin role % (current_user: %)', admin_email, current_user;
-            ASSERT current_user = admin_email, 'Test 16.4: Failed to switch to admin role.';
+            ASSERT current_user = admin_email, format('Test 16.4: Failed to switch to admin role. Expected %L, Got %L', admin_email, current_user);
 
             -- Verify password is still original (due to previous rollback)
             SELECT to_jsonb(source.*) INTO target_login_result FROM public.login(target_email_for_test16, original_password_for_test16) AS source;
-            ASSERT target_login_result IS NOT NULL AND target_login_result->>'access_jwt' IS NOT NULL, 'Test 16.4: Login with original password should still work (confirming rollback).';
+            ASSERT target_login_result IS NOT NULL AND (target_login_result->>'is_authenticated')::boolean IS TRUE, format('Test 16.4: Login with original password for %L should still work (confirming rollback). Got: %L. Full response: %s', target_email_for_test16, target_login_result->>'is_authenticated', target_login_result);
 
             -- Admin changes target user password back to original_password_for_test16 using UPDATE public.user
             -- (This step is a bit redundant if previous was rolled back, but tests the UPDATE path)
@@ -2887,14 +2921,14 @@ BEGIN
             RAISE DEBUG 'Test 16.4: Admin updated password for % via public.user view.', target_email_for_test16;
 
             SELECT to_jsonb(source.*) INTO target_login_result FROM public.login(target_email_for_test16, original_password_for_test16) AS source;
-            ASSERT target_login_result IS NOT NULL AND target_login_result->>'access_jwt' IS NOT NULL, 'Test 16.4: Login with original password should succeed after admin reset via UPDATE.';
+            ASSERT target_login_result IS NOT NULL AND (target_login_result->>'is_authenticated')::boolean IS TRUE, format('Test 16.4: Login with original password for %L should succeed after admin reset via UPDATE. Got: %L. Full response: %s', target_email_for_test16, target_login_result->>'is_authenticated', target_login_result);
             
             RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE (Test 16.4)' USING ERRCODE = 'P0001';
         EXCEPTION WHEN SQLSTATE 'P0001' THEN
             RAISE DEBUG 'Test 16.4: Caught simulated rollback for SET LOCAL ROLE. Current user: %', current_user;
         END; -- End of SET LOCAL ROLE block for 16.4
         RAISE DEBUG 'Test 16.4: After SET LOCAL ROLE block, current_user: %', current_user;
-        ASSERT current_user = 'postgres', 'Test 16.4: Current user should be postgres after SET LOCAL ROLE block.';
+        ASSERT current_user = 'postgres', format('Test 16.4: Current user should be postgres after SET LOCAL ROLE block. Got: %L', current_user);
         RAISE NOTICE 'Test 17.4: Admin password change back operations - PASSED (transactionally).';
 
         RAISE NOTICE 'Test 17 (Password Change (Admin)) - Overall PASSED';
@@ -2918,19 +2952,17 @@ DECLARE
     api_key_description text := 'Test API Key';
     test_email text := 'test.regular@statbus.org';
     test_password text := 'Regular#123!';
-    access_jwt text;
     api_key_claims jsonb;
-    api_key_list record; -- This variable seems unused in the original logic block
     api_key_count integer;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
-        -- Original Test 17 logic
         -- Use nested block for SET LOCAL ROLE
     BEGIN
         -- Switch to the user's role
         EXECUTE format('SET LOCAL ROLE "%s"', test_email);
         RAISE DEBUG 'Inside nested block, current_user=%', current_user;
-        ASSERT current_user = test_email, 'Inside nested block, current user should be test email';
+        ASSERT current_user = test_email, format('Inside nested block, current user should be test email. Got: %L', current_user);
     
     -- Create an API key
     SELECT * INTO api_key_result FROM public.create_api_key(api_key_description, interval '30 days');
@@ -2939,9 +2971,9 @@ BEGIN
     RAISE DEBUG 'API key result: %', to_jsonb(api_key_result);
     
     -- Verify API key was created
-    ASSERT api_key_result.description = api_key_description, 'API key description should match';
-    ASSERT api_key_result.token IS NOT NULL, 'API key token should not be null';
-    ASSERT api_key_result.jti IS NOT NULL, 'API key JTI should not be null';
+    ASSERT api_key_result.description = api_key_description, format('API key description should match. Expected %L, Got %L', api_key_description, api_key_result.description);
+    ASSERT api_key_result.token IS NOT NULL, 'API key token should not be null.';
+    ASSERT api_key_result.jti IS NOT NULL, 'API key JTI should not be null.';
     
     -- Store values for later tests
     api_key_token := api_key_result.token;
@@ -2955,15 +2987,15 @@ BEGIN
     RAISE DEBUG 'API key claims: %', api_key_claims;
     
     -- Verify API key claims
-    ASSERT api_key_claims->>'type' = 'api_key', 'API key type should be api_key';
-    ASSERT api_key_claims->>'role' = test_email, 'API key role should match user email';
-    ASSERT api_key_claims->>'jti' = api_key_jti::text, 'API key JTI should match';
-    ASSERT api_key_claims->>'description' = api_key_description, 'API key description should be in claims';
+    ASSERT api_key_claims->>'type' = 'api_key', format('API key type should be api_key. Got %L. Claims: %s', api_key_claims->>'type', api_key_claims);
+    ASSERT api_key_claims->>'role' = test_email, format('API key role should match user email. Expected %L, Got %L. Claims: %s', test_email, api_key_claims->>'role', api_key_claims);
+    ASSERT api_key_claims->>'jti' = api_key_jti::text, format('API key JTI should match. Expected %L, Got %L. Claims: %s', api_key_jti::text, api_key_claims->>'jti', api_key_claims);
+    ASSERT api_key_claims->>'description' = api_key_description, format('API key description should be in claims. Expected %L, Got %L. Claims: %s', api_key_description, api_key_claims->>'description', api_key_claims);
     
     -- Verify API key is in the database
     ASSERT EXISTS (
         SELECT 1 FROM auth.api_key WHERE jti = api_key_jti
-    ), 'API key should exist in database';
+    ), format('API key with JTI %L should exist in database.', api_key_jti);
     
     -- Test using the API key token for authentication
     -- Clear existing context
@@ -2986,7 +3018,7 @@ BEGIN
     -- This should work because the API key has the same permissions as the user
     ASSERT EXISTS (
         SELECT 1 FROM public.country LIMIT 1
-    ), 'Should be able to access public data with API key';
+    ), 'Should be able to access public data with API key.';
     
     -- Test listing API keys
     -- We're already using the user's role from SET LOCAL ROLE
@@ -2995,10 +3027,10 @@ BEGIN
     SELECT COUNT(*) INTO api_key_count FROM public.api_key;
     
     -- Verify we can see our API key
-    ASSERT api_key_count > 0, 'Should be able to list API keys';
+    ASSERT api_key_count > 0, format('Should be able to list API keys. Found %s keys.', api_key_count);
     ASSERT EXISTS (
         SELECT 1 FROM public.api_key WHERE jti = api_key_jti
-    ), 'Should be able to see the created API key';
+    ), format('Should be able to see the created API key with JTI %L.', api_key_jti);
     
     -- Raise exception to implicitly rollback the SET LOCAL ROLE
     RAISE EXCEPTION 'Simulating rollback for SET LOCAL ROLE' USING ERRCODE = 'P0001';
@@ -3028,22 +3060,21 @@ DECLARE
     api_key_description text := 'Test API Key for Revocation';
     test_email text := 'test.regular@statbus.org';
     test_password text := 'Regular#123!';
-    access_jwt text;
     revoke_result boolean;
     api_key_claims jsonb;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
-        -- Original Test 18 logic
-        -- First login to get a valid access token
+        -- First login to set up user context for SET LOCAL ROLE
     SELECT to_json(source.*) INTO login_result FROM public.login(test_email, test_password) AS source;
-    access_jwt := login_result->>'access_jwt';
+    ASSERT (login_result->>'is_authenticated')::boolean IS TRUE, format('Login failed for API key revocation test setup. Got: %L. Full login_result: %s', login_result->>'is_authenticated', login_result);
     
     -- Use nested block for SET LOCAL ROLE to properly test RLS
     BEGIN
         -- Switch to the user's role to create and then revoke an API key
         EXECUTE format('SET LOCAL ROLE "%s"', test_email);
         RAISE DEBUG 'Inside nested block, current_user=%', current_user;
-        ASSERT current_user = test_email, 'Inside nested block, current user should be test email';
+        ASSERT current_user = test_email, format('Inside nested block, current user should be test email. Got: %L', current_user);
         
         -- Create an API key
         SELECT * INTO api_key_result FROM public.create_api_key(api_key_description, interval '30 days');
@@ -3059,18 +3090,18 @@ BEGIN
         -- Verify API key is in the database and not revoked
         ASSERT EXISTS (
             SELECT 1 FROM auth.api_key WHERE jti = api_key_jti AND revoked_at IS NULL
-        ), 'API key should exist in database and not be revoked';
+        ), format('API key with JTI %L should exist in database and not be revoked.', api_key_jti);
         
         -- Revoke the API key
         SELECT public.revoke_api_key(api_key_jti) INTO revoke_result;
         
         -- Verify revocation was successful
-        ASSERT revoke_result = true, 'Revoke API key should return true';
+        ASSERT revoke_result = true, format('Revoke API key should return true. Got: %L', revoke_result);
         
         -- Verify API key is marked as revoked in the database
         ASSERT EXISTS (
             SELECT 1 FROM auth.api_key WHERE jti = api_key_jti AND revoked_at IS NOT NULL
-        ), 'API key should be marked as revoked in database';
+        ), format('API key with JTI %L should be marked as revoked in database.', api_key_jti);
         
         -- Test using the revoked API key token for authentication
         -- This simulates what PostgREST would do when receiving a revoked API key token
@@ -3088,7 +3119,7 @@ BEGIN
         EXCEPTION WHEN OTHERS THEN
             -- This is expected - the key should be rejected
             RAISE DEBUG 'Revoked API key was correctly rejected: %', SQLERRM;
-            ASSERT SQLERRM LIKE '%API Key has been revoked%', 'Error should indicate revoked key';
+            ASSERT SQLERRM LIKE '%API Key has been revoked%', format('Error should indicate revoked key. Got: %L', SQLERRM);
         END;
 
         -- Raise exception to implicitly rollback the SET LOCAL ROLE
@@ -3119,21 +3150,20 @@ DECLARE
     api_key_description text := 'Test API Key for Permissions';
     test_email text := 'test.regular@statbus.org';
     test_password text := 'Regular#123!';
-    access_jwt text;
     api_key_claims jsonb;
 BEGIN
+    PERFORM auth_test.reset_request_gucs();
     BEGIN -- Inner BEGIN/EXCEPTION/END for savepoint-like behavior
-        -- Original Test 19 logic
-        -- First login to get a valid access token
+        -- First login to set up user context for SET LOCAL ROLE
     SELECT to_json(source.*) INTO login_result FROM public.login(test_email, test_password) AS source;
-    access_jwt := login_result->>'access_jwt';
+    ASSERT (login_result->>'is_authenticated')::boolean IS TRUE, format('Login failed for API key permissions test setup. Got: %L. Full login_result: %s', login_result->>'is_authenticated', login_result);
     
     -- Use nested block for SET LOCAL ROLE to properly test RLS
     BEGIN
         -- Switch to the user's role to create an API key
         EXECUTE format('SET LOCAL ROLE "%s"', test_email);
         RAISE DEBUG 'Inside nested block, current_user=%', current_user;
-        ASSERT current_user = test_email, 'Inside nested block, current user should be test email';
+        ASSERT current_user = test_email, format('Inside nested block, current user should be test email. Got: %L', current_user);
         
         -- Create an API key
         SELECT * INTO api_key_result FROM public.create_api_key(api_key_description, interval '30 days');
@@ -3164,7 +3194,7 @@ BEGIN
             -- Switch to the role specified in the API key token
             EXECUTE format('SET LOCAL ROLE "%s"', api_key_role);
             RAISE DEBUG 'Using API key token, current_user=%', current_user;
-            ASSERT current_user = test_email, 'When using API key, current user should be test email';
+            ASSERT current_user = test_email, format('When using API key, current user should be test email. Got: %L', current_user);
             
             -- Set JWT claims to simulate what PostgREST would do
             PERFORM set_config('request.jwt.claims', api_key_claims::text, true);
@@ -3191,8 +3221,8 @@ BEGIN
             EXCEPTION WHEN OTHERS THEN
                 -- This is expected - the operation should be rejected
                 RAISE DEBUG 'API key changing password was correctly rejected: %', SQLERRM;
-                ASSERT SQLERRM LIKE '%Password change requires a valid access token%', 
-                    'Error should indicate that password change requires access token';
+                ASSERT SQLERRM LIKE '%Password change requires a valid access token%',
+                    format('Error should indicate that password change requires access token. Got: %L', SQLERRM);
             END;
             
             -- Test 3: API keys should not be able to refresh tokens

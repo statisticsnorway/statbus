@@ -276,13 +276,22 @@ AS $check_role_permission$
 BEGIN
   -- Check role assignment permission
   -- This check only applies if a role is being assigned (INSERT) or changed (UPDATE)
+  RAISE DEBUG '[check_role_permission] Trigger fired. TG_OP: %, current_user: %, NEW.email: %, NEW.statbus_role: %', TG_OP, current_user, NEW.email, NEW.statbus_role;
+  IF TG_OP = 'UPDATE' THEN
+    RAISE DEBUG '[check_role_permission] OLD.statbus_role: %', OLD.statbus_role;
+  END IF;
+
   IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND OLD.statbus_role IS DISTINCT FROM NEW.statbus_role) THEN
+    RAISE DEBUG '[check_role_permission] Checking role assignment: current_user % trying to assign/change to role %.', current_user, NEW.statbus_role;
     -- Check if the current user (invoker) is a member of the role they are trying to assign.
     -- This prevents users from assigning roles they don't possess themselves.
     -- Note: Role hierarchy (e.g., admin_user GRANTed regular_user) means admins can assign lower roles.
     IF NOT pg_has_role(current_user, NEW.statbus_role::text, 'MEMBER') THEN
+      RAISE DEBUG '[check_role_permission] Permission check FAILED: current_user % is NOT a member of %.', current_user, NEW.statbus_role;
       RAISE EXCEPTION 'Permission denied: Cannot assign role %.', NEW.statbus_role
         USING HINT = 'The current user (' || current_user || ') must be a member of the target role.';
+    ELSE
+      RAISE DEBUG '[check_role_permission] Permission check PASSED: current_user % is a member of %.', current_user, NEW.statbus_role;
     END IF;
   END IF;
 
@@ -311,6 +320,11 @@ DECLARE
   old_role_name text;
   db_password text;
 BEGIN
+  RAISE DEBUG '[sync_user_credentials_and_roles] Trigger fired. TG_OP: %, current_user (definer context): %, NEW.email: %, NEW.statbus_role: %', TG_OP, current_user, NEW.email, NEW.statbus_role;
+  IF TG_OP = 'UPDATE' THEN
+    RAISE DEBUG '[sync_user_credentials_and_roles] OLD.email: %, OLD.statbus_role: %', OLD.email, OLD.statbus_role;
+  END IF;
+
   -- Use the email as the role name for the PostgreSQL role
   role_name := NEW.email;
 
@@ -373,8 +387,9 @@ BEGIN
     -- This ensures the database role password stays in sync with the application password.
     -- This needs to happen *before* we clear NEW.password.
     IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND OLD.encrypted_password IS DISTINCT FROM NEW.encrypted_password) THEN
+      RAISE DEBUG '[sync_user_credentials_and_roles] Password provided/changed. Updating DB role % password.', role_name;
       EXECUTE format('ALTER ROLE %I WITH PASSWORD %L', role_name, NEW.password);
-      RAISE DEBUG 'Set database role password for %', role_name;
+      RAISE DEBUG '[sync_user_credentials_and_roles] Set database role password for %', role_name;
     END IF;
 
     -- Clear the plain text password immediately after encryption and potential DB role update
@@ -504,14 +519,68 @@ $clear_auth_cookies$;
 
 -- Create auth response type
 CREATE TYPE auth.auth_response AS (
-  access_jwt text,
-  refresh_jwt text,
+  is_authenticated boolean,
+  token_expiring boolean,
   uid integer,
   sub uuid,
   email text,
   role text,
-  statbus_role public.statbus_role
+  statbus_role public.statbus_role,
+  last_sign_in_at timestamptz,
+  created_at timestamptz
 );
+
+
+-- Helper function to build the standard authentication response object
+CREATE OR REPLACE FUNCTION auth.build_auth_response(
+  p_user_record auth.user DEFAULT NULL,
+  p_claims jsonb DEFAULT NULL
+)
+RETURNS auth.auth_response
+LANGUAGE plpgsql
+SECURITY INVOKER -- Runs with the privileges of the calling function
+AS $build_auth_response$
+DECLARE
+  result auth.auth_response;
+  current_epoch integer;
+  expiration_time integer;
+BEGIN
+  IF p_user_record IS NULL THEN
+    result.is_authenticated := false;
+    result.token_expiring := false;
+    result.uid := NULL;
+    result.sub := NULL;
+    result.email := NULL;
+    result.role := NULL;
+    result.statbus_role := NULL;
+    result.last_sign_in_at := NULL;
+    result.created_at := NULL;
+  ELSE
+    result.is_authenticated := true;
+    result.uid := p_user_record.id;
+    result.sub := p_user_record.sub;
+    result.email := p_user_record.email;
+    result.role := p_user_record.email; -- Role is typically the email for PostgREST
+    result.statbus_role := p_user_record.statbus_role;
+    result.last_sign_in_at := p_user_record.last_sign_in_at;
+    result.created_at := p_user_record.created_at;
+
+    -- Check token_expiring only if claims are provided and user is authenticated
+    IF p_claims IS NOT NULL AND p_claims->>'exp' IS NOT NULL THEN
+      current_epoch := extract(epoch from clock_timestamp())::integer;
+      expiration_time := (p_claims->>'exp')::integer;
+      result.token_expiring := expiration_time - current_epoch < 300; -- 5 minutes
+    ELSE
+      -- If no claims or no 'exp' in claims, token is not considered expiring by this check
+      result.token_expiring := false;
+    END IF;
+  END IF;
+  RETURN result;
+END;
+$build_auth_response$;
+
+GRANT EXECUTE ON FUNCTION auth.build_auth_response(auth.user, jsonb) TO authenticated, anon; -- Grant to roles that will call definer functions
+
 
 -- Create login function that returns JWT token
 CREATE OR REPLACE FUNCTION public.login(email text, password text)
@@ -546,13 +615,17 @@ BEGIN
 
   -- Reject NULL passwords immediately
   IF login.password IS NULL THEN
-    RETURN NULL;
+    PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
+    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb);
   END IF;
 
   -- Always verify password to maintain constant-time operation
   IF crypt(login.password, _user.encrypted_password) IS DISTINCT FROM _user.encrypted_password
      OR NOT FOUND THEN
-    RETURN NULL;
+    PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
+    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb);
   END IF;
 
   -- Set expiration times
@@ -613,12 +686,12 @@ BEGIN
     refresh_expires => refresh_expires
   );
 
-  -- Return tokens in response body
-  RETURN auth.build_auth_response(
-    access_jwt,
-    refresh_jwt,
-    _user
-  );
+  -- Return the authentication response
+  -- Note: We are no longer setting request.jwt.claims here.
+  -- The returned auth_response is the source of truth for the new state.
+  -- The client will use the new token for subsequent requests,
+  -- at which point PostgREST's pre-request hook will set request.jwt.claims.
+  RETURN auth.build_auth_response(_user, access_claims);
 END;
 $login$;
 
@@ -714,6 +787,7 @@ BEGIN
     IF refresh_token IS NULL THEN
       -- No valid refresh token found in cookies
       PERFORM auth.clear_auth_cookies();
+      PERFORM auth.reset_session_context(); -- Ensure context is cleared
       RAISE EXCEPTION 'No valid refresh token found in cookies';
     END IF;
     
@@ -725,6 +799,7 @@ BEGIN
   -- Verify this is actually a refresh token
   IF claims->>'type' != 'refresh' THEN
     PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
     RAISE EXCEPTION 'Invalid token type';
   END IF;
   
@@ -746,6 +821,7 @@ BEGIN
     
   IF NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
     RAISE EXCEPTION 'User not found';
   END IF;
   
@@ -758,6 +834,7 @@ BEGIN
 
   IF NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
     RAISE EXCEPTION 'Invalid session or token has been superseded';
   END IF;
   
@@ -807,12 +884,9 @@ BEGIN
     refresh_expires
   );
 
-  -- Return new tokens
-  RETURN auth.build_auth_response(
-    access_jwt,
-    refresh_jwt,
-    _user
-  );
+  -- Return the authentication response
+  -- Note: We are no longer setting request.jwt.claims here.
+  RETURN auth.build_auth_response(_user, access_claims);
 END;
 $refresh$;
 
@@ -827,7 +901,7 @@ CREATE TYPE auth.logout_response AS (
 
 -- Create a logout function
 CREATE OR REPLACE FUNCTION public.logout()
-RETURNS auth.logout_response
+RETURNS auth.auth_response
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $logout$
@@ -862,9 +936,9 @@ BEGIN
   -- Set cookies in response headers to clear them
   PERFORM auth.clear_auth_cookies();
 
-  -- Return success
-  result.success := true;
-  RETURN result;
+  -- Reset session context and return the "not authenticated" status
+  PERFORM auth.reset_session_context();
+  RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb);
 END;
 $logout$;
 
@@ -913,15 +987,22 @@ AS $$
 DECLARE
   user_sub uuid;
   affected_rows integer;
+  target_user_id integer;
 BEGIN
   -- Get current user ID from JWT claims
-  user_sub := (current_setting('request.jwt.claims', true)::json->>'sub')::uuid;
+  RAISE DEBUG '[revoke_session] Attempting to revoke session JTI: %. Current request.jwt.claims: %', refresh_session_jti, nullif(current_setting('request.jwt.claims', true), '');
+  user_sub := (current_setting('request.jwt.claims', true)::jsonb->>'sub')::uuid;
+  RAISE DEBUG '[revoke_session] User sub from claims: %', user_sub;
+
+  SELECT id INTO target_user_id FROM auth.user WHERE sub = user_sub;
+  RAISE DEBUG '[revoke_session] Target user ID resolved from sub % is %', user_sub, target_user_id;
   
   -- Delete the specified session if it belongs to the current user
   DELETE FROM auth.refresh_session
-  WHERE jti = refresh_session_jti AND user_id = (SELECT id FROM auth.user WHERE sub = user_sub);
+  WHERE jti = refresh_session_jti AND user_id = target_user_id;
   
   GET DIAGNOSTICS affected_rows = ROW_COUNT;
+  RAISE DEBUG '[revoke_session] Rows affected by DELETE: % for JTI % and user_id %', affected_rows, refresh_session_jti, target_user_id;
   
   RETURN affected_rows > 0;
 END;
@@ -958,27 +1039,14 @@ AS $$
 $$ ;
 
 
--- Create auth status response type
-CREATE TYPE auth.auth_status_response AS (
-  is_authenticated boolean,
-  token_expiring boolean,
-  uid integer,
-  sub uuid,
-  email text,
-  role text,
-  statbus_role public.statbus_role,
-  last_sign_in_at timestamptz,
-  created_at timestamptz
-);
-
 -- Function to get current authentication status
 CREATE OR REPLACE FUNCTION public.auth_status()
-RETURNS auth.auth_status_response
+RETURNS auth.auth_response
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $auth_status$
 DECLARE
-  claims json;
+  claims jsonb;
   user_sub uuid;
   user_record auth.user;
   is_authenticated boolean := false;
@@ -988,8 +1056,8 @@ DECLARE
   access_token text;
   refresh_token text;
   jwt_secret text;
-  result auth.auth_status_response;
 BEGIN
+  RAISE DEBUG '[auth_status] Starting. request.cookies: %, request.jwt.claims: %', nullif(current_setting('request.cookies', true), ''), nullif(current_setting('request.jwt.claims', true), '');
   jwt_secret := current_setting('app.settings.jwt_secret', true);
   
   -- Try to get tokens from cookies
@@ -999,11 +1067,12 @@ BEGIN
   -- First try access token
   IF access_token IS NOT NULL THEN
     BEGIN
-      SELECT payload::json INTO claims 
+      SELECT payload::jsonb INTO claims
       FROM verify(access_token, jwt_secret);
-      
-      PERFORM set_config('request.jwt.claims', claims::text, true);
+      RAISE DEBUG '[auth_status] Claims from access_token cookie: %', claims;
+      -- DO NOT set request.jwt.claims here. auth_status should be read-only regarding session GUCs.
     EXCEPTION WHEN OTHERS THEN
+      RAISE DEBUG '[auth_status] Error verifying access_token cookie: %', SQLERRM;
       claims := NULL;
     END;
   END IF;
@@ -1011,78 +1080,52 @@ BEGIN
   -- If access token failed, try refresh token
   IF claims IS NULL AND refresh_token IS NOT NULL THEN
     BEGIN
-      SELECT payload::json INTO claims 
+      SELECT payload::jsonb INTO claims
       FROM verify(refresh_token, jwt_secret);
       
       IF claims->>'type' = 'refresh' THEN
-        PERFORM set_config('request.jwt.claims', claims::text, true);
+        RAISE DEBUG '[auth_status] Claims from refresh_token cookie: %', claims;
+        -- DO NOT set request.jwt.claims here.
+        NULL; -- Claims from refresh token are valid for determining status.
       ELSE
-        claims := NULL;
+        RAISE DEBUG '[auth_status] refresh_token cookie was not type "refresh", ignoring. Type: %', claims->>'type';
+        claims := NULL; -- Not a refresh token, so ignore for this path.
       END IF;
     EXCEPTION WHEN OTHERS THEN
+      RAISE DEBUG '[auth_status] Error verifying refresh_token cookie: %', SQLERRM;
       claims := NULL;
     END;
   END IF;
   
   -- If no claims from cookies, try request context
   IF claims IS NULL THEN
-    claims := nullif(current_setting('request.jwt.claims', true), '')::json;
+    RAISE DEBUG '[auth_status] No claims from cookies, trying request.jwt.claims GUC.';
+    claims := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
+    RAISE DEBUG '[auth_status] Claims from GUC: %', claims;
   END IF;
     
-  -- Check if we have valid claims
-  IF claims IS NULL OR claims->>'sub' IS NULL THEN
-    result.is_authenticated := false;
-    result.token_expiring := false;
-    result.uid := NULL;
-    result.sub := NULL;
-    result.email := NULL;
-    result.role := NULL;
-    result.statbus_role := NULL;
-    result.last_sign_in_at := NULL;
-    result.created_at := NULL;
-    RETURN result;
+  -- Check if we have valid claims and a user can be found
+  IF claims IS NOT NULL AND claims->>'sub' IS NOT NULL THEN
+    user_sub := (claims->>'sub')::uuid;
+    RAISE DEBUG '[auth_status] Attempting to find user by sub: %', user_sub;
+    SELECT * INTO user_record
+    FROM auth.user
+    WHERE sub = user_sub AND deleted_at IS NULL;
+    
+    -- If user found, build response with user and claims
+    IF FOUND THEN
+      RAISE DEBUG '[auth_status] User found: %. Building authenticated response.', row_to_json(user_record);
+      RETURN auth.build_auth_response(user_record, claims);
+    ELSE
+      RAISE DEBUG '[auth_status] User with sub % NOT FOUND.', user_sub;
+    END IF;
+  ELSE
+    RAISE DEBUG '[auth_status] No valid claims (or sub missing in claims) to find user. Claims: %', claims;
   END IF;
   
-  -- Get user from claims
-  user_sub := (claims->>'sub')::uuid;
-  
-  SELECT * INTO user_record
-  FROM auth.user
-  WHERE sub = user_sub AND deleted_at IS NULL;
-  
-  IF NOT FOUND THEN
-    result.is_authenticated := false;
-    result.token_expiring := false;
-    result.uid := NULL;
-    result.sub := NULL;
-    result.email := NULL;
-    result.role := NULL;
-    result.statbus_role := NULL;
-    result.last_sign_in_at := NULL;
-    result.created_at := NULL;
-    RETURN result;
-  END IF;
-  
-  -- User exists and is authenticated
-  is_authenticated := true;
-  
-  -- Check if token is about to expire (within 5 minutes)
-  current_epoch := extract(epoch from clock_timestamp())::integer;
-  expiration_time := (claims->>'exp')::integer;
-  token_expiring := expiration_time - current_epoch < 300; -- 5 minutes
-  
-  -- Build result with flattened user info
-  result.is_authenticated := is_authenticated;
-  result.token_expiring := token_expiring;
-  result.uid := user_record.id;
-  result.sub := user_record.sub;
-  result.email := user_record.email;
-  result.role := user_record.email;
-  result.statbus_role := user_record.statbus_role;
-  result.last_sign_in_at := user_record.last_sign_in_at;
-  result.created_at := user_record.created_at;
-  
-  RETURN result;
+  -- If no valid claims, or user not found, return unauthenticated status
+  RAISE DEBUG '[auth_status] Building unauthenticated response.';
+  RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb);
 END;
 $auth_status$;
 
@@ -1313,29 +1356,6 @@ BEGIN
 END;
 $extract_refresh_token_from_cookies$;
 
--- Create a function to build a standard auth response object
-CREATE OR REPLACE FUNCTION auth.build_auth_response(
-  access_jwt text,
-  refresh_jwt text,
-  user_record auth.user
-) RETURNS auth.auth_response
-LANGUAGE plpgsql
-AS $build_auth_response$
-DECLARE
-  result auth.auth_response;
-BEGIN
-  result.access_jwt := access_jwt;
-  result.refresh_jwt := refresh_jwt;
-  result.uid := user_record.id;
-  result.sub := user_record.sub;
-  result.email := user_record.email;
-  result.role := user_record.email;
-  result.statbus_role := user_record.statbus_role;
-  
-  RETURN result;
-END;
-$build_auth_response$;
-
 -- Function to set user context from email
 CREATE OR REPLACE FUNCTION auth.set_user_context_from_email(p_email text)
 RETURNS void
@@ -1406,7 +1426,6 @@ GRANT EXECUTE ON FUNCTION auth.build_jwt_claims TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.use_jwt_claims_in_session TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.set_user_context_from_email TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.reset_session_context TO authenticated;
-GRANT EXECUTE ON FUNCTION auth.build_auth_response TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.set_auth_cookies TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.extract_refresh_token_from_cookies TO authenticated;
 GRANT EXECUTE ON FUNCTION auth.generate_jwt TO authenticated;
@@ -1748,6 +1767,5 @@ $revoke_api_key$;
 
 -- Grant execute permission
 GRANT EXECUTE ON FUNCTION public.revoke_api_key(uuid) TO authenticated;
-
 
 COMMIT;
