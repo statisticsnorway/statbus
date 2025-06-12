@@ -527,7 +527,7 @@ export const useManualInit = () => {
  * Development component that shows current atom states
  * Only renders in development mode
  */
-export const AtomDevtools = () => {
+export const JotaiStateInspector = () => {
   const [mounted, setMounted] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
 
@@ -546,7 +546,7 @@ export const AtomDevtools = () => {
   if (!mounted) {
     return (
       <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md">
-        <span className="font-bold">Devtools:</span> Loading...
+        <span className="font-bold">JotaiStateInspector:</span> Loading...
       </div>
     );
   }
@@ -571,7 +571,7 @@ export const AtomDevtools = () => {
   return (
     <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto">
       <div onClick={toggleExpand} className="cursor-pointer flex justify-between items-center">
-        <span className="font-bold">Devtools</span>
+        <span className="font-bold">JotaiStateInspector</span>
         <span>{isExpanded ? '▼ Collapse' : '▶ Expand'}</span>
       </div>
       {!isExpanded && (
@@ -663,7 +663,7 @@ export const AtomDevtools = () => {
 // After:
 <JotaiAppProvider>
   <YourApp />
-  <AtomDevtools /> // Optional, only in development
+  <JotaiStateInspector /> // Optional, only in development
 </JotaiAppProvider>
 */
 

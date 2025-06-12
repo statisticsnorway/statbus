@@ -9,7 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import PopStateHandler from "@/components/PopStateHandler";
-import { JotaiAppProvider, AtomDevtools } from '@/atoms/JotaiAppProvider';
+import { JotaiAppProvider, JotaiStateInspector } from '@/atoms/JotaiAppProvider';
 import { deploymentSlotName } from "@/lib/deployment-variables";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -64,10 +64,10 @@ export default async function RootLayout({
             </Suspense>
           {/* End of content previously in RootLayoutClient */}
           <GlobalErrorReporter />
-          {/* AtomDevtools can be conditionally rendered here */}
+          {/* JotaiStateInspector can be conditionally rendered here */}
           {process.env.NODE_ENV === 'development' && (
-            <Suspense fallback={null}> {/* Suspense for AtomDevtools if it has async aspects or for consistency */}
-              <AtomDevtools />
+            <Suspense fallback={null}> {/* Suspense for JotaiStateInspector if it has async aspects or for consistency */}
+              <JotaiStateInspector />
             </Suspense>
           )}
         </JotaiAppProvider>
