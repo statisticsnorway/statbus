@@ -404,7 +404,18 @@ class RestClientStore {
             const refreshApiResponse = await fetch(refreshApiUrl, refreshFetchOptions);
 
             if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-              console.debug(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Response for ${refreshApiUrl}: Status ${refreshApiResponse.status}`);
+              const allRefreshResponseHeaders: Record<string, string> = {};
+              refreshApiResponse.headers.forEach((value, key) => { allRefreshResponseHeaders[key] = value; });
+              console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Response from ${refreshApiUrl}: Status ${refreshApiResponse.status}, Headers:`, JSON.stringify(allRefreshResponseHeaders));
+              
+              try {
+                const responseBodyText = await refreshApiResponse.clone().text(); // Clone to read body without consuming
+                console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Response body from ${refreshApiUrl}:`, responseBodyText);
+              } catch (e) {
+                // console.error(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Error reading response body from ${refreshApiUrl}:`, e);
+                // Keep original debug log if body reading fails for some reason
+                console.debug(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Original console.debug: Response for ${refreshApiUrl}: Status ${refreshApiResponse.status}. Error reading body: ${e}`);
+              }
             }
 
             if (!refreshApiResponse.ok) {

@@ -25,6 +25,12 @@ export async function refreshAuthToken(request: NextRequest, origin: string): Pr
     });
     
     if (response.ok) {
+      const responseBodyForLogging = await response.clone().text(); // Clone to read body
+      if (process.env.DEBUG === 'true') {
+        const allHeaders: Record<string, string> = {};
+        response.headers.forEach((value, key) => { allHeaders[key] = value; });
+        console.log(`[refreshAuthToken] /rpc/refresh call was OK. Status: ${response.status}. Raw Headers: ${JSON.stringify(allHeaders)}. Raw Body: ${responseBodyForLogging}`);
+      }
       // Get the Set-Cookie headers from the response
       const cookies = response.headers.getSetCookie();
       
@@ -37,9 +43,13 @@ export async function refreshAuthToken(request: NextRequest, origin: string): Pr
       });
       
       return redirectResponse;
+    } else {
+      // Log non-OK responses from /rpc/refresh during server-side attempt
+      const errorBody = await response.text();
+      console.error(`[refreshAuthToken] /rpc/refresh call failed during server-side attempt. Status: ${response.status}. Body: ${errorBody}`);
     }
   } catch (error) {
-    console.error('Token refresh failed:', error);
+    console.error('[refreshAuthToken] Error during token refresh attempt:', error);
   }
   
   return null;
