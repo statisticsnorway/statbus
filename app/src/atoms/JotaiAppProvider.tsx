@@ -25,8 +25,9 @@ import {
   initializeTableColumnsAtom,
   // refreshAllGettingStartedDataAtom, // Removed
   refreshAllUnitCountsAtom,
-  fetchAndSetAuthStatusAtom,
+  // fetchAndSetAuthStatusAtom, // Removed
   authStatusInitiallyCheckedAtom,
+  initialAuthCheckEffectAtom, // Added
   // gettingStartedDataAtom, // Removed
   activityCategoryStandardSettingAtomAsync, // Import the atom
   numberOfRegionsAtomAsync, // Import the regions atom
@@ -40,11 +41,12 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const authLoadableValue = useAtomValue(authStatusLoadableAtom); // Renamed to avoid conflict if authLoadable is declared later
   const initialAuthCheckDone = useAtomValue(authStatusInitiallyCheckedAtom);
   const restClient = useAtomValue(restClientAtom);
-  const triggerFetchAuthStatus = useSetAtom(fetchAndSetAuthStatusAtom);
+  // const triggerFetchAuthStatus = useSetAtom(fetchAndSetAuthStatusAtom); // Removed
+  useAtomValue(initialAuthCheckEffectAtom); // Use the effect atom to manage initialAuthCheckDone
   const refreshBaseData = useSetAtom(refreshBaseDataAtom)
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setRestClient = useSetAtom(restClientAtom)
-  const initializeTableColumns = useSetAtom(initializeTableColumnsAtom);
+  const initializeTableColumnsAction = useSetAtom(initializeTableColumnsAtom); // Renamed for clarity
   // const refreshGettingStartedData = useSetAtom(refreshAllGettingStartedDataAtom); // Removed
   const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
 
@@ -52,6 +54,7 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const pathname = usePathname();
   // const gettingStartedData = useAtomValue(gettingStartedDataAtom); // Removed
   const baseData = useAtomValue(baseDataAtom);
+  const { statDefinitions } = baseData; // Specifically get statDefinitions for the new effect
   const activityStandard = useAtomValue(activityCategoryStandardSettingAtomAsync); // Consume the atom
   const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync); // Consume the regions atom
   const [isRedirectingToSetup, setIsRedirectingToSetup] = useState(false); // Flag to prevent double redirect
@@ -81,11 +84,13 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   }, [setRestClient])
 
   // Effect to fetch initial authentication status once REST client is ready and auth is not already loading
-  useEffect(() => {
-    if (restClient && !initialAuthCheckDone && authLoadableValue.state !== 'loading') {
-      triggerFetchAuthStatus(); 
-    }
-  }, [restClient, initialAuthCheckDone, authLoadableValue.state, triggerFetchAuthStatus]);
+  // This effect is removed. authStatusCoreAtom will fetch when restClient is ready due to its dependency,
+  // and initialAuthCheckEffectAtom will set initialAuthCheckDone.
+  // useEffect(() => {
+  //   if (restClient && !initialAuthCheckDone && authLoadableValue.state !== 'loading') {
+  //     triggerFetchAuthStatus(); 
+  //   }
+  // }, [restClient, initialAuthCheckDone, authLoadableValue.state, triggerFetchAuthStatus]);
   
   const [appDataInitialized, setAppDataInitialized] = useState(false);
 
@@ -123,17 +128,16 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
       setAppDataInitialized(true); // Mark as initialized immediately
 
       try {
-        // Fetch base data
-        await refreshBaseData();
+        // Base data will be fetched by baseDataCoreAtom when its dependencies (auth, client) are met.
         
-        // Initialize table columns (depends on base data, e.g., statDefinitions)
-        initializeTableColumns();
+        // Table columns will be initialized by the new useEffect below, reacting to statDefinitions.
+        // initializeTableColumns(); // Removed from here
 
         // Fetch Import Unit Counts
         refreshUnitCounts();
 
-        // Fetch worker status
-        await refreshWorkerStatus();
+        // Worker status will be fetched by workerStatusCoreAtom when its dependencies (auth, client) are met.
+        // No explicit refreshWorkerStatus() call needed here.
         
       } catch (error) {
         if (mounted) {
@@ -155,16 +159,26 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     restClient,                
     initialAuthCheckDone,      
     appDataInitialized,        
-    refreshBaseData,            
-    refreshUnitCounts,         
-    refreshWorkerStatus,       
-    initializeTableColumns     
+    // refreshBaseData, // No longer explicitly called
+    refreshUnitCounts         
+    // refreshWorkerStatus, // No longer explicitly called
+    // initializeTableColumns // Action atom itself is not a dependency here anymore
   ]);
 
   // "Getting Started" redirect logic is removed.
   // The dashboard will now load if auth and base data are ready.
   // Any "getting started" guidance or conditional rendering will be handled
   // by the dashboard page or its components.
+
+  // Effect to initialize/update table columns when statDefinitions change
+  useEffect(() => {
+    // Only run if statDefinitions have been loaded.
+    if (statDefinitions.length > 0) {
+      initializeTableColumnsAction();
+    }
+    // This effect will re-run if statDefinitions array reference changes,
+    // or if initializeTableColumnsAction (the atom setter function reference) changes (which is unlikely).
+  }, [statDefinitions, initializeTableColumnsAction]);
 
   // Effect for redirecting to setup pages if necessary
   useEffect(() => {
@@ -515,72 +529,109 @@ export const useManualInit = () => {
  */
 export const AtomDevtools = () => {
   const [mounted, setMounted] = React.useState(false);
-  const authLoadableValue = useAtomValue(authStatusLoadableAtom); 
-  const baseDataLoadableValue = useAtomValue(baseDataLoadableAtom); 
-  const workerStatusLoadableValue = useAtomValue(workerStatusLoadableAtom); 
+  const [isExpanded, setIsExpanded] = React.useState(false);
+
+  const authLoadableValue = useAtomValue(authStatusLoadableAtom);
+  const baseDataLoadableValue = useAtomValue(baseDataLoadableAtom);
+  const workerStatusLoadableValue = useAtomValue(workerStatusLoadableAtom);
 
   useEffect(() => {
     setMounted(true);
   }, []);
-  
-  // Use NEXT_PUBLIC_DEBUG for client-side conditional rendering of devtools
+
   if (process.env.NEXT_PUBLIC_DEBUG !== 'true' && process.env.NODE_ENV === 'production') {
-    return null
+    return null;
   }
 
-  // Render a placeholder or nothing until mounted to avoid hydration mismatch for dynamic content
   if (!mounted) {
     return (
-      <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-4 rounded-lg text-xs max-w-md">
-        <h3 className="font-bold mb-2">Atom States (Dev Only)</h3>
-        <div>Loading devtools...</div>
+      <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md">
+        <span className="font-bold">Devtools:</span> Loading...
       </div>
     );
   }
+
+  const toggleExpand = () => setIsExpanded(!isExpanded);
+
+  const getSimpleStatus = (loadable: any) => {
+    if (loadable.state === 'loading') return 'Loading';
+    if (loadable.state === 'hasError') return 'Error';
+    if (loadable.state === 'hasData') return 'OK';
+    return 'Unknown';
+  };
   
+  const getWorkerSummary = (data: any) => {
+    if (!data) return 'N/A';
+    if (data.isImporting) return 'Importing';
+    if (data.isDerivingUnits) return 'Deriving Units';
+    if (data.isDerivingReports) return 'Deriving Reports';
+    return 'Idle';
+  }
+
   return (
-    <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-4 rounded-lg text-xs max-w-md max-h-96 overflow-auto">
-      <h3 className="font-bold mb-2">Atom States (Dev Only)</h3>
-      <div className="space-y-2">
-        <div>
-          <strong>Auth State:</strong> {authLoadableValue.state}
-        </div>
-        {authLoadableValue.state === 'hasData' && (
-          <>
-            <div>
-              <strong>Auth:</strong> {authLoadableValue.data.isAuthenticated ? 'Yes' : 'No'}
-            </div>
-            <div>
-              <strong>User:</strong> {authLoadableValue.data.user?.email || 'None'}
-            </div>
-          </>
-        )}
-        {authLoadableValue.state === 'hasError' && <div><strong>Auth Error:</strong> Present</div>}
-        <div>
-          <strong>Base Data State:</strong> {baseDataLoadableValue.state}
-        </div>
-        {baseDataLoadableValue.state === 'hasData' && (
-          <div>
-            <strong>Base Data Loaded:</strong> {baseDataLoadableValue.data.statDefinitions.length} stat definitions
-          </div>
-        )}
-        {baseDataLoadableValue.state === 'hasError' && <div><strong>Base Data Error:</strong> Present</div>}
-        <div>
-          <strong>Worker Status State:</strong> {workerStatusLoadableValue.state}
-        </div>
-        {workerStatusLoadableValue.state === 'hasData' && (
-          <div>
-            <strong>Worker Status:</strong>
-            {workerStatusLoadableValue.data.isImporting ? ' Importing' : ''}
-            {workerStatusLoadableValue.data.isDerivingUnits ? ' Deriving Units' : ''}
-            {workerStatusLoadableValue.data.isDerivingReports ? ' Deriving Reports' : ''}
-            {!workerStatusLoadableValue.data.isImporting && !workerStatusLoadableValue.data.isDerivingUnits && !workerStatusLoadableValue.data.isDerivingReports ? ' Idle' : ''}
-          </div>
-        )}
-        {workerStatusLoadableValue.state === 'hasError' && <div><strong>Worker Status Error:</strong> Present</div>}
+    <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto">
+      <div onClick={toggleExpand} className="cursor-pointer flex justify-between items-center">
+        <span className="font-bold">Devtools</span>
+        <span>{isExpanded ? '▼ Collapse' : '▶ Expand'}</span>
       </div>
+      {!isExpanded && (
+        <div className="mt-1">
+          <span>Auth: {getSimpleStatus(authLoadableValue)}</span> | <span>Base: {getSimpleStatus(baseDataLoadableValue)}</span> | <span>Worker: {workerStatusLoadableValue.state === 'hasData' ? getWorkerSummary(workerStatusLoadableValue.data) : getSimpleStatus(workerStatusLoadableValue)}</span>
+        </div>
+      )}
+      {isExpanded && (
+        <div className="mt-2 space-y-2">
+          <div>
+            <strong>Auth State:</strong> {authLoadableValue.state}
+            <div className="pl-4 mt-1 space-y-1">
+              {authLoadableValue.state === 'hasData' && (
+                <>
+                  <div><strong>Authenticated:</strong> {authLoadableValue.data.isAuthenticated ? 'Yes' : 'No'}</div>
+                  <div><strong>User:</strong> {authLoadableValue.data.user?.email || 'None'}</div>
+                  <div><strong>UID:</strong> {authLoadableValue.data.user?.uid || 'N/A'}</div>
+                  <div><strong>Role:</strong> {authLoadableValue.data.user?.role || 'N/A'}</div>
+                  <div><strong>Statbus Role:</strong> {authLoadableValue.data.user?.statbus_role || 'N/A'}</div>
+                  <div><strong>Token Expiring:</strong> {authLoadableValue.data.tokenExpiring ? 'Yes' : 'No'}</div>
+                </>
+              )}
+              {authLoadableValue.state === 'hasError' && <div><strong>Error:</strong> {String(authLoadableValue.error)}</div>}
+            </div>
+          </div>
+
+          <div>
+            <strong>Base Data State:</strong> {baseDataLoadableValue.state}
+            <div className="pl-4 mt-1 space-y-1">
+              {baseDataLoadableValue.state === 'hasData' && (
+                <>
+                  <div><strong>Stat Definitions:</strong> {baseDataLoadableValue.data.statDefinitions.length}</div>
+                  <div><strong>External Ident Types:</strong> {baseDataLoadableValue.data.externalIdentTypes.length}</div>
+                  <div><strong>Statbus Users:</strong> {baseDataLoadableValue.data.statbusUsers.length}</div>
+                  <div><strong>Time Contexts:</strong> {baseDataLoadableValue.data.timeContexts.length}</div>
+                  <div><strong>Default Time Context:</strong> {baseDataLoadableValue.data.defaultTimeContext?.ident || 'None'}</div>
+                  <div><strong>Has Statistical Units:</strong> {baseDataLoadableValue.data.hasStatisticalUnits ? 'Yes' : 'No'}</div>
+                </>
+              )}
+              {baseDataLoadableValue.state === 'hasError' && <div><strong>Error:</strong> {String(baseDataLoadableValue.error)}</div>}
+            </div>
+          </div>
+
+          <div>
+            <strong>Worker Status State:</strong> {workerStatusLoadableValue.state}
+            <div className="pl-4 mt-1 space-y-1">
+              {workerStatusLoadableValue.state === 'hasData' && (
+                <>
+                  <div><strong>Importing:</strong> {workerStatusLoadableValue.data.isImporting === null ? 'N/A' : workerStatusLoadableValue.data.isImporting ? 'Yes' : 'No'}</div>
+                  <div><strong>Deriving Units:</strong> {workerStatusLoadableValue.data.isDerivingUnits === null ? 'N/A' : workerStatusLoadableValue.data.isDerivingUnits ? 'Yes' : 'No'}</div>
+                  <div><strong>Deriving Reports:</strong> {workerStatusLoadableValue.data.isDerivingReports === null ? 'N/A' : workerStatusLoadableValue.data.isDerivingReports ? 'Yes' : 'No'}</div>
+                </>
+              )}
+              {workerStatusLoadableValue.state === 'hasError' && <div><strong>Error:</strong> {String(workerStatusLoadableValue.error)}</div>}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
-  )
+  );
 }
 
 // ============================================================================

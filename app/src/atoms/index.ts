@@ -645,6 +645,17 @@ export const allPendingJobsStateAtom = atom<AllPendingJobsState>({});
 // Atom to track if the initial auth status check has been performed
 export const authStatusInitiallyCheckedAtom = atom(false);
 
+// Effect atom to update authStatusInitiallyCheckedAtom once the initial auth load is complete
+export const initialAuthCheckEffectAtom = atom(null, (get, set) => {
+  const authLoadable = get(authStatusLoadableAtom);
+  const alreadyChecked = get(authStatusInitiallyCheckedAtom);
+
+  // Check if not already marked as checked to avoid unnecessary sets
+  if (authLoadable.state !== 'loading' && !alreadyChecked) {
+    set(authStatusInitiallyCheckedAtom, true);
+  }
+});
+
 // Atom to track if search state has been initialized from URL params
 export const searchStateInitializedAtom = atom(false);
 
@@ -909,13 +920,8 @@ export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
   // A common pattern is to read it until it's not loading, but that can be complex here.
   // For now, let's assume the refresh is triggered and components will update.
   // The `authStatusInitiallyCheckedAtom` will be set after the first attempt.
-  try {
-    await get(authStatusCoreAtom); 
-  } catch (e) {
-    // Error is handled by authStatusCoreAtom's internal try/catch and reflected in loadableState
-  } finally {
-    set(authStatusInitiallyCheckedAtom, true);
-  }
+  // This atom is being removed. The logic is now handled by initialAuthCheckEffectAtom
+  // and authStatusCoreAtom fetching naturally.
 });
 
 // import { fetchWithAuth } from '@/context/RestClientStore'; // Reverted for login/logout
@@ -1636,27 +1642,21 @@ export const derivedApiSearchParamsAtom = atom((get) => {
 // Combined authentication and base data status
 export const appReadyAtom = atom((get) => {
   const authLoadable = get(authStatusLoadableAtom);
-  const initialAuthCheckDone = get(authStatusInitiallyCheckedAtom);
-
+  const baseDataLoadable = get(baseDataLoadableAtom);
   const baseD = get(baseDataAtom);
-  const isLoadingBaseD = get(baseDataLoadableAtom).state === 'loading'; // Corrected
 
-  // Authentication is considered ready once the initial check is done and not currently loading.
+  const isLoadingBaseD = baseDataLoadable.state === 'loading';
   const isAuthLoading = authLoadable.state === 'loading';
-  const isAuthProcessComplete = initialAuthCheckDone && !isAuthLoading;
+  
+  // If auth is not loading, its "process" is complete for readiness purposes.
+  const isAuthProcessComplete = !isAuthLoading; 
   const isAuthenticatedUser = authLoadable.state === 'hasData' && authLoadable.data.isAuthenticated;
   const currentUser = authLoadable.state === 'hasData' ? authLoadable.data.user : null;
 
   // Base data is considered ready if not loading and has essential data (e.g., stat definitions).
-  // This part will change when baseDataAtom is refactored.
   const isBaseDataProcessComplete = !isLoadingBaseD && baseD.statDefinitions.length > 0;
 
-  // "Getting Started" data and its loading/completion status are no longer tracked globally here.
-  // Individual cards/components will handle their own data and loading states.
-
   // The dashboard is ready to render if auth is complete and base data is loaded.
-  // Specific "setup" steps (like initial region upload or activity standard selection)
-  // are now handled by UI elements on the dashboard itself, not by gating the dashboard.
   const isReadyToRenderDashboard = 
     isAuthProcessComplete &&
     isAuthenticatedUser &&
@@ -1777,7 +1777,8 @@ export const atoms = {
 
   // App Initialization State
   authStatusInitiallyCheckedAtom,
-  fetchAndSetAuthStatusAtom,
+  // fetchAndSetAuthStatusAtom, // Removed
+  initialAuthCheckEffectAtom, // Added
   searchStateInitializedAtom,
 
   // Client-side refresh action
