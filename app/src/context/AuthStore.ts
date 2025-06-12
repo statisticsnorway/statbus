@@ -369,16 +369,24 @@ class AuthStore {
         }
 
         if (!refreshResponse.ok) {
-          let errorBody = 'Could not read error body';
+          let errorBodyText = 'Could not read error body';
+          let parsedErrorBody: any = null;
+          let errorCodeFromServer: string | null = null;
           try {
-            errorBody = await refreshResponse.text();
-          } catch (readError) {
-            console.error("AuthStore.handleServerAuth: Failed to read error response body:", readError);
+            errorBodyText = await refreshResponse.text();
+            if (errorBodyText) {
+              parsedErrorBody = JSON.parse(errorBodyText);
+              errorCodeFromServer = parsedErrorBody?.error_code || null;
+            }
+          } catch (parseError) {
+            console.error("AuthStore.handleServerAuth: Failed to parse JSON from error response body:", parseError, "Raw error body:", errorBodyText);
           }
-          console.error(`AuthStore.handleServerAuth: Refresh fetch failed: ${refreshResponse.status} ${refreshResponse.statusText}. Body: ${errorBody}`);
+          
+          console.error(`AuthStore.handleServerAuth: Refresh fetch failed: ${refreshResponse.status} ${refreshResponse.statusText}. Error Code: ${errorCodeFromServer || 'N/A'}. Body: ${errorBodyText}`);
           responseCookies.delete('statbus');
           responseCookies.delete('statbus-refresh');
-          return { status: { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_HTTP_ERROR' } };
+          // Return the specific error_code from the server if available, otherwise a generic one.
+          return { status: { isAuthenticated: false, user: null, tokenExpiring: false, error_code: errorCodeFromServer || 'REFRESH_HTTP_ERROR' } };
         }
 
         // --- Process Successful Refresh ---
