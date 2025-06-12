@@ -31,6 +31,7 @@ import {
   // gettingStartedDataAtom, // Removed
   activityCategoryStandardSettingAtomAsync, // Import the atom
   numberOfRegionsAtomAsync, // Import the regions atom
+  restClientAtom as importedRestClientAtom, // Alias to avoid conflict with local restClient variable
 } from './index';
 
 // ============================================================================
@@ -530,10 +531,20 @@ export const useManualInit = () => {
 export const JotaiStateInspector = () => {
   const [mounted, setMounted] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
 
+  // Atoms for general state
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const baseDataLoadableValue = useAtomValue(baseDataLoadableAtom);
   const workerStatusLoadableValue = useAtomValue(workerStatusLoadableAtom);
+
+  // Atoms for redirect logic debugging
+  const pathname = usePathname(); // Get current pathname
+  const initialAuthCheckDoneFromAtom = useAtomValue(authStatusInitiallyCheckedAtom);
+  const restClientFromAtom = useAtomValue(importedRestClientAtom);
+  const activityStandardFromAtom = useAtomValue(activityCategoryStandardSettingAtomAsync);
+  const numberOfRegionsFromAtom = useAtomValue(numberOfRegionsAtomAsync);
+  // baseData.hasStatisticalUnits and baseData.statDefinitions.length are derived from baseDataLoadableValue
 
   useEffect(() => {
     setMounted(true);
@@ -553,6 +564,55 @@ export const JotaiStateInspector = () => {
 
   const toggleExpand = () => setIsExpanded(!isExpanded);
 
+  const handleCopyToClipboard = () => {
+    const stateToCopy = {
+      pathname,
+      authStatus: {
+        state: authLoadableValue.state,
+        isAuthenticated: authLoadableValue.state === 'hasData' ? authLoadableValue.data.isAuthenticated : undefined,
+        user: authLoadableValue.state === 'hasData' ? authLoadableValue.data.user : undefined,
+        tokenExpiring: authLoadableValue.state === 'hasData' ? authLoadableValue.data.tokenExpiring : undefined,
+        error: authLoadableValue.state === 'hasError' ? String(authLoadableValue.error) : undefined,
+      },
+      baseData: {
+        state: baseDataLoadableValue.state,
+        statDefinitionsCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : undefined,
+        externalIdentTypesCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.externalIdentTypes.length : undefined,
+        statbusUsersCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statbusUsers.length : undefined,
+        timeContextsCount: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.timeContexts.length : undefined,
+        defaultTimeContextIdent: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.defaultTimeContext?.ident : undefined,
+        hasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : undefined,
+        error: baseDataLoadableValue.state === 'hasError' ? String(baseDataLoadableValue.error) : undefined,
+      },
+      workerStatus: {
+        state: workerStatusLoadableValue.state,
+        isImporting: workerStatusLoadableValue.state === 'hasData' ? workerStatusLoadableValue.data.isImporting : undefined,
+        isDerivingUnits: workerStatusLoadableValue.state === 'hasData' ? workerStatusLoadableValue.data.isDerivingUnits : undefined,
+        isDerivingReports: workerStatusLoadableValue.state === 'hasData' ? workerStatusLoadableValue.data.isDerivingReports : undefined,
+        error: workerStatusLoadableValue.state === 'hasError' ? String(workerStatusLoadableValue.error) : undefined,
+      },
+      redirectRelevantState: {
+        initialAuthCheckDone: initialAuthCheckDoneFromAtom,
+        isRestClientReady: !!restClientFromAtom,
+        activityStandard: activityStandardFromAtom, // This is the actual data or null
+        numberOfRegions: numberOfRegionsFromAtom, // This is the actual count or null
+        // from baseData:
+        baseDataHasStatisticalUnits: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.hasStatisticalUnits : 'BaseDataNotLoaded',
+        baseDataStatDefinitionsLength: baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : 'BaseDataNotLoaded',
+      }
+    };
+    navigator.clipboard.writeText(JSON.stringify(stateToCopy, null, 2))
+      .then(() => {
+        setCopyStatus('Copied!');
+        setTimeout(() => setCopyStatus(''), 2000);
+      })
+      .catch(err => {
+        console.error('Failed to copy state to clipboard:', err);
+        setCopyStatus('Failed to copy');
+        setTimeout(() => setCopyStatus(''), 2000);
+      });
+  };
+
   const getSimpleStatus = (loadable: any) => {
     if (loadable.state === 'loading') return 'Loading';
     if (loadable.state === 'hasError') return 'Error';
@@ -569,10 +629,16 @@ export const JotaiStateInspector = () => {
   }
 
   return (
-    <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto">
-      <div onClick={toggleExpand} className="cursor-pointer flex justify-between items-center">
-        <span className="font-bold">JotaiStateInspector</span>
-        <span>{isExpanded ? '▼ Collapse' : '▶ Expand'}</span>
+    <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto z-[9999]">
+      <div className="flex justify-between items-center">
+        <span onClick={toggleExpand} className="cursor-pointer font-bold">JotaiStateInspector {isExpanded ? '▼' : '▶'}</span>
+        <button 
+          onClick={handleCopyToClipboard} 
+          className="ml-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
+          title="Copy all state to clipboard"
+        >
+          {copyStatus || 'Copy State'}
+        </button>
       </div>
       {!isExpanded && (
         <div className="mt-1">
@@ -582,7 +648,7 @@ export const JotaiStateInspector = () => {
       {isExpanded && (
         <div className="mt-2 space-y-2">
           <div>
-            <strong>Auth State:</strong> {authLoadableValue.state}
+            <strong>Auth Status:</strong> {authLoadableValue.state}
             <div className="pl-4 mt-1 space-y-1">
               {authLoadableValue.state === 'hasData' && (
                 <>
@@ -599,7 +665,7 @@ export const JotaiStateInspector = () => {
           </div>
 
           <div>
-            <strong>Base Data State:</strong> {baseDataLoadableValue.state}
+            <strong>Base Data Status:</strong> {baseDataLoadableValue.state}
             <div className="pl-4 mt-1 space-y-1">
               {baseDataLoadableValue.state === 'hasData' && (
                 <>
@@ -616,7 +682,7 @@ export const JotaiStateInspector = () => {
           </div>
 
           <div>
-            <strong>Worker Status State:</strong> {workerStatusLoadableValue.state}
+            <strong>Worker Status:</strong> {workerStatusLoadableValue.state}
             <div className="pl-4 mt-1 space-y-1">
               {workerStatusLoadableValue.state === 'hasData' && (
                 <>
@@ -628,6 +694,20 @@ export const JotaiStateInspector = () => {
               {workerStatusLoadableValue.state === 'hasError' && <div><strong>Error:</strong> {String(workerStatusLoadableValue.error)}</div>}
             </div>
           </div>
+
+          <div>
+            <strong>Redirect Relevant State:</strong>
+            <div className="pl-4 mt-1 space-y-1">
+              <div><strong>Pathname:</strong> {pathname}</div>
+              <div><strong>Initial Auth Check Done:</strong> {initialAuthCheckDoneFromAtom ? 'Yes' : 'No'}</div>
+              <div><strong>REST Client Ready:</strong> {restClientFromAtom ? 'Yes' : 'No'}</div>
+              <div><strong>Activity Standard:</strong> {activityStandardFromAtom === null ? 'Null' : JSON.stringify(activityStandardFromAtom)}</div>
+              <div><strong>Number of Regions:</strong> {numberOfRegionsFromAtom === null ? 'Null/Loading' : numberOfRegionsFromAtom}</div>
+              <div><strong>BaseData - Has Statistical Units:</strong> {baseDataLoadableValue.state === 'hasData' ? (baseDataLoadableValue.data.hasStatisticalUnits ? 'Yes' : 'No') : 'BaseDataNotLoaded'}</div>
+              <div><strong>BaseData - Stat Definitions Count:</strong> {baseDataLoadableValue.state === 'hasData' ? baseDataLoadableValue.data.statDefinitions.length : 'BaseDataNotLoaded'}</div>
+            </div>
+          </div>
+
         </div>
       )}
     </div>
