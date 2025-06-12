@@ -180,7 +180,9 @@ module Statbus
       access_jwt_expiry : String,
       refresh_jwt_expiry : String,
       caddy_deployment_mode : String,
-      site_domain : String
+      site_domain : String,
+      debug : String,
+      next_public_debug : String
 
     # Configuration values that are derived from other settings
     record DerivedEnv,
@@ -295,7 +297,10 @@ module Statbus
             refresh_jwt_expiry: config_env.generate("REFRESH_JWT_EXPIRY") { "2592000" }, # 30 days in seconds
             # Caddy configuration
             caddy_deployment_mode: config_env.generate("CADDY_DEPLOYMENT_MODE") { "development" },
-            site_domain: config_env.generate("SITE_DOMAIN") { "#{deployment_slot_code}.statbus.org" }
+            site_domain: config_env.generate("SITE_DOMAIN") { "#{deployment_slot_code}.statbus.org" },
+            # Debug flags
+            debug: config_env.generate("DEBUG") { "false" },
+            next_public_debug: config_env.generate("NEXT_PUBLIC_DEBUG") { "false" }
           )
         end
 
@@ -441,6 +446,18 @@ module Statbus
     DB_PUBLIC_LOCALHOST_PORT=#{derived.db_public_localhost_port}
     # Updated by manage-statbus.sh start required
     VERSION=#{derived.version}
+
+    # Server-side debugging for the Statbus App. Requires app restart.
+    # To enable, edit .env: set DEBUG=true and comment out/remove DEBUG=false.
+    # To disable, edit .env: set DEBUG=false and comment out/remove DEBUG=true.
+    # This setting is sourced from DEBUG in .env.config (defaults to false).
+    <%- if config.debug == "true" -%>
+    DEBUG=true
+    #DEBUG=false
+    <%- else -%>
+    #DEBUG=true
+    DEBUG=false
+    <%- end -%>
     EOS
       content += "\n\n"
 
@@ -499,6 +516,18 @@ module Statbus
     NEXT_PUBLIC_BROWSER_REST_URL=#{config.browser_api_url}
     NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=#{config.deployment_slot_name}
     NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=#{config.deployment_slot_code}
+
+    # Client-side debugging for the Statbus App. Requires app rebuild/restart.
+    # To enable, edit .env: set NEXT_PUBLIC_DEBUG=true and comment out/remove NEXT_PUBLIC_DEBUG=false.
+    # To disable, edit .env: set NEXT_PUBLIC_DEBUG=false and comment out/remove NEXT_PUBLIC_DEBUG=true.
+    # This setting is sourced from NEXT_PUBLIC_DEBUG in .env.config (defaults to false).
+    <%- if config.next_public_debug == "true" -%>
+    NEXT_PUBLIC_DEBUG=true
+    #NEXT_PUBLIC_DEBUG=false
+    <%- else -%>
+    #NEXT_PUBLIC_DEBUG=true
+    NEXT_PUBLIC_DEBUG=false
+    <%- end -%>
     #
     ################################################################
     EOS
