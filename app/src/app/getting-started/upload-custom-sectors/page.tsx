@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useGettingStartedManager as useGettingStarted } from '@/atoms/hooks';
+import React, { Suspense } from "react"; // Added Suspense
+import { useAtom } from 'jotai'; // Added useAtom
+import { numberOfCustomSectorsAtomAsync } from '@/atoms'; // Added specific atom
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {
@@ -11,10 +12,41 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
-export default function UploadCustomSectorsPage() {
-  const { dataState, refreshAllData } = useGettingStarted();
-  const { numberOfCustomSectors } = dataState;
+const CustomSectorsCountDisplay = () => {
+  const [numberOfCustomSectors, refreshSectorsCount] = useAtom(numberOfCustomSectorsAtomAsync);
 
+  return (
+    <>
+      {typeof numberOfCustomSectors === 'number' && numberOfCustomSectors > 0 && (
+        <InfoBox>
+          <p>
+            There are already {numberOfCustomSectors} custom sectors defined
+          </p>
+        </InfoBox>
+      )}
+      <UploadCSVForm
+        uploadView="sector_custom_only"
+        nextPage="/getting-started/upload-custom-legal-forms"
+        refreshRelevantCounts={async () => refreshSectorsCount()}
+      />
+    </>
+  );
+};
+
+const CountSkeleton = () => ( // Re-using the same skeleton structure
+  <>
+    <div className="animate-pulse">
+      <div className="h-10 bg-gray-200 rounded mb-4"></div>
+    </div>
+    <div className="bg-ssb-light p-6 animate-pulse">
+      <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+      <div className="h-10 bg-gray-200 rounded mb-4"></div>
+      <div className="h-10 bg-gray-200 rounded w-1/4"></div>
+    </div>
+  </>
+);
+
+export default function UploadCustomSectorsPage() {
   return (
     <section className="space-y-8">
       <h1 className="text-center text-2xl">Upload Sectors</h1>
@@ -22,21 +54,9 @@ export default function UploadCustomSectorsPage() {
         Upload a CSV file containing the custom sectors you want to use in your
         analysis.
       </p>
-
-      {!!numberOfCustomSectors && numberOfCustomSectors > 0 && (
-        <InfoBox>
-          <p>
-            There are already {numberOfCustomSectors} custom sectors defined
-          </p>
-        </InfoBox>
-      )}
-
-      <UploadCSVForm
-        uploadView="sector_custom_only"
-        nextPage="/getting-started/upload-custom-legal-forms"
-        refreshRelevantCounts={refreshAllData}
-      />
-
+      <Suspense fallback={<CountSkeleton />}>
+        <CustomSectorsCountDisplay />
+      </Suspense>
       <Accordion type="single" collapsible>
         <AccordionItem value="Legal Unit">
           <AccordionTrigger>What is a Sector?</AccordionTrigger>

@@ -28,7 +28,9 @@ export async function middleware(request: NextRequest) {
   // --- Handle Auth Result ---
   if (!authStatus.isAuthenticated) {
     // If still not authenticated after check/refresh attempt, redirect to login
-    console.log("Middleware: AuthStore reported unauthenticated, redirecting to login.");
+    if (process.env.DEBUG === 'true') {
+      console.log("Middleware: AuthStore reported unauthenticated, redirecting to login.");
+    }
     const loginUrl = new URL('/login', request.url);
     // Create a new response for redirect.
     const redirectResponse = NextResponse.redirect(loginUrl);
@@ -52,7 +54,9 @@ export async function middleware(request: NextRequest) {
 
   // If AuthStore signaled that headers were modified (e.g., due to token refresh)
   if (modifiedRequestHeaders?.has('X-Statbus-Refreshed-Token')) {
-      console.log("Middleware: AuthStore signaled refresh, modifying request headers for subsequent handlers.");
+      if (process.env.DEBUG === 'true') {
+        console.log("Middleware: AuthStore signaled refresh, modifying request headers for subsequent handlers.");
+      }
       
       // Create new headers for the requestForNextHandler.
       const newHeaders = new Headers(request.headers);

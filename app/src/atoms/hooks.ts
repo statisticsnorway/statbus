@@ -69,9 +69,9 @@ import {
   // Getting Started Atoms & Types
   gettingStartedUIStateAtom,
   type GettingStartedUIState,
-  gettingStartedDataAtom,
-  type GettingStartedDataState,
-  refreshAllGettingStartedDataAtom,
+  // gettingStartedDataAtom, // Removed
+  // type GettingStartedDataState, // Removed
+  // refreshAllGettingStartedDataAtom, // Removed
     
   // Import Atoms & Types for ImportManager
   importStateAtom,
@@ -324,7 +324,9 @@ export const useAppInitialization = () => {
         return;
       }
       
-      console.log("useAppInitialization: Authenticated and REST client ready, proceeding.");
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("useAppInitialization: Authenticated and REST client ready, proceeding.");
+      }
       try {
         // Initialize base data
         await refreshBaseData()
@@ -653,51 +655,7 @@ export const usePendingJobsByPattern = (slugPattern: string) => {
 // GETTING STARTED HOOKS - Replace useGettingStarted from GettingStartedContext
 // ============================================================================
 
-export const useGettingStartedManager = () => {
-  const [uiState, setUiState] = useAtom(gettingStartedUIStateAtom);
-  const dataState = useAtomValue(gettingStartedDataAtom);
-  const refreshAllData = useSetAtom(refreshAllGettingStartedDataAtom);
-
-  const setUIStep = useCallback((step: number) => {
-    setUiState(prev => ({ ...prev, currentStep: step }));
-  }, [setUiState]);
-
-  const completeUIStep = useCallback((step: number) => {
-    setUiState(prev => {
-      if (prev.completedSteps.includes(step)) {
-        return prev; // Avoid duplicates
-      }
-      return { ...prev, completedSteps: [...prev.completedSteps, step] };
-    });
-  }, [setUiState]);
-
-  const toggleUIVisibility = useCallback(() => {
-    setUiState(prev => ({ ...prev, isVisible: !prev.isVisible }));
-  }, [setUiState]);
-  
-  const hideUIVisibility = useCallback(() => {
-    setUiState(prev => ({ ...prev, isVisible: false }));
-  }, [setUiState]);
-
-  const showUIVisibility = useCallback(() => {
-    setUiState(prev => ({ ...prev, isVisible: true }));
-  }, [setUiState]);
-
-
-  // Expose individual refresh actions if needed, for now refreshAllData is primary
-  // const refreshActivityCategoryStandard = useSetAtom(refreshActivityCategoryStandardAtom);
-  // etc.
-
-  return {
-    uiState,
-    setUIStep,
-    completeUIStep,
-    toggleUIVisibility,
-    hideUIVisibility,
-    showUIVisibility,
-    dataState,
-    refreshAllData,
-    // Expose individual refresh functions if components need them
-    // e.g., refreshNumberOfRegions: useSetAtom(refreshNumberOfRegionsAtom)
-  };
-};
+// useGettingStartedManager is removed as its underlying data atoms (gettingStartedDataAtom, refreshAllGettingStartedDataAtom)
+// have been removed. The gettingStartedUIStateAtom is still available if a UI wizard component needs it directly.
+// If specific data previously managed by gettingStartedDataAtom is needed by a hook,
+// that hook would now need to fetch it directly or use a new, more targeted atom.

@@ -294,7 +294,8 @@ export const tableColumnsAtom = atomWithStorage<TableColumn[]>(
 // GETTING STARTED ATOMS - Replace GettingStartedContext
 // ============================================================================
 
-// UI State for the Getting Started Wizard
+// UI State for the Getting Started Wizard - This might still be useful for a wizard UI,
+// but the data fetching part is being decentralized.
 export interface GettingStartedUIState {
   currentStep: number
   completedSteps: number[]
@@ -310,22 +311,106 @@ export const gettingStartedUIStateAtom = atomWithStorage<GettingStartedUIState>(
   }
 )
 
-// Data State fetched for Getting Started steps
-export interface GettingStartedDataState {
-  activity_category_standard: { id: number, name: string } | null;
-  numberOfRegions: number | null;
-  numberOfCustomActivityCategoryCodes: number | null;
-  numberOfCustomSectors: number | null;
-  numberOfCustomLegalForms: number | null;
-}
+// NOTE: gettingStartedDataAtom and its related data fetching atoms are removed.
+// Data previously fetched here (activity_category_standard, numberOfRegions, etc.)
+// will now be fetched by individual dashboard cards or components as needed.
 
-export const gettingStartedDataAtom = atom<GettingStartedDataState>({
-  activity_category_standard: null,
-  numberOfRegions: null,
-  numberOfCustomActivityCategoryCodes: null,
-  numberOfCustomSectors: null,
-  numberOfCustomLegalForms: null,
+// --- Individual Async Atoms for "Getting Started" Metrics ---
+import { RESET, atomWithRefresh } from 'jotai/utils'; // Import RESET and atomWithRefresh
+
+// Activity Category Standard Setting
+export const activityCategoryStandardSettingAtomAsync = atomWithRefresh(async (get) => {
+  const isAuthenticated = get(isAuthenticatedAtom);
+  if (!isAuthenticated) return null; // Don't fetch if not authenticated
+
+  const client = get(restClientAtom);
+  if (!client) return null; // Or throw error / return specific "not loaded" state
+  const { data: settings, error } = await client
+    .from("settings")
+    .select("activity_category_standard(id,name)")
+    .limit(1);
+  if (error) {
+    console.error('Failed to fetch activity_category_standard setting:', error);
+    return null; // Or throw error
+  }
+  return settings?.[0]?.activity_category_standard as { id: number, name: string } ?? null;
 });
+
+// Number of Regions
+export const numberOfRegionsAtomAsync = atomWithRefresh(async (get) => {
+  const isAuthenticated = get(isAuthenticatedAtom);
+  if (!isAuthenticated) return null;
+
+  const client = get(restClientAtom);
+  if (!client) return null;
+  const { count, error } = await client.from("region").select("*", { count: "exact", head: true });
+  if (error) {
+    console.error('Failed to fetch number of regions:', error);
+    return null;
+  }
+  return count;
+});
+
+// Number of Custom Activity Category Codes
+export const numberOfCustomActivityCodesAtomAsync = atomWithRefresh(async (get) => {
+  const isAuthenticated = get(isAuthenticatedAtom);
+  if (!isAuthenticated) return null;
+
+  const client = get(restClientAtom);
+  if (!client) return null;
+  const { count, error } = await client.from("activity_category_available_custom").select("*", { count: "exact", head: true });
+  if (error) {
+    console.error('Failed to fetch number of custom activity codes:', error);
+    return null;
+  }
+  return count;
+});
+
+// Number of Custom Sectors
+export const numberOfCustomSectorsAtomAsync = atomWithRefresh(async (get) => {
+  const isAuthenticated = get(isAuthenticatedAtom);
+  if (!isAuthenticated) return null;
+
+  const client = get(restClientAtom);
+  if (!client) return null;
+  const { count, error } = await client.from("sector_custom").select("*", { count: "exact", head: true });
+  if (error) {
+    console.error('Failed to fetch number of custom sectors:', error);
+    return null;
+  }
+  return count;
+});
+
+// Number of Custom Legal Forms
+export const numberOfCustomLegalFormsAtomAsync = atomWithRefresh(async (get) => {
+  const isAuthenticated = get(isAuthenticatedAtom);
+  if (!isAuthenticated) return null;
+
+  const client = get(restClientAtom);
+  if (!client) return null;
+  const { count, error } = await client.from("legal_form_custom").select("*", { count: "exact", head: true });
+  if (error) {
+    console.error('Failed to fetch number of custom legal forms:', error);
+    return null;
+  }
+  return count;
+});
+
+// Number of Total Activity Category Codes (available)
+export const numberOfTotalActivityCodesAtomAsync = atomWithRefresh(async (get) => {
+  const isAuthenticated = get(isAuthenticatedAtom);
+  if (!isAuthenticated) return null;
+
+  const client = get(restClientAtom);
+  if (!client) return null;
+  const { count, error } = await client.from("activity_category_available").select("*", { count: "exact", head: true });
+  if (error) {
+    console.error('Failed to fetch number of total activity codes:', error);
+    return null;
+  }
+  return count;
+});
+
 
 // ============================================================================
 // IMPORT UNITS ATOMS - Replace ImportUnitsContext
@@ -602,140 +687,8 @@ export const createImportJobAtom = atom<null, [string], Promise<Tables<'import_j
   }
 );
 
-// Getting Started Data Actions
-export const refreshActivityCategoryStandardAtom = atom(
-  null,
-  async (get, set) => {
-    const client = get(restClientAtom);
-    if (!client) {
-      console.error('GettingStarted: No client for activity_category_standard');
-      // Optionally throw or handle error state
-      return;
-    }
-    try {
-      const { data: settings, error } = await client
-        .from("settings")
-        .select("activity_category_standard(id,name)")
-        .limit(1);
-      if (error) throw error;
-      const activity_category_standard = settings?.[0]?.activity_category_standard as { id: number, name: string } ?? null;
-      set(gettingStartedDataAtom, (prev) => ({
-        ...prev,
-        activity_category_standard,
-      }));
-    } catch (error) {
-      console.error('Failed to refresh activity_category_standard:', error);
-    }
-  }
-);
-
-export const refreshNumberOfRegionsAtom = atom(
-  null,
-  async (get, set) => {
-    const client = get(restClientAtom);
-    if (!client) {
-      console.error('GettingStarted: No client for numberOfRegions');
-      return;
-    }
-    try {
-      const { count, error } = await client.from("region").select("*", { count: "exact", head: true });
-      if (error) throw error;
-      set(gettingStartedDataAtom, (prev) => ({
-        ...prev,
-        numberOfRegions: count,
-      }));
-    } catch (error) {
-      console.error('Failed to refresh numberOfRegions:', error);
-    }
-  }
-);
-
-export const refreshNumberOfCustomActivityCategoryCodesAtom = atom(
-  null,
-  async (get, set) => {
-    const client = get(restClientAtom);
-    if (!client) {
-      console.error('GettingStarted: No client for numberOfCustomActivityCategoryCodes');
-      return;
-    }
-    try {
-      const { count, error } = await client.from("activity_category_available_custom").select("*", { count: "exact", head: true });
-      if (error) throw error;
-      set(gettingStartedDataAtom, (prev) => ({
-        ...prev,
-        numberOfCustomActivityCategoryCodes: count,
-      }));
-    } catch (error) {
-      console.error('Failed to refresh numberOfCustomActivityCategoryCodes:', error);
-    }
-  }
-);
-
-export const refreshNumberOfCustomSectorsAtom = atom(
-  null,
-  async (get, set) => {
-    const client = get(restClientAtom);
-    if (!client) {
-      console.error('GettingStarted: No client for numberOfCustomSectors');
-      return;
-    }
-    try {
-      const { count, error } = await client.from("sector_custom").select("*", { count: "exact", head: true });
-      if (error) throw error;
-      set(gettingStartedDataAtom, (prev) => ({
-        ...prev,
-        numberOfCustomSectors: count,
-      }));
-    } catch (error) {
-      console.error('Failed to refresh numberOfCustomSectors:', error);
-    }
-  }
-);
-
-export const refreshNumberOfCustomLegalFormsAtom = atom(
-  null,
-  async (get, set) => {
-    const client = get(restClientAtom);
-    if (!client) {
-      console.error('GettingStarted: No client for numberOfCustomLegalForms');
-      return;
-    }
-    try {
-      const { count, error } = await client.from("legal_form_custom").select("*", { count: "exact", head: true });
-      if (error) throw error;
-      set(gettingStartedDataAtom, (prev) => ({
-        ...prev,
-        numberOfCustomLegalForms: count,
-      }));
-    } catch (error) {
-      console.error('Failed to refresh numberOfCustomLegalForms:', error);
-    }
-  }
-);
-
-export const refreshAllGettingStartedDataAtom = atom(
-  null,
-  async (get, set) => {
-    const currentGettingStartedData = get(gettingStartedDataAtom);
-    // Example check: if a key piece of this data is already present, maybe don't refetch all.
-    // This depends on whether this data is expected to change during a session or only on initial load.
-    // For now, let's assume it's okay to refetch if called, but individual atoms could be smarter.
-    // Alternatively, add a more specific check like:
-    // if (currentGettingStartedData.numberOfRegions !== null && currentGettingStartedData.activity_category_standard !== null) {
-    //   console.log("refreshAllGettingStartedDataAtom: Data seems to be present, consider if refetch is needed.");
-    //   // return; // Or proceed to refresh if that's desired behavior
-    // }
-
-    // Trigger all individual refresh actions
-    // The `set` function in a write-only atom can accept another atom (or a value).
-    // If it's an action atom, it executes it.
-    await set(refreshActivityCategoryStandardAtom);
-    await set(refreshNumberOfRegionsAtom);
-    await set(refreshNumberOfCustomActivityCategoryCodesAtom);
-    await set(refreshNumberOfCustomSectorsAtom);
-    await set(refreshNumberOfCustomLegalFormsAtom);
-  }
-);
+// NOTE: Getting Started Data Action atoms (refreshActivityCategoryStandardAtom, etc.) are removed.
+// Data fetching is now handled by individual components/cards.
 
 // ============================================================================
 // ASYNC ACTION ATOMS - For handling side effects
@@ -955,7 +908,7 @@ export const logoutAtom = atom(
     set(selectedUnitsAtom, []);
     set(tableColumnsAtom, []); // This will be re-initialized on next load if needed
     set(gettingStartedUIStateAtom, { currentStep: 0, completedSteps: [], isVisible: true });
-    set(gettingStartedDataAtom, { activity_category_standard: null, numberOfRegions: null, numberOfCustomActivityCategoryCodes: null, numberOfCustomSectors: null, numberOfCustomLegalForms: null });
+    // set(gettingStartedDataAtom, { activity_category_standard: null, numberOfRegions: null, numberOfCustomActivityCategoryCodes: null, numberOfCustomSectors: null, numberOfCustomLegalForms: null }); // Removed
     set(importStateAtom, { isImporting: false, progress: 0, currentFile: null, errors: [], completed: false, useExplicitDates: false, selectedImportTimeContextIdent: null });
     set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
 
@@ -1614,23 +1567,54 @@ export const derivedApiSearchParamsAtom = atom((get) => {
 // Combined authentication and base data status
 export const appReadyAtom = atom((get) => {
   const auth = get(authStatusAtom);
-  const baseData = get(baseDataAtom);
-  const isLoadingBaseData = get(baseDataLoadingAtom);
-  
-  // App is ready only if auth is not loading, user is authenticated, 
-  // AND base data is not loading and has been fetched.
-  const isAuthReady = !auth.loading && auth.isAuthenticated;
-  const isBaseDataReady = !isLoadingBaseData && baseData.statDefinitions.length > 0;
+  const initialAuthCheckDone = get(authStatusInitiallyCheckedAtom);
+
+  const baseD = get(baseDataAtom);
+  const isLoadingBaseD = get(baseDataLoadingAtom);
+
+  // gettingStartedDataAtom and its loading state are removed.
+  // const gettingStartedD = get(gettingStartedDataAtom);
+  // const isLoadingGettingStartedD = get(gettingStartedDataLoadingAtom);
+
+  // Authentication is considered ready once the initial check is done and not currently loading.
+  const isAuthProcessComplete = initialAuthCheckDone && !auth.loading;
+  const isAuthenticatedUser = auth.isAuthenticated;
+
+  // Base data is considered ready if not loading and has essential data (e.g., stat definitions).
+  const isBaseDataProcessComplete = !isLoadingBaseD && baseD.statDefinitions.length > 0;
+
+  // "Getting Started" data and its loading/completion status are no longer tracked globally here.
+  // Individual cards/components will handle their own data and loading states.
+
+  // The dashboard is ready to render if auth is complete and base data is loaded.
+  // Specific "setup" steps (like initial region upload or activity standard selection)
+  // are now handled by UI elements on the dashboard itself, not by gating the dashboard.
+  const isReadyToRenderDashboard = 
+    isAuthProcessComplete &&
+    isAuthenticatedUser &&
+    isBaseDataProcessComplete;
+    
+  // isSetupComplete is removed from this global atom. 
+  // If a global "is the very basic setup done (e.g. units exist)" flag is needed,
+  // it could be derived from baseDataAtom.hasStatisticalUnits, but it won't gate the dashboard rendering here.
 
   return {
-    isReady: isAuthReady && isBaseDataReady,
-    isAuthenticated: isAuthReady, 
-    hasBaseData: isBaseDataReady, // Reflects that base data is loaded and present
-    user: auth.loading ? null : auth.user,
     isLoadingAuth: auth.loading,
-    isLoadingBaseData: isLoadingBaseData, // Expose base data loading state
+    isLoadingBaseData: isLoadingBaseD,
+    // isLoadingGettingStartedData: false, // Removed
+
+    isAuthProcessComplete,
+    isAuthenticated: isAuthenticatedUser,
+    
+    isBaseDataLoaded: isBaseDataProcessComplete,
+    // isGettingStartedDataLoaded: true, // Removed, or assume true if not gating
+
+    // isSetupComplete, // Removed from here
+    isReadyToRenderDashboard,
+
+    user: auth.user,
   };
-})
+});
 
 // Export all atoms for easy importing
 export const atoms = {
@@ -1690,14 +1674,23 @@ export const atoms = {
   setTableColumnProfileAtom,
   
   // Getting Started
-  gettingStartedUIStateAtom,
-  gettingStartedDataAtom,
-  refreshActivityCategoryStandardAtom,
-  refreshNumberOfRegionsAtom,
-  refreshNumberOfCustomActivityCategoryCodesAtom,
-  refreshNumberOfCustomSectorsAtom,
-  refreshNumberOfCustomLegalFormsAtom,
-  refreshAllGettingStartedDataAtom,
+  gettingStartedUIStateAtom, // Retained for potential wizard UI
+  activityCategoryStandardSettingAtomAsync,
+  // refreshActivityCategoryStandardSettingAtom, // Removed (use atomWithRefresh)
+  numberOfRegionsAtomAsync,
+  // refreshNumberOfRegionsAtom, // Removed (use atomWithRefresh)
+  numberOfCustomActivityCodesAtomAsync,
+  // refreshNumberOfCustomActivityCodesAtom, // Removed (use atomWithRefresh)
+  numberOfCustomSectorsAtomAsync,
+  // refreshNumberOfCustomSectorsAtom, // Removed (use atomWithRefresh)
+  numberOfCustomLegalFormsAtomAsync,
+  // refreshNumberOfCustomLegalFormsAtom, // Removed (use atomWithRefresh)
+  numberOfTotalActivityCodesAtomAsync, // Added new atom
+  // Old global "getting started" atoms are removed
+  // refreshNumberOfCustomActivityCategoryCodesAtom, // Removed
+  // refreshNumberOfCustomSectorsAtom, // Removed
+  // refreshNumberOfCustomLegalFormsAtom, // Removed
+  // refreshAllGettingStartedDataAtom, // Removed
   
   // Import
   importStateAtom,
@@ -1725,5 +1718,5 @@ export const atoms = {
   baseDataLoadableAtom,
   authStatusLoadableAtom,
   workerStatusLoadableAtom,
-  baseDataLoadingAtom, // Export the new loading atom
+  baseDataLoadingAtom,
 }

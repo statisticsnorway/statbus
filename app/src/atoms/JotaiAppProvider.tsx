@@ -7,7 +7,7 @@
  * and handles app initialization without complex useEffect chains.
  */
 
-import React, { Suspense, useEffect, ReactNode } from 'react';
+import React, { Suspense, useEffect, ReactNode, useState } from 'react'; // Added useState
 import { Provider } from 'jotai';
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useRouter, usePathname } from 'next/navigation';
@@ -20,11 +20,13 @@ import {
   workerStatusAtom,
   // isAuthenticatedAtom, // We'll use authStatusAtom directly for more clarity on loading vs authenticated
   initializeTableColumnsAtom,
-  refreshAllGettingStartedDataAtom,
+  // refreshAllGettingStartedDataAtom, // Removed
   refreshAllUnitCountsAtom,
   fetchAndSetAuthStatusAtom,
   authStatusInitiallyCheckedAtom,
-  gettingStartedDataAtom, // For checking setup data
+  // gettingStartedDataAtom, // Removed
+  activityCategoryStandardSettingAtomAsync, // Import the atom
+  numberOfRegionsAtomAsync, // Import the regions atom
 } from './index';
 
 // ============================================================================
@@ -40,13 +42,16 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const refreshWorkerStatus = useSetAtom(refreshWorkerStatusAtom)
   const setRestClient = useSetAtom(restClientAtom)
   const initializeTableColumns = useSetAtom(initializeTableColumnsAtom);
-  const refreshGettingStartedData = useSetAtom(refreshAllGettingStartedDataAtom);
+  // const refreshGettingStartedData = useSetAtom(refreshAllGettingStartedDataAtom); // Removed
   const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
 
   const router = useRouter();
   const pathname = usePathname();
-  const gettingStartedData = useAtomValue(gettingStartedDataAtom);
+  // const gettingStartedData = useAtomValue(gettingStartedDataAtom); // Removed
   const baseData = useAtomValue(baseDataAtom);
+  const activityStandard = useAtomValue(activityCategoryStandardSettingAtomAsync); // Consume the atom
+  const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync); // Consume the regions atom
+  const [isRedirectingToSetup, setIsRedirectingToSetup] = useState(false); // Flag to prevent double redirect
   
   // Initialize REST client
   useEffect(() => {
@@ -79,84 +84,139 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     }
   }, [restClient, initialAuthCheckDone, authStatus.loading, triggerFetchAuthStatus]);
   
+  const [appDataInitialized, setAppDataInitialized] = useState(false);
+
   // Initialize app data when authenticated, not loading, and client is ready
   useEffect(() => {
-    let mounted = true
-    
+    let mounted = true;
+
     const initializeApp = async () => {
-      // Ensure initial auth check is done, auth is not loading, and user is authenticated
-      if (!initialAuthCheckDone || authStatus.loading || !authStatus.isAuthenticated) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("AppInitializer: Checking conditions for app data initialization...", {
+          appDataInitialized,
+          initialAuthCheckDone,
+          isAuthLoading: authStatus.loading,
+          isAuthenticated: authStatus.isAuthenticated,
+          isRestClientReady: !!restClient,
+        });
+      }
+
+      // Core conditions: auth must be checked, user authenticated, client ready.
+      if (!initialAuthCheckDone || !authStatus.isAuthenticated || !restClient || authStatus.loading) {
         return;
       }
-      if (!restClient) {
+
+      // Primary gate: only run once.
+      if (appDataInitialized) {
         return;
       }
       
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("AppInitializer: Conditions met, proceeding with app data initialization.");
+      }
+      setAppDataInitialized(true); // Mark as initialized immediately
+
       try {
         // Fetch base data
-        await refreshBaseData()
+        await refreshBaseData();
         
         // Initialize table columns (depends on base data, e.g., statDefinitions)
         initializeTableColumns();
 
-        // Fetch "Getting Started" data
-        refreshGettingStartedData();
-
         // Fetch Import Unit Counts
         refreshUnitCounts();
 
-        // Pending jobs are now fetched by their respective pages, not globally on init.
-
         // Fetch worker status
-        await refreshWorkerStatus()
+        await refreshWorkerStatus();
         
       } catch (error) {
         if (mounted) {
-          console.error('AppInitializer: App initialization failed:', error)
+          console.error('AppInitializer: App initialization failed:', error);
+          // Consider if appDataInitialized should be reset to false here to allow a retry.
+          // For now, keeping it true to prevent loops if an error is persistent.
+          // A manual refresh mechanism or more specific error handling might be needed for retries.
         }
       }
-    }
+    };
     
-    initializeApp()
+    initializeApp();
     
     return () => {
-      mounted = false
-    }
-  }, [authStatus.isAuthenticated, authStatus.loading, restClient, initialAuthCheckDone, refreshBaseData, refreshWorkerStatus, initializeTableColumns, refreshGettingStartedData, refreshUnitCounts]);
+      mounted = false;
+    };
+  }, [
+    authStatus.isAuthenticated, // Re-run if auth status changes (e.g., logout then login)
+    authStatus.loading,         // Wait for auth loading to complete
+    restClient,                 // Wait for REST client to be available
+    initialAuthCheckDone,       // Wait for initial auth check
+    appDataInitialized,         // Prevent re-run if already initialized
+    // Removed action atoms from dependencies as they don't change and shouldn't trigger re-runs of this effect.
+    // The functions themselves (refreshBaseData, etc.) are stable if created by useSetAtom.
+  ]);
 
-  // Effect for "Getting Started" redirects
+  // "Getting Started" redirect logic is removed.
+  // The dashboard will now load if auth and base data are ready.
+  // Any "getting started" guidance or conditional rendering will be handled
+  // by the dashboard page or its components.
+
+  // Effect for redirecting to setup pages if necessary
   useEffect(() => {
     let mounted = true;
-    if (!mounted) return; // Avoid running if component unmounted quickly
+    if (!mounted) return;
 
-    // Ensure all necessary states are stable and data is available
-    if (
-      pathname === '/' &&
-      restClient && // Ensure client is initialized
-      initialAuthCheckDone && // Ensure initial auth check has happened
-      !authStatus.loading && // Ensure auth status is not loading
-      authStatus.isAuthenticated && // Ensure user is authenticated
-      baseData.statDefinitions.length > 0 && // Basic check that baseData is loaded
-      gettingStartedData.activity_category_standard !== undefined // Basic check that gettingStartedData is loaded (even if null)
-    ) {
-      // Perform checks in order
-      if (gettingStartedData.activity_category_standard === null) {
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-          console.log("AppInitializer: No activity category standard found, redirecting to /getting-started/activity-standard");
-        }
-        router.push('/getting-started/activity-standard');
-      } else if (gettingStartedData.numberOfRegions === null || gettingStartedData.numberOfRegions === 0) {
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-          console.log("AppInitializer: No regions found, redirecting to /getting-started/upload-regions");
-        }
-        router.push('/getting-started/upload-regions');
-      } else if (baseData.hasStatisticalUnits === false) {
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-          console.log("AppInitializer: No statistical units found, redirecting to /import");
-        }
-        router.push('/import');
+    // Early exit if critical conditions are not met or already redirecting
+    if (isRedirectingToSetup || pathname !== '/' || !authStatus.isAuthenticated || authStatus.loading || !initialAuthCheckDone || !restClient) {
+      if (pathname !== '/' || !authStatus.isAuthenticated) {
+        setIsRedirectingToSetup(false);
       }
+      return;
     }
+
+    // At this point: on '/', authenticated, not loading, client ready, initial auth check done, and not currently in a redirect loop.
+
+    // Check 1: Activity Standard
+    // `activityStandard` is the value from `useAtomValue(activityCategoryStandardSettingAtomAsync)`
+    if (activityStandard === null) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("AppInitializer: No activity category standard set. Pushing to /getting-started/activity-standard.");
+      }
+      setIsRedirectingToSetup(true);
+      router.push('/getting-started/activity-standard');
+      return; 
+    }
+
+    // Check 2: Regions (only if activity standard is set)
+    // `numberOfRegions` is the value from `useAtomValue(numberOfRegionsAtomAsync)`
+    // It will be null if still loading or on error, or a number once resolved.
+    if (numberOfRegions === null || numberOfRegions === 0) {
+      // If numberOfRegions is null, it might be loading. We redirect if it's explicitly 0 or still null (initial load/error).
+      // A more robust check might involve a separate loading state for numberOfRegionsAtomAsync if needed,
+      // but for now, this covers "not yet loaded" or "loaded and is zero".
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`AppInitializer: Activity standard is set, but regions count is ${numberOfRegions}. Pushing to /getting-started/upload-regions.`);
+      }
+      setIsRedirectingToSetup(true);
+      router.push('/getting-started/upload-regions');
+      return;
+    }
+
+    // Check 3: Statistical Units (only if activity standard is set AND regions exist)
+    // `baseData.hasStatisticalUnits` and `baseData.statDefinitions.length` are in the dependency array.
+    // We check `baseData.statDefinitions.length > 0` as a proxy for `baseData` being loaded.
+    if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("AppInitializer: Activity standard set, regions exist, but no statistical units found. Pushing to /import.");
+      }
+      setIsRedirectingToSetup(true);
+      router.push('/import');
+      return;
+    }
+    
+    // If all checks passed (i.e., no redirect was triggered in this run of the effect)
+    if (isRedirectingToSetup) {
+       setIsRedirectingToSetup(false);
+    }
+    
     return () => {
       mounted = false;
     };
@@ -166,9 +226,12 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     authStatus.loading,
     initialAuthCheckDone,
     restClient,
-    gettingStartedData,
-    baseData,
+    activityStandard,
+    numberOfRegions, // Add numberOfRegions to dependency array
+    baseData.hasStatisticalUnits, 
+    baseData.statDefinitions.length, 
     router,
+    isRedirectingToSetup, 
   ]);
   
   return <>{children}</>
@@ -216,7 +279,9 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
                 refreshWorkerStatus()
                 break
               default:
-                console.log('Unknown SSE message type:', data.type)
+                if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+                  console.log('Unknown SSE message type:', data.type)
+                }
             }
           } catch (error) {
             console.error('Failed to parse SSE message:', error)
@@ -238,7 +303,9 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
           // Implement exponential backoff for reconnection
           if (reconnectAttempts < maxReconnectAttempts) {
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000); // Max 30 seconds
-            console.log(`SSE: Scheduling reconnect attempt ${reconnectAttempts + 1} in ${delay / 1000}s.`);
+            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+              console.log(`SSE: Scheduling reconnect attempt ${reconnectAttempts + 1} in ${delay / 1000}s.`);
+            }
             reconnectTimeout = setTimeout(() => {
               reconnectAttempts++;
               connect();

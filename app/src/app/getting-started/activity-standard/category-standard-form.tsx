@@ -12,7 +12,8 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { useForm } from "react-hook-form";
-import { useGettingStartedManager as useGettingStarted } from '@/atoms/hooks';
+import { useSetAtom } from 'jotai'; // Added useSetAtom
+import { activityCategoryStandardSettingAtomAsync } from '@/atoms'; // Added specific atom
 import { Tables } from "@/lib/database.types";
 import { setCategoryStandard } from "@/app/getting-started/getting-started-server-actions";
 import { useRouter } from "next/navigation";
@@ -41,8 +42,7 @@ export default function CategoryStandardForm({
     },
   });
   const router = useRouter();
-
-  const { refreshAllData } = useGettingStarted();
+  const refreshActivityStandardSetting = useSetAtom(activityCategoryStandardSettingAtomAsync);
 
   async function onSubmit({
     activity_category_standard_id,
@@ -53,8 +53,8 @@ export default function CategoryStandardForm({
       activity_category_standard_id.toString(10)
     );
     const result = await setCategoryStandard(formData);
-    await refreshAllData();
     if (result.success) {
+      await refreshActivityStandardSetting(); // Trigger refresh
       router.push("/getting-started/upload-custom-activity-standard-codes");
     }
   }

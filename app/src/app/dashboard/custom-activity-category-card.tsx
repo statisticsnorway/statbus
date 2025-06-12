@@ -1,21 +1,21 @@
-import { getServerRestClient } from "@/context/RestClientStore";
+"use client"; // Make it a client component
+
+// import { getServerRestClient } from "@/context/RestClientStore"; // No longer needed
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Settings } from "lucide-react";
+import { useAtomValue } from 'jotai';
+import { numberOfCustomActivityCodesAtomAsync } from '@/atoms';
 
-export const CustomActivityCategoryCard = async () => {
-  const client = await getServerRestClient();
-
-  const { count, error } = await client
-    .from("activity_category_available_custom")
-    .select("", { count: "exact" })
-    .limit(0);
+export const CustomActivityCategoryCard = () => {
+  const count = useAtomValue(numberOfCustomActivityCodesAtomAsync);
+  const failed = count === null;
 
   return (
     <DashboardCard
       title="Custom Activity Category Codes"
       icon={<Settings className="h-4" />}
-      text={count?.toString() ?? "-"}
-      failed={!!error}
+      text={count?.toString() ?? (failed ? "Error" : "-")}
+      failed={failed}
     />
   );
 };

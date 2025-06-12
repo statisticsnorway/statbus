@@ -1,23 +1,21 @@
-"use server";
+"use client"; 
 
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Globe2 } from "lucide-react";
-import { getServerRestClient } from "@/context/RestClientStore";
+import { useAtomValue } from 'jotai';
+import { numberOfRegionsAtomAsync } from '@/atoms';
 
-export const RegionCard = async () => {
-  const client = await getServerRestClient();
-
-  const { count, error } = await client
-    .from("region")
-    .select("", { count: "exact" })
-    .limit(0);
+export const RegionCard = () => {
+  const count = useAtomValue(numberOfRegionsAtomAsync);
+  // The atom returns null if not authenticated, if client is null, or on fetch error.
+  const failed = count === null; 
 
   return (
     <DashboardCard
       title="Region Hierarchy"
       icon={<Globe2 className="h-4" />}
-      text={count?.toString() ?? "-"}
-      failed={!!error}
+      text={count?.toString() ?? (failed ? "Error" : "-")}
+      failed={failed}
     />
   );
 };

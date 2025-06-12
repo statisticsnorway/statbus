@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useGettingStartedManager as useGettingStarted } from '@/atoms/hooks';
+import React, { Suspense } from "react"; // Added Suspense
+import { useAtom } from 'jotai'; // Added useAtom
+import { numberOfCustomLegalFormsAtomAsync } from '@/atoms'; // Added specific atom
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {
@@ -11,19 +12,12 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 
-export default function UploadCustomSectorsPage() {
-  const { dataState, refreshAllData } = useGettingStarted();
-  const { numberOfCustomLegalForms } = dataState;
+const CustomLegalFormsCountDisplay = () => {
+  const [numberOfCustomLegalForms, refreshLegalFormsCount] = useAtom(numberOfCustomLegalFormsAtomAsync);
 
   return (
-    <section className="space-y-8">
-      <h1 className="text-center text-2xl">Upload Legal Forms</h1>
-      <p>
-        Upload a CSV file containing the custom legal forms you want to use in
-        your analysis.
-      </p>
-
-      {!!numberOfCustomLegalForms && numberOfCustomLegalForms > 0 && (
+    <>
+      {typeof numberOfCustomLegalForms === 'number' && numberOfCustomLegalForms > 0 && (
         <InfoBox>
           <p>
             There are already {numberOfCustomLegalForms} custom legal forms
@@ -31,13 +25,39 @@ export default function UploadCustomSectorsPage() {
           </p>
         </InfoBox>
       )}
-
       <UploadCSVForm
         uploadView="legal_form_custom_only"
         nextPage="/getting-started/summary"
-        refreshRelevantCounts={refreshAllData}
+        refreshRelevantCounts={async () => refreshLegalFormsCount()}
       />
+    </>
+  );
+};
 
+const CountSkeleton = () => ( // Re-using the same skeleton structure
+  <>
+    <div className="animate-pulse">
+      <div className="h-10 bg-gray-200 rounded mb-4"></div>
+    </div>
+    <div className="bg-ssb-light p-6 animate-pulse">
+      <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div>
+      <div className="h-10 bg-gray-200 rounded mb-4"></div>
+      <div className="h-10 bg-gray-200 rounded w-1/4"></div>
+    </div>
+  </>
+);
+
+export default function UploadCustomLegalFormsPage() { // Renamed component function for clarity
+  return (
+    <section className="space-y-8">
+      <h1 className="text-center text-2xl">Upload Legal Forms</h1>
+      <p>
+        Upload a CSV file containing the custom legal forms you want to use in
+        your analysis.
+      </p>
+      <Suspense fallback={<CountSkeleton />}>
+        <CustomLegalFormsCountDisplay />
+      </Suspense>
       <Accordion type="single" collapsible>
         <AccordionItem value="Legal Unit">
           <AccordionTrigger>What is a Legal Form?</AccordionTrigger>

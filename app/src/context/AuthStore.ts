@@ -103,7 +103,9 @@ class AuthStore {
       }
 
       // Always return a fresh unauthenticated state on error
-      console.log("AuthStore.getAuthStatus: Returning unauthenticated state due to error");
+      if (process.env.DEBUG === 'true') {
+        console.log("AuthStore.getAuthStatus: Returning unauthenticated state due to error");
+      }
       return { isAuthenticated: false, user: null, tokenExpiring: false }; // loading is implicitly false for a resolved state
     }
   }
@@ -330,11 +332,15 @@ class AuthStore {
     let modifiedRequestHeaders: Headers | undefined = undefined;
 
     if (!currentStatus.isAuthenticated) {
-      console.log("[AuthStore.handleServerAuth] Initial check indicates not authenticated. Attempting refresh.");
+      if (process.env.DEBUG === 'true') {
+        console.log("[AuthStore.handleServerAuth] Initial check indicates not authenticated. Attempting refresh.");
+      }
       
       const refreshTokenCookie = requestCookies.get('statbus-refresh');
       if (!refreshTokenCookie || !refreshTokenCookie.value) {
-        console.log("[AuthStore.handleServerAuth] No valid refresh token cookie found.");
+        if (process.env.DEBUG === 'true') {
+          console.log("[AuthStore.handleServerAuth] No valid refresh token cookie found.");
+        }
         // Return current (unauthenticated) status, no modifications needed
         return { status: currentStatus }; 
       }
@@ -421,7 +427,9 @@ class AuthStore {
           
           // If the new status from RPC indicates authenticated AND we got an access token cookie, it's a success.
           if (currentStatus.isAuthenticated && newAccessTokenCookie?.value) {
-             console.log("AuthStore.handleServerAuth: Refresh successful, new auth status parsed, cookies staged.");
+            if (process.env.DEBUG === 'true') {
+              console.log("AuthStore.handleServerAuth: Refresh successful, new auth status parsed, cookies staged.");
+            }
           } else {
             // If RPC says authenticated but no access token cookie, or RPC says not authenticated
             console.error("AuthStore.handleServerAuth: Refresh issue. RPC status:", currentStatus.isAuthenticated, "Access token cookie present:", !!newAccessTokenCookie?.value);

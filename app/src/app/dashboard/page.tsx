@@ -1,6 +1,5 @@
 export const dynamic = 'force-dynamic';
 
-import { Metadata } from "next";
 import { ReactNode, Suspense } from "react";
 import Link from "next/link";
 import { StatisticalUnitCountCard } from "@/app/dashboard/statistical-unit-count-card";
@@ -15,11 +14,7 @@ import { StatisticalVariableCountCard } from "@/app/dashboard/statistical-variab
 import { Database, Gauge } from "lucide-react";
 import { TotalActivityCategoryCard } from "./total-activity-category-card";
 
-export const metadata: Metadata = {
-  title: "Dashboard",
-};
-
-export default async function Dashboard() {
+export default function Dashboard() { // Removed async
   return (
     <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-12 w-full space-y-8 lg:space-y-10">
       <h1 className="text-center text-2xl">Statbus Status Dashboard</h1>

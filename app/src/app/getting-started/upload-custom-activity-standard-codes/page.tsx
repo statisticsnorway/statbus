@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useEffect } from "react";
-import { useGettingStartedManager as useGettingStarted } from '@/atoms/hooks';
+import React, { Suspense } from "react"; // Added Suspense
+import { useAtom } from 'jotai'; // Added useAtom
+import { numberOfCustomActivityCodesAtomAsync } from '@/atoms'; // Added specific atom
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {
@@ -13,10 +14,51 @@ import {
 import Link from "next/link";
 import { buttonVariants } from "@/components/ui/button";
 
-export default function UploadCustomActivityCategoryCodesPage() {
-  const { dataState, refreshAllData } = useGettingStarted();
-  const { numberOfCustomActivityCategoryCodes } = dataState;
+const CustomActivityCodesCountDisplay = () => {
+  const [numberOfCustomActivityCategoryCodes, refreshCodesCount] = useAtom(numberOfCustomActivityCodesAtomAsync);
 
+  return (
+    <>
+      {typeof numberOfCustomActivityCategoryCodes === 'number' && numberOfCustomActivityCategoryCodes > 0 && (
+        <InfoBox>
+          <div className="flex justify-between items-center">
+            <p>
+              There are already {numberOfCustomActivityCategoryCodes} custom
+              activity category codes defined
+            </p>
+            <Link
+              href="/activity-categories?custom=true"
+              target="_blank"
+              className={buttonVariants({ variant: "outline" })}
+            >
+              View all
+            </Link>
+          </div>
+        </InfoBox>
+      )}
+      <UploadCSVForm
+        uploadView="activity_category_available_custom"
+        nextPage="/getting-started/upload-regions"
+        refreshRelevantCounts={async () => refreshCodesCount()}
+      />
+    </>
+  );
+};
+
+const CountSkeleton = () => (
+  <>
+    <div className="animate-pulse">
+      <div className="h-10 bg-gray-200 rounded mb-4"></div> {/* Placeholder for InfoBox */}
+    </div>
+    <div className="bg-ssb-light p-6 animate-pulse">
+      <div className="h-6 bg-gray-200 rounded w-1/4 mb-4"></div> {/* Label */}
+      <div className="h-10 bg-gray-200 rounded mb-4"></div> {/* Input */}
+      <div className="h-10 bg-gray-200 rounded w-1/4"></div> {/* Button */}
+    </div>
+  </>
+);
+
+export default function UploadCustomActivityCategoryCodesPage() {
   return (
     <section className="space-y-8">
       <h1 className="text-center text-2xl">
@@ -26,32 +68,9 @@ export default function UploadCustomActivityCategoryCodesPage() {
         Upload a CSV file containing the custom activity category standard codes
         you want to use in your analysis.
       </p>
-
-      {!!numberOfCustomActivityCategoryCodes &&
-        numberOfCustomActivityCategoryCodes > 0 && (
-          <InfoBox>
-            <div className="flex justify-between items-center">
-              <p>
-                There are already {numberOfCustomActivityCategoryCodes} custom
-                activity category codes defined
-              </p>
-              <Link
-                href="/activity-categories?custom=true"
-                target="_blank"
-                className={buttonVariants({ variant: "outline" })}
-              >
-                View all
-              </Link>
-            </div>
-          </InfoBox>
-        )}
-
-      <UploadCSVForm
-        uploadView="activity_category_available_custom"
-        nextPage="/getting-started/upload-regions"
-        refreshRelevantCounts={refreshAllData}
-      />
-
+      <Suspense fallback={<CountSkeleton />}>
+        <CustomActivityCodesCountDisplay />
+      </Suspense>
       <Accordion type="single" collapsible>
         <AccordionItem value="Legal Unit">
           <AccordionTrigger>
