@@ -5,3 +5,4 @@
 /supabase_docker/*
 # Any internal .nextjs code
 /app/.next
+/app/.next/*
