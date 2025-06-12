@@ -1,79 +1,78 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { useBaseData } from "@/atoms/hooks";
-import { useSetAtom } from 'jotai';
-import { refreshBaseDataAtom } from '@/atoms/index'; // Changed import
+import { useAtomValue, useSetAtom } from 'jotai';
+import { analysisPageVisualStateAtom, refreshBaseDataAtom } from '@/atoms/index';
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
-
-type AnalysisState = "checking_status" | "in_progress" | "finished" | "failed";
 
 export function StatisticalUnitsRefresher({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const [state, setState] = useState<AnalysisState>("checking_status");
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  // Get status from Jotai hook
-  const { workerStatus, hasStatisticalUnits, refreshBaseData } = useBaseData(); // Added refreshBaseData
-  // Get setter for the action atom
-  // const doRefreshHasStatisticalUnits = useSetAtom(refreshHasStatisticalUnitsAtomAction); // Removed
-
-  // Effect to determine component state based on context status
+  const [mounted, setMounted] = useState(false);
   useEffect(() => {
-    const { isImporting, isDerivingUnits, isDerivingReports, loading, error } = workerStatus;
+    setMounted(true);
+  }, []);
 
-    if (loading) {
-      setState("checking_status");
+  const actualVisualState = useAtomValue(analysisPageVisualStateAtom);
+  
+  // Determine the state to use for rendering. Default to "checking_status" if not yet mounted.
+  const visualStateToRender = mounted ? actualVisualState : {
+    state: "checking_status" as const, // Ensure type correctness
+    message: "Checking status of data analysis...", // Default message for checking_status
+    isImporting: null,
+    isDerivingUnits: null,
+    isDerivingReports: null,
+  };
+  const { state, message, isImporting, isDerivingUnits, isDerivingReports } = visualStateToRender;
+  
+  const { workerStatus, hasStatisticalUnits } = useBaseData(); // For the effect's logic
+  const doRefreshBaseData = useSetAtom(refreshBaseDataAtom);
+  const refreshAttemptedRef = useRef(false);
+
+  useEffect(() => {
+    if (!mounted) { // Don't run the effect's logic until mounted
       return;
     }
 
-    if (error) {
-      setState("failed");
-      setErrorMessage(`Error checking derivation status: ${error}`);
-      return;
+    // Condition to trigger refresh:
+    // 1. All backend jobs are done (not importing, not deriving units, not deriving reports).
+    // 2. No errors in workerStatus.
+    // 3. Statistical units are not yet confirmed (hasStatisticalUnits is false).
+    // 4. Refresh hasn't been attempted yet in this component instance.
+    if (
+      !workerStatus.loading &&
+      !workerStatus.error &&
+      !workerStatus.isImporting &&
+      !workerStatus.isDerivingUnits &&
+      !workerStatus.isDerivingReports &&
+      !hasStatisticalUnits &&
+      !refreshAttemptedRef.current
+    ) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("StatisticalUnitsRefresher: All jobs complete, no units yet. Triggering refreshBaseData.");
+      }
+      doRefreshBaseData();
+      refreshAttemptedRef.current = true;
     }
-
-    if (isImporting === true || isDerivingUnits === true || isDerivingReports === true) {
-      setState("in_progress");
-    } else {
-      // Import and Derivation are finished according to context, now check if units exist
-      const checkUnits = async () => {
-        await refreshBaseData(); // Refresh base data which includes hasStatisticalUnits
-        // hasStatisticalUnits from useBaseData() will be updated once baseDataAtom re-evaluates.
-        // The useEffect dependency on hasStatisticalUnits will cause a re-run if it changes.
-        // For this specific checkUnits call, we rely on the subsequent re-render/re-evaluation.
-        if (hasStatisticalUnits) { // Use the hasStatisticalUnits from useBaseData after refresh
-          setState("finished");
-        } else {
-          // Derivation finished, but no units found
-          setState("failed");
-          setErrorMessage("Data analysis completed, but no statistical units were found.");
-        }
-      };
-      checkUnits();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [workerStatus, refreshBaseData, hasStatisticalUnits]); // Added hasStatisticalUnits to deps
+  }, [mounted, workerStatus, hasStatisticalUnits, doRefreshBaseData]); // Added mounted to dependencies
 
   if (state === "checking_status") {
-    return <Spinner message="Checking status of data analysis..." />;
+    return <Spinner message={message || "Checking status..."} />;
   }
 
-  const { isImporting, isDerivingUnits, isDerivingReports } = workerStatus;
-
-  // Double-check: Ensure isActive strictly expects boolean
   const renderStatusItem = (
     label: string,
-    isActive: boolean,
+    isActive: boolean | null, // Can be null from workerStatus
     isDone: boolean
   ) => {
     return (
       <div className="flex items-center space-x-3 py-2">
         <div className="w-8">
-          {isActive ? (
+          {isActive === true ? ( // Explicitly check for true
             <Spinner className="h-6 w-6" />
           ) : isDone ? (
             <CheckCircle className="h-6 w-6 text-green-500" />
@@ -82,7 +81,7 @@ export function StatisticalUnitsRefresher({
           )}
         </div>
         <div className="flex-1">
-          <p className={`font-medium ${isActive ? "text-black" : "text-gray-600"}`}>
+          <p className={`font-medium ${isActive === true ? "text-black" : "text-gray-600"}`}>
             {label}
           </p>
         </div>
@@ -91,25 +90,23 @@ export function StatisticalUnitsRefresher({
   };
 
   if (state === "in_progress" || state === "finished") {
-    // Determine which steps are done based on current state
-    // Ensure results are boolean, handling potential nulls from workerStatus
     const importDone = !!(state === "finished" || (!isImporting && (isDerivingUnits || isDerivingReports)));
     const unitsDone = !!(state === "finished" || (!isDerivingUnits && isDerivingReports));
-    const reportsDone = state === "finished"; // This is already boolean
+    const reportsDone = state === "finished";
 
     return (
       <div className="space-y-6">
         <div className="bg-white rounded-lg border p-4 shadow-sm">
           <h3 className="text-lg font-medium mb-4">Analysis Progress</h3>
           
-          {renderStatusItem("Importing Data", isImporting ?? false, importDone)}
-          {renderStatusItem("Deriving Statistical Units", isDerivingUnits ?? false, unitsDone)}
-          {renderStatusItem("Generating Reports", isDerivingReports ?? false, reportsDone)}
+          {renderStatusItem("Importing Data", isImporting, importDone)}
+          {renderStatusItem("Deriving Statistical Units", isDerivingUnits, unitsDone)}
+          {renderStatusItem("Generating Reports", isDerivingReports, reportsDone)}
           
           {state === "finished" && (
             <div className="mt-4 pt-4 border-t border-gray-200 text-center">
               <p className="text-green-600 font-medium">
-                All processes completed successfully
+                {message || "All processes completed successfully"}
               </p>
             </div>
           )}
@@ -130,11 +127,11 @@ export function StatisticalUnitsRefresher({
         <p className="text-gray-700 mb-2">
           Data analysis for Search and Reports failed to complete.
         </p>
-        <p className="text-red-500 text-sm">{errorMessage}</p>
+        <p className="text-red-500 text-sm">{message}</p>
       </div>
     );
   }
 
-  // Fallback (should not reach here)
+  // Fallback (should ideally not be reached if visualState covers all cases)
   return <Spinner message="Processing..." />;
 }

@@ -1,4 +1,5 @@
 "use client";
+import { useEffect, useState } from "react";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
 import { useBaseData, useImportManager } from "@/atoms/hooks";
 import { Spinner } from "@/components/ui/spinner";
@@ -6,23 +7,27 @@ import { FileText, BarChart2, Building2, Store, Building } from "lucide-react";
 import type { WorkerStatus } from "@/atoms/index"; // Import the type
 
 export default function ImportStatus() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const {
     counts: {
       legalUnits,
       establishmentsWithLegalUnit,
       establishmentsWithoutLegalUnit,
     },
-    // No longer need importState here
   } = useImportManager(); // Updated hook call
   const { hasStatisticalUnits, workerStatus } = useBaseData();
 
-  // Explicitly type workerStatus if inference is failing
-  const typedWorkerStatus = workerStatus as WorkerStatus;
+  // Safely access workerStatus properties, defaulting if not mounted or workerStatus is null/undefined
+  const safeWorkerStatus = workerStatus || {};
 
   // Determine if any import process is active using workerStatus only
-  const isImporting = typedWorkerStatus.isImporting ?? false;
-  const isDeriving =
-    (typedWorkerStatus.isDerivingUnits || typedWorkerStatus.isDerivingReports) ?? false;
+  const isImporting = mounted ? (safeWorkerStatus.isImporting ?? false) : false;
+  const isDeriving = mounted ?
+    ((safeWorkerStatus.isDerivingUnits || safeWorkerStatus.isDerivingReports) ?? false) : false;
 
   return (
     <nav>
@@ -34,10 +39,10 @@ export default function ImportStatus() {
         <ul className="text-sm ml-2">
           <li className="mb-6">
             <NavItem
-              done={!!legalUnits}
+              done={mounted ? !!legalUnits : false}
               title="Upload Legal Units"
               href="/import/legal-units"
-              subtitle={`${legalUnits || 0} legal units uploaded`}
+              subtitle={`${(mounted ? legalUnits : null) || 0} legal units uploaded`}
               icon={<Building2 className="w-4 h-4" />}
               // Simplified processing indicator - maybe just use general isImporting?
               // Or remove processing indicator from individual steps?
@@ -48,11 +53,11 @@ export default function ImportStatus() {
           </li>
           <li className="mb-6">
             <NavItem
-              done={!!establishmentsWithLegalUnit}
+              done={mounted ? !!establishmentsWithLegalUnit : false}
               title="Upload Establishments (optional)"
               href="/import/establishments"
               subtitle={`${
-                establishmentsWithLegalUnit || 0
+                (mounted ? establishmentsWithLegalUnit : null) || 0
               } formal establishments uploaded`}
               icon={<Store className="w-4 h-4" />}
               // Remove specific indicator
@@ -64,11 +69,11 @@ export default function ImportStatus() {
         <ul className="text-sm ml-2">
           <li className="mb-6">
             <NavItem
-              done={!!establishmentsWithoutLegalUnit}
+              done={mounted ? !!establishmentsWithoutLegalUnit : false}
               title="Upload Establishments Without Legal Units"
               href="/import/establishments-without-legal-unit"
               subtitle={`${
-                establishmentsWithoutLegalUnit || 0
+                (mounted ? establishmentsWithoutLegalUnit : null) || 0
               } informal establishments uploaded`}
               icon={<Building className="w-4 h-4" />}
               // Remove specific indicator
@@ -91,7 +96,7 @@ export default function ImportStatus() {
           </li>
           <li className="mb-6">
             <NavItem
-              done={hasStatisticalUnits}
+              done={mounted ? hasStatisticalUnits : false}
               title="Analyze Data"
               href="/import/analyse-data-for-search-and-reports"
               subtitle="Prepare for search and reports"
