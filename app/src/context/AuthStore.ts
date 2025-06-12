@@ -380,7 +380,22 @@ class AuthStore {
         }
 
         // --- Process Successful Refresh ---
-        const refreshData = await refreshResponse.json(); 
+        let refreshData;
+        let rawResponseText = ''; // Variable to store raw text
+        try {
+          // First, try to get the text of the response, in case .json() fails
+          // and consumes the body stream. Clone the response to read its body twice.
+          const clonedResponse = refreshResponse.clone();
+          rawResponseText = await clonedResponse.text();
+          refreshData = await refreshResponse.json();
+        } catch (jsonError: any) {
+          console.error(`AuthStore.handleServerAuth: Failed to parse JSON from refresh response. Status: ${refreshResponse.status}. Raw response text: "${rawResponseText}"`, jsonError);
+          // If JSON parsing fails, treat as an error in refresh logic
+          responseCookies.delete('statbus');
+          responseCookies.delete('statbus-refresh');
+          return { status: { isAuthenticated: false, user: null, tokenExpiring: false } };
+        }
+        
         // _parseAuthStatusRpcResponseToAuthStatus returns the core fields, matching AuthStore's AuthStatus
         currentStatus = _parseAuthStatusRpcResponseToAuthStatus(refreshData);
         if (process.env.DEBUG === 'true') {
