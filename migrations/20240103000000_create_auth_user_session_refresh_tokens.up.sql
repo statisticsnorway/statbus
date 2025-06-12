@@ -836,7 +836,7 @@ BEGIN
     END IF;
     
     -- Decode the JWT to get the claims
-    SELECT payload::json INTO claims 
+    SELECT payload::json INTO claims
     FROM verify(refresh_token, current_setting('app.settings.jwt_secret'));
   END;
   

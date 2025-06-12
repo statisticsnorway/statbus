@@ -1355,6 +1355,8 @@ BEGIN
     RAISE DEBUG 'Refresh response (no cookie): %', refresh_response;
     ASSERT (refresh_response->>'is_authenticated')::boolean IS FALSE, 'Should be unauthenticated if no refresh cookie.';
     ASSERT refresh_response->>'error_code' = 'REFRESH_NO_TOKEN_COOKIE', format('Error code mismatch for no refresh cookie. Got: %L', refresh_response->>'error_code');
+    ASSERT current_setting('response.status', true) = '401', 'Test 9.1: response.status should be 401 for no refresh token cookie.';
+    RAISE NOTICE 'Test 9.1: public.refresh is expected to set HTTP status 401 for no refresh token cookie.';
 
     -- Case 2: Invalid token type (e.g., an access token used as refresh)
     RAISE NOTICE 'Test 9.2: Invalid token type (access token as refresh)';
@@ -1366,6 +1368,8 @@ BEGIN
         RAISE DEBUG 'Refresh response (access token as refresh): %', refresh_response;
         ASSERT (refresh_response->>'is_authenticated')::boolean IS FALSE, 'Should be unauthenticated if access token used as refresh.';
         ASSERT refresh_response->>'error_code' = 'REFRESH_INVALID_TOKEN_TYPE', format('Error code mismatch for invalid token type. Got: %L', refresh_response->>'error_code');
+        ASSERT current_setting('response.status', true) = '401', 'Test 9.2: response.status should be 401 for invalid token type.';
+        RAISE NOTICE 'Test 9.2: public.refresh is expected to set HTTP status 401 for invalid token type.';
     END;
 
     -- Case 3: User not found or deleted (tamper sub in a valid refresh token)
@@ -1383,6 +1387,8 @@ BEGIN
     RAISE DEBUG 'Refresh response (user not found): %', refresh_response;
     ASSERT (refresh_response->>'is_authenticated')::boolean IS FALSE, 'Should be unauthenticated if user not found.';
     ASSERT refresh_response->>'error_code' = 'REFRESH_USER_NOT_FOUND_OR_DELETED', format('Error code mismatch for user not found. Got: %L', refresh_response->>'error_code');
+    ASSERT current_setting('response.status', true) = '401', 'Test 9.3: response.status should be 401 for user not found/deleted.';
+    RAISE NOTICE 'Test 9.3: public.refresh is expected to set HTTP status 401 for user not found/deleted.';
 
     -- Case 4: Session invalid or superseded (tamper jti or version in a valid refresh token)
     RAISE NOTICE 'Test 9.4: Session invalid/superseded';
@@ -1399,6 +1405,8 @@ BEGIN
     RAISE DEBUG 'Refresh response (session invalid): %', refresh_response;
     ASSERT (refresh_response->>'is_authenticated')::boolean IS FALSE, 'Should be unauthenticated if session invalid.';
     ASSERT refresh_response->>'error_code' = 'REFRESH_SESSION_INVALID_OR_SUPERSEDED', format('Error code mismatch for invalid session. Got: %L', refresh_response->>'error_code');
+    ASSERT current_setting('response.status', true) = '401', 'Test 9.4: response.status should be 401 for invalid/superseded session.';
+    RAISE NOTICE 'Test 9.4: public.refresh is expected to set HTTP status 401 for invalid/superseded session.';
 
     RAISE NOTICE 'Test 9: Token Refresh Failure Modes - PASSED';
 EXCEPTION
