@@ -532,7 +532,9 @@ export const JotaiStateInspector = () => {
     setMounted(true);
   }, []);
 
-  if (process.env.NEXT_PUBLIC_DEBUG !== 'true' && process.env.NODE_ENV === 'production') {
+  // Show if NEXT_PUBLIC_DEBUG is true OR if NODE_ENV is 'development'.
+  // Hide if NEXT_PUBLIC_DEBUG is NOT true AND NODE_ENV is NOT 'development'.
+  if (process.env.NEXT_PUBLIC_DEBUG !== 'true' && process.env.NODE_ENV !== 'development') {
     return null;
   }
 
