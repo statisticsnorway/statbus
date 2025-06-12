@@ -25,7 +25,7 @@ Core conventions for the Next.js (v15) application. For project-wide, SQL, or in
         - Avoid Redundant Comments: Do not add comments that merely restate what the code is doing (e.g., `// increment i` for `i++`). Similarly, comments detailing trivial changes like "removed line X" or "added import Y" are redundant as Git tracks these. Such comments add noise and reduce readability.
 
 ## State Management (Jotai)
-- **Primary Library**: Jotai is used for client-side global state management.
+- **Primary Library**: Jotai is used for client-side global state management. For more details on Jotai utilities and extensions relevant to this project, see [Jotai Utilities and Extensions for STATBUS](../doc/jotai.md).
 - **Core Atoms**: Located in `app/src/atoms/index.ts`. Define base state units here.
     - Use `atomWithStorage` for persistent state (e.g., user preferences).
 - **Utility Hooks**: Custom hooks for interacting with atoms and encapsulating common logic are in `app/src/atoms/hooks.ts`.
