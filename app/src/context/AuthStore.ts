@@ -381,13 +381,22 @@ class AuthStore {
 
         // --- Process Successful Refresh ---
         let refreshData;
-        let rawResponseText = ''; // Variable to store raw text
+        let rawResponseText = ''; 
         try {
-          // First, try to get the text of the response, in case .json() fails
-          // and consumes the body stream. Clone the response to read its body twice.
-          const clonedResponse = refreshResponse.clone();
-          rawResponseText = await clonedResponse.text();
-          refreshData = await refreshResponse.json();
+          // Read the response body as text first.
+          rawResponseText = await refreshResponse.text(); 
+
+          if (!rawResponseText) {
+            // If the response body is empty, even for a 200 OK, treat it as a failure
+            // because we expect a JSON payload (auth.auth_response).
+            console.error(`AuthStore.handleServerAuth: Refresh response body is empty. Status: ${refreshResponse.status}. This indicates an issue with the /rpc/refresh endpoint not returning the expected auth_response JSON.`);
+            responseCookies.delete('statbus');
+            responseCookies.delete('statbus-refresh');
+            return { status: { isAuthenticated: false, user: null, tokenExpiring: false } };
+          }
+
+          // If we have a non-empty body, try to parse it as JSON.
+          refreshData = JSON.parse(rawResponseText);
         } catch (jsonError: any) {
           console.error(`AuthStore.handleServerAuth: Failed to parse JSON from refresh response. Status: ${refreshResponse.status}. Raw response text: "${rawResponseText}"`, jsonError);
           // If JSON parsing fails, treat as an error in refresh logic
