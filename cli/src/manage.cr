@@ -451,13 +451,13 @@ module Statbus
     # To enable, edit .env: set DEBUG=true and comment out/remove DEBUG=false.
     # To disable, edit .env: set DEBUG=false and comment out/remove DEBUG=true.
     # This setting is sourced from DEBUG in .env.config (defaults to false).
-    <%- if config.debug == "true" -%>
-    DEBUG=true
-    #DEBUG=false
-    <%- else -%>
-    #DEBUG=true
-    DEBUG=false
-    <%- end -%>
+    #{
+      if config.debug == "true"
+        "DEBUG=true\n#DEBUG=false"
+      else
+        "#DEBUG=true\nDEBUG=false"
+      end
+    }
     EOS
       content += "\n\n"
 
@@ -521,13 +521,13 @@ module Statbus
     # To enable, edit .env: set NEXT_PUBLIC_DEBUG=true and comment out/remove NEXT_PUBLIC_DEBUG=false.
     # To disable, edit .env: set NEXT_PUBLIC_DEBUG=false and comment out/remove NEXT_PUBLIC_DEBUG=true.
     # This setting is sourced from NEXT_PUBLIC_DEBUG in .env.config (defaults to false).
-    <%- if config.next_public_debug == "true" -%>
-    NEXT_PUBLIC_DEBUG=true
-    #NEXT_PUBLIC_DEBUG=false
-    <%- else -%>
-    #NEXT_PUBLIC_DEBUG=true
-    NEXT_PUBLIC_DEBUG=false
-    <%- end -%>
+    #{
+      if config.next_public_debug == "true"
+        "NEXT_PUBLIC_DEBUG=true\n#NEXT_PUBLIC_DEBUG=false"
+      else
+        "#NEXT_PUBLIC_DEBUG=true\nNEXT_PUBLIC_DEBUG=false"
+      end
+    }
     #
     ################################################################
     EOS
