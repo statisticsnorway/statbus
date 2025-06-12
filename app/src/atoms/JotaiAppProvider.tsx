@@ -143,7 +143,9 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource = new EventSource('/api/sse/worker-check')
         
         eventSource.onopen = () => {
-          // console.log('SSE connection established')
+          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+            console.log('SSE connection established');
+          }
           reconnectAttempts = 0
         }
         
@@ -385,7 +387,8 @@ export const AtomDevtools = () => {
     setMounted(true);
   }, []);
   
-  if (process.env.NODE_ENV !== 'development') {
+  // Use NEXT_PUBLIC_DEBUG for client-side conditional rendering of devtools
+  if (process.env.NEXT_PUBLIC_DEBUG !== 'true' && process.env.NODE_ENV === 'production') {
     return null
   }
 

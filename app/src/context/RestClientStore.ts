@@ -100,7 +100,7 @@ class RestClientStore {
         clientInfo.lastInitTime = Date.now();
         clientInfo.error = null;
 
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') { // Browser-side, use NEXT_PUBLIC_DEBUG
           console.log(`Browser PostgREST client initialized`, { url: client.url });
         }
 
@@ -129,13 +129,11 @@ class RestClientStore {
         initPromise: null,
         lastInitTime: 0
       };
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') { // Browser-side, use NEXT_PUBLIC_DEBUG
         console.log(`Browser client cache cleared`);
       }
     }
-    if (type === 'server' && process.env.NODE_ENV === 'development') {
-       console.log(`Server client cache does not exist, clearCache ignored`);
-    }
+    // Server client cache is not managed here, so no log for type === 'server'
   }
 
   /**
@@ -203,7 +201,7 @@ class RestClientStore {
             // Use provided cookies if available
             const tokenCookie = serverRequestCookies.get("statbus");
             tokenValue = tokenCookie?.value;
-            if (process.env.NODE_ENV === 'development' && tokenValue) {
+            if (process.env.DEBUG === 'true' && tokenValue) { // Server-side, use DEBUG
               console.log(`RestClientStore: Using token from provided serverRequestCookies for server client.`);
             }
           } else {
@@ -213,7 +211,7 @@ class RestClientStore {
               const cookieStore = await nextCookiesFn();
               const tokenCookie = cookieStore.get("statbus");
               tokenValue = tokenCookie?.value;
-              if (process.env.NODE_ENV === 'development' && tokenValue) {
+              if (process.env.DEBUG === 'true' && tokenValue) { // Server-side, use DEBUG
                 console.log(`RestClientStore: Using token from next/headers for server client.`);
               }
             } catch (error) {
@@ -224,7 +222,7 @@ class RestClientStore {
           if (tokenValue) {
             headers['Authorization'] = `Bearer ${tokenValue}`;
           } else {
-            if (process.env.NODE_ENV === 'development') {
+            if (process.env.DEBUG === 'true') { // Server-side, use DEBUG
               console.log(`RestClientStore: No 'statbus' token found for server client. Client will be unauthenticated.`);
             }
           }
@@ -237,7 +235,7 @@ class RestClientStore {
           timeoutPromise
         ]);
         // Log initialization attempt for server client
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env.DEBUG === 'true') { // Server-side, use DEBUG
           console.log(`Server PostgREST client initialized`, { url: client.url });
         }
         return client;
@@ -303,7 +301,7 @@ class RestClientStore {
     options: RequestInit = {}
   ): Promise<Response> {
     // const callStack = new Error().stack?.split('\n').slice(2, 5).join('\n'); // Get a snippet of the call stack
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
       // console.log(`[RestClientStore.fetchWithAuthRefresh ENTRY] URL: ${url}, Options:`, JSON.stringify(options), `\nCaller: ${callStack}`);
       console.debug(`[RestClientStore.fetchWithAuthRefresh] URL: ${url}`); // Keep a less verbose debug log
     }
@@ -312,18 +310,18 @@ class RestClientStore {
     // These calls manage their own session setup/teardown and don't need the 401 refresh logic.
     // They also need the most direct path for Set-Cookie headers to be effective.
     if (url.endsWith("/rest/rpc/login") || url.endsWith("/rest/rpc/logout")) {
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.debug(`[RestClientStore.fetchWithAuthRefresh SIMPLIFIED_PATH] For ${url}.`);
       }
       const fetchOptions = {
         ...options,
         credentials: 'include' as RequestCredentials
       };
-      // if (process.env.NODE_ENV === 'development') {
+      // if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
       //   console.log(`[RestClientStore.fetchWithAuthRefresh SIMPLIFIED_PATH] Native fetch options for ${url}:`, JSON.stringify(fetchOptions));
       // }
       const response = await fetch(url, fetchOptions);
-      if (process.env.NODE_ENV === 'development') {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         const setCookieHeader = response.headers.get('Set-Cookie');
         console.debug(`[RestClientStore.fetchWithAuthRefresh SIMPLIFIED_PATH] Response for ${url}: Status ${response.status}. Set-Cookie present: ${!!setCookieHeader}`);
       }
@@ -398,11 +396,11 @@ class RestClientStore {
           },
           credentials: 'include' as RequestCredentials
         };
-        // if (process.env.NODE_ENV === 'development') {
+        // if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         //   console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Native fetch options for ${refreshApiUrl}:`, JSON.stringify(refreshFetchOptions));
         // }
         const refreshApiResponse = await fetch(refreshApiUrl, refreshFetchOptions);
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
           console.debug(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Response for ${refreshApiUrl}: Status ${refreshApiResponse.status}`);
           // const refreshResponseHeaders: Record<string, string> = {};
           // refreshApiResponse.headers.forEach((value, key) => { refreshResponseHeaders[key] = value; });
@@ -437,7 +435,7 @@ class RestClientStore {
         //   console.log(`[RestClientStore.fetchWithAuthRefresh RETRY_AFTER_REFRESH] Native fetch options for ${url}:`, JSON.stringify(retryFetchOptions));
         // }
         response = await fetch(url, retryFetchOptions);
-        if (process.env.NODE_ENV === 'development') {
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
           console.debug(`[RestClientStore.fetchWithAuthRefresh RETRY_AFTER_REFRESH] Response for ${url}: Status ${response.status}`);
           // const retryResponseHeaders: Record<string, string> = {};
           // response.headers.forEach((value, key) => { retryResponseHeaders[key] = value; });
