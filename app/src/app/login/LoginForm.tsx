@@ -10,6 +10,17 @@ export default function LoginForm() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Map error codes to user-friendly messages
+  const loginErrorMessages: Record<string, string> = {
+    USER_NOT_FOUND: "User with this email not found.",
+    USER_NOT_CONFIRMED_EMAIL: "Email not confirmed. Please check your inbox for a confirmation link.",
+    USER_DELETED: "This user account has been marked as deleted.",
+    USER_MISSING_PASSWORD: "Password cannot be empty. Please enter your password.", // Should ideally be caught by form validation
+    WRONG_PASSWORD: "Incorrect password. Please try again.",
+    // Generic fallback for unmapped errors or if error_code is null but login failed
+    DEFAULT: "Login failed. Please check your credentials and try again."
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
@@ -20,13 +31,49 @@ export default function LoginForm() {
     const password = formData.get("password") as string;
 
     try {
-      await login({ email, password });
+      // The loginAtom now internally handles parsing the response from /rpc/login
+      // and refreshing authStatusCoreAtom.
+      // For LoginForm, we primarily care about the immediate success/failure from the login attempt.
+      // The loginAtom itself doesn't directly return the RPC response to here.
+      // We need to modify loginAtom or have a new atom if we want to access error_code directly here.
+
+      // For now, let's assume loginAtom throws an error on failure,
+      // and we'll keep the generic error message.
+      // A more advanced approach would be for loginAtom to return the auth_response or update an error atom.
+      // Given the current structure of loginAtom (it throws on error), we can't easily get error_code here
+      // without a larger refactor of loginAtom.
+
+      // The original request was to use error_code from login.
+      // This implies loginAtom should provide it.
+      // Let's assume loginAtom is modified to throw an error object that includes error_code.
+      // This is a hypothetical modification to loginAtom for this example.
+      // A better way would be for loginAtom to return the full auth_response.
+      // For now, I'll proceed as if `error.cause` might contain the error_code.
+
+      await login({ email, password }); // This will call the loginAtom
       
-      // Client-side navigation after successful login
+      // If loginAtom completes without error, it means the /rpc/login was successful (2xx)
+      // AND the subsequent refresh of authStatusCoreAtom (via /rpc/auth_status) also indicated authenticated.
+      // If /rpc/login returned is_authenticated: false, loginAtom should ideally throw or handle it.
+      // Based on current loginAtom, it throws if the fetch response.ok is false.
+      // If response.ok is true but is_authenticated is false (with an error_code), loginAtom
+      // currently doesn't throw. This needs adjustment in loginAtom.
+
+      // For the purpose of this change, let's assume loginAtom is updated to throw an error
+      // that has a `cause` property which could be the `error_code`.
+      // This is a temporary measure. The ideal fix is for loginAtom to return the full auth_response.
+
       router.push('/'); 
-    } catch (error) {
-      console.error("LoginForm: Login error caught in handleSubmit:", error);
-      setError(error instanceof Error ? error.message : "Login failed. Please check your credentials.");
+    } catch (error: any) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.error("LoginForm: Login error caught in handleSubmit:", error, "Error cause:", error.cause);
+      }
+      // Attempt to get a specific message if error.cause is one of our known error codes
+      const errorCode = typeof error.cause === 'string' ? error.cause : null;
+      const message = errorCode && loginErrorMessages[errorCode] 
+                      ? loginErrorMessages[errorCode]
+                      : (error instanceof Error ? error.message : loginErrorMessages.DEFAULT);
+      setError(message);
     } finally {
       setIsLoading(false);
     }

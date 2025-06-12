@@ -34,6 +34,7 @@ export interface AuthStatus {
   isAuthenticated: boolean;
   tokenExpiring: boolean;
   user: User | null;
+  error_code: string | null; // Added error_code
 }
 
 
@@ -55,6 +56,7 @@ class AuthStore {
     isAuthenticated: false,
     user: null,
     tokenExpiring: false,
+    error_code: null,
   };
   private fetchStatus: FetchStatus = "idle";
   private fetchPromise: Promise<AuthStatus> | null = null;
@@ -106,7 +108,7 @@ class AuthStore {
       if (process.env.DEBUG === 'true') {
         console.log("AuthStore.getAuthStatus: Returning unauthenticated state due to error");
       }
-      return { isAuthenticated: false, user: null, tokenExpiring: false }; // loading is implicitly false for a resolved state
+      return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'AUTH_STORE_FETCH_ERROR' };
     }
   }
 
@@ -142,6 +144,7 @@ class AuthStore {
       isAuthenticated: false,
       user: null,
       tokenExpiring: false,
+      error_code: null,
     };
     this.fetchStatus = "idle";
     this.lastFetchTime = 0;
@@ -283,8 +286,8 @@ class AuthStore {
       const { data, error } = await client.rpc("auth_status");
       
       if (error) {
-        console.error("Auth status check failed:", error);
-        return { isAuthenticated: false, user: null, tokenExpiring: false }; // loading is implicitly false
+        console.error("AuthStore.fetchAuthStatus: Auth status check RPC failed:", error);
+        return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'RPC_ERROR' };
       }
     
       // _parseAuthStatusRpcResponseToAuthStatus returns Omit<JotaiAuthStatus, 'loading'>
@@ -293,7 +296,7 @@ class AuthStore {
     
       return result;
     } catch (error) {
-      console.error("AuthStore.fetchAuthStatus: Error checking auth status:", error);
+      console.error("AuthStore.fetchAuthStatus: Exception during auth status check:", error);
       if (error instanceof Error) {
         console.error("AuthStore.fetchAuthStatus: Error details:", {
           name: error.name,
@@ -301,7 +304,7 @@ class AuthStore {
           stack: error.stack,
         });
       }
-      return { isAuthenticated: false, user: null, tokenExpiring: false }; // loading is implicitly false
+      return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'FETCH_EXCEPTION' };
     }
   }
   
@@ -375,8 +378,7 @@ class AuthStore {
           console.error(`AuthStore.handleServerAuth: Refresh fetch failed: ${refreshResponse.status} ${refreshResponse.statusText}. Body: ${errorBody}`);
           responseCookies.delete('statbus');
           responseCookies.delete('statbus-refresh');
-          // AuthStore's AuthStatus doesn't have 'loading', it's implicitly false for a resolved state.
-          return { status: { isAuthenticated: false, user: null, tokenExpiring: false } };
+          return { status: { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_HTTP_ERROR' } };
         }
 
         // --- Process Successful Refresh ---
@@ -392,7 +394,7 @@ class AuthStore {
             console.error(`AuthStore.handleServerAuth: Refresh response body is empty. Status: ${refreshResponse.status}. This indicates an issue with the /rpc/refresh endpoint not returning the expected auth_response JSON.`);
             responseCookies.delete('statbus');
             responseCookies.delete('statbus-refresh');
-            return { status: { isAuthenticated: false, user: null, tokenExpiring: false } };
+            return { status: { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_EMPTY_RESPONSE' } };
           }
 
           // If we have a non-empty body, try to parse it as JSON.
@@ -402,13 +404,17 @@ class AuthStore {
           // If JSON parsing fails, treat as an error in refresh logic
           responseCookies.delete('statbus');
           responseCookies.delete('statbus-refresh');
-          return { status: { isAuthenticated: false, user: null, tokenExpiring: false } };
+          return { status: { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_JSON_PARSE_ERROR' } };
         }
         
         // _parseAuthStatusRpcResponseToAuthStatus returns the core fields, matching AuthStore's AuthStatus
-        currentStatus = _parseAuthStatusRpcResponseToAuthStatus(refreshData);
+        currentStatus = _parseAuthStatusRpcResponseToAuthStatus(refreshData); // This now includes error_code
         if (process.env.DEBUG === 'true') {
           console.log("[AuthStore.handleServerAuth] Status after parsing refresh response:", JSON.stringify(currentStatus));
+        }
+
+        if (!currentStatus.isAuthenticated && currentStatus.error_code && process.env.DEBUG === 'true') {
+          console.warn(`[AuthStore.handleServerAuth] Refresh RPC returned unauthenticated with error_code: ${currentStatus.error_code}`);
         }
 
         // Cookies are set by the Set-Cookie headers from refreshResponse.
@@ -456,15 +462,16 @@ class AuthStore {
             }
           } else {
             // If RPC says authenticated but no access token cookie, or RPC says not authenticated
-            console.error("AuthStore.handleServerAuth: Refresh issue. RPC status:", currentStatus.isAuthenticated, "Access token cookie present:", !!newAccessTokenCookie?.value);
-            currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false }; 
+            console.error(`AuthStore.handleServerAuth: Refresh issue. RPC status: ${currentStatus.isAuthenticated}, Access token cookie present: ${!!newAccessTokenCookie?.value}, Error code: ${currentStatus.error_code}`);
+            // Preserve error_code if available from the parsed refreshData
+            currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false, error_code: currentStatus.error_code || 'REFRESH_POST_PROCESS_FAIL' }; 
             responseCookies.delete('statbus'); 
             responseCookies.delete('statbus-refresh');
           }
 
         } else {
-           console.error("AuthStore.handleServerAuth: Refresh succeeded (RPC returned auth status) but no Set-Cookie headers received from refreshResponse.");
-           currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false };
+           console.error("AuthStore.handleServerAuth: Refresh RPC response processed, but no Set-Cookie headers received from refreshResponse. This is unexpected if refresh was successful and returned authenticated.");
+           currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_NO_SET_COOKIE' };
            responseCookies.delete('statbus');
            responseCookies.delete('statbus-refresh');
         }
@@ -472,7 +479,7 @@ class AuthStore {
         console.error("AuthStore.handleServerAuth: Error during refresh fetch or processing:", error);
         responseCookies.delete('statbus');
         responseCookies.delete('statbus-refresh');
-        currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false };
+        currentStatus = { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'REFRESH_EXCEPTION' };
       }
     }
 

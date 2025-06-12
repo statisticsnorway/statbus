@@ -30,6 +30,7 @@ export interface AuthStatus {
   isAuthenticated: boolean
   tokenExpiring: boolean
   user: User | null
+  error_code: string | null; // Added error_code
 }
 
 // Base auth atom - now an async atom
@@ -40,18 +41,18 @@ export const authStatusCoreAtom = atomWithRefresh(async (get) => {
   if (!client) {
     // Return a default unauthenticated state if client isn't ready
     // This helps avoid errors if this atom is read before client initialization.
-    return { isAuthenticated: false, user: null, tokenExpiring: false };
+    return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: null };
   }
   try {
     const { data, error } = await client.rpc("auth_status");
     if (error) {
       console.error("authStatusCoreAtom: Auth status check failed:", error);
-      return { isAuthenticated: false, user: null, tokenExpiring: false };
+      return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'RPC_ERROR' };
     }
     return _parseAuthStatusRpcResponseToAuthStatus(data);
   } catch (e) {
     console.error("authStatusCoreAtom: Error fetching auth status:", e);
-    return { isAuthenticated: false, user: null, tokenExpiring: false };
+    return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'FETCH_ERROR' };
   }
 });
 
@@ -64,14 +65,16 @@ export const authStatusAtom = atom<AuthStatus>(
   (get): AuthStatus => { // Explicit return type for the getter
     const loadableState: Loadable<Omit<AuthStatus, 'loading'>> = get(authStatusLoadableAtom);
     if (loadableState.state === 'loading') {
-      return { loading: true, isAuthenticated: false, user: null, tokenExpiring: false };
+      return { loading: true, isAuthenticated: false, user: null, tokenExpiring: false, error_code: null };
     }
     if (loadableState.state === 'hasError') {
-      return { loading: false, isAuthenticated: false, user: null, tokenExpiring: false };
+      // Assuming the error in loadableState.error might be relevant, but AuthStatus needs a specific error_code field.
+      // For simplicity, setting a generic error_code here.
+      return { loading: false, isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'LOADABLE_ERROR' };
     }
     // loadableState.data is Omit<AuthStatus, 'loading'>
     const data: Omit<AuthStatus, 'loading'> = loadableState.data; // No need for ?? if hasData implies data exists
-    return { loading: false, ...data };
+    return { loading: false, ...data }; // error_code will be part of ...data
   }
 );
 
@@ -887,15 +890,24 @@ export const createImportJobAtom = atom<null, [string], Promise<Tables<'import_j
  */
 export const _parseAuthStatusRpcResponseToAuthStatus = (rpcResponseData: any): Omit<AuthStatus, 'loading'> => {
   // This helper returns the core status fields; 'loading' is managed by the calling action atom.
-  return rpcResponseData === null || !rpcResponseData.is_authenticated
-    ? {
-        isAuthenticated: false,
-        user: null,
-        tokenExpiring: false,
-      }
-    : {
-        isAuthenticated: rpcResponseData.is_authenticated,
-        tokenExpiring: rpcResponseData.token_expiring === true,
+  const baseStatus = {
+    isAuthenticated: rpcResponseData?.is_authenticated ?? false,
+    tokenExpiring: rpcResponseData?.token_expiring === true,
+    error_code: rpcResponseData?.error_code ?? null,
+  };
+
+  if (!baseStatus.isAuthenticated) {
+    if (baseStatus.error_code && process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      console.warn(`_parseAuthStatusRpcResponseToAuthStatus: Call resulted in unauthenticated state with error_code: ${baseStatus.error_code}`);
+    }
+    return {
+      ...baseStatus,
+      user: null,
+    };
+  }
+
+  return {
+        ...baseStatus,
         user: rpcResponseData.uid ? {
           uid: rpcResponseData.uid,
           sub: rpcResponseData.sub,
@@ -945,40 +957,70 @@ export const loginAtom = atom(
         credentials: 'include'
       });
 
-      // if (process.env.NODE_ENV === 'development') {
-      //   console.log(`[loginAtom] Fetch response for ${loginUrl}: Status ${response.status}, OK: ${response.ok}`);
-      //   const responseHeaders: Record<string, string> = {};
-      //   response.headers.forEach((value, key) => { responseHeaders[key] = value; });
-      //   console.log(`[loginAtom] Fetch response headers for ${loginUrl}:`, JSON.stringify(responseHeaders));
-      // }
-
-      const responseData = await response.json();
-      // if (process.env.NODE_ENV === 'development') {
-      //   console.log('[loginAtom] Response data:', JSON.stringify(responseData));
-      // }
+      let responseData: any;
+      try {
+        responseData = await response.json();
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          console.log('[loginAtom] Response data from /rpc/login:', JSON.stringify(responseData));
+        }
+      } catch (jsonError) {
+        // Handle cases where response body is not JSON or empty
+        if (!response.ok) {
+          // If the request failed (e.g. 401) and body is not JSON
+          const errorMsg = `Login failed: Server error ${response.status}. Non-JSON response.`;
+          console.error(`[loginAtom] ${errorMsg}`);
+          throw new Error(errorMsg, { cause: 'SERVER_NON_JSON_ERROR' });
+        }
+        // If response.ok but body is not JSON (unexpected for /rpc/login)
+        const errorMsg = 'Login failed: Invalid non-JSON response from server despite OK status.';
+        console.error('[loginAtom] Login response OK, but failed to parse JSON body:', jsonError, errorMsg);
+        throw new Error(errorMsg, { cause: 'CLIENT_INVALID_JSON_RESPONSE' });
+      }
 
       if (!response.ok) {
-        const errorMessage = responseData?.message || `Login failed with status: ${response.status}`;
-        console.error('[loginAtom] Login fetch not OK:', errorMessage);
-        throw new Error(errorMessage);
+        // response.ok is false (e.g., 401). responseData should contain error_code.
+        const serverMessage = responseData?.message; // Optional: if backend provides a human-readable message
+        const errorCode = responseData?.error_code;
+        // Use server message if available, otherwise a generic message.
+        // LoginForm.tsx will use loginErrorMessages based on errorCode for user display.
+        const displayMessage = serverMessage || `Login failed with status: ${response.status}`;
+
+        console.error(`[loginAtom] Login fetch not OK: ${displayMessage}`, errorCode ? `Error Code: ${errorCode}` : '');
+        throw new Error(displayMessage, { cause: errorCode || 'UNKNOWN_LOGIN_FAILURE' });
       }
       
+      // If response.ok (HTTP 200)
+      // According to docs, responseData should have is_authenticated: true and error_code: null.
+      // This block handles a deviation: 200 OK but payload indicates failure.
+      if (responseData && responseData.is_authenticated === false && responseData.error_code) {
+        const errorCode = responseData.error_code;
+        const serverMessage = responseData.message;
+        // Use loginErrorMessages from LoginForm.tsx, or server message, or default.
+        // This requires loginErrorMessages to be accessible here or duplicated.
+        // For simplicity, we'll use a generic message and rely on the cause.
+        const displayMessage = serverMessage || `Login indicated failure despite 200 OK. Error: ${errorCode}`;
+        console.warn(`[loginAtom] Login response OK (200), but payload indicates failure. Error Code: ${errorCode}. Message: ${displayMessage}`);
+        throw new Error(displayMessage, { cause: errorCode });
+      }
+
+      // Successfully authenticated (200 OK and is_authenticated: true implied or explicit from responseData)
       // After successful login, the backend sets cookies.
       // We need to refresh our authStatusCoreAtom to read the new state.
       set(authStatusCoreAtom); 
       await get(authStatusCoreAtom); // Ensure it re-fetches and updates.
       // The authStatusLoadableAtom will reflect the new state.
 
-    } catch (error) {
-      console.error('[loginAtom] Catch block error:', error);
+    } catch (error) { // Catches errors from fetch, response.json(), or explicitly thrown errors above
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.error('[loginAtom] Catch block error. Refreshing auth status and re-throwing.', error);
+      } else {
+        console.error('[loginAtom] Login attempt failed.'); // Less verbose for production
+      }
       // Refresh to ensure we have the latest (likely unauthenticated) status.
       set(authStatusCoreAtom); 
       await get(authStatusCoreAtom);
-      throw error;
+      throw error; // Re-throw to be caught by LoginForm.tsx
     }
-    //   if (process.env.NODE_ENV === 'development') {
-    //     console.log('[loginAtom EXIT]');
-    //   }
   }
 )
 
@@ -999,20 +1041,37 @@ export const clientSideRefreshAtom = atom<
     // if it were designed to attempt refresh on 401.
     // However, our authStatusCoreAtom just fetches /rpc/auth_status.
     // For an explicit client-side refresh, we still need to call the /rpc/refresh endpoint.
-    const { data, error } = await client.rpc('refresh');
+    const { data: refreshRpcResponse, error } = await client.rpc('refresh');
     if (error) {
-      console.error("Client-side refresh RPC failed:", error);
-      set(authStatusCoreAtom); 
+      console.error("clientSideRefreshAtom: Refresh RPC failed:", error);
+      set(authStatusCoreAtom); // Trigger a re-fetch of auth_status to get a consistent state
       await get(authStatusCoreAtom);
       return { success: false };
     }
-    // After successful RPC refresh, cookies are updated by the server.
+
+    // The 'refresh' RPC now returns an auth.auth_response object.
+    // We can parse it to check for is_authenticated and error_code.
+    const parsedRefreshStatus = _parseAuthStatusRpcResponseToAuthStatus(refreshRpcResponse);
+
+    if (!parsedRefreshStatus.isAuthenticated) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.warn(`clientSideRefreshAtom: Refresh RPC succeeded but returned unauthenticated. Error code: ${parsedRefreshStatus.error_code}`);
+      }
+      // Even if refresh "succeeded" but returned unauth, cookies might have been cleared by the server.
+      // Refresh authStatusCoreAtom to get the definitive state from /rpc/auth_status.
+      set(authStatusCoreAtom);
+      await get(authStatusCoreAtom); // Ensure it re-fetches and updates.
+      return { success: false }; // Indicate refresh didn't lead to an authenticated state.
+    }
+
+    // After successful RPC refresh AND if it indicates authenticated state, cookies are updated by the server.
     // Refresh our authStatusCoreAtom to reflect the new state.
     set(authStatusCoreAtom); 
-    const newCoreStatus = await get(authStatusCoreAtom);
+    const newCoreStatus = await get(authStatusCoreAtom); // This will be Omit<AuthStatus, 'loading'>
     return { success: true, newStatus: newCoreStatus };
+
   } catch (e) {
-    console.error("Error during client-side refresh:", e);
+    console.error("clientSideRefreshAtom: Error during client-side refresh:", e);
     set(authStatusCoreAtom); 
     await get(authStatusCoreAtom);
     return { success: false };
