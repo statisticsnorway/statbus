@@ -319,15 +319,22 @@ class AuthStore {
     modifiedRequestHeaders?: Headers; // Headers for subsequent handlers in the *same* request
     // Note: responseCookies object passed in is mutated directly for Set-Cookie
   }> {
-    let currentStatus = await this.getAuthStatus(); // Uses getServerRestClient -> next/headers implicitly
+    if (process.env.DEBUG === 'true') {
+      console.log("[AuthStore.handleServerAuth] Entry. Request cookies:", JSON.stringify(requestCookies.getAll()));
+    }
+
+    let currentStatus = await this.getAuthStatus(); 
+    if (process.env.DEBUG === 'true') {
+      console.log("[AuthStore.handleServerAuth] Status from getAuthStatus():", JSON.stringify(currentStatus));
+    }
     let modifiedRequestHeaders: Headers | undefined = undefined;
 
     if (!currentStatus.isAuthenticated) {
-      console.log("AuthStore.handleServerAuth: Initial check failed, attempting refresh.");
+      console.log("[AuthStore.handleServerAuth] Initial check indicates not authenticated. Attempting refresh.");
       
       const refreshTokenCookie = requestCookies.get('statbus-refresh');
-      if (!refreshTokenCookie) {
-        console.log("AuthStore.handleServerAuth: No refresh token cookie found.");
+      if (!refreshTokenCookie || !refreshTokenCookie.value) {
+        console.log("[AuthStore.handleServerAuth] No valid refresh token cookie found.");
         // Return current (unauthenticated) status, no modifications needed
         return { status: currentStatus }; 
       }
@@ -335,14 +342,22 @@ class AuthStore {
       // --- Attempt Refresh ---
       try {
         const refreshUrl = `${process.env.SERVER_REST_URL}/rest/rpc/refresh`;
-        console.log(`AuthStore.handleServerAuth: Attempting token refresh via: ${refreshUrl}`);
+        if (process.env.DEBUG === 'true') {
+          console.log(`[AuthStore.handleServerAuth] Attempting token refresh. URL: ${refreshUrl}, Refresh token value: ${refreshTokenCookie.value.substring(0, 10)}...`);
+        }
 
         const refreshResponse = await fetch(refreshUrl, {
           method: 'POST', 
           headers: {
             'Cookie': `statbus-refresh=${refreshTokenCookie.value}`
+            // Ensure 'Origin' or other necessary headers for CSRF/CORS are not missing if your server expects them,
+            // though for a server-to-server call like this, it's usually simpler.
           },
         });
+        
+        if (process.env.DEBUG === 'true') {
+          console.log(`[AuthStore.handleServerAuth] Refresh API response status: ${refreshResponse.status}`);
+        }
 
         if (!refreshResponse.ok) {
           let errorBody = 'Could not read error body';
@@ -362,6 +377,9 @@ class AuthStore {
         const refreshData = await refreshResponse.json(); 
         // _parseAuthStatusRpcResponseToAuthStatus returns the core fields, matching AuthStore's AuthStatus
         currentStatus = _parseAuthStatusRpcResponseToAuthStatus(refreshData);
+        if (process.env.DEBUG === 'true') {
+          console.log("[AuthStore.handleServerAuth] Status after parsing refresh response:", JSON.stringify(currentStatus));
+        }
 
         // Cookies are set by the Set-Cookie headers from refreshResponse.
         // We need to parse them and apply to the outgoing `responseCookies`

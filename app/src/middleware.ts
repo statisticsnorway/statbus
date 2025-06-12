@@ -91,7 +91,11 @@ export async function middleware(request: NextRequest) {
   // token refresh occurred during authStore.handleServerAuth.
   const client = await getServerRestClient({ cookies: requestForNextHandler.cookies });
 
-  if (requestForNextHandler.nextUrl.pathname === "/") {
+  // This allows disabling these middleware redirects for testing alternative client-side/page-level logic.
+  if (requestForNextHandler.nextUrl.pathname === "/") { // Checks will run if path is "/"
+      if (process.env.DEBUG === 'true') {
+        console.log("[Middleware] Running app setup checks for '/' route.");
+      }
       // Check if settings exist
       const { data: settings, error: settingsError } = await client
           .from("settings")
@@ -127,9 +131,12 @@ export async function middleware(request: NextRequest) {
           .select("id")
           .limit(1);
         if (!legalUnits?.length && !establishments?.length) {
+          if (process.env.DEBUG === 'true') {
+            console.log("[Middleware] No legal units or establishments found. Redirecting to /import.");
+          }
           return NextResponse.redirect(`${request.nextUrl.origin}/import`);
         }
-    } // End of app setup checks
+    } // End of app setup checks for "/"
 
     // All checks passed, return the response (which might have new cookies set and request headers modified)
     return response;
