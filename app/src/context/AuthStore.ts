@@ -321,7 +321,8 @@ class AuthStore {
    */
   public async handleServerAuth(
     requestCookies: NextRequest['cookies'],
-    responseCookies: NextResponse['cookies']
+    responseCookies: NextResponse['cookies'],
+    originalRequestProtocol: string // e.g., "http" or "https"
   ): Promise<{
     status: AuthStatus;
     modifiedRequestHeaders?: Headers; // Headers for subsequent handlers in the *same* request
@@ -366,17 +367,22 @@ class AuthStore {
         }
 
         const constructedRefreshHeaders: HeadersInit = {
-          'Cookie': `statbus-refresh=${refreshTokenCookie.value}`,
-          // Add any other headers PostgREST might expect for server-to-server RPC, though usually minimal.
-          // 'Content-Type': 'application/json', // Usually not needed for POST to RPC if no body, but PostgREST might be strict.
+          // Explicitly set Content-Type for POST, even with empty body, as good practice for RPC.
+          'Content-Type': 'application/json',
+          // Dynamically set X-Forwarded-Proto based on the original request's protocol
+          'X-Forwarded-Proto': originalRequestProtocol,
         };
+        // Crucially, set the Cookie header for the internal fetch
+        constructedRefreshHeaders['Cookie'] = `statbus-refresh=${refreshTokenCookie.value}`;
+        
         if (process.env.DEBUG === 'true') {
-          console.log(`[AuthStore.handleServerAuth] Headers being sent to internal /rpc/refresh:`, JSON.stringify(constructedRefreshHeaders));
+          console.log(`[AuthStore.handleServerAuth] Attempting to send to internal /rpc/refresh (${refreshUrl}) with headers:`, JSON.stringify(constructedRefreshHeaders));
         }
 
         const refreshResponse = await fetch(refreshUrl, {
           method: 'POST', 
           headers: constructedRefreshHeaders,
+          body: JSON.stringify({}), // PostgREST RPCs are POST, often expect a body even if empty for parameter-less functions.
         });
         
         if (process.env.DEBUG === 'true') {

@@ -89,11 +89,14 @@ export async function GET(request: NextRequest) {
 
   // Method 2: Direct fetch to http://proxy:80/rest/rpc/auth_test
   const directFetchUrl = 'http://proxy:80/rest/rpc/auth_test';
+  // Determine the protocol of the incoming request to this API route
+  const incomingRequestProtocol = request.nextUrl.protocol.replace(/:$/, '');
+
   const headersForDirectFetch: Record<string, string> = {
     // Forward essential headers. PostgREST might need 'Accept' for JSON.
     'Accept': 'application/json',
-    // Crucially, tell the backend that the original connection was HTTPS
-    'X-Forwarded-Proto': 'https', 
+    // Dynamically set X-Forwarded-Proto based on the incoming request to this API route
+    'X-Forwarded-Proto': incomingRequestProtocol,
     // 'Content-Type': 'application/json', // Not strictly needed for GET RPC
   };
   if (allIncomingCookies['statbus']) {

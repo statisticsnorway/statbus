@@ -20,9 +20,13 @@ export async function middleware(request: NextRequest) {
   // Create a response object that we will modify and eventually return.
   let response = NextResponse.next();
 
+  // Determine the protocol of the original request
+  const originalProtocol = request.nextUrl.protocol.replace(/:$/, ''); // Remove trailing colon (e.g., "https:" -> "https")
+
   const { status: authStatus, modifiedRequestHeaders } = await authStore.handleServerAuth(
     request.cookies,
-    response.cookies // authStore modifies response.cookies directly
+    response.cookies, // authStore modifies response.cookies directly
+    originalProtocol
   );
 
   // --- Handle Auth Result ---

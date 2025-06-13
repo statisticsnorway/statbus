@@ -19,9 +19,11 @@ export async function refreshAuthToken(request: NextRequest, origin: string): Pr
     const response = await fetch(`${process.env.SERVER_REST_URL}/rpc/refresh`, {
       method: 'POST',
       headers: {
-        'Authorization': `Bearer ${refreshToken.value}`,
-        'Content-Type': 'application/json'
-      }
+        // Align with AuthStore and Python test: send refresh token as a cookie
+        'Cookie': `statbus-refresh=${refreshToken.value}`,
+        'Content-Type': 'application/json' // Good practice for POST RPC
+      },
+      body: JSON.stringify({}) // Good practice for POST RPC, even if params are in cookie/header
     });
     
     if (response.ok) {
