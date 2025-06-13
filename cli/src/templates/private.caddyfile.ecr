@@ -23,3 +23,42 @@ http://<%= @domain %> {
     # Use standard logging
     import standard_logging
 }
+
+# This new block handles direct internal requests from other services (e.g., Next.js app)
+# to this Caddy instance using its internal service name 'proxy'.
+http://proxy:80, http://proxy {
+    log {
+        output stdout
+        format json
+<% if @config.debug == "true" %>
+        level DEBUG
+<% else %>
+        level INFO
+<% end %>
+    }
+
+    @internal_rest_for_domain {
+        path /rest/*
+        # Ensure the request, though to 'proxy', is intended for the main configured domain
+        header X-Forwarded-Host <%= @domain %>
+    }
+    handle @internal_rest_for_domain {
+        # Reuse the same PostgREST endpoint logic.
+        # The (postgrest_endpoints) snippet will handle proxying to rest:3000.
+        # It's important that Next.js has set X-Forwarded-Proto correctly
+        # if any logic within PostgREST or SQL functions depends on it.
+        import postgrest_endpoints rest:3000
+    }
+
+    # Fallback for any other paths to http://proxy or if X-Forwarded-Host doesn't match
+    handle {
+        # Log the attempt for clarity
+        log {
+            output stdout
+            format json
+            level INFO
+            msg "Unhandled or mismatched X-Forwarded-Host for internal proxy request"
+        }
+        respond "Internal proxy: Unhandled path or mismatched X-Forwarded-Host" 403
+    }
+}

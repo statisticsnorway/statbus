@@ -2,10 +2,16 @@
 # Do not edit directly - changes will be lost
 
 {
+<% if @config.debug == "true" %>
+    debug
+<% end %>
     # Global Caddy configuration
     admin off
-    log {
+    log { # Default logger configuration
         format json
+<% if @config.debug != "true" %>
+        level INFO # Explicitly INFO if not in global debug mode
+<% end %>
     }
 <% if @caddy_deployment_mode == "development" %>
     # Development mode settings
@@ -20,6 +26,9 @@
     # as this Caddy instance is expected to be behind another proxy.
     servers {
         trusted_proxies static private_ranges
+<% if @config.debug == "true" %>
+        log_credentials
+<% end %>
     }
 <% end %>
 }
