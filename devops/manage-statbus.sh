@@ -41,13 +41,26 @@ case "$action" in
     'start' )
         VERSION=$(git describe --always)
         ./devops/dotenv --file .env set VERSION=$VERSION
-        set_profile_arg "$@"
-
-        eval docker compose $compose_profile_arg up --build --detach
+        target_service_or_profile="${1:-}"
+        if [ "$target_service_or_profile" = "app" ]; then
+            # If the target is 'app', pass it directly as a service to docker compose
+            docker compose up --build --detach app
+        else
+            # Otherwise, use the profile logic
+            set_profile_arg "$@"
+            eval docker compose $compose_profile_arg up --build --detach
+        fi
       ;;
     'stop' )
-        set_profile_arg "$@"
-        eval docker compose $compose_profile_arg down --remove-orphans
+        target_service_or_profile="${1:-}"
+        if [ "$target_service_or_profile" = "app" ]; then
+            # If the target is 'app', pass it directly as a service to docker compose
+            docker compose down --remove-orphans app
+        else
+            # Otherwise, use the profile logic
+            set_profile_arg "$@"
+            eval docker compose $compose_profile_arg down --remove-orphans
+        fi
       ;;
     'logs' )
         eval docker compose logs --follow
