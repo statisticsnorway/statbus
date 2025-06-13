@@ -31,7 +31,7 @@ interface AuthTestDbResponse {
 }
 
 export async function GET(request: NextRequest) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const allIncomingCookies = cookieStore.getAll().reduce((acc, cookie) => {
     acc[cookie.name] = cookie.value;
     return acc;
@@ -100,6 +100,7 @@ export async function GET(request: NextRequest) {
     headersForDirectFetch['Authorization'] = `Bearer ${allIncomingCookies['statbus']}`;
   }
   // Also forward the raw Cookie header as PostgREST can also read from request.cookies
+  // Note: cookieStore is already awaited above.
   const rawCookieHeader = cookieStore.toString(); // Gets the 'name=value; name2=value2' string
   if (rawCookieHeader) {
     headersForDirectFetch['Cookie'] = rawCookieHeader;
