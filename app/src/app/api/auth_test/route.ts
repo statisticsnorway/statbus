@@ -114,8 +114,12 @@ export async function GET(request: NextRequest) {
   const incomingXFF = request.headers.get('x-forwarded-for');
   if (incomingXFF) {
     headersForDirectFetch['X-Forwarded-For'] = incomingXFF;
-  } else if (request.ip) { // request.ip is available in Next.js Edge/Node.js runtimes
-    headersForDirectFetch['X-Forwarded-For'] = request.ip;
+  } else {
+    // request.ip is available in Next.js Edge/Node.js runtimes
+    const ip = (request as NextRequest & { ip?: string }).ip;
+    if (ip) { 
+      headersForDirectFetch['X-Forwarded-For'] = ip;
+    }
   }
   
   // Set X-Forwarded-Host to the original host requested by the client
