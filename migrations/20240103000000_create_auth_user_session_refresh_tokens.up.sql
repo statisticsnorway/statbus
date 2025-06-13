@@ -487,7 +487,7 @@ BEGIN
     jsonb_build_object(
       'Set-Cookie',
       format(
-        'statbus-refresh=%s; Path=/; HttpOnly; SameSite=Strict; %sExpires=%s',
+        'statbus-refresh=%s; Path=/rest/rpc/refresh; HttpOnly; SameSite=Strict; %sExpires=%s', -- Changed Path
         refresh_jwt,
         CASE WHEN secure THEN 'Secure; ' ELSE '' END,
         to_char(refresh_expires, 'Dy, DD Mon YYYY HH24:MI:SS') || ' GMT'
@@ -523,7 +523,7 @@ BEGIN
   new_headers := new_headers || jsonb_build_array(
     jsonb_build_object(
       'Set-Cookie',
-      'statbus-refresh=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict'
+      'statbus-refresh=; Path=/rest/rpc/refresh; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict' -- Changed Path
     )
   );
   

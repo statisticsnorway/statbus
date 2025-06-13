@@ -938,16 +938,18 @@ BEGIN
             IF header_obj ? 'Set-Cookie' THEN
                 IF header_obj->>'Set-Cookie' LIKE 'statbus=%' THEN
                     access_cookie_found := true;
-                    IF header_obj->>'Set-Cookie' LIKE '%HttpOnly%' AND 
+                    IF header_obj->>'Set-Cookie' LIKE '%HttpOnly%' AND
                        header_obj->>'Set-Cookie' LIKE '%SameSite=Strict%' AND
-                       header_obj->>'Set-Cookie' LIKE '%Secure%' THEN
+                       header_obj->>'Set-Cookie' LIKE '%Secure%' AND
+                       header_obj->>'Set-Cookie' LIKE '%Path=/%' AND NOT (header_obj->>'Set-Cookie' LIKE '%Path=/rest/rpc/refresh%') THEN -- Ensure Path=/ and not /rest/rpc/refresh
                         access_cookie_attrs_valid := true;
                     END IF;
                 ELSIF header_obj->>'Set-Cookie' LIKE 'statbus-refresh=%' THEN
                     refresh_cookie_found := true;
-                    IF header_obj->>'Set-Cookie' LIKE '%HttpOnly%' AND 
+                    IF header_obj->>'Set-Cookie' LIKE '%HttpOnly%' AND
                        header_obj->>'Set-Cookie' LIKE '%SameSite=Strict%' AND
-                       header_obj->>'Set-Cookie' LIKE '%Secure%' THEN
+                       header_obj->>'Set-Cookie' LIKE '%Secure%' AND
+                       header_obj->>'Set-Cookie' LIKE '%Path=/rest/rpc/refresh%' THEN -- Check for specific path
                         refresh_cookie_attrs_valid := true;
                     END IF;
                 END IF;
@@ -956,10 +958,10 @@ BEGIN
         
         ASSERT access_cookie_found, 'Access cookie not found in login response headers';
         ASSERT refresh_cookie_found, 'Refresh cookie not found in login response headers';
-        ASSERT access_cookie_attrs_valid, format('Access cookie missing required security attributes (HttpOnly, SameSite, Secure). Headers: %s', response_headers);
-        ASSERT refresh_cookie_attrs_valid, format('Refresh cookie missing required security attributes (HttpOnly, SameSite, Secure). Headers: %s', response_headers);
+        ASSERT access_cookie_attrs_valid, format('Access cookie missing required security attributes (HttpOnly, SameSite, Secure, Path=/). Headers: %s', response_headers);
+        ASSERT refresh_cookie_attrs_valid, format('Refresh cookie missing required security attributes (HttpOnly, SameSite, Secure, Path=/rest/rpc/refresh). Headers: %s', response_headers);
         
-        RAISE DEBUG 'Login cookie validation passed: Access and refresh cookies have required security attributes.';
+        RAISE DEBUG 'Login cookie validation passed: Access and refresh cookies have required security attributes and paths.';
     END;
         
     ASSERT (login_result->>'is_authenticated')::boolean IS TRUE, format('Login should be successful. Got: %L. Full login_result: %s', login_result->>'is_authenticated', login_result);
@@ -1115,13 +1117,13 @@ BEGIN
         FOR header_obj IN SELECT * FROM jsonb_array_elements(response_headers_refresh) LOOP
             IF header_obj ? 'Set-Cookie' THEN
                 cookie_value_text := header_obj->>'Set-Cookie';
-                IF cookie_value_text LIKE 'statbus=%' THEN
+                IF cookie_value_text LIKE 'statbus=%' AND cookie_value_text LIKE '%Path=/%' AND NOT (cookie_value_text LIKE '%Path=/rest/rpc/refresh%') THEN
                     access_cookie_found_https := true;
                     IF cookie_value_text LIKE '%Secure%' THEN
                         access_cookie_is_secure := true;
                     END IF;
                 END IF;
-                IF cookie_value_text LIKE 'statbus-refresh=%' THEN
+                IF cookie_value_text LIKE 'statbus-refresh=%' AND cookie_value_text LIKE '%Path=/rest/rpc/refresh%' THEN
                     refresh_cookie_found_https := true;
                     IF cookie_value_text LIKE '%Secure%' THEN
                         refresh_cookie_is_secure := true;
@@ -1249,13 +1251,13 @@ BEGIN
         FOR header_obj_http IN SELECT * FROM jsonb_array_elements(response_headers_http_refresh) LOOP
             IF header_obj_http ? 'Set-Cookie' THEN
                 cookie_value_text_http := header_obj_http->>'Set-Cookie';
-                IF cookie_value_text_http LIKE 'statbus=%' THEN
+                IF cookie_value_text_http LIKE 'statbus=%' AND cookie_value_text_http LIKE '%Path=/%' AND NOT (cookie_value_text_http LIKE '%Path=/rest/rpc/refresh%') THEN
                     access_cookie_found_http := true;
                     IF cookie_value_text_http NOT LIKE '%Secure%' THEN
                         access_cookie_is_not_secure := true;
                     END IF;
                 END IF;
-                IF cookie_value_text_http LIKE 'statbus-refresh=%' THEN
+                IF cookie_value_text_http LIKE 'statbus-refresh=%' AND cookie_value_text_http LIKE '%Path=/rest/rpc/refresh%' THEN
                     refresh_cookie_found_http := true;
                     IF cookie_value_text_http NOT LIKE '%Secure%' THEN
                         refresh_cookie_is_not_secure := true;

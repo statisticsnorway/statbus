@@ -6,6 +6,7 @@ Run with `./test/auth_for_standalone.sh` that uses venv.
 """
 
 import os
+import atexit
 import sys
 import json
 import time
@@ -573,7 +574,8 @@ def test_bearer_token_auth(email: str, password: str) -> None:
             return
         
         debug_info(f"Got access token via auth_test: {access_token[:20]}...")
-        
+        session.close() # Close the session as we are done with it for this part of the test.
+
         # Test 1: Verify auth_status endpoint with Bearer token
         log_info("Testing auth_status endpoint with Bearer token...")
         auth_status_response = requests.get(
@@ -1290,5 +1292,31 @@ def main() -> None:
     # Print summary of test results
     print(f"\n{GREEN}=== All Authentication Tests Completed Successfully ==={NC}\n")
 
+def cleanup_test_user_sessions() -> None:
+    """Clean up refresh sessions for test users from the database."""
+    log_info("Cleaning up test user sessions...")
+    test_user_emails = [ADMIN_EMAIL, REGULAR_EMAIL, RESTRICTED_EMAIL]
+    # Convert list of emails to a SQL string like "'email1', 'email2', 'email3'"
+    email_list_sql = ", ".join([f"'{email}'" for email in test_user_emails])
+    
+    query = f"""
+    DELETE FROM auth.refresh_session
+    WHERE user_id IN (
+        SELECT id FROM auth.user WHERE email IN ({email_list_sql})
+    );
+    """
+    
+    # Use admin credentials to perform the cleanup
+    result = run_psql_command(query, user=ADMIN_EMAIL, password=ADMIN_PASSWORD)
+    
+    # Check for errors in the result. psql -t with DELETE usually returns no output on success.
+    # Errors typically include "ERROR", "FATAL", or "permission denied".
+    if "ERROR" in result.upper() or "FAILED" in result.upper() or "FATAL" in result.upper() or "PERMISSION DENIED" in result.upper():
+        log_warning(f"Failed to cleanup test user sessions. Result: {result}")
+    else:
+        log_success("Test user sessions cleaned up successfully.")
+        debug_info(f"Cleanup result: {result if result else 'No output from DELETE, assumed OK.'}")
+
 if __name__ == "__main__":
+    atexit.register(cleanup_test_user_sessions)
     main()
