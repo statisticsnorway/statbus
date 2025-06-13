@@ -403,7 +403,7 @@ def test_api_logout(session: Session) -> None:
         
         # Check if logout was successful
         data = response.json()
-        if data.get("success") is True:
+        if response.status_code == 200 and data.get("is_authenticated") is False:
             log_success("API logout successful")
             
             # Verify cookies were cleared
@@ -459,7 +459,7 @@ def test_token_refresh(session: Session, email: str, password: str) -> None:
         
         # Check if refresh was successful
         data = response.json()
-        if "access_jwt" in data:
+        if response.status_code == 200 and data.get("is_authenticated") is True:
             log_success(f"Token refresh successful for {email}")
             
             # Get new cookies for comparison
@@ -552,13 +552,27 @@ def test_bearer_token_auth(email: str, password: str) -> None:
             return
         
         login_data = login_response.json()
-        access_token = login_data.get("access_jwt")
+        # The login endpoint sets cookies but doesn't return the token in the body.
+        # We need to get the token from the auth_test endpoint or cookies.
         
-        if not access_token:
-            log_error("Failed to get access token from login response")
+        # Call auth_test to get the actual token string from the cookies field in its response
+        auth_test_response = session.get(
+            f"{CADDY_BASE_URL}/rest/rpc/auth_test",
+            headers={"Content-Type": "application/json"}
+        )
+        if auth_test_response.status_code != 200:
+            log_error(f"Failed to get auth_test details to retrieve token. Status: {auth_test_response.status_code}, Body: {auth_test_response.text}")
             return
         
-        debug_info(f"Got access token: {access_token[:20]}...")
+        auth_test_data = auth_test_response.json()
+        access_token = auth_test_data.get("cookies", {}).get("statbus")
+
+        if not access_token:
+            log_error("Failed to get access token from auth_test response cookies")
+            debug_info(f"Auth_test response for token retrieval: {json.dumps(auth_test_data, indent=2)}")
+            return
+        
+        debug_info(f"Got access token via auth_test: {access_token[:20]}...")
         
         # Test 1: Verify auth_status endpoint with Bearer token
         log_info("Testing auth_status endpoint with Bearer token...")
@@ -1266,111 +1280,6 @@ def main() -> None:
         debug_info(f"Restricted user role test result: {restricted_result}")
     else:
         log_warning(f"Restricted user role test had unexpected result: {restricted_result}")
-    
-    # Test 14: Role Switching with SET LOCAL ROLE
-    print(f"\n{BLUE}=== Test 14: Role Switching with SET LOCAL ROLE ==={NC}")
-    log_info("Testing role switching with SET LOCAL ROLE...")
-    
-    # Test with admin user
-    admin_role_test = """
-    BEGIN;
-    -- Verify we can see all users as admin
-    SET LOCAL ROLE "%s";
-    SELECT COUNT(*) FROM auth.user;
-    -- Try to access a sensitive function
-    SELECT COUNT(*) FROM auth.refresh_session;
-    END;
-    """ % ADMIN_EMAIL
-    
-    admin_result = run_psql_command(admin_role_test, ADMIN_EMAIL, ADMIN_PASSWORD)
-    if "ERROR" not in admin_result:
-        log_success("Admin role switching test passed - can access sensitive data")
-        debug_info(f"Admin role test result: {admin_result}")
-    else:
-        log_error(f"Admin role switching test failed: {admin_result}")
-    
-    # Test with regular user
-    regular_role_test = """
-    BEGIN;
-    -- Switch to regular user role
-    SET LOCAL ROLE "%s";
-    -- Should be able to see public data
-    SELECT COUNT(*) FROM public.region;
-    -- Try to access sensitive data (should fail or be limited by RLS)
-    SELECT COUNT(*) FROM auth.user WHERE email = current_user;
-    END;
-    """ % REGULAR_EMAIL
-    
-    regular_result = run_psql_command(regular_role_test, REGULAR_EMAIL, REGULAR_PASSWORD)
-    if "ERROR" not in regular_result or "permission denied" in regular_result:
-        log_success("Regular user role switching test passed - limited access as expected")
-        debug_info(f"Regular user role test result: {regular_result}")
-    else:
-        log_warning(f"Regular user role test had unexpected result: {regular_result}")
-    
-    # Test with restricted user
-    restricted_role_test = """
-    BEGIN;
-    -- Switch to restricted user role
-    SET LOCAL ROLE "%s";
-    -- Should be able to see public data
-    SELECT COUNT(*) FROM public.region;
-    -- Try to access sensitive data (should fail)
-    BEGIN;
-        SELECT COUNT(*) FROM auth.user;
-        RAISE EXCEPTION 'Should not be able to access auth.user';
-    EXCEPTION WHEN insufficient_privilege THEN
-        RAISE NOTICE 'Correctly denied access to auth.user';
-    END;
-    END;
-    """ % RESTRICTED_EMAIL
-    
-    restricted_result = run_psql_command(restricted_role_test, RESTRICTED_EMAIL, RESTRICTED_PASSWORD)
-    if "ERROR" not in restricted_result or "permission denied" in restricted_result:
-        log_success("Restricted user role switching test passed - properly limited access")
-        debug_info(f"Restricted user role test result: {restricted_result}")
-    else:
-        log_warning(f"Restricted user role test had unexpected result: {restricted_result}")
-    
-    # Test password change with SET LOCAL ROLE
-    log_info("Testing password change with SET LOCAL ROLE...")
-    password_change_role_test = """
-    -- First verify current role and switch to regular user role
-    SET LOCAL ROLE "%s";
-    
-    -- Verify role switch worked
-    SELECT current_role, current_user;
-    
-    -- Change password using the role
-    SELECT public.change_password('TempPass123');
-    """ % REGULAR_EMAIL
-    
-    # Execute the password change with role
-    password_role_result = run_psql_command(password_change_role_test, REGULAR_EMAIL, REGULAR_PASSWORD)
-    debug_info(f"Password change with role result: {password_role_result}")
-    
-    # Now try to login with the new password
-    temp_session = requests.Session()
-    if test_api_login(temp_session, REGULAR_EMAIL, "TempPass123", "regular_user"):
-        log_success("Password change with SET LOCAL ROLE worked - can login with new password")
-        
-        # Change password back for subsequent tests
-        password_reset_test = """
-        -- Switch to regular user role with new password
-        SET LOCAL ROLE "%s";
-        SELECT public.change_password('%s');
-        """ % (REGULAR_EMAIL, REGULAR_PASSWORD)
-        
-        reset_result = run_psql_command(password_reset_test, REGULAR_EMAIL, "TempPass123")
-        debug_info(f"Password reset result: {reset_result}")
-        
-        # Verify password was reset
-        if test_api_login(temp_session, REGULAR_EMAIL, REGULAR_PASSWORD, "regular_user"):
-            log_success("Password successfully reset back to original")
-        else:
-            log_error("Failed to reset password back to original")
-    else:
-        log_error("Password change with SET LOCAL ROLE failed - cannot login with new password")
     
     # Test 15: Password Change and Session Invalidation
     print(f"\n{BLUE}=== Test 15: Password Change and Session Invalidation ==={NC}")

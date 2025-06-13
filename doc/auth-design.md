@@ -116,7 +116,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
         *   If login is successful:
             *   Creates a record in `auth.refresh_sessions`.
             *   Generates an access token JWT and a refresh token JWT.
-            *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the access token (`statbus-<slot>`) and refresh token (`statbus-<slot>-refresh`).
+            *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the access token (`statbus`) and refresh token (`statbus-refresh`).
         *   Returns an `auth.auth_response` object in the JSON response body. This object contains:
             *   `is_authenticated` (boolean)
             *   User information (uid, sub, email, role, statbus_role, etc.) if authenticated.
@@ -131,10 +131,10 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
 
 2.  **Authenticated Requests:**
     *   **Client-Side Requests (Browser):**
-        *   The browser automatically includes `statbus-<slot>` and `statbus-<slot>-refresh` cookies with requests to the API origin (`/postgrest/*`) due to `credentials: 'include'`.
+        *   The browser automatically includes the `statbus` and `statbus-refresh` cookies with requests to the API origin (`/postgrest/*`) due to `credentials: 'include'`.
         *   The `fetchWithAuthRefresh` utility (in `RestClientStore.ts`, used by `getBrowserRestClient`) wraps `fetch`:
             *   It relies on the browser sending cookies automatically.
-            *   If a 401 response is received, it *internally and directly* calls the `/rpc/refresh` endpoint. The browser automatically sends the `statbus-<slot>-refresh` cookie with this internal call.
+            *   If a 401 response is received, it *internally and directly* calls the `/rpc/refresh` endpoint. The browser automatically sends the `statbus-refresh` cookie with this internal call.
             *   If the internal refresh call is successful (PostgREST's `public.refresh` function sets new cookies via `Set-Cookie` headers and returns an `auth_response`), `fetchWithAuthRefresh` retries the original request. The `auth_response` from the internal refresh call is *not* directly used by `fetchWithAuthRefresh` to update Jotai state; the primary goal is cookie update. Jotai state (`authStatusAtom`) is typically updated by other mechanisms like `AppInitializer` or proactive checks.
     *   **Server-Side Requests (Next.js Server Components/Actions/Middleware):**
         *   The Next.js middleware (`app/src/middleware.ts`) runs first:
@@ -170,13 +170,13 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     *   Token refresh is handled differently on client and server:
         *   **Client-Side (Browser - Reactive on 401):**
             *   Triggered when `fetchWithAuthRefresh` (used by `getBrowserRestClient`) receives a 401 Unauthorized response.
-            *   `fetchWithAuthRefresh` *internally and directly* calls the `/rpc/refresh` endpoint. The browser automatically sends the `statbus-<slot>-refresh` cookie.
+            *   `fetchWithAuthRefresh` *internally and directly* calls the `/rpc/refresh` endpoint. The browser automatically sends the `statbus-refresh` cookie.
             *   PostgREST executes `public.refresh()`. This function sets new cookies via `Set-Cookie` headers and returns an `auth_response` object.
             *   The browser automatically updates its cookies based on the `Set-Cookie` headers.
             *   `fetchWithAuthRefresh` retries the original request. The `auth_response` from the internal refresh call is not used by `fetchWithAuthRefresh` to update Jotai state.
         *   **Server-Side (Middleware - Proactive/Reactive within Request):**
             *   Triggered within `app/src/middleware.ts` when `AuthStore.handleServerAuth()` is called and finds an invalid/missing access token but a valid refresh token cookie exists in the incoming request.
-            *   `AuthStore.handleServerAuth()` directly `fetch`es the `/rpc/refresh` endpoint, manually adding the `Cookie: statbus-<slot>-refresh=...` header.
+            *   `AuthStore.handleServerAuth()` directly `fetch`es the `/rpc/refresh` endpoint, manually adding the `Cookie: statbus-refresh=...` header.
             *   PostgREST executes `public.refresh()`, which returns an `auth_response`.
             *   `AuthStore.handleServerAuth()` parses this `auth_response` and, if successful, uses the `response.cookies.set()` method (provided by the middleware) to stage the new cookies for the outgoing response to the browser.
             *   The middleware updates the *current request's* headers to reflect the new access token for subsequent processing within the same request lifecycle.
