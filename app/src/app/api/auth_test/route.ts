@@ -95,10 +95,36 @@ export async function GET(request: NextRequest) {
   const headersForDirectFetch: Record<string, string> = {
     // Forward essential headers. PostgREST might need 'Accept' for JSON.
     'Accept': 'application/json',
-    // Dynamically set X-Forwarded-Proto based on the incoming request to this API route
-    'X-Forwarded-Proto': incomingRequestProtocol,
+    // Set the Host header to what the internal proxy expects for routing to PostgREST.
+    // This is typically the external hostname.
+    'Host': request.headers.get('x-forwarded-host') || request.headers.get('host') || 'dev.statbus.org',
     // 'Content-Type': 'application/json', // Not strictly needed for GET RPC
   };
+
+  // Set X-Forwarded-Proto based on the original incoming request to this API route
+  // If the original request to Next.js was HTTPS, this should be 'https'.
+  // The `request.nextUrl.protocol` gives the protocol of the request to this Next.js API route.
+  // If Next.js itself is behind another proxy that terminates TLS, this might be http.
+  // Relying on x-forwarded-proto from the incoming request is more robust if available.
+  headersForDirectFetch['X-Forwarded-Proto'] = request.headers.get('x-forwarded-proto') || incomingRequestProtocol;
+
+  // Set X-Forwarded-For
+  // Use the incoming X-Forwarded-For, or fall back to the direct peer IP if not present.
+  // This helps PostgREST see the original client IP.
+  const incomingXFF = request.headers.get('x-forwarded-for');
+  if (incomingXFF) {
+    headersForDirectFetch['X-Forwarded-For'] = incomingXFF;
+  } else if (request.ip) { // request.ip is available in Next.js Edge/Node.js runtimes
+    headersForDirectFetch['X-Forwarded-For'] = request.ip;
+  }
+  
+  // Set X-Forwarded-Host to the original host requested by the client
+  const originalHost = request.headers.get('x-forwarded-host') || request.headers.get('host');
+  if (originalHost) {
+    headersForDirectFetch['X-Forwarded-Host'] = originalHost;
+  }
+
+
   if (allIncomingCookies['statbus']) {
     // PostgREST uses the Authorization header for JWT if present.
     // The server-side RestClientStore's fetchWithAuthRefresh also does this.
@@ -110,17 +136,12 @@ export async function GET(request: NextRequest) {
   if (rawCookieHeader) {
     headersForDirectFetch['Cookie'] = rawCookieHeader;
   }
-  // Forward X-Forwarded-* headers if they exist on the incoming request,
-  // as Caddy might use them to determine `is_https` for PostgREST.
-  // These are typically set by the outermost proxy (e.g., your load balancer or Cloudflare).
-  // The Next.js request object might not see these if they are stripped by an intermediate proxy
-  // before reaching the Next.js app container.
-  for (const key of ['x-forwarded-for', 'x-forwarded-host', 'x-forwarded-proto', 'x-forwarded-port']) {
-    const value = request.headers.get(key);
-    if (value) {
-      headersForDirectFetch[key] = value;
-    }
-  }
+  
+  // Remove any x-forwarded-port from the direct fetch, as it's less common to forward
+  // and might confuse the internal proxy if it's not expecting it for Host matching.
+  // The Host header now correctly reflects the target service name for the internal proxy.
+  // The other X-Forwarded-* headers provide the original client context.
+  // Note: The 'Host' header set above to 'dev.statbus.org' (or original host) is key for the internal Caddy.
 
 
   try {
