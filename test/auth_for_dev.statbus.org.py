@@ -444,7 +444,7 @@ def test_nextjs_api_auth_test(session: Session):
     # Assuming SSH target and remote directory are fixed for this specific test script
     ssh_target = "statbus_dev@statbus.org" 
     remote_command_dir = "statbus" # The directory where 'docker compose' commands are run on the remote server
-    services_to_log = ["app", "db"]
+    services_to_log = ["app", "db", "proxy"]
 
     log_collector = RemoteLogCollector(ssh_target, remote_command_dir, services_to_log, log_queue)
     
