@@ -549,8 +549,10 @@ module Statbus
       getter caddy_https_port : Int32
       getter caddy_http_bind_address : String
       getter caddy_https_bind_address : String
+      getter config : ConfigEnv # Add getter for config
 
       def initialize(derived : DerivedEnv, config : ConfigEnv)
+        @config = config # Assign to instance variable
         @domain = derived.domain
         @deployment_user = derived.deployment_user
         @app_port = derived.app_port
