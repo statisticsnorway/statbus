@@ -52,13 +52,7 @@ http://proxy:80, http://proxy {
 
     # Fallback for any other paths to http://proxy or if X-Forwarded-Host doesn't match
     handle {
-        # Log the attempt for clarity
-        log {
-            output stdout
-            format json
-            level INFO
-            msg "Unhandled or mismatched X-Forwarded-Host for internal proxy request"
-        }
+        # The request will be logged by the site-level log directive for http://proxy
         respond "Internal proxy: Unhandled path or mismatched X-Forwarded-Host" 403
     }
 }
