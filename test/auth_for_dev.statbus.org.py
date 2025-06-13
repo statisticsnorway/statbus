@@ -15,8 +15,7 @@ import subprocess
 import threading
 import time
 import queue
-
-# Colors for output (same as auth_for_standalone.py)
+import yaml
 RED = '\033[0;31m'
 GREEN = '\033[0;32m'
 YELLOW = '\033[0;33m'
@@ -25,8 +24,8 @@ NC = '\033[0m'
 
 # Configuration
 DEV_API_URL = "https://dev.statbus.org" # Target the dev environment
-USER_EMAIL = os.environ.get("STATBUS_DEV_EMAIL")
-USER_PASSWORD = os.environ.get("STATBUS_DEV_PASSWORD")
+USER_EMAIL = None # Will be fetched
+USER_PASSWORD = None # Will be fetched
 
 # Global flag to track if any problem was reproduced
 PROBLEM_REPRODUCED_FLAG = False
@@ -512,11 +511,67 @@ def test_nextjs_api_auth_test(session: Session):
         elif not remote_logs_header_printed : # If no logs, but header wasn't printed (e.g. collector failed to start)
             log_info("No remote logs were collected or collector did not start properly.")
 
+def fetch_dev_credentials() -> bool:
+    """Fetches credentials for the first user from remote .users.yml."""
+    global USER_EMAIL, USER_PASSWORD
+    log_info("Fetching credentials from dev.statbus.org .users.yml...")
+    ssh_target = "statbus_dev@statbus.org"
+    # Fetch first 3 lines which should contain the first user's details
+    command_str = "head -n 3 statbus/.users.yml" 
+    ssh_command = ['ssh', ssh_target, command_str]
+
+    try:
+        result = subprocess.run(
+            ssh_command,
+            capture_output=True,
+            text=True,
+            check=True,
+            timeout=10
+        )
+        yaml_content = result.stdout.strip()
+        debug_info(f"Raw YAML content from remote: \n{yaml_content}")
+        
+        # The output is a list item, ensure it's parsed as such
+        # PyYAML expects a full document, so ensure the snippet is valid
+        # If head -n 3 gives "- email: ...\n  role: ...\n  password: ...", it's a valid snippet for a list item
+        if not yaml_content.startswith("-"): # Basic check if it looks like a list item start
+            # Try to make it a valid list if it's just the attributes
+            yaml_content = "- " + yaml_content.replace("\n", "\n  ")
+
+        users = yaml.safe_load(yaml_content)
+        
+        if users and isinstance(users, list) and len(users) > 0:
+            first_user = users[0]
+            if isinstance(first_user, dict) and "email" in first_user and "password" in first_user:
+                USER_EMAIL = first_user["email"]
+                USER_PASSWORD = first_user["password"]
+                log_success_condition(f"Successfully fetched credentials for user: {USER_EMAIL}")
+                return True
+            else:
+                log_failure_condition(f"Could not parse first user's email/password from YAML: {first_user}")
+        else:
+            log_failure_condition(f"Could not parse users from YAML content: {users}")
+            
+    except subprocess.CalledProcessError as e:
+        log_failure_condition(f"SSH command failed: {e}. Stderr: {e.stderr}")
+    except subprocess.TimeoutExpired:
+        log_failure_condition("SSH command timed out.")
+    except yaml.YAMLError as e:
+        log_failure_condition(f"Failed to parse YAML from .users.yml: {e}. Content: \n{yaml_content}")
+    except Exception as e:
+        log_failure_condition(f"An unexpected error occurred while fetching credentials: {e}")
+    
+    return False
 
 def main_dev_tests():
     log_info("=== Starting Authentication Tests against dev.statbus.org ===")
-    if not USER_EMAIL or not USER_PASSWORD:
-        log_error_critical("STATBUS_DEV_EMAIL or STATBUS_DEV_PASSWORD not set.")
+    
+    if not fetch_dev_credentials():
+        log_error_critical("Failed to fetch credentials from dev.statbus.org. Aborting tests.")
+        return
+
+    if not USER_EMAIL or not USER_PASSWORD: # Should be set by fetch_dev_credentials
+        log_error_critical("USER_EMAIL or USER_PASSWORD not set after attempting to fetch them.")
         return
 
     # Test 1 & 2 require a logged-in session

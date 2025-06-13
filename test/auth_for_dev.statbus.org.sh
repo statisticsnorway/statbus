@@ -13,12 +13,7 @@ fi
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
 cd "$WORKSPACE"
 
-# Check for required environment variables
-if [ -z "${STATBUS_DEV_EMAIL:-}" ] || [ -z "${STATBUS_DEV_PASSWORD:-}" ]; then
-  echo "Error: STATBUS_DEV_EMAIL and STATBUS_DEV_PASSWORD environment variables must be set."
-  echo "Usage: STATBUS_DEV_EMAIL=\"your_email\" STATBUS_DEV_PASSWORD=\"your_password\" $0"
-  exit 1
-fi
+# Credentials will be fetched by the Python script.
 
 # Set up Python virtual environment (same as auth_for_standalone.sh)
 VENV_DIR="$WORKSPACE/.venv"
@@ -30,11 +25,11 @@ fi
 
 source "$VENV_DIR/bin/activate"
 
-echo "Installing required Python packages (requests)..."
-pip install requests --quiet
+echo "Installing required Python packages (requests, PyYAML)..."
+pip install requests pyyaml --quiet
 
-if ! python -c "import requests" 2>/dev/null; then
-  echo "Failed to install requests. Please install manually: pip install requests"
+if ! python -c "import requests, yaml" 2>/dev/null; then
+  echo "Failed to install requests or PyYAML. Please install manually: pip install requests pyyaml"
   exit 1
 fi
 
