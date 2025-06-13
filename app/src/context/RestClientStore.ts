@@ -12,7 +12,6 @@
  */
 
 import { cache } from 'react';
-import { headers as nextHeadersFn } from 'next/headers';
 import { Database } from "@/lib/database.types";
 import { PostgrestClient } from "@supabase/postgrest-js";
 
@@ -232,7 +231,9 @@ class RestClientStore {
 
           // Add X-Forwarded-* headers from the incoming request
           try {
-            const incomingHeaders = await nextHeadersFn();
+            // Dynamically import headers when in server side mode
+            const { headers: getNextHeaders } = await import('next/headers');
+            const incomingHeaders = await getNextHeaders();
             
             const xForwardedHost = incomingHeaders.get('x-forwarded-host');
             if (xForwardedHost) {
