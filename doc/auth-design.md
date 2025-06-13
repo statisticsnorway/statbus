@@ -74,14 +74,14 @@ The application is containerized using Docker Compose, orchestrating several ser
     *   Acts as the main entry point for web traffic (ports 80/443).
     *   Configured via `caddy/Caddyfile`.
     *   Routes requests:
-        *   `/postgrest/*` requests are proxied to the `rest` service (PostgREST).
+        *   `/rest/*` requests are proxied to the `rest` service (PostgREST).
         *   All other requests are proxied to the `app` service (Next.js).
     *   Handles authentication cookie management:
-        *   **Login (`/postgrest/rpc/login`):** Proxies to PostgREST. Forwards `Set-Cookie` headers from the PostgREST response (set by the `public.login` function) to the client.
-        *   **Logout (`/postgrest/rpc/logout`):** Proxies to PostgREST. Forwards `Set-Cookie` headers from the PostgREST response (set by the `public.logout` function) to the client to clear cookies.
-        *   **Refresh (`/postgrest/rpc/refresh`):** Proxies to PostgREST. This endpoint is called directly by the Next.js middleware (server-side) or the browser (client-side) during token refresh attempts. Caddy simply proxies the request.
-        *   **AuthStatus (`/postgrest/rpc/auth_status`):** Proxies to PostgREST. Called by the Next.js app (server or client) to check current status.
-        *   **Other API calls (`/postgrest/*`):** Proxies requests to PostgREST. For requests originating *from the browser*, Caddy doesn't need to modify headers as cookies are sent automatically. For requests originating *from the Next.js server*, the `getServerRestClient` function (used by server components/actions) reads the `statbus` cookie and sets the `Authorization: Bearer <token>` header itself before making the request through the proxy.
+        *   **Login (`/rest/rpc/login`):** Proxies to PostgREST. Forwards `Set-Cookie` headers from the PostgREST response (set by the `public.login` function) to the client.
+        *   **Logout (`/rest/rpc/logout`):** Proxies to PostgREST. Forwards `Set-Cookie` headers from the PostgREST response (set by the `public.logout` function) to the client to clear cookies.
+        *   **Refresh (`/rest/rpc/refresh`):** Proxies to PostgREST. This endpoint is called directly by the Next.js middleware (server-side) or the browser (client-side) during token refresh attempts. Caddy simply proxies the request.
+        *   **AuthStatus (`/rest/rpc/auth_status`):** Proxies to PostgREST. Called by the Next.js app (server or client) to check current status.
+        *   **Other API calls (`/rest/*`):** Proxies requests to PostgREST. For requests originating *from the browser*, Caddy doesn't need to modify headers as cookies are sent automatically. For requests originating *from the Next.js server*, the `getServerRestClient` function (used by server components/actions) reads the `statbus` cookie and sets the `Authorization: Bearer <token>` header itself before making the request through the proxy.
 
 4.  **`app` (Frontend/Backend - Next.js)**
     *   Defined in `docker-compose.app.yml`.
@@ -92,7 +92,7 @@ The application is containerized using Docker Compose, orchestrating several ser
         *   Server-side PostgREST URL (`SERVER_REST_URL`)
         *   Logging configuration (`SEQ_SERVER_URL`, `SEQ_API_KEY`)
         *   Deployment slot information (`NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME`, `NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE`)
-    *   Interacts with the API via Caddy (`/postgrest/*`).
+    *   Interacts with the API via Caddy (`/rest/*`).
     *   Depends on the database service being healthy before starting.
 
 5.  **`worker` (Background Jobs)**
@@ -108,7 +108,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
 
 1.  **Login:**
     *   User submits email/password to the Next.js app.
-    *   App directly POSTs to `/postgrest/rpc/login` using a direct `fetch` call (via `loginAtom` in Jotai).
+    *   App directly POSTs to `/rest/rpc/login` using a direct `fetch` call (via `loginAtom` in Jotai).
     *   PostgREST executes the `public.login(email, password)` function as the `anon` role.
     *   `public.login`:
         *   Verifies credentials against `auth.users`.
@@ -131,10 +131,10 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
 
 2.  **Authenticated Requests:**
     *   **Client-Side Requests (Browser):**
-        *   The browser automatically includes the `statbus` and `statbus-refresh` cookies with requests to the API origin (`/postgrest/*`) due to `credentials: 'include'`.
+        *   The browser automatically includes the `statbus` cookie (Path=/) with requests to the API origin (`/rest/*`). The `statbus-refresh` cookie (Path=/rest/rpc/refresh) is only sent to the `/rest/rpc/refresh` endpoint. This is due to `credentials: 'include'` and the respective cookie paths.
         *   The `fetchWithAuthRefresh` utility (in `RestClientStore.ts`, used by `getBrowserRestClient`) wraps `fetch`:
             *   It relies on the browser sending cookies automatically.
-            *   If a 401 response is received, it *internally and directly* calls the `/rpc/refresh` endpoint. The browser automatically sends the `statbus-refresh` cookie with this internal call.
+            *   If a 401 response is received, it *internally and directly* calls the `/rest/rpc/refresh` endpoint. The browser automatically sends the `statbus-refresh` cookie with this internal call.
             *   If the internal refresh call is successful (PostgREST's `public.refresh` function sets new cookies via `Set-Cookie` headers and returns an `auth_response`), `fetchWithAuthRefresh` retries the original request. The `auth_response` from the internal refresh call is *not* directly used by `fetchWithAuthRefresh` to update Jotai state; the primary goal is cookie update. Jotai state (`authStatusAtom`) is typically updated by other mechanisms like `AppInitializer` or proactive checks.
     *   **Server-Side Requests (Next.js Server Components/Actions/Middleware):**
         *   The Next.js middleware (`app/src/middleware.ts`) runs first:
@@ -156,7 +156,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     *   Functions like `auth.uid()`, `auth.sub()`, `auth.email()`, and `auth.statbus_role()` can access JWT claims directly.
 
 3.  **Logout:**
-    *   App directly calls `/postgrest/rpc/logout` using a direct `fetch` call (via `logoutAtom` in Jotai).
+    *   App directly calls `/rest/rpc/logout` using a direct `fetch` call (via `logoutAtom` in Jotai).
     *   PostgREST executes `public.logout()` as the authenticated user.
     *   `public.logout`:
         *   Retrieves the user ID and possibly session ID from the current JWT claims.
@@ -170,19 +170,19 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     *   Token refresh is handled differently on client and server:
         *   **Client-Side (Browser - Reactive on 401):**
             *   Triggered when `fetchWithAuthRefresh` (used by `getBrowserRestClient`) receives a 401 Unauthorized response.
-            *   `fetchWithAuthRefresh` *internally and directly* calls the `/rpc/refresh` endpoint. The browser automatically sends the `statbus-refresh` cookie.
+            *   `fetchWithAuthRefresh` *internally and directly* calls the `/rest/rpc/refresh` endpoint. The browser automatically sends the `statbus-refresh` cookie.
             *   PostgREST executes `public.refresh()`. This function sets new cookies via `Set-Cookie` headers and returns an `auth_response` object.
             *   The browser automatically updates its cookies based on the `Set-Cookie` headers.
             *   `fetchWithAuthRefresh` retries the original request. The `auth_response` from the internal refresh call is not used by `fetchWithAuthRefresh` to update Jotai state.
         *   **Server-Side (Middleware - Proactive/Reactive within Request):**
             *   Triggered within `app/src/middleware.ts` when `AuthStore.handleServerAuth()` is called and finds an invalid/missing access token but a valid refresh token cookie exists in the incoming request.
-            *   `AuthStore.handleServerAuth()` directly `fetch`es the `/rpc/refresh` endpoint, manually adding the `Cookie: statbus-refresh=...` header.
+            *   `AuthStore.handleServerAuth()` directly `fetch`es the `/rest/rpc/refresh` endpoint, manually adding the `Cookie: statbus-refresh=...` header.
             *   PostgREST executes `public.refresh()`, which returns an `auth_response`.
             *   `AuthStore.handleServerAuth()` parses this `auth_response` and, if successful, uses the `response.cookies.set()` method (provided by the middleware) to stage the new cookies for the outgoing response to the browser.
             *   The middleware updates the *current request's* headers to reflect the new access token for subsequent processing within the same request lifecycle.
         *   **Proactive Refresh (Client-Side - Jotai):**
             *   The `clientSideRefreshAtom` (Jotai action atom) can be called to proactively refresh tokens.
-            *   It calls the `/rpc/refresh` endpoint using the browser's `PostgrestClient` (which uses `fetchWithAuthRefresh`).
+            *   It calls the `/rest/rpc/refresh` endpoint using the browser's `PostgrestClient` (which uses `fetchWithAuthRefresh`).
             *   PostgREST executes `public.refresh()`, returning an `auth_response`.
             *   The `clientSideRefreshAtom` parses this `auth_response` and updates the global `authStatusAtom`.
     *   The `public.refresh` PostgreSQL function:
