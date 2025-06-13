@@ -32,15 +32,34 @@ export async function refreshAuthToken(request: NextRequest, origin: string): Pr
         console.log(`[refreshAuthToken] /rpc/refresh call was OK. Status: ${response.status}. Raw Headers: ${JSON.stringify(allHeaders)}. Raw Body: ${responseBodyForLogging}`);
       }
       // Get the Set-Cookie headers from the response
-      const cookies = response.headers.getSetCookie();
+      const setCookieHeaders = response.headers.getSetCookie(); // Renamed for clarity
+      
+      if (process.env.DEBUG === 'true') {
+        if (setCookieHeaders && setCookieHeaders.length > 0) {
+          console.log(`[refreshAuthToken] Received Set-Cookie headers from /rpc/refresh:`, JSON.stringify(setCookieHeaders));
+        } else {
+          // This is the problematic case based on your logs
+          console.log(`[refreshAuthToken] NO Set-Cookie headers received from /rpc/refresh. This is a critical issue with the rpc/refresh endpoint.`);
+        }
+      }
       
       // Create a new response that redirects to the original URL
       const redirectResponse = NextResponse.redirect(request.url);
       
-      // Copy all cookies from the refresh response
-      cookies.forEach(cookie => {
-        redirectResponse.headers.append('Set-Cookie', cookie);
-      });
+      // Copy all cookies from the refresh response to the redirect response
+      if (setCookieHeaders && setCookieHeaders.length > 0) {
+        setCookieHeaders.forEach(cookie => {
+          redirectResponse.headers.append('Set-Cookie', cookie);
+        });
+        if (process.env.DEBUG === 'true') {
+          console.log(`[refreshAuthToken] Appended Set-Cookie headers to redirectResponse for ${request.url}`);
+        }
+      } else {
+        if (process.env.DEBUG === 'true') {
+          // This will also be logged if the above critical issue occurs
+          console.log(`[refreshAuthToken] No Set-Cookie headers to append to redirectResponse for ${request.url}. Browser cookies will not be updated by this refresh attempt.`);
+        }
+      }
       
       return redirectResponse;
     } else {

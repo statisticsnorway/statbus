@@ -396,14 +396,23 @@ class RestClientStore {
         this.refreshPromise = (async () => {
           try {
             const refreshApiUrl = `${process.env.NEXT_PUBLIC_BROWSER_REST_URL || ''}/rest/rpc/refresh`;
-            const refreshFetchOptions = {
+            const refreshFetchOptions: RequestInit = { // Explicitly type for clarity
               method: 'POST' as const,
               headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-              credentials: 'include' as RequestCredentials
+              credentials: 'include' as RequestCredentials // Crucial for sending cookies
             };
+
+            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+              console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Current document.cookie before calling ${refreshApiUrl}:`, document.cookie);
+              console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Fetch options for ${refreshApiUrl}:`, JSON.stringify(refreshFetchOptions));
+            }
+            
             const refreshApiResponse = await fetch(refreshApiUrl, refreshFetchOptions);
 
             if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+              // Note: We cannot directly read Set-Cookie headers from the response in JS.
+              // Logging document.cookie *after* this call (if it were synchronous and cookies were set) would show changes.
+              // However, the browser handles Set-Cookie automatically.
               const allRefreshResponseHeaders: Record<string, string> = {};
               refreshApiResponse.headers.forEach((value, key) => { allRefreshResponseHeaders[key] = value; });
               console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Response from ${refreshApiUrl}: Status ${refreshApiResponse.status}, Headers:`, JSON.stringify(allRefreshResponseHeaders));

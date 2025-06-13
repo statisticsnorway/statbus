@@ -276,12 +276,20 @@ class AuthStore {
     try {
       // Get the appropriate client based on environment
       const { getRestClient } = await import("@/context/RestClientStore");
-      const client = await getRestClient();
+      const client = await getRestClient(); // This will be a server client if called from handleServerAuth
       
-      const { data, error } = await client.rpc("auth_status");
+      if (process.env.DEBUG === 'true') {
+        console.log(`[AuthStore.fetchAuthStatus] Calling client.rpc('auth_status', {}, { get: true, count: 'exact' }). Client URL: ${client.url}`);
+      }
+      // Using GET for auth_status
+      const { data, error, status, statusText, count } = await client.rpc("auth_status", {}, { get: true, count: 'exact' });
+      
+      if (process.env.DEBUG === 'true') {
+        console.log(`[AuthStore.fetchAuthStatus] Response from client.rpc('auth_status', {}, { get: true, count: 'exact' }): status=${status}, statusText=${statusText}, data=${JSON.stringify(data)}, error=${JSON.stringify(error)}, count=${count}`);
+      }
       
       if (error) {
-        console.error("AuthStore.fetchAuthStatus: Auth status check RPC failed:", error);
+        console.error("AuthStore.fetchAuthStatus: Auth status check RPC failed:", { status, statusText, error });
         return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'RPC_ERROR' };
       }
     
@@ -291,7 +299,7 @@ class AuthStore {
     
       return result;
     } catch (error) {
-      console.error("AuthStore.fetchAuthStatus: Exception during auth status check:", error);
+      console.error("AuthStore.fetchAuthStatus: Exception during auth status check (outer catch):", error);
       if (error instanceof Error) {
         console.error("AuthStore.fetchAuthStatus: Error details:", {
           name: error.name,
@@ -320,12 +328,19 @@ class AuthStore {
     // Note: responseCookies object passed in is mutated directly for Set-Cookie
   }> {
     if (process.env.DEBUG === 'true') {
-      console.log("[AuthStore.handleServerAuth] Entry. Request cookies:", JSON.stringify(requestCookies.getAll()));
+      const allCookiesForLog = requestCookies.getAll().map(c => ({ name: c.name, value: c.value.startsWith('eyJ') ? `${c.value.substring(0,15)}...` : c.value }));
+      console.log("[AuthStore.handleServerAuth] Entry. Request cookies:", JSON.stringify(allCookiesForLog));
+      const accessToken = requestCookies.get('statbus');
+      if (accessToken && accessToken.value) {
+        console.log(`[AuthStore.handleServerAuth] Access token ('statbus' cookie) found in request: ${accessToken.value.substring(0, 20)}...`);
+      } else {
+        console.log("[AuthStore.handleServerAuth] No access token ('statbus' cookie) found in request cookies.");
+      }
     }
 
     let currentStatus = await this.getAuthStatus(); 
     if (process.env.DEBUG === 'true') {
-      console.log("[AuthStore.handleServerAuth] Status from getAuthStatus():", JSON.stringify(currentStatus));
+      console.log("[AuthStore.handleServerAuth] Status from getAuthStatus() (which calls /rpc/auth_status):", JSON.stringify(currentStatus));
     }
     let modifiedRequestHeaders: Headers | undefined = undefined;
 
@@ -350,17 +365,22 @@ class AuthStore {
           console.log(`[AuthStore.handleServerAuth] Attempting token refresh. URL: ${refreshUrl}, Refresh token value: ${refreshTokenCookie.value.substring(0, 10)}...`);
         }
 
+        const constructedRefreshHeaders: HeadersInit = {
+          'Cookie': `statbus-refresh=${refreshTokenCookie.value}`,
+          // Add any other headers PostgREST might expect for server-to-server RPC, though usually minimal.
+          // 'Content-Type': 'application/json', // Usually not needed for POST to RPC if no body, but PostgREST might be strict.
+        };
+        if (process.env.DEBUG === 'true') {
+          console.log(`[AuthStore.handleServerAuth] Headers being sent to internal /rpc/refresh:`, JSON.stringify(constructedRefreshHeaders));
+        }
+
         const refreshResponse = await fetch(refreshUrl, {
           method: 'POST', 
-          headers: {
-            'Cookie': `statbus-refresh=${refreshTokenCookie.value}`
-            // Ensure 'Origin' or other necessary headers for CSRF/CORS are not missing if your server expects them,
-            // though for a server-to-server call like this, it's usually simpler.
-          },
+          headers: constructedRefreshHeaders,
         });
         
         if (process.env.DEBUG === 'true') {
-          console.log(`[AuthStore.handleServerAuth] Refresh API response status: ${refreshResponse.status}`);
+          console.log(`[AuthStore.handleServerAuth] Internal /rpc/refresh API response status: ${refreshResponse.status}`);
         }
 
         // ALWAYS process Set-Cookie headers from the refreshResponse first.
@@ -373,23 +393,27 @@ class AuthStore {
           parsedSetCookies.forEach(cookieObject => {
             const options: Parameters<typeof responseCookies.set>[2] = {
               httpOnly: cookieObject.httpOnly,
-              secure: cookieObject.secure ?? (process.env.NODE_ENV !== 'development'),
-              path: cookieObject.path || '/',
-              sameSite: (cookieObject.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none' | undefined) || 'lax',
-              expires: cookieObject.expires,
-              maxAge: cookieObject.maxAge,
+              secure: cookieObject.secure ?? (process.env.NODE_ENV !== 'development'), // Default to secure if not specified and not in dev
+              path: cookieObject.path || '/', // Default path
+              sameSite: (cookieObject.sameSite?.toLowerCase() as 'lax' | 'strict' | 'none' | undefined) || 'lax', // Default SameSite
+              expires: cookieObject.expires, // Will be undefined if not set
+              maxAge: cookieObject.maxAge,   // Will be undefined if not set
             };
             // Remove undefined options to avoid issues with Next.js cookie setting
+            // This ensures that only explicitly provided attributes are set.
             Object.keys(options).forEach(keyStr => {
               const key = keyStr as keyof typeof options;
               if (options[key] === undefined) {
                 delete options[key];
               }
             });
-
+            
+            if (process.env.DEBUG === 'true') {
+              console.log(`[AuthStore.handleServerAuth] Staging Set-Cookie for browser: Name=${cookieObject.name}, Value=${cookieObject.value.substring(0,15)}..., Options=${JSON.stringify(options)}`);
+            }
             responseCookies.set(cookieObject.name, cookieObject.value, options);
 
-            if (cookieObject.name === 'statbus' && cookieObject.value) {
+            if (cookieObject.name === 'statbus' && cookieObject.value) { // 'statbus' is the access token cookie
               if (!modifiedRequestHeaders) modifiedRequestHeaders = new Headers();
               // Store the new access token to be available for the current request processing if needed.
               modifiedRequestHeaders.set('X-Statbus-Refreshed-Token', cookieObject.value);
