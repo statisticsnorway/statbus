@@ -11,6 +11,10 @@ import json
 import requests
 from requests.sessions import Session
 from typing import Optional, Dict, Any
+import subprocess
+import threading
+import time
+import queue
 
 # Colors for output (same as auth_for_standalone.py)
 RED = '\033[0;31m'
@@ -48,6 +52,92 @@ def log_error_critical(message: str): # For critical script errors, not test fai
 def debug_info(message: str):
     if os.environ.get("DEBUG"):
         print(f"{YELLOW}DEBUG: {message}{NC}")
+
+class RemoteLogCollector:
+    def __init__(self, ssh_target: str, remote_command_dir: str, services: list[str], log_queue: queue.Queue):
+        self.ssh_target = ssh_target
+        self.remote_command_dir = remote_command_dir
+        self.services = services
+        self.log_queue = log_queue
+        self.process: Optional[subprocess.Popen] = None
+        self.stdout_thread: Optional[threading.Thread] = None
+        self.stderr_thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+
+    def _reader_thread_target(self, pipe, stream_name):
+        try:
+            for line in iter(pipe.readline, ''):
+                if self._stop_event.is_set():
+                    break
+                self.log_queue.put(f"[{self.ssh_target} {stream_name}] {line.strip()}")
+            pipe.close()
+        except Exception as e:
+            self.log_queue.put(f"[{self.ssh_target} {stream_name} ERROR] Exception in reader thread: {e}")
+
+
+    def start(self):
+        self._stop_event.clear()
+        # Using --since 1s to get very recent history plus new logs.
+        # Adjust if more history is needed or if clock sync is an issue.
+        command_str = f"cd {self.remote_command_dir} && docker compose logs --follow --since 1s {' '.join(self.services)}"
+        ssh_command = ['ssh', self.ssh_target, command_str]
+        
+        log_info(f"Starting remote log collection: {' '.join(ssh_command)}")
+        try:
+            self.process = subprocess.Popen(
+                ssh_command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1, # Line-buffered
+                errors='replace' 
+            )
+        except FileNotFoundError:
+            self.log_queue.put(f"[LOCAL ERROR] ssh command not found. Ensure ssh client is installed and in PATH.")
+            return
+        except Exception as e:
+            self.log_queue.put(f"[LOCAL ERROR] Failed to start ssh process: {e}")
+            return
+
+        if self.process.stdout:
+            self.stdout_thread = threading.Thread(target=self._reader_thread_target, args=(self.process.stdout, "stdout"))
+            self.stdout_thread.daemon = True
+            self.stdout_thread.start()
+
+        if self.process.stderr:
+            self.stderr_thread = threading.Thread(target=self._reader_thread_target, args=(self.process.stderr, "stderr"))
+            self.stderr_thread.daemon = True
+            self.stderr_thread.start()
+        
+        # Give SSH a moment to connect and docker logs to start streaming
+        time.sleep(2) # Adjust if needed
+
+    def stop(self):
+        log_info(f"Stopping remote log collection for {self.ssh_target}...")
+        self._stop_event.set() # Signal reader threads to stop
+
+        if self.process:
+            if self.process.poll() is None: # If process is still running
+                try:
+                    self.process.terminate() # Send SIGTERM
+                    try:
+                        self.process.wait(timeout=5) # Wait for termination
+                    except subprocess.TimeoutExpired:
+                        log_warning(f"Remote log collector process for {self.ssh_target} did not terminate gracefully, killing.")
+                        self.process.kill() # Send SIGKILL
+                        try:
+                            self.process.wait(timeout=2)
+                        except subprocess.TimeoutExpired:
+                            log_error_critical(f"Failed to kill remote log collector process for {self.ssh_target}.")
+                except Exception as e:
+                    log_warning(f"Error terminating remote log collector process: {e}")
+            self.process = None
+
+        if self.stdout_thread and self.stdout_thread.is_alive():
+            self.stdout_thread.join(timeout=2)
+        if self.stderr_thread and self.stderr_thread.is_alive():
+            self.stderr_thread.join(timeout=2)
+        log_info("Remote log collection stopped.")
 
 def login_user(session: Session) -> Optional[Dict[str, str]]:
     """Logs in the user and returns cookies if successful."""
@@ -347,14 +437,26 @@ def test_dev_client_refresh_failure(session: Session, initial_refresh_token: Opt
 
 def test_nextjs_api_auth_test(session: Session):
     log_info("\nTesting Next.js /api/auth_test endpoint...")
-    if not session.cookies.get("statbus") or not session.cookies.get("statbus-refresh"):
-        log_failure_condition("Skipping /api/auth_test: Missing auth cookies from login.")
+    if not session.cookies.get("statbus"): # Refresh cookie might not be sent by browser to /api/auth_test due to path
+        log_failure_condition("Skipping /api/auth_test: Missing 'statbus' access token cookie from login session.")
         return
 
+    log_queue = queue.Queue()
+    # Assuming SSH target and remote directory are fixed for this specific test script
+    ssh_target = "statbus_dev@statbus.org" 
+    remote_command_dir = "statbus" # The directory where 'docker compose' commands are run on the remote server
+    services_to_log = ["app", "db"]
+
+    log_collector = RemoteLogCollector(ssh_target, remote_command_dir, services_to_log, log_queue)
+    
+    remote_logs_header_printed = False
+
     try:
+        log_collector.start()
+        
         api_url = f"{DEV_API_URL}/api/auth_test"
         log_info(f"Calling {api_url} with current session cookies...")
-        response = session.get(api_url, timeout=15)
+        response = session.get(api_url, timeout=20) # Increased timeout slightly for remote call + logging
         
         debug_info(f"/api/auth_test response status: {response.status_code}")
         
@@ -394,6 +496,21 @@ def test_nextjs_api_auth_test(session: Session):
 
     except requests.RequestException as e:
         log_error_critical(f"/api/auth_test request exception: {e}")
+    finally:
+        log_collector.stop()
+        # Print collected remote logs
+        if not log_queue.empty():
+            print(f"\n{BLUE}--- Collected Remote Logs for /api/auth_test call ---{NC}")
+            remote_logs_header_printed = True
+            while not log_queue.empty():
+                try:
+                    log_line = log_queue.get_nowait()
+                    print(log_line)
+                except queue.Empty:
+                    break
+            print(f"{BLUE}--- End of Remote Logs ---{NC}\n")
+        elif not remote_logs_header_printed : # If no logs, but header wasn't printed (e.g. collector failed to start)
+            log_info("No remote logs were collected or collector did not start properly.")
 
 
 def main_dev_tests():
