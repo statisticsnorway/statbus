@@ -12,6 +12,7 @@
  */
 
 import { cache } from 'react';
+import { headers as nextHeadersFn } from 'next/headers';
 import { Database } from "@/lib/database.types";
 import { PostgrestClient } from "@supabase/postgrest-js";
 
@@ -193,7 +194,7 @@ class RestClientStore {
 
         // Create a new PostgrestClient with auth headers from cookies
         const createClient = async () => {
-          let headers: Record<string, string> = {
+          const postgrestClientHeaders: Record<string, string> = {
             'Content-Type': 'application/json',
           };
           let tokenValue: string | undefined = undefined;
@@ -203,17 +204,18 @@ class RestClientStore {
             const tokenCookie = serverRequestCookies.get("statbus");
             tokenValue = tokenCookie?.value;
             if (process.env.DEBUG === 'true' && tokenValue) { // Server-side, use DEBUG
-              console.log(`RestClientStore: Using token from provided serverRequestCookies for server client.`);
+              console.log(`RestClientStore: Using token from provided serverRequestCookies for server client's Authorization header.`);
             }
           } else {
-            // Fallback to next/headers
+            // Fallback to next/headers for cookies
             try {
-              const { cookies: nextCookiesFn } = await import("next/headers");
-              const cookieStore = await nextCookiesFn();
-              const tokenCookie = cookieStore.get("statbus");
+              const { cookies: getNextCookies } = await import('next/headers');
+              const currentCookies = await getNextCookies();
+              const tokenCookie = currentCookies.get("statbus");
+
               tokenValue = tokenCookie?.value;
               if (process.env.DEBUG === 'true' && tokenValue) { // Server-side, use DEBUG
-                console.log(`RestClientStore: Using token from next/headers for server client.`);
+                console.log(`RestClientStore: Using token from next/headers.cookies() for server client's Authorization header.`);
               }
             } catch (error) {
               console.warn('RestClientStore: Could not import or use next/headers.cookies() for server client. Proceeding without Authorization header from this source.', error);
@@ -221,14 +223,40 @@ class RestClientStore {
           }
 
           if (tokenValue) {
-            headers['Authorization'] = `Bearer ${tokenValue}`;
+            postgrestClientHeaders['Authorization'] = `Bearer ${tokenValue}`;
           } else {
             if (process.env.DEBUG === 'true') { // Server-side, use DEBUG
-              console.log(`RestClientStore: No 'statbus' token found for server client. Client will be unauthenticated.`);
+              console.log(`RestClientStore: No 'statbus' token found for server client. Client will be unauthenticated for Authorization header.`);
             }
           }
+
+          // Add X-Forwarded-* headers from the incoming request
+          try {
+            const incomingHeaders = await nextHeadersFn();
+            
+            const xForwardedHost = incomingHeaders.get('x-forwarded-host');
+            if (xForwardedHost) {
+              postgrestClientHeaders['X-Forwarded-Host'] = xForwardedHost;
+            }
+            
+            const xForwardedProto = incomingHeaders.get('x-forwarded-proto');
+            if (xForwardedProto) {
+              postgrestClientHeaders['X-Forwarded-Proto'] = xForwardedProto;
+            }
+            
+            const xForwardedFor = incomingHeaders.get('x-forwarded-for');
+            if (xForwardedFor) {
+              postgrestClientHeaders['X-Forwarded-For'] = xForwardedFor;
+            }
+            
+            if (process.env.DEBUG === 'true') {
+              console.log(`RestClientStore: Server client PostgREST headers prepared: ${JSON.stringify(postgrestClientHeaders)}`);
+            }
+          } catch (error) {
+            console.warn('RestClientStore: Could not read incoming headers using next/headers. X-Forwarded-* headers will not be set for PostgrestClient.', error);
+          }
           
-          return new PostgrestClient<Database>(apiUrl, { headers });
+          return new PostgrestClient<Database>(apiUrl, { headers: postgrestClientHeaders });
         };
 
         const client = await Promise.race([
