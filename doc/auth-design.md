@@ -233,6 +233,32 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
     * `POSTGRES_APP_USER`: Database user for application access
     * `POSTGRES_APP_PASSWORD`: Database password for application access
 
+### Troubleshooting Inter-Service Communication & Authentication
+
+Debugging sessions (June 2025) for authentication issues between the Next.js app, the internal Caddy proxy (`proxy:80`), and PostgREST (`rest:3000`) revealed several key insights:
+
+1.  **Internal Caddy `Host` Header Matching:**
+    *   When the Next.js application (service `app`) makes internal HTTP requests to the internal Caddy proxy (service `proxy`, e.g., `http://proxy/rest/...`), the `Host` header of these requests, as seen by the `proxy` Caddy instance, will be the hostname used in the URL (e.g., `proxy`).
+    *   Attempts by the Next.js application to explicitly set a different `Host` header (e.g., `Host: dev.statbus.org`) in its `fetch` calls to `http://proxy/...` may not alter the `Host` header actually processed by the internal Caddy for its site matching. HTTP client libraries (like Node.js `fetch`) often derive the `Host` header from the URL's authority component.
+    *   **Problem Manifestation:** If the internal Caddy's Caddyfile does not have a site block that explicitly matches `Host: proxy` (or the internal service name used), it may not correctly route these internal requests to the intended upstream (e.g., PostgREST). This can result in "NOP" (No Operation) logs from Caddy, where Caddy serves a default empty 200 OK or another status without proxying.
+    *   **Solution:** The Caddyfile for the internal proxy service (`proxy:80`) must include a site block that matches requests to its internal hostname (e.g., `http://proxy:80, http://proxy`). Within this block, specific paths (like `/rest/*`) should then be routed to the correct upstream (e.g., `rest:3000`). An additional matcher using `header X-Forwarded-Host <external_domain>` can be used within this internal host block to ensure that requests are only proxied if they were originally intended for the correct external domain.
+
+2.  **`X-Forwarded-*` Headers:**
+    *   When the Next.js application makes server-side calls to internal services (like `http://proxy/rest/...`), it's crucial for it to set appropriate `X-Forwarded-For`, `X-Forwarded-Proto`, and `X-Forwarded-Host` headers. These headers provide the internal Caddy proxy and the ultimate upstream (PostgREST/SQL functions) with the context of the original client request.
+    *   The `X-Forwarded-Host` header is particularly important if the internal Caddy proxy uses it in matchers (as implemented in June 2025) to route requests for `Host: proxy` only if they are intended for a specific external domain.
+    *   The `X-Forwarded-Proto` header is important if PostgREST or SQL functions have logic that depends on whether the original connection was HTTPS (e.g., for setting `Secure` cookie attributes).
+
+3.  **Diagnosing Empty Responses from Internal Calls:**
+    *   If internal calls from Next.js to PostgREST (via `http://proxy:80`) return HTTP 200 OK but with an empty body (`Content-Length: 0`) or `data: null` in the application:
+        *   First, check the internal Caddy (`proxy:80`) logs. "NOP" logs indicate the request wasn't proxied to PostgREST, likely due to a `Host` mismatch in the Caddyfile.
+        *   If the internal Caddy *is* proxying the request (i.e., no "NOP" log, and logs show an upstream roundtrip to `rest:3000`), then the issue might be with PostgREST or the SQL function itself (e.g., not receiving expected headers/claims and thus returning an empty valid response).
+        *   The `/api/auth_test` endpoint in Next.js was instrumental in diagnosing this by showing what headers Next.js sent and what response (including `Content-Length`) it received from internal calls.
+
+4.  **`postgrest-js` Server-Side Header Forwarding:**
+    *   When using `getServerRestClient()` (which utilizes `postgrest-js`) for server-side calls from Next.js to the internal proxy, ensure that the underlying `fetch` mechanism is configured to forward necessary headers like `X-Forwarded-Host`, `X-Forwarded-Proto`, and `X-Forwarded-For`. If `postgrest-js` does not do this by default, its `fetch` option may need to be customized to add these headers, similar to how direct `fetch` calls are augmented in `/api/auth_test`. This is crucial if the internal Caddy relies on these headers for routing decisions (e.g., the `header X-Forwarded-Host <%= @domain %>` matcher).
+
+These insights highlight the importance of correctly configuring the internal Caddy proxy to handle requests based on the actual `Host` header it receives for internal service-to-service communication, and ensuring that necessary context (like original `X-Forwarded-*` headers) is propagated by the calling application (Next.js) if intermediate proxies or upstreams rely on them.
+
 ## Views with SECURITY INVOKER
 
 When creating views that need to respect row-level security policies, we use the `security_invoker=true` option:

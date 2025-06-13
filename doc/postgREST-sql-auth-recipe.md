@@ -65,6 +65,9 @@ Configure PostgREST (e.g., in `postgrest.conf` or environment variables):
 - `jwt-secret = "your-very-secure-and-long-jwt-secret"` (must be at least 32 characters, ideally stored in `app.settings.jwt_secret` GUC)
 - `db-pre-request = "auth.check_api_key_revocation"` (Optional, if using API keys as described in migrations)
 
+**Important Proxying Consideration:**
+For the JWT authentication and role switching described in this recipe to work correctly, it is crucial that the proxy server in front of PostgREST (e.g., Caddy) correctly forwards the `Authorization` header (containing the JWT) to PostgREST. If PostgREST does not receive this header, it will treat the request as unauthenticated or fall back to the `db-anon-role`. In multi-proxy setups (e.g., external proxy -> internal proxy -> PostgREST), ensure all intermediate proxies correctly pass through this header and that the internal proxy correctly routes requests based on the `Host` header it receives for internal calls. Refer to `doc/service-architecture.md` for more details on debugging such inter-service communication.
+
 ### 2. User Storage
 
 The `auth.user` table stores application user information. The user's email is unique and also serves as the basis for their PostgreSQL role name.
