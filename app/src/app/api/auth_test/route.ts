@@ -91,7 +91,9 @@ export async function GET(request: NextRequest) {
   const directFetchUrl = 'http://proxy:80/rest/rpc/auth_test';
   const headersForDirectFetch: Record<string, string> = {
     // Forward essential headers. PostgREST might need 'Accept' for JSON.
-    'Accept': 'application/json', 
+    'Accept': 'application/json',
+    // Crucially, tell the backend that the original connection was HTTPS
+    'X-Forwarded-Proto': 'https', 
     // 'Content-Type': 'application/json', // Not strictly needed for GET RPC
   };
   if (allIncomingCookies['statbus']) {
