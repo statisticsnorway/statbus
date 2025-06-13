@@ -45,7 +45,7 @@ services:
       - -c
       - config_file=/etc/postgresql/postgresql.conf
       - -c
-      - log_min_messages=fatal # prevents Realtime polling queries from appearing in logs
+      - log_min_messages=FATAL # Log all server messages (INFO, NOTICE, WARNING, ERROR, LOG, FATAL, PANIC)
       - -c # Redirect logs to stdout for Docker to capture
       - logging_collector=off
       - -c # Log to stderr which Docker redirects to stdout
