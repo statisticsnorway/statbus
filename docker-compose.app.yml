@@ -18,7 +18,6 @@ services:
       - "all"
       - "app"
     environment:
-      NODE_ENV: ${NODE_ENV:?NODE_ENV must be set in the generated .env} # Sourced from .env; 'development' for local docker, 'production' otherwise
       RUNNING_IN_DOCKER: 'true' # To differentiate from true local dev (pnpm run dev on host)
       NEXT_PUBLIC_BROWSER_REST_URL: ${NEXT_PUBLIC_BROWSER_REST_URL}
       SERVER_REST_URL: "http://proxy:80"

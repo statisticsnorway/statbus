@@ -463,11 +463,6 @@ module Statbus
     # Updated by manage-statbus.sh start required
     VERSION=#{derived.version}
 
-    # Node environment for the Next.js app container
-    # Set to 'development' if Caddy is in 'development' mode (local Docker dev),
-    # otherwise 'production'. This ensures Next.js optimizations are applied correctly.
-    NODE_ENV=#{config.caddy_deployment_mode == "development" ? "development" : "production"}
-
     # Server-side debugging for the Statbus App. Requires app restart.
     # To enable, edit .env: set DEBUG=true and comment out/remove DEBUG=false.
     # To disable, edit .env: set DEBUG=false and comment out/remove DEBUG=true.
