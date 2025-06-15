@@ -98,7 +98,7 @@ export async function GET(request: NextRequest) {
     // Set the Host header to what the internal proxy expects for routing to PostgREST.
     // This is typically the external hostname.
     'Host': request.headers.get('x-forwarded-host') || request.headers.get('host') || 'dev.statbus.org',
-    // 'Content-Type': 'application/json', // Not strictly needed for GET RPC
+    'Content-Type': 'application/json', // Essential for POST with JSON body
   };
 
   // Set X-Forwarded-Proto based on the original incoming request to this API route
@@ -152,7 +152,7 @@ export async function GET(request: NextRequest) {
     const directResponse = await fetch(directFetchUrl, {
       method: 'POST', // PostgREST RPCs are typically POST, even if they don't modify data
       headers: headersForDirectFetch,
-      // body: JSON.stringify({}), // Empty body for parameterless function
+      body: JSON.stringify({}), // Send an empty JSON object for RPC POST
     });
 
     const responseHeaders: Record<string, string> = {};
