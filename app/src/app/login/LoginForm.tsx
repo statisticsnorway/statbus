@@ -54,16 +54,9 @@ export default function LoginForm() {
       
       // If loginAtom completes without error, it means the /rest/rpc/login was successful (2xx)
       // AND the subsequent refresh of authStatusCoreAtom (via /rest/rpc/auth_status) also indicated authenticated.
-      // If /rest/rpc/login returned is_authenticated: false, loginAtom should ideally throw or handle it.
-      // Based on current loginAtom, it throws if the fetch response.ok is false.
-      // If response.ok is true but is_authenticated is false (with an error_code), loginAtom
-      // currently doesn't throw. This needs adjustment in loginAtom.
-
-      // For the purpose of this change, let's assume loginAtom is updated to throw an error
-      // that has a `cause` property which could be the `error_code`.
-      // This is a temporary measure. The ideal fix is for loginAtom to return the full auth_response.
-
-      router.push('/'); 
+      // The LoginClientBoundary component will handle redirecting the user when authStatusAtom updates.
+      // No need to router.push('/') here anymore.
+      
     } catch (error: any) {
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.error("LoginForm: Login error caught in handleSubmit:", error, "Error cause:", error.cause);

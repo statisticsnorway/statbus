@@ -3,7 +3,8 @@ export const dynamic = 'force-dynamic';
 import React from "react";
 import Image from "next/image";
 import logo from "@/../public/statbus-logo.png";
-import LoginForm from "./LoginForm";
+// Import the new client boundary instead of LoginForm directly
+import LoginClientBoundary from "./LoginClientBoundary"; 
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { authStore } from "@/context/AuthStore";
@@ -50,7 +51,7 @@ export default async function LoginPage() {
       </div>
 
       <div className="mt-10 sm:mx-auto sm:w-full sm:max-w-sm">
-        <LoginForm />
+        <LoginClientBoundary />
       </div>
     </main>
   );
