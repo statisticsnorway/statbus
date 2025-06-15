@@ -125,8 +125,8 @@ class AuthStore {
     this.fetchStatus = "success";
     this.lastFetchTime = Date.now();
 
-    if (process.env.NODE_ENV === "development") {
-      console.log("Auth status updated directly", {
+    if (process.env.DEBUG === 'true') {
+      console.log("AuthStore.updateAuthStatus: Auth status updated directly", {
         isAuthenticated: status.isAuthenticated,
         hasUser: !!status.user,
       });
@@ -146,8 +146,8 @@ class AuthStore {
     this.fetchStatus = "idle";
     this.lastFetchTime = 0;
 
-    if (process.env.NODE_ENV === "development") {
-      console.log("Auth status cache cleared");
+    if (process.env.DEBUG === 'true') {
+      console.log("AuthStore.clearCache: Auth status cache cleared");
     }
   }
 
@@ -274,9 +274,20 @@ class AuthStore {
 
   private async fetchAuthStatus(): Promise<AuthStatus> {
     try {
-      // Get the appropriate client based on environment
-      const { getRestClient } = await import("@/context/RestClientStore");
-      const client = await getRestClient(); // This will be a server client if called from handleServerAuth
+      let client;
+      // Determine if running in a server environment
+      if (typeof window === 'undefined') {
+        const { getServerRestClient } = await import("@/context/RestClientStore");
+        client = await getServerRestClient();
+      } else {
+        const { getRestClient } = await import("@/context/RestClientStore");
+        client = await getRestClient(); // This should be the browser client
+      }
+      
+      if (!client) {
+        console.error("AuthStore.fetchAuthStatus: Failed to get a valid REST client.");
+        return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'CLIENT_INIT_ERROR' };
+      }
       
       if (process.env.DEBUG === 'true') {
         console.log(`[AuthStore.fetchAuthStatus] Calling client.rpc('auth_status', {}, { get: true, count: 'exact' }). Client URL: ${client.url}`);
