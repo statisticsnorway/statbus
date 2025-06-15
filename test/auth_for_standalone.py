@@ -17,6 +17,8 @@ import psycopg2
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any, Union
 from requests.sessions import Session
+import threading
+import queue
 
 # Colors for output
 RED = '\033[0;31m'
@@ -24,6 +26,9 @@ GREEN = '\033[0;32m'
 YELLOW = '\033[0;33m'
 BLUE = '\033[0;34m'
 NC = '\033[0m'  # No Color
+
+# Global flag to track if any problem was reproduced
+PROBLEM_REPRODUCED_FLAG = False
 
 # Determine workspace directory
 WORKSPACE = Path(__file__).parent.parent.absolute()
@@ -94,6 +99,103 @@ def debug_info(message: str) -> None:
     """Print debug information if DEBUG is set"""
     if os.environ.get("DEBUG"):
         print(f"{YELLOW}DEBUG: {message}{NC}")
+
+def log_problem_reproduced(message: str):
+    """Flags that a specific problem being tested for has been reproduced."""
+    global PROBLEM_REPRODUCED_FLAG
+    PROBLEM_REPRODUCED_FLAG = True
+    print(f"{RED}PROBLEM REPRODUCED: {message}{NC}")
+
+def log_problem_identified(message: str) -> None:
+    """Print a message indicating a known problem has been identified/reproduced locally."""
+    print(f"{YELLOW}PROBLEM IDENTIFIED: {message}{NC}")
+
+
+class LocalLogCollector:
+    def __init__(self, services: list[str], log_queue: queue.Queue, compose_project_name: Optional[str] = None):
+        self.services = services
+        self.log_queue = log_queue
+        self.compose_project_name = compose_project_name or os.environ.get("COMPOSE_PROJECT_NAME")
+        self.process: Optional[subprocess.Popen] = None
+        self.stdout_thread: Optional[threading.Thread] = None
+        self.stderr_thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+
+    def _reader_thread_target(self, pipe, stream_name):
+        try:
+            for line in iter(pipe.readline, ''):
+                if self._stop_event.is_set():
+                    break
+                self.log_queue.put(f"[Docker {stream_name}] {line.strip()}")
+            pipe.close()
+        except Exception as e:
+            self.log_queue.put(f"[Docker {stream_name} ERROR] Exception in reader thread: {e}")
+
+    def start(self):
+        self._stop_event.clear()
+        
+        cmd_base = ["docker", "compose"]
+        if self.compose_project_name:
+            cmd_base.extend(["-p", self.compose_project_name])
+        
+        cmd = cmd_base + ["logs", "--follow", "--since", "1s"] + self.services
+        
+        log_info(f"Starting local log collection: {' '.join(cmd)}")
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1, # Line-buffered
+                errors='replace',
+                cwd=WORKSPACE # Ensure docker compose runs from project root
+            )
+        except FileNotFoundError:
+            self.log_queue.put(f"[LOCAL ERROR] docker command not found. Ensure docker is installed and in PATH.")
+            return
+        except Exception as e:
+            self.log_queue.put(f"[LOCAL ERROR] Failed to start docker compose logs process: {e}")
+            return
+
+        if self.process.stdout:
+            self.stdout_thread = threading.Thread(target=self._reader_thread_target, args=(self.process.stdout, "stdout"))
+            self.stdout_thread.daemon = True
+            self.stdout_thread.start()
+
+        if self.process.stderr:
+            self.stderr_thread = threading.Thread(target=self._reader_thread_target, args=(self.process.stderr, "stderr"))
+            self.stderr_thread.daemon = True
+            self.stderr_thread.start()
+        
+        time.sleep(1) # Give logs a moment to start streaming
+
+    def stop(self):
+        log_info(f"Stopping local log collection for services: {', '.join(self.services)}...")
+        self._stop_event.set()
+
+        if self.process:
+            if self.process.poll() is None:
+                try:
+                    self.process.terminate()
+                    try:
+                        self.process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        log_warning(f"Local log collector process did not terminate gracefully, killing.")
+                        self.process.kill()
+                        try:
+                            self.process.wait(timeout=2)
+                        except subprocess.TimeoutExpired:
+                            log_error(f"Failed to kill local log collector process.")
+                except Exception as e:
+                    log_warning(f"Error terminating local log collector process: {e}")
+            self.process = None
+
+        if self.stdout_thread and self.stdout_thread.is_alive():
+            self.stdout_thread.join(timeout=2)
+        if self.stderr_thread and self.stderr_thread.is_alive():
+            self.stderr_thread.join(timeout=2)
+        log_info("Local log collection stopped.")
 
 def run_psql_command(query: str, user: str = None, password: str = None) -> str:
     """Run a PostgreSQL query and return the output"""
@@ -1055,9 +1157,15 @@ def test_password_change(admin_session: Session, user_session: Session, user_ema
 def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
     """Test the auth_test endpoint to get detailed debug information"""
     log_info(f"Testing auth_test endpoint (logged in: {logged_in})...")
+
+    log_q = queue.Queue()
+    services_to_log = ["db", "proxy", "rest"]
+    collector = LocalLogCollector(services_to_log, log_q)
     
-    # Make auth_test request
+    collector.start()
+    
     try:
+        # Test GET request
         response = session.get(
             f"{CADDY_BASE_URL}/rest/rpc/auth_test",
             headers={"Content-Type": "application/json"}
@@ -1070,22 +1178,173 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
             # Parse and print the response if in debug mode
             try:
                 data = response.json()
+                # PostgREST RPCs that return a single row might wrap it in an array
+                actual_data = data[0] if isinstance(data, list) and len(data) == 1 else data
+
                 if os.environ.get("DEBUG"):
-                    print(f"\n{YELLOW}=== Auth Test Response ({logged_in=}) ==={NC}")
-                    print(f"{YELLOW}{json.dumps(data, indent=2)}{NC}\n")
+                    print(f"\n{YELLOW}=== Auth Test Response (GET, {logged_in=}) ==={NC}")
+                    print(f"{YELLOW}{json.dumps(actual_data, indent=2)}{NC}\n")
+
+                if logged_in:
+                    # With SECURITY INVOKER, top-level 'claims' from current_setting might show 'anon'.
+                    # Verify authentication using 'access_token.claims' which directly reflects the parsed token.
+                    access_token_details = actual_data.get("access_token", {})
+                    access_token_claims = access_token_details.get("claims", {})
+                    user_email_in_token = access_token_claims.get("email")
+                    
+                    expected_email_for_session = (ADMIN_EMAIL if "admin" in session.headers.get("User-Agent", "") else
+                                                  REGULAR_EMAIL if "regular" in session.headers.get("User-Agent", "") else
+                                                  RESTRICTED_EMAIL if "restricted" in session.headers.get("User-Agent", "") else None)
+
+                    if access_token_details.get("present") and user_email_in_token == expected_email_for_session:
+                        log_success(f"GET /rpc/auth_test: 'access_token.claims.email' ({user_email_in_token}) correctly matches logged-in user ({expected_email_for_session}).")
+                    elif access_token_details.get("present"):
+                        log_problem_reproduced(f"GET /rpc/auth_test: 'access_token.claims.email' ({user_email_in_token}) does not match expected user ({expected_email_for_session}) although token is present. Token claims: {access_token_claims}")
+                    else:
+                        log_problem_reproduced(f"GET /rpc/auth_test: Access token not present in response for an expected logged-in session.")
+
+                    # Informational: Log the top-level claims (from GUC) for debugging.
+                    # Expect 'anon' or similar for the top-level claims role with SECURITY INVOKER entry point.
+                    top_level_claims = actual_data.get("claims", {})
+                    log_info(f"  GET /rpc/auth_test: Top-level 'claims' (from GUC) for this session: {json.dumps(top_level_claims)}")
+                    if top_level_claims.get("role") != "anon":
+                        log_warning(f"  GET /rpc/auth_test: Top-level 'claims.role' was '{top_level_claims.get('role')}', not 'anon' as potentially expected for SECURITY INVOKER entry point.")
+                
+                elif not logged_in: # Unauthenticated
+                    top_level_claims_role = actual_data.get("claims", {}).get("role")
+                    if top_level_claims_role == "anon":
+                        log_success("GET /rpc/auth_test: Top-level 'claims.role' is 'anon' as expected for unauthenticated session.")
+                    else:
+                        log_warning("GET /rpc/auth_test: Top-level 'claims.role' is missing.")
+
             except json.JSONDecodeError as e:
                 def print_auth_test_response():
-                    print(f"{RED}Response text: {response.text!r}{NC}")
-                
-                log_error(f"Invalid JSON response from auth_test: {e}", print_auth_test_response)
+                    print(f"{RED}Response text (GET): {response.text!r}{NC}")
+                log_error(f"Invalid JSON response from auth_test (GET): {e}", print_auth_test_response)
+            except (IndexError, TypeError) as e:
+                log_error(f"GET /rpc/auth_test returned unexpected JSON structure: {response.text}. Error: {e}")
+
         else:
             def print_auth_test_error():
-                print(f"{RED}Response: {response.text}{NC}")
-            
-            log_error(f"Auth test endpoint returned status {response.status_code}", print_auth_test_error)
+                print(f"{RED}Response (GET): {response.text}{NC}")
+            log_error(f"Auth test endpoint (GET) returned status {response.status_code}", print_auth_test_error)
     
     except requests.RequestException as e:
-        log_error(f"API request failed: {e}")
+        log_error(f"API request (GET /rpc/auth_test) failed: {e}")
+    # Ensure logs are collected even if GET fails before POST
+    # The main try/finally will handle stopping the collector
+
+    # Test POST request to /rpc/auth_test
+    log_info(f"Testing auth_test endpoint with POST (logged in: {logged_in})...")
+    try:
+        response_post = session.post(
+            f"{CADDY_BASE_URL}/rest/rpc/auth_test",
+            headers={"Content-Type": "application/json"},
+            json={} # Empty JSON body for POST RPC
+        )
+        if response_post.status_code == 200:
+            log_success(f"Auth test endpoint (POST) returned status 200")
+            try:
+                data_post = response_post.json()
+                actual_data_post = data_post[0] if isinstance(data_post, list) and len(data_post) == 1 else data_post
+
+                if os.environ.get("DEBUG"):
+                    print(f"\n{YELLOW}=== Auth Test Response (POST, {logged_in=}) ==={NC}")
+                    print(f"{YELLOW}{json.dumps(actual_data_post, indent=2)}{NC}\n")
+
+                if logged_in:
+                    access_token_details_post = actual_data_post.get("access_token", {})
+                    access_token_claims_post = access_token_details_post.get("claims", {})
+                    user_email_in_token_post = access_token_claims_post.get("email")
+
+                    expected_email_for_session = (ADMIN_EMAIL if "admin" in session.headers.get("User-Agent", "") else
+                                                  REGULAR_EMAIL if "regular" in session.headers.get("User-Agent", "") else
+                                                  RESTRICTED_EMAIL if "restricted" in session.headers.get("User-Agent", "") else None)
+
+                    if access_token_details_post.get("present") and user_email_in_token_post == expected_email_for_session:
+                        log_success(f"POST /rpc/auth_test: 'access_token.claims.email' ({user_email_in_token_post}) correctly matches logged-in user ({expected_email_for_session}).")
+                    elif access_token_details_post.get("present"):
+                        log_problem_reproduced(f"POST /rpc/auth_test: 'access_token.claims.email' ({user_email_in_token_post}) does not match expected user ({expected_email_for_session}) although token is present. Token claims: {access_token_claims_post}")
+                    else:
+                        log_problem_reproduced(f"POST /rpc/auth_test: Access token not present in response for an expected logged-in session.")
+                    
+                    top_level_claims_post = actual_data_post.get("claims", {})
+                    log_info(f"  POST /rpc/auth_test: Top-level 'claims' (from GUC) for this session: {json.dumps(top_level_claims_post)}")
+                    if top_level_claims_post.get("role") != "anon":
+                        log_warning(f"  POST /rpc/auth_test: Top-level 'claims.role' was '{top_level_claims_post.get('role')}', not 'anon' as potentially expected for SECURITY INVOKER entry point.")
+
+                elif not logged_in: # Unauthenticated
+                    top_level_claims_role_post = actual_data_post.get("claims", {}).get("role")
+                    if top_level_claims_role_post == "anon":
+                        log_success("POST /rpc/auth_test: Top-level 'claims.role' is 'anon' as expected for unauthenticated session.")
+                    else:
+                        log_warning("POST /rpc/auth_test: Top-level 'claims.role' is missing.")
+            
+            except json.JSONDecodeError as e:
+                def print_auth_test_post_response():
+                    print(f"{RED}Response text (POST): {response_post.text!r}{NC}")
+                log_error(f"Invalid JSON response from auth_test (POST): {e}", print_auth_test_post_response)
+            except (IndexError, TypeError) as e:
+                log_error(f"POST /rpc/auth_test returned unexpected JSON structure: {response_post.text}. Error: {e}")
+        else:
+            def print_auth_test_post_error():
+                print(f"{RED}Response (POST): {response_post.text}{NC}")
+            log_error(f"Auth test endpoint (POST) returned status {response_post.status_code}", print_auth_test_post_error)
+    except requests.RequestException as e:
+        log_error(f"API request (POST /rpc/auth_test) failed: {e}")
+    finally:
+        collector.stop()
+        if not log_q.empty():
+            print(f"\n{BLUE}--- Collected Docker Logs for test_auth_test_endpoint ---{NC}")
+            while not log_q.empty():
+                try:
+                    log_line = log_q.get_nowait()
+                    print(log_line)
+                except queue.Empty:
+                    break
+            print(f"{BLUE}--- End of Docker Logs ---{NC}\n")
+
+def test_auth_status_post(session: Session, expected_auth: bool) -> None:
+    """Test auth status using POST"""
+    log_info(f"Testing auth status with POST (expected authenticated: {expected_auth})...")
+        
+    try:
+        debug_info(f"Session cookies before POST request to auth_status: {session.cookies}")
+        response = session.post( # Use POST
+            f"{CADDY_BASE_URL}/rest/rpc/auth_status",
+            headers={"Content-Type": "application/json"},
+            json={} # Send empty JSON body for POST RPC
+        )
+        
+        debug_info(f"Auth status (POST) response code: {response.status_code}")
+        debug_info(f"Auth status (POST) response headers: {dict(response.headers)}")
+        debug_info(f"Auth status (POST) raw response: {response.text}")
+        
+        try:
+            data = response.json()
+            # PostgREST RPCs that return a single row might wrap it in an array
+            actual_data = data[0] if isinstance(data, list) and len(data) == 1 else data
+            debug_info(f"Auth status (POST) parsed response: {json.dumps(actual_data, indent=2)}")
+                
+            if actual_data.get("is_authenticated") == expected_auth:
+                log_success(f"Auth status (POST) returned expected authentication state: {expected_auth}")
+            else:
+                def print_auth_status_details():
+                    print(f"{RED}Response (POST): {json.dumps(actual_data, indent=2)}{NC}")
+                    print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/auth_status (POST){NC}")
+                    print(f"{RED}Expected is_authenticated: {expected_auth}{NC}")
+                
+                log_error(f"Auth status (POST) did not return expected authentication state.", print_auth_status_details)
+        except json.JSONDecodeError as e:
+            def print_auth_status_response_details():
+                print(f"{RED}Response text (POST): {response.text!r}{NC}")
+                print(f"{RED}Response status (POST): {response.status_code}{NC}")
+                print(f"{RED}Response headers (POST): {dict(response.headers)}{NC}")
+            
+            log_error(f"Invalid JSON response from auth_status (POST): {e}", print_auth_status_response_details)
+    
+    except requests.RequestException as e:
+        log_error(f"API request (POST /rpc/auth_status) failed: {e}")
 
 def main() -> None:
     """Main test sequence"""
@@ -1108,13 +1367,15 @@ def main() -> None:
     
     # Test 1: Admin user API login and access
     print(f"\n{BLUE}=== Test 1: Admin User API Login and Access ==={NC}")
+    admin_session.headers.update({"User-Agent": "test_user_admin"}) # For test_auth_test_endpoint user check
     admin_id = test_api_login(admin_session, ADMIN_EMAIL, ADMIN_PASSWORD, "admin_user")
     test_api_access(admin_session, ADMIN_EMAIL, "/rest/region?limit=10", 200)
     test_auth_status(admin_session, True)
+    test_auth_status_post(admin_session, True) # Add POST test
     
     # Test auth_test endpoint after login
     print(f"\n{BLUE}=== Test 1.1: Auth Test Endpoint (After Login) ==={NC}")
-    test_auth_test_endpoint(admin_session, logged_in=True)
+    test_auth_test_endpoint(admin_session, logged_in=True) # Will test GET and POST
     
     # Test 2: Admin user direct database access
     print(f"\n{BLUE}=== Test 2: Admin User Direct Database Access ==={NC}")
@@ -1127,10 +1388,14 @@ def main() -> None:
     
     # Test 3: Regular user API login and access
     print(f"\n{BLUE}=== Test 3: Regular User API Login and Access ==={NC}")
-    test_api_logout(admin_session)
+    test_api_logout(admin_session) # This clears admin_session's User-Agent too if headers are cleared by session
+    admin_session.headers.clear() # Explicitly clear headers
+    
+    regular_session.headers.update({"User-Agent": "test_user_regular"})
     regular_id = test_api_login(regular_session, REGULAR_EMAIL, REGULAR_PASSWORD, "regular_user")
     test_api_access(regular_session, REGULAR_EMAIL, "/rest/region?limit=10", 200)
     test_auth_status(regular_session, True)
+    test_auth_status_post(regular_session, True) # Add POST test
     
     # Test 4: Regular user direct database access
     print(f"\n{BLUE}=== Test 4: Regular User Direct Database Access ==={NC}")
@@ -1144,9 +1409,13 @@ def main() -> None:
     # Test 5: Restricted user API login and access
     print(f"\n{BLUE}=== Test 5: Restricted User API Login and Access ==={NC}")
     test_api_logout(regular_session)
+    regular_session.headers.clear()
+
+    restricted_session.headers.update({"User-Agent": "test_user_restricted"})
     restricted_id = test_api_login(restricted_session, RESTRICTED_EMAIL, RESTRICTED_PASSWORD, "restricted_user")
     test_api_access(restricted_session, RESTRICTED_EMAIL, "/rest/region?limit=10", 200)
     test_auth_status(restricted_session, True)
+    test_auth_status_post(restricted_session, True) # Add POST test
     
     # Test 6: Restricted user direct database access
     print(f"\n{BLUE}=== Test 6: Restricted User Direct Database Access ==={NC}")
@@ -1160,12 +1429,17 @@ def main() -> None:
     # Test 7: Token refresh
     print(f"\n{BLUE}=== Test 7: Token Refresh ==={NC}")
     test_api_logout(restricted_session)
+    restricted_session.headers.clear()
+
+    refresh_session.headers.update({"User-Agent": "test_user_admin_for_refresh"}) # For login within test_token_refresh
     test_token_refresh(refresh_session, ADMIN_EMAIL, ADMIN_PASSWORD)
     
     # Test 8: Logout and verify authentication state
     print(f"\n{BLUE}=== Test 8: Logout and Verify Authentication State ==={NC}")
-    test_api_logout(refresh_session)
-    test_auth_status(refresh_session, False)
+    test_api_logout(refresh_session) # refresh_session should be logged out by test_token_refresh already
+    refresh_session.headers.clear()
+    test_auth_status(refresh_session, False) 
+    test_auth_status_post(refresh_session, False) # Add POST test
     
     # Test 9: Failed login with incorrect password
     print(f"\n{BLUE}=== Test 9: Failed Login with Incorrect Password ==={NC}")
@@ -1290,7 +1564,13 @@ def main() -> None:
     test_password_change(admin_session, password_change_user_session, RESTRICTED_EMAIL, RESTRICTED_PASSWORD)
 
     # Print summary of test results
-    print(f"\n{GREEN}=== All Authentication Tests Completed Successfully ==={NC}\n")
+    if PROBLEM_REPRODUCED_FLAG:
+        log_info(f"\n{RED}=== Some Authentication Problems Were Reproduced ==={NC}\n")
+        sys.exit(1)
+    else:
+        print(f"\n{GREEN}=== All Authentication Tests Completed Successfully ==={NC}\n")
+        sys.exit(0)
+
 
 def cleanup_test_user_sessions() -> None:
     """Clean up refresh sessions for test users from the database."""
