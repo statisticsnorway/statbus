@@ -1197,7 +1197,9 @@ CREATE TYPE auth.auth_test_response AS (
   refresh_token auth.token_info,
   timestamp timestamptz,
   deployment_slot text,
-  is_https boolean
+  is_https boolean,
+  current_db_user text, -- Added
+  current_db_role text  -- Added
 );
 
 -- Create a type to hold JWT verification results
@@ -1282,6 +1284,9 @@ BEGIN
   result.refresh_token := refresh_token_info;
   result.timestamp := clock_timestamp();
   result.deployment_slot := coalesce(current_setting('app.settings.deployment_slot_code', true), 'dev');
+  result.current_db_user := current_user; -- current_user reflects the role after SET ROLE
+  result.current_db_role := current_role; -- current_role is the effective role of the user.
+  
   -- Ensure headers is not null before trying to access a key
   IF headers IS NOT NULL AND headers ? 'x-forwarded-proto' THEN
     result.is_https := lower(headers->>'x-forwarded-proto') = 'https'; -- Case-insensitive check
