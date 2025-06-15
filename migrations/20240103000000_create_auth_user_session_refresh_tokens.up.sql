@@ -1200,106 +1200,101 @@ CREATE TYPE auth.auth_test_response AS (
   is_https boolean
 );
 
+-- Create a type to hold JWT verification results
+DROP TYPE IF EXISTS auth.jwt_verification_result CASCADE;
+CREATE TYPE auth.jwt_verification_result AS (
+  is_valid boolean,
+  claims jsonb,
+  error_message text,
+  expired boolean
+);
+
 -- Create a function to debug authentication inputs
 CREATE OR REPLACE FUNCTION public.auth_test()
 RETURNS auth.auth_test_response
 LANGUAGE plpgsql
-SECURITY DEFINER
+SECURITY INVOKER -- Reverted to INVOKER
 AS $auth_test$
 DECLARE
-  headers json;
-  cookies json;
-  claims json;
-  access_token text;
-  refresh_token text;
-  access_claims json := NULL;
-  refresh_claims json := NULL;
-  jwt_secret text;
+  headers jsonb; -- Changed to jsonb for consistency
+  cookies jsonb; -- Changed to jsonb
+  transactional_claims jsonb; -- Claims from PostgREST's GUC
+  access_token_value text;
+  refresh_token_value text;
+  access_verification_result auth.jwt_verification_result;
+  refresh_verification_result auth.jwt_verification_result;
   result auth.auth_test_response;
   access_token_info auth.token_info;
   refresh_token_info auth.token_info;
 BEGIN
-  -- Get headers, cookies, and claims from the current request
-  headers := nullif(current_setting('request.headers', true), '')::json;
-  cookies := nullif(current_setting('request.cookies', true), '')::json;
-  claims := nullif(current_setting('request.jwt.claims', true), '')::json;
+  -- Get headers, cookies, and claims from the current request context
+  headers := nullif(current_setting('request.headers', true), '')::jsonb;
+  cookies := nullif(current_setting('request.cookies', true), '')::jsonb;
+  transactional_claims := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
+
+  RAISE LOG '[public.auth_test] INVOKER context. current_user: %, request.jwt.claims GUC: %', current_user, transactional_claims;
   
-  -- Get tokens from cookies
-  access_token := cookies->>'statbus';
-  refresh_token := cookies->>'statbus-refresh';
-  jwt_secret := current_setting('app.settings.jwt_secret', true);
+  -- Get token strings from cookies
+  access_token_value := cookies->>'statbus';
+  refresh_token_value := cookies->>'statbus-refresh';
   
-  -- Validate and decode access token if present
-  IF access_token IS NOT NULL THEN
-    BEGIN
-      SELECT payload::json INTO access_claims 
-      FROM verify(access_token, jwt_secret);
-    EXCEPTION WHEN OTHERS THEN
-      access_claims := json_build_object('error', 'Invalid access token: ' || SQLERRM);
-    END;
-  END IF;
-  
-  -- Validate and decode refresh token if present
-  IF refresh_token IS NOT NULL THEN
-    BEGIN
-      SELECT payload::json INTO refresh_claims 
-      FROM verify(refresh_token, jwt_secret);
-    EXCEPTION WHEN OTHERS THEN
-      refresh_claims := json_build_object('error', 'Invalid refresh token: ' || SQLERRM);
-    END;
-  END IF;
-  
-  -- Build access token info
-  IF access_token IS NOT NULL THEN
+  -- Initialize token info structures
+  access_token_info.present := false;
+  refresh_token_info.present := false;
+
+  -- Report on access token found in 'statbus' cookie (if any)
+  IF access_token_value IS NOT NULL THEN
+    access_verification_result := auth.verify_jwt_with_secret(access_token_value);
     access_token_info.present := TRUE;
-    access_token_info.token_length := length(access_token);
-    access_token_info.claims := access_claims;
-    access_token_info.valid := access_claims IS NOT NULL AND NOT (access_claims::jsonb ? 'error');
-    
-    IF access_claims IS NULL OR access_claims::jsonb ? 'error' THEN
-      access_token_info.expired := NULL;
-    ELSIF (access_claims->>'exp')::numeric < extract(epoch from clock_timestamp()) THEN
-      access_token_info.expired := TRUE;
-    ELSE
-      access_token_info.expired := FALSE;
+    access_token_info.token_length := length(access_token_value);
+    access_token_info.claims := access_verification_result.claims;
+    access_token_info.valid := access_verification_result.is_valid;
+    access_token_info.expired := access_verification_result.expired;
+    IF NOT access_verification_result.is_valid THEN
+      access_token_info.claims := coalesce(access_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', access_verification_result.error_message);
     END IF;
+  ELSE
+    access_token_info.present := FALSE;
+    access_token_info.claims := jsonb_build_object('note', 'No statbus cookie found or cookie was empty.');
   END IF;
   
-  -- Build refresh token info
-  IF refresh_token IS NOT NULL THEN
+  -- Report on refresh token found in 'statbus-refresh' cookie (if any)
+  IF refresh_token_value IS NOT NULL THEN
+    refresh_verification_result := auth.verify_jwt_with_secret(refresh_token_value);
     refresh_token_info.present := TRUE;
-    refresh_token_info.token_length := length(refresh_token);
-    refresh_token_info.claims := refresh_claims;
-    refresh_token_info.valid := refresh_claims IS NOT NULL AND NOT (refresh_claims::jsonb ? 'error');
-    
-    IF refresh_claims IS NULL OR refresh_claims::jsonb ? 'error' THEN
-      refresh_token_info.expired := NULL;
-    ELSIF (refresh_claims->>'exp')::numeric < extract(epoch from clock_timestamp()) THEN
-      refresh_token_info.expired := TRUE;
+    refresh_token_info.token_length := length(refresh_token_value);
+    refresh_token_info.claims := refresh_verification_result.claims;
+    refresh_token_info.valid := refresh_verification_result.is_valid;
+    refresh_token_info.expired := refresh_verification_result.expired;
+    IF NOT refresh_verification_result.is_valid THEN
+      refresh_token_info.claims := coalesce(refresh_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', refresh_verification_result.error_message);
     ELSE
-      refresh_token_info.expired := FALSE;
+      refresh_token_info.jti := refresh_verification_result.claims->>'jti';
+      refresh_token_info.version := refresh_verification_result.claims->>'version';
     END IF;
-    
-    refresh_token_info.jti := refresh_claims->>'jti';
-    refresh_token_info.version := refresh_claims->>'version';
   END IF;
   
   -- Build result
-  result.headers := headers;
-  result.cookies := cookies;
-  result.claims := claims;
+  result.headers := headers; -- Use jsonb directly
+  result.cookies := cookies; -- Use jsonb directly
+  result.claims := transactional_claims; -- This will now reflect the actual authenticated user's claims
   result.access_token := access_token_info;
   result.refresh_token := refresh_token_info;
   result.timestamp := clock_timestamp();
   result.deployment_slot := coalesce(current_setting('app.settings.deployment_slot_code', true), 'dev');
-  result.is_https := lower(headers->>'x-forwarded-proto') = 'https'; -- Case-insensitive check
+  -- Ensure headers is not null before trying to access a key
+  IF headers IS NOT NULL AND headers ? 'x-forwarded-proto' THEN
+    result.is_https := lower(headers->>'x-forwarded-proto') = 'https'; -- Case-insensitive check
+  ELSE
+    result.is_https := false; -- Default if header is missing
+  END IF;
   
   RETURN result;
 END;
 $auth_test$;
 
 -- Grant execute to both anonymous and authenticated users
-GRANT EXECUTE ON FUNCTION public.auth_test TO authenticated; -- Removed anon
+GRANT EXECUTE ON FUNCTION public.auth_test TO authenticated, anon; -- Changed to include anon as it's SECURITY INVOKER
 
 -- Grant execute to authenticated users only (relies on auth helpers now)
 GRANT EXECUTE ON FUNCTION public.auth_status TO authenticated; -- Removed anon
@@ -1464,6 +1459,61 @@ BEGIN
   RETURN cookies->>'statbus';
 END;
 $extract_access_token_from_cookies$;
+
+
+-- Create a SECURITY DEFINER function to verify a JWT using the secret
+CREATE OR REPLACE FUNCTION auth.verify_jwt_with_secret(token_value text)
+RETURNS auth.jwt_verification_result
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $verify_jwt_with_secret$
+DECLARE
+  _claims jsonb;
+  _jwt_secret text;
+  _result auth.jwt_verification_result;
+BEGIN
+  _jwt_secret := current_setting('app.settings.jwt_secret', true);
+  _result.is_valid := false;
+  _result.error_message := 'Token verification not attempted';
+  _result.expired := null;
+
+  IF token_value IS NULL THEN
+    _result.error_message := 'Token is NULL';
+    RETURN _result;
+  END IF;
+
+  BEGIN
+    SELECT payload::jsonb INTO _claims
+    FROM public.verify(token_value, _jwt_secret);
+
+    _result.is_valid := TRUE;
+    _result.claims := _claims;
+    _result.error_message := NULL;
+    IF (_claims->>'exp')::numeric < extract(epoch from clock_timestamp()) THEN
+      _result.expired := TRUE;
+    ELSE
+      _result.expired := FALSE;
+    END IF;
+
+  EXCEPTION WHEN OTHERS THEN
+    _result.is_valid := FALSE;
+    _result.claims := NULL;
+    _result.error_message := SQLERRM;
+    -- Check if the error message indicates an expired signature specifically
+    IF SQLERRM LIKE '%expired_signature%' THEN
+        _result.expired := TRUE;
+    ELSE
+        _result.expired := NULL; -- Unknown if expired if another error occurred
+    END IF;
+  END;
+
+  RETURN _result;
+END;
+$verify_jwt_with_secret$;
+
+-- Grant execute to authenticated and anon roles so SECURITY INVOKER functions can call it
+GRANT EXECUTE ON FUNCTION auth.verify_jwt_with_secret(text) TO authenticated, anon;
+
 
 -- Grant execute to authenticated users (though likely only used internally by SECURITY DEFINER functions)
 GRANT EXECUTE ON FUNCTION auth.extract_access_token_from_cookies TO authenticated; -- Removed anon

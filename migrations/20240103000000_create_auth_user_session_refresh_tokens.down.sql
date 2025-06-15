@@ -49,6 +49,7 @@ REVOKE EXECUTE ON FUNCTION auth.role() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.uid() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.sub() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.get_request_ip() FROM authenticated, anon;
+REVOKE EXECUTE ON FUNCTION auth.verify_jwt_with_secret(text) FROM authenticated, anon;
 
 -- 4. Revoke table/view/sequence grants
 REVOKE SELECT, INSERT, UPDATE (description, revoked_at), DELETE ON public.api_key FROM authenticated;
@@ -121,7 +122,8 @@ DROP FUNCTION IF EXISTS auth.set_user_context_from_email(text);
 DROP FUNCTION IF EXISTS auth.extract_refresh_token_from_cookies();
 DROP FUNCTION IF EXISTS auth.use_jwt_claims_in_session(jsonb);
 DROP FUNCTION IF EXISTS auth.build_jwt_claims(text, timestamptz, text, jsonb);
-DROP FUNCTION IF EXISTS auth.build_auth_response(auth.user, jsonb);
+DROP FUNCTION IF EXISTS auth.build_auth_response(auth.user, jsonb, auth.login_error_code); -- Corrected signature
+DROP FUNCTION IF EXISTS auth.verify_jwt_with_secret(text); -- Added
 DROP FUNCTION IF EXISTS auth.switch_role_from_jwt(text); -- Added
 DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
 DROP FUNCTION IF EXISTS auth.set_auth_cookies(text, text, timestamptz, timestamptz);
@@ -152,9 +154,11 @@ DROP TABLE IF EXISTS auth.user; -- Drops auth.user type implicitly
 -- 15. Drop auth types
 DROP TYPE IF EXISTS auth.auth_test_response;
 DROP TYPE IF EXISTS auth.token_info;
-DROP TYPE IF EXISTS auth.auth_response;
+DROP TYPE IF EXISTS auth.auth_response;     -- Depends on login_error_code
 DROP TYPE IF EXISTS auth.session_info;
 DROP TYPE IF EXISTS auth.logout_response;
+DROP TYPE IF EXISTS auth.jwt_verification_result; -- Added
+DROP TYPE IF EXISTS auth.login_error_code;    -- Added, after auth_response uses it
 
 -- Find and drop all user-specific roles created by the system
 DO $$
