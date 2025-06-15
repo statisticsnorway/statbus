@@ -341,7 +341,7 @@ class AuthStore {
 
     let currentStatus = await this.getAuthStatus(); 
     if (process.env.DEBUG === 'true') {
-      console.log("[AuthStore.handleServerAuth] Status from getAuthStatus() (which calls /rpc/auth_status):", JSON.stringify(currentStatus));
+      console.log("[AuthStore.handleServerAuth] Status from getAuthStatus() (which calls /rest/rpc/auth_status):", JSON.stringify(currentStatus));
     }
     let modifiedRequestHeaders: Headers | undefined = undefined;
 

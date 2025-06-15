@@ -1197,31 +1197,31 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
                                                   RESTRICTED_EMAIL if "restricted" in session.headers.get("User-Agent", "") else None)
 
                     if access_token_details.get("present") and user_email_in_token == expected_email_for_session:
-                        log_success(f"GET /rpc/auth_test: 'access_token.claims.email' ({user_email_in_token}) correctly matches logged-in user ({expected_email_for_session}).")
+                        log_success(f"GET /rest/rpc/auth_test: 'access_token.claims.email' ({user_email_in_token}) correctly matches logged-in user ({expected_email_for_session}).")
                     elif access_token_details.get("present"):
-                        log_problem_reproduced(f"GET /rpc/auth_test: 'access_token.claims.email' ({user_email_in_token}) does not match expected user ({expected_email_for_session}) although token is present. Token claims: {access_token_claims}")
+                        log_problem_reproduced(f"GET /rest/rpc/auth_test: 'access_token.claims.email' ({user_email_in_token}) does not match expected user ({expected_email_for_session}) although token is present. Token claims: {access_token_claims}")
                     else:
-                        log_problem_reproduced(f"GET /rpc/auth_test: Access token not present in response for an expected logged-in session.")
+                        log_problem_reproduced(f"GET /rest/rpc/auth_test: Access token not present in response for an expected logged-in session.")
 
                     # Informational: Log the top-level claims (from GUC) for debugging.
                     # Expect 'anon' or similar for the top-level claims role with SECURITY INVOKER entry point.
                     top_level_claims = actual_data.get("claims", {})
-                    log_info(f"  GET /rpc/auth_test: Top-level 'claims' (from GUC) for this session: {json.dumps(top_level_claims)}")
+                    log_info(f"  GET /rest/rpc/auth_test: Top-level 'claims' (from GUC) for this session: {json.dumps(top_level_claims)}")
                     if top_level_claims.get("role") != "anon": # This is the GUC value, which might be 'anon'
-                        log_warning(f"  GET /rpc/auth_test: Top-level 'claims.role' (GUC) was '{top_level_claims.get('role')}', not 'anon' as potentially expected for SECURITY INVOKER entry point.")
+                        log_warning(f"  GET /rest/rpc/auth_test: Top-level 'claims.role' (GUC) was '{top_level_claims.get('role')}', not 'anon' as potentially expected for SECURITY INVOKER entry point.")
 
                     # Verify current_db_user and current_db_role from the function's perspective
                     db_user = actual_data.get("current_db_user")
                     db_role = actual_data.get("current_db_role")
                     if db_user == expected_email_for_session:
-                        log_success(f"  GET /rpc/auth_test: 'current_db_user' ({db_user}) matches expected authenticated user.")
+                        log_success(f"  GET /rest/rpc/auth_test: 'current_db_user' ({db_user}) matches expected authenticated user.")
                     else:
-                        log_problem_reproduced(f"  GET /rpc/auth_test: 'current_db_user' ({db_user}) does not match expected authenticated user ({expected_email_for_session}).")
+                        log_problem_reproduced(f"  GET /rest/rpc/auth_test: 'current_db_user' ({db_user}) does not match expected authenticated user ({expected_email_for_session}).")
                     
                     if db_role == expected_email_for_session: # In PG, after SET ROLE, current_user is the role
-                        log_success(f"  GET /rpc/auth_test: 'current_db_role' ({db_role}) matches expected authenticated role.")
+                        log_success(f"  GET /rest/rpc/auth_test: 'current_db_role' ({db_role}) matches expected authenticated role.")
                     else:
-                        log_problem_reproduced(f"  GET /rpc/auth_test: 'current_db_role' ({db_role}) does not match expected authenticated role ({expected_email_for_session}).")
+                        log_problem_reproduced(f"  GET /rest/rpc/auth_test: 'current_db_role' ({db_role}) does not match expected authenticated role ({expected_email_for_session}).")
 
                 elif not logged_in: # Unauthenticated
                     top_level_claims_role = actual_data.get("claims", {}).get("role")
@@ -1229,26 +1229,26 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
                     db_role_unauth = actual_data.get("current_db_role")
 
                     if top_level_claims_role == "anon":
-                        log_success("GET /rpc/auth_test: Top-level 'claims.role' (GUC) is 'anon' as expected for unauthenticated session.")
+                        log_success("GET /rest/rpc/auth_test: Top-level 'claims.role' (GUC) is 'anon' as expected for unauthenticated session.")
                     else:
-                        log_warning(f"GET /rpc/auth_test: Top-level 'claims.role' (GUC) is '{top_level_claims_role}', expected 'anon'.")
+                        log_warning(f"GET /rest/rpc/auth_test: Top-level 'claims.role' (GUC) is '{top_level_claims_role}', expected 'anon'.")
                     
                     if db_user_unauth == "anon":
-                        log_success(f"  GET /rpc/auth_test: 'current_db_user' is '{db_user_unauth}' as expected for unauthenticated session.")
+                        log_success(f"  GET /rest/rpc/auth_test: 'current_db_user' is '{db_user_unauth}' as expected for unauthenticated session.")
                     else:
-                        log_problem_reproduced(f"  GET /rpc/auth_test: 'current_db_user' is '{db_user_unauth}', expected 'anon'.")
+                        log_problem_reproduced(f"  GET /rest/rpc/auth_test: 'current_db_user' is '{db_user_unauth}', expected 'anon'.")
 
                     if db_role_unauth == "anon":
-                        log_success(f"  GET /rpc/auth_test: 'current_db_role' is '{db_role_unauth}' as expected for unauthenticated session.")
+                        log_success(f"  GET /rest/rpc/auth_test: 'current_db_role' is '{db_role_unauth}' as expected for unauthenticated session.")
                     else:
-                        log_problem_reproduced(f"  GET /rpc/auth_test: 'current_db_role' is '{db_role_unauth}', expected 'anon'.")
+                        log_problem_reproduced(f"  GET /rest/rpc/auth_test: 'current_db_role' is '{db_role_unauth}', expected 'anon'.")
 
             except json.JSONDecodeError as e:
                 def print_auth_test_response():
                     print(f"{RED}Response text (GET): {response.text!r}{NC}")
                 log_error(f"Invalid JSON response from auth_test (GET): {e}", print_auth_test_response)
             except (IndexError, TypeError) as e:
-                log_error(f"GET /rpc/auth_test returned unexpected JSON structure: {response.text}. Error: {e}")
+                log_error(f"GET /rest/rpc/auth_test returned unexpected JSON structure: {response.text}. Error: {e}")
 
         else:
             def print_auth_test_error():
@@ -1256,11 +1256,11 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
             log_error(f"Auth test endpoint (GET) returned status {response.status_code}", print_auth_test_error)
     
     except requests.RequestException as e:
-        log_error(f"API request (GET /rpc/auth_test) failed: {e}")
+        log_error(f"API request (GET /rest/rpc/auth_test) failed: {e}")
     # Ensure logs are collected even if GET fails before POST
     # The main try/finally will handle stopping the collector
 
-    # Test POST request to /rpc/auth_test
+    # Test POST request to /rest/rpc/auth_test
     log_info(f"Testing auth_test endpoint with POST (logged in: {logged_in})...")
     try:
         response_post = session.post(
@@ -1288,29 +1288,29 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
                                                   RESTRICTED_EMAIL if "restricted" in session.headers.get("User-Agent", "") else None)
 
                     if access_token_details_post.get("present") and user_email_in_token_post == expected_email_for_session:
-                        log_success(f"POST /rpc/auth_test: 'access_token.claims.email' ({user_email_in_token_post}) correctly matches logged-in user ({expected_email_for_session}).")
+                        log_success(f"POST /rest/rpc/auth_test: 'access_token.claims.email' ({user_email_in_token_post}) correctly matches logged-in user ({expected_email_for_session}).")
                     elif access_token_details_post.get("present"):
-                        log_problem_reproduced(f"POST /rpc/auth_test: 'access_token.claims.email' ({user_email_in_token_post}) does not match expected user ({expected_email_for_session}) although token is present. Token claims: {access_token_claims_post}")
+                        log_problem_reproduced(f"POST /rest/rpc/auth_test: 'access_token.claims.email' ({user_email_in_token_post}) does not match expected user ({expected_email_for_session}) although token is present. Token claims: {access_token_claims_post}")
                     else:
-                        log_problem_reproduced(f"POST /rpc/auth_test: Access token not present in response for an expected logged-in session.")
+                        log_problem_reproduced(f"POST /rest/rpc/auth_test: Access token not present in response for an expected logged-in session.")
                     
                     top_level_claims_post = actual_data_post.get("claims", {})
-                    log_info(f"  POST /rpc/auth_test: Top-level 'claims' (from GUC) for this session: {json.dumps(top_level_claims_post)}")
+                    log_info(f"  POST /rest/rpc/auth_test: Top-level 'claims' (from GUC) for this session: {json.dumps(top_level_claims_post)}")
                     if top_level_claims_post.get("role") != "anon": # This is the GUC value
-                        log_warning(f"  POST /rpc/auth_test: Top-level 'claims.role' (GUC) was '{top_level_claims_post.get('role')}', not 'anon' as potentially expected for SECURITY INVOKER entry point.")
+                        log_warning(f"  POST /rest/rpc/auth_test: Top-level 'claims.role' (GUC) was '{top_level_claims_post.get('role')}', not 'anon' as potentially expected for SECURITY INVOKER entry point.")
 
                     # Verify current_db_user and current_db_role from the function's perspective
                     db_user_post = actual_data_post.get("current_db_user")
                     db_role_post = actual_data_post.get("current_db_role")
                     if db_user_post == expected_email_for_session:
-                        log_success(f"  POST /rpc/auth_test: 'current_db_user' ({db_user_post}) matches expected authenticated user.")
+                        log_success(f"  POST /rest/rpc/auth_test: 'current_db_user' ({db_user_post}) matches expected authenticated user.")
                     else:
-                        log_problem_reproduced(f"  POST /rpc/auth_test: 'current_db_user' ({db_user_post}) does not match expected authenticated user ({expected_email_for_session}).")
+                        log_problem_reproduced(f"  POST /rest/rpc/auth_test: 'current_db_user' ({db_user_post}) does not match expected authenticated user ({expected_email_for_session}).")
                     
                     if db_role_post == expected_email_for_session: # In PG, after SET ROLE, current_user is the role
-                        log_success(f"  POST /rpc/auth_test: 'current_db_role' ({db_role_post}) matches expected authenticated role.")
+                        log_success(f"  POST /rest/rpc/auth_test: 'current_db_role' ({db_role_post}) matches expected authenticated role.")
                     else:
-                        log_problem_reproduced(f"  POST /rpc/auth_test: 'current_db_role' ({db_role_post}) does not match expected authenticated role ({expected_email_for_session}).")
+                        log_problem_reproduced(f"  POST /rest/rpc/auth_test: 'current_db_role' ({db_role_post}) does not match expected authenticated role ({expected_email_for_session}).")
 
                 elif not logged_in: # Unauthenticated
                     top_level_claims_role_post = actual_data_post.get("claims", {}).get("role")
@@ -1318,32 +1318,32 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
                     db_role_unauth_post = actual_data_post.get("current_db_role")
 
                     if top_level_claims_role_post == "anon":
-                        log_success("POST /rpc/auth_test: Top-level 'claims.role' (GUC) is 'anon' as expected for unauthenticated session.")
+                        log_success("POST /rest/rpc/auth_test: Top-level 'claims.role' (GUC) is 'anon' as expected for unauthenticated session.")
                     else:
-                        log_warning(f"POST /rpc/auth_test: Top-level 'claims.role' (GUC) is '{top_level_claims_role_post}', expected 'anon'.")
+                        log_warning(f"POST /rest/rpc/auth_test: Top-level 'claims.role' (GUC) is '{top_level_claims_role_post}', expected 'anon'.")
 
                     if db_user_unauth_post == "anon":
-                        log_success(f"  POST /rpc/auth_test: 'current_db_user' is '{db_user_unauth_post}' as expected for unauthenticated session.")
+                        log_success(f"  POST /rest/rpc/auth_test: 'current_db_user' is '{db_user_unauth_post}' as expected for unauthenticated session.")
                     else:
-                        log_problem_reproduced(f"  POST /rpc/auth_test: 'current_db_user' is '{db_user_unauth_post}', expected 'anon'.")
+                        log_problem_reproduced(f"  POST /rest/rpc/auth_test: 'current_db_user' is '{db_user_unauth_post}', expected 'anon'.")
 
                     if db_role_unauth_post == "anon":
-                        log_success(f"  POST /rpc/auth_test: 'current_db_role' is '{db_role_unauth_post}' as expected for unauthenticated session.")
+                        log_success(f"  POST /rest/rpc/auth_test: 'current_db_role' is '{db_role_unauth_post}' as expected for unauthenticated session.")
                     else:
-                        log_problem_reproduced(f"  POST /rpc/auth_test: 'current_db_role' is '{db_role_unauth_post}', expected 'anon'.")
+                        log_problem_reproduced(f"  POST /rest/rpc/auth_test: 'current_db_role' is '{db_role_unauth_post}', expected 'anon'.")
             
             except json.JSONDecodeError as e:
                 def print_auth_test_post_response():
                     print(f"{RED}Response text (POST): {response_post.text!r}{NC}")
                 log_error(f"Invalid JSON response from auth_test (POST): {e}", print_auth_test_post_response)
             except (IndexError, TypeError) as e:
-                log_error(f"POST /rpc/auth_test returned unexpected JSON structure: {response_post.text}. Error: {e}")
+                log_error(f"POST /rest/rpc/auth_test returned unexpected JSON structure: {response_post.text}. Error: {e}")
         else:
             def print_auth_test_post_error():
                 print(f"{RED}Response (POST): {response_post.text}{NC}")
             log_error(f"Auth test endpoint (POST) returned status {response_post.status_code}", print_auth_test_post_error)
     except requests.RequestException as e:
-        log_error(f"API request (POST /rpc/auth_test) failed: {e}")
+        log_error(f"API request (POST /rest/rpc/auth_test) failed: {e}")
     finally:
         collector.stop()
         if not log_q.empty():
@@ -1396,7 +1396,7 @@ def test_auth_status_post(session: Session, expected_auth: bool) -> None:
             log_error(f"Invalid JSON response from auth_status (POST): {e}", print_auth_status_response_details)
     
     except requests.RequestException as e:
-        log_error(f"API request (POST /rpc/auth_status) failed: {e}")
+        log_error(f"API request (POST /rest/rpc/auth_status) failed: {e}")
 
 def main() -> None:
     """Main test sequence"""

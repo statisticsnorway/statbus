@@ -52,9 +52,9 @@ export default function LoginForm() {
 
       await login({ email, password });
       
-      // If loginAtom completes without error, it means the /rpc/login was successful (2xx)
-      // AND the subsequent refresh of authStatusCoreAtom (via /rpc/auth_status) also indicated authenticated.
-      // If /rpc/login returned is_authenticated: false, loginAtom should ideally throw or handle it.
+      // If loginAtom completes without error, it means the /rest/rpc/login was successful (2xx)
+      // AND the subsequent refresh of authStatusCoreAtom (via /rest/rpc/auth_status) also indicated authenticated.
+      // If /rest/rpc/login returned is_authenticated: false, loginAtom should ideally throw or handle it.
       // Based on current loginAtom, it throws if the fetch response.ok is false.
       // If response.ok is true but is_authenticated is false (with an error_code), loginAtom
       // currently doesn't throw. This needs adjustment in loginAtom.

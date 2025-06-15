@@ -1071,8 +1071,8 @@ export const clientSideRefreshAtom = atom<
   try {
     // The actual refresh RPC call is implicitly handled by authStatusCoreAtom's read function
     // if it were designed to attempt refresh on 401.
-    // However, our authStatusCoreAtom just fetches /rpc/auth_status.
-    // For an explicit client-side refresh, we still need to call the /rpc/refresh endpoint.
+    // However, our authStatusCoreAtom just fetches /rest/rpc/auth_status.
+    // For an explicit client-side refresh, we still need to call the /rest/rpc/refresh endpoint.
     if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
       console.log(`[clientSideRefreshAtom] Current document.cookie before calling client.rpc('refresh'):`, document.cookie);
     }
@@ -1098,7 +1098,7 @@ export const clientSideRefreshAtom = atom<
         console.warn(`clientSideRefreshAtom: Refresh RPC succeeded but returned unauthenticated. Error code: ${parsedRefreshStatus.error_code}`);
       }
       // Even if refresh "succeeded" but returned unauth, cookies might have been cleared by the server.
-      // Refresh authStatusCoreAtom to get the definitive state from /rpc/auth_status.
+      // Refresh authStatusCoreAtom to get the definitive state from /rest/rpc/auth_status.
       set(authStatusCoreAtom);
       await get(authStatusCoreAtom); // Ensure it re-fetches and updates.
       return { success: false }; // Indicate refresh didn't lead to an authenticated state.

@@ -184,13 +184,13 @@ def test_dev_auth_status_malfunction(session: Session, access_token_value: Optio
     Tests Problem 1 from auth-problem.md: Server-side rpc/auth_status malfunction.
     Expected problem: returns data: null or is_authenticated: false for a valid token.
     """
-    log_info("\nTesting Problem 1: /rpc/auth_status malfunction...")
+    log_info("\nTesting Problem 1: /rest/rpc/auth_status malfunction...")
     if not access_token_value:
         log_failure_condition("Skipping auth_status test: No access token provided (login likely failed).")
         return
 
     try:
-        # The /rpc/auth_status endpoint primarily relies on the JWT being passed by PostgREST
+        # The /rest/rpc/auth_status endpoint primarily relies on the JWT being passed by PostgREST
         # from the cookie, which the session object handles.
         # Forcing Authorization header might also work if PostgREST is configured for it.
         # Let's rely on the session cookie first, as that's closer to browser behavior.
@@ -202,7 +202,7 @@ def test_dev_auth_status_malfunction(session: Session, access_token_value: Optio
 
         if response.status_code == 200:
             if not response.text or response.text.lower() == "null" or response.text == "[]":
-                log_problem_reproduced(f"/rpc/auth_status returned an empty or null body: '{response.text}'")
+                log_problem_reproduced(f"/rest/rpc/auth_status returned an empty or null body: '{response.text}'")
                 return
 
             try:
@@ -211,17 +211,17 @@ def test_dev_auth_status_malfunction(session: Session, access_token_value: Optio
                 actual_data = data[0] if isinstance(data, list) and len(data) == 1 else data
 
                 if actual_data is None:
-                    log_problem_reproduced("/rpc/auth_status returned JSON null in the data part.")
+                    log_problem_reproduced("/rest/rpc/auth_status returned JSON null in the data part.")
                 elif not actual_data.get("is_authenticated"):
-                    log_problem_reproduced(f"/rpc/auth_status returned is_authenticated:false. Full response: {actual_data}")
+                    log_problem_reproduced(f"/rest/rpc/auth_status returned is_authenticated:false. Full response: {actual_data}")
                 else:
-                    log_failure_condition(f"/rpc/auth_status seems OK: is_authenticated is true. Response: {actual_data}")
+                    log_failure_condition(f"/rest/rpc/auth_status seems OK: is_authenticated is true. Response: {actual_data}")
             except json.JSONDecodeError:
-                log_problem_reproduced(f"/rpc/auth_status returned non-JSON response: {response.text}")
+                log_problem_reproduced(f"/rest/rpc/auth_status returned non-JSON response: {response.text}")
             except (IndexError, TypeError):
-                 log_problem_reproduced(f"/rpc/auth_status returned unexpected JSON structure: {response.text}")
+                 log_problem_reproduced(f"/rest/rpc/auth_status returned unexpected JSON structure: {response.text}")
         else:
-            log_failure_condition(f"/rpc/auth_status call failed with status {response.status_code}. Body: {response.text}")
+            log_failure_condition(f"/rest/rpc/auth_status call failed with status {response.status_code}. Body: {response.text}")
 
     except requests.RequestException as e:
         log_error_critical(f"auth_status request exception: {e}")
@@ -656,11 +656,11 @@ def main_dev_tests():
     else:
         log_failure_condition("Login failed. Subsequent tests for problems 1, 2, and 3 might not be meaningful or will be skipped.")
 
-    # Test Problem 1: /rpc/auth_status malfunction
+    # Test Problem 1: /rest/rpc/auth_status malfunction
     # This test uses the cookies from the login.
     test_dev_auth_status_malfunction(session_problem1_2, initial_access_token)
 
-    # Test direct calls to /rpc/auth_test with GET and POST
+    # Test direct calls to /rest/rpc/auth_test with GET and POST
     test_dev_auth_test_direct_calls(session_problem1_2, initial_access_token)
 
     # Test Problem 2: /rpc/refresh malfunction (missing Set-Cookie / empty body)
