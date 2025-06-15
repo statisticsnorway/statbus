@@ -41,24 +41,24 @@ export const authStatusCoreAtom = atomWithRefresh(async (get) => {
   if (!client) {
     // Return a default unauthenticated state if client isn't ready
     // This helps avoid errors if this atom is read before client initialization.
-    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-      console.log("[authStatusCoreAtom] No client available, returning default unauthenticated state.");
-    }
+    // Console log removed for cleaner build output, as this state is expected during SSR/SSG.
     return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: null };
   }
   try {
     if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-      console.log("[authStatusCoreAtom] Client available, calling client.rpc('auth_status', {}, { get: true }).");
+      console.log("[authStatusCoreAtom] Client available, calling client.rpc('auth_status') via POST.");
     }
-    // Using GET for auth_status
-    const { data, error, status, statusText } = await client.rpc("auth_status", {}, { get: true });
+    // Using POST for auth_status to avoid browser caching issues with GET
+    const { data, error, status, statusText } = await client.rpc("auth_status");
 
     if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-      console.log(`[authStatusCoreAtom] Response from client.rpc('auth_status', {}, { get: true }): status=${status}, statusText=${statusText}, data=${JSON.stringify(data)}, error=${JSON.stringify(error)}`);
+      console.log(`[authStatusCoreAtom] Response from client.rpc('auth_status') (POST): status=${status}, statusText=${statusText}, data=${JSON.stringify(data)}, error=${JSON.stringify(error)}`);
     }
 
     if (error) {
-      console.error("authStatusCoreAtom: Auth status check RPC failed:", { status, statusText, error });
+      // Log the actual error message if available, and the full error object for more details.
+      const errorMessage = (error as any)?.message || "No error message"; // Type assertion for error.message
+      console.error(`authStatusCoreAtom: Auth status check RPC failed. Status: ${status}, StatusText: ${statusText}, ErrorMessage: ${errorMessage}`, error);
       return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'RPC_ERROR' };
     }
     return _parseAuthStatusRpcResponseToAuthStatus(data);
@@ -207,6 +207,8 @@ export const hasStatisticalUnitsAtom = atom((get) => get(baseDataAtom).hasStatis
 // WORKER STATUS ATOMS - Replace BaseDataStore worker status
 // ============================================================================
 
+export type ValidWorkerFunctionName = "is_importing" | "is_deriving_statistical_units" | "is_deriving_reports";
+
 export interface WorkerStatusData {
   isImporting: boolean | null;
   isDerivingUnits: boolean | null;
@@ -219,40 +221,38 @@ const initialWorkerStatusData: WorkerStatusData = {
   isDerivingReports: null,
 };
 
-// Core async atom for worker status
-export const workerStatusCoreAtom = atomWithRefresh(async (get): Promise<WorkerStatusData> => {
-  const isAuthenticated = get(isAuthenticatedAtom);
-  // Do not fetch if not authenticated, but also don't return error, just initial state.
-  // Components consuming this should ideally also check auth if behavior needs to differ.
-  if (!isAuthenticated) return initialWorkerStatusData;
+// Individual core async atoms for each worker status
+const makeWorkerStatusFetcherAtom = (rpcName: ValidWorkerFunctionName) => {
+  return atomWithRefresh(async (get): Promise<boolean | null> => {
+    const isAuthenticated = get(isAuthenticatedAtom);
+    if (!isAuthenticated) return null;
 
-  const client = get(restClientAtom);
-  if (!client) {
-    // console.error("workerStatusCoreAtom: No client available."); // Logged by restClientAtom if needed
-    return initialWorkerStatusData;
-  }
+    const client = get(restClientAtom);
+    if (!client) return null;
 
-  try {
-    const [importRes, unitsRes, reportsRes] = await Promise.all([
-      client.rpc('is_importing'),
-      client.rpc('is_deriving_statistical_units'),
-      client.rpc('is_deriving_reports'),
-    ]);
+    try {
+      // For GET requests with PostgREST RPC, use the 'get: true' option.
+      const { data, error } = await client.rpc(rpcName, {}, { get: true });
+      if (error) {
+        console.error(`Error fetching ${rpcName}:`, error);
+        return null;
+      }
+      return data ?? null;
+    } catch (e) {
+      console.error(`Exception fetching ${rpcName}:`, e);
+      return null;
+    }
+  });
+};
 
-    // Errors are logged by the RPC calls themselves if they fail at client level.
-    // Here we just process data or default to null if data isn't as expected.
-    return {
-      isImporting: importRes.data ?? null,
-      isDerivingUnits: unitsRes.data ?? null,
-      isDerivingReports: reportsRes.data ?? null,
-    };
-  } catch (error) {
-    console.error("workerStatusCoreAtom: Failed to fetch worker statuses:", error);
-    return initialWorkerStatusData; // Return initial state on error
-  }
-});
+export const isImportingCoreAtom = makeWorkerStatusFetcherAtom("is_importing");
+export const isDerivingUnitsCoreAtom = makeWorkerStatusFetcherAtom("is_deriving_statistical_units");
+export const isDerivingReportsCoreAtom = makeWorkerStatusFetcherAtom("is_deriving_reports");
 
-export const workerStatusLoadableAtom = loadable(workerStatusCoreAtom);
+// Loadable versions of the individual core atoms
+export const isImportingLoadableAtom = loadable(isImportingCoreAtom);
+export const isDerivingUnitsLoadableAtom = loadable(isDerivingUnitsCoreAtom);
+export const isDerivingReportsLoadableAtom = loadable(isDerivingReportsCoreAtom);
 
 // Interface for the synchronous view of worker status, including loading/error states
 export interface WorkerStatus {
@@ -263,23 +263,34 @@ export interface WorkerStatus {
   error: string | null;
 }
 
-// Compatibility workerStatusAtom (synchronous view)
-export const workerStatusAtom = atom<WorkerStatus>(
-  (get): WorkerStatus => {
-    const loadableState: Loadable<WorkerStatusData> = get(workerStatusLoadableAtom);
-    switch (loadableState.state) {
-      case 'loading':
-        return { ...initialWorkerStatusData, loading: true, error: null };
-      case 'hasError':
-        const error = loadableState.error;
-        return { ...initialWorkerStatusData, loading: false, error: error instanceof Error ? error.message : String(error) };
-      case 'hasData':
-        return { ...loadableState.data, loading: false, error: null };
-      default: // Should not happen with loadable
-        return { ...initialWorkerStatusData, loading: false, error: 'Unknown loadable state' };
-    }
+// Combined workerStatusAtom (synchronous view)
+export const workerStatusAtom = atom<WorkerStatus>((get) => {
+  const impLoadable = get(isImportingLoadableAtom);
+  const unitsLoadable = get(isDerivingUnitsLoadableAtom);
+  const reportsLoadable = get(isDerivingReportsLoadableAtom);
+
+  const isLoading = impLoadable.state === 'loading' || 
+                    unitsLoadable.state === 'loading' || 
+                    reportsLoadable.state === 'loading';
+  
+  let combinedError: string | null = null;
+  if (impLoadable.state === 'hasError') {
+    combinedError = `Import status error: ${impLoadable.error instanceof Error ? impLoadable.error.message : String(impLoadable.error)}`;
+  } else if (unitsLoadable.state === 'hasError') {
+    combinedError = `Deriving units status error: ${unitsLoadable.error instanceof Error ? unitsLoadable.error.message : String(unitsLoadable.error)}`;
+  } else if (reportsLoadable.state === 'hasError') {
+    combinedError = `Deriving reports status error: ${reportsLoadable.error instanceof Error ? reportsLoadable.error.message : String(reportsLoadable.error)}`;
   }
-);
+  // Note: This only captures the first error. A more complex error aggregation could be implemented if needed.
+
+  return {
+    isImporting: impLoadable.state === 'hasData' ? impLoadable.data : initialWorkerStatusData.isImporting,
+    isDerivingUnits: unitsLoadable.state === 'hasData' ? unitsLoadable.data : initialWorkerStatusData.isDerivingUnits,
+    isDerivingReports: reportsLoadable.state === 'hasData' ? reportsLoadable.data : initialWorkerStatusData.isDerivingReports,
+    loading: isLoading,
+    error: combinedError,
+  };
+});
 
 // ============================================================================
 // REST CLIENT ATOM - Replace RestClientStore
@@ -1029,7 +1040,6 @@ export const loginAtom = atom(
         console.log(`[loginAtom] Current document.cookie immediately after successful /rpc/login response (before authStatusCoreAtom refresh):`, document.cookie);
       }
       set(authStatusCoreAtom); 
-      // Removed: await get(authStatusCoreAtom);
       // loginAtom now resolves after triggering the refresh.
       // Components should observe authStatusLoadableAtom to react to the loading and final state.
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
@@ -1048,7 +1058,6 @@ export const loginAtom = atom(
         console.log("[loginAtom] Error in login. Calling set(authStatusCoreAtom) to ensure consistent state. loginAtom re-throwing.");
       }
       set(authStatusCoreAtom); 
-      // Removed: await get(authStatusCoreAtom);
       throw error; // Re-throw to be caught by LoginForm.tsx
     }
   }
@@ -1164,7 +1173,10 @@ export const logoutAtom = atom(
     
     // Clear other sensitive data. authStatusCoreAtom is now reset.
     set(baseDataCoreAtom); // Refresh baseDataCoreAtom.
-    set(workerStatusCoreAtom); // Refresh workerStatusCoreAtom.
+    // Refresh individual worker status core atoms
+    set(isImportingCoreAtom);
+    set(isDerivingUnitsCoreAtom);
+    set(isDerivingReportsCoreAtom);
     // The synchronous wrapper atoms will reflect the initial/empty state after their core atoms resolve.
     
     // Reset other relevant atoms to their initial/empty state
@@ -1189,12 +1201,24 @@ export const refreshBaseDataAtom = atom(null, (_get, set) => { // get is not use
 // To refresh hasStatisticalUnits, refresh baseDataCoreAtom.
 // The hasStatisticalUnitsAtom derived atom will update accordingly.
 
-// The refreshWorkerStatusAtom now just resets the core atom.
-// The functionName parameter is no longer supported by this simplified refresh.
-// SSEConnectionManager will need to adapt to this if it was using functionName.
-export const refreshWorkerStatusAtom = atom(null, (get, set, _functionName?: string) => {
-  set(workerStatusCoreAtom);
-});
+// The refreshWorkerStatusAtom now accepts an optional function name to refresh a specific status,
+// or refreshes all if no name is provided.
+export const refreshWorkerStatusAtom = atom(
+  null, 
+  (get, set, functionName?: ValidWorkerFunctionName) => {
+    if (functionName === "is_importing") {
+      set(isImportingCoreAtom);
+    } else if (functionName === "is_deriving_statistical_units") {
+      set(isDerivingUnitsCoreAtom);
+    } else if (functionName === "is_deriving_reports") {
+      set(isDerivingReportsCoreAtom);
+    } else { // undefined or any other case, refresh all
+      set(isImportingCoreAtom);
+      set(isDerivingUnitsCoreAtom);
+      set(isDerivingReportsCoreAtom);
+    }
+  }
+);
 
 // Selection actions
 export const toggleSelectionAtom = atom(
@@ -1780,9 +1804,7 @@ export const appReadyAtom = atom((get) => {
     isAuthenticated: isAuthenticatedUser,
     
     isBaseDataLoaded: isBaseDataProcessComplete,
-    // isGettingStartedDataLoaded: true, // Removed, or assume true if not gating
 
-    // isSetupComplete, // Removed from here
     isReadyToRenderDashboard,
 
     user: currentUser,
@@ -1871,8 +1893,9 @@ export const atoms = {
   
   // Worker Status
   workerStatusAtom,
-  workerStatusLoadableAtom,
-  workerStatusCoreAtom,
+  isImportingCoreAtom, // Exporting for potential direct use/refresh if ever needed
+  isDerivingUnitsCoreAtom, // Exporting for potential direct use/refresh
+  isDerivingReportsCoreAtom, // Exporting for potential direct use/refresh
   refreshWorkerStatusAtom,
   
   // Rest Client
@@ -1932,7 +1955,6 @@ export const atoms = {
 
   // App Initialization State
   authStatusInitiallyCheckedAtom,
-  // fetchAndSetAuthStatusAtom, // Removed
   initialAuthCheckDoneEffect,
   searchStateInitializedAtom,
 
@@ -1942,6 +1964,9 @@ export const atoms = {
   // Loadable
   baseDataLoadableAtom,
   authStatusLoadableAtom,
+  isImportingLoadableAtom, // Exporting for potential direct observation
+  isDerivingUnitsLoadableAtom, // Exporting for potential direct observation
+  isDerivingReportsLoadableAtom, // Exporting for potential direct observation
 
   // Derived UI States
   analysisPageVisualStateAtom,

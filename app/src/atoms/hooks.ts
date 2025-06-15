@@ -69,9 +69,6 @@ import {
   // Getting Started Atoms & Types
   gettingStartedUIStateAtom,
   type GettingStartedUIState,
-  // gettingStartedDataAtom, // Removed
-  // type GettingStartedDataState, // Removed
-  // refreshAllGettingStartedDataAtom, // Removed
     
   // Import Atoms & Types for ImportManager
   importStateAtom,

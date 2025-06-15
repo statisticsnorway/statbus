@@ -17,19 +17,17 @@ import {
   restClientAtom,
   refreshBaseDataAtom,
   refreshWorkerStatusAtom,
-  workerStatusAtom,
+  workerStatusAtom, // This is the combined synchronous atom
   authStatusLoadableAtom,
   baseDataLoadableAtom,
-  workerStatusLoadableAtom,
   initializeTableColumnsAtom,
   refreshAllUnitCountsAtom,
-  // fetchAndSetAuthStatusAtom, // Removed
   authStatusInitiallyCheckedAtom,
   initialAuthCheckDoneEffect,
-  // gettingStartedDataAtom, // Removed
   activityCategoryStandardSettingAtomAsync,
   numberOfRegionsAtomAsync,
   restClientAtom as importedRestClientAtom, // Alias to avoid conflict with local restClient variable
+  type ValidWorkerFunctionName, // Import the type
 } from './index';
 
 // ============================================================================
@@ -279,40 +277,42 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
           reconnectAttempts = 0
         }
         
-        eventSource.onmessage = (event) => {
-          try {
-            const data = JSON.parse(event.data)
-            
-            switch (data.type) {
-              case 'function_status_change':
-                // refreshWorkerStatusAtom no longer takes functionName.
-                // A full refresh is triggered. If targeted refresh is critical,
-                // workerStatusCoreAtom would need a more complex write function.
-                refreshWorkerStatus() 
-                break
-              case 'worker_status_update':
-                refreshWorkerStatus()
-                break
-              default:
-                if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-                  console.log('Unknown SSE message type:', data.type)
-                }
-            }
-          } catch (error) {
-            console.error('Failed to parse SSE message:', error)
+        eventSource.onmessage = (event) => { // Handles default messages (event: message or no event field)
+          // This block can be kept for other general messages if any, or removed if '/api/sse/worker-check' only sends named events.
+          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+            console.log('SSE default onmessage received:', event.data);
           }
-        }
+        };
+
+        eventSource.addEventListener('check', (event) => {
+          // Assuming event.data is a string like "is_importing", "is_deriving_statistical_units", etc.
+          const functionName = event.data as string;
+          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+            console.log(`SSE 'check' event received, data: "${functionName}". Refreshing specific worker status.`);
+          }
+          // Type assertion for safety, though refreshWorkerStatusAtom handles undefined gracefully.
+          if (functionName === "is_importing" || functionName === "is_deriving_statistical_units" || functionName === "is_deriving_reports") {
+            refreshWorkerStatus(functionName as ValidWorkerFunctionName);
+          } else {
+            console.warn(`SSE 'check' event received with unknown data: "${functionName}". Refreshing all worker statuses as a fallback.`);
+            refreshWorkerStatus(); // Refresh all if data is not one of the expected strings
+          }
+        });
+
+        eventSource.addEventListener('connected', (event) => {
+          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+            console.log('SSE "connected" event received:', event.data);
+          }
+          // You might want to trigger an initial full refresh of worker status upon connection
+          refreshWorkerStatus();
+        });
         
         eventSource.onerror = (event) => {
-          const readyState = eventSource?.readyState;
-          let readyStateString = "UNKNOWN";
-          if (readyState === EventSource.CONNECTING) readyStateString = "CONNECTING";
-          else if (readyState === EventSource.OPEN) readyStateString = "OPEN";
-          else if (readyState === EventSource.CLOSED) readyStateString = "CLOSED";
-
-          console.error(`SSE connection error. Event type: ${event.type}, EventSource readyState: ${readyStateString}. Attempting to reconnect...`, event);
+          // The 'event' object for onerror might not be a MessageEvent and may not have a 'type' or 'readyState' in the same way.
+          // It's often a simple Event.
+          console.error(`SSE connection error. Attempting to reconnect...`, event);
           
-          eventSource?.close()
+          eventSource?.close();
           
           if (reconnectAttempts < maxReconnectAttempts) {
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
@@ -518,7 +518,9 @@ export const JotaiStateInspector = () => {
   // Atoms for general state
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
   const baseDataLoadableValue = useAtomValue(baseDataLoadableAtom);
-  const workerStatusLoadableValue = useAtomValue(workerStatusLoadableAtom);
+  // Use the combined workerStatusAtom for the inspector.
+  // It already includes loading and error states.
+  const workerStatusValue = useAtomValue(workerStatusAtom); 
 
   // Atoms for redirect logic debugging
   const pathname = usePathname(); // Get current pathname
@@ -569,11 +571,12 @@ export const JotaiStateInspector = () => {
         error: baseDataLoadableValue.state === 'hasError' ? String(baseDataLoadableValue.error) : undefined,
       },
       workerStatus: {
-        state: workerStatusLoadableValue.state,
-        isImporting: workerStatusLoadableValue.state === 'hasData' ? workerStatusLoadableValue.data.isImporting : undefined,
-        isDerivingUnits: workerStatusLoadableValue.state === 'hasData' ? workerStatusLoadableValue.data.isDerivingUnits : undefined,
-        isDerivingReports: workerStatusLoadableValue.state === 'hasData' ? workerStatusLoadableValue.data.isDerivingReports : undefined,
-        error: workerStatusLoadableValue.state === 'hasError' ? String(workerStatusLoadableValue.error) : undefined,
+        state: workerStatusValue.loading ? 'loading' : workerStatusValue.error ? 'hasError' : 'hasData',
+        isImporting: workerStatusValue.isImporting,
+        isDerivingUnits: workerStatusValue.isDerivingUnits,
+        isDerivingReports: workerStatusValue.isDerivingReports,
+        loading: workerStatusValue.loading,
+        error: workerStatusValue.error,
       },
       redirectRelevantState: {
         initialAuthCheckDone: initialAuthCheckDoneFromAtom,
@@ -626,7 +629,7 @@ export const JotaiStateInspector = () => {
       </div>
       {!isExpanded && (
         <div className="mt-1">
-          <span>Auth: {getSimpleStatus(authLoadableValue)}</span> | <span>Base: {getSimpleStatus(baseDataLoadableValue)}</span> | <span>Worker: {workerStatusLoadableValue.state === 'hasData' ? getWorkerSummary(workerStatusLoadableValue.data) : getSimpleStatus(workerStatusLoadableValue)}</span>
+          <span>Auth: {getSimpleStatus(authLoadableValue)}</span> | <span>Base: {getSimpleStatus(baseDataLoadableValue)}</span> | <span>Worker: {workerStatusValue.loading ? 'Loading' : workerStatusValue.error ? 'Error' : getWorkerSummary(workerStatusValue)}</span>
         </div>
       )}
       {isExpanded && (
@@ -666,16 +669,16 @@ export const JotaiStateInspector = () => {
           </div>
 
           <div>
-            <strong>Worker Status:</strong> {workerStatusLoadableValue.state}
+            <strong>Worker Status:</strong> {workerStatusValue.loading ? 'Loading' : workerStatusValue.error ? 'Error' : 'OK'}
             <div className="pl-4 mt-1 space-y-1">
-              {workerStatusLoadableValue.state === 'hasData' && (
+              {!workerStatusValue.loading && !workerStatusValue.error && (
                 <>
-                  <div><strong>Importing:</strong> {workerStatusLoadableValue.data.isImporting === null ? 'N/A' : workerStatusLoadableValue.data.isImporting ? 'Yes' : 'No'}</div>
-                  <div><strong>Deriving Units:</strong> {workerStatusLoadableValue.data.isDerivingUnits === null ? 'N/A' : workerStatusLoadableValue.data.isDerivingUnits ? 'Yes' : 'No'}</div>
-                  <div><strong>Deriving Reports:</strong> {workerStatusLoadableValue.data.isDerivingReports === null ? 'N/A' : workerStatusLoadableValue.data.isDerivingReports ? 'Yes' : 'No'}</div>
+                  <div><strong>Importing:</strong> {workerStatusValue.isImporting === null ? 'N/A' : workerStatusValue.isImporting ? 'Yes' : 'No'}</div>
+                  <div><strong>Deriving Units:</strong> {workerStatusValue.isDerivingUnits === null ? 'N/A' : workerStatusValue.isDerivingUnits ? 'Yes' : 'No'}</div>
+                  <div><strong>Deriving Reports:</strong> {workerStatusValue.isDerivingReports === null ? 'N/A' : workerStatusValue.isDerivingReports ? 'Yes' : 'No'}</div>
                 </>
               )}
-              {workerStatusLoadableValue.state === 'hasError' && <div><strong>Error:</strong> {String(workerStatusLoadableValue.error)}</div>}
+              {workerStatusValue.error && <div><strong>Error:</strong> {workerStatusValue.error}</div>}
             </div>
           </div>
 
