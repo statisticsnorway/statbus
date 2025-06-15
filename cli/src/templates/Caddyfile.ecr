@@ -13,17 +13,12 @@
         level INFO # Explicitly INFO if not in global debug mode
 <% end %>
     }
-<% if @caddy_deployment_mode == "development" %>
-    # Development mode settings
-    # There is no https support when running locally and developing.
+<% if @caddy_deployment_mode == "development" || @caddy_deployment_mode == "private" %>
+    # Settings for development or private (non-public facing) modes
+    # HTTPS is disabled as it's handled by an upstream proxy or not used locally.
     auto_https off
-<% end %>
-<% if @caddy_deployment_mode == "private" %>
-    # Private mode settings
-    # There is no https support when running privately behind another caddy
-    auto_https off
-    # Configure all servers to trust headers from private ranges when in private mode,
-    # as this Caddy instance is expected to be behind another proxy.
+    # Configure all servers to trust headers from private IP ranges,
+    # as Caddy is expected to be behind another proxy in these modes.
     servers {
         trusted_proxies static private_ranges
 <% if @config.debug == "true" %>
