@@ -1234,7 +1234,12 @@ BEGIN
   cookies := nullif(current_setting('request.cookies', true), '')::jsonb;
   transactional_claims := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
 
-  RAISE LOG '[public.auth_test] INVOKER context. current_user: %, request.jwt.claims GUC: %', current_user, transactional_claims;
+  RAISE LOG '[public.auth_test] Context ---- Start ----';
+  RAISE LOG '[public.auth_test] current_user: %', current_user;
+  RAISE LOG '[public.auth_test] request.jwt.claims GUC: %', transactional_claims;
+  RAISE LOG '[public.auth_test] request.headers GUC: %', headers;
+  RAISE LOG '[public.auth_test] request.cookies GUC: %', cookies;
+  RAISE LOG '[public.auth_test] Context ---- End ----';
   
   -- Get token strings from cookies
   access_token_value := cookies->>'statbus';
