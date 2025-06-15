@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { getServerRestClient } from '@/context/RestClientStore'; // Assuming this path
+import { Agent } from 'undici';
 import type { Database } from '@/lib/database.types';
 
 // Define the expected response structure from the auth.auth_test_response PG type
@@ -89,15 +90,49 @@ export async function GET(request: NextRequest) {
 
   // Method 2: Direct fetch to http://proxy:80/rest/rpc/auth_test
   const directFetchUrl = 'http://proxy:80/rest/rpc/auth_test';
+
+  // Create an explicit Undici agent for direct fetch calls
+  const undiciAgent = new Agent({
+    connect: { timeout: 5000 }, // 5-second connect timeout
+    // keepAliveTimeout: 4000, // Optional: shorter keep-alive than default
+    // keepAliveMaxTimeout: 60000, // Optional: max keep-alive
+  });
+
+
+  // Diagnostic: Simple fetch to proxy root to test basic connectivity
+  try {
+    console.log("Attempting simple diagnostic GET to http://proxy:80/ using undici.Agent");
+    const diagnosticResponse = await fetch('http://proxy:80/', { 
+      method: 'GET',
+      // @ts-ignore Property 'dispatcher' does exist on 'RequestInit'. Next.js's bundled TS types for fetch might be slightly different or undici types not fully aligned with global Fetch API types.
+      dispatcher: undiciAgent 
+    });
+    console.log(`Diagnostic GET to http://proxy:80/ status: ${diagnosticResponse.status}`);
+    const diagnosticText = await diagnosticResponse.text();
+    console.log(`Diagnostic GET to http://proxy:80/ text: ${diagnosticText.substring(0, 200)}...`);
+    responsePayload.diagnostic_simple_fetch_to_proxy_root = {
+      status_code: diagnosticResponse.status,
+      status_text: diagnosticResponse.statusText,
+      body_snippet: diagnosticText.substring(0, 200) + (diagnosticText.length > 200 ? "..." : "")
+    };
+  } catch (diagErr: any) {
+    console.error('Exception during diagnostic simple GET to http://proxy:80/:', diagErr);
+    responsePayload.diagnostic_simple_fetch_to_proxy_root = {
+      status: 'exception',
+      error: { message: diagErr.message, stack: diagErr.stack },
+    };
+  }
+  // End Diagnostic
+
   // Determine the protocol of the incoming request to this API route
   const incomingRequestProtocol = request.nextUrl.protocol.replace(/:$/, '');
 
   const headersForDirectFetch: Record<string, string> = {
     // Forward essential headers. PostgREST might need 'Accept' for JSON.
     'Accept': 'application/json',
-    // Set the Host header to what the internal proxy expects for routing to PostgREST.
-    // This is typically the external hostname.
-    'Host': request.headers.get('x-forwarded-host') || request.headers.get('host') || 'dev.statbus.org',
+    // DO NOT set 'Host' here for internal calls to 'http://proxy:80'. 
+    // 'fetch' will set it correctly to 'proxy:80' based on directFetchUrl.
+    // The 'X-Forwarded-Host' (set below) is used by the internal Caddy for domain matching.
     'Content-Type': 'application/json', // Essential for POST with JSON body
   };
 
@@ -153,6 +188,8 @@ export async function GET(request: NextRequest) {
       method: 'POST', // PostgREST RPCs are typically POST, even if they don't modify data
       headers: headersForDirectFetch,
       body: JSON.stringify({}), // Send an empty JSON object for RPC POST
+      // @ts-ignore Property 'dispatcher' does exist on 'RequestInit'.
+      dispatcher: undiciAgent 
     });
 
     const responseHeaders: Record<string, string> = {};

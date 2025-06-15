@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { NextResponse, type NextRequest } from 'next/server';
+import { Agent } from 'undici';
 import { getDeploymentSlotCode } from './jwt';
 
 /**
@@ -15,9 +16,16 @@ export async function refreshAuthToken(request: NextRequest, origin: string): Pr
   }
   
   try {
+    // Create an explicit Undici agent, similar to /api/auth_test
+    const undiciAgent = new Agent({
+      connect: { timeout: 5000 }, // 5-second connect timeout
+    });
+
     // Call the PostgREST refresh endpoint directly
     const response = await fetch(`${process.env.SERVER_REST_URL}/rpc/refresh`, {
       method: 'POST',
+      // @ts-ignore Property 'dispatcher' does exist on 'RequestInit'.
+      dispatcher: undiciAgent,
       headers: {
         // Align with AuthStore and Python test: send refresh token as a cookie
         'Cookie': `statbus-refresh=${refreshToken.value}`,
