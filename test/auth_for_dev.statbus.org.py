@@ -434,6 +434,73 @@ def test_dev_client_refresh_failure(session: Session, initial_refresh_token: Opt
     else:
         log_failure_condition("Skipping refresh with wrong-type cookie test: initial access token not available for simulation.")
 
+def test_dev_auth_test_direct_calls(session: Session, access_token_value: Optional[str]):
+    log_info("\nTesting direct calls to /rest/rpc/auth_test (GET and POST)...")
+    if not access_token_value:
+        log_failure_condition("Skipping direct auth_test calls: No access token (login likely failed).")
+        return
+
+    # Test GET request
+    log_info("Attempting GET /rest/rpc/auth_test...")
+    try:
+        response_get = session.get(f"{DEV_API_URL}/rest/rpc/auth_test", timeout=10)
+        debug_info(f"GET auth_test response status: {response_get.status_code}")
+        debug_info(f"GET auth_test response body: {response_get.text}")
+
+        if response_get.status_code == 200:
+            try:
+                data_get = response_get.json()
+                # PostgREST RPCs that return a single row might wrap it in an array
+                actual_data_get = data_get[0] if isinstance(data_get, list) and len(data_get) == 1 else data_get
+                
+                # With SECURITY INVOKER, top-level claims should reflect the authenticated user
+                top_level_claims_get = actual_data_get.get("claims", {}) if actual_data_get else {}
+                user_email_in_top_claims_get = top_level_claims_get.get("email")
+
+                if actual_data_get and user_email_in_top_claims_get == USER_EMAIL:
+                    log_success_condition(f"GET /rest/rpc/auth_test successful. Top-level claims verified for {USER_EMAIL}.")
+                    debug_info(f"GET auth_test response JSON: {json.dumps(actual_data_get, indent=2)}")
+                else:
+                    log_problem_reproduced(f"GET /rest/rpc/auth_test response data malformed or top-level claims incorrect. Expected email {USER_EMAIL}, got {user_email_in_top_claims_get}. Data: {actual_data_get}")
+            except json.JSONDecodeError:
+                log_problem_reproduced(f"GET /rest/rpc/auth_test returned non-JSON response: {response_get.text}")
+            except (IndexError, TypeError) as e:
+                log_problem_reproduced(f"GET /rest/rpc/auth_test returned unexpected JSON structure: {response_get.text}. Error: {e}")
+        else:
+            log_failure_condition(f"GET /rest/rpc/auth_test call failed with status {response_get.status_code}. Body: {response_get.text}")
+    except requests.RequestException as e:
+        log_error_critical(f"GET /rest/rpc/auth_test request exception: {e}")
+
+    # Test POST request
+    log_info("\nAttempting POST /rest/rpc/auth_test...")
+    try:
+        headers_post = {"Content-Type": "application/json"}
+        response_post = session.post(f"{DEV_API_URL}/rest/rpc/auth_test", headers=headers_post, json={}, timeout=10)
+        debug_info(f"POST auth_test response status: {response_post.status_code}")
+        debug_info(f"POST auth_test response body: {response_post.text}")
+
+        if response_post.status_code == 200:
+            try:
+                data_post = response_post.json()
+                actual_data_post = data_post[0] if isinstance(data_post, list) and len(data_post) == 1 else data_post
+
+                top_level_claims_post = actual_data_post.get("claims", {}) if actual_data_post else {}
+                user_email_in_top_claims_post = top_level_claims_post.get("email")
+
+                if actual_data_post and user_email_in_top_claims_post == USER_EMAIL:
+                    log_success_condition(f"POST /rest/rpc/auth_test successful. Top-level claims verified for {USER_EMAIL}.")
+                    debug_info(f"POST auth_test response JSON: {json.dumps(actual_data_post, indent=2)}")
+                else:
+                    log_problem_reproduced(f"POST /rest/rpc/auth_test response data malformed or top-level claims incorrect. Expected email {USER_EMAIL}, got {user_email_in_top_claims_post}. Data: {actual_data_post}")
+            except json.JSONDecodeError:
+                log_problem_reproduced(f"POST /rest/rpc/auth_test returned non-JSON response: {response_post.text}")
+            except (IndexError, TypeError) as e:
+                log_problem_reproduced(f"POST /rest/rpc/auth_test returned unexpected JSON structure: {response_post.text}. Error: {e}")
+        else:
+            log_failure_condition(f"POST /rest/rpc/auth_test call failed with status {response_post.status_code}. Body: {response_post.text}")
+    except requests.RequestException as e:
+        log_error_critical(f"POST /rest/rpc/auth_test request exception: {e}")
+
 def test_nextjs_api_auth_test(session: Session):
     log_info("\nTesting Next.js /api/auth_test endpoint...")
     if not session.cookies.get("statbus"): # Refresh cookie might not be sent by browser to /api/auth_test due to path
@@ -592,6 +659,9 @@ def main_dev_tests():
     # Test Problem 1: /rpc/auth_status malfunction
     # This test uses the cookies from the login.
     test_dev_auth_status_malfunction(session_problem1_2, initial_access_token)
+
+    # Test direct calls to /rpc/auth_test with GET and POST
+    test_dev_auth_test_direct_calls(session_problem1_2, initial_access_token)
 
     # Test Problem 2: /rpc/refresh malfunction (missing Set-Cookie / empty body)
     # This test also uses the cookies from the initial login.
