@@ -17,15 +17,6 @@ export default async function ProfilePage() {
       redirect('/login');
     }
     
-    // All user details are now in the AuthStore
-    const client = await getServerRestClient();
-    const { data, error } = await client.rpc('auth_status');
-    
-    if (error) {
-      logger.error({ context: "ProfilePage", error }, "Error fetching user details");
-      redirect('/login');
-    }
-
     return (
       <main className="flex flex-col items-center justify-between px-2 py-8 md:py-24">
         <div className="mx-auto sm:w-full lg:max-w-5xl">
