@@ -23,6 +23,7 @@ services:
       JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in the generated .env}
       JWT_EXP: ${ACCESS_JWT_EXPIRY:?ACCESS_JWT_EXPIRY must be set in the generated .env}
       DEPLOYMENT_SLOT_CODE: ${DEPLOYMENT_SLOT_CODE:?DEPLOYMENT_SLOT_CODE must be set in the generated .env}
+      DEBUG: ${DEBUG:?DEBUG must be set in the generated .env}
     ports:
       - "127.0.0.1:${DB_PUBLIC_LOCALHOST_PORT:-5432}:5432"
     volumes:
@@ -30,6 +31,7 @@ services:
       - ./postgresql.conf:/etc/postgresql/postgresql.conf:ro
       - ./pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
       - ./init-db.sh:/docker-entrypoint-initdb.d/init-db.sh:ro
+      - ./start-postgres.sh:/usr/local/bin/start-postgres.sh:ro # Mount the new script
       # Make all files available for running tests and writing test results or output files from psql.
       - ..:/statbus
 
@@ -40,42 +42,10 @@ services:
     shm_size: 4g
     mem_limit: 4G
     mem_reservation: 2G
-    command:
-      - postgres
-      - -c
-      - config_file=/etc/postgresql/postgresql.conf
-      - -c
-      - log_min_messages=FATAL # Log all server messages (INFO, NOTICE, WARNING, ERROR, LOG, FATAL, PANIC)
-      - -c # Redirect logs to stdout for Docker to capture
-      - logging_collector=off
-      - -c # Log to stderr which Docker redirects to stdout
-      - log_destination=stderr
-      - -c # Disable synchronous_commit to avoid waiting for WAL flush to disk, increasing performance at the cost of durability.
-      - synchronous_commit=off
-      - -c # Delay WAL writes to disk by 500ms to batch more transactions and reduce disk I/O pressure.
-      - wal_writer_delay=500ms
-      - -c # Increase the time between checkpoints to 15 minutes, reducing I/O spikes by having fewer checkpoints.
-      - checkpoint_timeout=15min
-      - -c # Allow checkpoints to be spread over 90% of the time between checkpoints, reducing their performance impact.
-      - checkpoint_completion_target=0.9
-      - -c # Allocate 1GB of shared memory buffers for PostgreSQL to cache more data in RAM, reducing the need for disk reads.
-      - shared_buffers=1GB
-      - -c # Set the work memory to 1GB, allowing larger operations (e.g., sorts, joins) to use more memory and avoid temporary disk usage.
-      - work_mem=1GB
-      - -c # Allocate 1GB for maintenance operations such as VACUUM and CREATE INDEX, improving the performance of these operations.
-      - maintenance_work_mem=1GB
-      - -c # Set WAL buffers to 64MB, allowing more WAL data to be stored in memory before being written to disk, reducing write frequency.
-      - wal_buffers=64MB
-      - -c # Allocate memory for temporary tables operations
-      - temp_buffers=256MB
-      - -c # Increase stack depth for complex recursive queries (7MB is below the 7680kB limit)
-      - max_stack_depth=7MB
-      - -c # Help query planner make better decisions
-      - effective_cache_size=3GB
-      - -c # Allow hash-based operations to use more memory
-      - hash_mem_multiplier=2.0
-      - -c # Log slow queries for debugging
-      - log_min_duration_statement=1000
+    entrypoint: /usr/local/bin/start-postgres.sh # Override entrypoint to use our script first
+    # The original CMD ["postgres"] from Dockerfile is implicitly used by docker-entrypoint.sh
+    # if no command is specified here after the entrypoint. Our start-postgres.sh
+    # explicitly calls `docker-entrypoint.sh postgres ...` so this is fine.
 
 volumes:
   # Named volumes are kept for backward compatibility
