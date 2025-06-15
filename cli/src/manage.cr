@@ -272,14 +272,30 @@ module Statbus
           deployment_slot_code = config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" }
           postgres_app_db = config_env.generate("POSTGRES_APP_DB") { "statbus_#{deployment_slot_code}" }
           postgres_app_user = config_env.generate("POSTGRES_APP_USER") { "statbus_#{deployment_slot_code}" }
+          _deployment_slot_code = config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" }
+          _caddy_deployment_mode = config_env.generate("CADDY_DEPLOYMENT_MODE") { "development" }
+          _deployment_slot_port_offset_str = config_env.generate("DEPLOYMENT_SLOT_PORT_OFFSET") { "1" }
+          _deployment_slot_port_offset = _deployment_slot_port_offset_str.to_i
+
+          _default_browser_api_url = if _caddy_deployment_mode == "standalone"
+                                       _site_domain_val = config_env.generate("SITE_DOMAIN") { "#{_deployment_slot_code}.statbus.org" }
+                                       "https://#{_site_domain_val}"
+                                     else
+                                       _base_port = 3000
+                                       _slot_multiplier = 10
+                                       _calculated_port_offset_val = _base_port + (_deployment_slot_port_offset * _slot_multiplier)
+                                       _caddy_http_port_for_default = _calculated_port_offset_val
+                                       "http://localhost:#{_caddy_http_port_for_default}"
+                                     end
+
           ConfigEnv.new(
-            deployment_slot_name: deployment_slot_code,
-            deployment_slot_code: config_env.generate("DEPLOYMENT_SLOT_CODE") { "dev" },
-            deployment_slot_port_offset: config_env.generate("DEPLOYMENT_SLOT_PORT_OFFSET") { "1" },
+            deployment_slot_name: _deployment_slot_code, # Use _deployment_slot_code for consistency if it's intended for name too
+            deployment_slot_code: _deployment_slot_code,
+            deployment_slot_port_offset: _deployment_slot_port_offset_str,
             # This needs to be replaced by the publicly available DNS name i.e. statbus.example.org
-            statbus_url: config_env.generate("STATBUS_URL") { "http://localhost:3010" },
-            # This needs to be replaced by the publicly available DNS name i.e. statbus-api.example.org
-            browser_api_url: config_env.generate("BROWSER_REST_URL") { "http://localhost:3011" },
+            statbus_url: config_env.generate("STATBUS_URL") { "http://localhost:3010" }, # Example, ensure port matches app_port logic if needed
+            # This is the URL browsers will use to reach the API (via Caddy or Next.js proxy)
+            browser_api_url: config_env.generate("BROWSER_REST_URL") { _default_browser_api_url },
             # This is hardcoded for docker containers, as the name proxy always resolves for the backend app.
             server_api_url: config_env.generate("SERVER_REST_URL") { "http://proxy:80" },
             seq_server_url: config_env.generate("SEQ_SERVER_URL") { "https://log.statbus.org" },
@@ -296,8 +312,8 @@ module Statbus
             access_jwt_expiry: config_env.generate("ACCESS_JWT_EXPIRY") { "3600" }, # 1 hour in seconds
             refresh_jwt_expiry: config_env.generate("REFRESH_JWT_EXPIRY") { "2592000" }, # 30 days in seconds
             # Caddy configuration
-            caddy_deployment_mode: config_env.generate("CADDY_DEPLOYMENT_MODE") { "development" },
-            site_domain: config_env.generate("SITE_DOMAIN") { "#{deployment_slot_code}.statbus.org" },
+            caddy_deployment_mode: _caddy_deployment_mode, # Use the already read value
+            site_domain: config_env.generate("SITE_DOMAIN") { "#{_deployment_slot_code}.statbus.org" },
             # Debug flags
             debug: config_env.generate("DEBUG") { "false" },
             next_public_debug: config_env.generate("NEXT_PUBLIC_DEBUG") { "false" }
@@ -446,6 +462,11 @@ module Statbus
     DB_PUBLIC_LOCALHOST_PORT=#{derived.db_public_localhost_port}
     # Updated by manage-statbus.sh start required
     VERSION=#{derived.version}
+
+    # Node environment for the Next.js app container
+    # Set to 'development' if Caddy is in 'development' mode (local Docker dev),
+    # otherwise 'production'. This ensures Next.js optimizations are applied correctly.
+    NODE_ENV=#{config.caddy_deployment_mode == "development" ? "development" : "production"}
 
     # Server-side debugging for the Statbus App. Requires app restart.
     # To enable, edit .env: set DEBUG=true and comment out/remove DEBUG=false.

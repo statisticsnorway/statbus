@@ -11,27 +11,44 @@
 # Import common snippets
 import ./common.caddyfile
 
+# Internal site to serve the fallback message when app:3000 is down
+# This listens on a loopback address and an arbitrary high port.
+127.0.0.1:19999 {
+    # This is a simple internal responder, no complex imports needed.
+    @json {
+        header Accept application/json*
+    }
+    handle @json {
+        header Content-Type application/json
+        respond `{"error":"development_setup_issue","message":"Statbus API server active. Failed to connect to Next.js app container (app:3000). If running Next.js locally (e.g., 'pnpm run dev' in 'app/' directory), access it directly (e.g., http://localhost:3000) and ensure it's configured to proxy API calls to this Caddy instance."}` 503
+    }
+    
+    handle {
+        header Content-Type text/plain
+        respond "Statbus API server active. Failed to connect to Next.js app container (app:3000). If running Next.js locally (e.g., 'pnpm run dev' in 'app/' directory), access it directly (e.g., http://localhost:3000) and ensure it's configured to proxy API calls to this Caddy instance." 503
+    }
+}
+
 :80 {
     # Enable compression
     encode gzip
     
-    # Use common PostgREST endpoint handling
-    import postgrest_endpoints {$REST_BIND_ADDRESS}
+    # Handle PostgREST API calls first and exclusively
+    route /rest/* {
+        import postgrest_endpoints {$REST_BIND_ADDRESS}
+    }
 
-    # For non-API requests in development mode, show a message
-    # since the Next.js app runs separately and proxies to PostgREST
-    handle {
-        @json {
-            header Accept application/json*
-        }
-        handle @json {
-            header Content-Type application/json
-            respond `{"error":"configuration_error","message":"Statbus API server running in development mode. The Next.js app should be started separately with 'pnpm run dev' in the app directory."}` 503
-        }
-        
-        handle {
-            header Content-Type text/plain
-            respond "Statbus API server running in development mode. The Next.js app should be started separately with 'pnpm run dev' in the app directory." 503
+    # For non-API requests, try proxying to the Next.js app container (app:3000).
+    # If app:3000 is down or unresponsive, fall back to the internal error message server.
+    route { # Changed from handle to route
+        reverse_proxy app:3000 127.0.0.1:19999 {
+            lb_policy first # Try app:3000 first, then 127.0.0.1:19999 if app:3000 fails
+            lb_try_duration 1s # How long to try a failing upstream before marking as down for this request
+            fail_duration 5s   # How long to consider an upstream down before Caddy tries it again
+            
+            transport http {
+                dial_timeout 500ms # Timeout for establishing a connection to an upstream
+            }
         }
     }
 

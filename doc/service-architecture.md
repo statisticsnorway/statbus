@@ -169,25 +169,43 @@ For local Next.js development:
    ```
 
 3. **Development Environment**:
-   - In `.env.config` set `CADDY_DEPLOYMENT_MODE=development` and generate `.env`
-   - The local Next.js app runs on http://localhost:3000
-   - Caddy serves as an API gateway on NEXT_PUBLIC_BROWSER_REST_URL
-   - All API requests from the local Next.js app go through Caddy
-   - Caddy handles authentication by converting cookies to JWT headers
-     - Caddy, via its main `Caddyfile`, includes `caddy/config/development.caddyfile` when `CADDY_DEPLOYMENT_MODE=development`.
-       This `development.caddyfile` configures API forwarding and CORS headers for local development.
+   - In `.env.config`, set `CADDY_DEPLOYMENT_MODE=development`. Run `./devops/manage-statbus.sh generate-config` to create/update `.env`.
+     - This sets `NEXT_PUBLIC_BROWSER_REST_URL` in `.env` to Caddy's host-accessible URL (e.g., `http://localhost:3010`).
+     - It also sets `NODE_ENV=development` in `.env`, which is then used by the `statbus-{slot}-app` container.
+   - The local Next.js app (started with `cd app && pnpm run dev` on your host machine) typically runs on `http://localhost:3000`. `NODE_ENV` for this process is usually `development` (set by Next.js CLI), and `RUNNING_IN_DOCKER` is not set.
+   - **API Request Flow (True Local Development - `pnpm run dev` on host):**
+     - Client-side JS (browser accessing `http://localhost:3000`) makes API calls to `http://localhost:3000/rest/...`. This is because `app/next.config.js` (when `NODE_ENV=development` and not `RUNNING_IN_DOCKER`) overrides `NEXT_PUBLIC_BROWSER_REST_URL` for the client build.
+     - The Next.js dev server (at `http://localhost:3000`) proxies these `/rest/*` requests to Caddy (e.g., `http://localhost:3010/rest/...`) using its `rewrites` config.
+     - Caddy (listening on `3010`) processes the request, handles auth cookie conversion, and proxies to PostgREST.
+   - **API Request Flow (Dockerized Development - `docker compose up` with `dev` slot, browser accessing `http://localhost:3010`):**
+     - `NODE_ENV=development` and `RUNNING_IN_DOCKER=true` are set in the app container's environment.
+     - `app/next.config.js` detects this state. It does *not* override `NEXT_PUBLIC_BROWSER_REST_URL` for the client build and does *not* set up Next.js server rewrites.
+     - Client-side JS (browser accessing `http://localhost:3010`, served by Caddy via `app:3000`) makes API calls using `NEXT_PUBLIC_BROWSER_REST_URL` from `.env` (e.g., `http://localhost:3010/rest/...`).
+     - These requests go directly to Caddy (`localhost:3010`). Caddy's `route /rest/*` block handles them, converts auth cookies, and proxies to PostgREST.
+     - The Next.js app container (`app:3000`) is only involved in serving the application pages/assets, not in proxying these client-side API calls.
+   - **API Request Flow (Production/Private - `docker compose up` with `standalone` or `private` slot):**
+     - `NODE_ENV=production` and `RUNNING_IN_DOCKER=true` are set in the app container.
+     - Similar to Dockerized Development, `app/next.config.js` ensures client-side API calls use `NEXT_PUBLIC_BROWSER_REST_URL` from `.env` (e.g., `https://your.domain/rest/...` or `http://localhost:<caddy_port>/rest/...`), which points to Caddy. Caddy handles the API routing.
+   - This multi-layered setup ensures correct API routing and client-side configuration across different development and deployment scenarios.
 
 ### Environment Variable Flow
 
-1. **For Docker Deployment**:
-   ```
-   .env.credentials + .env.config -(generate-config)→ .env → docker-compose.*.yml → container environment
-   ```
+1.  **For Docker Deployment (any slot/mode via `docker compose`):**
+    ```
+    .env.credentials + .env.config
+        -(manage.cr generate-config)→ .env (contains dynamic NODE_ENV)
+            → docker-compose.*.yml (uses ${NODE_ENV})
+                → container environment (app container gets NODE_ENV from .env)
+                    → app/next.config.js (detects NODE_ENV and RUNNING_IN_DOCKER=true)
+    ```
 
-2. **For Local Development**:
-   ```
-   .env.credentials + .env.config -(generate-config)→ .env → next.config.js → Next.js environment
-   ```
+2.  **For True Local Development (`pnpm run dev` on host):**
+    ```
+    .env.credentials + .env.config
+        -(manage.cr generate-config)→ .env (NEXT_PUBLIC_BROWSER_REST_URL points to Caddy)
+            → app/next.config.js (reads .env, detects NODE_ENV=development from CLI & RUNNING_IN_DOCKER=false)
+                → Next.js dev server environment (overrides client NEXT_PUBLIC_BROWSER_REST_URL, sets up rewrites to Caddy)
+    ```
 
 This approach ensures consistent configuration between Docker and local development environments
 while allowing for the flexibility of running the Next.js app locally for faster development cycles.
