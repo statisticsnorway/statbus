@@ -1029,13 +1029,11 @@ export const loginAtom = atom(
         console.log(`[loginAtom] Current document.cookie immediately after successful /rpc/login response (before authStatusCoreAtom refresh):`, document.cookie);
       }
       set(authStatusCoreAtom); 
+      // Removed: await get(authStatusCoreAtom);
+      // loginAtom now resolves after triggering the refresh.
+      // Components should observe authStatusLoadableAtom to react to the loading and final state.
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("[loginAtom] Calling await get(authStatusCoreAtom) to execute the refresh and wait for it.");
-      }
-      await get(authStatusCoreAtom); // Ensure it re-fetches and updates.
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("[loginAtom] authStatusCoreAtom refresh complete after login.");
-        console.log(`[loginAtom] Current document.cookie after login and authStatusCoreAtom refresh:`, document.cookie);
+        console.log("[loginAtom] authStatusCoreAtom refresh triggered. loginAtom resolving.");
       }
       // The authStatusLoadableAtom will reflect the new state.
 
@@ -1047,10 +1045,10 @@ export const loginAtom = atom(
       }
       // Refresh to ensure we have the latest (likely unauthenticated) status.
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("[loginAtom] Error in login. Calling set(authStatusCoreAtom) and await get(authStatusCoreAtom) to ensure consistent state.");
+        console.log("[loginAtom] Error in login. Calling set(authStatusCoreAtom) to ensure consistent state. loginAtom re-throwing.");
       }
       set(authStatusCoreAtom); 
-      await get(authStatusCoreAtom);
+      // Removed: await get(authStatusCoreAtom);
       throw error; // Re-throw to be caught by LoginForm.tsx
     }
   }
