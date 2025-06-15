@@ -48,13 +48,16 @@ def load_env_vars():
 
 # Configuration from environment variables
 load_env_vars()
-# Extract host and port from CADDY_HTTP_BIND_ADDRESS
-caddy_bind = os.environ["CADDY_HTTP_BIND_ADDRESS"]
-caddy_host, caddy_port = caddy_bind.split(":")
-CADDY_BASE_URL = f"http://{caddy_host}:{caddy_port}"
+
+API_BASE_URL: Optional[str] = None # Will be set by determine_and_set_api_base_url
+
 DB_HOST = "127.0.0.1"
-DB_PORT = os.environ["DB_PUBLIC_LOCALHOST_PORT"]
-DB_NAME = os.environ["POSTGRES_APP_DB"]
+DB_PORT = os.environ.get("DB_PUBLIC_LOCALHOST_PORT")
+DB_NAME = os.environ.get("POSTGRES_APP_DB")
+
+if not DB_PORT or not DB_NAME:
+    print(f"{RED}CRITICAL ERROR: DB_PUBLIC_LOCALHOST_PORT or POSTGRES_APP_DB environment variables are not set.{NC}")
+    sys.exit(1)
 
 # Test users from setup.sql
 ADMIN_EMAIL = "test.admin@statbus.org"
@@ -258,20 +261,15 @@ def run_psql_command(query: str, user: str = None, password: str = None) -> str:
             debug_info(f"Failed to delete temporary file {temp_file_path}: {e}")
 
 def initialize_test_environment() -> None:
-    """Initialize the test environment"""
+    """Initialize the test environment (after API_BASE_URL is set)"""
     log_info("Initializing test environment...")
+    log_info(f"Using API_BASE_URL: {API_BASE_URL}") # API_BASE_URL is now set globally
     print("Loading test users from setup.sql...")
     
     # Create tmp directory if it doesn't exist
     (WORKSPACE / "tmp").mkdir(exist_ok=True)
     
-    # Check if API is reachable
-    try:
-        response = requests.get(CADDY_BASE_URL, timeout=5)
-        log_info(f"API server is reachable. Status: {response.status_code}")
-    except requests.RequestException as e:
-        log_warning(f"API server might not be running: {e}")
-        log_info("Make sure Caddy is running and listening on the correct port")
+    # API reachability is checked by determine_and_set_api_base_url()
     
     # Check if database is reachable
     try:
@@ -323,17 +321,71 @@ def initialize_test_environment() -> None:
         log_warning(f"Setup SQL might have issues: {e}")
         debug_info(f"Setup SQL stderr: {e.stderr}")
 
+def determine_and_set_api_base_url() -> None:
+    """Determines and sets the global API_BASE_URL by trying various environment variables."""
+    global API_BASE_URL
+
+    def try_url(url_to_try: Optional[str], description: str) -> Optional[str]:
+        if not url_to_try:
+            debug_info(f"{description} environment variable not set. Skipping.")
+            return None
+        
+        # Ensure URL has a scheme
+        if not url_to_try.startswith("http://") and not url_to_try.startswith("https://"):
+            log_warning(f"{description} ('{url_to_try}') is missing a scheme (http:// or https://). Assuming http://.")
+            url_to_try = f"http://{url_to_try}"
+
+        log_info(f"Attempting to connect to {description}: {url_to_try} ...")
+        try:
+            # Check root path, allow redirects, short timeout
+            # Using a common health check path if available, otherwise root.
+            # For Next.js, root is fine. For Caddy direct, root might be a 503 if nothing is configured there.
+            # A simple GET to the base URL should be sufficient to check if the server is listening.
+            response = requests.get(url_to_try.rstrip('/') + "/", timeout=3, allow_redirects=True)
+            
+            # Consider any 2xx or 3xx as reachable for this purpose.
+            # Caddy might return 503 for root if not configured, but still reachable.
+            # Next.js app should return 200 for root.
+            if 200 <= response.status_code < 400 or response.status_code == 503: # Allow 503 for Caddy direct check
+                log_success(f"Successfully connected to {description} at {url_to_try} (Status: {response.status_code}). Using this as API_BASE_URL.")
+                return url_to_try
+            else:
+                log_warning(f"Connection attempt to {description} ({url_to_try}) returned status {response.status_code}.")
+                return None
+        except requests.RequestException as e:
+            log_warning(f"Failed to connect to {description} ({url_to_try}): {e}")
+            return None
+
+    # Priority for URL checking:
+    # 1. STATBUS_URL (Next.js dev server on host, e.g., http://localhost:3000, should proxy /rest/*)
+    # 2. NEXT_PUBLIC_BROWSER_REST_URL (Direct Caddy URL, e.g., http://localhost:3010)
+
+    statbus_url_env = os.environ.get("STATBUS_URL")
+    next_public_browser_rest_url_env = os.environ.get("NEXT_PUBLIC_BROWSER_REST_URL")
+    
+    chosen_url = try_url(statbus_url_env, "STATBUS_URL (Next.js dev server on host)")
+
+    if not chosen_url:
+        chosen_url = try_url(next_public_browser_rest_url_env, "NEXT_PUBLIC_BROWSER_REST_URL (direct to Caddy)")
+
+    if not chosen_url:
+        log_error("CRITICAL: Failed to determine a reachable API_BASE_URL. Checked STATBUS_URL and NEXT_PUBLIC_BROWSER_REST_URL. Ensure one of these points to a running Next.js dev server (with /rest/* proxy) or Caddy.")
+        # log_error calls sys.exit(1)
+
+    API_BASE_URL = chosen_url
+
+
 def test_api_login(session: Session, email: str, password: str, expected_role: str) -> Optional[int]:
     """Test API login and return user ID if successful"""
     log_info(f"Testing API login for {email} (expected role: {expected_role})...")
     
     # Make login request
     try:
-        debug_info(f"Sending login request to {CADDY_BASE_URL}/rest/rpc/login")
+        debug_info(f"Sending login request to {API_BASE_URL}/rest/rpc/login")
         debug_info(f"Request payload: {{'email': '{email}', 'password': '********'}}")
         
         response = session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/login",
+            f"{API_BASE_URL}/rest/rpc/login",
             json={"email": email, "password": password},
             headers={"Content-Type": "application/json"}
         )
@@ -346,7 +398,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
         if response.status_code != 200:
             def print_response_debug_info():
                 print(f"Response body: {response.text}")
-                print(f"API endpoint: {CADDY_BASE_URL}/rest/rpc/login")
+                print(f"API endpoint: {API_BASE_URL}/rest/rpc/login")
             
             log_error(f"API login failed for {email}. Status code: {response.status_code}", print_response_debug_info)
             return None
@@ -360,7 +412,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
             # Handle empty response case
             if not response.text or response.text.strip() == "":
                 def print_endpoint_info():
-                    print(f"API endpoint: {CADDY_BASE_URL}/rest/rpc/login")
+                    print(f"API endpoint: {API_BASE_URL}/rest/rpc/login")
                 
                 log_error(f"API login failed for {email}. Empty response from server.", print_endpoint_info)
                 return None
@@ -371,7 +423,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
             def print_response_details():
                 print(f"Response text: {response.text!r}")  # Use repr to show whitespace/control chars
                 print(f"Response headers: {dict(response.headers)}")
-                print(f"API endpoint: {CADDY_BASE_URL}/rest/rpc/login")
+                print(f"API endpoint: {API_BASE_URL}/rest/rpc/login")
             
             log_error(f"Failed to parse JSON response: {e}", print_response_details)
             return None
@@ -391,7 +443,7 @@ def test_api_login(session: Session, email: str, password: str, expected_role: s
         else:
             def print_login_failure_details():
                 print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
-                print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/login{NC}")
+                print(f"{RED}API endpoint: {API_BASE_URL}/rest/rpc/login{NC}")
                 print(f"{RED}Expected role: {expected_role}, Got: {data.get('statbus_role')}{NC}")
             
             log_error(f"API login failed for {email}.", print_login_failure_details)
@@ -412,7 +464,7 @@ def test_api_access(session: Session, email: str, endpoint: str, expected_status
     # Make authenticated request
     try:
         response = session.get(
-            f"{CADDY_BASE_URL}{endpoint}",
+            f"{API_BASE_URL}{endpoint}",
             headers={"Content-Type": "application/json"}
         )
         
@@ -422,7 +474,7 @@ def test_api_access(session: Session, email: str, endpoint: str, expected_status
             def print_api_access_details():
                 print(f"{RED}Response body:{NC}")
                 print(response.text)
-                print(f"{RED}API endpoint: {CADDY_BASE_URL}{endpoint}{NC}")
+                print(f"{RED}API endpoint: {API_BASE_URL}{endpoint}{NC}")
             
             log_error(f"API access to {endpoint} returned status {response.status_code}, expected {expected_status}", 
                      print_api_access_details)
@@ -500,7 +552,7 @@ def test_api_logout(session: Session) -> None:
     # Make logout request
     try:
         response = session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/logout",
+            f"{API_BASE_URL}/rest/rpc/logout",
             headers={"Content-Type": "application/json"}
         )
         
@@ -532,7 +584,7 @@ def test_api_logout(session: Session) -> None:
         else:
             log_error("API logout failed.")
             print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
-            print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/logout{NC}")
+            print(f"{RED}API endpoint: {API_BASE_URL}/rest/rpc/logout{NC}")
     
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
@@ -556,7 +608,7 @@ def test_token_refresh(session: Session, email: str, password: str) -> None:
     # Make refresh request
     try:
         response = session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/refresh",
+            f"{API_BASE_URL}/rest/rpc/refresh",
             headers={"Content-Type": "application/json"}
         )
         
@@ -588,7 +640,7 @@ def test_token_refresh(session: Session, email: str, password: str) -> None:
         else:
             log_error("Token refresh failed.")
             print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
-            print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/refresh{NC}")
+            print(f"{RED}API endpoint: {API_BASE_URL}/rest/rpc/refresh{NC}")
     
     except requests.RequestException as e:
         log_error(f"API request failed: {e}")
@@ -604,7 +656,7 @@ def test_auth_status(session: Session, expected_auth: bool) -> None:
     try:
         debug_info(f"Session cookies before request: {session.cookies}")
         response = session.get(
-            f"{CADDY_BASE_URL}/rest/rpc/auth_status",
+            f"{API_BASE_URL}/rest/rpc/auth_status",
             headers={"Content-Type": "application/json"}
         )
         
@@ -622,7 +674,7 @@ def test_auth_status(session: Session, expected_auth: bool) -> None:
             else:
                 def print_auth_status_details():
                     print(f"{RED}Response: {json.dumps(data, indent=2)}{NC}")
-                    print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/auth_status{NC}")
+                    print(f"{RED}API endpoint: {API_BASE_URL}/rest/rpc/auth_status{NC}")
                     print(f"{RED}Expected is_authenticated: {expected_auth}{NC}")
                 
                 log_error(f"Auth status did not return expected authentication state.", print_auth_status_details)
@@ -645,7 +697,7 @@ def test_bearer_token_auth(email: str, password: str) -> None:
     session = requests.Session()
     try:
         login_response = session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/login",
+            f"{API_BASE_URL}/rest/rpc/login",
             json={"email": email, "password": password},
             headers={"Content-Type": "application/json"}
         )
@@ -660,7 +712,7 @@ def test_bearer_token_auth(email: str, password: str) -> None:
         
         # Call auth_test to get the actual token string from the cookies field in its response
         auth_test_response = session.get(
-            f"{CADDY_BASE_URL}/rest/rpc/auth_test",
+            f"{API_BASE_URL}/rest/rpc/auth_test",
             headers={"Content-Type": "application/json"}
         )
         if auth_test_response.status_code != 200:
@@ -681,7 +733,7 @@ def test_bearer_token_auth(email: str, password: str) -> None:
         # Test 1: Verify auth_status endpoint with Bearer token
         log_info("Testing auth_status endpoint with Bearer token...")
         auth_status_response = requests.get(
-            f"{CADDY_BASE_URL}/rest/rpc/auth_status",
+            f"{API_BASE_URL}/rest/rpc/auth_status",
             headers={
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json"
@@ -700,7 +752,7 @@ def test_bearer_token_auth(email: str, password: str) -> None:
                 else:
                     def print_auth_status_details():
                         print(f"{RED}Response: {json.dumps(auth_data, indent=2)}{NC}")
-                        print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/auth_status{NC}")
+                        print(f"{RED}API endpoint: {API_BASE_URL}/rest/rpc/auth_status{NC}")
                         print(f"{RED}Expected is_authenticated: True{NC}")
                     
                     log_error(f"Auth status with Bearer token shows unauthenticated user", print_auth_status_details)
@@ -714,14 +766,14 @@ def test_bearer_token_auth(email: str, password: str) -> None:
             def print_auth_status_error_details():
                 print(f"{RED}Response status: {auth_status_response.status_code}{NC}")
                 print(f"{RED}Response text: {auth_status_response.text}{NC}")
-                print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/auth_status{NC}")
+                print(f"{RED}API endpoint: {API_BASE_URL}/rest/rpc/auth_status{NC}")
             
             log_error(f"Auth status with Bearer token failed", print_auth_status_error_details)
         
         # Test 2: Verify data access endpoint with Bearer token
         log_info("Testing data access endpoint with Bearer token...")
         bearer_response = requests.get(
-            f"{CADDY_BASE_URL}/rest/country?limit=5",
+            f"{API_BASE_URL}/rest/country?limit=5",
             headers={
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json"
@@ -748,7 +800,7 @@ def test_bearer_token_auth(email: str, password: str) -> None:
             def print_bearer_error_details():
                 print(f"{RED}Response status: {bearer_response.status_code}{NC}")
                 print(f"{RED}Response text: {bearer_response.text}{NC}")
-                print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/region?limit=5{NC}")
+                print(f"{RED}API endpoint: {API_BASE_URL}/rest/region?limit=5{NC}")
                 print(f"{RED}Authorization header: Bearer {access_token[:10]}...{NC}")
             
             log_error(f"API access with Bearer token failed", print_bearer_error_details)
@@ -777,7 +829,7 @@ def test_api_key_management(session: Session, email: str, password: str) -> None
     key_jti = None
     try:
         response = session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/create_api_key",
+            f"{API_BASE_URL}/rest/rpc/create_api_key",
             json={"description": key_description, "duration": key_duration},
             headers={"Content-Type": "application/json"}
         )
@@ -804,7 +856,7 @@ def test_api_key_management(session: Session, email: str, password: str) -> None
     second_api_key_jwt = None
     try:
         response = session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/create_api_key",
+            f"{API_BASE_URL}/rest/rpc/create_api_key",
             json={"description": second_key_description, "duration": key_duration},
             headers={"Content-Type": "application/json"}
         )
@@ -824,7 +876,7 @@ def test_api_key_management(session: Session, email: str, password: str) -> None
     try:
         # Query the api_key table directly instead of using a function
         response = session.get(
-            f"{CADDY_BASE_URL}/rest/api_key",
+            f"{API_BASE_URL}/rest/api_key",
             headers={"Content-Type": "application/json"}
         )
         if response.status_code == 200:
@@ -878,7 +930,7 @@ def test_api_key_management(session: Session, email: str, password: str) -> None
 
     try:
         response = other_session.get(
-            f"{CADDY_BASE_URL}/rest/api_key",
+            f"{API_BASE_URL}/rest/api_key",
             headers={"Content-Type": "application/json"}
         )
         if response.status_code == 200:
@@ -907,7 +959,7 @@ def test_api_key_management(session: Session, email: str, password: str) -> None
     log_info("Testing data access using the API key...")
     try:
         bearer_response = requests.get(
-            f"{CADDY_BASE_URL}/rest/country?limit=1", # Use a simple endpoint
+            f"{API_BASE_URL}/rest/country?limit=1", # Use a simple endpoint
             headers={
                 "Authorization": f"Bearer {api_key_jwt}",
                 "Accept": "application/json" # Ensure correct accept header
@@ -931,7 +983,7 @@ def test_api_key_management(session: Session, email: str, password: str) -> None
     log_info(f"Revoking API key (JTI: {key_jti})...")
     try:
         response = session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/revoke_api_key",
+            f"{API_BASE_URL}/rest/rpc/revoke_api_key",
             json={"key_jti": key_jti},
             headers={"Content-Type": "application/json"}
         )
@@ -950,7 +1002,7 @@ def test_api_key_management(session: Session, email: str, password: str) -> None
     log_info("Verifying key is marked as revoked in listing...")
     try:
         response = session.get(
-            f"{CADDY_BASE_URL}/rest/api_key",
+            f"{API_BASE_URL}/rest/api_key",
             headers={"Content-Type": "application/json"}
         )
         if response.status_code == 200:
@@ -975,7 +1027,7 @@ def test_api_key_management(session: Session, email: str, password: str) -> None
     log_info("Attempting data access with revoked API key...")
     try:
         bearer_response = requests.get(
-            f"{CADDY_BASE_URL}/rest/country?limit=1",
+            f"{API_BASE_URL}/rest/country?limit=1",
             headers={
                 "Authorization": f"Bearer {api_key_jwt}",
                 "Accept": "application/json"
@@ -998,7 +1050,7 @@ def test_api_key_management(session: Session, email: str, password: str) -> None
         # For now, just use the second key but modify the Authorization header
         try:
             tampered_response = requests.get(
-                f"{CADDY_BASE_URL}/rest/country?limit=1",
+                f"{API_BASE_URL}/rest/country?limit=1",
                 headers={
                     "Authorization": f"Bearer {second_api_key_jwt.replace('.', '.INVALID.')}",
                     "Accept": "application/json"
@@ -1041,7 +1093,7 @@ def test_password_change(admin_session: Session, user_session: Session, user_ema
     log_info("User changing their own password...")
     try:
         response = user_session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/change_password",
+            f"{API_BASE_URL}/rest/rpc/change_password",
             json={"new_password": new_password},
             headers={"Content-Type": "application/json"}
         )
@@ -1062,7 +1114,7 @@ def test_password_change(admin_session: Session, user_session: Session, user_ema
     temp_session_old = requests.Session()
     try:
         response = temp_session_old.post(
-            f"{CADDY_BASE_URL}/rest/rpc/login",
+            f"{API_BASE_URL}/rest/rpc/login",
             json={"email": user_email, "password": initial_password},
             headers={"Content-Type": "application/json"}
         )
@@ -1090,7 +1142,7 @@ def test_password_change(admin_session: Session, user_session: Session, user_ema
         old_session.cookies.set("statbus-refresh", initial_refresh_cookie)
         try:
             response = old_session.post(
-                f"{CADDY_BASE_URL}/rest/rpc/refresh",
+                f"{API_BASE_URL}/rest/rpc/refresh",
                 headers={"Content-Type": "application/json"}
             )
             # Expecting 401, 400 or similar error because the session was deleted
@@ -1132,7 +1184,7 @@ def test_password_change(admin_session: Session, user_session: Session, user_ema
 
     try:
         response = admin_session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/admin_change_password",
+            f"{API_BASE_URL}/rest/rpc/admin_change_password",
             json={"user_sub": user_sub, "new_password": initial_password},
             headers={"Content-Type": "application/json"}
         )
@@ -1159,7 +1211,7 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
     log_info(f"Testing auth_test endpoint (logged in: {logged_in})...")
 
     log_q = queue.Queue()
-    services_to_log = ["db", "proxy", "rest"]
+    services_to_log = ["app", "db", "proxy", "rest"] # Added "app"
     collector = LocalLogCollector(services_to_log, log_q)
     
     collector.start()
@@ -1167,7 +1219,7 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
     try:
         # Test GET request
         response = session.get(
-            f"{CADDY_BASE_URL}/rest/rpc/auth_test",
+            f"{API_BASE_URL}/rest/rpc/auth_test",
             headers={"Content-Type": "application/json"}
         )
         
@@ -1211,17 +1263,18 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
                         log_warning(f"  GET /rest/rpc/auth_test: Top-level 'claims.role' (GUC) was '{top_level_claims.get('role')}', not 'anon' as potentially expected for SECURITY INVOKER entry point.")
 
                     # Verify current_db_user and current_db_role from the function's perspective
+                    # For SECURITY INVOKER entry point, current_user inside the function is 'anon'
                     db_user = actual_data.get("current_db_user")
                     db_role = actual_data.get("current_db_role")
-                    if db_user == expected_email_for_session:
-                        log_success(f"  GET /rest/rpc/auth_test: 'current_db_user' ({db_user}) matches expected authenticated user.")
+                    if db_user == "anon":
+                        log_success(f"  GET /rest/rpc/auth_test: 'current_db_user' is 'anon' as expected for SECURITY INVOKER entry point.")
                     else:
-                        log_problem_reproduced(f"  GET /rest/rpc/auth_test: 'current_db_user' ({db_user}) does not match expected authenticated user ({expected_email_for_session}).")
+                        log_problem_reproduced(f"  GET /rest/rpc/auth_test: 'current_db_user' ({db_user}) was not 'anon' as expected for SECURITY INVOKER entry point.")
                     
-                    if db_role == expected_email_for_session: # In PG, after SET ROLE, current_user is the role
-                        log_success(f"  GET /rest/rpc/auth_test: 'current_db_role' ({db_role}) matches expected authenticated role.")
+                    if db_role == "anon": 
+                        log_success(f"  GET /rest/rpc/auth_test: 'current_db_role' is 'anon' as expected for SECURITY INVOKER entry point.")
                     else:
-                        log_problem_reproduced(f"  GET /rest/rpc/auth_test: 'current_db_role' ({db_role}) does not match expected authenticated role ({expected_email_for_session}).")
+                        log_problem_reproduced(f"  GET /rest/rpc/auth_test: 'current_db_role' ({db_role}) was not 'anon' as expected for SECURITY INVOKER entry point.")
 
                 elif not logged_in: # Unauthenticated
                     top_level_claims_role = actual_data.get("claims", {}).get("role")
@@ -1264,7 +1317,7 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
     log_info(f"Testing auth_test endpoint with POST (logged in: {logged_in})...")
     try:
         response_post = session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/auth_test",
+            f"{API_BASE_URL}/rest/rpc/auth_test",
             headers={"Content-Type": "application/json"},
             json={} # Empty JSON body for POST RPC
         )
@@ -1300,17 +1353,18 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False) -> None:
                         log_warning(f"  POST /rest/rpc/auth_test: Top-level 'claims.role' (GUC) was '{top_level_claims_post.get('role')}', not 'anon' as potentially expected for SECURITY INVOKER entry point.")
 
                     # Verify current_db_user and current_db_role from the function's perspective
+                    # For SECURITY INVOKER entry point, current_user inside the function is 'anon'
                     db_user_post = actual_data_post.get("current_db_user")
                     db_role_post = actual_data_post.get("current_db_role")
-                    if db_user_post == expected_email_for_session:
-                        log_success(f"  POST /rest/rpc/auth_test: 'current_db_user' ({db_user_post}) matches expected authenticated user.")
+                    if db_user_post == "anon":
+                        log_success(f"  POST /rest/rpc/auth_test: 'current_db_user' is 'anon' as expected for SECURITY INVOKER entry point.")
                     else:
-                        log_problem_reproduced(f"  POST /rest/rpc/auth_test: 'current_db_user' ({db_user_post}) does not match expected authenticated user ({expected_email_for_session}).")
+                        log_problem_reproduced(f"  POST /rest/rpc/auth_test: 'current_db_user' ({db_user_post}) was not 'anon' as expected for SECURITY INVOKER entry point.")
                     
-                    if db_role_post == expected_email_for_session: # In PG, after SET ROLE, current_user is the role
-                        log_success(f"  POST /rest/rpc/auth_test: 'current_db_role' ({db_role_post}) matches expected authenticated role.")
+                    if db_role_post == "anon": 
+                        log_success(f"  POST /rest/rpc/auth_test: 'current_db_role' is 'anon' as expected for SECURITY INVOKER entry point.")
                     else:
-                        log_problem_reproduced(f"  POST /rest/rpc/auth_test: 'current_db_role' ({db_role_post}) does not match expected authenticated role ({expected_email_for_session}).")
+                        log_problem_reproduced(f"  POST /rest/rpc/auth_test: 'current_db_role' ({db_role_post}) was not 'anon' as expected for SECURITY INVOKER entry point.")
 
                 elif not logged_in: # Unauthenticated
                     top_level_claims_role_post = actual_data_post.get("claims", {}).get("role")
@@ -1363,7 +1417,7 @@ def test_auth_status_post(session: Session, expected_auth: bool) -> None:
     try:
         debug_info(f"Session cookies before POST request to auth_status: {session.cookies}")
         response = session.post( # Use POST
-            f"{CADDY_BASE_URL}/rest/rpc/auth_status",
+            f"{API_BASE_URL}/rest/rpc/auth_status",
             headers={"Content-Type": "application/json"},
             json={} # Send empty JSON body for POST RPC
         )
@@ -1383,7 +1437,7 @@ def test_auth_status_post(session: Session, expected_auth: bool) -> None:
             else:
                 def print_auth_status_details():
                     print(f"{RED}Response (POST): {json.dumps(actual_data, indent=2)}{NC}")
-                    print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/auth_status (POST){NC}")
+                    print(f"{RED}API endpoint: {API_BASE_URL}/rest/rpc/auth_status (POST){NC}")
                     print(f"{RED}Expected is_authenticated: {expected_auth}{NC}")
                 
                 log_error(f"Auth status (POST) did not return expected authentication state.", print_auth_status_details)
@@ -1400,8 +1454,15 @@ def test_auth_status_post(session: Session, expected_auth: bool) -> None:
 
 def main() -> None:
     """Main test sequence"""
+    global API_BASE_URL # Ensure we can assign to the global
+    
     print(f"\n{BLUE}=== Starting Authentication System Tests ==={NC}\n")
-    print(f"{BLUE}Using API URL: {CADDY_BASE_URL}{NC}")
+    
+    load_env_vars() # Load .env first
+    determine_and_set_api_base_url() # Determine and set API_BASE_URL
+
+    # Now API_BASE_URL is set and can be used by other functions
+    print(f"{BLUE}Using API URL: {API_BASE_URL}{NC}")
     print(f"{BLUE}Using DB: {DB_HOST}:{DB_PORT}/{DB_NAME}{NC}")
     
     # Initialize test environment
@@ -1428,6 +1489,11 @@ def main() -> None:
     # Test auth_test endpoint after login
     print(f"\n{BLUE}=== Test 1.1: Auth Test Endpoint (After Login) ==={NC}")
     test_auth_test_endpoint(admin_session, logged_in=True) # Will test GET and POST
+
+    # Test 1.2: Call Next.js /api/auth_test endpoint using the admin session
+    # This tests the internal calls from Next.js app to PostgREST
+    print(f"\n{BLUE}=== Test 1.2: Next.js App Internal Auth Test (/api/auth_test) ==={NC}")
+    test_local_nextjs_app_auth_test_endpoint(admin_session)
     
     # Test 2: Admin user direct database access
     print(f"\n{BLUE}=== Test 2: Admin User Direct Database Access ==={NC}")
@@ -1499,7 +1565,7 @@ def main() -> None:
     failed_login_session = requests.Session()
     try:
         response = failed_login_session.post(
-            f"{CADDY_BASE_URL}/rest/rpc/login",
+            f"{API_BASE_URL}/rest/rpc/login",
             json={"email": ADMIN_EMAIL, "password": "WrongPassword"},
             headers={"Content-Type": "application/json"}
         )
@@ -1510,7 +1576,7 @@ def main() -> None:
         else:
             def print_unexpected_login_success():
                 print(f"{RED}Response: {response.text}{NC}")
-                print(f"{RED}API endpoint: {CADDY_BASE_URL}/rest/rpc/login{NC}")
+                print(f"{RED}API endpoint: {API_BASE_URL}/rest/rpc/login{NC}")
             
             log_error("Login unexpectedly succeeded with incorrect password.", print_unexpected_login_success)
     
@@ -1614,6 +1680,99 @@ def main() -> None:
     # Need admin session for admin part, and a fresh session for the user being changed
     password_change_user_session = requests.Session()
     test_password_change(admin_session, password_change_user_session, RESTRICTED_EMAIL, RESTRICTED_PASSWORD)
+
+
+def test_local_nextjs_app_auth_test_endpoint(session: Session):
+    """
+    Tests the Next.js /api/auth_test endpoint.
+    This function is ported from test/auth_for_dev.statbus.org.py.
+    It helps diagnose internal calls from the Next.js app to PostgREST.
+    """
+    log_info("\nTesting Next.js /api/auth_test endpoint (via standalone script)...")
+    log_q = queue.Queue() # Initialize log_q here, before any potential early return
+    
+    # This test relies on API_BASE_URL pointing to a running Next.js application
+    # (either on host via STATBUS_URL or containerized via APP_BIND_ADDRESS).
+    # If API_BASE_URL points directly to Caddy, this /api/auth_test path will likely 404.
+    if "/rest" in API_BASE_URL: # A simple heuristic to guess if API_BASE_URL is Caddy
+        log_warning(f"API_BASE_URL ({API_BASE_URL}) seems to point directly to PostgREST/Caddy. "
+                    f"The /api/auth_test endpoint is part of the Next.js app and might not be found. Skipping this test.")
+        return
+
+    if not session.cookies.get("statbus"):
+        log_failure_condition("Skipping Next.js /api/auth_test: Missing 'statbus' access token cookie from login session.")
+        return
+
+    # log_q is already initialized above
+    # Services to log for this specific test, focusing on app and its interactions
+    services_to_log = ["app", "db", "proxy", "rest"] 
+    log_collector = LocalLogCollector(services_to_log, log_q) # Use log_q
+    
+    remote_logs_header_printed = False # Keep var name for consistency, though logs are local
+
+    try:
+        log_collector.start()
+        
+        api_url = f"{API_BASE_URL}/api/auth_test"
+        log_info(f"Calling {api_url} with current session cookies...")
+        debug_info(f"Session cookies being sent to {api_url}: {session.cookies.get_dict()}")
+        
+        response = session.get(api_url, timeout=20) 
+        
+        debug_info(f"/api/auth_test response status: {response.status_code}")
+        
+        if response.status_code == 200:
+            try:
+                data = response.json()
+                log_info(f"/api/auth_test response JSON: {json.dumps(data, indent=2)}")
+                
+                if "postgrest_js_call_to_rpc_auth_test" not in data or \
+                   "direct_fetch_call_to_rpc_auth_test" not in data:
+                    log_problem_reproduced("/api/auth_test response missing key sections.")
+                else:
+                    log_success("Next.js /api/auth_test responded successfully with expected sections.")
+                    
+                    # Analyze postgrest_js_call results
+                    pg_js_call = data.get("postgrest_js_call_to_rpc_auth_test", {})
+                    if pg_js_call.get("status") == "success" and pg_js_call.get("data"):
+                        log_success("  PostgREST-JS call to rpc/auth_test within Next.js was successful and returned data.")
+                        debug_info(f"  PostgREST-JS call data: {json.dumps(pg_js_call.get('data'), indent=2)}")
+                    else:
+                        log_problem_reproduced(f"  PostgREST-JS call to rpc/auth_test within Next.js failed or returned no data. Status: {pg_js_call.get('status')}, Error: {pg_js_call.get('error')}")
+
+                    # Analyze direct_fetch_call results
+                    direct_fetch_call = data.get("direct_fetch_call_to_rpc_auth_test", {})
+                    if direct_fetch_call.get("status") == "success" and direct_fetch_call.get("data"):
+                        log_success("  Direct Fetch call to rpc/auth_test within Next.js was successful and returned data.")
+                        debug_info(f"  Direct Fetch call data: {json.dumps(direct_fetch_call.get('data'), indent=2)}")
+                    else:
+                        log_problem_reproduced(f"  Direct Fetch call to rpc/auth_test within Next.js failed or returned no data. Status: {direct_fetch_call.get('status')}, Error: {direct_fetch_call.get('error')}, Response Status: {direct_fetch_call.get('response_status_code')}")
+                        debug_info(f"  Direct Fetch request headers sent: {json.dumps(direct_fetch_call.get('request_headers_sent'), indent=2)}")
+                        debug_info(f"  Direct Fetch response headers received: {json.dumps(direct_fetch_call.get('response_headers'), indent=2)}")
+
+
+            except json.JSONDecodeError:
+                log_problem_reproduced(f"Next.js /api/auth_test returned non-JSON response: {response.text}")
+        else:
+            log_failure_condition(f"Next.js /api/auth_test call failed with status {response.status_code}. Body: {response.text}")
+
+    except requests.RequestException as e:
+        log_error(f"Next.js /api/auth_test request exception: {e}") # Changed to log_error for consistency
+    finally:
+        log_collector.stop()
+        if not log_q.empty():
+            print(f"\n{BLUE}--- Collected Docker Logs for Next.js /api/auth_test call ---{NC}")
+            remote_logs_header_printed = True # Variable name kept for consistency
+            while not log_q.empty():
+                try:
+                    log_line = log_q.get_nowait()
+                    print(log_line)
+                except queue.Empty:
+                    break
+            print(f"{BLUE}--- End of Docker Logs ---{NC}\n")
+        elif not remote_logs_header_printed : 
+            log_info("No Docker logs were collected or collector did not start properly for /api/auth_test.")
+
 
     # Print summary of test results
     if PROBLEM_REPRODUCED_FLAG:
