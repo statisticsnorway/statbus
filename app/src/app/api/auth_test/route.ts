@@ -161,29 +161,59 @@ export async function GET(request: NextRequest) {
     });
 
     let responseData: AuthTestDbResponse | null = null;
-    let responseParseError = null;
+    let responseParseError: string | null = null;
+    let rawBodyForError: string | null = null;
+
     if (directResponse.ok && directResponse.headers.get('content-type')?.includes('application/json')) {
         try {
-            // PostgREST RPCs that return a single row often wrap it in an array
-            const jsonDataArray = await directResponse.json();
-            responseData = jsonDataArray[0] as AuthTestDbResponse; 
+            // PostgREST RPCs that return a single row object directly (not in an array)
+            responseData = await directResponse.json() as AuthTestDbResponse;
+            if (typeof responseData !== 'object' || responseData === null) {
+                // If it's not an object or is null, but parsed, it's unexpected.
+                // This case might indicate an empty array `[]` was returned and parsed, then `responseData` became `null` if not handled.
+                // However, typical single RPCs return an object or fail to parse if empty.
+                console.warn('Direct fetch JSON parsed but was not the expected object:', responseData);
+                // To be safe, if it's not a populated object, consider it a parsing issue for this context.
+                if (!responseData || Object.keys(responseData).length === 0) {
+                  responseParseError = `Parsed JSON was not a populated object. Parsed: ${JSON.stringify(responseData)}`;
+                  responseData = null; // Ensure it's null if not a valid object structure
+                }
+            }
         } catch (e: any) {
             console.error('Error parsing JSON from direct fetch:', e);
             responseParseError = e.message;
+            // Attempt to get raw body for better error reporting if JSON parsing fails
+            try {
+                // Clone the response before .text() if .json() might have consumed it,
+                // though typically .json() failing means .text() can still be read.
+                // For simplicity, assuming .text() can be called after .json() fails.
+                rawBodyForError = await directResponse.text();
+                console.error('Raw response text from direct fetch on JSON parse error:', rawBodyForError);
+            } catch (textErr: any) {
+                console.error('Could not get raw text from direct fetch response after JSON parse error:', textErr);
+            }
         }
     } else if (!directResponse.ok) {
-        console.error(`Direct fetch failed with status: ${directResponse.status} ${directResponse.statusText}`);
-        responseParseError = `Direct fetch failed: ${directResponse.status} ${directResponse.statusText}. Body: ${await directResponse.text()}`;
+        const errorBody = await directResponse.text();
+        console.error(`Direct fetch failed with status: ${directResponse.status} ${directResponse.statusText}. Body: ${errorBody}`);
+        responseParseError = `Direct fetch failed: ${directResponse.status} ${directResponse.statusText}. Body: ${errorBody.substring(0, 500)}`;
+    } else {
+        // OK response but not application/json
+        const nonJsonBody = await directResponse.text();
+        console.warn(`Direct fetch returned OK but non-JSON content-type: ${directResponse.headers.get('content-type')}. Body: ${nonJsonBody.substring(0,500)}`);
+        responseParseError = `OK response but non-JSON content-type. Body: ${nonJsonBody.substring(0,500)}`;
     }
 
-
+    // Populate the response payload
+    const success = directResponse.ok && responseData && !responseParseError;
     responsePayload.direct_fetch_call_to_rpc_auth_test = {
-      status: directResponse.ok && responseData ? 'success' : 'error',
-      request_headers_sent: headersForDirectFetch, // Log what headers we sent
+      status: success ? 'success' : 'error',
+      request_headers_sent: headersForDirectFetch,
       response_status_code: directResponse.status,
       response_headers: responseHeaders,
-      data: responseData,
+      data: responseData, // Will be null if parsing failed or data was not as expected
       error: responseParseError,
+      raw_body_on_error: rawBodyForError, // Include raw body if JSON parsing failed
     };
   } catch (e: any) {
     console.error('Exception during direct fetch call:', e);
