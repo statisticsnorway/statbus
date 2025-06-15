@@ -1,40 +1,16 @@
-export const dynamic = 'force-dynamic';
-
 import React from "react";
 import Image from "next/image";
 import logo from "@/../public/statbus-logo.png";
-// Import the new client boundary instead of LoginForm directly
 import LoginClientBoundary from "./LoginClientBoundary"; 
-import { redirect } from "next/navigation";
-import { cookies } from "next/headers";
-import { authStore } from "@/context/AuthStore";
 
-export default async function LoginPage() {
-  try {
-    console.log("LoginPage: Checking authentication status...");
-    const authStatus = await authStore.getAuthStatus();
-    console.log("LoginPage: Auth status:", JSON.stringify({
-      isAuthenticated: authStatus.isAuthenticated,
-      hasUser: !!authStatus.user,
-      userEmail: authStatus.user?.email || 'none'
-    }, null, 2));
-    
-    // If already authenticated, redirect to home
-    if (authStatus.isAuthenticated) {
-      console.log("LoginPage: User is authenticated, redirecting to home...");
-      redirect('/'); 
-      // Note: redirect() throws a special error NEXT_REDIRECT, 
-      // which is handled by Next.js and won't be caught below.
-    } else {
-      console.log("LoginPage: User is not authenticated, showing login form");
-    }
-  } catch (error) {
-    // This catch block will only handle errors from authStore.getAuthStatus()
-    console.error("Error checking authentication status:", error);
-    // If checking auth status fails, proceed to show the login form.
+// LoginPage is now a simple component.
+// All redirection logic (if user is already authenticated or becomes authenticated)
+// is handled by LoginClientBoundary on the client-side.
+export default function LoginPage() {
+  if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+    console.log("LoginPage: Rendering login page structure. Client-side will handle auth checks and redirects.");
   }
-
-  // If not redirected (i.e., not authenticated or error during check), render the login page
+  
   return (
     <main className="px-6 py-24 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">

@@ -11,14 +11,15 @@ export default function LoginClientBoundary() {
   const authStatus = useAtomValue(authStatusAtom);
 
   useEffect(() => {
-    // Only redirect if auth status is definitively resolved (not loading) and user is authenticated.
-    if (!authStatus.loading && authStatus.isAuthenticated) {
+    // If authStatus.isAuthenticated is true, authStatus.loading is implicitly false
+    // based on the definition of authStatusAtom.
+    if (authStatus.isAuthenticated) {
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.log("LoginClientBoundary: User is authenticated, redirecting to /");
       }
       router.push('/'); // Redirect to home, middleware should handle further redirection if needed.
     }
-  }, [authStatus.isAuthenticated, authStatus.loading, router]);
+  }, [authStatus.isAuthenticated, router]);
 
   // Render the LoginForm. The useEffect above will handle redirection if/when auth state changes.
   return <LoginForm />;
