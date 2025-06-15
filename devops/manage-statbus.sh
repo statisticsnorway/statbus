@@ -62,6 +62,26 @@ case "$action" in
             eval docker compose $compose_profile_arg down --remove-orphans
         fi
       ;;
+    'restart' )
+        target_service_or_profile="${1:-}"
+        if [ "$target_service_or_profile" = "app" ]; then
+            echo "Restarting app service..."
+            docker compose down --remove-orphans app
+            VERSION=$(git describe --always)
+            ./devops/dotenv --file .env set VERSION=$VERSION
+            docker compose up --build --detach app
+            echo "App service restarted."
+        else
+            # Handles profile logic, including erroring out if no/invalid profile is given
+            set_profile_arg "$@" 
+            echo "Restarting services in profile: $profile..."
+            eval docker compose $compose_profile_arg down --remove-orphans
+            VERSION=$(git describe --always)
+            ./devops/dotenv --file .env set VERSION=$VERSION
+            eval docker compose $compose_profile_arg up --build --detach
+            echo "Services in profile $profile restarted."
+        fi
+      ;;
     'logs' )
         eval docker compose logs --follow
       ;;
