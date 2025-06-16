@@ -651,9 +651,19 @@ EOS
         echo "Generating TypeScript types file..."
         npx supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
       ;;
+    'compile-run-and-trace-dev-app-in-container' )
+        echo "Stopping app container..."
+        BUILDKIT_PROGRESS=none docker compose down app
+        echo "Building app container with profile 'all'..."
+        BUILDKIT_PROGRESS=plain docker compose --profile all build app
+        echo "Starting app container with profile 'all' in detached mode..."
+        BUILDKIT_PROGRESS=none docker compose --profile all up -d app
+        echo "Following logs for app container..."
+        docker compose logs --follow app
+      ;;
      * )
       echo "Unknown action '$action', select one of"
-      awk -F "'" '/^ +''(..+)'' \)$/{print $2}' devops/manage-statbus.sh
+      awk -F "'" '/^ +''(..+)'' \)$/{print $2}' devops/manage-statbus.sh | sort
       exit 1
       ;;
 esac
