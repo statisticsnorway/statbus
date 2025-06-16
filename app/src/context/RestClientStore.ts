@@ -541,7 +541,58 @@ export async function fetchWithAuthRefresh( // Renamed for clarity and consisten
   url: string,
   options: RequestInit = {}
 ): Promise<Response> {
+  if (typeof window === 'undefined') {
+    // This function's refresh logic is browser-only.
+    // For server-side authenticated calls, prefer using `fetchWithAuth`.
+    console.warn(
+      "fetchWithAuthRefresh was called on the server-side. Its refresh logic is browser-only. " +
+      "Consider using `fetchWithAuth` for server-side calls."
+    );
+    // It will still proceed and work (auth header added, no refresh attempted), but the name is misleading.
+  }
   return clientStore.fetchWithAuthRefresh(url, options);
+}
+
+/**
+ * Performs a fetch request with authentication headers, intended for server-side use.
+ * It retrieves necessary headers (including Authorization and X-Forwarded-*)
+ * from `getServerRestClient` and merges them with any headers provided in `options`.
+ * This function does NOT implement token refresh logic.
+ */
+export async function fetchWithAuth(url: string, options: RequestInit = {}): Promise<Response> {
+  if (typeof window !== 'undefined') {
+    // This function is intended for server-side use.
+    // For browser-side calls that need auth and refresh, use fetchWithAuthRefresh.
+    console.error(
+      "fetchWithAuth was called on the client-side. This is not its intended use. " +
+      "Use fetchWithAuthRefresh for browser-side calls needing refresh, or global fetch with " +
+      "credentials: 'include' for simple authenticated browser fetches."
+    );
+    // Fallback to clientStore.fetchWithAuthRefresh if misused on client, though this indicates an architectural issue.
+    return clientStore.fetchWithAuthRefresh(url, options);
+  }
+
+  // Server-side execution
+  const client = await getServerRestClient(); // Provides base headers including Auth and X-Forwarded-*
+  
+  // Start with base headers from the server client (Auth, X-Forwarded-*, default Content-Type)
+  const combinedHeaders = new Headers(client.headers);
+
+  // Apply/override with headers from options
+  if (options.headers) {
+    const incomingHeaders = new Headers(options.headers);
+    incomingHeaders.forEach((value, key) => {
+      combinedHeaders.set(key, value);
+    });
+  }
+  
+  const finalOptions: RequestInit = {
+    ...options,
+    headers: combinedHeaders,
+  };
+  
+  // The `url` parameter is assumed to be a full URL.
+  return fetch(url, finalOptions);
 }
 
 /**

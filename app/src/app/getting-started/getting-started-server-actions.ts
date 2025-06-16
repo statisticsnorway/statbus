@@ -1,5 +1,5 @@
 "use server";
-import { getServerRestClient, fetchWithAuthRefresh } from "@/context/RestClientStore";
+import { getServerRestClient } from "@/context/RestClientStore";
 import { revalidatePath } from "next/cache";
 
 import { createServerLogger } from "@/lib/server-logger";
@@ -33,15 +33,21 @@ export async function uploadFile(
 
     // Get the base URL from the client
     const postgrestUrl = client.url;
+
+    // client.headers already contains Authorization and X-Forwarded-* headers,
+    // prepared by getServerRestClient. We override Content-Type for CSV upload.
+    const headersForUpload = {
+      ...client.headers,
+      "Content-Type": "text/csv",
+    };
     
-    // We need to use the full URL here because uploadView is a view name, not a relative path
-    const response = await fetchWithAuthRefresh(
+    // Use global fetch with the correctly prepared headers.
+    // This ensures X-Forwarded-* headers are sent to the proxy.
+    const response = await fetch(
       `${postgrestUrl}/${uploadView}`,
       {
         method: "POST",
-        headers: {
-          "Content-Type": "text/csv",
-        },
+        headers: headersForUpload,
         body: file,
       }
     );
