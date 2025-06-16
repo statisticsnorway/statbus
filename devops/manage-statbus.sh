@@ -653,11 +653,11 @@ EOS
       ;;
     'compile-run-and-trace-dev-app-in-container' )
         echo "Stopping app container..."
-        BUILDKIT_PROGRESS=none docker compose down app
+        docker compose --progress=plain --profile all down app
         echo "Building app container with profile 'all'..."
         BUILDKIT_PROGRESS=plain docker compose --profile all build app
         echo "Starting app container with profile 'all' in detached mode..."
-        BUILDKIT_PROGRESS=none docker compose --profile all up -d app
+        BUILDKIT_PROGRESS=quiet docker compose --profile all up -d app
         echo "Following logs for app container..."
         docker compose logs --follow app
       ;;
