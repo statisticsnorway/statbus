@@ -14,6 +14,8 @@ import subprocess
 import tempfile
 import requests
 import psycopg2
+import jwt # For manipulating JWTs
+from datetime import datetime, timedelta, timezone # For setting token expiry
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional, Any, Union
 from requests.sessions import Session
@@ -36,16 +38,115 @@ OVERALL_TEST_FAILURE_FLAG = False
 WORKSPACE = Path(__file__).parent.parent.absolute()
 IS_DEBUG_ENABLED = os.environ.get("DEBUG", "false").lower() == "true"
 
+class LocalLogCollector:
+    def __init__(self, services: list[str], log_queue: queue.Queue, since_timestamp: Optional[str] = None, compose_project_name: Optional[str] = None):
+        self.services = services
+        self.log_queue = log_queue
+        self.since_timestamp = since_timestamp # RFC3339 or Unix timestamp
+        self.compose_project_name = compose_project_name or os.environ.get("COMPOSE_PROJECT_NAME")
+        self.process: Optional[subprocess.Popen] = None
+        self.stdout_thread: Optional[threading.Thread] = None
+        self.stderr_thread: Optional[threading.Thread] = None
+        self._stop_event = threading.Event()
+
+    def _reader_thread_target(self, pipe, stream_name):
+        try:
+            for line in iter(pipe.readline, ''):
+                if self._stop_event.is_set():
+                    break
+                self.log_queue.put(f"[Docker {stream_name}] {line.strip()}")
+            pipe.close()
+        except Exception as e:
+            self.log_queue.put(f"[Docker {stream_name} ERROR] Exception in reader thread: {e}")
+
+    def start(self):
+        self._stop_event.clear()
+        
+        cmd_base = ["docker", "compose"]
+        if self.compose_project_name:
+            cmd_base.extend(["-p", self.compose_project_name])
+        
+        cmd_logs_part = ["logs", "--follow"]
+        if self.since_timestamp:
+            cmd_logs_part.extend(["--since", self.since_timestamp])
+        else: # Fallback if no timestamp, though we aim to always provide one
+            cmd_logs_part.extend(["--since", "1s"]) 
+            log_warning("LocalLogCollector started without a specific --since timestamp, defaulting to '1s'.", None)
+
+        cmd = cmd_base + cmd_logs_part + self.services
+        
+        # This debug_info will now be printed directly if IS_DEBUG_ENABLED, as it's outside a TestContext
+        debug_info(f"Starting global Docker log collection: {' '.join(cmd)}", None) 
+        try:
+            self.process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1, # Line-buffered
+                errors='replace',
+                cwd=WORKSPACE # Ensure docker compose runs from project root
+            )
+        except FileNotFoundError:
+            self.log_queue.put(f"[LOCAL ERROR] docker command not found. Ensure docker is installed and in PATH.")
+            return
+        except Exception as e:
+            self.log_queue.put(f"[LOCAL ERROR] Failed to start docker compose logs process: {e}")
+            return
+
+        if self.process.stdout:
+            self.stdout_thread = threading.Thread(target=self._reader_thread_target, args=(self.process.stdout, "stdout"))
+            self.stdout_thread.daemon = True
+            self.stdout_thread.start()
+
+        if self.process.stderr:
+            self.stderr_thread = threading.Thread(target=self._reader_thread_target, args=(self.process.stderr, "stderr"))
+            self.stderr_thread.daemon = True
+            self.stderr_thread.start()
+        
+        time.sleep(1) # Give logs a moment to start streaming
+
+    def stop(self):
+        debug_info(f"Stopping local log collection for services: {', '.join(self.services)}...") # Changed from log_info
+        self._stop_event.set()
+
+        if self.process:
+            if self.process.poll() is None:
+                try:
+                    self.process.terminate()
+                    try:
+                        self.process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        log_warning(f"Local log collector process did not terminate gracefully, killing.")
+                        self.process.kill()
+                        try:
+                            self.process.wait(timeout=2)
+                        except subprocess.TimeoutExpired:
+                            log_error(f"Failed to kill local log collector process.")
+                except Exception as e:
+                    log_warning(f"Error terminating local log collector process: {e}")
+            self.process = None
+
+        if self.stdout_thread and self.stdout_thread.is_alive():
+            self.stdout_thread.join(timeout=2)
+        if self.stderr_thread and self.stderr_thread.is_alive():
+            self.stderr_thread.join(timeout=2)
+        debug_info("Local log collection stopped.") # Changed from log_info
+
+# Global log collector and queue, and services it will collect for
+GLOBAL_DOCKER_LOG_COLLECTOR: Optional[LocalLogCollector] = None
+GLOBAL_DOCKER_LOG_QUEUE: Optional[queue.Queue] = None
+GLOBAL_DOCKER_SERVICES_TO_COLLECT = ["app", "db", "proxy", "rest"] # Collect all relevant services globally
+SCRIPT_START_TIMESTAMP_RFC3339: Optional[str] = None
+
 
 class TestContext:
-    def __init__(self, name: str, services_to_log: Optional[List[str]] = None, compose_project_name: Optional[str] = None):
+    def __init__(self, name: str, compose_project_name: Optional[str] = None): # docker_services_to_display removed
         self.name = name
         self.log_buffer: List[Tuple[str, str]] = [] # List of (level, message)
         self.is_failed = False
-        self.services_to_log = services_to_log
-        self.compose_project_name = compose_project_name
-        self.log_collector: Optional[LocalLogCollector] = None
-        self.docker_log_queue: Optional[queue.Queue] = None
+        # self.docker_services_to_display removed
+        self.compose_project_name = compose_project_name # Kept for consistency, though global collector uses its own config
 
     def _add_log(self, level: str, message: str):
         self.log_buffer.append((level, message))
@@ -81,36 +182,40 @@ class TestContext:
         self._add_log("DETAIL", detail_message)
 
     def __enter__(self):
-        if self.services_to_log:
-            self.docker_log_queue = queue.Queue()
-            self.log_collector = LocalLogCollector(
-                services=self.services_to_log,
-                log_queue=self.docker_log_queue,
-                compose_project_name=self.compose_project_name
-            )
-            if IS_DEBUG_ENABLED: # Direct print for collector start/stop if debugging
-                print(f"{BLUE}Starting Docker log collection for context '{self.name}'...{NC}")
-            self.log_collector.start()
+        global GLOBAL_DOCKER_LOG_COLLECTOR, GLOBAL_DOCKER_LOG_QUEUE
+        if GLOBAL_DOCKER_LOG_COLLECTOR and GLOBAL_DOCKER_LOG_QUEUE:
+            # Drain and discard logs accumulated before this context started
+            # This ensures that logs processed in __exit__ are "fresh" for this context
+            discarded_count = 0
+            while not GLOBAL_DOCKER_LOG_QUEUE.empty():
+                try:
+                    GLOBAL_DOCKER_LOG_QUEUE.get_nowait()
+                    discarded_count += 1
+                except queue.Empty:
+                    break
+            if IS_DEBUG_ENABLED and discarded_count > 0:
+                # This debug message goes into the context's own log_buffer
+                self.debug(f"Discarded {discarded_count} pre-existing Docker log lines before context '{self.name}' processing.")
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        if self.log_collector:
-            if IS_DEBUG_ENABLED:
-                print(f"{BLUE}Stopping Docker log collection for context '{self.name}'...{NC}")
-            self.log_collector.stop()
-            if self.docker_log_queue:
-                docker_logs_specific_to_this_context = []
-                while not self.docker_log_queue.empty():
-                    try:
-                        log_line = self.docker_log_queue.get_nowait()
-                        docker_logs_specific_to_this_context.append(log_line)
-                    except queue.Empty:
-                        break
-                if docker_logs_specific_to_this_context:
-                    self._add_log("DOCKER_LOGS_HEADER", f"--- Docker Logs for {self.name} ---")
-                    for line in docker_logs_specific_to_this_context:
-                        self._add_log("DOCKER_LOG", line) # No specific level, just the line
-                    self._add_log("DOCKER_LOGS_FOOTER", f"--- End Docker Logs for {self.name} ---")
+        global GLOBAL_DOCKER_LOG_COLLECTOR, GLOBAL_DOCKER_LOG_QUEUE, IS_DEBUG_ENABLED
+        
+        collected_docker_logs_for_this_context = []
+        if GLOBAL_DOCKER_LOG_COLLECTOR and GLOBAL_DOCKER_LOG_QUEUE:
+            while not GLOBAL_DOCKER_LOG_QUEUE.empty():
+                try:
+                    log_line = GLOBAL_DOCKER_LOG_QUEUE.get_nowait()
+                    collected_docker_logs_for_this_context.append(log_line)
+                except queue.Empty:
+                    break
+        
+        # Simplified: always use all collected logs for this context if any were collected.
+        if collected_docker_logs_for_this_context:
+            self._add_log("DOCKER_LOGS_HEADER", f"--- Docker Logs for {self.name} (all services collected during context) ---")
+            for line in collected_docker_logs_for_this_context:
+                self._add_log("DOCKER_LOG", line)
+            self._add_log("DOCKER_LOGS_FOOTER", f"--- End Docker Logs for {self.name} ---")
 
         if exc_type is not None: # Unhandled exception
             if not self.is_failed: # Only mark if not already marked by a specific error log
@@ -238,93 +343,6 @@ REGULAR_EMAIL = "test.regular@statbus.org"
 REGULAR_PASSWORD = "Regular#123!"
 RESTRICTED_EMAIL = "test.restricted@statbus.org"
 RESTRICTED_PASSWORD = "Restricted#123!"
-
-
-class LocalLogCollector:
-    def __init__(self, services: list[str], log_queue: queue.Queue, compose_project_name: Optional[str] = None):
-        self.services = services
-        self.log_queue = log_queue
-        self.compose_project_name = compose_project_name or os.environ.get("COMPOSE_PROJECT_NAME")
-        self.process: Optional[subprocess.Popen] = None
-        self.stdout_thread: Optional[threading.Thread] = None
-        self.stderr_thread: Optional[threading.Thread] = None
-        self._stop_event = threading.Event()
-
-    def _reader_thread_target(self, pipe, stream_name):
-        try:
-            for line in iter(pipe.readline, ''):
-                if self._stop_event.is_set():
-                    break
-                self.log_queue.put(f"[Docker {stream_name}] {line.strip()}")
-            pipe.close()
-        except Exception as e:
-            self.log_queue.put(f"[Docker {stream_name} ERROR] Exception in reader thread: {e}")
-
-    def start(self):
-        self._stop_event.clear()
-        
-        cmd_base = ["docker", "compose"]
-        if self.compose_project_name:
-            cmd_base.extend(["-p", self.compose_project_name])
-        
-        cmd = cmd_base + ["logs", "--follow", "--since", "1s"] + self.services
-        
-        debug_info(f"Starting local log collection: {' '.join(cmd)}") # Changed from log_info
-        try:
-            self.process = subprocess.Popen(
-                cmd,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                text=True,
-                bufsize=1, # Line-buffered
-                errors='replace',
-                cwd=WORKSPACE # Ensure docker compose runs from project root
-            )
-        except FileNotFoundError:
-            self.log_queue.put(f"[LOCAL ERROR] docker command not found. Ensure docker is installed and in PATH.")
-            return
-        except Exception as e:
-            self.log_queue.put(f"[LOCAL ERROR] Failed to start docker compose logs process: {e}")
-            return
-
-        if self.process.stdout:
-            self.stdout_thread = threading.Thread(target=self._reader_thread_target, args=(self.process.stdout, "stdout"))
-            self.stdout_thread.daemon = True
-            self.stdout_thread.start()
-
-        if self.process.stderr:
-            self.stderr_thread = threading.Thread(target=self._reader_thread_target, args=(self.process.stderr, "stderr"))
-            self.stderr_thread.daemon = True
-            self.stderr_thread.start()
-        
-        time.sleep(1) # Give logs a moment to start streaming
-
-    def stop(self):
-        debug_info(f"Stopping local log collection for services: {', '.join(self.services)}...") # Changed from log_info
-        self._stop_event.set()
-
-        if self.process:
-            if self.process.poll() is None:
-                try:
-                    self.process.terminate()
-                    try:
-                        self.process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:
-                        log_warning(f"Local log collector process did not terminate gracefully, killing.")
-                        self.process.kill()
-                        try:
-                            self.process.wait(timeout=2)
-                        except subprocess.TimeoutExpired:
-                            log_error(f"Failed to kill local log collector process.")
-                except Exception as e:
-                    log_warning(f"Error terminating local log collector process: {e}")
-            self.process = None
-
-        if self.stdout_thread and self.stdout_thread.is_alive():
-            self.stdout_thread.join(timeout=2)
-        if self.stderr_thread and self.stderr_thread.is_alive():
-            self.stderr_thread.join(timeout=2)
-        debug_info("Local log collection stopped.") # Changed from log_info
 
 def run_psql_command(query: str, user: str = None, password: str = None) -> str:
     """Run a PostgreSQL query and return the output"""
@@ -711,42 +729,157 @@ def test_token_refresh(session: Session, email: str, password: str, ctx: TestCon
         return
 
     initial_cookies = {cookie.name: cookie.value for cookie in session.cookies}
-    ctx.debug(f"Initial cookies before refresh: {initial_cookies}")
+    ctx.debug(f"Initial cookies after login: {initial_cookies}")
     
-    time.sleep(1) # Ensure iat will change
-    
+    access_cookie_name = "statbus"
+    refresh_cookie_name = "statbus-refresh"
+
+    if access_cookie_name not in initial_cookies:
+        ctx.error(f"Access token '{access_cookie_name}' not found in session after login. Cannot proceed with refresh test.")
+        return
+    if refresh_cookie_name not in initial_cookies:
+        ctx.error(f"Refresh token '{refresh_cookie_name}' not found in session after login. Cannot proceed with refresh test.")
+        return
+        
+    initial_refresh_cookie_value = initial_cookies.get(refresh_cookie_name)
+
+    # Get initial access token details from rpc/auth_test
+    initial_access_token_iat = None
+    initial_access_token_jti = None
+    try:
+        auth_test_response_before = session.get(f"{API_BASE_URL}/rest/rpc/auth_test", headers={"Content-Type": "application/json"})
+        if auth_test_response_before.status_code == 200:
+            auth_test_data_before = auth_test_response_before.json()
+            actual_data_before = auth_test_data_before[0] if isinstance(auth_test_data_before, list) and len(auth_test_data_before) == 1 else auth_test_data_before
+            initial_access_token_claims = actual_data_before.get("access_token", {}).get("claims", {})
+            if initial_access_token_claims:
+                initial_access_token_iat = initial_access_token_claims.get("iat")
+                initial_access_token_jti = initial_access_token_claims.get("jti")
+                ctx.debug(f"Initial access token: iat={initial_access_token_iat}, jti={initial_access_token_jti}")
+            else:
+                ctx.warning("Could not get initial access token claims from rpc/auth_test.")
+        else:
+            ctx.warning(f"rpc/auth_test call before refresh failed. Status: {auth_test_response_before.status_code}, Body: {auth_test_response_before.text}")
+    except Exception as e:
+        ctx.warning(f"Error calling rpc/auth_test before simulating expired access token: {e}")
+
+    # Simulate expired/missing access token by removing it from the session
+    ctx.info(f"Simulating expired/missing access token by removing '{access_cookie_name}' cookie from session.")
+    if access_cookie_name in session.cookies:
+        del session.cookies[access_cookie_name]
+        ctx.success(f"'{access_cookie_name}' cookie removed from session.")
+    else:
+        ctx.warning(f"'{access_cookie_name}' cookie was already not in session before explicit removal.")
+
+    # Verify auth_status now shows unauthenticated, but refresh token is still present
+    ctx.info("Checking auth_status after removing access token (should be unauthenticated)...")
+    test_auth_status(session, False, ctx) # GET
+    if ctx.is_failed: # If auth_status GET failed, no point in POST
+        ctx.error("auth_status (GET) check failed after removing access token. Aborting refresh test.")
+        return
+    test_auth_status_post(session, False, ctx) # POST
+    if ctx.is_failed:
+        ctx.error("auth_status (POST) check failed after removing access token. Aborting refresh test.")
+        return
+
+    if refresh_cookie_name not in session.cookies:
+        ctx.error(f"Refresh token '{refresh_cookie_name}' was cleared after auth_status calls with no access token. This is a problem!")
+        return
+    else:
+        ctx.success(f"Refresh token '{refresh_cookie_name}' is still present after auth_status calls with no access token.")
+        # Verify the refresh token value hasn't changed unexpectedly
+        if session.cookies.get(refresh_cookie_name) == initial_refresh_cookie_value:
+            ctx.success("Refresh token value unchanged after auth_status calls, as expected.")
+        else:
+            ctx.warning("Refresh token value changed after auth_status calls. This is unexpected at this stage.")
+            ctx.debug(f"Initial refresh token: {initial_refresh_cookie_value}, Current: {session.cookies.get(refresh_cookie_name)}")
+
+
+    ctx.info("Attempting token refresh with only refresh token present in session...")
+    time.sleep(1) # Ensure iat will change if token is reissued
+
     try:
         response = session.post(
             f"{API_BASE_URL}/rest/rpc/refresh",
             headers={"Content-Type": "application/json"}
         )
         
+        # Check Set-Cookie headers from the refresh response
+        set_cookie_header = response.headers.get("Set-Cookie")
+        if set_cookie_header:
+            ctx.debug(f"Set-Cookie header from refresh: {set_cookie_header}")
+            if "statbus=" in set_cookie_header and "Expires=" in set_cookie_header:
+                 ctx.success("Refresh response included Set-Cookie for access token (statbus).")
+            else:
+                 ctx.warning("Refresh response did not seem to include a proper Set-Cookie for access token (statbus).")
+            if "statbus-refresh=" in set_cookie_header and "Expires=" in set_cookie_header:
+                 ctx.success("Refresh response included Set-Cookie for refresh token (statbus-refresh).")
+            else:
+                 ctx.warning("Refresh response did not seem to include a proper Set-Cookie for refresh token (statbus-refresh).")
+        else:
+            ctx.warning("No Set-Cookie header found in refresh response.")
+
         data = response.json()
-        if response.status_code == 200 and data.get("is_authenticated") is True:
+        actual_refresh_data = data[0] if isinstance(data, list) and len(data) == 1 else data
+
+        if response.status_code == 200 and actual_refresh_data.get("is_authenticated") is True:
             ctx.success(f"Token refresh successful for {email} (is_authenticated is true)")
             
-            new_cookies = {cookie.name: cookie.value for cookie in session.cookies}
-            ctx.debug(f"New cookies after refresh: {new_cookies}")
+            new_cookies_in_session = {cookie.name: cookie.value for cookie in session.cookies}
+            ctx.debug(f"New cookies in session after successful refresh: {new_cookies_in_session}")
             
-            access_cookie_name = "statbus"
-            refresh_cookie_name = "statbus-refresh"
-            
-            if (access_cookie_name in new_cookies and 
-                access_cookie_name in initial_cookies and
-                new_cookies[access_cookie_name] != initial_cookies[access_cookie_name]):
-                ctx.success("Access token (statbus cookie) was updated.")
+            # Access cookie should now be present
+            new_access_cookie_value = new_cookies_in_session.get(access_cookie_name)
+            if new_access_cookie_value:
+                ctx.success(f"New access token ('{access_cookie_name}') is present in session after refresh.")
+                # Since we deleted it, it should be different from any "initial" value (which was None effectively before refresh)
+                # A more robust check is done via rpc/auth_test for iat/jti below.
             else:
-                ctx.warning("Access token (statbus cookie) might not have been updated or was not present initially.")
-            
-            if (refresh_cookie_name in new_cookies and 
-                refresh_cookie_name in initial_cookies and
-                new_cookies[refresh_cookie_name] != initial_cookies[refresh_cookie_name]):
-                ctx.success("Refresh token (statbus-refresh cookie) was updated.")
-            else:
-                ctx.warning("Refresh token (statbus-refresh cookie) might not have been updated or was not present initially.")
+                ctx.error(f"New access token ('{access_cookie_name}') is NOT present in session after refresh.")
+
+            # Refresh cookie should have been updated
+            new_refresh_cookie_value = new_cookies_in_session.get(refresh_cookie_name)
+            if new_refresh_cookie_value and initial_refresh_cookie_value and new_refresh_cookie_value != initial_refresh_cookie_value:
+                ctx.success(f"Refresh token ('{refresh_cookie_name}') value in session was updated.")
+            elif not initial_refresh_cookie_value and new_refresh_cookie_value: # Should not happen if login worked
+                ctx.success(f"Refresh token ('{refresh_cookie_name}') value in session was newly set (unexpected for this flow).")
+            elif new_refresh_cookie_value == initial_refresh_cookie_value:
+                 ctx.warning(f"Refresh token ('{refresh_cookie_name}') value in session was NOT updated by the refresh call.")
+            else: # new_refresh_cookie_value is None
+                ctx.error(f"Refresh token ('{refresh_cookie_name}') is NOT present in session after refresh.")
+
+            # Get new access token details from rpc/auth_test
+            try:
+                auth_test_response_after = session.get(f"{API_BASE_URL}/rest/rpc/auth_test", headers={"Content-Type": "application/json"})
+                if auth_test_response_after.status_code == 200:
+                    auth_test_data_after = auth_test_response_after.json()
+                    actual_data_after = auth_test_data_after[0] if isinstance(auth_test_data_after, list) and len(auth_test_data_after) == 1 else auth_test_data_after
+                    new_access_token_claims = actual_data_after.get("access_token", {}).get("claims", {})
+                    if new_access_token_claims:
+                        new_access_token_iat = new_access_token_claims.get("iat")
+                        new_access_token_jti = new_access_token_claims.get("jti")
+                        ctx.debug(f"New access token: iat={new_access_token_iat}, jti={new_access_token_jti}")
+
+                        if initial_access_token_iat is not None and new_access_token_iat is not None:
+                            if new_access_token_iat > initial_access_token_iat:
+                                ctx.success("New access token 'iat' is later than initial 'iat'.")
+                            else:
+                                ctx.warning(f"New access token 'iat' ({new_access_token_iat}) is not later than initial 'iat' ({initial_access_token_iat}).")
+                        
+                        if initial_access_token_jti is not None and new_access_token_jti is not None:
+                            if new_access_token_jti != initial_access_token_jti:
+                                ctx.success("New access token 'jti' is different from initial 'jti'.")
+                            else:
+                                ctx.warning("New access token 'jti' is the same as initial 'jti'.")
+                    else:
+                        ctx.warning("Could not get new access token claims from rpc/auth_test after refresh.")
+                else:
+                    ctx.warning(f"rpc/auth_test call after refresh failed. Status: {auth_test_response_after.status_code}, Body: {auth_test_response_after.text}")
+            except Exception as e:
+                ctx.warning(f"Error calling rpc/auth_test after refresh: {e}")
         else:
             error_detail = (
-                f"Response: {json.dumps(data, indent=2)}\n"
+                f"Response: {json.dumps(actual_refresh_data, indent=2)}\n"
                 f"API endpoint: {API_BASE_URL}/rest/rpc/refresh"
             )
             ctx.error(f"Token refresh failed for {email}. Status: {response.status_code}")
@@ -1148,8 +1281,11 @@ def test_auth_status_post(session: Session, expected_auth: bool, ctx: TestContex
 
 def main() -> None:
     """Main test sequence"""
-    global API_BASE_URL, OVERALL_TEST_FAILURE_FLAG 
+    global API_BASE_URL, OVERALL_TEST_FAILURE_FLAG, SCRIPT_START_TIMESTAMP_RFC3339
+    global GLOBAL_DOCKER_LOG_COLLECTOR, GLOBAL_DOCKER_LOG_QUEUE
     
+    SCRIPT_START_TIMESTAMP_RFC3339 = datetime.now(timezone.utc).isoformat()
+
     # Initial messages print directly
     print(f"\n{BLUE}=== Starting Authentication System Tests ==={NC}\n")
     
@@ -1164,14 +1300,28 @@ def main() -> None:
     print(f"{BLUE}Using DB: {DB_HOST}:{DB_PORT}/{DB_NAME}{NC}")
     if IS_DEBUG_ENABLED:
         print(f"{YELLOW}DEBUG mode is enabled.{NC}")
+
+    # Initialize and start global Docker log collector
+    GLOBAL_DOCKER_LOG_QUEUE = queue.Queue()
+    GLOBAL_DOCKER_LOG_COLLECTOR = LocalLogCollector(
+        services=GLOBAL_DOCKER_SERVICES_TO_COLLECT,
+        log_queue=GLOBAL_DOCKER_LOG_QUEUE,
+        since_timestamp=SCRIPT_START_TIMESTAMP_RFC3339, # Use script start time
+        compose_project_name=os.environ.get("COMPOSE_PROJECT_NAME")
+    )
+    GLOBAL_DOCKER_LOG_COLLECTOR.start()
+    # Register cleanup for the global collector
+    atexit.register(lambda: GLOBAL_DOCKER_LOG_COLLECTOR.stop() if GLOBAL_DOCKER_LOG_COLLECTOR else None)
     
     initialize_test_environment() # Uses global loggers for its output
     
     # Test sequence using TestContext
     # Each "Test X: ..." block can be wrapped in a TestContext
+    # docker_services_to_display tells TestContext which service logs to filter for display for this context
 
     unauthenticated_session = requests.Session()
-    with TestContext("Test 0: Auth Test Endpoint (Before Login)", services_to_log=["app", "db", "proxy", "rest"]) as ctx:
+    # Example: For Test 0, we might be interested in logs from all services if it fails or if debugging
+    with TestContext("Test 0: Auth Test Endpoint (Before Login)") as ctx:
         test_auth_test_endpoint(unauthenticated_session, logged_in=False, ctx=ctx)
     if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure in Test 0.{NC}"); sys.exit(1)
 
@@ -1186,11 +1336,11 @@ def main() -> None:
             test_auth_status_post(admin_session, True, ctx)
     if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure in Test 1.{NC}"); sys.exit(1)
 
-    with TestContext("Test 1.1: Auth Test Endpoint (Admin Logged In)", services_to_log=["app", "db", "proxy", "rest"]) as ctx:
+    with TestContext("Test 1.1: Auth Test Endpoint (Admin Logged In)") as ctx:
         test_auth_test_endpoint(admin_session, logged_in=True, ctx=ctx)
     if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure in Test 1.1.{NC}"); sys.exit(1)
 
-    with TestContext("Test 1.2: Next.js App Internal Auth Test (/api/auth_test)", services_to_log=["app", "db", "proxy", "rest"]) as ctx:
+    with TestContext("Test 1.2: Next.js App Internal Auth Test (/api/auth_test)") as ctx:
         test_local_nextjs_app_auth_test_endpoint(admin_session, ctx=ctx) # Pass ctx
     if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure in Test 1.2.{NC}"); sys.exit(1)
         
@@ -1337,6 +1487,17 @@ def main() -> None:
         test_password_change(admin_session_for_pass_change, password_change_user_session, RESTRICTED_EMAIL, RESTRICTED_PASSWORD, ctx)
     if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure in Test 15.{NC}"); sys.exit(1)
 
+    jwt_secret = os.environ.get("JWT_SECRET")
+    if not jwt_secret:
+        log_error("CRITICAL: JWT_SECRET environment variable not set. Cannot run expired token tests.", None)
+    else:
+        expired_token_session = requests.Session()
+        expired_token_session.headers.update({"User-Agent": "test_user_admin_expired_token"})
+        with TestContext("Test 16: Expired Access Token Behavior") as ctx:
+            test_expired_access_token_behavior(expired_token_session, ADMIN_EMAIL, ADMIN_PASSWORD, "admin_user", jwt_secret, ctx)
+        if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure in Test 16.{NC}"); sys.exit(1)
+
+
     # Final summary based on OVERALL_TEST_FAILURE_FLAG
     if OVERALL_TEST_FAILURE_FLAG:
         log_info(f"\n{RED}=== One or more tests FAILED. Check logs above. ==={NC}\n", None) # Use None for ctx to print directly
@@ -1447,6 +1608,195 @@ def cleanup_test_user_sessions() -> None:
     else:
         log_success("Test user sessions cleaned up successfully.", None)
         debug_info(f"Cleanup result: {result if result else 'No output from DELETE, assumed OK.'}", None)
+
+def generate_expired_token(original_token_value: str, secret: str, ctx: TestContext) -> Optional[str]:
+    """Generates an expired version of the given JWT."""
+    try:
+        # Decode without verification to get claims, as it might already be expired if this is called late
+        # However, for this test, we assume original_token_value is fresh.
+        # For safety, let's try decoding with leeway, or just get claims if it's already a known structure.
+        # Simpler: assume the structure is known and we just need to re-sign with new 'exp'.
+        # This requires knowing the claims structure.
+        # A more robust way is to decode the original token to get its payload.
+        
+        try:
+            # Add leeway to account for potential clock skew when decoding the original token
+            leeway_seconds = 15 # Increased leeway
+            decoded_payload = jwt.decode(original_token_value, secret, algorithms=["HS256"], leeway=timedelta(seconds=leeway_seconds), options={"verify_exp": False})
+        except jwt.ExpiredSignatureError: # Should not happen if original token is fresh
+            ctx.warning("Original token provided to generate_expired_token was already expired.")
+            # If it was expired, decode again without exp verification but still with leeway for other time claims
+            decoded_payload = jwt.decode(original_token_value, secret, algorithms=["HS256"], leeway=timedelta(seconds=leeway_seconds), options={"verify_exp": False})
+        except jwt.InvalidTokenError as e: # Catches InvalidIssuedAtError, etc.
+            ctx.error(f"Invalid original token: {e}")
+            return None
+
+        # Modify claims for expiration
+        # Set 'exp' to 1 hour in the past
+        decoded_payload['exp'] = datetime.now(timezone.utc) - timedelta(hours=1)
+        # 'iat' should ideally be before 'exp', ensure it is, or remove it if it causes issues with lib
+        if 'iat' in decoded_payload and decoded_payload['iat'] >= decoded_payload['exp'].timestamp():
+            decoded_payload['iat'] = (datetime.now(timezone.utc) - timedelta(hours=2)).timestamp()
+
+
+        expired_token = jwt.encode(decoded_payload, secret, algorithm="HS256")
+        ctx.debug(f"Generated expired token. Original exp: (not shown), New exp: {decoded_payload['exp']}")
+        return expired_token
+    except Exception as e:
+        ctx.error(f"Failed to generate expired token: {e}")
+        return None
+
+def test_expired_access_token_behavior(session: Session, email: str, password: str, expected_role: str, jwt_secret: str, ctx: TestContext):
+    """
+    Tests behavior with an expired access token but a valid refresh token.
+    1. Login to get fresh tokens.
+    2. Manually expire the access token.
+    3. Check /rpc/auth_status - should be unauthenticated, refresh token should remain.
+    4. Check /api/auth_test - should reflect unauthenticated state, refresh token should remain.
+    5. Check Next.js page GET (e.g., /profile) - middleware should not refresh, cookies should remain.
+    """
+    ctx.info(f"Starting test for expired access token behavior for user {email}...")
+
+    # 1. Login to get fresh tokens
+    login_uid = test_api_login(session, email, password, expected_role, ctx)
+    if ctx.is_failed or not login_uid:
+        ctx.error("Prerequisite login for expired token test failed.")
+        return
+
+    original_access_token = session.cookies.get("statbus")
+    original_refresh_token = session.cookies.get("statbus-refresh")
+
+    if not original_access_token or not original_refresh_token:
+        ctx.error("Could not retrieve original access or refresh tokens after login.")
+        return
+    ctx.debug(f"Original access token (statbus): {original_access_token[:30]}...")
+    ctx.debug(f"Original refresh token (statbus-refresh): {original_refresh_token[:30]}...")
+
+    # 2. Generate an expired access token
+    expired_access_token = generate_expired_token(original_access_token, jwt_secret, ctx)
+    if not expired_access_token:
+        ctx.error("Failed to generate an expired access token.")
+        return
+    
+    # 3. Replace session's access token with the expired one
+    # The `requests` library manages cookies by domain. We need to set it for the domain of API_BASE_URL.
+    # A simple way is to use `session.cookies.set()`
+    from urllib.parse import urlparse
+    parsed_api_url = urlparse(API_BASE_URL)
+    cookie_domain = parsed_api_url.hostname
+    
+    session.cookies.set("statbus", expired_access_token, domain=cookie_domain, path="/")
+    ctx.success(f"Replaced 'statbus' cookie in session with a manually expired version for domain {cookie_domain}.")
+    ctx.debug(f"Expired access token now in session: {session.cookies.get('statbus', domain=cookie_domain, path='/')[:30]}...")
+    # Ensure refresh token is still the original one
+    if session.cookies.get("statbus-refresh") != original_refresh_token:
+        ctx.error("Refresh token changed unexpectedly after setting expired access token.")
+        return
+
+    # 4. Test /rpc/auth_status (GET & POST)
+    ctx.info("Testing /rpc/auth_status with expired access token...")
+    test_auth_status(session, False, ctx) # Expected: is_authenticated = False
+    if ctx.is_failed: return # Stop if basic auth_status fails
+
+    # Verify cookies after /rpc/auth_status calls
+    if session.cookies.get("statbus-refresh") == original_refresh_token:
+        ctx.success("Refresh token ('statbus-refresh') correctly preserved after /rpc/auth_status calls.")
+    else:
+        ctx.error("Refresh token ('statbus-refresh') was altered or cleared by /rpc/auth_status calls.")
+        ctx.debug(f"Refresh token before: {original_refresh_token[:30]}..., after: {session.cookies.get('statbus-refresh')[:30]}...")
+        return # Critical failure
+
+    if session.cookies.get("statbus", domain=cookie_domain, path='/') == expired_access_token:
+        ctx.success("Expired access token ('statbus') correctly preserved by PostgREST after /rpc/auth_status calls.")
+    else:
+        ctx.warning("Expired access token ('statbus') was altered or cleared by PostgREST (unexpected).")
+        ctx.debug(f"Access token before: {expired_access_token[:30]}..., after: {session.cookies.get('statbus', domain=cookie_domain, path='/')[:30]}...")
+
+    # 5. Test /api/auth_test (Next.js endpoint)
+    if "/rest" not in API_BASE_URL: # Only if API_BASE_URL points to Next.js app
+        ctx.info("Testing /api/auth_test with expired access token...")
+        test_local_nextjs_app_auth_test_endpoint(session, ctx) # This will log its own details
+        if ctx.is_failed: return
+
+        # Verify cookies after /api/auth_test call
+        if session.cookies.get("statbus-refresh") == original_refresh_token:
+            ctx.success("Refresh token ('statbus-refresh') correctly preserved after /api/auth_test call.")
+        else:
+            ctx.error("Refresh token ('statbus-refresh') was altered or cleared by /api/auth_test call.")
+            return
+        
+        # The access token might be cleared by Next.js middleware if it detects it as invalid.
+        # Or it might attempt a refresh and set a new one.
+        # For this test, let's check if it's still the *expired* one or if it changed.
+        # If middleware tried to refresh, it would likely set new cookies.
+        current_access_token_after_api_test = session.cookies.get("statbus", domain=cookie_domain, path='/')
+        if current_access_token_after_api_test == expired_access_token:
+            ctx.success("Expired access token ('statbus') remained unchanged after /api/auth_test call (no server-side refresh attempt by this API route).")
+        elif not current_access_token_after_api_test:
+            ctx.info("Access token ('statbus') was cleared after /api/auth_test call.")
+        else:
+            ctx.info("Access token ('statbus') was changed after /api/auth_test call (possibly due to a refresh by the API route itself, though not standard for auth_test).")
+            ctx.debug(f"Access token value after /api/auth_test: {current_access_token_after_api_test[:30]}...")
+
+    else:
+        ctx.info("Skipping /api/auth_test for expired token test as API_BASE_URL points directly to PostgREST.")
+
+    # 6. Test GET /profile (or a known protected Next.js page)
+    if "/rest" not in API_BASE_URL: # Only if API_BASE_URL points to Next.js app
+        profile_url = f"{API_BASE_URL.rstrip('/')}/profile" # Example protected page
+        ctx.info(f"Testing GET {profile_url} with expired access token to check middleware behavior...")
+        
+        # Store cookie state before the request
+        statbus_before_page_req = session.cookies.get("statbus", domain=cookie_domain, path='/')
+        refresh_before_page_req = session.cookies.get("statbus-refresh")
+
+        try:
+            response = session.get(profile_url, allow_redirects=False, timeout=10) # allow_redirects=False to see initial response
+            ctx.info(f"GET {profile_url} response status: {response.status_code}")
+            ctx.debug(f"GET {profile_url} response headers: {dict(response.headers)}")
+
+            # Check for Set-Cookie headers indicating a refresh attempt by middleware
+            set_cookie_header = response.headers.get("Set-Cookie")
+            if set_cookie_header and ("statbus=" in set_cookie_header or "statbus-refresh=" in set_cookie_header):
+                ctx.warning(f"Middleware appears to have attempted a server-side refresh during GET {profile_url}. Set-Cookie: {set_cookie_header}")
+                # This contradicts the user's stated expectation for this specific test.
+            else:
+                ctx.success(f"No new auth cookies set by middleware during GET {profile_url} (as per expectation for this test).")
+
+            # Check session cookies after the request
+            statbus_after_page_req = session.cookies.get("statbus", domain=cookie_domain, path='/')
+            refresh_after_page_req = session.cookies.get("statbus-refresh")
+
+            if refresh_after_page_req == refresh_before_page_req:
+                ctx.success("Refresh token in session remained unchanged after GET /profile (as per expectation).")
+            else:
+                ctx.warning("Refresh token in session changed after GET /profile. This implies middleware activity.")
+                ctx.debug(f"Refresh token before: {refresh_before_page_req[:30]}..., after: {refresh_after_page_req[:30]}...")
+            
+            if statbus_after_page_req == statbus_before_page_req: # Should still be the expired one or cleared
+                ctx.success("Access token in session remained the (expired) one or was cleared as expected after GET /profile.")
+            elif not statbus_after_page_req and statbus_before_page_req:
+                 ctx.success("Access token in session was cleared after GET /profile, as expected if no refresh.")
+            else: # It changed to something new
+                ctx.warning("Access token in session was updated after GET /profile. This implies middleware refresh.")
+                ctx.debug(f"Access token before: {statbus_before_page_req[:30] if statbus_before_page_req else 'None'}..., after: {statbus_after_page_req[:30] if statbus_after_page_req else 'None'}...")
+
+            # Expected status code: This is tricky. If middleware doesn't refresh and page requires auth,
+            # it might redirect to /login (3xx) or render a 200 with unauth content.
+            # A direct 401 from middleware for a page is less common.
+            # For this test, we are primarily checking cookie non-interference.
+            if response.status_code in [200, 302, 303, 307, 308]: # Plausible outcomes
+                ctx.info(f"GET {profile_url} returned status {response.status_code}, which is plausible if middleware doesn't refresh server-side for pages.")
+            else:
+                ctx.warning(f"GET {profile_url} returned unexpected status {response.status_code}.")
+
+
+        except requests.RequestException as e:
+            ctx.error(f"Request to {profile_url} failed: {e}")
+    else:
+        ctx.info(f"Skipping Next.js page GET test ({API_BASE_URL.rstrip('/')}/profile) as API_BASE_URL points directly to PostgREST.")
+
+    ctx.info(f"Expired access token behavior test for {email} completed.")
 
 if __name__ == "__main__":
     # Ensure API_BASE_URL is determined before registering cleanup,

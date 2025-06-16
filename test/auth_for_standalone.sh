@@ -27,12 +27,12 @@ source "$VENV_DIR/bin/activate"
 
 # Install required packages
 echo "Installing required Python packages..."
-pip install requests psycopg2-binary
+pip install requests psycopg2-binary PyJWT
 
 # Verify installation was successful
-if ! python -c "import requests, psycopg2" 2>/dev/null; then
+if ! python -c "import requests, psycopg2, jwt" 2>/dev/null; then # Added jwt import check
   echo "Failed to install required packages. Please install manually:"
-  echo "pip install requests psycopg2-binary"
+  echo "pip install requests psycopg2-binary PyJWT"
   exit 1
 fi
 
