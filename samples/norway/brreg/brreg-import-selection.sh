@@ -67,13 +67,6 @@ SELECT def.id,
 FROM def
 ON CONFLICT (slug) DO NOTHING;"
 
-echo "Disabling RLS on import tables to support data loading"
-# Disable RLS on hovedenhet (legal units) upload tables
-$WORKSPACE/devops/manage-statbus.sh psql -c "ALTER TABLE public.import_hovedenhet_${YEAR}_selection_upload DISABLE ROW LEVEL SECURITY;"
-
-# Disable RLS on underenhet (establishments) upload tables
-$WORKSPACE/devops/manage-statbus.sh psql -c "ALTER TABLE public.import_underenhet_${YEAR}_selection_upload DISABLE ROW LEVEL SECURITY;"
-
 echo "Loading data into import tables"
 # Load hovedenhet (legal units) data
 echo "Loading hovedenhet selection data"

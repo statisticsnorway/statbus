@@ -70,15 +70,6 @@ for YEAR in $YEARS; do
     ON CONFLICT (slug) DO NOTHING;"
 done
 
-echo "Disabling RLS on import tables to support data loading"
-for YEAR in $YEARS; do
-    # Disable RLS on hovedenhet (legal units) upload tables
-    $WORKSPACE/devops/manage-statbus.sh psql -c "ALTER TABLE public.import_hovedenhet_${YEAR}_small_history_upload DISABLE ROW LEVEL SECURITY;"
-
-    # Disable RLS on underenhet (establishments) upload tables
-    $WORKSPACE/devops/manage-statbus.sh psql -c "ALTER TABLE public.import_underenhet_${YEAR}_small_history_upload DISABLE ROW LEVEL SECURITY;"
-done
-
 echo "Loading data into import tables"
 for YEAR in $YEARS; do
     echo "Loading data for year: $YEAR"
