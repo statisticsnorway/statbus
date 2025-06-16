@@ -677,13 +677,23 @@ import { atomEffect } from 'jotai-effect';
 
 export const initialAuthCheckDoneEffect = atomEffect((get, set) => {
   const authLoadable = get(authStatusLoadableAtom);
-  const alreadyChecked = get(authStatusInitiallyCheckedAtom);
+  const currentCheckedState = get(authStatusInitiallyCheckedAtom);
 
-  // Check if not already marked as checked to avoid unnecessary sets
-  if (authLoadable.state !== 'loading' && !alreadyChecked) {
-    set(authStatusInitiallyCheckedAtom, true);
-    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-      console.log("initialAuthCheckDoneEffect (jotai-effect): authStatusInitiallyCheckedAtom set to true.");
+  if (authLoadable.state === 'loading') {
+    // If auth is loading, the "check done" flag for the current cycle should be false.
+    if (currentCheckedState) { // Only set if it's currently true, to avoid redundant sets.
+      set(authStatusInitiallyCheckedAtom, false);
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("initialAuthCheckDoneEffect (jotai-effect): Auth is loading. Set authStatusInitiallyCheckedAtom to false.");
+      }
+    }
+  } else { // authLoadable.state is 'hasData' or 'hasError' (i.e., stable)
+    // If auth is stable, the "check done" flag for the current cycle should be true.
+    if (!currentCheckedState) { // Only set if it's currently false.
+      set(authStatusInitiallyCheckedAtom, true);
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("initialAuthCheckDoneEffect (jotai-effect): Auth is stable. Set authStatusInitiallyCheckedAtom to true.");
+      }
     }
   }
 });
