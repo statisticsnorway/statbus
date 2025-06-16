@@ -16,84 +16,54 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // --- Authentication Check and Refresh via AuthStore ---
-  // Create a response object that we will modify and eventually return.
-  let response = NextResponse.next();
+  // --- Authentication Check ---
+  // Create a response object. If authStore.handleServerAuth sets cookies (e.g. after a successful refresh
+  // triggered by a server-side API call, not a page load), they will be added to this response.cookies object.
+  const response = NextResponse.next();
 
   // Determine the protocol of the original request
-  const originalProtocol = request.nextUrl.protocol.replace(/:$/, ''); // Remove trailing colon (e.g., "https:" -> "https")
+  const originalProtocol = request.nextUrl.protocol.replace(/:$/, '');
 
-  const { status: authStatus, modifiedRequestHeaders } = await authStore.handleServerAuth(
+  // authStore.handleServerAuth will check the access token.
+  // It will *not* attempt a refresh for page loads because the refresh token is not sent by the browser for page requests.
+  // However, it's kept here as it might be useful if middleware logic evolves or for other server-side contexts.
+  // The `modifiedRequestHeaders` part is less relevant now for page loads if no refresh occurs.
+  const { status: authStatus } = await authStore.handleServerAuth(
     request.cookies,
-    response.cookies, // authStore modifies response.cookies directly
+    response.cookies, // authStore can still set cookies on the response if needed (e.g., clearing them)
     originalProtocol
   );
 
   // --- Handle Auth Result ---
   if (!authStatus.isAuthenticated) {
-    // If still not authenticated after check/refresh attempt, redirect to login
+    // If not authenticated, redirect to login.
+    // No server-side refresh attempt for page loads by the middleware.
     if (process.env.DEBUG === 'true') {
-      console.log("Middleware: AuthStore reported unauthenticated, redirecting to login.");
+      console.log("Middleware: User not authenticated (access token invalid/missing). Redirecting to login.");
     }
     const loginUrl = new URL('/login', request.url);
-    // Create a new response for redirect.
     const redirectResponse = NextResponse.redirect(loginUrl);
     
     // Determine if the connection is secure for cookie options
     const isSecure = request.headers.get('x-forwarded-proto')?.toLowerCase() === 'https';
     const cookieOptions = { path: '/', httpOnly: true, sameSite: 'strict' as const, secure: isSecure };
 
-    // Explicitly clear cookies with attributes consistent with backend's clear_auth_cookies
-    // The delete method expects a single object with 'name' and other options, or just the name.
+    // Explicitly clear cookies on redirect to login to ensure a clean state.
     redirectResponse.cookies.delete({ name: 'statbus', ...cookieOptions });
-    redirectResponse.cookies.delete({ name: 'statbus-refresh', ...cookieOptions });
+    redirectResponse.cookies.delete({ name: 'statbus-refresh', ...cookieOptions }); // Also clear refresh token cookie
     return redirectResponse;
   }
 
-  // --- Prepare Response for Authenticated User ---
-  // At this point, 'response.cookies' (from the initial NextResponse.next())
-  // contains any new cookies set by authStore.handleServerAuth.
-
-  let requestForNextHandler = request; // This will be the request object for subsequent handlers/page.
-
-  // If AuthStore signaled that headers were modified (e.g., due to token refresh)
-  if (modifiedRequestHeaders?.has('X-Statbus-Refreshed-Token')) {
-      if (process.env.DEBUG === 'true') {
-        console.log("Middleware: AuthStore signaled refresh, modifying request headers for subsequent handlers.");
-      }
-      
-      // Create new headers for the requestForNextHandler.
-      const newHeaders = new Headers(request.headers);
-      
-      // Reconstruct the 'cookie' header string using the cookies now set on `response.cookies`.
-      // This ensures that `requestForNextHandler` has the most up-to-date cookies.
-      const newCookieHeader = Array.from(response.cookies.getAll()).map(c => `${c.name}=${c.value}`).join('; ');
-      newHeaders.set('cookie', newCookieHeader);
-      
-      // If AuthStore provides the new access token directly (e.g., via X-Statbus-Refreshed-Token),
-      // you might also set a custom header like 'X-Statbus-Access-Token' on newHeaders here
-      // if RestClientStore is adapted to use it for server-side client initialization.
-      // Example: newHeaders.set('X-Statbus-Access-Token', modifiedRequestHeaders.get('X-Statbus-Refreshed-Token')!);
-
-      requestForNextHandler = new NextRequest(request.nextUrl, { headers: newHeaders });
-      
-      // Create a new response object that will use `requestForNextHandler` for server-side rendering.
-      // Note: NextResponse.next({ request: ... }) creates a *new* response instance.
-      const newResponseForPage = NextResponse.next({
-          request: requestForNextHandler,
-      });
-      
-      // Copy all cookies from our current `response` (which authStore modified)
-      // to `newResponseForPage` so they are sent to the browser.
-      response.cookies.getAll().forEach(cookie => {
-          newResponseForPage.cookies.set(cookie);
-      });
-      
-      response = newResponseForPage; // This is now the response we will return.
+  // If authenticated, allow the request to proceed.
+  // The `response` object already contains any cookies that authStore.handleServerAuth might have set
+  // (e.g., if it cleared cookies due to an error it detected, though less likely if isAuthenticated is true).
+  // No complex header/request reconstruction is needed here if middleware refresh for page loads is removed.
+  if (process.env.DEBUG === 'true') {
+    console.log("Middleware: User authenticated. Proceeding with request.");
   }
   
-    // All checks passed, return the response (which might have new cookies set and request headers modified)
-    return response;
+  // All checks passed, return the response (which might have cookies set by authStore)
+  return response;
 }
 
 export const config = {
