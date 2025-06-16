@@ -66,7 +66,7 @@ export default async function RootLayout({
           <GlobalErrorReporter />
           {/* JotaiStateInspector is rendered if NEXT_PUBLIC_DEBUG is true */}
           {process.env.NEXT_PUBLIC_DEBUG === 'true' && (
-            <Suspense fallback={null}> {/* Suspense for JotaiStateInspector if it has async aspects or for consistency */}
+            <Suspense fallback={null}> {/* Suspense for JotaiStateInspector, should only ever render client side. */}
               <JotaiStateInspector />
             </Suspense>
           )}
