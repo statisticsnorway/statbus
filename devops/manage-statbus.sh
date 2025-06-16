@@ -41,6 +41,8 @@ case "$action" in
     'start' )
         VERSION=$(git describe --always)
         ./devops/dotenv --file .env set VERSION=$VERSION
+        ./devops/manage-statbus.sh build-statbus-cli
+        ./devops/manage-statbus.sh generate-config
         target_service_or_profile="${1:-}"
         if [ "$target_service_or_profile" = "app" ]; then
             # If the target is 'app', pass it directly as a service to docker compose
@@ -69,6 +71,8 @@ case "$action" in
             docker compose down --remove-orphans app
             VERSION=$(git describe --always)
             ./devops/dotenv --file .env set VERSION=$VERSION
+            ./devops/manage-statbus.sh build-statbus-cli
+            ./devops/manage-statbus.sh generate-config
             docker compose up --build --detach app
             echo "App service restarted."
         else
@@ -78,6 +82,8 @@ case "$action" in
             eval docker compose $compose_profile_arg down --remove-orphans
             VERSION=$(git describe --always)
             ./devops/dotenv --file .env set VERSION=$VERSION
+            ./devops/manage-statbus.sh build-statbus-cli
+            ./devops/manage-statbus.sh generate-config
             eval docker compose $compose_profile_arg up --build --detach
             echo "Services in profile $profile restarted."
         fi
