@@ -1678,19 +1678,39 @@ def test_expired_access_token_behavior(session: Session, email: str, password: s
         ctx.error("Failed to generate an expired access token.")
         return
     
-    # 3. Replace session's access token with the expired one
-    # The `requests` library manages cookies by domain. We need to set it for the domain of API_BASE_URL.
-    # A simple way is to use `session.cookies.set()`
+    # 3. Clear session cookies and re-add only the refresh token and the *expired* access token.
     from urllib.parse import urlparse
     parsed_api_url = urlparse(API_BASE_URL)
-    cookie_domain = parsed_api_url.hostname
+    cookie_domain = parsed_api_url.hostname # e.g., 'localhost' or 'dev.statbus.org'
     
-    session.cookies.set("statbus", expired_access_token, domain=cookie_domain, path="/")
-    ctx.success(f"Replaced 'statbus' cookie in session with a manually expired version for domain {cookie_domain}.")
-    ctx.debug(f"Expired access token now in session: {session.cookies.get('statbus', domain=cookie_domain, path='/')[:30]}...")
-    # Ensure refresh token is still the original one
-    if session.cookies.get("statbus-refresh") != original_refresh_token:
-        ctx.error("Refresh token changed unexpectedly after setting expired access token.")
+    ctx.info("Clearing session cookies and re-adding specific tokens for testing.")
+    session.cookies.clear()
+    
+    # Re-add the original valid refresh token
+    # Path for refresh token is typically /rest/rpc/refresh
+    # Domain should match where it was set. If API_BASE_URL is localhost:3010, domain is localhost.
+    # For requests library, if domain is not specified, it's often set based on the request domain.
+    # To be safe, let's use the cookie_domain derived from API_BASE_URL.
+    # The path for statbus-refresh is specific.
+    refresh_cookie_path = "/rest/rpc/refresh" # As set by PostgREST
+    session.cookies.set("statbus-refresh", original_refresh_token, domain=cookie_domain, path=refresh_cookie_path)
+    ctx.debug(f"Re-added original 'statbus-refresh' cookie for domain '{cookie_domain}', path '{refresh_cookie_path}'.")
+
+    # Add the manually expired access token
+    access_cookie_path = "/" # Access token is usually path=/
+    session.cookies.set("statbus", expired_access_token, domain=cookie_domain, path=access_cookie_path)
+    ctx.success(f"Added manually expired 'statbus' cookie to session for domain '{cookie_domain}', path '{access_cookie_path}'.")
+    
+    ctx.debug(f"Session cookies now: {session.cookies.get_dict()}")
+    expired_token_in_session = session.cookies.get('statbus', domain=cookie_domain, path=access_cookie_path)
+    if expired_token_in_session == expired_access_token:
+        ctx.debug(f"Expired access token confirmed in session: {expired_token_in_session[:30]}...")
+    else:
+        ctx.error(f"Failed to correctly set/retrieve the expired access token in session. Found: {expired_token_in_session}")
+        return
+
+    if session.cookies.get("statbus-refresh", domain=cookie_domain, path=refresh_cookie_path) != original_refresh_token:
+        ctx.error("Refresh token is not the original one after cookie manipulation.")
         return
 
     # 4. Test /rpc/auth_status (GET & POST)
