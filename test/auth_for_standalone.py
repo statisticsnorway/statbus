@@ -1715,6 +1715,17 @@ def test_expired_access_token_behavior(session: Session, email: str, password: s
 
     # 4. Test /rpc/auth_status (GET & POST)
     ctx.info("Testing /rpc/auth_status with expired access token...")
+    ctx.debug(f"Cookies in session right before calling test_auth_status: {session.cookies.get_dict(domain=cookie_domain, path='/')}")
+    ctx.debug(f"Full session cookie jar before test_auth_status: {session.cookies.get_dict()}")
+    
+    # Specifically check the 'statbus' cookie we expect to be expired
+    for cookie_in_jar in session.cookies:
+        if cookie_in_jar.name == "statbus" and cookie_in_jar.domain == cookie_domain and cookie_in_jar.path == access_cookie_path:
+            ctx.debug(f"Manually inspecting 'statbus' cookie in jar: name={cookie_in_jar.name}, value={cookie_in_jar.value[:30]}..., domain={cookie_in_jar.domain}, path={cookie_in_jar.path}, expires={cookie_in_jar.expires}")
+            if cookie_in_jar.value != expired_access_token:
+                ctx.warning("The 'statbus' cookie in the jar is NOT the manually expired one right before test_auth_status call!")
+            break
+
     test_auth_status(session, False, ctx) # Expected: is_authenticated = False
     if ctx.is_failed: return # Stop if basic auth_status fails
 
