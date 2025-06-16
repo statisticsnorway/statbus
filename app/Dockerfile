@@ -22,6 +22,8 @@ RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch -
 COPY package.json ./
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm install -r --offline --frozen-lockfile --aggregate-output
 COPY . .
+
+FROM install AS build
 ARG NEXT_PUBLIC_BROWSER_REST_URL
 ARG NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME
 ARG NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE
@@ -32,7 +34,6 @@ ENV NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME=${NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME}
 ENV NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE=${NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE}
 ENV NEXT_PUBLIC_DEBUG=${NEXT_PUBLIC_DEBUG}
 
-FROM install AS build
 RUN pnpm run build
 
 # Run the tests with
