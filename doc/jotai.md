@@ -185,3 +185,32 @@ These extensions provide additional atom types or functionalities and need to be
   ```
 - **Relevance**: Useful for managing side effects that are tightly coupled to an atom's state or lifecycle, such as logging, data synchronization, or setting up/tearing down event listeners.
 - **Installation**: `npm install jotai-effect` or `yarn add jotai-effect`
+
+### `jotai-derive` (`derive`, `soon`, `soonAll`)
+- **Package**: `jotai-derive`
+- **Purpose**: Provides primitives (`derive`, `soon`, `soonAll`) for building asynchronous data graphs that act on values as soon as they are available. It helps manage "dual-natured" atoms (which can be sync or async) by awaiting them only when necessary, thus preventing unnecessary deferring, recomputation, and potential micro-suspensions in React.
+- **Usage**:
+  ```typescript
+  import { atom } from 'jotai';
+  import { derive } from 'jotai-derive';
+
+  // Example: userAtom can be User or Promise<User>
+  const userAtom = atom<User | Promise<User>>(fetchUser()); 
+  
+  // uppercaseNameAtom will be string | Promise<string>
+  // It awaits userAtom only if userAtom is a Promise
+  const uppercaseNameAtom = derive(
+    [userAtom],
+    (user) => user.name.toUpperCase()
+  );
+
+  // With multiple dependencies
+  const serverNameAtom = atom<string | Promise<string>>(fetchServerName());
+  const welcomeMessageAtom = derive(
+    [userAtom, serverNameAtom],
+    (user, serverName) => `Welcome ${user.name} to ${serverName}!`
+  );
+  ```
+  The `soon` and `soonAll` functions offer more advanced control, especially for conditional dependencies.
+- **Relevance**: Improves performance and stability when working with atoms that might resolve synchronously or asynchronously. It's useful when local cache updates might cause micro-suspensions or when unnecessary re-computation is a concern.
+- **Installation**: `npm install jotai-derive` or `yarn add jotai-derive`
