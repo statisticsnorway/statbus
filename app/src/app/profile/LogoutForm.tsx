@@ -11,8 +11,8 @@ export default function LogoutForm() {
   const handleLogout = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     await logout();
-    // Use client-side navigation for a smoother experience
-    router.push("/login");
+    // The redirect to "/login" is now handled by RedirectHandler
+    // after logoutAtom sets pendingRedirectAtom.
   };
 
   return (

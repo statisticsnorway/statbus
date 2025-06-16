@@ -34,22 +34,49 @@ export interface AuthStatus {
 }
 
 // Base auth atom
-export const authStatusCoreAtom = atomWithRefresh(async (get) => {
-  const client = get(restClientAtom);
-  // This atom should only attempt to fetch if the client is available.
-  // Initial state before client is ready might be handled by AppInitializer or initial value of loadable.
-  if (!client) {
-    // Return a default unauthenticated state if client isn't ready
-    // This helps avoid errors if this atom is read before client initialization.
-    // Console log removed for cleaner build output, as this state is expected during SSR/SSG.
-    return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: null };
+// Explicitly type the return of the async function for atomWithRefresh
+export const authStatusCoreAtom = atomWithRefresh<Promise<Omit<AuthStatus, 'loading'>>>(async (get) => {
+  const isClientSide = typeof window !== 'undefined';
+  const currentRestClient = get(restClientAtom);
+
+  if (isClientSide) {
+    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      console.log(`authStatusCoreAtom (Client-Side): Evaluating. REST client is currently: ${currentRestClient ? 'Set' : 'Not Set (null)'}.`);
+    }
+  } else {
+    // console.log("authStatusCoreAtom (Server-Side): Evaluating."); // Less verbose for server-side
   }
+
+  if (!currentRestClient) {
+    if (isClientSide) {
+      // Client-side, and client is not ready. Return a promise that never resolves.
+      // This keeps the atom in a 'loading' state until the client is initialized.
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.warn(`authStatusCoreAtom (Client-Side): REST client is not available. Holding in loading state by returning a non-resolving promise.`);
+      }
+      return new Promise<Omit<AuthStatus, 'loading'>>(() => {}); // Cast to expected Promise type
+    }
+    // Server-side, client not expected to be the browser client, or it's an early phase.
+    // Return a default unauthenticated state.
+    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      console.log("authStatusCoreAtom (Server-Side): REST client not available. Returning default unauthenticated state for SSR/early phase.");
+    }
+    return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'CLIENT_NOT_READY_SSR' };
+  }
+
+  // If client IS available
+  if (isClientSide) {
+    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      console.log("authStatusCoreAtom (Client-Side): REST client IS available. Proceeding to fetch auth_status.", { clientUrl: currentRestClient.url });
+    }
+  }
+
   try {
     if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
       console.log("[authStatusCoreAtom] Client available, calling client.rpc('auth_status') via POST.");
     }
     // Using POST for auth_status to avoid browser caching issues with GET
-    const { data, error, status, statusText } = await client.rpc("auth_status");
+    const { data, error, status, statusText } = await currentRestClient.rpc("auth_status");
 
     if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
       console.log(`[authStatusCoreAtom] Response from client.rpc('auth_status') (POST): status=${status}, statusText=${statusText}, data=${JSON.stringify(data)}, error=${JSON.stringify(error)}`);
@@ -124,13 +151,25 @@ const initialBaseData: BaseData = {
   hasStatisticalUnits: false,
 };
 
-export const baseDataCoreAtom = atomWithRefresh(async (get): Promise<BaseData> => {
+// Explicitly type the return of the async function for atomWithRefresh
+export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): Promise<BaseData> => {
   const isAuthenticated = get(isAuthenticatedAtom);
+  const client = get(restClientAtom);
+
   if (!isAuthenticated) return initialBaseData;
 
-  const client = get(restClientAtom);
   if (!client) {
-    console.error("baseDataCoreAtom: No client available.");
+    if (typeof window !== 'undefined') {
+      // Client-side, authenticated, but client is not ready. Return a promise that never resolves.
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("baseDataCoreAtom: Client-side, REST client not yet initialized. Holding in loading state.");
+      }
+      return new Promise<BaseData>(() => {}); // Cast to expected Promise type
+    }
+    // Server-side, client not ready, or unauthenticated.
+    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      console.log("baseDataCoreAtom: Server-side or pre-client-init, REST client not available. Returning initialBaseData.");
+    }
     return initialBaseData;
   }
 
@@ -223,12 +262,27 @@ const initialWorkerStatusData: WorkerStatusData = {
 
 // Individual core async atoms for each worker status
 const makeWorkerStatusFetcherAtom = (rpcName: ValidWorkerFunctionName) => {
-  return atomWithRefresh(async (get): Promise<boolean | null> => {
+  // Explicitly type the return of the async function for atomWithRefresh
+  return atomWithRefresh<Promise<boolean | null>>(async (get): Promise<boolean | null> => {
     const isAuthenticated = get(isAuthenticatedAtom);
+    const client = get(restClientAtom);
+
     if (!isAuthenticated) return null;
 
-    const client = get(restClientAtom);
-    if (!client) return null;
+    if (!client) {
+      if (typeof window !== 'undefined') {
+        // Client-side, authenticated, but client is not ready. Return a promise that never resolves.
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          console.log(`WorkerStatusFetcher (${rpcName}): Client-side, REST client not yet initialized. Holding in loading state.`);
+        }
+        return new Promise<boolean | null>(() => {}); // Cast to expected Promise type
+      }
+      // Server-side, client not ready, or unauthenticated.
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`WorkerStatusFetcher (${rpcName}): Server-side or pre-client-init, REST client not available. Returning null.`);
+      }
+      return null;
+    }
 
     try {
       // For GET requests with PostgREST RPC, use the 'get: true' option.
@@ -670,6 +724,9 @@ export const authStatusInitiallyCheckedAtom = atom(false);
 // Atom to track if search state has been initialized from URL params
 export const searchStateInitializedAtom = atom(false);
 
+// Atom for programmatic redirects
+export const pendingRedirectAtom = atom<string | null>(null);
+
 // Effect atom using jotai-effect to update authStatusInitiallyCheckedAtom
 // This will run when its dependencies (authStatusLoadableAtom, authStatusInitiallyCheckedAtom) change,
 // or when the effect atom is mounted.
@@ -1046,16 +1103,18 @@ export const loginAtom = atom(
       // After successful login, the backend sets cookies.
       // We need to refresh our authStatusCoreAtom to read the new state.
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("[loginAtom] Login successful. Calling set(authStatusCoreAtom) to mark for refresh.");
+        const currentRestClient = get(restClientAtom);
+        console.log("[loginAtom] Login successful. Calling set(authStatusCoreAtom) to mark for refresh.", { isRestClientAvailable: !!currentRestClient, clientUrl: currentRestClient?.url, clientObject: currentRestClient });
         console.log(`[loginAtom] Current document.cookie immediately after successful /rpc/login response (before authStatusCoreAtom refresh):`, document.cookie);
       }
-      set(authStatusCoreAtom); 
-      // loginAtom now resolves after triggering the refresh.
-      // Components should observe authStatusLoadableAtom to react to the loading and final state.
+      set(authStatusCoreAtom);
+      // Ensure the authStatusCoreAtom has re-evaluated and updated.
+      await get(authStatusCoreAtom); 
+      // loginAtom now resolves after the refresh has completed.
+      // Components observing authStatusLoadableAtom will see the final state.
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("[loginAtom] authStatusCoreAtom refresh triggered. loginAtom resolving.");
+        console.log("[loginAtom] authStatusCoreAtom refresh completed. loginAtom resolving.");
       }
-      // The authStatusLoadableAtom will reflect the new state.
 
     } catch (error) {
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
@@ -1065,21 +1124,20 @@ export const loginAtom = atom(
       }
       // Refresh to ensure we have the latest (likely unauthenticated) status.
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("[loginAtom] Error in login. Calling set(authStatusCoreAtom) to ensure consistent state. loginAtom re-throwing.");
+        console.log("[loginAtom] Error in login. Calling set(authStatusCoreAtom) and awaiting to ensure consistent state. loginAtom re-throwing.");
       }
       set(authStatusCoreAtom); 
+      await get(authStatusCoreAtom); // Also await here for consistency on error path
       throw error; // Re-throw to be caught by LoginForm.tsx
     }
   }
 )
 
 export const clientSideRefreshAtom = atom<
-  null, 
-  [], 
+  null,
+  [],
   Promise<{ success: boolean; newStatus?: Omit<AuthStatus, 'loading'> }>
->(null, async (get, set) => {
-  // This atom's purpose is to call the /rpc/refresh and then update auth state.
-  // It should now just refresh the authStatusCoreAtom.
+>(null, async (get, set): Promise<{ success: boolean; newStatus?: Omit<AuthStatus, 'loading'> }> => {
   const client = get(restClientAtom);
   if (!client) {
     console.error("clientSideRefreshAtom: No client available.");
@@ -1123,14 +1181,17 @@ export const clientSideRefreshAtom = atom<
 
     // After successful RPC refresh AND if it indicates authenticated state, cookies are updated by the server.
     // Refresh our authStatusCoreAtom to reflect the new state.
-    set(authStatusCoreAtom); 
-    const newCoreStatus = await get(authStatusCoreAtom);
+    set(authStatusCoreAtom);
+    // After `set(authStatusCoreAtom)`, the atom is marked for refresh.
+    // `get(authStatusCoreAtom)` will now return the Promise from its read function.
+    // Awaiting it will give the resolved value.
+    const newCoreStatus: Omit<AuthStatus, 'loading'> = await get(authStatusCoreAtom);
     return { success: true, newStatus: newCoreStatus };
 
   } catch (e) {
     console.error("clientSideRefreshAtom: Error during client-side refresh:", e);
-    set(authStatusCoreAtom); 
-    await get(authStatusCoreAtom);
+    set(authStatusCoreAtom);
+    await get(authStatusCoreAtom); // Ensure it re-fetches before returning
     return { success: false };
   }
 });
@@ -1164,6 +1225,14 @@ export const logoutAtom = atom(
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.log(`[logoutAtom] Current document.cookie immediately after successful /rpc/logout response (before authStatusCoreAtom refresh):`, document.cookie);
       }
+      // At this point, the server should have cleared its session and sent Set-Cookie headers to clear browser cookies.
+      // The browser should process these Set-Cookie headers automatically due to `credentials: 'include'`.
+      // Let's log document.cookie again *after* the fetch response has been fully processed,
+      // but *before* we trigger the authStatusCoreAtom refresh, to see the immediate effect of Set-Cookie.
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`[logoutAtom] Current document.cookie AFTER /rpc/logout response processed, BEFORE authStatusCoreAtom refresh:`, document.cookie);
+      }
+
       set(authStatusCoreAtom); 
       await get(authStatusCoreAtom); // Ensure it re-fetches and updates.
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
@@ -1197,8 +1266,12 @@ export const logoutAtom = atom(
     set(gettingStartedUIStateAtom, { currentStep: 0, completedSteps: [], isVisible: true });
     set(importStateAtom, { isImporting: false, progress: 0, currentFile: null, errors: [], completed: false, useExplicitDates: false, selectedImportTimeContextIdent: null });
     set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
-    // Note: Similar to login, a hard redirect (`window.location.href = "/login";`
-    // in LogoutForm.tsx) will ensure a full app re-initialization.
+    
+    // Set pendingRedirectAtom to trigger navigation to /login via RedirectHandler
+    set(pendingRedirectAtom, '/login');
+    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      console.log("[logoutAtom] Set pendingRedirectAtom to '/login'.");
+    }
   }
 )
 
@@ -1980,4 +2053,7 @@ export const atoms = {
 
   // Derived UI States
   analysisPageVisualStateAtom,
+
+  // Pending Redirect
+  pendingRedirectAtom,
 }

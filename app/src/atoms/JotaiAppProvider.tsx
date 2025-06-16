@@ -8,7 +8,7 @@
  */
 
 import React, { Suspense, useEffect, ReactNode, useState } from 'react';
-import { Provider } from 'jotai';
+import { Provider, useAtom } from 'jotai'; // Added useAtom here
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useRouter, usePathname } from 'next/navigation';
 import {
@@ -28,6 +28,7 @@ import {
   numberOfRegionsAtomAsync,
   restClientAtom as importedRestClientAtom, // Alias to avoid conflict with local restClient variable
   type ValidWorkerFunctionName, // Import the type
+  pendingRedirectAtom, // Import pendingRedirectAtom
 } from './index';
 
 // ============================================================================
@@ -57,16 +58,39 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true
     const initializeClient = async () => {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log('AppInitializer: Attempting to initialize browser REST client...');
+      }
+      // Log the BROWSER_REST_URL the client-side code sees
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`AppInitializer: NEXT_PUBLIC_BROWSER_REST_URL (client-side) = "${process.env.NEXT_PUBLIC_BROWSER_REST_URL}"`);
+      }
+
       try {
         // Import your existing RestClientStore
         const { getBrowserRestClient } = await import('@/context/RestClientStore')
-        const client = await getBrowserRestClient()
+        const client = await getBrowserRestClient() // This is an async function
         
         if (mounted) {
-          setRestClient(client)
+          if (client) {
+            setRestClient(client);
+            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+              console.log('AppInitializer: Browser REST client successfully initialized and set in restClientAtom.', { clientUrl: client.url });
+              console.log('AppInitializer: Full client object for debugging:', { clientObject: client });
+            }
+          } else {
+            // This case should ideally not happen if getBrowserRestClient throws on failure.
+            console.error('AppInitializer: getBrowserRestClient() returned null/undefined without throwing an error. This is unexpected. Setting restClientAtom to null.');
+            setRestClient(null); // Explicitly set to null if it wasn't set
+          }
+        } else {
+          console.log('AppInitializer: Component unmounted before REST client could be set.');
         }
       } catch (error) {
-        console.error('AppInitializer: Failed to initialize REST client:', error)
+        console.error('AppInitializer: CRITICAL - Failed to initialize browser REST client. Setting restClientAtom to null.', error);
+        if (mounted) {
+          setRestClient(null); // Ensure restClientAtom is null on error
+        }
       }
     }
     
@@ -244,6 +268,27 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   
   return <>{children}</>
 }
+
+// ============================================================================
+// REDIRECT HANDLER - Handles programmatic redirects
+// ============================================================================
+
+const RedirectHandler = () => {
+  const [path, setPath] = useAtom(pendingRedirectAtom);
+  const router = useRouter();
+
+  useEffect(() => {
+    if (path) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`RedirectHandler: Navigating to "${path}".`);
+      }
+      router.push(path);
+      setPath(null); // Clear the atom after redirecting
+    }
+  }, [path, router, setPath]);
+
+  return null; // This component does not render anything
+};
 
 // ============================================================================
 // SSE CONNECTION MANAGER
@@ -444,6 +489,7 @@ export const JotaiAppProvider = ({
       <Suspense fallback={loadingFallback}>
         <AppInitializer>
           <AuthStatusHandler>
+            <RedirectHandler /> {/* Add RedirectHandler here */}
             {enableSSE ? (
               <SSEConnectionManager>
                 {children}
@@ -536,6 +582,16 @@ export const JotaiStateInspector = () => {
 
   // Show if NEXT_PUBLIC_DEBUG is true OR if NODE_ENV is 'development'.
   // Hide if NEXT_PUBLIC_DEBUG is NOT true AND NODE_ENV is NOT 'development'.
+  useEffect(() => {
+    if (mounted && typeof window !== 'undefined') { // Log only on the client-side, once mounted
+      console.log('[JotaiStateInspector] Env Vars Check:', {
+        NEXT_PUBLIC_DEBUG: process.env.NEXT_PUBLIC_DEBUG,
+        NODE_ENV: process.env.NODE_ENV,
+        shouldRender: process.env.NEXT_PUBLIC_DEBUG === 'true' || process.env.NODE_ENV === 'development',
+      });
+    }
+  }, [mounted]);
+
   if (process.env.NEXT_PUBLIC_DEBUG !== 'true' && process.env.NODE_ENV !== 'development') {
     return null;
   }

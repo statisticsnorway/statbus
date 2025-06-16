@@ -35,7 +35,18 @@ Core conventions for the Next.js (v15) application. For project-wide, SQL, or in
     - **Derived Atoms**: Compute state from other atoms for efficient re-renders.
     - **Action Atoms**: Use write-only or read/write atoms to encapsulate state update logic and side effects (e.g., API calls that modify global state).
 - **Data Fetching for Global State**:
-    - For server state that needs to become part of global client state (e.g., user profile, application base data), use Jotai's async atoms or action atoms that fetch data and update state atoms. This ensures the data is integrated into the Jotai ecosystem.
+    - For server state that needs to become part of global client state (e.g., user profile, application base data), use Jotai's async atoms or action atoms
+that fetch data and update state atoms. This ensures the data is integrated into the Jotai ecosystem.
+    - **Managing Asynchronous State and Side Effects (e.g., Navigation):**
+        - When an action atom (e.g., `loginAtom`, `logoutAtom`) modifies an underlying asynchronous core atom (e.g., `authStatusCoreAtom`), ensure the action
+atom awaits the completion of the core atom's refresh if subsequent logic or component reactions depend on the *stabilized* state. Example:
+`set(authStatusCoreAtom); await get(authStatusCoreAtom);`
+        - Components performing side effects (like navigation via `router.push()`) based on Jotai state within `useEffect` hooks must ensure they react to a
+*stable* state. Check flags like `initialAuthCheckCompleted` and `authStatus.loading` to avoid acting on intermediate or stale data.
+        - For programmatic client-side redirects triggered by Jotai state changes, prefer a centralized mechanism. Use a dedicated atom (e.g.,
+`pendingRedirectAtom`) set by action atoms, and a single `RedirectHandler` component that observes this atom to perform the navigation. This avoids scattered
+`router.push()` calls and ensures redirects are a controlled reaction to state.
+
 
 ## Data Fetching (SWR)
 - `useSWR` is primarily used for fetching, caching, and revalidating component-level or UI-specific server state. This is suitable for data that doesn't need to be deeply integrated into the global Jotai state or shared across many distant parts of the application.

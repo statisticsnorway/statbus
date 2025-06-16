@@ -30,6 +30,9 @@ if (!process.env.DEBUG_STATUS_REPORTED) {
   if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
     console.log("next.config.js: NEXT_PUBLIC_DEBUG environment variable is true.");
   }
+  if (process.env.NODE_ENV === 'development') {
+   console.log(`next.config.js: NODE_ENV environment variable is: ${process.env.NODE_ENV}`);
+  }
   // Set the flag after the first check to prevent repeated logging
   // in subsequent times this config file might be processed.
   process.env.DEBUG_STATUS_REPORTED = 'true';

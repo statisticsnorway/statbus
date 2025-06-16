@@ -123,7 +123,8 @@ export function CommandPalette() {
               onSelect={async () => {
                 setOpen(false);
                 await logout();
-                router.push("/");
+                // The redirect to "/login" or "/" is now handled by RedirectHandler
+                // after logoutAtom sets pendingRedirectAtom (or similar mechanism).
               }}
               value="Logout"
             >

@@ -37,7 +37,13 @@ export async function GET(request: NextRequest) {
     acc[cookie.name] = cookie.value;
     return acc;
   }, {} as Record<string, string>);
-
+ 
+  // Log the SERVER_REST_URL to verify its configuration
+  const serverRestUrlEnv = process.env.SERVER_REST_URL;
+  if (process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true') {
+   console.log(`[AuthTestAPI] SERVER_REST_URL: ${serverRestUrlEnv}`);
+  }
+ 
   const incomingHeaders: Record<string, string> = {};
   request.headers.forEach((value, key) => {
     // Only include relevant headers for brevity, or filter sensitive ones
@@ -79,6 +85,9 @@ export async function GET(request: NextRequest) {
         status: 'success',
         data: data as AuthTestDbResponse, // data should be AuthTestDbResponse
       };
+     if (process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true') {
+       responsePayload.postgrest_js_call_to_rpc_auth_test.debug_server_rest_url_used = serverRestUrlEnv; // Add which URL was used
+     }
     }
   } catch (e: any) {
     console.error('Exception during postgrest-js call:', e);
@@ -122,7 +131,33 @@ export async function GET(request: NextRequest) {
       error: { message: diagErr.message, stack: diagErr.stack },
     };
   }
-  // End Diagnostic
+  // End Diagnostic with explicit agent
+
+  // Diagnostic: Simple fetch to proxy root WITHOUT explicit agent
+  if (process.env.NODE_ENV === 'development' || process.env.DEBUG === 'true') {
+    try {
+      console.log("Attempting simple diagnostic GET to http://proxy:80/ using GLOBAL fetch agent");
+      const diagnosticResponseGlobalAgent = await fetch('http://proxy:80/', { 
+        method: 'GET',
+        // No explicit dispatcher/agent here
+      });
+      console.log(`Diagnostic GET (global agent) to http://proxy:80/ status: ${diagnosticResponseGlobalAgent.status}`);
+      const diagnosticTextGlobalAgent = await diagnosticResponseGlobalAgent.text();
+      console.log(`Diagnostic GET (global agent) to http://proxy:80/ text: ${diagnosticTextGlobalAgent.substring(0, 200)}...`);
+      responsePayload.diagnostic_simple_fetch_to_proxy_root_global_agent = {
+        status_code: diagnosticResponseGlobalAgent.status,
+        status_text: diagnosticResponseGlobalAgent.statusText,
+        body_snippet: diagnosticTextGlobalAgent.substring(0, 200) + (diagnosticTextGlobalAgent.length > 200 ? "..." : "")
+      };
+    } catch (diagGlobErr: any) {
+      console.error('Exception during diagnostic simple GET (global agent) to http://proxy:80/:', diagGlobErr);
+      responsePayload.diagnostic_simple_fetch_to_proxy_root_global_agent = {
+        status: 'exception',
+        error: { message: diagGlobErr.message, stack: diagGlobErr.stack },
+      };
+    }
+  }
+  // End Diagnostic without explicit agent
 
   // Determine the protocol of the incoming request to this API route
   const incomingRequestProtocol = request.nextUrl.protocol.replace(/:$/, '');
