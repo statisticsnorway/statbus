@@ -4,8 +4,8 @@
 
 set -euo pipefail
 
-# Enable debug mode if DEBUG is set
-if test -n "${DEBUG:-}"; then
+# Enable debug mode if DEBUG is set to true
+if [ "${DEBUG:-}" = "true" ]; then
   set -x # Print all commands before running them - for easy debugging.
 fi
 
