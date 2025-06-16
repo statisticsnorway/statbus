@@ -4,11 +4,13 @@ import { useEffect, useState } from "react";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/atoms/hooks";
 import {
   BarChartHorizontal,
   Footprints,
   Home,
   ListRestart,
+  LogOut,
   Pilcrow,
   Search,
   Trash,
@@ -35,6 +37,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const { logout } = useAuth();
 
   useEffect(() => {
     const open = () => {
@@ -115,6 +118,17 @@ export function CommandPalette() {
             <CommandItem onSelect={() => navigate("/profile")} value="Profile">
               <User className="mr-2 h-4 w-4" />
               <span>Profile</span>
+            </CommandItem>
+            <CommandItem
+              onSelect={async () => {
+                setOpen(false);
+                await logout();
+                router.push("/");
+              }}
+              value="Logout"
+            >
+              <LogOut className="mr-2 h-4 w-4" />
+              <span>Logout</span>
             </CommandItem>
           </CommandGroup>
           <CommandGroup heading="Other Pages">
