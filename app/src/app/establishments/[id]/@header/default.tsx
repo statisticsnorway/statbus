@@ -8,17 +8,20 @@ export default async function Slot(
 ) {
   const params = await props.params;
 
-  const {
-    id
-  } = params;
+  const { id } = params;
 
   const { establishment, error } = await getEstablishmentById(id);
+  const informal = establishment?.legal_unit_id === null;
   return (
     <HeaderSlot
       id={id}
       unit={establishment}
       error={error}
-      className="border-establishment-200 bg-establishment-100"
+      className={
+        informal
+          ? "border-informal-200 bg-informal-50"
+          : "border-establishment-200 bg-establishment-100"
+      }
     />
   );
 }
