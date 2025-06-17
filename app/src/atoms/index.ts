@@ -1115,6 +1115,11 @@ export const loginAtom = atom(
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.log("[loginAtom] authStatusCoreAtom refresh completed. loginAtom resolving.");
       }
+      // Set pendingRedirectAtom to trigger navigation to / via RedirectHandler
+      set(pendingRedirectAtom, '/');
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("[loginAtom] Set pendingRedirectAtom to '/'.");
+      }
 
     } catch (error) {
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
