@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * Migration Example: Before and After
  * 
