@@ -45,17 +45,13 @@ export async function middleware(request: NextRequest) {
     const loginUrl = new URL('/login', request.url);
     const redirectResponse = NextResponse.redirect(loginUrl);
     
-    // Determine if the connection is secure for cookie options
-    const isSecure = request.headers.get('x-forwarded-proto')?.toLowerCase() === 'https';
-    const cookieOptions = { path: '/', httpOnly: true, sameSite: 'strict' as const, secure: isSecure };
-
-    // When redirecting to login due to an invalid/missing access token,
-    // only clear the access token cookie ('statbus').
-    // Leave the 'statbus-refresh' cookie intact to allow client-side logic
-    // (e.g., on the login page or app initialization) to attempt a refresh.
-    // The refresh token itself will be cleared by /rpc/logout or by /rpc/refresh if it's invalid.
-    redirectResponse.cookies.delete({ name: 'statbus', ...cookieOptions });
-    // Do NOT delete 'statbus-refresh' here.
+    // When redirecting to login due to an invalid/missing/expired access token,
+    // do *NOT* clear any cookies, since a user may have browser prefill,
+    // it it suggests /login - since they visited that page earlier,
+    // and then the /login page should load, to it's auth_status check,
+    // and redirect the user accordingly.
+    // The cookies are managed by the rpc auth functions alone,
+    // and cleared on logout or in the case of invalid cookies (spoofed JWT tokens).
     
     return redirectResponse;
   }
