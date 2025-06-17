@@ -117,6 +117,57 @@ The `jotai/utils` module provides a collection of helpful functions and atom cre
   ```
 - **Relevance**: Improves initial load time and performance by only computing or loading resources when they are actually needed. This is particularly beneficial in large applications or when dealing with heavy components/data.
 
+### `selectAtom`
+- **Purpose**: Creates a derived read-only atom that selects a part of another atom's value. It only triggers updates if the selected part changes, which can optimize performance when dealing with large state objects. An optional equality function can be provided for the comparison.
+- **Usage**:
+  ```typescript
+  import { atom } from 'jotai';
+  import { selectAtom } from 'jotai/utils';
+  import { isEqual } from 'lodash-es'; // Example equality function
+
+  const objectAtom = atom({ a: 1, b: 'hello', c: { nested: true } });
+
+  // Selects only the 'a' property
+  const aAtom = selectAtom(objectAtom, (obj) => obj.a);
+
+  // Selects the 'c' object, using deep equality check
+  const cAtom = selectAtom(objectAtom, (obj) => obj.c, isEqual);
+  ```
+- **Relevance**: Very useful for preventing unnecessary re-renders in components that only depend on a specific slice of a larger atom's state.
+
+### `freezeAtom`
+- **Purpose**: Takes an existing atom and returns a new derived atom whose value is deeply frozen using `Object.freeze`. This is a debugging utility to help prevent accidental mutations of atom state.
+- **Usage**:
+  ```typescript
+  import { atom } from 'jotai';
+  import { freezeAtom } from 'jotai/utils';
+
+  const anAtom = atom({ count: 0 });
+  const frozenAtom = freezeAtom(anAtom);
+  // const [value, setValue] = useAtom(frozenAtom);
+  // Attempting to mutate value.count directly would throw an error in strict mode.
+  ```
+- **Relevance**: Helps enforce immutability and catch bugs related to direct state mutation during development.
+
+### `waitForAll`
+- **Purpose**: A utility to wait for multiple atoms (especially async atoms) to resolve. It's similar to `Promise.all` but for Jotai atoms. It returns an atom whose value is an array of the resolved values of the input atoms.
+- **Usage**:
+  ```typescript
+  import { atom } from 'jotai';
+  import { waitForAll } from 'jotai/utils';
+
+  const asyncAtom1 = atom(async () => 'result1');
+  const asyncAtom2 = atom(async () => 'result2');
+
+  const combinedAtom = atom((get) => {
+    const [res1, res2] = get(waitForAll([asyncAtom1, asyncAtom2]));
+    return `Combined: ${res1} and ${res2}`;
+  });
+  // Or directly in a component with Suspense:
+  // const [[res1, res2]] = useAtom(waitForAll([asyncAtom1, asyncAtom2]));
+  ```
+- **Relevance**: Useful for scenarios where you need to fetch multiple pieces of data concurrently and then combine or use them together, especially with React Suspense.
+
 ## Relevant Extensions (Separate Packages)
 
 These extensions provide additional atom types or functionalities and need to be installed separately.
