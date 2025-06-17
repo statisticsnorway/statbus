@@ -116,7 +116,19 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
         *   If login is successful:
             *   Creates a record in `auth.refresh_sessions`.
             *   Generates an access token JWT and a refresh token JWT.
-            *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the access token (`statbus`) and refresh token (`statbus-refresh`).
+            *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers:
+                *   **`statbus` (Access Token):**
+                    *   `Path=/`
+                    *   `HttpOnly=true`
+                    *   `SameSite=Strict`
+                    *   `Secure` (conditionally, if connection is HTTPS or `X-Forwarded-Proto: https`)
+                    *   `Domain` (not explicitly set, defaults to the origin setting the cookie, which the browser interprets as the outermost domain like `localhost` or `dev.statbus.org`)
+                *   **`statbus-refresh` (Refresh Token):**
+                    *   `Path=/rest/rpc/refresh` (restricting it to the refresh endpoint)
+                    *   `HttpOnly=true`
+                    *   `SameSite=Strict`
+                    *   `Secure` (conditionally, if connection is HTTPS or `X-Forwarded-Proto: https`)
+                    *   `Domain` (not explicitly set, defaults to the origin setting the cookie)
         *   Returns an `auth.auth_response` object in the JSON response body. This object contains:
             *   `is_authenticated` (boolean)
             *   User information (uid, sub, email, role, statbus_role, etc.) if authenticated.
@@ -175,11 +187,14 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
             *   The browser automatically updates its cookies based on the `Set-Cookie` headers.
             *   `fetchWithAuthRefresh` retries the original request. The `auth_response` from the internal refresh call is not used by `fetchWithAuthRefresh` to update Jotai state.
         *   **Server-Side (Middleware - Proactive/Reactive within Request):**
-            *   Triggered within `app/src/middleware.ts` when `AuthStore.handleServerAuth()` is called and finds an invalid/missing access token but a valid refresh token cookie exists in the incoming request.
-            *   `AuthStore.handleServerAuth()` directly `fetch`es the `/rest/rpc/refresh` endpoint, manually adding the `Cookie: statbus-refresh=...` header.
-            *   PostgREST executes `public.refresh()`, which returns an `auth_response`.
-            *   `AuthStore.handleServerAuth()` parses this `auth_response` and, if successful, uses the `response.cookies.set()` method (provided by the middleware) to stage the new cookies for the outgoing response to the browser.
-            *   The middleware updates the *current request's* headers to reflect the new access token for subsequent processing within the same request lifecycle.
+            *   Triggered within `app/src/middleware.ts` when `AuthStore.handleServerAuth()` is called. `handleServerAuth` checks for an invalid/missing access token.
+            *   **Limitation due to Cookie Path:** The `statbus-refresh` cookie is set with `Path=/rest/rpc/refresh`. Consequently, browsers will **not** send this cookie with requests to Next.js application paths (e.g., `/dashboard`, `/api/data`). Therefore, the Next.js middleware, when processing such requests, will typically **not** find the `statbus-refresh` cookie in the incoming request's headers.
+            *   **Theoretical Mechanism (If Refresh Token Were Available to Middleware):** If the middleware *could* obtain the refresh token (e.g., if the cookie path allowed it or through other means not currently implemented), the described mechanism would be:
+                *   `AuthStore.handleServerAuth()` directly `fetch`es the `/rest/rpc/refresh` endpoint, manually adding the `Cookie: statbus-refresh=...` header.
+                *   PostgREST executes `public.refresh()`, which returns an `auth_response`.
+                *   `AuthStore.handleServerAuth()` parses this `auth_response` and, if successful, uses the `response.cookies.set()` method (provided by the middleware) to stage the new cookies for the outgoing response to the browser.
+                *   The middleware updates the *current request's* headers to reflect the new access token for subsequent processing within the same request lifecycle.
+            *   **Current Practicality:** Due to the `statbus-refresh` cookie's `Path=/rest/rpc/refresh` restriction, this server-side refresh mechanism by the middleware is effectively not utilized for typical Next.js page/API requests, as the middleware cannot access the necessary refresh token from the browser's request to such paths. Token refresh is therefore primarily a client-side responsibility.
         *   **Proactive Refresh (Client-Side - Jotai):**
             *   The `clientSideRefreshAtom` (Jotai action atom) can be called to proactively refresh tokens.
             *   It calls the `/rest/rpc/refresh` endpoint using the browser's `PostgrestClient` (which uses `fetchWithAuthRefresh`).
@@ -200,7 +215,9 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
         *   If validation is successful:
             *   Increments session version, updates timestamps, IP address, and user agent in `auth.refresh_session`.
             *   Generates a *new* access token JWT and a *new* refresh token JWT.
-            *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the *new* tokens.
+            *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers for the *new* tokens, with attributes identical to those set during login:
+                *   **`statbus` (New Access Token):** `Path=/`, `HttpOnly`, `SameSite=Strict`, conditional `Secure`, default `Domain`.
+                *   **`statbus-refresh` (New Refresh Token):** `Path=/rest/rpc/refresh`, `HttpOnly`, `SameSite=Strict`, conditional `Secure`, default `Domain`.
             *   Returns an `auth.auth_response` object indicating successful authentication and providing new user/token details.
         *   **Password Change Invalidation:** If the user's password has been changed, all their existing refresh sessions are deleted. Subsequent refresh attempts with old tokens will fail, typically resulting in `REFRESH_SESSION_INVALID_OR_SUPERSEDED`.
 
