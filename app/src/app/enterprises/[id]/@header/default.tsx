@@ -8,9 +8,7 @@ export default async function Slot(
 ) {
   const params = await props.params;
 
-  const {
-    id
-  } = params;
+  const { id } = params;
 
   const { hierarchy, error } = await getStatisticalUnitHierarchy(
     parseInt(id, 10),
@@ -22,12 +20,20 @@ export default async function Slot(
   const primaryEstablishment = hierarchy?.enterprise?.establishment?.find(
     (es: Establishment) => es.primary_for_enterprise
   );
+  const informal =
+    !hierarchy?.enterprise?.legal_unit ||
+    hierarchy.enterprise.legal_unit.length === 0;
   return (
     <HeaderSlot
       id={id}
       unit={primaryLegalUnit || primaryEstablishment}
       error={error}
-      className="border-enterprise-200 bg-enterprise-100"
+      className={
+        informal
+          ? "border-informal-400 bg-informal-300"
+          : "border-enterprise-200 bg-enterprise-100"
+      }
     />
   );
 }
+

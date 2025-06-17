@@ -150,7 +150,12 @@ export const StatisticalUnitTableRow = ({
                   className="flex items-center space-x-3 leading-tight"
                   title={unit.name ?? ""}
                 >
-                  <StatisticalUnitIcon type={unit.unit_type} className="w-5" />
+                  <StatisticalUnitIcon
+                    type={unit.unit_type}
+                    className="w-5"
+                    hasLegalUnit={unit.has_legal_unit !== false}
+                  />
+
                   <div className="flex flex-1 flex-col space-y-0.5 max-w-56">
                     {unit.unit_type && unit.unit_id && unit.name ? (
                       <StatisticalUnitDetailsLink
