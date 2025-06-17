@@ -48,9 +48,14 @@ export async function middleware(request: NextRequest) {
     const isSecure = request.headers.get('x-forwarded-proto')?.toLowerCase() === 'https';
     const cookieOptions = { path: '/', httpOnly: true, sameSite: 'strict' as const, secure: isSecure };
 
-    // Explicitly clear cookies on redirect to login to ensure a clean state.
+    // When redirecting to login due to an invalid/missing access token,
+    // only clear the access token cookie ('statbus').
+    // Leave the 'statbus-refresh' cookie intact to allow client-side logic
+    // (e.g., on the login page or app initialization) to attempt a refresh.
+    // The refresh token itself will be cleared by /rpc/logout or by /rpc/refresh if it's invalid.
     redirectResponse.cookies.delete({ name: 'statbus', ...cookieOptions });
-    redirectResponse.cookies.delete({ name: 'statbus-refresh', ...cookieOptions }); // Also clear refresh token cookie
+    // Do NOT delete 'statbus-refresh' here.
+    
     return redirectResponse;
   }
 
