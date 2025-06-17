@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense } from "react";
+import React, { Suspense, useCallback } from "react"; // Added useCallback
 import { useAtom } from 'jotai';
 import { numberOfRegionsAtomAsync } from '@/atoms';
 import {
@@ -16,6 +16,10 @@ import { buttonVariants } from "@/components/ui/button";
 
 const RegionsCountDisplay = () => {
   const [numberOfRegions, refreshRegions] = useAtom(numberOfRegionsAtomAsync);
+
+  const memoizedRefreshRelevantCounts = useCallback(async () => {
+    refreshRegions(); // refreshRegions from useAtom is stable
+  }, [refreshRegions]);
 
   return (
     <>
@@ -36,7 +40,7 @@ const RegionsCountDisplay = () => {
       <UploadCSVForm
         uploadView="region_upload"
         nextPage="/getting-started/upload-custom-sectors"
-        refreshRelevantCounts={async () => refreshRegions()}
+        refreshRelevantCounts={memoizedRefreshRelevantCounts}
       />
     </>
   );

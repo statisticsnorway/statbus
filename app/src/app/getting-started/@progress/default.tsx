@@ -1,4 +1,5 @@
 "use client";
+"use client";
 import React, { Suspense, useEffect, useState } from 'react'; // Added useEffect, useState
 import { useAtomValue } from 'jotai';
 import {

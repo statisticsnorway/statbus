@@ -1,6 +1,6 @@
 "use client";
 
-import React, { Suspense } from "react"; // Added Suspense
+import React, { Suspense, useCallback } from "react"; // Added Suspense and useCallback
 import { useAtom } from 'jotai'; // Added useAtom
 import { numberOfCustomSectorsAtomAsync } from '@/atoms'; // Added specific atom
 import { InfoBox } from "@/components/info-box";
@@ -15,6 +15,10 @@ import {
 const CustomSectorsCountDisplay = () => {
   const [numberOfCustomSectors, refreshSectorsCount] = useAtom(numberOfCustomSectorsAtomAsync);
 
+  const memoizedRefreshSectorsCount = useCallback(async () => {
+    refreshSectorsCount(); // refreshSectorsCount from useAtom is stable
+  }, [refreshSectorsCount]);
+
   return (
     <>
       {typeof numberOfCustomSectors === 'number' && numberOfCustomSectors > 0 && (
@@ -27,7 +31,7 @@ const CustomSectorsCountDisplay = () => {
       <UploadCSVForm
         uploadView="sector_custom_only"
         nextPage="/getting-started/upload-custom-legal-forms"
-        refreshRelevantCounts={async () => refreshSectorsCount()}
+        refreshRelevantCounts={memoizedRefreshSectorsCount}
       />
     </>
   );
