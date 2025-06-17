@@ -8,7 +8,7 @@ export async function middleware(request: NextRequest) {
   // Skip auth check for login page, public assets and API endpoints
   if (
     pathname === "/login" ||
-    pathname.startsWith("/test") || // Allow access to the test pages without auth
+    pathname.startsWith("/jotai-state-management-reference") || // Allow access to the example auth setup
     pathname.startsWith("/_next/") ||
     pathname.startsWith("/favicon.ico") ||
     pathname.startsWith("/rest/") || // PostgREST endpoint is proxied/exposed here
