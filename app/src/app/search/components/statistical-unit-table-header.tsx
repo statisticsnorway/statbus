@@ -1,3 +1,5 @@
+"use client";
+
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import SortableTableHead from "@/app/search/components/sortable-table-head";
 import { useBaseData } from "@/atoms/hooks";
