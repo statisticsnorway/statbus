@@ -186,31 +186,70 @@ These extensions provide additional atom types or functionalities and need to be
 - **Relevance**: Useful for managing side effects that are tightly coupled to an atom's state or lifecycle, such as logging, data synchronization, or setting up/tearing down event listeners.
 - **Installation**: `npm install jotai-effect` or `yarn add jotai-effect`
 
-### `jotai-derive` (`derive`, `soon`, `soonAll`)
-- **Package**: `jotai-derive`
-- **Purpose**: Provides primitives (`derive`, `soon`, `soonAll`) for building asynchronous data graphs that act on values as soon as they are available. It helps manage "dual-natured" atoms (which can be sync or async) by awaiting them only when necessary, thus preventing unnecessary deferring, recomputation, and potential micro-suspensions in React.
+### `jotai-eager` (`eagerAtom`, `soon`, `soonAll`)
+- **Package**: `jotai-eager` (formerly `jotai-derive`)
+- **Purpose**: Lets you build asynchronous data graphs without unnecessary suspensions. `eagerAtom` creates atoms where the read function is synchronous, and asynchronicity of dependencies is handled transparently. This helps manage "dual-natured" atoms (which can be sync or async) by acting on values as soon as they are available, preventing unnecessary deferring, recomputation, and potential micro-suspensions in React.
+- **Core Primitive**: `eagerAtom`
+  - The read function must be synchronous.
+  - Dependencies (even async ones) are accessed via `get(someAtom)` without `await`.
+  - The atom's value will be `T | Promise<T>`.
 - **Usage**:
   ```typescript
   import { atom } from 'jotai';
-  import { derive } from 'jotai-derive';
+  import { eagerAtom } from 'jotai-eager';
 
-  // Example: userAtom can be User or Promise<User>
-  const userAtom = atom<User | Promise<User>>(fetchUser()); 
-  
-  // uppercaseNameAtom will be string | Promise<string>
-  // It awaits userAtom only if userAtom is a Promise
-  const uppercaseNameAtom = derive(
-    [userAtom],
-    (user) => user.name.toUpperCase()
-  );
+  const petsAtom = atom<Promise<string[]>>(async () => ['cat', 'dog', 'catfish']);
+  const filterAtom = atom('cat');
 
-  // With multiple dependencies
-  const serverNameAtom = atom<string | Promise<string>>(fetchServerName());
-  const welcomeMessageAtom = derive(
-    [userAtom, serverNameAtom],
-    (user, serverName) => `Welcome ${user.name} to ${serverName}!`
-  );
+  // filteredPetsAtom will be string[] | Promise<string[]>
+  // It will be string[] if only filterAtom changes.
+  // It will be Promise<string[]> if petsAtom is re-evaluated.
+  const filteredPetsAtom = eagerAtom((get) => {
+    const filter = get(filterAtom); // Regular sync access
+    const pets = get(petsAtom);     // ✨ No await, even if petsAtom is async ✨
+    return pets.filter(name => name.includes(filter));
+  });
   ```
-  The `soon` and `soonAll` functions offer more advanced control, especially for conditional dependencies.
-- **Relevance**: Improves performance and stability when working with atoms that might resolve synchronously or asynchronously. It's useful when local cache updates might cause micro-suspensions or when unnecessary re-computation is a concern.
-- **Installation**: `npm install jotai-derive` or `yarn add jotai-derive`
+- **Key APIs within `eagerAtom`'s read function**:
+    - `get(someAtom)`: Accesses dependency values. If `someAtom` is async and not yet resolved, `eagerAtom` handles the promise.
+    - `get.all([atomA, atomB])`: Similar to `Promise.all`, but for atom dependencies. Useful for avoiding request waterfalls.
+      ```typescript
+      // const myMessages = eagerAtom((get) => {
+      //   const [user, messages] = get.all([userAtom, messagesAtom]);
+      //   return messages.filter((msg) => msg.authorId === user.id);
+      // }); // => Atom<Message[] | Promise<Message[]>>
+      ```
+    - `get.await(promise)`: Awaits a regular (non-atom) Promise. The promise must be consistent across read function invocations.
+      ```typescript
+      // const statusAtom = eagerAtom((get) => {
+      //   const statusPromise = get(currentInvoiceAtom).getStatus(); // => Promise<InvoiceStatus>
+      //   const status = get.await(statusPromise);
+      //   return status;
+      // });
+      ```
+- **Handling `try/catch`**:
+  Internal exceptions are used for async control flow. If you use `try/catch` inside an `eagerAtom`, you must rethrow `jotai-eager`'s specific errors:
+  ```typescript
+  import { eagerAtom, isEagerError } from 'jotai-eager';
+  // const fooAtom = eagerAtom((get) => {
+  //   try { /* ... */ } catch (e) {
+  //     if (isEagerError(e)) { throw e; }
+  //     // ... your error handling ...
+  //   }
+  // });
+  ```
+- **Advanced Usage (`soon`, `soonAll`)**:
+  For more fine-grained control or when the purity of `eagerAtom`'s read function is too restrictive, `soon` and `soonAll` can be used for sync/async transformations.
+  ```typescript
+  import { soon, soonAll } from 'jotai-eager';
+  // // Atom<RestrictedItem | null | Promise<RestrictedItem | null>>
+  // const restrictedItemAtom = atom((get) => {
+  //   return soon(
+  //     soonAll(get(isAdminAtom), get(enabledAtom)),
+  //     ([isAdmin, enabled]) =>
+  //       isAdmin && enabled ? get(queryAtom) : null,
+  //   );
+  // });
+  ```
+- **Relevance**: Improves performance and UI stability when working with atoms that might resolve synchronously or asynchronously (dual-natured atoms). It's particularly useful when local cache updates might cause micro-suspensions or when unnecessary re-computation due to promise chaining is a concern. Avoids request waterfalls by allowing eager fetching of multiple async dependencies.
+- **Installation**: `npm install jotai-eager` or `yarn add jotai-eager`
