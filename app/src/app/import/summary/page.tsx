@@ -1,20 +1,27 @@
 "use client";
 
+"use client";
+
 import React from "react";
 import Link from "next/link";
 import { Check, X } from "lucide-react";
-import { useBaseData } from "@/atoms/hooks";
-import { useImportManager } from "@/atoms/hooks"; // Updated import
+import { useBaseData, useImportManager } from "@/atoms/hooks";
+import { Spinner } from "@/components/ui/spinner"; // Import Spinner
 
 export default function ImportCompletedPage() {
   const {
     counts: {
       legalUnits,
       establishmentsWithLegalUnit,
-      establishmentsWithoutLegalUnit
-    }
-  } = useImportManager(); // Updated hook call
-  const { hasStatisticalUnits } = useBaseData();
+      establishmentsWithoutLegalUnit,
+    },
+  } = useImportManager();
+  const {
+    hasStatisticalUnits,
+    loading: baseDataLoading,
+    error: baseDataError,
+  } = useBaseData();
+
   return (
     <div className="space-y-8">
       <h1 className="text-center text-2xl">Summary</h1>
@@ -27,32 +34,50 @@ export default function ImportCompletedPage() {
 
       <div className="space-y-6">
         <SummaryBlock
-          success={!!legalUnits}
-          successText={`You have uploaded ${legalUnits} legal units.`}
+          success={(legalUnits ?? 0) > 0}
+          successText={`You have uploaded ${
+            legalUnits ?? 0
+          } legal units.`}
           failureText="You have not uploaded any legal units"
           failureLink={"/import/legal-units"}
         />
         <SummaryBlock
-          success={!!establishmentsWithLegalUnit}
-          successText={`You have uploaded ${establishmentsWithLegalUnit} establishments with legal units.`}
+          success={(establishmentsWithLegalUnit ?? 0) > 0}
+          successText={`You have uploaded ${
+            establishmentsWithLegalUnit ?? 0
+          } establishments with legal units.`}
           failureText="You have not uploaded any establishments with legal units"
           failureLink={"/import/establishments"}
         />
         <SummaryBlock
-          success={!!establishmentsWithoutLegalUnit}
-          successText={`You have uploaded ${establishmentsWithoutLegalUnit} establishments without legal units.`}
+          success={(establishmentsWithoutLegalUnit ?? 0) > 0}
+          successText={`You have uploaded ${
+            establishmentsWithoutLegalUnit ?? 0
+          } establishments without legal units.`}
           failureText="You have not uploaded any establishments without legal units"
           failureLink={"/import/establishments-without-legal-unit"}
         />
       </div>
 
-      <SummaryBlock
-        success={hasStatisticalUnits}
-        successText="Analysis for Search and Reports completed."
-        failureText="Statistical Units and Reports are not available"
-        failureLink="/getting-started/refresh-statistical-units"
-      />
-      {hasStatisticalUnits ? (
+      {baseDataLoading ? (
+        <div className="flex items-center justify-center space-x-2">
+          <Spinner />
+          <p>Loading analysis status...</p>
+        </div>
+      ) : baseDataError ? (
+        <div className="text-red-600">
+          Error loading analysis status: {baseDataError}
+        </div>
+      ) : (
+        <SummaryBlock
+          success={hasStatisticalUnits}
+          successText="Analysis for Search and Reports completed."
+          failureText="Statistical Units and Reports are not available"
+          failureLink="/import/analyse-data-for-search-and-reports"
+        />
+      )}
+
+      {!baseDataLoading && !baseDataError && hasStatisticalUnits ? (
         <div className="text-center">
           <Link className="underline" href="/">
             Start using Statbus

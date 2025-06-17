@@ -40,13 +40,22 @@ export function ImportJobUpload({
 
   // Effect to navigate when the job (passed as prop) finishes successfully
   useEffect(() => {
-    // Use the job prop
-    if (job?.state === "finished") { 
-      console.log(`Job ${job.slug} finished, navigating to ${nextPage}`);
-      router.push(nextPage);
-    }
-    // Add dependency on job state and router instance
-  }, [job?.state, router, nextPage, job?.slug]);
+    const handleFinishedJob = async () => {
+      if (job?.state === "finished") {
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          console.log(`ImportJobUpload: Job ${job.slug} finished. Refreshing counts and base data before navigating to ${nextPage}.`);
+        }
+        // refreshRelevantCounts is passed as a prop and should be memoized by the parent.
+        // It already includes doRefreshBaseData().
+        await refreshRelevantCounts(); 
+        router.push(nextPage);
+      }
+    };
+
+    handleFinishedJob();
+    // Add refreshRelevantCounts to the dependency array.
+    // Ensure it's memoized in the parent component to avoid unnecessary effect runs.
+  }, [job?.state, job?.slug, nextPage, router, refreshRelevantCounts]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {

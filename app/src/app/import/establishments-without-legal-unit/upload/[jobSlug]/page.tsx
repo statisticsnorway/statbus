@@ -24,6 +24,11 @@ export default function EstablishmentsWithoutLegalUnitUploadPage({
   const doRefreshBaseData = useSetAtom(refreshBaseDataAtom); // Changed atom
   const { jobSlug } = use(params);
 
+  const memoizedRefreshRelevantCounts = useCallback(async () => {
+    await refreshUnitCount('establishmentsWithoutLegalUnit');
+    await doRefreshBaseData();
+  }, [refreshUnitCount, doRefreshBaseData]);
+
   // Local state for job, definition, loading, and error
   const [job, setJob] = useState<ImportJob | null>(null);
   const [definition, setDefinition] = useState<ImportDefinition | null>(null);
@@ -249,10 +254,7 @@ export default function EstablishmentsWithoutLegalUnitUploadPage({
         jobSlug={jobSlug}
         job={job} // Pass local job state
         nextPage="/import/analyse-data-for-search-and-reports" // Next step after this type
-        refreshRelevantCounts={async () => {
-          await refreshUnitCount('establishmentsWithoutLegalUnit');
-          await doRefreshBaseData(); // Changed function call
-        }}
+        refreshRelevantCounts={memoizedRefreshRelevantCounts}
       />
     </section>
   );
