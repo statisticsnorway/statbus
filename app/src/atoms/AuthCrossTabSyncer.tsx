@@ -91,9 +91,13 @@ export const AuthCrossTabSyncer = () => {
       // User was logged in, now logged out
       if (pathname !== '/login') {
         const currentFullPath = `${pathname}${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-        const redirectTarget = `/login?next=${encodeURIComponent(currentFullPath)}`;
+        // If the user was on the root path ('/'), redirect to '/login' without 'next'.
+        // Otherwise, include the 'next' parameter.
+        const redirectTarget = (pathname === '/' && !searchParams.toString()) 
+          ? '/login' 
+          : `/login?next=${encodeURIComponent(currentFullPath)}`;
         if (debug) {
-          console.log(`AuthCrossTabSyncer: Transitioned to logged out. Redirecting to: ${redirectTarget}`);
+          console.log(`AuthCrossTabSyncer: Transitioned to logged out. Current path: "${currentFullPath}". Redirecting to: "${redirectTarget}"`);
         }
         setPendingRedirect(redirectTarget);
       } else {
