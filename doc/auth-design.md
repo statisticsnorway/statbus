@@ -104,7 +104,7 @@ The application is containerized using Docker Compose, orchestrating several ser
 
 ## Authentication Flow
 
-Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, with direct API calls from the browser. Client-side authentication state is managed using Jotai atoms.
+Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, with direct API calls from the browser. Client-side authentication state is managed using Jotai atoms. Mechanisms like an `AuthCrossTabSyncer` component ensure that authentication state changes (login, logout) are synchronized across multiple browser tabs.
 
 1.  **Login:**
     *   User submits email/password to the Next.js app.
@@ -139,7 +139,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
                 *   `USER_MISSING_PASSWORD`: A null password was submitted.
                 *   `WRONG_PASSWORD`: The password provided does not match the stored password for the user.
     *   The browser stores the cookies automatically if set.
-    *   The Next.js app (via `loginAtom`) parses the `auth_response` from the `/rpc/login` call (including the `error_code` if present) and updates the global `authStatusAtom` (Jotai state).
+    *   The Next.js app (via `loginAtom`) parses the `auth_response` from the `/rpc/login` call (including the `error_code` if present) and updates the global `authStatusAtom` (Jotai state). This update is also subject to cross-tab synchronization.
 
 2.  **Authenticated Requests:**
     *   **Client-Side Requests (Browser):**
@@ -176,7 +176,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
         *   Uses `set_config('response.headers', ...)` to create `Set-Cookie` headers that clear the auth cookies.
         *   Returns an `auth.auth_response` object (indicating unauthenticated status).
     *   The browser clears the cookies automatically.
-    *   The Next.js app (via `logoutAtom`) parses the `auth_response` from the `/rpc/logout` call and updates the global `authStatusAtom`.
+    *   The Next.js app (via `logoutAtom`) parses the `auth_response` from the `/rpc/logout` call and updates the global `authStatusAtom`. This update is also subject to cross-tab synchronization.
 
 4.  **Token Refresh:**
     *   Token refresh is handled differently on client and server:
@@ -195,11 +195,13 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
                 *   `AuthStore.handleServerAuth()` parses this `auth_response` and, if successful, uses the `response.cookies.set()` method (provided by the middleware) to stage the new cookies for the outgoing response to the browser.
                 *   The middleware updates the *current request's* headers to reflect the new access token for subsequent processing within the same request lifecycle.
             *   **Current Practicality:** Due to the `statbus-refresh` cookie's `Path=/rest/rpc/refresh` restriction, this server-side refresh mechanism by the middleware is effectively not utilized for typical Next.js page/API requests, as the middleware cannot access the necessary refresh token from the browser's request to such paths. Token refresh is therefore primarily a client-side responsibility.
-        *   **Proactive Refresh (Client-Side - Jotai):**
-            *   The `clientSideRefreshAtom` (Jotai action atom) can be called to proactively refresh tokens.
-            *   It calls the `/rest/rpc/refresh` endpoint using the browser's `PostgrestClient` (which uses `fetchWithAuthRefresh`).
-            *   PostgREST executes `public.refresh()`, returning an `auth_response`.
-            *   The `clientSideRefreshAtom` parses this `auth_response` and updates the global `authStatusAtom`.
+        *   **Proactive Refresh (Client-Side - `AppInitializer` / Jotai):**
+            *   A proactive client-side refresh is attempted during application initialization, typically orchestrated by a component like `AppInitializer`.
+            *   This occurs after the initial authentication status check (`authStatusCoreAtom`) has resolved and if the user is found to be unauthenticated (`authStatusAtom.isAuthenticated` is false) and not in a loading state.
+            *   To prevent loops, this proactive refresh is generally attempted only once per page load or app initialization under these specific conditions.
+            *   The `clientSideRefreshAtom` (Jotai action atom) is invoked to make the `POST` request to `/rest/rpc/refresh`. The browser automatically sends the `statbus-refresh` cookie if available and its path matches.
+            *   If the refresh is successful (HTTP 200 from `/rpc/refresh`), the browser updates its cookies. `AppInitializer` (or the logic handling the refresh response) then triggers a re-evaluation of the global authentication state (e.g., by `set(authStatusCoreAtom)`), which updates `authStatusAtom`.
+            *   If the refresh fails (e.g., HTTP 401), the global authentication state is similarly updated to reflect the continued unauthenticated status.
     *   The `public.refresh` PostgreSQL function:
         *   Extracts the refresh token from cookies.
         *   Validates the token, session, and user.
