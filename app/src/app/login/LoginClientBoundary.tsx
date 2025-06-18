@@ -104,6 +104,8 @@ export default function LoginClientBoundary() {
   }, [
     authStatus.isAuthenticated,
     authStatus.loading, // To ensure we act on stable auth state
+    authStatus.user, // Added based on ESLint warning (indirectly used via authStatus object)
+    authStatus.error_code, // Added based on ESLint warning (indirectly used via authStatus object)
     initialAuthCheckCompleted, // To ensure initial check is done
     pathname, // Current path
     nextPath, // From URL query
