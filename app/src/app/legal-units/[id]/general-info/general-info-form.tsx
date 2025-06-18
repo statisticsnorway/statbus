@@ -52,25 +52,7 @@ export default function GeneralInfoForm({
       </form>
       <form className="flex flex-col gap-4">
         <span className="font-medium">Physical Location</span>
-        <div className="grid lg:grid-cols-2 gap-4">
-          <FormField
-            name="region_id"
-            label="Region"
-            value={
-              physicalLocation?.region
-                ? `${physicalLocation.region.code} ${physicalLocation.region.name}`
-                : null
-            }
-            response={null}
-            readonly
-          />
-          <FormField
-            name="country_id"
-            label="Country"
-            value={physicalLocation?.country?.name}
-            response={null}
-            readonly
-          />
+        <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
           <FormField
             name="address_part1"
             label="Address Part 1"
@@ -92,6 +74,8 @@ export default function GeneralInfoForm({
             response={null}
             readonly
           />
+        </div>
+        <div className="grid lg:grid-cols-2 gap-4">
           <FormField
             name="postcode"
             label="Post Code"
@@ -106,6 +90,26 @@ export default function GeneralInfoForm({
             response={null}
             readonly
           />
+          <FormField
+            name="region_id"
+            label="Region"
+            value={
+              physicalLocation?.region
+                ? `${physicalLocation.region.code} ${physicalLocation.region.name}`
+                : null
+            }
+            response={null}
+            readonly
+          />
+          <FormField
+            name="country_id"
+            label="Country"
+            value={physicalLocation?.country?.name}
+            response={null}
+            readonly
+          />
+        </div>
+        <div className="grid lg:grid-cols-3 gap-4">
           <FormField
             readonly
             label="Latitude"
