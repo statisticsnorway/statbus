@@ -733,6 +733,12 @@ export const loginActionInProgressAtom = atom(false);
 // Atom to signal a redirect required by application setup state (e.g., missing regions)
 export const requiredSetupRedirectAtom = atom<string | null>(null);
 
+// Atom to signal auth events across tabs
+export const authEventTimestampAtom = atomWithStorage('authEventTimestamp', 0);
+
+// Atom to store the last known path before an auth change forced a redirect to /login
+export const lastKnownPathBeforeAuthChangeAtom = atomWithStorage<string | null>('lastKnownPathBeforeAuthChange', null);
+
 // Effect atom using jotai-effect to update authStatusInitiallyCheckedAtom
 // This will run when its dependencies (authStatusLoadableAtom, authStatusInitiallyCheckedAtom) change,
 // or when the effect atom is mounted.
@@ -1129,6 +1135,11 @@ export const loginAtom = atom(
         console.log("[loginAtom] Set loginActionInProgressAtom to true.");
       }
 
+      set(authEventTimestampAtom, Date.now()); // Signal auth change for other tabs
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log("[loginAtom] Set authEventTimestampAtom.");
+      }
+
       // Set pendingRedirectAtom to trigger navigation.
       // Prioritize nextPath if available and valid, otherwise default to '/'.
       const redirectTarget = nextPath && nextPath.startsWith('/') ? nextPath : '/';
@@ -1288,6 +1299,11 @@ export const logoutAtom = atom(
     set(importStateAtom, { isImporting: false, progress: 0, currentFile: null, errors: [], completed: false, useExplicitDates: false, selectedImportTimeContextIdent: null });
     set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
     
+    set(authEventTimestampAtom, Date.now()); // Signal auth change for other tabs
+    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      console.log("[logoutAtom] Set authEventTimestampAtom.");
+    }
+
     // Set pendingRedirectAtom to trigger navigation to /login via RedirectHandler
     set(pendingRedirectAtom, '/login');
     if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
@@ -2079,4 +2095,6 @@ export const atoms = {
   pendingRedirectAtom,
   loginActionInProgressAtom,
   requiredSetupRedirectAtom,
+  authEventTimestampAtom,
+  lastKnownPathBeforeAuthChangeAtom,
 }

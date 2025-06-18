@@ -32,6 +32,7 @@ import {
   loginActionInProgressAtom,
   requiredSetupRedirectAtom, // Import the new atom
 } from './index';
+import { AuthCrossTabSyncer } from './AuthCrossTabSyncer'; // Import the new syncer
 
 // ============================================================================
 // APP INITIALIZER - Handles startup logic
@@ -527,7 +528,8 @@ export const JotaiAppProvider = ({
       <Suspense fallback={loadingFallback}>
         <AppInitializer>
           <AuthStatusHandler>
-            <RedirectHandler /> {/* Add RedirectHandler here */}
+            <RedirectHandler />
+            <AuthCrossTabSyncer /> {/* Add the cross-tab syncer */}
             {enableSSE ? (
               <SSEConnectionManager>
                 {children}

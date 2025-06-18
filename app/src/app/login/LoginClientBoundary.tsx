@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef } from "react"; // Import useRef
-import { useRouter, useSearchParams } from "next/navigation";
-import { useAtomValue, useSetAtom } from "jotai";
-import { authStatusAtom, authStatusInitiallyCheckedAtom, pendingRedirectAtom, loginActionInProgressAtom } from "@/atoms"; // Added loginActionInProgressAtom
+import { useRouter, useSearchParams, usePathname } from "next/navigation"; // Added usePathname
+import { useAtomValue, useSetAtom, useAtom } from "jotai"; // Added useAtom
+import { authStatusAtom, authStatusInitiallyCheckedAtom, pendingRedirectAtom, loginActionInProgressAtom, lastKnownPathBeforeAuthChangeAtom } from "@/atoms"; // Added loginActionInProgressAtom and lastKnownPathBeforeAuthChangeAtom
 import LoginForm from "./LoginForm"; // LoginForm.tsx is in the same directory
 
 export default function LoginClientBoundary() {
@@ -15,7 +15,9 @@ export default function LoginClientBoundary() {
   const pendingRedirectValue = useAtomValue(pendingRedirectAtom);
   const setPendingRedirect = useSetAtom(pendingRedirectAtom);
   const loginActionIsActive = useAtomValue(loginActionInProgressAtom); // Read the new flag
-  const hasAttemptedRedirectRef = useRef(false); // Tracks if this component instance has tried to redirect
+  const [lastPathBeforeAuthChange, setLastPathBeforeAuthChange] = useAtom(lastKnownPathBeforeAuthChangeAtom);
+  const pathname = usePathname(); // Get current pathname
+  const redirectInitiatedByThisInstanceRef = useRef(false);
 
   useEffect(() => {
     const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
@@ -51,76 +53,70 @@ export default function LoginClientBoundary() {
     // At this point, initialAuthCheckCompleted is true AND authStatus.loading is false.
     // Now we can reliably check isAuthenticated.
     if (authStatus.isAuthenticated) {
-      // If a redirect is already pending (e.g., set by loginAtom),
-      // OR a login action is actively managing a redirect,
-      // OR this instance has already attempted a redirect for the current authenticated session on this page,
-      // let RedirectHandler manage it or do nothing further.
-      if (pendingRedirectValue || loginActionIsActive || hasAttemptedRedirectRef.current) {
-        if (debug) {
-          console.log(`LoginClientBoundary: Authenticated. Conditions to skip setting redirect: pendingRedirectValue="${pendingRedirectValue}", loginActionIsActive=${loginActionIsActive}, hasAttemptedRedirectRef=${hasAttemptedRedirectRef.current}. No action here.`);
+      // Only act if:
+      // 1. We are on the /login page.
+      // 2. No other redirect is already pending (`pendingRedirectValue` is null).
+      // 3. No login action is currently in progress.
+      // 4. This specific instance of LoginClientBoundary has not already initiated a redirect.
+      if (pathname === '/login' && pendingRedirectValue === null && !loginActionIsActive && !redirectInitiatedByThisInstanceRef.current) {
+        // User is authenticated and on the login page, and no other redirect is active or initiated by this instance.
+        // This means they landed here authenticated, or became authenticated via another tab.
+        // Set pendingRedirectAtom. RedirectHandler will pick it up.
+        
+        let targetRedirectPath: string;
+        if (lastPathBeforeAuthChange) {
+          targetRedirectPath = lastPathBeforeAuthChange;
+          if (debug) {
+            console.log(`LoginClientBoundary: Using lastKnownPathBeforeAuthChange for redirect: "${targetRedirectPath}". Clearing it.`);
+          }
+          setLastPathBeforeAuthChange(null); // Clear after use
+        } else {
+          targetRedirectPath = nextPath && nextPath.startsWith('/') ? nextPath : '/';
         }
-        return;
+        
+        if (debug) {
+          console.log(`LoginClientBoundary: Authenticated on /login. Initiating redirect to "${targetRedirectPath}". Setting redirectInitiatedByThisInstanceRef to true.`);
+        }
+        setPendingRedirect(targetRedirectPath);
+        redirectInitiatedByThisInstanceRef.current = true; // Mark that this instance has initiated a redirect
+      } else {
+        if (debug) {
+          let reason = "";
+          if (pathname !== '/login') reason += "Not on /login page. ";
+          if (pendingRedirectValue !== null) reason += `Redirect already pending ("${pendingRedirectValue}"). `;
+          if (loginActionIsActive) reason += "Login action is active. ";
+          if (redirectInitiatedByThisInstanceRef.current && pathname === '/login') reason += "This instance already initiated a redirect. ";
+          console.log(`LoginClientBoundary: Authenticated. Conditions to redirect NOT met: ${reason.trim()} No action here.`);
+        }
       }
-
-      // No redirect pending from loginAtom, no login action active, and this instance hasn't tried yet.
-      // This means the user is authenticated either upon arrival or due to an external event.
-      // Set pendingRedirectAtom. RedirectHandler will pick it up.
-      // Target 'nextPath' if it exists from URL, otherwise '/'.
-      const targetRedirectPath = nextPath && nextPath.startsWith('/') ? nextPath : '/';
-      if (debug) {
-        console.log(`LoginClientBoundary: Authenticated. No other redirect active or attempted by this instance. Setting pendingRedirectAtom to "${targetRedirectPath}".`);
-      }
-      setPendingRedirect(targetRedirectPath);
-      hasAttemptedRedirectRef.current = true; // Mark that this instance has now attempted a redirect.
     } else {
-      // If user becomes unauthenticated (e.g. token expires and status updates) while on the login page,
-      // reset the flag so a new redirect attempt can be made if they re-authenticate without leaving.
-      if (hasAttemptedRedirectRef.current) { // Only log if it was true
+      // User is not authenticated. Reset the flag if it was set.
+      if (redirectInitiatedByThisInstanceRef.current) {
         if (debug) {
-          console.log("LoginClientBoundary: User is not authenticated. Resetting hasAttemptedRedirectRef.");
+          console.log("LoginClientBoundary: User became unauthenticated. Resetting redirectInitiatedByThisInstanceRef to false.");
         }
+        redirectInitiatedByThisInstanceRef.current = false;
       }
-      hasAttemptedRedirectRef.current = false;
       if (debug) {
-        console.log("LoginClientBoundary: Conditions for setting a redirect NOT met: initialAuthCheckCompleted=true, authLoading=false, but isAuthenticated=false. No action from login page boundary.");
+        console.log("LoginClientBoundary: User not authenticated. No redirect action from login page boundary.");
       }
     }
   }, [
     authStatus.isAuthenticated,
-    authStatus.loading,
-    authStatus.user,
-    authStatus.error_code,
-    initialAuthCheckCompleted,
-    router, // router is stable, but included per ESLint rules for hooks
-    nextPath, 
-    pendingRedirectValue,
-    setPendingRedirect, // setPendingRedirect is stable
-    loginActionIsActive,
-    // Add pathname to dependencies if used to scope the effect, though LoginClientBoundary is only on /login
+    authStatus.loading, // To ensure we act on stable auth state
+    initialAuthCheckCompleted, // To ensure initial check is done
+    pathname, // Current path
+    nextPath, // From URL query
+    pendingRedirectValue, // Current value of pendingRedirectAtom
+    loginActionIsActive, // Is loginAtom currently handling a redirect
+    setPendingRedirect, // To set the redirect
+    lastPathBeforeAuthChange, // Add as dependency
+    setLastPathBeforeAuthChange // Add as dependency
+    // router is not needed here anymore as RedirectHandler does the push
   ]);
 
-  // Unmount effect to reset the ref
-  useEffect(() => {
-    const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
-    return () => {
-      if (debug) {
-        console.log("LoginClientBoundary: Unmounting. Resetting hasAttemptedRedirectRef (final cleanup).");
-      }
-      // Note: hasAttemptedRedirectRef is a ref, its .current property is mutable
-      // and doesn't need to be in a dependency array for its value to be up-to-date.
-      // This cleanup ensures it's false if the component is fully removed.
-      // hasAttemptedRedirectRef.current = false; // This line would modify the ref of the *next* render if not careful.
-      // The ref itself persists across renders. The reset is handled by the main effect if auth state changes,
-      // or on fresh mount the ref is new. The unmount cleanup is primarily for logical completeness if needed,
-      // but the main effect's reset on `!isAuthenticated` is more critical for same-page re-auth.
-      // For this specific case, an explicit unmount reset of the ref might not be strictly necessary
-      // as a new mount will get a fresh `useRef(false)`.
-    };
-  }, []);
-
-
-  // The loginActionInProgressAtom is now set by loginAtom and cleared by RedirectHandler.
-  // No need for local ref management or unmount effect here for that atom.
+  // The loginActionInProgressAtom is set by loginAtom and cleared by RedirectHandler.
+  // The hasAttemptedRedirectRef and its unmount effect are removed.
 
   // Render the LoginForm. The useEffect above will set pendingRedirectAtom if needed,
   // assuming the user lands on /login already authenticated and no login action is active.
