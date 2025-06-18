@@ -235,7 +235,111 @@ These extensions provide additional atom types or functionalities and need to be
   });
   ```
 - **Relevance**: Useful for managing side effects that are tightly coupled to an atom's state or lifecycle, such as logging, data synchronization, or setting up/tearing down event listeners.
-- **Installation**: `npm install jotai-effect` or `yarn add jotai-effect`
+- **Installation**: `npm install jotai-effect` or `yarn add jotai-effect` or `pnpm add jotai-effect`
+
+### `jotai-xstate` (`atomWithMachine`)
+- **Package**: `jotai-xstate` (requires `xstate`)
+- **Purpose**: Integrates XState, a library for creating, interpreting, and executing finite state machines and statecharts, with Jotai. This allows for more structured and robust state management for complex scenarios.
+- **Installation**: `npm install xstate jotai-xstate` or `yarn add xstate jotai-xstate` or `pnpm add xstate jotai-xstate`
+- **`atomWithMachine`**:
+  - Creates a new atom that represents the state of an XState machine.
+  - It takes a function `getMachine` as an argument. This function is called when the atom is first used and receives a `get` function, allowing it to read other atom values during the machine's initialization.
+  - **Usage Example**:
+    ```typescript
+    import { atom, useAtom } from 'jotai';
+    import { atomWithMachine } from 'jotai-xstate';
+    import { assign, createMachine } from 'xstate';
+
+    // Define the machine
+    const createEditableMachine = (value: string) =>
+      createMachine<{ value: string }>({
+        id: 'editable',
+        initial: 'reading',
+        context: {
+          value,
+        },
+        states: {
+          reading: {
+            on: {
+              dblclick: 'editing',
+            },
+          },
+          editing: {
+            on: {
+              cancel: 'reading',
+              commit: {
+                target: 'reading',
+                actions: assign({
+                  value: (_event, { value }: { value: string }) => value,
+                }),
+              },
+            },
+          },
+        },
+      });
+
+    // Create an atom for the default text
+    const defaultTextAtom = atom('edit me');
+
+    // Create the machine atom, initializing with value from another atom
+    const editableMachineAtom = atomWithMachine((get) =>
+      createEditableMachine(get(defaultTextAtom))
+    );
+
+    // Example component using the machine atom
+    const EditableText = () => {
+      const [state, send] = useAtom(editableMachineAtom);
+
+      if (state.matches('reading')) {
+        return (
+          <strong onDoubleClick={() => send({ type: 'dblclick' })}>
+            {state.context.value}
+          </strong>
+        );
+      }
+
+      if (state.matches('editing')) {
+        return (
+          <input
+            autoFocus
+            defaultValue={state.context.value}
+            onBlur={(e) => send({ type: 'commit', value: e.target.value })}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                send({ type: 'commit', value: e.target.value });
+              }
+              if (e.key === 'Escape') {
+                send({ type: 'cancel' });
+              }
+            }}
+          />
+        );
+      }
+      return null;
+    };
+    ```
+  - **Restarting a Machine**: If a machine reaches its final state and is used in a global store (provider-less mode), it can be restarted by sending a special `RESTART` event imported from `jotai-xstate`.
+    ```typescript
+    import { useAtom } from 'jotai';
+    // import { useEffect } from 'react'; // Required for the example below
+    import { atomWithMachine, RESTART } from 'jotai-xstate';
+    // import { yourMachineAtom } from './yourAtoms'; // Placeholder for your machine atom
+
+    // const YourComponent = () => {
+    //   const [current, send] = useAtom(yourMachineAtom);
+    //   const isFinalState = current.matches('myFinalState'); // Replace with your actual final state
+    //   useEffect(() => {
+    //     // Restart globally initialized machine on component unmount if in final state
+    //     return () => {
+    //       if (isFinalState) {
+    //         send(RESTART);
+    //       }
+    //     };
+    //   }, [isFinalState, send]);
+    // };
+    ```
+- **Relevance**: Provides a powerful way to manage complex, explicit state transitions and logic within a Jotai application, leveraging XState's capabilities for finite state machines.
+- **More Info**: See the [official `jotai-xstate` documentation](https://jotai.org/docs/extensions/xstate) and the [Egghead.io course on Jotai and XState](https://egghead.io/courses/complex-state-management-in-react-with-jotai-and-xstate-3be0a740).
 
 ### `jotai-eager` (`eagerAtom`, `soon`, `soonAll`)
 - **Package**: `jotai-eager` (formerly `jotai-derive`)
@@ -303,4 +407,9 @@ These extensions provide additional atom types or functionalities and need to be
   // });
   ```
 - **Relevance**: Improves performance and UI stability when working with atoms that might resolve synchronously or asynchronously (dual-natured atoms). It's particularly useful when local cache updates might cause micro-suspensions or when unnecessary re-computation due to promise chaining is a concern. Avoids request waterfalls by allowing eager fetching of multiple async dependencies.
-- **Installation**: `npm install jotai-eager` or `yarn add jotai-eager`
+- **Development Environment Considerations**:
+  - In development environments (e.g., with Next.js HMR/Fast Refresh), `eagerAtom` has been observed to cause instability, particularly when multiple browser tabs are open.
+  - Issues noted include indefinite hangs on pages using `eagerAtom`, which can also stall other unrelated tabs, preventing them from loading or completing operations like login/logout until the tab with `eagerAtom` is closed. This behavior is documented with examples in `app/src/app/jotai-state-management-reference/page.tsx`.
+  - This instability might be due to interactions between `eagerAtom`'s sync/async handling (especially with `atomWithRefresh`), development server tooling, and shared state management across multiple "instances" or refreshes of the atom graph.
+  - **Recommendation**: If such instability is observed, consider avoiding `eagerAtom` for critical flows (like core authentication) in favor of more direct patterns (e.g., using `loadable` and explicit state handling).
+- **Installation**: `npm install jotai-eager` or `yarn add jotai-eager` or `pnpm add jotai-eager`
