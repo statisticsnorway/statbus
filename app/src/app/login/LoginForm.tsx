@@ -4,7 +4,11 @@ import React, { useState } from "react";
 import { useAuth } from "@/atoms/hooks";
 import { useRouter } from "next/navigation";
 
-export default function LoginForm() {
+interface LoginFormProps {
+  nextPath: string | null;
+}
+
+export default function LoginForm({ nextPath }: LoginFormProps) {
   const { login } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
@@ -50,7 +54,7 @@ export default function LoginForm() {
       // A better way would be for loginAtom to return the full auth_response.
       // For now, I'll proceed as if `error.cause` might contain the error_code.
 
-      await login({ email, password });
+      await login({ credentials: { email, password }, nextPath });
       
       // If loginAtom completes without error, it means the /rest/rpc/login was successful (2xx)
       // AND the subsequent refresh of authStatusCoreAtom (via /rest/rpc/auth_status) also indicated authenticated.

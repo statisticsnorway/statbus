@@ -28,7 +28,9 @@ import {
   numberOfRegionsAtomAsync,
   restClientAtom as importedRestClientAtom, // Alias to avoid conflict with local restClient variable
   type ValidWorkerFunctionName, // Import the type
-  pendingRedirectAtom, // Import pendingRedirectAtom
+  pendingRedirectAtom,
+  loginActionInProgressAtom,
+  requiredSetupRedirectAtom, // Import the new atom
 } from './index';
 
 // ============================================================================
@@ -46,13 +48,14 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const initializeTableColumnsAction = useSetAtom(initializeTableColumnsAtom);
   const refreshUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
 
-  const router = useRouter();
-  const pathname = usePathname();
+  // const router = useRouter(); // router.push will be removed from here
+  const pathname = usePathname(); // Still needed to gate setup checks
   const baseData = useAtomValue(baseDataAtom);
-  const { statDefinitions } = baseData; // Specifically get statDefinitions for the new effect
+  const { statDefinitions } = baseData;
   const activityStandard = useAtomValue(activityCategoryStandardSettingAtomAsync);
   const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync);
-  const [isRedirectingToSetup, setIsRedirectingToSetup] = useState(false); // Flag to prevent double redirect
+  const setRequiredSetupRedirect = useSetAtom(requiredSetupRedirectAtom);
+  // isRedirectingToSetup flag is removed as RedirectHandler manages actual navigation.
   
   // Initialize REST client
   useEffect(() => {
@@ -191,68 +194,45 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 
   // Effect for redirecting to setup pages if necessary
   useEffect(() => {
-    let mounted = true;
-    if (!mounted) return;
-
     const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
     const isAuthLoading = authLoadableValue.state === 'loading';
 
-    // Early exit if critical conditions are not met or already redirecting
-    if (isRedirectingToSetup || pathname !== '/' || !currentIsAuthenticated || isAuthLoading || !initialAuthCheckDone || !restClient) {
-      if (pathname !== '/' || !currentIsAuthenticated ) { 
-        setIsRedirectingToSetup(false);
-      }
+    // Setup checks are only relevant if on the dashboard ('/') and authenticated.
+    if (pathname !== '/' || !currentIsAuthenticated || isAuthLoading || !initialAuthCheckDone || !restClient) {
+      // If not in a state where setup redirects are relevant, ensure no setup redirect is pending.
+      setRequiredSetupRedirect(null);
       return;
     }
 
-    // At this point: on '/', authenticated, not loading, client ready, initial auth check done, and not currently in a redirect loop.
+    // At this point: on '/', authenticated, not loading, client ready, initial auth check done.
+    let targetSetupPath: string | null = null;
 
-    // Check 1: Activity Standard
-    // `activityStandard` is the value from `useAtomValue(activityCategoryStandardSettingAtomAsync)`
     if (activityStandard === null) {
+      targetSetupPath = '/getting-started/activity-standard';
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("AppInitializer: No activity category standard set. Pushing to /getting-started/activity-standard.");
+        console.log(`AppInitializer: Setup check - No activity standard. Target: ${targetSetupPath}`);
       }
-      setIsRedirectingToSetup(true);
-      router.push('/getting-started/activity-standard');
-      return; 
+    } else if (numberOfRegions === null || numberOfRegions === 0) {
+      targetSetupPath = '/getting-started/upload-regions';
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`AppInitializer: Setup check - No regions (count: ${numberOfRegions}). Target: ${targetSetupPath}`);
+      }
+    } else if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
+      targetSetupPath = '/import';
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`AppInitializer: Setup check - No statistical units. Target: ${targetSetupPath}`);
+      }
     }
 
-    // Check 2: Regions (only if activity standard is set)
-    // `numberOfRegions` is the value from `useAtomValue(numberOfRegionsAtomAsync)`
-    // It will be null if still loading or on error, or a number once resolved.
-    if (numberOfRegions === null || numberOfRegions === 0) {
-      // If numberOfRegions is null, it might be loading. We redirect if it's explicitly 0 or still null (initial load/error).
-      // A more robust check might involve a separate loading state for numberOfRegionsAtomAsync if needed,
-      // but for now, this covers "not yet loaded" or "loaded and is zero".
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`AppInitializer: Activity standard is set, but regions count is ${numberOfRegions}. Pushing to /getting-started/upload-regions.`);
+    // Set or clear the setup redirect atom based on checks.
+    setRequiredSetupRedirect(targetSetupPath);
+    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+      if (targetSetupPath) {
+        console.log(`AppInitializer: Setting requiredSetupRedirectAtom to "${targetSetupPath}".`);
+      } else {
+        // console.log("AppInitializer: All setup checks passed. Ensuring requiredSetupRedirectAtom is null.");
       }
-      setIsRedirectingToSetup(true);
-      router.push('/getting-started/upload-regions');
-      return;
     }
-
-    // Check 3: Statistical Units (only if activity standard is set AND regions exist)
-    // `baseData.hasStatisticalUnits` and `baseData.statDefinitions.length` are in the dependency array.
-    // We check `baseData.statDefinitions.length > 0` as a proxy for `baseData` being loaded.
-    if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("AppInitializer: Activity standard set, regions exist, but no statistical units found. Pushing to /import.");
-      }
-      setIsRedirectingToSetup(true);
-      router.push('/import');
-      return;
-    }
-    
-    // If all checks passed (i.e., no redirect was triggered in this run of the effect)
-    if (isRedirectingToSetup) {
-       setIsRedirectingToSetup(false);
-    }
-    
-    return () => {
-      mounted = false;
-    };
   }, [
     pathname,
     authLoadableValue,
@@ -260,10 +240,9 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     restClient,
     activityStandard,
     numberOfRegions,
-    baseData.hasStatisticalUnits, 
-    baseData.statDefinitions.length, 
-    router,
-    isRedirectingToSetup, 
+    baseData.hasStatisticalUnits,
+    baseData.statDefinitions.length,
+    setRequiredSetupRedirect // Add setter to dependencies
   ]);
   
   return <>{children}</>
@@ -274,20 +253,79 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 // ============================================================================
 
 const RedirectHandler = () => {
-  const [path, setPath] = useAtom(pendingRedirectAtom);
+  const [explicitRedirectPath, setExplicitRedirectPath] = useAtom(pendingRedirectAtom);
+  const [setupRedirectPathValue, setSetupRedirectPath] = useAtom(requiredSetupRedirectAtom);
+  const [loginActionIsActive, setLoginActionInProgress] = useAtom(loginActionInProgressAtom); // Added
   const router = useRouter();
+  const currentPathname = usePathname();
 
   useEffect(() => {
-    if (path) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`RedirectHandler: Navigating to "${path}".`);
-      }
-      router.push(path);
-      setPath(null); // Clear the atom after redirecting
-    }
-  }, [path, router, setPath]);
+    let determinedTargetPath: string | null = null;
+    let clearAtomFunction: (() => void) | null = null;
+    let wasLoginRedirect = false;
 
-  return null; // This component does not render anything
+    // Priority 1: Explicit redirects (e.g., from login/logout)
+    if (explicitRedirectPath) {
+      determinedTargetPath = explicitRedirectPath;
+      clearAtomFunction = () => setExplicitRedirectPath(null);
+      if (loginActionIsActive) { // Check if this explicit redirect was from a login action
+        wasLoginRedirect = true;
+      }
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`RedirectHandler: Explicit redirect requested to "${determinedTargetPath}". Login action active: ${loginActionIsActive}.`);
+      }
+    } 
+    // Priority 2: Setup redirects
+    else if (setupRedirectPathValue) {
+      determinedTargetPath = setupRedirectPathValue;
+      clearAtomFunction = () => setSetupRedirectPath(null);
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`RedirectHandler: Setup redirect requested to "${determinedTargetPath}".`);
+      }
+    }
+
+    if (determinedTargetPath && determinedTargetPath !== currentPathname) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`RedirectHandler: Navigating to "${determinedTargetPath}" from "${currentPathname}". Clearing relevant redirect atom first.`);
+      }
+      if (clearAtomFunction) {
+        clearAtomFunction();
+      }
+      router.push(determinedTargetPath);
+      // If this was a login-triggered redirect, clear the loginActionInProgressAtom flag
+      if (wasLoginRedirect) {
+        setLoginActionInProgress(false);
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          console.log(`RedirectHandler: Cleared loginActionInProgressAtom after login-triggered navigation to "${determinedTargetPath}".`);
+        }
+      }
+    } else if (determinedTargetPath && determinedTargetPath === currentPathname) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`RedirectHandler: Already on target path "${determinedTargetPath}". Clearing relevant redirect atom if set.`);
+      }
+      if (clearAtomFunction) {
+        clearAtomFunction();
+      }
+      // If already on the target page and it was a login redirect, also clear the flag
+      if (wasLoginRedirect) {
+        setLoginActionInProgress(false);
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          console.log(`RedirectHandler: Already on target. Cleared loginActionInProgressAtom for path "${determinedTargetPath}".`);
+        }
+      }
+    }
+  }, [
+    explicitRedirectPath, 
+    setupRedirectPathValue, 
+    router, 
+    currentPathname, 
+    setExplicitRedirectPath, 
+    setSetupRedirectPath,
+    loginActionIsActive,      // Added
+    setLoginActionInProgress  // Added
+  ]);
+
+  return null;
 };
 
 // ============================================================================

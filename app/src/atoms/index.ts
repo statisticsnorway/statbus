@@ -727,6 +727,12 @@ export const searchStateInitializedAtom = atom(false);
 // Atom for programmatic redirects
 export const pendingRedirectAtom = atom<string | null>(null);
 
+// Atom to signal that a login action is currently managing a redirect
+export const loginActionInProgressAtom = atom(false);
+
+// Atom to signal a redirect required by application setup state (e.g., missing regions)
+export const requiredSetupRedirectAtom = atom<string | null>(null);
+
 // Effect atom using jotai-effect to update authStatusInitiallyCheckedAtom
 // This will run when its dependencies (authStatusLoadableAtom, authStatusInitiallyCheckedAtom) change,
 // or when the effect atom is mounted.
@@ -1033,7 +1039,7 @@ export const fetchAndSetAuthStatusAtom = atom(null, async (get, set) => {
 
 export const loginAtom = atom(
   null,
-  async (get, set, credentials: { email: string; password: string }) => {
+  async (get, set, { credentials, nextPath }: { credentials: { email: string; password: string }, nextPath: string | null }) => {
     // No need to manually set loading states on authStatusAtom now.
     // Components will observe authStatusLoadableAtom.
     const apiUrl = process.env.NEXT_PUBLIC_BROWSER_REST_URL || '';
@@ -1115,10 +1121,20 @@ export const loginAtom = atom(
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
         console.log("[loginAtom] authStatusCoreAtom refresh completed. loginAtom resolving.");
       }
-      // Set pendingRedirectAtom to trigger navigation to / via RedirectHandler
-      set(pendingRedirectAtom, '/');
+      
+      // Signal that a login action is now managing the redirect.
+      // This must be set BEFORE pendingRedirectAtom to allow RedirectHandler to identify the source.
+      set(loginActionInProgressAtom, true);
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("[loginAtom] Set pendingRedirectAtom to '/'.");
+        console.log("[loginAtom] Set loginActionInProgressAtom to true.");
+      }
+
+      // Set pendingRedirectAtom to trigger navigation.
+      // Prioritize nextPath if available and valid, otherwise default to '/'.
+      const redirectTarget = nextPath && nextPath.startsWith('/') ? nextPath : '/';
+      set(pendingRedirectAtom, redirectTarget);
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log(`[loginAtom] Set pendingRedirectAtom to '${redirectTarget}'.`);
       }
 
     } catch (error) {
@@ -2059,6 +2075,8 @@ export const atoms = {
   // Derived UI States
   analysisPageVisualStateAtom,
 
-  // Pending Redirect
+  // Pending Redirect & Action Coordination
   pendingRedirectAtom,
+  loginActionInProgressAtom,
+  requiredSetupRedirectAtom,
 }
