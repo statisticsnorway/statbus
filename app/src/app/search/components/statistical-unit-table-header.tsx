@@ -163,21 +163,21 @@ export function StatisticalUnitTableHeader({
               );
             case "birth_date":
               return (
-                <TableHead
+                <SortableTableHead
                   className="text-left hidden lg:table-cell"
                   key={`h-cell-${headerCellSuffix(column)}`}
-                >
-                  Birth Date
-                </TableHead>
+                  name="birth_date"
+                  label="Birth Date"
+                />
               );
             case "death_date":
               return (
-                <TableHead
+                <SortableTableHead
                   className="text-left hidden lg:table-cell"
                   key={`h-cell-${headerCellSuffix(column)}`}
-                >
-                  Death Date
-                </TableHead>
+                  name="death_date"
+                  label="Death Date"
+                />
               );
             case "status":
               return (
