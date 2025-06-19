@@ -119,7 +119,7 @@ module Statbus
             # Default to regular_user if role not specified
             role = user["role"]?.try(&.as_s) || "regular_user"
             # Gracefully change from old name to new name, to avoid too many changes.
-            if role == "super_user"
+            if role == "admin_user"
               role = "admin_user"
             end
 

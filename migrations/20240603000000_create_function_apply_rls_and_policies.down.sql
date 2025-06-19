@@ -16,7 +16,7 @@ BEGIN
         WHERE policyname LIKE '%_authenticated_read'
            OR policyname LIKE '%_regular_user_read'
            OR policyname LIKE '%_regular_user_manage'
-           OR policyname LIKE '%_super_user_manage'
+           OR policyname LIKE '%_admin_user_manage'
     LOOP
         RAISE NOTICE 'Dropping policy % on %.%',
             policy.policyname,

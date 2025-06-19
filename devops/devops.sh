@@ -17,7 +17,7 @@ extract_info() {
   ssh "$user@niue.statbus.org" bash <<'EOF'
 set -euo pipefail
 export $(egrep -v '^#' ~/statbus/.env | xargs)
-statbus_users=$(yq '.[] | "  " + .email + " " + (.role // "super_user") + " " + .password' ~/statbus/.users.yml)
+statbus_users=$(yq '.[] | "  " + .email + " " + (.role // "admin_user") + " " + .password' ~/statbus/.users.yml)
 cat <<EOS
 ############################################################
 ## ${STATBUS_URL} - ${NEXT_PUBLIC_DEPLOYMENT_SLOT_CODE} - ${NEXT_PUBLIC_DEPLOYMENT_SLOT_NAME}
