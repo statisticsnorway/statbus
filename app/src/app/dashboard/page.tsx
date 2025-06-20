@@ -1,6 +1,6 @@
 export const dynamic = 'force-dynamic';
 
-import { ReactNode, Suspense } from "react";
+import { ReactNode, Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { StatisticalUnitCountCard } from "@/app/dashboard/statistical-unit-count-card";
 import { FallBackCard } from "@/app/dashboard/fallBack-card";
@@ -13,8 +13,49 @@ import { ActivityCategoryCard } from "@/app/dashboard/activity-category-card";
 import { StatisticalVariableCountCard } from "@/app/dashboard/statistical-variable-count-card";
 import { Database, Gauge } from "lucide-react";
 import { TotalActivityCategoryCard } from "./total-activity-category-card";
+import { PostgrestError } from "@supabase/postgrest-js";
+import { getBrowserRestClient } from "@/context/RestClientStore";
+import { format } from "date-fns";
+import { useBaseData } from "@/atoms/hooks";
 
-export default function Dashboard() { // Removed async
+export default function Dashboard() {
+  // Removed async
+  const { statbusUsers } = useBaseData();
+  const [editInfo, setEditInfo] = useState<{
+    data: {
+      last_edit_at: string | null;
+      last_edit_by_user_id: number | null;
+    } | null;
+    error: PostgrestError | null;
+  }>({ data: null, error: null });
+
+  useEffect(() => {
+    const fetchData = async () => {
+      const client = await getBrowserRestClient();
+      const { data, error } = await client
+        .from("statistical_unit")
+        .select("last_edit_at, last_edit_by_user_id")
+        .order("last_edit_at", { ascending: false })
+        .limit(1)
+        .single();
+      setEditInfo({ data, error });
+    };
+    fetchData();
+  }, []);
+
+  const { data } = editInfo;
+  
+  const formattedLastEditAt = data?.last_edit_at
+    ? format(new Date(data.last_edit_at), "yyyy-MM-dd HH:mm:ss")
+    : null;
+
+  const lastEditBy = data?.last_edit_by_user_id
+    ? statbusUsers
+        .find((u) => u.id === editInfo.data?.last_edit_by_user_id)
+        ?.email?.split("@")[0]
+        .replace(/\./, " ")
+    : null;
+
   return (
     <main className="mx-auto flex max-w-5xl flex-col px-2 py-8 md:py-12 w-full space-y-8 lg:space-y-10">
       <h1 className="text-center text-2xl">Statbus Status Dashboard</h1>
@@ -22,6 +63,8 @@ export default function Dashboard() { // Removed async
       <DashboardSection
         title="Data Metrics"
         icon={<Database className="w-4 h-4 stroke-current" />}
+        lastEditAt={formattedLastEditAt}
+        lastEditBy={lastEditBy}
       >
         <Link href="/search?unit_type=enterprise">
           <Suspense fallback={<FallBackCard title="Enterprises" />}>
@@ -116,17 +159,28 @@ export default function Dashboard() { // Removed async
 const DashboardSection = ({
   title,
   icon,
+  lastEditAt,
+  lastEditBy,
   children,
 }: {
   title: string;
   icon: ReactNode;
+  lastEditAt?: string | null;
+  lastEditBy?: string | null;
   children?: ReactNode;
 }) => {
   return (
     <div>
       <div className="flex justify-between items-center border border-b-0 py-2 px-4 rounded-t bg-gray-100">
         <h2 className="text-xs uppercase font-semibold">{title}</h2>
-        {icon}
+        <div className="flex ">
+          {lastEditAt && lastEditBy && (
+            <p className="text-xs text-zinc-500 mr-2">
+              Last update: {lastEditAt} by {lastEditBy}
+            </p>
+          )}
+          {icon}
+        </div>
       </div>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 p-2 lg:p-4 border border-t-0 rounded-b">
         {children}
