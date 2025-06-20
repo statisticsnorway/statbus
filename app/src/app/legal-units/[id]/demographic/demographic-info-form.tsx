@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { SubmissionFeedbackDebugInfo } from "@/app/legal-units/components/submission-feedback-debug-info";
+import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedback-debug-info";
 import { FormField } from "@/components/form/form-field";
 
 

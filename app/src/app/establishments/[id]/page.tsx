@@ -39,7 +39,7 @@ export default async function EstablishmentGeneralInfoPage(
       title="Identification"
       subtitle="Identification information such as name, id(s) and physical address"
     >
-      <GeneralInfoForm establishment={establishment} />
+      <GeneralInfoForm id={id} establishment={establishment} />
     </DetailsPage>
   );
 }
