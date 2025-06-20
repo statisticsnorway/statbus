@@ -1211,11 +1211,11 @@ CREATE POLICY import_job_admin_user_manage ON public.import_job
     USING (true)
     WITH CHECK (true);
 
--- Authenticated users can select their own jobs
-CREATE POLICY import_job_authenticated_select_own ON public.import_job
+-- Any authenticated user can select any import job
+CREATE POLICY import_job_authenticated_select_all ON public.import_job
     FOR SELECT
     TO authenticated
-    USING (user_id = auth.uid());
+    USING (true); -- Allows selection of all rows
 
 -- Regular users can insert jobs only for themselves
 CREATE POLICY import_job_regular_user_insert_own ON public.import_job
