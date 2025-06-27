@@ -6,7 +6,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { InfoBox } from "@/components/info-box";
 import { useImportManager, usePendingJobsByPattern } from "@/atoms/hooks";
 import { TimeContextSelector } from "../components/time-context-selector";
@@ -22,6 +22,11 @@ export default function UploadEstablishmentsPage() {
   const { counts: { establishmentsWithLegalUnit } } = useImportManager();
   // Use the generalized hook with the specific slug pattern for establishments with LU
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByPattern("%establishment_for_lu%");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // The useEffect in usePendingJobsByPattern handles initial fetch.
 
@@ -41,7 +46,7 @@ export default function UploadEstablishmentsPage() {
         analysis.
       </p>
 
-      {!!establishmentsWithLegalUnit &&
+      {isClient && !!establishmentsWithLegalUnit &&
         establishmentsWithLegalUnit > 0 && (
           <InfoBox>
             <p>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useImportManager, usePendingJobsByPattern } from "@/atoms/hooks"; // Updated import
 import { ImportJobCreator } from "../components/import-job-creator";
@@ -22,6 +22,11 @@ export default function LegalUnitsPage() {
   const { counts } = useImportManager();
   // Use the generalized hook with the specific slug pattern for legal units
   const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByPattern("%legal_unit%");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // The useEffect in usePendingJobsByPattern handles initial fetch.
   // If a manual refresh on mount is still desired for some reason, it can be added here,
@@ -46,7 +51,7 @@ export default function LegalUnitsPage() {
         analysis.
       </p>
 
-      {!!counts.legalUnits && counts.legalUnits > 0 && (
+      {isClient && !!counts.legalUnits && counts.legalUnits > 0 && (
         <InfoBox>
           <p>There are already {counts.legalUnits} legal units defined</p>
         </InfoBox>
