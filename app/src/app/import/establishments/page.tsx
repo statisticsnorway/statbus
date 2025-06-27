@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Tables } from "@/lib/database.types";
 import { useRouter } from "next/navigation";
+import { PendingJobsList } from "../components/pending-jobs-list";
 
 export default function UploadEstablishmentsPage() {
   const router = useRouter();
@@ -31,18 +32,16 @@ export default function UploadEstablishmentsPage() {
   // The useEffect in usePendingJobsByPattern handles initial fetch.
 
   const handleDeleteJob = async (jobId: number) => {
-    if (window.confirm("Are you sure you want to cancel and delete this import job? This action cannot be undone.")) {
-      try {
-        const client = await getBrowserRestClient();
-        const { error } = await client.from("import_job").delete().eq("id", jobId);
-        if (error) {
-          throw error;
-        }
-        refreshJobs(); // Refresh the list after deletion
-      } catch (err: any) {
-        console.error("Failed to delete import job:", err);
-        alert(`Error deleting job: ${err.message}`);
+    try {
+      const client = await getBrowserRestClient();
+      const { error } = await client.from("import_job").delete().eq("id", jobId);
+      if (error) {
+        throw error;
       }
+      refreshJobs(); // Refresh the list after deletion
+    } catch (err: any) {
+      console.error("Failed to delete import job:", err);
+      alert(`Error deleting job: ${err.message}`);
     }
   };
 
@@ -72,40 +71,13 @@ export default function UploadEstablishmentsPage() {
           </InfoBox>
         )}
 
-      {pendingJobs.length > 0 && (
-        <div className="bg-blue-50 border border-blue-200 rounded-md p-4 mb-6">
-          <h3 className="font-medium mb-2">Pending Import Jobs</h3>
-          <p className="text-sm mb-4">
-            You have {pendingJobs.length} pending establishment import {pendingJobs.length === 1 ? 'job' : 'jobs'} waiting for upload.
-            Would you like to continue with one of these?
-          </p>
-          <div className="space-y-2">
-            {pendingJobs.map(job => (
-              <div key={job.id} className="flex justify-between items-center bg-white p-3 rounded border">
-                <div>
-                  <p className="font-medium">{job.description || "Establishment Import"}</p>
-                  <p className="text-xs text-gray-500">Created: {new Date(job.created_at).toLocaleString()}</p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button 
-                    size="sm"
-                    onClick={() => router.push(`/import/establishments/upload/${job.slug}`)}
-                  >
-                    Continue
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    onClick={() => handleDeleteJob(job.id)}
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+      <PendingJobsList
+        jobs={pendingJobs}
+        onDeleteJob={handleDeleteJob}
+        unitTypeTitle="Establishments"
+        unitTypeDescription="establishment"
+        uploadPathPrefix="/import/establishments/upload"
+      />
 
       <TimeContextSelector unitType="establishments" />
       

@@ -700,8 +700,12 @@ export const unitCountsAtom = atom<UnitCounts>({
 });
 
 // Pending Import Jobs (Generalized)
+export type ImportJobWithDefinition = Tables<'import_job'> & {
+  import_definition: Tables<'import_definition'>;
+};
+
 export interface PendingJobsData {
-  jobs: Tables<'import_job'>[];
+  jobs: ImportJobWithDefinition[];
   loading: boolean;
   error: string | null;
   lastFetched: number | null;
