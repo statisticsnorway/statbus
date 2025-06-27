@@ -370,7 +370,7 @@ export const selectedTimeContextAtom = atomWithStorage<Tables<"time_context"> | 
 export const initialSearchStateValues: SearchState = {
   query: '',
   filters: {},
-  pagination: { page: 1, pageSize: 25 },
+  pagination: { page: 1, pageSize: 10 },
   sorting: { field: 'name', direction: 'asc' },
 };
 
