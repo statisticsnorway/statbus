@@ -1,9 +1,10 @@
 import { PostgrestClient } from '@supabase/postgrest-js';
 import { Database } from '@/lib/database.types';
 import { SearchResult } from './search';
-import { fetchWithAuth, getServerRestClient } from '@/context/RestClientStore';
+import { fetchWithAuth, fetchWithAuthRefresh, getServerRestClient } from '@/context/RestClientStore';
 
 export async function getStatisticalUnits(client: PostgrestClient<Database> | null = null, searchParams: URLSearchParams): Promise<SearchResult> {
+  const isServer = typeof window === 'undefined';
   // If no client is provided, get one from RestClientStore
   if (!client) {
     client = await getServerRestClient();
@@ -13,8 +14,10 @@ export async function getStatisticalUnits(client: PostgrestClient<Database> | nu
   const baseUrl = client.url.endsWith('/') ? client.url : `${client.url}/`;
   const url = new URL(`statistical_unit?${searchParams}`, baseUrl);
   
-  // Use fetchWithAuth to include all necessary server-side headers
-  const response = await fetchWithAuth(url.toString(), {
+  const fetcher = isServer ? fetchWithAuth : fetchWithAuthRefresh;
+
+  // Use the appropriate fetch function for the environment
+  const response = await fetcher(url.toString(), {
     method: "GET",
     headers: {
       Prefer: "count=exact",
@@ -22,7 +25,7 @@ export async function getStatisticalUnits(client: PostgrestClient<Database> | nu
       "Content-Type": "application/json",
       "Accept": "application/json",
     },
-    // No credentials needed, fetchWithAuth handles auth via headers
+    // No credentials needed, fetchWithAuth/fetchWithAuthRefresh handles auth
   });
 
   if (!response.ok) {
