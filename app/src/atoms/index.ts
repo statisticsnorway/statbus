@@ -986,6 +986,13 @@ export const createImportJobAtom = atom<null, [string], Promise<Tables<'import_j
 
 // Auth actions
 
+// NOTE on login/logout:
+// These actions use the native `fetch` API directly with `credentials: 'include'`.
+// This is crucial because they are responsible for establishing or destroying the session
+// via cookies (`Set-Cookie` headers). They should NOT use `fetchWithAuthRefresh`,
+// as that function is designed for calls that *require* an existing, valid session token
+// and includes logic to refresh it, which is not applicable to the login/logout process itself.
+
 // Helper to fetch and set auth status
 
 /**
@@ -1062,7 +1069,7 @@ export const loginAtom = atom(
           'Accept': 'application/json'
         },
         body: JSON.stringify({ email: credentials.email, password: credentials.password }),
-        credentials: 'include'
+        credentials: 'include' // Crucial for Set-Cookie to be processed by the browser
       });
 
       let responseData: any;
@@ -1245,7 +1252,7 @@ export const logoutAtom = atom(
           'Content-Type': 'application/json',
           'Accept': 'application/json'
         },
-        credentials: 'include' // Crucial for Set-Cookie to work and be stored/cleared
+        credentials: 'include' // Crucial for Set-Cookie to be processed by the browser
       });
 
       // The logout RPC now returns an auth_status_response.
@@ -1369,6 +1376,7 @@ export const clearSelectionAtom = atom(
 // Search actions
 // Import getStatisticalUnits - adjust path if necessary, assuming it's in app/search/
 import { getStatisticalUnits } from '../app/search/search-requests'; 
+import { fetchWithAuthRefresh } from '@/context/RestClientStore';
 // The SearchResult type from search.d.ts, used by getStatisticalUnits
 import type { SearchResult as ApiSearchResultType } from '../app/search/search.d';
 

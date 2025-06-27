@@ -336,29 +336,7 @@ class RestClientStore {
       console.debug(`[RestClientStore.fetchWithAuthRefresh] URL: ${url}`); // Keep a less verbose debug log
     }
 
-    // Special handling for login/logout to ensure Set-Cookie is processed correctly by the browser.
-    // These calls manage their own session setup/teardown and don't need the 401 refresh logic.
-    // They also need the most direct path for Set-Cookie headers to be effective.
-    if (url.endsWith("/rest/rpc/login") || url.endsWith("/rest/rpc/logout")) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.debug(`[RestClientStore.fetchWithAuthRefresh SIMPLIFIED_PATH] For ${url}.`);
-      }
-      const fetchOptions = {
-        ...options,
-        credentials: 'include' as RequestCredentials
-      };
-      // if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-      //   console.log(`[RestClientStore.fetchWithAuthRefresh SIMPLIFIED_PATH] Native fetch options for ${url}:`, JSON.stringify(fetchOptions));
-      // }
-      const response = await fetch(url, fetchOptions);
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        const setCookieHeader = response.headers.get('Set-Cookie');
-        console.debug(`[RestClientStore.fetchWithAuthRefresh SIMPLIFIED_PATH] Response for ${url}: Status ${response.status}. Set-Cookie present: ${!!setCookieHeader}`);
-      }
-      return response;
-    }
-        
-    // Original logic for other API calls (data fetching, etc.):
+    // Original logic for API calls (data fetching, etc.):
     // Get auth token from cookies
     let headers: Record<string, string> = {
       'Content-Type': typeof options.headers === 'object' && options.headers 
