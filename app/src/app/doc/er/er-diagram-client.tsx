@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import mermaid from "mermaid";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
@@ -13,6 +13,8 @@ export default function ErDiagramClientComponent() {
   const [svg, setSvg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const panZoomInstanceRef = useRef<SvgPanZoom.Instance | null>(null);
 
   useEffect(() => {
     const fetchAndRenderDiagram = async () => {
@@ -55,6 +57,39 @@ ${diagramText}`;
     fetchAndRenderDiagram();
   }, []);
 
+  useEffect(() => {
+    const container = containerRef.current;
+    if (svg && container) {
+      const svgElement = container.querySelector("svg");
+      if (svgElement && !panZoomInstanceRef.current) {
+        // Ensure the SVG fills the container before initialization to avoid clipping
+        svgElement.style.width = "100%";
+        svgElement.style.height = "100%";
+
+        import("svg-pan-zoom").then(({ default: svgPanZoom }) => {
+          // Check if component is still mounted and instance not created
+          if (containerRef.current && !panZoomInstanceRef.current) {
+            panZoomInstanceRef.current = svgPanZoom(svgElement, {
+              zoomEnabled: true,
+              controlIconsEnabled: true,
+              fit: true,
+              center: true,
+              minZoom: 0.3,
+              maxZoom: 10,
+            });
+          }
+        });
+      }
+    }
+
+    return () => {
+      if (panZoomInstanceRef.current) {
+        panZoomInstanceRef.current.destroy();
+        panZoomInstanceRef.current = null;
+      }
+    };
+  }, [svg]);
+
   return (
     <div className="mt-4">
       {loading && (
@@ -71,13 +106,27 @@ ${diagramText}`;
       )}
       {svg && (
         <div
-          className="mermaid-container overflow-auto"
+          ref={containerRef}
+          className="mermaid-container"
           dangerouslySetInnerHTML={{ __html: svg }}
         />
       )}
       <style jsx>{`
+        .mermaid-container {
+          width: 100%;
+          height: 80vh;
+          overflow: hidden;
+          border: 1px solid #ccc;
+        }
         .mermaid-container :global(svg) {
           max-width: none !important;
+          cursor: grab;
+        }
+        .mermaid-container :global(svg:active) {
+          cursor: grabbing;
+        }
+        .mermaid-container :global(.svg-pan-zoom-control) {
+          cursor: pointer;
         }
       `}</style>
     </div>

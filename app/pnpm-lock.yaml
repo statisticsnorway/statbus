@@ -141,6 +141,9 @@ importers:
       sharp:
         specifier: ^0.33.5
         version: 0.33.5
+      svg-pan-zoom:
+        specifier: ^3.6.2
+        version: 3.6.2
       swr:
         specifier: ^2.3.3
         version: 2.3.3(react@19.0.0)
@@ -184,6 +187,9 @@ importers:
       '@types/react-dom':
         specifier: 19.0.4
         version: 19.0.4(@types/react@19.0.12)
+      '@types/svg-pan-zoom':
+        specifier: ^3.4.0
+        version: 3.4.0
       dotenv:
         specifier: ^16.4.7
         version: 16.4.7
@@ -1774,6 +1780,10 @@ packages:
 
   '@types/stack-utils@2.0.3':
     resolution: {integrity: sha512-9aEbYZ3TbYMznPdcdr3SmIrLXwC/AKZXQeCf9Pgao5CKb8CyHuEX5jzWPTkvregvhRJHcpRO6BFoGW9ycaOkYw==}
+
+  '@types/svg-pan-zoom@3.4.0':
+    resolution: {integrity: sha512-G1/BVNEkjlcL8mOT1b6Iwsn0B9uxqYFhX12dbvpR8A6w4B8aucSn9XeI0W5HaR/JdGeztgR375At9jlsuYZHug==}
+    deprecated: This is a stub types definition for svg-pan-zoom (https://github.com/ariutta/svg-pan-zoom). svg-pan-zoom provides its own type definitions, so you don't need @types/svg-pan-zoom installed!
 
   '@types/trusted-types@2.0.7':
     resolution: {integrity: sha512-ScaPdn1dQczgbl0QFTeTOmVHFULt394XJgOQNoyVhZ6r2vLnMLJfBPd53SB52T/3G36VI1/g2MZaX0cwDuXsfw==}
@@ -4243,6 +4253,9 @@ packages:
     resolution: {integrity: sha512-ot0WnXS9fgdkgIcePe6RHNk1WA8+muPa6cSjeR3V8K27q9BB1rTE3R1p7Hv0z1ZyAc8s6Vvv8DIyWf681MAt0w==}
     engines: {node: '>= 0.4'}
 
+  svg-pan-zoom@3.6.2:
+    resolution: {integrity: sha512-JwnvRWfVKw/Xzfe6jriFyfey/lWJLq4bUh2jwoR5ChWQuQoOH8FEh1l/bEp46iHHKHEJWIyFJETbazraxNWECg==}
+
   swr@2.3.3:
     resolution: {integrity: sha512-dshNvs3ExOqtZ6kJBaAsabhPdHyeY4P2cKwRCniDVifBMoG/SVI7tfLWqPXriVspf2Rg4tPzXJTnwaihIeFw2A==}
     peerDependencies:
@@ -6235,6 +6248,10 @@ snapshots:
       '@types/node': 22.13.13
 
   '@types/stack-utils@2.0.3': {}
+
+  '@types/svg-pan-zoom@3.4.0':
+    dependencies:
+      svg-pan-zoom: 3.6.2
 
   '@types/trusted-types@2.0.7':
     optional: true
@@ -9147,6 +9164,8 @@ snapshots:
       has-flag: 4.0.0
 
   supports-preserve-symlinks-flag@1.0.0: {}
+
+  svg-pan-zoom@3.6.2: {}
 
   swr@2.3.3(react@19.0.0):
     dependencies:
