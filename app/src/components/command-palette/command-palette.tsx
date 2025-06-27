@@ -11,6 +11,7 @@ import {
   Home,
   ListRestart,
   LogOut,
+  Network,
   Pilcrow,
   Search,
   Trash,
@@ -216,6 +217,13 @@ export function CommandPalette() {
           </CommandGroup>
           <CommandSeparator />
           <CommandGroup heading="Admin tools">
+            <CommandItem
+              onSelect={() => navigate("/doc/er")}
+              value="Show ER Diagram"
+            >
+              <Network className="mr-2 h-4 w-4" />
+              <span>Show ER Diagram</span>
+            </CommandItem>
             <CommandItem
               onSelect={handleResetAll}
               value="admin reset everything clean"

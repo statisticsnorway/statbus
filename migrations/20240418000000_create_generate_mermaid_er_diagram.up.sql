@@ -59,10 +59,11 @@ BEGIN
                  THEN n.nspname || '.' || c.relname
                  ELSE c.relname
             END,
-            -- Notice that mermaid uses the "attribute_type attribute_name" pattern
-            -- and that if there are spaces there must be double quoting.
-            string_agg(format(E'\t\t"%s" %s',
-                format_type(t.oid, a.atttypmod),
+            -- Notice that mermaid uses the "attribute_type attribute_name" pattern.
+            -- Type names with spaces, commas, or periods are not supported. These are replaced with single
+            -- underscores. Any trailing underscores are then removed.
+            string_agg(format(E'\t\t%s %s',
+                rtrim(regexp_replace(trim(format_type(t.oid, a.atttypmod)), '[\s,.]+', '_', 'g'), '_'),
                 a.attname
             ), E'\n' ORDER BY a.attnum)
         )
@@ -115,9 +116,10 @@ BEGIN
                 WHEN a.attnotnull THEN '||' -- Every instance in the source must reference exactly one instance in the target
                 ELSE 'o|'                   -- Every instance in the source may reference zero or one instance in the target
             END,
-            -- Include the schema and a period if different than 'public' for the target table
+            -- Include the schema and a underscore if different than 'public' for the target table
+            -- since period is not valid syntax for an entity name.
             CASE WHEN n2.nspname <> 'public'
-                 THEN n2.nspname || '.' || c2.relname
+                 THEN n2.nspname || '_' || c2.relname
                  ELSE c2.relname
             END,
             c.conname

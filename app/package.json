@@ -48,6 +48,7 @@
     "jotai-effect": "^2.0.4",
     "jsonwebtoken": "^9.0.2",
     "lucide-react": "^0.483.0",
+    "mermaid": "^11.7.0",
     "moderndash": "^4.0.0",
     "next": "15.2.4",
     "pg": "^8.15.1",
