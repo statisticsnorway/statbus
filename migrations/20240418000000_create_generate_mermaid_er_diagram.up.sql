@@ -47,6 +47,11 @@ BEGIN
     -- First part of the query (tables and columns)
     result := result || E'\n\t%% Entities (derived from tables)';
     FOR rec IN
+        WITH excluded_tables AS (
+            SELECT data_table_name AS table_name FROM public.import_job WHERE data_table_name IS NOT NULL
+            UNION
+            SELECT upload_table_name FROM public.import_job WHERE upload_table_name IS NOT NULL
+        )
         SELECT format(E'\t%s["%s"] {\n%s\n\t}',
             -- Include the schema and a underscore if different than 'public' for the source table
             -- since period is not valid syntax for an entity name.
@@ -76,6 +81,7 @@ BEGIN
           AND n.nspname !~ '^pg_'
           AND n.nspname !~ '^_'
           AND n.nspname <> 'information_schema'
+          AND NOT (n.nspname = 'public' AND c.relname IN (SELECT table_name FROM excluded_tables))
         GROUP BY n.nspname, c.relname
         ORDER BY n.nspname, c.relname
     LOOP
@@ -92,6 +98,11 @@ BEGIN
     --     }o              o{              Zero or more (no upper limit)
     --     }|              |{              One or more (no upper limit)
     FOR rec IN
+        WITH excluded_tables AS (
+            SELECT data_table_name AS table_name FROM public.import_job WHERE data_table_name IS NOT NULL
+            UNION
+            SELECT upload_table_name FROM public.import_job WHERE upload_table_name IS NOT NULL
+        )
         SELECT format(E'\t%s %s--%s %s : %s',
             -- Include the schema and a underscore if different than 'public' for the source table
             -- since period is not valid syntax for an entity name.
@@ -138,6 +149,8 @@ BEGIN
           AND n2.nspname !~ '^pg_'
           AND n2.nspname !~ '^_'
           AND n2.nspname <> 'information_schema'
+          AND NOT (n1.nspname = 'public' AND c1.relname IN (SELECT table_name FROM excluded_tables))
+          AND NOT (n2.nspname = 'public' AND c2.relname IN (SELECT table_name FROM excluded_tables))
         ORDER BY
             n1.nspname,
             c1.relname,
