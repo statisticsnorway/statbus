@@ -1,9 +1,8 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-// import { useSearchContext } from "@/app/search/use-search-context"; // Removed
 import { useSearch } from "@/atoms/hooks"; // Using Jotai's useSearch
 import { useCallback, useMemo } from "react"; // Added useMemo
-import { UNIT_TYPE } from "@/app/search/filters/url-search-params"; // Removed unused unitTypeDeriveStateUpdateFromValues
+import { UNIT_TYPE } from "@/app/search/filters/url-search-params";
 import { SearchFilterOption } from "../search";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 

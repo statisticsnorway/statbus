@@ -3,7 +3,6 @@ import { Input } from "@/components/ui/input";
 import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
 import { useCallback } from "react";
 import { useBaseData } from "@/atoms/hooks";
-// import { externalIdentDeriveStateUpdateFromValues } from "./url-search-params"; // Removed
 
 export default function ExternalIdentFilter() {
   const { externalIdentTypes } = useBaseData();
