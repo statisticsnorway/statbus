@@ -10,9 +10,10 @@ interface ImportJobCreatorProps {
   definitionSlug: string;
   uploadPath: string;
   unitType: string;
+  onJobCreated?: () => void;
 }
 
-export function ImportJobCreator({ definitionSlug, uploadPath, unitType }: ImportJobCreatorProps) {
+export function ImportJobCreator({ definitionSlug, uploadPath, unitType, onJobCreated }: ImportJobCreatorProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { 
@@ -42,6 +43,7 @@ export function ImportJobCreator({ definitionSlug, uploadPath, unitType }: Impor
         
       const job = await createImportJob(actualDefinitionSlug);
       if (job) {
+        onJobCreated?.();
         router.push(`${uploadPath}/${job.slug}`);
       } else {
         setError("Failed to create import job");

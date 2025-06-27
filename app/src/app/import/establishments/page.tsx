@@ -113,6 +113,7 @@ export default function UploadEstablishmentsPage() {
         definitionSlug="establishment_for_lu_current_year"
         uploadPath="/import/establishments/upload"
         unitType="Establishments"
+        onJobCreated={refreshJobs}
       />
 
       <Accordion type="single" collapsible>

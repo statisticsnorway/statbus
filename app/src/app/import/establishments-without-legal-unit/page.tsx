@@ -115,6 +115,7 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
         definitionSlug="establishment_without_lu_current_year"
         uploadPath="/import/establishments-without-legal-unit/upload"
         unitType="Establishments Without Legal Unit"
+        onJobCreated={refreshJobs}
       />
 
       <Accordion type="single" collapsible>

@@ -114,6 +114,7 @@ export default function LegalUnitsPage() {
         definitionSlug="legal_unit_current_year"
         uploadPath="/import/legal-units/upload"
         unitType="Legal Units"
+        onJobCreated={refreshJobs}
       />
 
       <Accordion type="single" collapsible>
