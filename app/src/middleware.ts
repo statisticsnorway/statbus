@@ -18,21 +18,16 @@ export async function middleware(request: NextRequest) {
   }
 
   // --- Authentication Check ---
-  // Create a response object. If authStore.handleServerAuth sets cookies (e.g. after a successful refresh
-  // triggered by a server-side API call, not a page load), they will be added to this response.cookies object.
+  // Create a response object. This allows authStore.handleServerAuth to potentially modify response cookies,
+  // though with the removal of server-side refresh, this is less likely to be used for page loads.
   const response = NextResponse.next();
 
-  // Determine the protocol of the original request
-  const originalProtocol = request.nextUrl.protocol.replace(/:$/, '');
-
-  // authStore.handleServerAuth will check the access token.
-  // It will *not* attempt a refresh for page loads because the refresh token is not sent by the browser for page requests.
-  // However, it's kept here as it might be useful if middleware logic evolves or for other server-side contexts.
-  // The `modifiedRequestHeaders` part is less relevant now for page loads if no refresh occurs.
+  // authStore.handleServerAuth will check the access token via the /rest/rpc/auth_status endpoint.
+  // It does not attempt a token refresh, as this is not possible in the middleware for page loads
+  // due to the refresh token's cookie path restrictions. See `doc/auth-design.md` for details.
   const { status: authStatus } = await authStore.handleServerAuth(
     request.cookies,
-    response.cookies, // authStore can still set cookies on the response if needed (e.g., clearing them)
-    originalProtocol
+    response.cookies // Pass response cookies in case authStore needs to clear them (e.g., on invalid token).
   );
 
   // --- Handle Auth Result ---
