@@ -31,10 +31,14 @@ export function ImportJobCreator({ definitionSlug, uploadPath, unitType }: Impor
     setError(null);
 
     try {
-      // Use the appropriate definition slug based on explicit dates selection
-      const actualDefinitionSlug = useExplicitDates 
-        ? definitionSlug.replace('_current_year', '_explicit_dates')
-        : definitionSlug;
+      // Use the appropriate definition slug.
+      // The default definition `..._current_year` has a hardcoded time context which overrides any user selection.
+      // To honor the user's choice (either a selected time context or explicit dates from CSV),
+      // we must use a definition that does NOT have a hardcoded time context.
+      // The `..._explicit_dates` definition serves this purpose for both cases.
+      // - If a time context is selected, `createImportJobAtom` will populate `default_valid_from/to`.
+      // - If explicit dates is chosen, `createImportJobAtom` will not, and the backend expects dates in the CSV.
+      const actualDefinitionSlug = definitionSlug.replace('_current_year', '_explicit_dates');
         
       const job = await createImportJob(actualDefinitionSlug);
       if (job) {

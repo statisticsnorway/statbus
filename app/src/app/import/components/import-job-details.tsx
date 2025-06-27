@@ -20,9 +20,12 @@ interface ImportJobDetailsProps {
 export function ImportJobDetails({ job, definition }: ImportJobDetailsProps) {
   // No context needed here anymore
 
-  // Check if the import definition has a time_context_ident - if yes, it uses time context
-  // Use the passed-in definition prop
-  const hasTimeContext = !!definition?.time_context_ident;
+  // An import job uses a time context if its `default_valid_from` field is set.
+  // This is set by `createImportJobAtom` when a time context is selected in the UI.
+  // If it's null, the job expects explicit dates from the CSV file.
+  // We check the job object directly, rather than the definition, because we now
+  // always use an `_explicit_dates` definition which never has a `time_context_ident`.
+  const hasTimeContext = !!job?.default_valid_from;
   
   // Determine import type based on the job's slug
   const getImportType = () => {
