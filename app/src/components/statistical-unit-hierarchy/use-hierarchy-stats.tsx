@@ -1,4 +1,5 @@
 import useSWR from "swr";
+import { fetchWithAuthRefresh } from "@/context/RestClientStore";
 export default function useHierarchyStats(
   unitId: number,
   unitType: UnitType,
@@ -10,7 +11,7 @@ export default function useHierarchyStats(
   urlSearchParams.set("unitType", unitType);
 
   const fetcher = async (url: string) => {
-    const response = await fetch(url);
+    const response = await fetchWithAuthRefresh(url);
     if (!response.ok) {
       throw new Error("Failed to fetch statistical unit stats");
     }

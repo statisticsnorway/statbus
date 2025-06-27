@@ -3,6 +3,7 @@ import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
 import { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
 import { useTimeContext } from '@/atoms/hooks';
+import { fetchWithAuthRefresh } from "@/context/RestClientStore";
 
 export const useDrillDownData = () => {
   const { selectedTimeContext } = useTimeContext();
@@ -34,7 +35,7 @@ export const useDrillDownData = () => {
     if (cache.has(url)) {
       return cache.get(url);
     }
-    const response = await fetch(url);
+    const response = await fetchWithAuthRefresh(url);
     const data = await response.json();
     cache.set(url, data);
     return data;
