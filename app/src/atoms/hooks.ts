@@ -7,6 +7,7 @@
 
 import { useAtom, useAtomValue, useSetAtom } from 'jotai'
 import { useCallback, useEffect, useMemo } from 'react'
+import { isEqual } from 'moderndash'
 import {
   // Auth atoms
   authStatusAtom,
@@ -203,11 +204,17 @@ export const useSearch = () => {
   const searchPageData = useAtomValue(searchPageDataAtom)
   
   const updateSearchQuery = useCallback((query: string) => {
-    setSearchState(prev => ({ ...prev, query }))
+    setSearchState(prev => {
+      if (prev.query === query) return prev;
+      return { ...prev, query, pagination: { ...prev.pagination, page: 1 } };
+    })
   }, [setSearchState])
   
   const updateFilters = useCallback((filters: Record<string, any>) => {
-    setSearchState(prev => ({ ...prev, filters }))
+    setSearchState(prev => {
+      if (isEqual(prev.filters, filters)) return prev;
+      return { ...prev, filters, pagination: { ...prev.pagination, page: 1 } };
+    })
   }, [setSearchState])
   
   const updatePagination = useCallback((page: number, pageSize?: number) => {
@@ -222,10 +229,14 @@ export const useSearch = () => {
   
 
   const updateSorting = useCallback((field: string, direction: SearchDirection) => {
-    setSearchState(prev => ({
-      ...prev,
-      sorting: { field, direction }
-    }))
+    setSearchState(prev => {
+      if (prev.sorting.field === field && prev.sorting.direction === direction) return prev;
+      return {
+        ...prev,
+        sorting: { field, direction },
+        pagination: { ...prev.pagination, page: 1 }
+      }
+    })
   }, [setSearchState])
   
   const executeSearch = useCallback(async () => {
