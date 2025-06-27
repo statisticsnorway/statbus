@@ -30,6 +30,22 @@ export default function UploadEstablishmentsPage() {
 
   // The useEffect in usePendingJobsByPattern handles initial fetch.
 
+  const handleDeleteJob = async (jobId: number) => {
+    if (window.confirm("Are you sure you want to cancel and delete this import job? This action cannot be undone.")) {
+      try {
+        const client = await getBrowserRestClient();
+        const { error } = await client.from("import_job").delete().eq("id", jobId);
+        if (error) {
+          throw error;
+        }
+        refreshJobs(); // Refresh the list after deletion
+      } catch (err: any) {
+        console.error("Failed to delete import job:", err);
+        alert(`Error deleting job: ${err.message}`);
+      }
+    }
+  };
+
   if (isLoading && pendingJobs.length === 0) {
     return <Spinner message="Checking for existing import jobs..." />;
   }
@@ -70,12 +86,21 @@ export default function UploadEstablishmentsPage() {
                   <p className="font-medium">{job.description || "Establishment Import"}</p>
                   <p className="text-xs text-gray-500">Created: {new Date(job.created_at).toLocaleString()}</p>
                 </div>
-                <Button 
-                  size="sm"
-                  onClick={() => router.push(`/import/establishments/upload/${job.slug}`)}
-                >
-                  Continue
-                </Button>
+                <div className="flex items-center space-x-2">
+                  <Button 
+                    size="sm"
+                    onClick={() => router.push(`/import/establishments/upload/${job.slug}`)}
+                  >
+                    Continue
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => handleDeleteJob(job.id)}
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
