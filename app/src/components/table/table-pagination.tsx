@@ -33,12 +33,14 @@ const TablePagination = ({
       <PaginationContent>
         <PaginationItem>
           <PaginationFirst
+            size="default"
             disabled={pageNumber == 1}
             onClick={() => handlePageChange(1)}
           />
         </PaginationItem>
         <PaginationItem>
           <PaginationPrevious
+            size="default"
             disabled={pageNumber == 1}
             onClick={() => handlePageChange(pageNumber - 1)}
           />
@@ -48,12 +50,14 @@ const TablePagination = ({
         </li>
         <PaginationItem>
           <PaginationNext
+            size="default"
             disabled={pageNumber == totalPages}
             onClick={() => handlePageChange(pageNumber + 1)}
           />
         </PaginationItem>
         <PaginationItem>
           <PaginationLast
+            size="default"
             disabled={pageNumber == totalPages}
             onClick={() => handlePageChange(totalPages)}
           />

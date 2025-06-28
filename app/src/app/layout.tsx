@@ -9,6 +9,7 @@ import { Toaster } from "@/components/ui/toaster";
 import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import PopStateHandler from "@/components/PopStateHandler";
+import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { JotaiAppProvider, JotaiStateInspector } from '@/atoms/JotaiAppProvider';
 import { deploymentSlotName } from "@/lib/deployment-variables";
 
@@ -37,7 +38,8 @@ export default async function RootLayout({
         )}
       >
         <JotaiAppProvider>
-          {/* RootLayoutClient wrapper removed, its children are now direct children of JotaiAppProvider */}
+          <NuqsAdapter>
+            {/* RootLayoutClient wrapper removed, its children are now direct children of JotaiAppProvider */}
           {/* Main application content, now under Jotai's Provider and Suspense */}
           <Suspense fallback={
             <>
@@ -70,6 +72,7 @@ export default async function RootLayout({
               <JotaiStateInspector />
             </Suspense>
           )}
+          </NuqsAdapter>
         </JotaiAppProvider>
       </body>
     </html>
