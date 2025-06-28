@@ -34,12 +34,14 @@ export default function SearchResultPagination() {
       <PaginationContent>
         <PaginationItem>
           <PaginationFirst
+            size="default"
             disabled={pagination.page == 1}
             onClick={() => handlePageChange(1)}
           />
         </PaginationItem>
         <PaginationItem>
           <PaginationPrevious
+            size="default"
             disabled={pagination.page == 1}
             onClick={() => handlePageChange(pagination.page - 1)}
           />
@@ -49,12 +51,14 @@ export default function SearchResultPagination() {
         </li>
         <PaginationItem>
           <PaginationNext
+            size="default"
             disabled={pagination.page == totalPages}
             onClick={() => handlePageChange(pagination.page + 1)}
           />
         </PaginationItem>
         <PaginationItem>
           <PaginationLast
+            size="default"
             disabled={pagination.page == totalPages}
             onClick={() => handlePageChange(totalPages)}
           />
