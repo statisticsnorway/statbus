@@ -797,6 +797,35 @@ GRANT EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) TO authenticator;
 GRANT USAGE ON SCHEMA auth TO authenticator;
 
 
+-- Function to clear the access token cookie ('statbus') while preserving the refresh token.
+-- This is useful for development and testing the token refresh mechanism.
+CREATE OR REPLACE FUNCTION public.auth_clear_access_keep_refresh()
+RETURNS json
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  -- Clear the access token cookie by setting its expiration to a past date.
+  -- The 'statbus' cookie is set with Path=/, HttpOnly, and SameSite=Strict.
+  -- We must match these attributes for the browser to correctly clear it.
+  PERFORM set_config(
+    'response.headers',
+    jsonb_build_array(
+      jsonb_build_object(
+        'Set-Cookie',
+        'statbus=; Path=/; HttpOnly; SameSite=Strict; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+      )
+    )::text,
+    true
+  );
+
+  RETURN json_build_object('status', 'access_token_cleared');
+END;
+$$;
+
+-- Grant execute permission to the authenticated role
+GRANT EXECUTE ON FUNCTION public.auth_clear_access_keep_refresh() TO authenticated;
+
 -- Create refresh function that returns a new JWT token
 CREATE OR REPLACE FUNCTION public.refresh()
 RETURNS auth.auth_response
