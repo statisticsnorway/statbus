@@ -98,10 +98,10 @@ export function PendingJobsList({ jobs, onDeleteJob, unitTypeTitle, unitTypeDesc
                         </DialogTrigger>
                         <DialogContent>
                           <DialogHeader>
-                            <DialogTitle>What does "infinity" mean?</DialogTitle>
+                            <DialogTitle>What does &quot;infinity&quot; mean?</DialogTitle>
                           </DialogHeader>
                           <div className="py-4">
-                            <p>Infinity means the data is valid until new information arrives. When new data is provided for an overlapping period, the new information will supersede the old, effectively ending the "infinity" period for the previous record.</p>
+                            <p>Infinity means the data is valid until new information arrives. When new data is provided for an overlapping period, the new information will supersede the old, effectively ending the &quot;infinity&quot; period for the previous record.</p>
                           </div>
                           <DialogFooter>
                             <DialogClose asChild>
@@ -113,7 +113,7 @@ export function PendingJobsList({ jobs, onDeleteJob, unitTypeTitle, unitTypeDesc
                     )}
                   </p>
                 ) : (
-                  <p>Valid from columns "valid_from" to "valid_to"</p>
+                  <p>Valid from columns &quot;valid_from&quot; to &quot;valid_to&quot;</p>
                 )}
               </div>
             </div>
