@@ -99,6 +99,9 @@ const localAuthStatusAtom = atom<SimpleAuthStatus>((get) => {
 
 const localPendingRedirectAtom = atom<string | null>(null);
 
+// This atom uses localStorage to signal auth state changes across browser tabs.
+// When its value is changed (e.g., on login/logout), the `storage` event notifies other tabs.
+// An effect in `LocalAppInitializer` listens for these changes and triggers a refresh of the core auth status atom.
 const authChangeTriggerAtom = atomWithStorage<number>('localAuthChangeTrigger', 0); // Constant initial value
 
 const lastIntentionalPathAtom = atom<string | null>(null);
@@ -143,6 +146,52 @@ const localLogoutAtom = atom<null, [pathname: string], Promise<void>>(
       log('localLogoutAtom: Error during logout process for pathname:', pathname, error);
       set(localAuthStatusCoreAtom); // Ensure status reflects reality
       await get(localAuthStatusCoreAtom);
+      throw error;
+    }
+  }
+);
+
+const removeAccessTokenCookieAtom = atom<null, [], Promise<void>>(
+  null,
+  async (get, set) => {
+    log('removeAccessTokenCookieAtom: Attempting to remove access token cookie.');
+    const client = get(localRestClientAtom);
+    if (!client) throw new Error("Client not available.");
+    try {
+      const { error } = await client.rpc('auth_clear_access_keep_refresh');
+      if (error) throw new Error(error.message || 'RPC to clear access token cookie failed');
+      log('removeAccessTokenCookieAtom: RPC success. Refreshing auth status.');
+      set(localAuthStatusCoreAtom);
+      await get(localAuthStatusCoreAtom);
+      set(authChangeTriggerAtom, Date.now());
+    } catch (error) {
+      log('removeAccessTokenCookieAtom: Error during process:', error);
+      set(localAuthStatusCoreAtom);
+      await get(localAuthStatusCoreAtom);
+      set(authChangeTriggerAtom, Date.now());
+      throw error;
+    }
+  }
+);
+
+const refreshTokenAtom = atom<null, [], Promise<void>>(
+  null,
+  async (get, set) => {
+    log('refreshTokenAtom: Attempting to refresh token.');
+    const client = get(localRestClientAtom);
+    if (!client) throw new Error("Client not available.");
+    try {
+      const { error } = await client.rpc('refresh');
+      if (error) throw new Error(error.message || 'Refresh RPC failed');
+      log('refreshTokenAtom: RPC success. Refreshing auth status.');
+      set(localAuthStatusCoreAtom);
+      await get(localAuthStatusCoreAtom);
+      set(authChangeTriggerAtom, Date.now());
+    } catch (error) {
+      log('refreshTokenAtom: Error during process:', error);
+      set(localAuthStatusCoreAtom);
+      await get(localAuthStatusCoreAtom);
+      set(authChangeTriggerAtom, Date.now());
       throw error;
     }
   }
@@ -241,15 +290,55 @@ const LocalLogoutButton: React.FC = () => {
   );
 };
 
-const TriggerRefreshButton: React.FC = () => {
+const RemoveAccessTokenButton: React.FC = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const performRemove = useSetAtom(removeAccessTokenCookieAtom);
+  const handleClick = async () => {
+    setError(null); setIsLoading(true);
+    try { await performRemove(); }
+    catch (err: any) { setError(err.message || 'Failed to remove cookie.'); }
+    finally { setIsLoading(false); }
+  };
+  return (
+    <div className="flex items-center space-x-2">
+      <button onClick={handleClick} disabled={isLoading} className="px-3 py-1.5 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50 text-sm">
+        {isLoading ? 'Removing...' : 'Remove Access Token'}
+      </button>
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+    </div>
+  );
+};
+
+const RefreshTokenButton: React.FC = () => {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const performRefresh = useSetAtom(refreshTokenAtom);
+  const handleClick = async () => {
+    setError(null); setIsLoading(true);
+    try { await performRefresh(); }
+    catch (err: any) { setError(err.message || 'Failed to refresh token.'); }
+    finally { setIsLoading(false); }
+  };
+  return (
+    <div className="flex items-center space-x-2">
+      <button onClick={handleClick} disabled={isLoading} className="px-3 py-1.5 bg-purple-500 text-white rounded hover:bg-purple-600 disabled:opacity-50 text-sm">
+        {isLoading ? 'Refreshing...' : 'Refresh Auth Token'}
+      </button>
+      {error && <p className="text-red-500 text-sm">{error}</p>}
+    </div>
+  );
+};
+
+const CheckAuthStatusButton: React.FC = () => {
   const refreshAuth = useSetAtom(localAuthStatusCoreAtom);
   const setAuthTrigger = useSetAtom(authChangeTriggerAtom);
   const handleClick = () => {
     refreshAuth(); setAuthTrigger(Date.now());
   };
   return (
-    <button onClick={handleClick} className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm" title="Refresh Authentication Status">
-      Refresh Auth Status
+    <button onClick={handleClick} className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm" title="Check Authentication Status">
+      Check Auth Status
     </button>
   );
 };
@@ -340,7 +429,7 @@ const ReferencePageContent: React.FC = () => {
           <span>
             Local Client: {localClient ? 'INITIALIZED' : 'NOT INITIALIZED'} | Init Failed: {localClientFailed ? 'YES' : 'NO'}
           </span>
-          <TriggerRefreshButton />
+          <CheckAuthStatusButton />
         </div>
 
         <header className="mb-6">
@@ -364,6 +453,19 @@ const ReferencePageContent: React.FC = () => {
           <div className="md:col-span-2">
              <AuthStatusDisplayDirect />
           </div>
+        </div>
+
+        <div className="my-6 p-4 border rounded">
+          <h3 className="text-md font-semibold mb-3">Token Management for Testing</h3>
+          <div className="flex flex-wrap gap-4 items-start">
+            <RemoveAccessTokenButton />
+            <RefreshTokenButton />
+          </div>
+          <p className="text-xs mt-3 text-gray-600">
+            Use &apos;Remove Access Token&apos; to simulate an expired token. Then use &apos;Check Auth Status&apos; or any action that requires auth.
+            The system should automatically use the refresh token to get a new access token.
+            You can also manually trigger this with &apos;Refresh Auth Token&apos;.
+          </p>
         </div>
 
         <div className="my-6 p-4 border rounded bg-blue-50 border-blue-200">
