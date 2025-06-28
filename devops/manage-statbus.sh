@@ -640,16 +640,9 @@ EOS
         eval $($WORKSPACE/devops/manage-statbus.sh postgres-variables) || { echo "Failed to get database variables"; exit 1; }
         db_url="postgresql://$PGUSER:$PGPASSWORD@$PGHOST:$PGPORT/$PGDATABASE?sslmode=disable"
         
-        # First run: This will prompt for package installation if needed
-        # When running for the first time, npx will ask for confirmation to install the package
-        # This interactive step cannot be redirected to a file
-        echo "Running initial command to handle any package installation prompts..."
-        npx supabase@beta gen types typescript --db-url "$db_url" || { echo "Failed to run supabase gen types"; exit 1; }
-        
-        # Second run: Now that the package is installed, we can redirect the output
         # This run will not prompt for confirmation since the package is already installed
         echo "Generating TypeScript types file..."
-        npx supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
+        npx --yes supabase@beta gen types typescript --db-url "$db_url" > src/lib/database.types.ts
       ;;
     'compile-run-and-trace-dev-app-in-container' )
         echo "Stopping app container..."
