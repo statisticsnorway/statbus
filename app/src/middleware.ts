@@ -5,6 +5,11 @@ import { authStore } from '@/context/AuthStore';
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
+  // It's recommended to rewrite the request headers to include the path.
+  // This allows server components to read the path using `headers()`.
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-invoke-path", pathname);
+
   // Skip auth check for login page, public assets and API endpoints
   if (
     pathname === "/login" ||
@@ -14,13 +19,21 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith("/rest/") || // PostgREST endpoint is proxied/exposed here
     pathname.startsWith("/pev2.html") // Tool for analyzing PostgreSQL execution plans (EXPLAIN ANALYZE)
   ) {
-    return NextResponse.next();
+    return NextResponse.next({
+      request: {
+        headers: requestHeaders,
+      },
+    });
   }
 
   // --- Authentication Check ---
   // Create a response object. This allows authStore.handleServerAuth to potentially modify response cookies,
   // though with the removal of server-side refresh, this is less likely to be used for page loads.
-  const response = NextResponse.next();
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 
   // authStore.handleServerAuth will check the access token via the /rest/rpc/auth_status endpoint.
   // It does not attempt a token refresh, as this is not possible in the middleware for page loads
@@ -35,19 +48,21 @@ export async function middleware(request: NextRequest) {
     // If not authenticated, redirect to login.
     // No server-side refresh attempt for page loads by the middleware.
     if (process.env.DEBUG === 'true') {
-      console.log("Middleware: User not authenticated (access token invalid/missing). Redirecting to login.");
+      console.log(
+        "Middleware: User not authenticated (access token invalid/missing). Redirecting to login."
+      );
     }
     const { search } = request.nextUrl; // `pathname` is already available from the top of the function
-    const loginUrl = new URL('/login', request.url);
+    const loginUrl = new URL("/login", request.url);
     const originalPath = `${pathname}${search}`;
 
     // Add the original path as 'next' query parameter,
     // unless it's the root path or the login path itself (to avoid ?next=/ or ?next=/login).
-    if (originalPath && originalPath !== '/' && pathname !== '/login') {
-      loginUrl.searchParams.set('next', originalPath);
+    if (originalPath && originalPath !== "/" && pathname !== "/login") {
+      loginUrl.searchParams.set("next", originalPath);
     }
     const redirectResponse = NextResponse.redirect(loginUrl);
-    
+
     // When redirecting to login due to an invalid/missing/expired access token,
     // do *NOT* clear any cookies, since a user may have browser prefill,
     // it it suggests /login - since they visited that page earlier,
@@ -55,7 +70,7 @@ export async function middleware(request: NextRequest) {
     // and redirect the user accordingly.
     // The cookies are managed by the rpc auth functions alone,
     // and cleared on logout or in the case of invalid cookies (spoofed JWT tokens).
-    
+
     return redirectResponse;
   }
 
@@ -66,7 +81,7 @@ export async function middleware(request: NextRequest) {
   if (process.env.DEBUG === 'true') {
     console.log("Middleware: User authenticated. Proceeding with request.");
   }
-  
+
   // All checks passed, return the response (which might have cookies set by authStore)
   return response;
 }

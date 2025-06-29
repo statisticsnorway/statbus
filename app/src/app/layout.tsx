@@ -12,6 +12,7 @@ import PopStateHandler from "@/components/PopStateHandler";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
 import { JotaiAppProvider, JotaiStateInspector } from '@/atoms/JotaiAppProvider';
 import { deploymentSlotName } from "@/lib/deployment-variables";
+import { headers } from "next/headers";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,52 +29,60 @@ export default async function RootLayout({
 }: {
   readonly children: ReactNode;
 }) {
-  
+  const headersList = headers();
+  const pathname = headersList.get("x-invoke-path") || "";
+  const isReferencePage = pathname.startsWith('/jotai-state-management-reference');
+
   return (
     <html lang="en" className="h-full bg-white">
       <body
         className={cn(
-          "grid min-h-full grid-rows-[auto_1fr_auto] font-sans antialiased",
+          isReferencePage ? "" : "grid min-h-full grid-rows-[auto_1fr_auto]",
+          "font-sans antialiased",
           inter.className
         )}
       >
-        <JotaiAppProvider>
-          <NuqsAdapter>
-            {/* RootLayoutClient wrapper removed, its children are now direct children of JotaiAppProvider */}
-          {/* Main application content, now under Jotai's Provider and Suspense */}
-          <Suspense fallback={
-            <>
-              {/* This fallback is for the initial static shell or while JotaiAppProvider's Suspense is active. */}
-                <NavbarSkeleton />
-                <div className="flex-grow p-4"><div>Loading application data...</div></div> {/* Placeholder for children */}
-                <FooterSkeleton />
-                <Toaster />
+        {isReferencePage ? (
+          children
+        ) : (
+          <JotaiAppProvider>
+            <NuqsAdapter>
+              {/* RootLayoutClient wrapper removed, its children are now direct children of JotaiAppProvider */}
+            {/* Main application content, now under Jotai's Provider and Suspense */}
+            <Suspense fallback={
+              <>
+                {/* This fallback is for the initial static shell or while JotaiAppProvider's Suspense is active. */}
+                  <NavbarSkeleton />
+                  <div className="flex-grow p-4"><div>Loading application data...</div></div> {/* Placeholder for children */}
+                  <FooterSkeleton />
+                  <Toaster />
+                  <CommandPalette />
+                </>
+              }>
+                {/* ServerBaseDataProvider has been removed.
+                    State management and initialization are now handled by JotaiAppProvider's client-side logic. */}
+                <PopStateHandler />
+                <Suspense fallback={<NavbarSkeleton />}>
+                  <Navbar />
+                </Suspense>
+                {children}
                 <CommandPalette />
-              </>
-            }>
-              {/* ServerBaseDataProvider has been removed.
-                  State management and initialization are now handled by JotaiAppProvider's client-side logic. */}
-              <PopStateHandler />
-              <Suspense fallback={<NavbarSkeleton />}>
-                <Navbar />
+                <Toaster />
+                <Suspense fallback={<FooterSkeleton />}>
+                  <Footer />
+                </Suspense>
               </Suspense>
-              {children}
-              <CommandPalette />
-              <Toaster />
-              <Suspense fallback={<FooterSkeleton />}>
-                <Footer />
+            {/* End of content previously in RootLayoutClient */}
+            <GlobalErrorReporter />
+            {/* JotaiStateInspector is rendered if NEXT_PUBLIC_DEBUG is true */}
+            {process.env.NEXT_PUBLIC_DEBUG === 'true' && (
+              <Suspense fallback={null}> {/* Suspense for JotaiStateInspector, should only ever render client side. */}
+                <JotaiStateInspector />
               </Suspense>
-            </Suspense>
-          {/* End of content previously in RootLayoutClient */}
-          <GlobalErrorReporter />
-          {/* JotaiStateInspector is rendered if NEXT_PUBLIC_DEBUG is true */}
-          {process.env.NEXT_PUBLIC_DEBUG === 'true' && (
-            <Suspense fallback={null}> {/* Suspense for JotaiStateInspector, should only ever render client side. */}
-              <JotaiStateInspector />
-            </Suspense>
-          )}
-          </NuqsAdapter>
-        </JotaiAppProvider>
+            )}
+            </NuqsAdapter>
+          </JotaiAppProvider>
+        )}
       </body>
     </html>
   );

@@ -22,6 +22,7 @@ const log = (...args: any[]) => {
 // --- Simplified Data Structures ---
 interface SimpleAuthStatus {
   loading: boolean;
+  isAuthenticated: boolean;
   statusMessage: string;
   rawResponse?: any;
 }
@@ -32,18 +33,26 @@ interface LocalLoginCredentials {
 }
 
 const parseSimpleAuthResponse = (rpcResponseData: any, errorObj?: any): Omit<SimpleAuthStatus, 'loading' | 'rawResponse'> => {
+  log('parseSimpleAuthResponse: Parsing...', { rpcResponseData, errorObj });
   if (errorObj) {
-    return { statusMessage: `Error: ${errorObj.message || 'Unknown fetch error'}` };
+    const result = { isAuthenticated: false, statusMessage: `Error: ${errorObj.message || 'Unknown fetch error'}` };
+    log('parseSimpleAuthResponse: Result (from error):', result);
+    return result;
   }
   if (!rpcResponseData && !errorObj) {
-    return { statusMessage: "Error: No data from server (RPC success, but null data)" };
+    const result = { isAuthenticated: false, statusMessage: "Error: No data from server (RPC success, but null data)" };
+    log('parseSimpleAuthResponse: Result (no data):', result);
+    return result;
   }
   const isAuthenticated = rpcResponseData?.is_authenticated ?? false;
-  return {
+  const result = {
+    isAuthenticated,
     statusMessage: isAuthenticated
       ? `Authenticated (User: ${rpcResponseData.email || 'N/A'})`
       : (rpcResponseData?.error_code ? `Error: ${rpcResponseData.error_code}` : "Not Authenticated"),
   };
+  log('parseSimpleAuthResponse: Result (from data):', result);
+  return result;
 };
 
 // --- Local Jotai Atoms (Simplified & Self-Contained) ---
@@ -51,46 +60,41 @@ const parseSimpleAuthResponse = (rpcResponseData: any, errorObj?: any): Omit<Sim
 const localRestClientAtom = atom<PostgrestClient<Database> | null>(null);
 const localRestClientInitFailedAtom = atom<boolean>(false);
 
-const localAuthStatusCoreAtom = atomWithRefresh<Promise<Omit<SimpleAuthStatus, 'loading'>>>(async (get) => {
-  log('localAuthStatusCoreAtom: Evaluation triggered.');
-  const client = get(localRestClientAtom);
-  const clientInitFailed = get(localRestClientInitFailedAtom);
+const autoRefreshOnLoadAtom = atomWithStorage<boolean>('localAutoRefreshOnLoad', true);
+// This atom acts as a flag to ensure the initial auth flow (including a potential auto-refresh)
+// runs only once per page load. It prevents actions like logout from re-triggering the auto-refresh logic.
+// It is not persisted in storage and resets to `false` on a full page reload.
+const initialAuthFlowCompletedAtom = atom(false);
 
-  if (!client) {
-    if (clientInitFailed) {
-      log('localAuthStatusCoreAtom: Local REST client initialization previously failed. Returning error state.');
-      return { statusMessage: "Error: Local client init failed", rawResponse: { error: "Local client init failed" } };
-    }
-    log('localAuthStatusCoreAtom: No REST client (and not yet marked as failed). Suspending.');
-    return new Promise(() => {});
-  }
+// This atom acts as a single source of truth for whether the app has mounted
+// on the client. This is crucial for preventing hydration issues with atoms
+// that use localStorage and for preventing UI flicker.
+const clientMountedAtom = atom(false);
 
-  log('localAuthStatusCoreAtom: Client available. Fetching /rpc/auth_status...');
-  try {
-    const { data, error } = await client.rpc('auth_status');
-    log('localAuthStatusCoreAtom: RPC response:', { data, error });
-    return { ...parseSimpleAuthResponse(data, error), rawResponse: data || error };
-  } catch (e: any) {
-    log('localAuthStatusCoreAtom: Exception during fetch:', e);
-    return { statusMessage: `Error: ${e.message || 'Fetch exception'}`, rawResponse: { exception: e } };
-  }
-});
+// This atom holds the promise for the current auth status. It is written to by action atoms.
+const localAuthStatusCoreAtom = atom<Promise<Omit<SimpleAuthStatus, 'loading'>>>(
+  new Promise(() => {}) // Start with a pending promise that never resolves
+);
 
 const localAuthStatusLoadableAtom = loadable(localAuthStatusCoreAtom);
 
 const localAuthStatusAtom = atom<SimpleAuthStatus>((get) => {
+  log('localAuthStatusAtom: Evaluating derived state.');
   const loadableState = get(localAuthStatusLoadableAtom);
   switch (loadableState.state) {
     case 'loading':
-      return { loading: true, statusMessage: "Loading..." };
+      log('localAuthStatusAtom: State is "loading".');
+      return { loading: true, statusMessage: "Loading...", isAuthenticated: false };
     case 'hasError':
-      log('localAuthStatusAtom: Loadable in error state.', loadableState.error);
+      log('localAuthStatusAtom: State is "hasError".', loadableState.error);
       const errorData = (loadableState.error as any)?.data || (loadableState.error as any)?.error || loadableState.error;
       return { loading: false, ...parseSimpleAuthResponse(null, errorData), rawResponse: errorData };
     case 'hasData':
+      log('localAuthStatusAtom: State is "hasData".', loadableState.data);
       return { loading: false, ...loadableState.data };
     default:
-      return { loading: true, statusMessage: "Unknown loadable state" };
+      log('localAuthStatusAtom: State is "unknown".');
+      return { loading: true, statusMessage: "Unknown loadable state", isAuthenticated: false };
   }
 });
 
@@ -104,6 +108,39 @@ const localPendingRedirectAtom = atom<string | null>(null);
 // An effect in `LocalAppInitializer` listens for these changes and triggers a refresh of the core auth status atom.
 const authChangeTriggerAtom = atomWithStorage<number>('localAuthChangeTrigger', 0); // Constant initial value
 
+// This atom tracks the timestamp of the last auth change that this tab processed.
+// It's used to prevent the tab that initiated a change from re-fetching its own state.
+// It starts as `null` to signify that the initial check has not yet occurred.
+const lastSyncTimestampAtom = atom<number | null>(null);
+
+// This action atom provides a race-condition-proof way to update both the local
+// and cross-tab sync timestamps together.
+const updateSyncTimestampAtom = atom(null, (get, set, newTimestamp: number) => {
+  log('updateSyncTimestampAtom: Updating local and cross-tab sync timestamps.', { newTimestamp });
+  set(lastSyncTimestampAtom, newTimestamp);
+  set(authChangeTriggerAtom, newTimestamp);
+});
+
+const fetchAuthStatusAtom = atom(null, async (get, set) => {
+  log('fetchAuthStatusAtom: Action triggered.');
+  const client = get(localRestClientAtom);
+  if (!client) {
+    log('fetchAuthStatusAtom: Client not ready, setting pending promise.');
+    set(localAuthStatusCoreAtom, new Promise(() => {}));
+    return;
+  }
+
+  const fetchPromise = (async () => {
+    log('fetchAuthStatusAtom: Client ready, fetching /rpc/auth_status...');
+    const { data, error } = await client.rpc('auth_status');
+    const parsedAuth = parseSimpleAuthResponse(data, error);
+    return { ...parsedAuth, rawResponse: data || error };
+  })();
+
+  set(localAuthStatusCoreAtom, fetchPromise);
+  await fetchPromise; // Wait for it to complete for stabilization
+});
+
 const lastIntentionalPathAtom = atom<string | null>(null);
 
 const localLoginAtom = atom<null, [{ credentials: LocalLoginCredentials; pathname: string }], Promise<void>>(
@@ -115,14 +152,18 @@ const localLoginAtom = atom<null, [{ credentials: LocalLoginCredentials; pathnam
     try {
       const { error: loginError } = await client.rpc('login', { email, password });
       if (loginError) throw new Error(loginError.message || 'Login RPC failed');
-      set(localAuthStatusCoreAtom);
-      await get(localAuthStatusCoreAtom);
-      set(authChangeTriggerAtom, Date.now());
+      log('localLoginAtom: Login RPC success. Fetching new auth status.');
+      
+      await set(fetchAuthStatusAtom); // This fetches and stabilizes
+      
+      set(updateSyncTimestampAtom, Date.now());
+      
+      log('localLoginAtom: Auth state updated. Setting redirect.');
       set(localPendingRedirectAtom, `${pathname}?event=login_success&ts=${Date.now()}`);
     } catch (error) {
       log('localLoginAtom: Error during login process for pathname:', pathname, error);
-      set(localAuthStatusCoreAtom); // Ensure status reflects reality
-      await get(localAuthStatusCoreAtom);
+      // On error, we just re-throw. The auth state hasn't changed.
+      // The UI component's catch block will handle displaying the error.
       throw error;
     }
   }
@@ -137,15 +178,19 @@ const localLogoutAtom = atom<null, [pathname: string], Promise<void>>(
     try {
       const { error: logoutError } = await client.rpc('logout');
       if (logoutError) throw new Error(logoutError.message || 'Logout RPC failed');
+      log('localLogoutAtom: Logout RPC success. Fetching new auth status.');
       await new Promise(resolve => setTimeout(resolve, 50)); // Allow cookie processing
-      set(localAuthStatusCoreAtom);
-      await get(localAuthStatusCoreAtom);
-      set(authChangeTriggerAtom, Date.now());
+      
+      await set(fetchAuthStatusAtom); // This fetches and stabilizes
+      
+      set(updateSyncTimestampAtom, Date.now());
+      
+      log('localLogoutAtom: Auth state updated. Setting redirect.');
       set(localPendingRedirectAtom, `${pathname}?event=logout_success&ts=${Date.now()}`);
     } catch (error) {
       log('localLogoutAtom: Error during logout process for pathname:', pathname, error);
-      set(localAuthStatusCoreAtom); // Ensure status reflects reality
-      await get(localAuthStatusCoreAtom);
+      // On error, we just re-throw. The auth state hasn't changed.
+      // The UI component's catch block will handle displaying the error.
       throw error;
     }
   }
@@ -160,15 +205,17 @@ const removeAccessTokenCookieAtom = atom<null, [], Promise<void>>(
     try {
       const { error } = await client.rpc('auth_clear_access_keep_refresh');
       if (error) throw new Error(error.message || 'RPC to clear access token cookie failed');
-      log('removeAccessTokenCookieAtom: RPC success. Refreshing auth status.');
-      set(localAuthStatusCoreAtom);
-      await get(localAuthStatusCoreAtom);
-      set(authChangeTriggerAtom, Date.now());
+      log('removeAccessTokenCookieAtom: RPC success. Fetching new auth status.');
+      
+      await set(fetchAuthStatusAtom); // This fetches and stabilizes
+      
+      set(updateSyncTimestampAtom, Date.now());
+      
+      log('removeAccessTokenCookieAtom: Auth status stabilized.');
     } catch (error) {
       log('removeAccessTokenCookieAtom: Error during process:', error);
-      set(localAuthStatusCoreAtom);
-      await get(localAuthStatusCoreAtom);
-      set(authChangeTriggerAtom, Date.now());
+      // On error, we just re-throw. The auth state hasn't changed.
+      // The UI component's catch block will handle displaying the error.
       throw error;
     }
   }
@@ -181,17 +228,30 @@ const refreshTokenAtom = atom<null, [], Promise<void>>(
     const client = get(localRestClientAtom);
     if (!client) throw new Error("Client not available.");
     try {
-      const { error } = await client.rpc('refresh');
+      // Get the current auth status BEFORE the refresh call to compare later.
+      const currentAuth = await get(localAuthStatusCoreAtom);
+
+      const { data, error } = await client.rpc('refresh');
       if (error) throw new Error(error.message || 'Refresh RPC failed');
-      log('refreshTokenAtom: RPC success. Refreshing auth status.');
-      set(localAuthStatusCoreAtom);
-      await get(localAuthStatusCoreAtom);
-      set(authChangeTriggerAtom, Date.now());
+      log('refreshTokenAtom: RPC success. Updating auth state directly with response.');
+      
+      const newAuthStatus = parseSimpleAuthResponse(data, error);
+      set(localAuthStatusCoreAtom, Promise.resolve({ ...newAuthStatus, rawResponse: data || error }));
+      
+      // If the authentication status has changed (e.g., from logged out to logged in),
+      // then it's a significant event that other tabs should be notified about.
+      if (currentAuth.isAuthenticated !== newAuthStatus.isAuthenticated) {
+        log('refreshTokenAtom: Auth status changed. Triggering cross-tab sync.');
+        set(updateSyncTimestampAtom, Date.now());
+      } else {
+        log('refreshTokenAtom: Auth status did not change. No cross-tab sync needed.');
+      }
+      
+      log('refreshTokenAtom: Auth state updated.');
     } catch (error) {
       log('refreshTokenAtom: Error during process:', error);
-      set(localAuthStatusCoreAtom);
-      await get(localAuthStatusCoreAtom);
-      set(authChangeTriggerAtom, Date.now());
+      // On error, we just re-throw. The auth state hasn't changed.
+      // The UI component's catch block will handle displaying the error.
       throw error;
     }
   }
@@ -199,12 +259,61 @@ const refreshTokenAtom = atom<null, [], Promise<void>>(
 
 // --- React Components (Self-Contained) ---
 
+const MiniFeatureFlagToggleSkeleton: React.FC<{ label: string }> = ({ label }) => {
+  return (
+    <div className="flex items-center space-x-2 animate-pulse">
+      <label className="text-xs font-medium bg-gray-700 rounded-sm">
+        <span className="opacity-0">{label}</span>
+      </label>
+      <div
+        className="relative inline-flex h-4 w-8 flex-shrink-0 cursor-wait rounded-full border-2 border-transparent bg-gray-600"
+      >
+        <span
+          aria-hidden="true"
+          className="inline-block h-3 w-3 transform rounded-full bg-gray-500 shadow ring-0"
+        />
+      </div>
+    </div>
+  );
+};
+
+const MiniFeatureFlagToggle: React.FC<{
+  atom: ReturnType<typeof atomWithStorage<boolean>>;
+  label: string;
+}> = ({ atom, label }) => {
+  const [enabled, setEnabled] = useAtom(atom);
+  return (
+    <div className="flex items-center space-x-2">
+      <label htmlFor="mini-auto-refresh-toggle" className="text-xs font-medium text-gray-300">
+        {label}
+      </label>
+      <button
+        id="mini-auto-refresh-toggle"
+        onClick={() => setEnabled(!enabled)}
+        className={`relative inline-flex h-4 w-8 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
+          enabled ? 'bg-indigo-500' : 'bg-gray-600'
+        }`}
+        role="switch"
+        aria-checked={enabled}
+      >
+        <span
+          aria-hidden="true"
+          className={`inline-block h-3 w-3 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+            enabled ? 'translate-x-4' : 'translate-x-0'
+          }`}
+        />
+      </button>
+    </div>
+  );
+};
+
 const AuthStatusDisplay: React.FC<{ title: string; authData: SimpleAuthStatus | Omit<SimpleAuthStatus, 'loading'>; isLoading?: boolean }> = ({ title, authData, isLoading }) => {
-  const currentStatus = 'loading' in authData ? (authData as SimpleAuthStatus) : { loading: isLoading ?? false, ...authData };
+  const currentStatus = 'loading' in authData ? (authData as SimpleAuthStatus) : { loading: isLoading ?? false, isAuthenticated: false, ...authData };
   return (
     <div className="p-4 border rounded mb-4">
       <h2 className="font-bold text-lg">{title}</h2>
       <p>Loading: {currentStatus.loading ? 'Yes' : 'No'}</p>
+      <p>Authenticated: {currentStatus.isAuthenticated ? 'Yes' : 'No'}</p>
       <p>Status: {currentStatus.statusMessage}</p>
       <pre className="text-xs bg-gray-100 p-2 rounded mt-2 overflow-auto max-h-32">
         Raw: {JSON.stringify(currentStatus.rawResponse, null, 2)}
@@ -217,6 +326,32 @@ const AuthStatusDisplayDirect: React.FC = () => {
   const authStatus = useAtomValue(localAuthStatusAtom);
   log('AuthStatusDisplayDirect: Render. Auth status:', authStatus);
   return <AuthStatusDisplay title="Auth Status (Direct Read - Derived)" authData={authStatus} />;
+};
+
+const LocalLoginFormSkeleton: React.FC = () => {
+  return (
+    <div className="p-4 border rounded mb-4 space-y-3 animate-pulse">
+      <div className="h-5 w-1/4 bg-gray-300 rounded" />
+      <div>
+        <div className="h-4 w-1/5 bg-gray-300 rounded mb-1" />
+        <div className="h-8 w-full bg-gray-300 rounded" />
+      </div>
+      <div>
+        <div className="h-4 w-1/4 bg-gray-300 rounded mb-1" />
+        <div className="h-8 w-full bg-gray-300 rounded" />
+      </div>
+      <div className="h-8 w-20 bg-gray-300 rounded" />
+    </div>
+  );
+};
+
+const LocalLogoutButtonSkeleton: React.FC = () => {
+  return (
+    <div className="p-4 border rounded mb-4 animate-pulse">
+      <div className="h-5 w-1/4 bg-gray-300 rounded mb-2" />
+      <div className="h-8 w-24 bg-gray-300 rounded" />
+    </div>
+  );
 };
 
 const LocalRedirectHandler: React.FC = () => {
@@ -331,10 +466,10 @@ const RefreshTokenButton: React.FC = () => {
 };
 
 const CheckAuthStatusButton: React.FC = () => {
-  const refreshAuth = useSetAtom(localAuthStatusCoreAtom);
-  const setAuthTrigger = useSetAtom(authChangeTriggerAtom);
+  const fetchAuthStatus = useSetAtom(fetchAuthStatusAtom);
   const handleClick = () => {
-    refreshAuth(); setAuthTrigger(Date.now());
+    log('CheckAuthStatusButton: Clicked. Triggering auth fetch.');
+    fetchAuthStatus();
   };
   return (
     <button onClick={handleClick} className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm" title="Check Authentication Status">
@@ -346,37 +481,90 @@ const CheckAuthStatusButton: React.FC = () => {
 const LocalAppInitializer: React.FC<{ children: ReactNode }> = ({ children }) => {
   const setLocalRestClient = useSetAtom(localRestClientAtom);
   const setLocalClientInitFailed = useSetAtom(localRestClientInitFailedAtom);
-  const authChangeTimestamp = useAtomValue(authChangeTriggerAtom);
-  const refreshAuthStatus = useSetAtom(localAuthStatusCoreAtom);
-  const initialTimestampRef = useRef<number | null>(null);
-  const hasMountedRef = useRef(false);
+  const fetchAuthStatus = useSetAtom(fetchAuthStatusAtom);
+  const setClientMounted = useSetAtom(clientMountedAtom);
 
+  // Hooks for auto-refresh logic
+  const authStatus = useAtomValue(localAuthStatusAtom);
+  const [initialAuthFlowCompleted, setInitialAuthFlowCompleted] = useAtom(initialAuthFlowCompletedAtom);
+  const autoRefreshEnabled = useAtomValue(autoRefreshOnLoadAtom);
+  const performRefresh = useSetAtom(refreshTokenAtom);
+  const clientMounted = useAtomValue(clientMountedAtom);
+
+  // Hooks for cross-tab sync
+  const authChangeTimestamp = useAtomValue(authChangeTriggerAtom);
+  const [lastSyncTs, setLastSyncTs] = useAtom(lastSyncTimestampAtom);
+
+  // Effect to initialize the REST client
   useEffect(() => {
+    log('LocalAppInitializer: Mount/Effect for client initialization.');
     let mounted = true;
-    const initializeClient = async () => {
+    const initialize = async () => {
       try {
+        log('LocalAppInitializer: Importing and getting browser REST client...');
         const { getBrowserRestClient } = await import('@/context/RestClientStore');
         const client = await getBrowserRestClient();
-        if (mounted) { setLocalRestClient(client); setLocalClientInitFailed(false); }
+        if (mounted) {
+          log('LocalAppInitializer: Client initialized successfully.');
+          setLocalRestClient(client);
+          setLocalClientInitFailed(false);
+        }
       } catch (error) {
-        if (mounted) { setLocalClientInitFailed(true); setLocalRestClient(null); }
+        if (mounted) {
+          log('LocalAppInitializer: Client initialization failed.', error);
+          setLocalClientInitFailed(true);
+          setLocalRestClient(null);
+        }
+      } finally {
+        if (mounted) {
+          log('LocalAppInitializer: Setting clientMounted to true.');
+          setClientMounted(true);
+        }
       }
     };
-    initializeClient();
-    return () => { mounted = false; };
-  }, [setLocalRestClient, setLocalClientInitFailed]);
+    initialize();
 
+    return () => {
+      log('LocalAppInitializer: Unmount/Cleanup for client initialization.');
+      mounted = false;
+    };
+  }, [setLocalRestClient, setLocalClientInitFailed, setClientMounted]);
+
+  // useEffect for auto-refresh logic
   useEffect(() => {
-    if (!hasMountedRef.current) {
-      initialTimestampRef.current = authChangeTimestamp;
-      hasMountedRef.current = true;
+    if (!clientMounted || authStatus.loading || initialAuthFlowCompleted) {
+      log('LocalAppInitializer: Auto-refresh check skipped.', { clientMounted, loading: authStatus.loading, initialAuthFlowCompleted });
       return;
     }
-    if (initialTimestampRef.current !== authChangeTimestamp) {
-      refreshAuthStatus();
-      initialTimestampRef.current = authChangeTimestamp;
+
+    setInitialAuthFlowCompleted(true);
+
+    if (!authStatus.isAuthenticated && autoRefreshEnabled) {
+      log('LocalAppInitializer: Initial status is not authenticated. Attempting auto-refresh...');
+      performRefresh().catch(e => {
+        log('LocalAppInitializer: Auto-refresh failed.', e);
+      });
     }
-  }, [authChangeTimestamp, refreshAuthStatus]);
+  }, [clientMounted, authStatus, autoRefreshEnabled, initialAuthFlowCompleted, setInitialAuthFlowCompleted, performRefresh]);
+
+  // useEffect for initial fetch and cross-tab synchronization
+  useEffect(() => {
+    // Don't run until the client is mounted, to ensure authChangeTimestamp is hydrated from storage.
+    if (!clientMounted) {
+      return;
+    }
+    log('LocalAppInitializer: Cross-tab sync effect triggered.', { lastSyncTs, currentTs: authChangeTimestamp });
+
+    // This condition now handles both the initial fetch (when lastSyncTs is null)
+    // and subsequent updates from other tabs.
+    if (lastSyncTs === null || lastSyncTs !== authChangeTimestamp) {
+      log(`LocalAppInitializer: Refreshing status. Reason: ${lastSyncTs === null ? 'Initial Load' : 'Timestamp changed'}.`);
+      fetchAuthStatus();
+      setLastSyncTs(authChangeTimestamp);
+    } else {
+      log('LocalAppInitializer: Timestamp is the same, no action needed.');
+    }
+  }, [clientMounted, authChangeTimestamp, lastSyncTs, setLastSyncTs, fetchAuthStatus]);
 
   return <>{children}</>;
 };
@@ -408,8 +596,7 @@ const UrlCleaner: React.FC = () => {
 // --- Main Page Component ---
 const ReferencePageContent: React.FC = () => {
   log('ReferencePageContent: Render.');
-  const [isClient, setIsClient] = useState(false);
-  useEffect(() => { setIsClient(true); }, []);
+  const clientMounted = useAtomValue(clientMountedAtom);
 
   const searchParams = useSearchParams(); // For redirect event display
   const redirectEvent = searchParams.get('event');
@@ -422,14 +609,24 @@ const ReferencePageContent: React.FC = () => {
   return (
     <LocalAppInitializer>
       <LocalRedirectHandler />
-      {isClient && <UrlCleaner />}
+      {clientMounted && <UrlCleaner />}
       <div className="container mx-auto p-4">
         {/* Status Bar */}
         <div className="bg-gray-800 text-white p-1 text-xs w-full flex justify-between items-center mb-4">
           <span>
             Local Client: {localClient ? 'INITIALIZED' : 'NOT INITIALIZED'} | Init Failed: {localClientFailed ? 'YES' : 'NO'}
           </span>
-          <CheckAuthStatusButton />
+          <div className="flex items-center space-x-4">
+            {clientMounted ? (
+              <MiniFeatureFlagToggle
+                atom={autoRefreshOnLoadAtom}
+                label="Auto-Refresh on Load"
+              />
+            ) : (
+              <MiniFeatureFlagToggleSkeleton label="Auto-Refresh on Load" />
+            )}
+            <CheckAuthStatusButton />
+          </div>
         </div>
 
         <header className="mb-6">
@@ -442,9 +639,12 @@ const ReferencePageContent: React.FC = () => {
           </div>
         )}
 
+
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
           <div className="md:col-span-1">
-            {authStatus.statusMessage.startsWith('Authenticated') ? (
+            {authStatus.loading ? (
+              <LocalLoginFormSkeleton />
+            ) : authStatus.isAuthenticated ? (
               <LocalLogoutButton />
             ) : (
               <LocalLoginForm />
@@ -501,7 +701,8 @@ const ReferencePageContent: React.FC = () => {
                 The <code>AuthStatusDisplayDirect</code> component (defined within this file) uses <code>localAuthStatusAtom</code>.
                 This <code>localAuthStatusAtom</code> is a simple derived atom: <code>atom((get) =&gt; ...)</code>.
                 It reads from <code>localAuthStatusLoadableAtom</code>, which is <code>loadable(localAuthStatusCoreAtom)</code>.
-                <code>localAuthStatusCoreAtom</code> is an <code>atomWithRefresh(async (get) =&gt; ...)</code>, responsible for the actual asynchronous fetch of authentication status.
+                <code>localAuthStatusCoreAtom</code> is a simple promise atom: <code>atom&lt;Promise&lt;...&gt;&gt;(...)</code>.
+                It holds the promise for the current auth status. It is not an async atom itself; instead, it is written to by the <code>fetchAuthStatusAtom</code> action atom, which performs the actual asynchronous fetch.
               </p>
               <p><em>Why this pattern is preferred:</em></p>
               <ol>
@@ -527,9 +728,9 @@ const ReferencePageContent: React.FC = () => {
                   non-resolving promise via <code>new Promise(() =&gt; &#123;&#125;)</code>) until the client is available. This is crucial for correct initial loading behavior.</li>
                 <li><strong>Login/Logout Logic (<code>LocalLoginForm</code>, <code>LocalLogoutButton</code>, action atoms <code>localLoginAtom</code>, <code>localLogoutAtom</code>):</strong>
                   Action atoms encapsulate API calls and subsequent state updates.
-                  <em>IMPORTANT:</em> After an action that changes auth state (like login or logout), these atoms first call <code>set(localAuthStatusCoreAtom)</code> to trigger a refresh,
-                  AND then <code>await get(localAuthStatusCoreAtom)</code> to ensure the core auth state is fully refreshed
-                  and stable before proceeding with side effects like setting a redirect path. This prevents acting on stale state.</li>
+                  <em>IMPORTANT:</em> After an action that changes auth state (like login or logout), these atoms call <code>await set(fetchAuthStatusAtom)</code>.
+                  This action atom is responsible for both fetching the new status and waiting for the fetch to complete,
+                  ensuring the core auth state is fully refreshed and stable before proceeding with side effects like setting a redirect path. This prevents acting on stale state.</li>
                 <li><strong>Controlled Client-Side Redirects (<code>LocalRedirectHandler</code>, <code>localPendingRedirectAtom</code>):</strong>
                   Actions set <code>localPendingRedirectAtom</code> with the target path.
                   <code>LocalRedirectHandler</code> (a simple component) observes this atom using <code>useAtom</code> and performs navigation using <code>router.push()</code>.
@@ -541,9 +742,9 @@ const ReferencePageContent: React.FC = () => {
                   This component is conditionally rendered using an <code>isClient</code> state flag to ensure its router hooks only run client-side.</li>
                 <li><strong>Cross-Tab Synchronization (<code>authChangeTriggerAtom</code>, logic in <code>LocalAppInitializer</code>):</strong>
                   <code>authChangeTriggerAtom</code> is an <code>atomWithStorage</code> using <code>localStorage</code>. It stores a timestamp that is updated upon login, logout, or manual refresh.
-                  <code>LocalAppInitializer</code> in each tab listens to this atom. If the timestamp changes (indicating an action in another tab), it calls <code>refreshAuthStatus()</code>
-                  (which is <code>set(localAuthStatusCoreAtom)</code>) to update its local view of the auth state.
-                  <code>useRef</code> hooks (<code>hasMountedRef</code>, <code>initialTimestampRef</code>) are used to prevent this effect from firing on initial hydration from localStorage, only on subsequent changes.</li>
+                  <code>LocalAppInitializer</code> in each tab listens to this atom. If the timestamp changes (indicating an action in another tab), it calls <code>fetchAuthStatus()</code>
+                  to update its local view of the auth state.
+                  To prevent re-fetching on the tab that initiated the change, a separate state atom (<code>lastSyncTimestampAtom</code>) tracks the last timestamp this tab processed. The fetch is only triggered if the timestamp from storage is different.</li>
               </ul>
 
               <h3>Pitfalls and Anti-Patterns Observed (and Solutions Implemented Here)</h3>
@@ -587,13 +788,6 @@ const ReferencePageContent: React.FC = () => {
                   This page demonstrates this by having a root <code>JotaiStateManagementReferencePage</code> component that sets up the <code>&lt;Provider&gt;</code>,
                   and an inner <code>ReferencePageContent</code> component (rendered by the root) that contains all the actual layout structure
                   and atom consumption logic.</p>
-                </li>
-                 <li><strong>Initial Value of <code>atomWithStorage</code> and <code>useEffect</code> for Synchronization:</strong>
-                  <p><em>Problem:</em> <code>useEffect</code> listening to an <code>atomWithStorage</code> might trigger on initial hydration
-                  from <code>localStorage</code>, causing an unnecessary action (e.g., an extra auth refresh).</p>
-                  <p><em>Solution:</em> Use <code>useRef</code> (e.g., <code>hasMountedRef</code>, <code>initialTimestampRef</code> in <code>LocalAppInitializer</code>)
-                  to distinguish between the initial hydration of the atom&apos;s value from storage and subsequent
-                  changes to that value (which should trigger the desired effect).</p>
                 </li>
               </ul>
             </div>
