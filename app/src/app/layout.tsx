@@ -29,7 +29,7 @@ export default async function RootLayout({
 }: {
   readonly children: ReactNode;
 }) {
-  const headersList = headers();
+  const headersList = await headers();
   const pathname = headersList.get("x-invoke-path") || "";
   const isReferencePage = pathname.startsWith('/jotai-state-management-reference');
 
