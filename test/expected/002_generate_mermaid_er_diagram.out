@@ -1,1107 +1,1054 @@
-\t
-\a
-SELECT '########################################'
-UNION ALL
-SELECT public.generate_mermaid_er_diagram()
-UNION ALL
-SELECT '########################################';
-########################################
-erDiagram
-	%% Entities (derived from tables)
-	auth_api_key["auth.api_key"] {
-		"integer" id
-		"uuid" jti
-		"integer" user_id
-		"text" description
-		"timestamp with time zone" created_at
-		"timestamp with time zone" expires_at
-		"timestamp with time zone" revoked_at
-		"text" token
-	}
-	auth_refresh_session["auth.refresh_session"] {
-		"integer" id
-		"uuid" jti
-		"integer" user_id
-		"integer" refresh_version
-		"timestamp with time zone" created_at
-		"timestamp with time zone" last_used_at
-		"timestamp with time zone" expires_at
-		"text" user_agent
-		"inet" ip_address
-	}
-	auth_user["auth.user"] {
-		"integer" id
-		"uuid" sub
-		"text" email
-		"text" password
-		"text" encrypted_password
-		"statbus_role" statbus_role
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"timestamp with time zone" last_sign_in_at
-		"timestamp with time zone" email_confirmed_at
-		"timestamp with time zone" deleted_at
-	}
-	db_migration["db.migration"] {
-		"integer" id
-		"bigint" version
-		"text" filename
-		"text" description
-		"timestamp with time zone" applied_at
-		"integer" duration_ms
-	}
-	lifecycle_callbacks_registered_callback["lifecycle_callbacks.registered_callback"] {
-		"text" label
-		"integer" priority
-		"regclass[]" table_names
-		"regproc" generate_procedure
-		"regproc" cleanup_procedure
+		text label
+		integer priority
+		regclass[] table_names
+		regproc generate_procedure
+		regproc cleanup_procedure
 	}
 	lifecycle_callbacks_supported_table["lifecycle_callbacks.supported_table"] {
-		"regclass" table_name
-		"text" after_insert_trigger_name
-		"text" after_update_trigger_name
-		"text" after_delete_trigger_name
+		regclass table_name
+		text after_insert_trigger_name
+		text after_update_trigger_name
+		text after_delete_trigger_name
 	}
 	activity["activity"] {
-		"integer" id
-		"date" valid_from
-		"date" valid_after
-		"date" valid_to
-		"activity_type" type
-		"integer" category_id
-		"integer" data_source_id
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
-		"integer" establishment_id
-		"integer" legal_unit_id
+		integer id
+		date valid_from
+		date valid_after
+		date valid_to
+		activity_type type
+		integer category_id
+		integer data_source_id
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
+		integer establishment_id
+		integer legal_unit_id
 	}
 	activity_category["activity_category"] {
-		"integer" id
-		"integer" standard_id
-		"ltree" path
-		"integer" parent_id
-		"integer" level
-		"character varying" label
-		"character varying" code
-		"character varying(256)" name
-		"text" description
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		integer standard_id
+		ltree path
+		integer parent_id
+		integer level
+		character_varying label
+		character_varying code
+		character_varying(256) name
+		text description
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	activity_category_access["activity_category_access"] {
-		"integer" id
-		"integer" user_id
-		"integer" activity_category_id
+		integer id
+		integer user_id
+		integer activity_category_id
 	}
 	activity_category_standard["activity_category_standard"] {
-		"integer" id
-		"character varying(16)" code
-		"character varying" name
-		"character varying" description
-		"activity_category_code_behaviour" code_pattern
-		"boolean" obsolete
+		integer id
+		character_varying(16) code
+		character_varying name
+		character_varying description
+		activity_category_code_behaviour code_pattern
+		boolean obsolete
 	}
 	activity_category_used["activity_category_used"] {
-		"character varying(16)" standard_code
-		"integer" id
-		"ltree" path
-		"ltree" parent_path
-		"character varying" code
-		"character varying" label
-		"character varying(256)" name
-		"text" description
+		character_varying(16) standard_code
+		integer id
+		ltree path
+		ltree parent_path
+		character_varying code
+		character_varying label
+		character_varying(256) name
+		text description
 	}
 	contact["contact"] {
-		"integer" id
-		"date" valid_from
-		"date" valid_after
-		"date" valid_to
-		"character varying(256)" web_address
-		"character varying(50)" email_address
-		"character varying(50)" phone_number
-		"character varying(50)" landline
-		"character varying(50)" mobile_number
-		"character varying(50)" fax_number
-		"integer" establishment_id
-		"integer" legal_unit_id
-		"integer" data_source_id
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
+		integer id
+		date valid_from
+		date valid_after
+		date valid_to
+		character_varying(256) web_address
+		character_varying(50) email_address
+		character_varying(50) phone_number
+		character_varying(50) landline
+		character_varying(50) mobile_number
+		character_varying(50) fax_number
+		integer establishment_id
+		integer legal_unit_id
+		integer data_source_id
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
 	}
 	country["country"] {
-		"integer" id
-		"text" iso_2
-		"text" iso_3
-		"text" iso_num
-		"text" name
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text iso_2
+		text iso_3
+		text iso_num
+		text name
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	country_used["country_used"] {
-		"integer" id
-		"text" iso_2
-		"text" name
+		integer id
+		text iso_2
+		text name
 	}
 	data_source["data_source"] {
-		"integer" id
-		"text" code
-		"text" name
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text code
+		text name
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	data_source_used["data_source_used"] {
-		"integer" id
-		"text" code
-		"text" name
+		integer id
+		text code
+		text name
 	}
 	enterprise["enterprise"] {
-		"integer" id
-		"boolean" active
-		"character varying(16)" short_name
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
+		integer id
+		boolean active
+		character_varying(16) short_name
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
 	}
 	enterprise_group["enterprise_group"] {
-		"integer" id
-		"date" valid_from
-		"date" valid_after
-		"date" valid_to
-		"boolean" active
-		"character varying(16)" short_name
-		"character varying(256)" name
-		"integer" enterprise_group_type_id
-		"text" contact_person
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
-		"integer" unit_size_id
-		"integer" data_source_id
-		"text" reorg_references
-		"timestamp with time zone" reorg_date
-		"integer" reorg_type_id
-		"integer" foreign_participation_id
+		integer id
+		date valid_from
+		date valid_after
+		date valid_to
+		boolean active
+		character_varying(16) short_name
+		character_varying(256) name
+		integer enterprise_group_type_id
+		text contact_person
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
+		integer unit_size_id
+		integer data_source_id
+		text reorg_references
+		timestamp_with_time_zone reorg_date
+		integer reorg_type_id
+		integer foreign_participation_id
 	}
 	enterprise_group_role["enterprise_group_role"] {
-		"integer" id
-		"text" code
-		"text" name
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text code
+		text name
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	enterprise_group_type["enterprise_group_type"] {
-		"integer" id
-		"text" code
-		"text" name
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text code
+		text name
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	establishment["establishment"] {
-		"integer" id
-		"date" valid_from
-		"date" valid_after
-		"date" valid_to
-		"boolean" active
-		"character varying(16)" short_name
-		"character varying(256)" name
-		"date" birth_date
-		"date" death_date
-		"boolean" free_econ_zone
-		"integer" sector_id
-		"integer" status_id
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
-		"integer" unit_size_id
-		"integer" data_source_id
-		"integer" enterprise_id
-		"integer" legal_unit_id
-		"boolean" primary_for_legal_unit
-		"boolean" primary_for_enterprise
-		"jsonb" invalid_codes
+		integer id
+		date valid_from
+		date valid_after
+		date valid_to
+		boolean active
+		character_varying(16) short_name
+		character_varying(256) name
+		date birth_date
+		date death_date
+		boolean free_econ_zone
+		integer sector_id
+		integer status_id
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
+		integer unit_size_id
+		integer data_source_id
+		integer enterprise_id
+		integer legal_unit_id
+		boolean primary_for_legal_unit
+		boolean primary_for_enterprise
+		jsonb invalid_codes
 	}
 	external_ident["external_ident"] {
-		"integer" id
-		"character varying(50)" ident
-		"integer" type_id
-		"integer" establishment_id
-		"integer" legal_unit_id
-		"integer" enterprise_id
-		"integer" enterprise_group_id
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
+		integer id
+		character_varying(50) ident
+		integer type_id
+		integer establishment_id
+		integer legal_unit_id
+		integer enterprise_id
+		integer enterprise_group_id
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
 	}
 	external_ident_type["external_ident_type"] {
-		"integer" id
-		"character varying(128)" code
-		"character varying(50)" name
-		"integer" by_tag_id
-		"text" description
-		"integer" priority
-		"boolean" archived
+		integer id
+		character_varying(128) code
+		character_varying(50) name
+		integer by_tag_id
+		text description
+		integer priority
+		boolean archived
 	}
 	foreign_participation["foreign_participation"] {
-		"integer" id
-		"text" code
-		"text" name
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text code
+		text name
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	import_data_column["import_data_column"] {
-		"integer" id
-		"integer" step_id
-		"integer" priority
-		"text" column_name
-		"text" column_type
-		"import_data_column_purpose" purpose
-		"boolean" is_nullable
-		"text" default_value
-		"boolean" is_uniquely_identifying
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		integer step_id
+		integer priority
+		text column_name
+		text column_type
+		import_data_column_purpose purpose
+		boolean is_nullable
+		text default_value
+		boolean is_uniquely_identifying
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	import_definition["import_definition"] {
-		"integer" id
-		"text" slug
-		"text" name
-		"text" note
-		"integer" data_source_id
-		"text" time_context_ident
-		"import_strategy" strategy
-		"import_mode" mode
-		"integer" user_id
-		"boolean" active
-		"boolean" custom
-		"boolean" valid
-		"text" validation_error
-		"interval" default_retention_period
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text slug
+		text name
+		text note
+		integer data_source_id
+		text time_context_ident
+		import_strategy strategy
+		import_mode mode
+		integer user_id
+		boolean active
+		boolean custom
+		boolean valid
+		text validation_error
+		interval default_retention_period
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	import_definition_step["import_definition_step"] {
-		"integer" definition_id
-		"integer" step_id
+		integer definition_id
+		integer step_id
 	}
 	import_job["import_job"] {
-		"integer" id
-		"text" slug
-		"text" description
-		"text" note
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
-		"date" default_valid_from
-		"date" default_valid_to
-		"text" default_data_source_code
-		"text" upload_table_name
-		"text" data_table_name
-		"integer" priority
-		"jsonb" definition_snapshot
-		"timestamp with time zone" preparing_data_at
-		"timestamp with time zone" analysis_start_at
-		"timestamp with time zone" analysis_stop_at
-		"timestamp with time zone" changes_approved_at
-		"timestamp with time zone" changes_rejected_at
-		"timestamp with time zone" processing_start_at
-		"timestamp with time zone" processing_stop_at
-		"integer" total_rows
-		"integer" imported_rows
-		"numeric(5,2)" import_completed_pct
-		"numeric(10,2)" import_rows_per_sec
-		"timestamp with time zone" last_progress_update
-		"import_job_state" state
-		"text" error
-		"boolean" review
-		"text" edit_comment
-		"timestamp with time zone" expires_at
-		"integer" definition_id
-		"integer" user_id
+		integer id
+		text slug
+		text description
+		text note
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
+		date default_valid_from
+		date default_valid_to
+		text default_data_source_code
+		text upload_table_name
+		text data_table_name
+		integer priority
+		jsonb definition_snapshot
+		timestamp_with_time_zone preparing_data_at
+		timestamp_with_time_zone analysis_start_at
+		timestamp_with_time_zone analysis_stop_at
+		timestamp_with_time_zone changes_approved_at
+		timestamp_with_time_zone changes_rejected_at
+		timestamp_with_time_zone processing_start_at
+		timestamp_with_time_zone processing_stop_at
+		integer total_rows
+		integer imported_rows
+		numeric(5_2) import_completed_pct
+		numeric(10_2) import_rows_per_sec
+		timestamp_with_time_zone last_progress_update
+		import_job_state state
+		text error
+		boolean review
+		text edit_comment
+		timestamp_with_time_zone expires_at
+		integer definition_id
+		integer user_id
 	}
 	import_mapping["import_mapping"] {
-		"integer" id
-		"integer" definition_id
-		"integer" source_column_id
-		"text" source_value
-		"import_source_expression" source_expression
-		"integer" target_data_column_id
-		"boolean" is_ignored
-		"import_data_column_purpose" target_data_column_purpose
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		integer definition_id
+		integer source_column_id
+		text source_value
+		import_source_expression source_expression
+		integer target_data_column_id
+		boolean is_ignored
+		import_data_column_purpose target_data_column_purpose
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	import_source_column["import_source_column"] {
-		"integer" id
-		"integer" definition_id
-		"text" column_name
-		"integer" priority
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		integer definition_id
+		text column_name
+		integer priority
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	import_step["import_step"] {
-		"integer" id
-		"text" code
-		"text" name
-		"integer" priority
-		"regproc" analyse_procedure
-		"regproc" process_procedure
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text code
+		text name
+		integer priority
+		regproc analyse_procedure
+		regproc process_procedure
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	legal_form["legal_form"] {
-		"integer" id
-		"text" code
-		"text" name
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text code
+		text name
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	legal_form_used["legal_form_used"] {
-		"integer" id
-		"text" code
-		"text" name
+		integer id
+		text code
+		text name
 	}
 	legal_unit["legal_unit"] {
-		"integer" id
-		"date" valid_from
-		"date" valid_after
-		"date" valid_to
-		"boolean" active
-		"character varying(16)" short_name
-		"character varying(256)" name
-		"date" birth_date
-		"date" death_date
-		"boolean" free_econ_zone
-		"integer" sector_id
-		"integer" status_id
-		"integer" legal_form_id
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
-		"integer" unit_size_id
-		"integer" foreign_participation_id
-		"integer" data_source_id
-		"integer" enterprise_id
-		"boolean" primary_for_enterprise
-		"jsonb" invalid_codes
+		integer id
+		date valid_from
+		date valid_after
+		date valid_to
+		boolean active
+		character_varying(16) short_name
+		character_varying(256) name
+		date birth_date
+		date death_date
+		boolean free_econ_zone
+		integer sector_id
+		integer status_id
+		integer legal_form_id
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
+		integer unit_size_id
+		integer foreign_participation_id
+		integer data_source_id
+		integer enterprise_id
+		boolean primary_for_enterprise
+		jsonb invalid_codes
 	}
 	location["location"] {
-		"integer" id
-		"date" valid_from
-		"date" valid_after
-		"date" valid_to
-		"location_type" type
-		"character varying(200)" address_part1
-		"character varying(200)" address_part2
-		"character varying(200)" address_part3
-		"character varying(200)" postcode
-		"character varying(200)" postplace
-		"integer" region_id
-		"integer" country_id
-		"numeric(9,6)" latitude
-		"numeric(9,6)" longitude
-		"numeric(6,1)" altitude
-		"integer" establishment_id
-		"integer" legal_unit_id
-		"integer" data_source_id
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
+		integer id
+		date valid_from
+		date valid_after
+		date valid_to
+		location_type type
+		character_varying(200) address_part1
+		character_varying(200) address_part2
+		character_varying(200) address_part3
+		character_varying(200) postcode
+		character_varying(200) postplace
+		integer region_id
+		integer country_id
+		numeric(9_6) latitude
+		numeric(9_6) longitude
+		numeric(6_1) altitude
+		integer establishment_id
+		integer legal_unit_id
+		integer data_source_id
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
 	}
 	person["person"] {
-		"integer" id
-		"text" personal_ident
-		"integer" country_id
-		"timestamp with time zone" created_at
-		"character varying(150)" given_name
-		"character varying(150)" middle_name
-		"character varying(150)" family_name
-		"date" birth_date
-		"person_sex" sex
-		"text" phone_number
-		"text" mobile_number
-		"character varying(200)" address_part1
-		"character varying(200)" address_part2
-		"character varying(200)" address_part3
+		integer id
+		text personal_ident
+		integer country_id
+		timestamp_with_time_zone created_at
+		character_varying(150) given_name
+		character_varying(150) middle_name
+		character_varying(150) family_name
+		date birth_date
+		person_sex sex
+		text phone_number
+		text mobile_number
+		character_varying(200) address_part1
+		character_varying(200) address_part2
+		character_varying(200) address_part3
 	}
 	person_for_unit["person_for_unit"] {
-		"integer" id
-		"date" valid_from
-		"date" valid_after
-		"date" valid_to
-		"integer" person_id
-		"integer" person_role_id
-		"integer" data_source_id
-		"integer" establishment_id
-		"integer" legal_unit_id
+		integer id
+		date valid_from
+		date valid_after
+		date valid_to
+		integer person_id
+		integer person_role_id
+		integer data_source_id
+		integer establishment_id
+		integer legal_unit_id
 	}
 	person_role["person_role"] {
-		"integer" id
-		"text" code
-		"text" name
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text code
+		text name
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	region["region"] {
-		"integer" id
-		"ltree" path
-		"integer" parent_id
-		"integer" level
-		"character varying" label
-		"character varying" code
-		"text" name
-		"numeric(9,6)" center_latitude
-		"numeric(9,6)" center_longitude
-		"numeric(6,1)" center_altitude
+		integer id
+		ltree path
+		integer parent_id
+		integer level
+		character_varying label
+		character_varying code
+		text name
+		numeric(9_6) center_latitude
+		numeric(9_6) center_longitude
+		numeric(6_1) center_altitude
 	}
 	region_access["region_access"] {
-		"integer" id
-		"integer" user_id
-		"integer" region_id
+		integer id
+		integer user_id
+		integer region_id
 	}
 	region_used["region_used"] {
-		"integer" id
-		"ltree" path
-		"integer" level
-		"character varying" label
-		"character varying" code
-		"text" name
+		integer id
+		ltree path
+		integer level
+		character_varying label
+		character_varying code
+		text name
 	}
 	relative_period["relative_period"] {
-		"integer" id
-		"relative_period_code" code
-		"character varying(256)" name_when_query
-		"character varying(256)" name_when_input
-		"relative_period_scope" scope
-		"boolean" active
+		integer id
+		relative_period_code code
+		character_varying(256) name_when_query
+		character_varying(256) name_when_input
+		relative_period_scope scope
+		boolean active
 	}
 	reorg_type["reorg_type"] {
-		"integer" id
-		"text" code
-		"text" name
-		"text" description
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text code
+		text name
+		text description
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	sector["sector"] {
-		"integer" id
-		"ltree" path
-		"integer" parent_id
-		"character varying" label
-		"character varying" code
-		"text" name
-		"text" description
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		ltree path
+		integer parent_id
+		character_varying label
+		character_varying code
+		text name
+		text description
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	sector_used["sector_used"] {
-		"integer" id
-		"ltree" path
-		"character varying" label
-		"character varying" code
-		"text" name
+		integer id
+		ltree path
+		character_varying label
+		character_varying code
+		text name
 	}
 	settings["settings"] {
-		"integer" id
-		"integer" activity_category_standard_id
-		"boolean" only_one_setting
+		integer id
+		integer activity_category_standard_id
+		boolean only_one_setting
 	}
 	stat_definition["stat_definition"] {
-		"integer" id
-		"character varying" code
-		"stat_type" type
-		"stat_frequency" frequency
-		"character varying" name
-		"text" description
-		"integer" priority
-		"boolean" archived
+		integer id
+		character_varying code
+		stat_type type
+		stat_frequency frequency
+		character_varying name
+		text description
+		integer priority
+		boolean archived
 	}
 	stat_for_unit["stat_for_unit"] {
-		"integer" id
-		"integer" stat_definition_id
-		"date" valid_from
-		"date" valid_after
-		"date" valid_to
-		"integer" data_source_id
-		"integer" establishment_id
-		"integer" legal_unit_id
-		"integer" value_int
-		"double precision" value_float
-		"character varying" value_string
-		"boolean" value_bool
-		"timestamp with time zone" created_at
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
+		integer id
+		integer stat_definition_id
+		date valid_from
+		date valid_after
+		date valid_to
+		integer data_source_id
+		integer establishment_id
+		integer legal_unit_id
+		integer value_int
+		double_precision value_float
+		character_varying value_string
+		boolean value_bool
+		timestamp_with_time_zone created_at
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
 	}
 	statistical_history["statistical_history"] {
-		"history_resolution" resolution
-		"integer" year
-		"integer" month
-		"statistical_unit_type" unit_type
-		"bigint" count
-		"bigint" births
-		"bigint" deaths
-		"bigint" name_change_count
-		"bigint" primary_activity_category_change_count
-		"bigint" secondary_activity_category_change_count
-		"bigint" sector_change_count
-		"bigint" legal_form_change_count
-		"bigint" physical_region_change_count
-		"bigint" physical_country_change_count
-		"bigint" physical_address_change_count
-		"jsonb" stats_summary
+		history_resolution resolution
+		integer year
+		integer month
+		statistical_unit_type unit_type
+		bigint count
+		bigint births
+		bigint deaths
+		bigint name_change_count
+		bigint primary_activity_category_change_count
+		bigint secondary_activity_category_change_count
+		bigint sector_change_count
+		bigint legal_form_change_count
+		bigint physical_region_change_count
+		bigint physical_country_change_count
+		bigint physical_address_change_count
+		jsonb stats_summary
 	}
 	statistical_history_facet["statistical_history_facet"] {
-		"history_resolution" resolution
-		"integer" year
-		"integer" month
-		"statistical_unit_type" unit_type
-		"ltree" primary_activity_category_path
-		"ltree" secondary_activity_category_path
-		"ltree" sector_path
-		"integer" legal_form_id
-		"ltree" physical_region_path
-		"integer" physical_country_id
-		"integer" unit_size_id
-		"integer" status_id
-		"bigint" count
-		"bigint" births
-		"bigint" deaths
-		"bigint" name_change_count
-		"bigint" primary_activity_category_change_count
-		"bigint" secondary_activity_category_change_count
-		"bigint" sector_change_count
-		"bigint" legal_form_change_count
-		"bigint" physical_region_change_count
-		"bigint" physical_country_change_count
-		"bigint" physical_address_change_count
-		"bigint" unit_size_change_count
-		"bigint" status_change_count
-		"jsonb" stats_summary
+		history_resolution resolution
+		integer year
+		integer month
+		statistical_unit_type unit_type
+		ltree primary_activity_category_path
+		ltree secondary_activity_category_path
+		ltree sector_path
+		integer legal_form_id
+		ltree physical_region_path
+		integer physical_country_id
+		integer unit_size_id
+		integer status_id
+		bigint count
+		bigint births
+		bigint deaths
+		bigint name_change_count
+		bigint primary_activity_category_change_count
+		bigint secondary_activity_category_change_count
+		bigint sector_change_count
+		bigint legal_form_change_count
+		bigint physical_region_change_count
+		bigint physical_country_change_count
+		bigint physical_address_change_count
+		bigint unit_size_change_count
+		bigint status_change_count
+		jsonb stats_summary
 	}
 	statistical_unit["statistical_unit"] {
-		"statistical_unit_type" unit_type
-		"integer" unit_id
-		"date" valid_after
-		"date" valid_from
-		"date" valid_to
-		"jsonb" external_idents
-		"character varying(256)" name
-		"date" birth_date
-		"date" death_date
-		"tsvector" search
-		"integer" primary_activity_category_id
-		"ltree" primary_activity_category_path
-		"character varying" primary_activity_category_code
-		"integer" secondary_activity_category_id
-		"ltree" secondary_activity_category_path
-		"character varying" secondary_activity_category_code
-		"ltree[]" activity_category_paths
-		"integer" sector_id
-		"ltree" sector_path
-		"character varying" sector_code
-		"text" sector_name
-		"integer[]" data_source_ids
-		"text[]" data_source_codes
-		"integer" legal_form_id
-		"text" legal_form_code
-		"text" legal_form_name
-		"character varying(200)" physical_address_part1
-		"character varying(200)" physical_address_part2
-		"character varying(200)" physical_address_part3
-		"character varying(200)" physical_postcode
-		"character varying(200)" physical_postplace
-		"integer" physical_region_id
-		"ltree" physical_region_path
-		"character varying" physical_region_code
-		"integer" physical_country_id
-		"text" physical_country_iso_2
-		"numeric(9,6)" physical_latitude
-		"numeric(9,6)" physical_longitude
-		"numeric(6,1)" physical_altitude
-		"character varying(200)" postal_address_part1
-		"character varying(200)" postal_address_part2
-		"character varying(200)" postal_address_part3
-		"character varying(200)" postal_postcode
-		"character varying(200)" postal_postplace
-		"integer" postal_region_id
-		"ltree" postal_region_path
-		"character varying" postal_region_code
-		"integer" postal_country_id
-		"text" postal_country_iso_2
-		"numeric(9,6)" postal_latitude
-		"numeric(9,6)" postal_longitude
-		"numeric(6,1)" postal_altitude
-		"character varying(256)" web_address
-		"character varying(50)" email_address
-		"character varying(50)" phone_number
-		"character varying(50)" landline
-		"character varying(50)" mobile_number
-		"character varying(50)" fax_number
-		"integer" unit_size_id
-		"text" unit_size_code
-		"integer" status_id
-		"character varying" status_code
-		"boolean" include_unit_in_reports
-		"character varying(512)" last_edit_comment
-		"integer" last_edit_by_user_id
-		"timestamp with time zone" last_edit_at
-		"jsonb" invalid_codes
-		"boolean" has_legal_unit
-		"integer[]" related_establishment_ids
-		"integer[]" excluded_establishment_ids
-		"integer[]" included_establishment_ids
-		"integer[]" related_legal_unit_ids
-		"integer[]" excluded_legal_unit_ids
-		"integer[]" included_legal_unit_ids
-		"integer[]" related_enterprise_ids
-		"integer[]" excluded_enterprise_ids
-		"integer[]" included_enterprise_ids
-		"jsonb" stats
-		"jsonb" stats_summary
-		"integer" included_establishment_count
-		"integer" included_legal_unit_count
-		"integer" included_enterprise_count
-		"ltree[]" tag_paths
+		statistical_unit_type unit_type
+		integer unit_id
+		date valid_after
+		date valid_from
+		date valid_to
+		jsonb external_idents
+		character_varying(256) name
+		date birth_date
+		date death_date
+		tsvector search
+		integer primary_activity_category_id
+		ltree primary_activity_category_path
+		character_varying primary_activity_category_code
+		integer secondary_activity_category_id
+		ltree secondary_activity_category_path
+		character_varying secondary_activity_category_code
+		ltree[] activity_category_paths
+		integer sector_id
+		ltree sector_path
+		character_varying sector_code
+		text sector_name
+		integer[] data_source_ids
+		text[] data_source_codes
+		integer legal_form_id
+		text legal_form_code
+		text legal_form_name
+		character_varying(200) physical_address_part1
+		character_varying(200) physical_address_part2
+		character_varying(200) physical_address_part3
+		character_varying(200) physical_postcode
+		character_varying(200) physical_postplace
+		integer physical_region_id
+		ltree physical_region_path
+		character_varying physical_region_code
+		integer physical_country_id
+		text physical_country_iso_2
+		numeric(9_6) physical_latitude
+		numeric(9_6) physical_longitude
+		numeric(6_1) physical_altitude
+		character_varying(200) postal_address_part1
+		character_varying(200) postal_address_part2
+		character_varying(200) postal_address_part3
+		character_varying(200) postal_postcode
+		character_varying(200) postal_postplace
+		integer postal_region_id
+		ltree postal_region_path
+		character_varying postal_region_code
+		integer postal_country_id
+		text postal_country_iso_2
+		numeric(9_6) postal_latitude
+		numeric(9_6) postal_longitude
+		numeric(6_1) postal_altitude
+		character_varying(256) web_address
+		character_varying(50) email_address
+		character_varying(50) phone_number
+		character_varying(50) landline
+		character_varying(50) mobile_number
+		character_varying(50) fax_number
+		integer unit_size_id
+		text unit_size_code
+		integer status_id
+		character_varying status_code
+		boolean include_unit_in_reports
+		character_varying(512) last_edit_comment
+		integer last_edit_by_user_id
+		timestamp_with_time_zone last_edit_at
+		jsonb invalid_codes
+		boolean has_legal_unit
+		integer[] related_establishment_ids
+		integer[] excluded_establishment_ids
+		integer[] included_establishment_ids
+		integer[] related_legal_unit_ids
+		integer[] excluded_legal_unit_ids
+		integer[] included_legal_unit_ids
+		integer[] related_enterprise_ids
+		integer[] excluded_enterprise_ids
+		integer[] included_enterprise_ids
+		jsonb stats
+		jsonb stats_summary
+		integer included_establishment_count
+		integer included_legal_unit_count
+		integer included_enterprise_count
+		ltree[] tag_paths
 	}
 	statistical_unit_facet["statistical_unit_facet"] {
-		"date" valid_from
-		"date" valid_to
-		"statistical_unit_type" unit_type
-		"ltree" physical_region_path
-		"ltree" primary_activity_category_path
-		"ltree" sector_path
-		"integer" legal_form_id
-		"integer" physical_country_id
-		"integer" status_id
-		"bigint" count
-		"jsonb" stats_summary
+		date valid_from
+		date valid_to
+		statistical_unit_type unit_type
+		ltree physical_region_path
+		ltree primary_activity_category_path
+		ltree sector_path
+		integer legal_form_id
+		integer physical_country_id
+		integer status_id
+		bigint count
+		jsonb stats_summary
 	}
 	status["status"] {
-		"integer" id
-		"character varying" code
-		"text" name
-		"boolean" assigned_by_default
-		"boolean" include_unit_in_reports
-		"integer" priority
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		character_varying code
+		text name
+		boolean assigned_by_default
+		boolean include_unit_in_reports
+		integer priority
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	tag["tag"] {
-		"integer" id
-		"ltree" path
-		"integer" parent_id
-		"integer" level
-		"character varying" label
-		"character varying" code
-		"character varying(256)" name
-		"text" description
-		"boolean" active
-		"tag_type" type
-		"date" context_valid_after
-		"date" context_valid_from
-		"date" context_valid_to
-		"date" context_valid_on
-		"boolean" is_scoped_tag
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		ltree path
+		integer parent_id
+		integer level
+		character_varying label
+		character_varying code
+		character_varying(256) name
+		text description
+		boolean active
+		tag_type type
+		date context_valid_after
+		date context_valid_from
+		date context_valid_to
+		date context_valid_on
+		boolean is_scoped_tag
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	tag_for_unit["tag_for_unit"] {
-		"integer" id
-		"integer" tag_id
-		"integer" establishment_id
-		"integer" legal_unit_id
-		"integer" enterprise_id
-		"integer" enterprise_group_id
-		"timestamp with time zone" created_at
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
+		integer id
+		integer tag_id
+		integer establishment_id
+		integer legal_unit_id
+		integer enterprise_id
+		integer enterprise_group_id
+		timestamp_with_time_zone created_at
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
 	}
 	timeline_enterprise["timeline_enterprise"] {
-		"statistical_unit_type" unit_type
-		"integer" unit_id
-		"date" valid_after
-		"date" valid_from
-		"date" valid_to
-		"character varying(256)" name
-		"date" birth_date
-		"date" death_date
-		"tsvector" search
-		"integer" primary_activity_category_id
-		"ltree" primary_activity_category_path
-		"character varying" primary_activity_category_code
-		"integer" secondary_activity_category_id
-		"ltree" secondary_activity_category_path
-		"character varying" secondary_activity_category_code
-		"ltree[]" activity_category_paths
-		"integer" sector_id
-		"ltree" sector_path
-		"character varying" sector_code
-		"text" sector_name
-		"integer[]" data_source_ids
-		"text[]" data_source_codes
-		"integer" legal_form_id
-		"text" legal_form_code
-		"text" legal_form_name
-		"character varying(200)" physical_address_part1
-		"character varying(200)" physical_address_part2
-		"character varying(200)" physical_address_part3
-		"character varying(200)" physical_postcode
-		"character varying(200)" physical_postplace
-		"integer" physical_region_id
-		"ltree" physical_region_path
-		"character varying" physical_region_code
-		"integer" physical_country_id
-		"text" physical_country_iso_2
-		"numeric(9,6)" physical_latitude
-		"numeric(9,6)" physical_longitude
-		"numeric(6,1)" physical_altitude
-		"character varying(200)" postal_address_part1
-		"character varying(200)" postal_address_part2
-		"character varying(200)" postal_address_part3
-		"character varying(200)" postal_postcode
-		"character varying(200)" postal_postplace
-		"integer" postal_region_id
-		"ltree" postal_region_path
-		"character varying" postal_region_code
-		"integer" postal_country_id
-		"text" postal_country_iso_2
-		"numeric(9,6)" postal_latitude
-		"numeric(9,6)" postal_longitude
-		"numeric(6,1)" postal_altitude
-		"character varying(256)" web_address
-		"character varying(50)" email_address
-		"character varying(50)" phone_number
-		"character varying(50)" landline
-		"character varying(50)" mobile_number
-		"character varying(50)" fax_number
-		"integer" unit_size_id
-		"text" unit_size_code
-		"integer" status_id
-		"character varying" status_code
-		"boolean" include_unit_in_reports
-		"character varying(512)" last_edit_comment
-		"integer" last_edit_by_user_id
-		"timestamp with time zone" last_edit_at
-		"jsonb" invalid_codes
-		"boolean" has_legal_unit
-		"integer[]" related_establishment_ids
-		"integer[]" excluded_establishment_ids
-		"integer[]" included_establishment_ids
-		"integer[]" related_legal_unit_ids
-		"integer[]" excluded_legal_unit_ids
-		"integer[]" included_legal_unit_ids
-		"integer" enterprise_id
-		"integer" primary_establishment_id
-		"integer" primary_legal_unit_id
-		"jsonb" stats_summary
+		statistical_unit_type unit_type
+		integer unit_id
+		date valid_after
+		date valid_from
+		date valid_to
+		character_varying(256) name
+		date birth_date
+		date death_date
+		tsvector search
+		integer primary_activity_category_id
+		ltree primary_activity_category_path
+		character_varying primary_activity_category_code
+		integer secondary_activity_category_id
+		ltree secondary_activity_category_path
+		character_varying secondary_activity_category_code
+		ltree[] activity_category_paths
+		integer sector_id
+		ltree sector_path
+		character_varying sector_code
+		text sector_name
+		integer[] data_source_ids
+		text[] data_source_codes
+		integer legal_form_id
+		text legal_form_code
+		text legal_form_name
+		character_varying(200) physical_address_part1
+		character_varying(200) physical_address_part2
+		character_varying(200) physical_address_part3
+		character_varying(200) physical_postcode
+		character_varying(200) physical_postplace
+		integer physical_region_id
+		ltree physical_region_path
+		character_varying physical_region_code
+		integer physical_country_id
+		text physical_country_iso_2
+		numeric(9_6) physical_latitude
+		numeric(9_6) physical_longitude
+		numeric(6_1) physical_altitude
+		character_varying(200) postal_address_part1
+		character_varying(200) postal_address_part2
+		character_varying(200) postal_address_part3
+		character_varying(200) postal_postcode
+		character_varying(200) postal_postplace
+		integer postal_region_id
+		ltree postal_region_path
+		character_varying postal_region_code
+		integer postal_country_id
+		text postal_country_iso_2
+		numeric(9_6) postal_latitude
+		numeric(9_6) postal_longitude
+		numeric(6_1) postal_altitude
+		character_varying(256) web_address
+		character_varying(50) email_address
+		character_varying(50) phone_number
+		character_varying(50) landline
+		character_varying(50) mobile_number
+		character_varying(50) fax_number
+		integer unit_size_id
+		text unit_size_code
+		integer status_id
+		character_varying status_code
+		boolean include_unit_in_reports
+		character_varying(512) last_edit_comment
+		integer last_edit_by_user_id
+		timestamp_with_time_zone last_edit_at
+		jsonb invalid_codes
+		boolean has_legal_unit
+		integer[] related_establishment_ids
+		integer[] excluded_establishment_ids
+		integer[] included_establishment_ids
+		integer[] related_legal_unit_ids
+		integer[] excluded_legal_unit_ids
+		integer[] included_legal_unit_ids
+		integer enterprise_id
+		integer primary_establishment_id
+		integer primary_legal_unit_id
+		jsonb stats_summary
 	}
 	timeline_establishment["timeline_establishment"] {
-		"statistical_unit_type" unit_type
-		"integer" unit_id
-		"date" valid_after
-		"date" valid_from
-		"date" valid_to
-		"character varying(256)" name
-		"date" birth_date
-		"date" death_date
-		"tsvector" search
-		"integer" primary_activity_category_id
-		"ltree" primary_activity_category_path
-		"character varying" primary_activity_category_code
-		"integer" secondary_activity_category_id
-		"ltree" secondary_activity_category_path
-		"character varying" secondary_activity_category_code
-		"ltree[]" activity_category_paths
-		"integer" sector_id
-		"ltree" sector_path
-		"character varying" sector_code
-		"text" sector_name
-		"integer[]" data_source_ids
-		"text[]" data_source_codes
-		"integer" legal_form_id
-		"text" legal_form_code
-		"text" legal_form_name
-		"character varying(200)" physical_address_part1
-		"character varying(200)" physical_address_part2
-		"character varying(200)" physical_address_part3
-		"character varying(200)" physical_postcode
-		"character varying(200)" physical_postplace
-		"integer" physical_region_id
-		"ltree" physical_region_path
-		"character varying" physical_region_code
-		"integer" physical_country_id
-		"text" physical_country_iso_2
-		"numeric(9,6)" physical_latitude
-		"numeric(9,6)" physical_longitude
-		"numeric(6,1)" physical_altitude
-		"character varying(200)" postal_address_part1
-		"character varying(200)" postal_address_part2
-		"character varying(200)" postal_address_part3
-		"character varying(200)" postal_postcode
-		"character varying(200)" postal_postplace
-		"integer" postal_region_id
-		"ltree" postal_region_path
-		"character varying" postal_region_code
-		"integer" postal_country_id
-		"text" postal_country_iso_2
-		"numeric(9,6)" postal_latitude
-		"numeric(9,6)" postal_longitude
-		"numeric(6,1)" postal_altitude
-		"character varying(256)" web_address
-		"character varying(50)" email_address
-		"character varying(50)" phone_number
-		"character varying(50)" landline
-		"character varying(50)" mobile_number
-		"character varying(50)" fax_number
-		"integer" unit_size_id
-		"text" unit_size_code
-		"integer" status_id
-		"character varying" status_code
-		"boolean" include_unit_in_reports
-		"character varying(512)" last_edit_comment
-		"integer" last_edit_by_user_id
-		"timestamp with time zone" last_edit_at
-		"jsonb" invalid_codes
-		"boolean" has_legal_unit
-		"integer" establishment_id
-		"integer" legal_unit_id
-		"integer" enterprise_id
-		"boolean" primary_for_enterprise
-		"boolean" primary_for_legal_unit
-		"jsonb" stats
+		statistical_unit_type unit_type
+		integer unit_id
+		date valid_after
+		date valid_from
+		date valid_to
+		character_varying(256) name
+		date birth_date
+		date death_date
+		tsvector search
+		integer primary_activity_category_id
+		ltree primary_activity_category_path
+		character_varying primary_activity_category_code
+		integer secondary_activity_category_id
+		ltree secondary_activity_category_path
+		character_varying secondary_activity_category_code
+		ltree[] activity_category_paths
+		integer sector_id
+		ltree sector_path
+		character_varying sector_code
+		text sector_name
+		integer[] data_source_ids
+		text[] data_source_codes
+		integer legal_form_id
+		text legal_form_code
+		text legal_form_name
+		character_varying(200) physical_address_part1
+		character_varying(200) physical_address_part2
+		character_varying(200) physical_address_part3
+		character_varying(200) physical_postcode
+		character_varying(200) physical_postplace
+		integer physical_region_id
+		ltree physical_region_path
+		character_varying physical_region_code
+		integer physical_country_id
+		text physical_country_iso_2
+		numeric(9_6) physical_latitude
+		numeric(9_6) physical_longitude
+		numeric(6_1) physical_altitude
+		character_varying(200) postal_address_part1
+		character_varying(200) postal_address_part2
+		character_varying(200) postal_address_part3
+		character_varying(200) postal_postcode
+		character_varying(200) postal_postplace
+		integer postal_region_id
+		ltree postal_region_path
+		character_varying postal_region_code
+		integer postal_country_id
+		text postal_country_iso_2
+		numeric(9_6) postal_latitude
+		numeric(9_6) postal_longitude
+		numeric(6_1) postal_altitude
+		character_varying(256) web_address
+		character_varying(50) email_address
+		character_varying(50) phone_number
+		character_varying(50) landline
+		character_varying(50) mobile_number
+		character_varying(50) fax_number
+		integer unit_size_id
+		text unit_size_code
+		integer status_id
+		character_varying status_code
+		boolean include_unit_in_reports
+		character_varying(512) last_edit_comment
+		integer last_edit_by_user_id
+		timestamp_with_time_zone last_edit_at
+		jsonb invalid_codes
+		boolean has_legal_unit
+		integer establishment_id
+		integer legal_unit_id
+		integer enterprise_id
+		boolean primary_for_enterprise
+		boolean primary_for_legal_unit
+		jsonb stats
 	}
 	timeline_legal_unit["timeline_legal_unit"] {
-		"statistical_unit_type" unit_type
-		"integer" unit_id
-		"date" valid_after
-		"date" valid_from
-		"date" valid_to
-		"character varying(256)" name
-		"date" birth_date
-		"date" death_date
-		"tsvector" search
-		"integer" primary_activity_category_id
-		"ltree" primary_activity_category_path
-		"character varying" primary_activity_category_code
-		"integer" secondary_activity_category_id
-		"ltree" secondary_activity_category_path
-		"character varying" secondary_activity_category_code
-		"ltree[]" activity_category_paths
-		"integer" sector_id
-		"ltree" sector_path
-		"character varying" sector_code
-		"text" sector_name
-		"integer[]" data_source_ids
-		"text[]" data_source_codes
-		"integer" legal_form_id
-		"text" legal_form_code
-		"text" legal_form_name
-		"character varying(200)" physical_address_part1
-		"character varying(200)" physical_address_part2
-		"character varying(200)" physical_address_part3
-		"character varying(200)" physical_postcode
-		"character varying(200)" physical_postplace
-		"integer" physical_region_id
-		"ltree" physical_region_path
-		"character varying" physical_region_code
-		"integer" physical_country_id
-		"text" physical_country_iso_2
-		"numeric(9,6)" physical_latitude
-		"numeric(9,6)" physical_longitude
-		"numeric(6,1)" physical_altitude
-		"character varying(200)" postal_address_part1
-		"character varying(200)" postal_address_part2
-		"character varying(200)" postal_address_part3
-		"character varying(200)" postal_postcode
-		"character varying(200)" postal_postplace
-		"integer" postal_region_id
-		"ltree" postal_region_path
-		"character varying" postal_region_code
-		"integer" postal_country_id
-		"text" postal_country_iso_2
-		"numeric(9,6)" postal_latitude
-		"numeric(9,6)" postal_longitude
-		"numeric(6,1)" postal_altitude
-		"character varying(256)" web_address
-		"character varying(50)" email_address
-		"character varying(50)" phone_number
-		"character varying(50)" landline
-		"character varying(50)" mobile_number
-		"character varying(50)" fax_number
-		"integer" unit_size_id
-		"text" unit_size_code
-		"integer" status_id
-		"character varying" status_code
-		"boolean" include_unit_in_reports
-		"character varying(512)" last_edit_comment
-		"integer" last_edit_by_user_id
-		"timestamp with time zone" last_edit_at
-		"jsonb" invalid_codes
-		"boolean" has_legal_unit
-		"integer[]" related_establishment_ids
-		"integer[]" excluded_establishment_ids
-		"integer[]" included_establishment_ids
-		"integer" legal_unit_id
-		"integer" enterprise_id
-		"boolean" primary_for_enterprise
-		"jsonb" stats
-		"jsonb" stats_summary
+		statistical_unit_type unit_type
+		integer unit_id
+		date valid_after
+		date valid_from
+		date valid_to
+		character_varying(256) name
+		date birth_date
+		date death_date
+		tsvector search
+		integer primary_activity_category_id
+		ltree primary_activity_category_path
+		character_varying primary_activity_category_code
+		integer secondary_activity_category_id
+		ltree secondary_activity_category_path
+		character_varying secondary_activity_category_code
+		ltree[] activity_category_paths
+		integer sector_id
+		ltree sector_path
+		character_varying sector_code
+		text sector_name
+		integer[] data_source_ids
+		text[] data_source_codes
+		integer legal_form_id
+		text legal_form_code
+		text legal_form_name
+		character_varying(200) physical_address_part1
+		character_varying(200) physical_address_part2
+		character_varying(200) physical_address_part3
+		character_varying(200) physical_postcode
+		character_varying(200) physical_postplace
+		integer physical_region_id
+		ltree physical_region_path
+		character_varying physical_region_code
+		integer physical_country_id
+		text physical_country_iso_2
+		numeric(9_6) physical_latitude
+		numeric(9_6) physical_longitude
+		numeric(6_1) physical_altitude
+		character_varying(200) postal_address_part1
+		character_varying(200) postal_address_part2
+		character_varying(200) postal_address_part3
+		character_varying(200) postal_postcode
+		character_varying(200) postal_postplace
+		integer postal_region_id
+		ltree postal_region_path
+		character_varying postal_region_code
+		integer postal_country_id
+		text postal_country_iso_2
+		numeric(9_6) postal_latitude
+		numeric(9_6) postal_longitude
+		numeric(6_1) postal_altitude
+		character_varying(256) web_address
+		character_varying(50) email_address
+		character_varying(50) phone_number
+		character_varying(50) landline
+		character_varying(50) mobile_number
+		character_varying(50) fax_number
+		integer unit_size_id
+		text unit_size_code
+		integer status_id
+		character_varying status_code
+		boolean include_unit_in_reports
+		character_varying(512) last_edit_comment
+		integer last_edit_by_user_id
+		timestamp_with_time_zone last_edit_at
+		jsonb invalid_codes
+		boolean has_legal_unit
+		integer[] related_establishment_ids
+		integer[] excluded_establishment_ids
+		integer[] included_establishment_ids
+		integer legal_unit_id
+		integer enterprise_id
+		boolean primary_for_enterprise
+		jsonb stats
+		jsonb stats_summary
 	}
 	timesegments["timesegments"] {
-		"statistical_unit_type" unit_type
-		"integer" unit_id
-		"date" valid_after
-		"date" valid_to
+		statistical_unit_type unit_type
+		integer unit_id
+		date valid_after
+		date valid_to
 	}
 	unit_notes["unit_notes"] {
-		"integer" id
-		"text" notes
-		"integer" establishment_id
-		"integer" legal_unit_id
-		"integer" enterprise_id
-		"integer" enterprise_group_id
-		"timestamp with time zone" created_at
-		"character varying(512)" edit_comment
-		"integer" edit_by_user_id
-		"timestamp with time zone" edit_at
+		integer id
+		text notes
+		integer establishment_id
+		integer legal_unit_id
+		integer enterprise_id
+		integer enterprise_group_id
+		timestamp_with_time_zone created_at
+		character_varying(512) edit_comment
+		integer edit_by_user_id
+		timestamp_with_time_zone edit_at
 	}
 	unit_size["unit_size"] {
-		"integer" id
-		"text" code
-		"text" name
-		"boolean" active
-		"boolean" custom
-		"timestamp with time zone" created_at
-		"timestamp with time zone" updated_at
+		integer id
+		text code
+		text name
+		boolean active
+		boolean custom
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
 	}
 	sql_saga_api_view["sql_saga.api_view"] {
-		"regclass" table_name
-		"name" era_name
-		"regclass" view_name
-		"name" trigger_name
+		regclass table_name
+		name era_name
+		regclass view_name
+		name trigger_name
 	}
 	sql_saga_era["sql_saga.era"] {
-		"regclass" table_name
-		"name" era_name
-		"name" start_after_column_name
-		"name" stop_on_column_name
-		"regtype" range_type
-		"name" bounds_check_constraint
-		"regclass" audit_table_name
+		regclass table_name
+		name era_name
+		name start_after_column_name
+		name stop_on_column_name
+		regtype range_type
+		name bounds_check_constraint
+		regclass audit_table_name
 	}
 	sql_saga_foreign_keys["sql_saga.foreign_keys"] {
-		"name" key_name
-		"regclass" table_name
-		"name[]" column_names
-		"name" era_name
-		"name" unique_key
-		"sql_saga.fk_match_types" match_type
-		"sql_saga.fk_actions" delete_action
-		"sql_saga.fk_actions" update_action
-		"name" fk_insert_trigger
-		"name" fk_update_trigger
-		"name" uk_update_trigger
-		"name" uk_delete_trigger
+		name key_name
+		regclass table_name
+		name[] column_names
+		name era_name
+		name unique_key
+		sql_saga_fk_match_types match_type
+		sql_saga_fk_actions delete_action
+		sql_saga_fk_actions update_action
+		name fk_insert_trigger
+		name fk_update_trigger
+		name uk_update_trigger
+		name uk_delete_trigger
 	}
 	sql_saga_unique_keys["sql_saga.unique_keys"] {
-		"name" key_name
-		"regclass" table_name
-		"name[]" column_names
-		"name" era_name
-		"name" unique_constraint
-		"name" exclude_constraint
+		name key_name
+		regclass table_name
+		name[] column_names
+		name era_name
+		name unique_constraint
+		name exclude_constraint
 	}
 	worker_command_registry["worker.command_registry"] {
-		"text" command
-		"text" handler_procedure
-		"text" before_procedure
-		"text" after_procedure
-		"text" description
-		"text" queue
-		"timestamp with time zone" created_at
+		text command
+		text handler_procedure
+		text before_procedure
+		text after_procedure
+		text description
+		text queue
+		timestamp_with_time_zone created_at
 	}
 	worker_last_processed["worker.last_processed"] {
-		"text" table_name
-		"bigint" transaction_id
+		text table_name
+		bigint transaction_id
 	}
 	worker_queue_registry["worker.queue_registry"] {
-		"text" queue
-		"boolean" concurrent
-		"text" description
+		text queue
+		boolean concurrent
+		text description
 	}
 	worker_tasks["worker.tasks"] {
-		"bigint" id
-		"text" command
-		"bigint" priority
-		"timestamp with time zone" created_at
-		"worker.task_state" state
-		"timestamp with time zone" processed_at
-		"numeric" duration_ms
-		"text" error
-		"timestamp with time zone" scheduled_at
-		"jsonb" payload
+		bigint id
+		text command
+		bigint priority
+		timestamp_with_time_zone created_at
+		worker_task_state state
+		timestamp_with_time_zone processed_at
+		numeric duration_ms
+		text error
+		timestamp_with_time_zone scheduled_at
+		jsonb payload
 	}
 	%% Relationships (derived from foreign keys)
-	auth_api_key }|--|| auth.user : api_key_user_id_fkey
-	auth_refresh_session }|--|| auth.user : refresh_session_user_id_fkey
-	activity }o--|| auth.user : activity_edit_by_user_id_fkey
+	auth_api_key }|--|| auth_user : api_key_user_id_fkey
+	auth_refresh_session }|--|| auth_user : refresh_session_user_id_fkey
+	activity }o--|| auth_user : activity_edit_by_user_id_fkey
 	activity }o--|| activity_category : activity_category_id_fkey
 	activity }o--o| data_source : activity_data_source_id_fkey
 	activity_category }o--o| activity_category : activity_category_parent_id_fkey
 	activity_category }|--|| activity_category_standard : activity_category_standard_id_fkey
-	activity_category_access }|--|| auth.user : activity_category_access_user_id_fkey
+	activity_category_access }|--|| auth_user : activity_category_access_user_id_fkey
 	activity_category_access }o--|| activity_category : activity_category_access_activity_category_id_fkey
-	contact }o--|| auth.user : contact_edit_by_user_id_fkey
+	contact }o--|| auth_user : contact_edit_by_user_id_fkey
 	contact }o--o| data_source : contact_data_source_id_fkey
-	enterprise }o--|| auth.user : enterprise_edit_by_user_id_fkey
-	enterprise_group }o--|| auth.user : enterprise_group_edit_by_user_id_fkey
+	enterprise }o--|| auth_user : enterprise_edit_by_user_id_fkey
+	enterprise_group }o--|| auth_user : enterprise_group_edit_by_user_id_fkey
 	enterprise_group }o--o| data_source : enterprise_group_data_source_id_fkey
 	enterprise_group }o--o| enterprise_group_type : enterprise_group_enterprise_group_type_id_fkey
 	enterprise_group }o--o| foreign_participation : enterprise_group_foreign_participation_id_fkey
 	enterprise_group }o--o| reorg_type : enterprise_group_reorg_type_id_fkey
 	enterprise_group }o--o| unit_size : enterprise_group_unit_size_id_fkey
-	establishment }o--|| auth.user : establishment_edit_by_user_id_fkey
+	establishment }o--|| auth_user : establishment_edit_by_user_id_fkey
 	establishment }o--o| data_source : establishment_data_source_id_fkey
 	establishment }o--o| enterprise : establishment_enterprise_id_fkey
 	establishment }o--o| sector : establishment_sector_id_fkey
 	establishment }o--|| status : establishment_status_id_fkey
 	establishment }o--o| unit_size : establishment_unit_size_id_fkey
-	external_ident }o--|| auth.user : external_ident_edit_by_user_id_fkey
+	external_ident }o--|| auth_user : external_ident_edit_by_user_id_fkey
 	external_ident }o--o| enterprise : external_ident_enterprise_id_fkey
 	external_ident }o--|| external_ident_type : external_ident_type_id_fkey
 	external_ident_type }o--o| tag : external_ident_type_by_tag_id_fkey
 	import_data_column }|--|| import_step : import_data_column_step_id_fkey
-	import_definition }o--o| auth.user : import_definition_user_id_fkey
+	import_definition }o--o| auth_user : import_definition_user_id_fkey
 	import_definition }o--o| data_source : import_definition_data_source_id_fkey
 	import_definition_step }|--|| import_definition : import_definition_step_definition_id_fkey
 	import_definition_step }|--|| import_step : import_definition_step_step_id_fkey
-	import_job }o--o| auth.user : import_job_user_id_fkey
+	import_job }o--o| auth_user : import_job_user_id_fkey
 	import_job }o--|| import_definition : import_job_definition_id_fkey
 	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_fkey
 	import_mapping }o--o| import_data_column : import_mapping_target_data_column_id_target_data_column_pu_fkey
@@ -1109,7 +1056,7 @@ erDiagram
 	import_mapping }|--|| import_definition : import_mapping_definition_id_fkey
 	import_mapping }o--o| import_source_column : import_mapping_source_column_id_fkey
 	import_source_column }|--|| import_definition : import_source_column_definition_id_fkey
-	legal_unit }o--|| auth.user : legal_unit_edit_by_user_id_fkey
+	legal_unit }o--|| auth_user : legal_unit_edit_by_user_id_fkey
 	legal_unit }o--o| data_source : legal_unit_data_source_id_fkey
 	legal_unit }o--|| enterprise : legal_unit_enterprise_id_fkey
 	legal_unit }o--o| foreign_participation : legal_unit_foreign_participation_id_fkey
@@ -1117,7 +1064,7 @@ erDiagram
 	legal_unit }o--o| sector : legal_unit_sector_id_fkey
 	legal_unit }o--|| status : legal_unit_status_id_fkey
 	legal_unit }o--o| unit_size : legal_unit_unit_size_id_fkey
-	location }o--|| auth.user : location_edit_by_user_id_fkey
+	location }o--|| auth_user : location_edit_by_user_id_fkey
 	location }o--|| country : location_country_id_fkey
 	location }o--o| data_source : location_data_source_id_fkey
 	location }o--o| region : location_region_id_fkey
@@ -1126,26 +1073,26 @@ erDiagram
 	person_for_unit }o--|| person : person_for_unit_person_id_fkey
 	person_for_unit }o--o| person_role : person_for_unit_person_role_id_fkey
 	region }o--o| region : region_parent_id_fkey
-	region_access }|--|| auth.user : region_access_user_id_fkey
+	region_access }|--|| auth_user : region_access_user_id_fkey
 	region_access }o--|| region : region_access_region_id_fkey
 	settings }|--|| activity_category_standard : settings_activity_category_standard_id_fkey
-	stat_for_unit }o--|| auth.user : stat_for_unit_edit_by_user_id_fkey
+	stat_for_unit }o--|| auth_user : stat_for_unit_edit_by_user_id_fkey
 	stat_for_unit }o--o| data_source : stat_for_unit_data_source_id_fkey
 	stat_for_unit }|--|| stat_definition : stat_for_unit_stat_definition_id_fkey
 	tag }o--o| tag : tag_parent_id_fkey
-	tag_for_unit }o--|| auth.user : tag_for_unit_edit_by_user_id_fkey
+	tag_for_unit }o--|| auth_user : tag_for_unit_edit_by_user_id_fkey
 	tag_for_unit }o--o| enterprise : tag_for_unit_enterprise_id_fkey
 	tag_for_unit }|--|| tag : tag_for_unit_tag_id_fkey
-	unit_notes }o--|| auth.user : unit_notes_edit_by_user_id_fkey
+	unit_notes }o--|| auth_user : unit_notes_edit_by_user_id_fkey
 	unit_notes }o--o| enterprise : unit_notes_enterprise_id_fkey
-	sql_saga_api_view }|--|| sql_saga.era : api_view_table_name_era_name_fkey
-	sql_saga_api_view }|--|| sql_saga.era : api_view_table_name_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga.era : foreign_keys_table_name_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga.era : foreign_keys_table_name_era_name_fkey
-	sql_saga_foreign_keys }o--|| sql_saga.unique_keys : foreign_keys_unique_key_fkey
-	sql_saga_unique_keys }o--|| sql_saga.era : unique_keys_table_name_era_name_fkey
-	sql_saga_unique_keys }o--|| sql_saga.era : unique_keys_table_name_era_name_fkey
-	worker_command_registry }o--|| worker.queue_registry : command_registry_queue_fkey
-	worker_tasks }o--|| worker.command_registry : fk_tasks_command
-	worker_tasks }o--|| worker.command_registry : tasks_command_fkey
+	sql_saga_api_view }|--|| sql_saga_era : api_view_table_name_era_name_fkey
+	sql_saga_api_view }|--|| sql_saga_era : api_view_table_name_era_name_fkey
+	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_name_era_name_fkey
+	sql_saga_foreign_keys }o--|| sql_saga_era : foreign_keys_table_name_era_name_fkey
+	sql_saga_foreign_keys }o--|| sql_saga_unique_keys : foreign_keys_unique_key_fkey
+	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_name_era_name_fkey
+	sql_saga_unique_keys }o--|| sql_saga_era : unique_keys_table_name_era_name_fkey
+	worker_command_registry }o--|| worker_queue_registry : command_registry_queue_fkey
+	worker_tasks }o--|| worker_command_registry : fk_tasks_command
+	worker_tasks }o--|| worker_command_registry : tasks_command_fkey
 ########################################
