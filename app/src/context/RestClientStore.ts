@@ -59,12 +59,14 @@ class RestClientStore {
    */
   public async getRestClient(
     type: ClientType,
-    serverRequestCookies?: import('next/dist/server/web/spec-extension/cookies').RequestCookies | Readonly<import('next/dist/server/web/spec-extension/cookies').RequestCookies>
+    options?: { 
+      anonymous?: boolean
+    }
   ): Promise<PostgrestClient<Database>> {
     if (type === 'server') {
       // Server client: Directly initialize. Caching is handled by the exported getServerRestClient.
       try {
-        const client = await this.initializeClient('server', serverRequestCookies);
+        const client = await this.initializeClient('server', options);
         // Log moved back to initializeClient to see raw initialization calls
         return client;
       } catch (error) {
@@ -175,7 +177,9 @@ class RestClientStore {
    */
   private async initializeClient(
     type: ClientType,
-    serverRequestCookies?: import('next/dist/server/web/spec-extension/cookies').RequestCookies | Readonly<import('next/dist/server/web/spec-extension/cookies').RequestCookies>
+    options?: { 
+      anonymous?: boolean
+    }
   ): Promise<PostgrestClient<Database>> {
     try {
       if (type === 'server') {
@@ -198,30 +202,27 @@ class RestClientStore {
           };
           let tokenValue: string | undefined = undefined;
 
-          if (serverRequestCookies) {
-            // Use provided cookies if available
-            const tokenCookie = serverRequestCookies.get("statbus");
+          // On server, always try to get cookies and forward them.
+          try {
+            const { cookies: getNextCookies } = await import('next/headers');
+            const currentCookies = await getNextCookies();
+            const tokenCookie = currentCookies.get("statbus");
             tokenValue = tokenCookie?.value;
-            if (process.env.DEBUG === 'true' && tokenValue) { // Server-side, use DEBUG
-              console.log(`RestClientStore: Using token from provided serverRequestCookies for server client's Authorization header.`);
-            }
-          } else {
-            // Fallback to next/headers for cookies
-            try {
-              const { cookies: getNextCookies } = await import('next/headers');
-              const currentCookies = await getNextCookies();
-              const tokenCookie = currentCookies.get("statbus");
 
-              tokenValue = tokenCookie?.value;
-              if (process.env.DEBUG === 'true' && tokenValue) { // Server-side, use DEBUG
-                console.log(`RestClientStore: Using token from next/headers.cookies() for server client's Authorization header.`);
-              }
-            } catch (error) {
-              console.warn('RestClientStore: Could not import or use next/headers.cookies() for server client. Proceeding without Authorization header from this source.', error);
+            // Forward the entire cookie header for the SQL function to inspect.
+            const rawCookieHeader = currentCookies.toString();
+            if (rawCookieHeader) {
+              postgrestClientHeaders['Cookie'] = rawCookieHeader;
             }
+
+            if (process.env.DEBUG === 'true' && tokenValue) {
+              console.log(`RestClientStore: Found 'statbus' token via next/headers.cookies().`);
+            }
+          } catch (error) {
+            console.warn('RestClientStore: Could not import or use next/headers.cookies() for server client. Proceeding without auth headers.', error);
           }
 
-          if (tokenValue) {
+          if (tokenValue && !options?.anonymous) {
             postgrestClientHeaders['Authorization'] = `Bearer ${tokenValue}`;
           } else {
             if (process.env.DEBUG === 'true') { // Server-side, use DEBUG
@@ -377,16 +378,20 @@ class RestClientStore {
       credentials: 'include' as RequestCredentials,
       headers
     };
-    // if (process.env.NODE_ENV === 'development') {
-    //   console.log(`[RestClientStore.fetchWithAuthRefresh MAIN_PATH_INITIAL_ATTEMPT] Native fetch options for ${url}:`, JSON.stringify(initialFetchOptions));
-    // }
-    let response = await fetch(url, initialFetchOptions);
-    // if (process.env.NODE_ENV === 'development') {
-    //   console.log(`[RestClientStore.fetchWithAuthRefresh MAIN_PATH_INITIAL_ATTEMPT] Response for ${url}: Status ${response.status}`);
-    //   const responseHeaders: Record<string, string> = {};
-    //   response.headers.forEach((value, key) => { responseHeaders[key] = value; });
-    //   console.log(`[RestClientStore.fetchWithAuthRefresh MAIN_PATH_INITIAL_ATTEMPT] Response headers for ${url}:`, JSON.stringify(responseHeaders));
-    // }
+
+    let response: Response;
+    try {
+      response = await fetch(url, initialFetchOptions);
+    } catch (error: any) {
+      if (error.name === 'AbortError') {
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          console.log(`[RestClientStore.fetchWithAuthRefresh] Initial fetch aborted for URL: ${url}`);
+        }
+      } else {
+        console.error(`[RestClientStore.fetchWithAuthRefresh] Initial fetch failed for URL: ${url}`, error);
+      }
+      throw error; // Re-throw the error to be handled by the caller
+    }
     
     // If we get a 401 Unauthorized, try to refresh the token *only on the browser*
     // Server-side 401s should typically be handled by initial auth checks or middleware
@@ -471,9 +476,20 @@ class RestClientStore {
             console.log(`[RestClientStore.fetchWithAuthRefresh] Refresh successful (awaited for URL: ${url}). Retrying original request.`);
           }
           const retryFetchOptions = { ...options, credentials: 'include' as RequestCredentials, headers };
-          response = await fetch(url, retryFetchOptions); // Re-assign to original response variable
-          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-            console.debug(`[RestClientStore.fetchWithAuthRefresh RETRY_AFTER_REFRESH] Response for ${url}: Status ${response.status}`);
+          try {
+            response = await fetch(url, retryFetchOptions); // Re-assign to original response variable
+            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+              console.debug(`[RestClientStore.fetchWithAuthRefresh RETRY_AFTER_REFRESH] Response for ${url}: Status ${response.status}`);
+            }
+          } catch (error: any) {
+            if (error.name === 'AbortError') {
+              if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+                console.log(`[RestClientStore.fetchWithAuthRefresh] Retry fetch aborted for URL: ${url}`);
+              }
+            } else {
+              console.error(`[RestClientStore.fetchWithAuthRefresh] Retry fetch failed for URL: ${url}`, error);
+            }
+            throw error; // Re-throw the error
           }
         } else {
           if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
@@ -504,9 +520,11 @@ export const clientStore = RestClientStore.getInstance();
 // Use React.cache on the exported function to memoize per request
 export const getServerRestClient = cache(
   async (
-    requestContext?: { cookies: import('next/dist/server/web/spec-extension/cookies').RequestCookies | Readonly<import('next/dist/server/web/spec-extension/cookies').RequestCookies> }
+    options?: { 
+      anonymous?: boolean 
+    }
   ): Promise<PostgrestClient<Database>> => {
-    return clientStore.getRestClient('server', requestContext?.cookies);
+    return clientStore.getRestClient('server', { anonymous: options?.anonymous });
   }
 );
 

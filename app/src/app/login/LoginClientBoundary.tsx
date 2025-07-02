@@ -1,126 +1,106 @@
 "use client";
 
-import React, { useEffect, useRef } from "react"; // Import useRef
-import { useRouter, useSearchParams, usePathname } from "next/navigation"; // Added usePathname
-import { useAtomValue, useSetAtom, useAtom } from "jotai"; // Added useAtom
-import { authStatusAtom, authStatusInitiallyCheckedAtom, pendingRedirectAtom, loginActionInProgressAtom, lastKnownPathBeforeAuthChangeAtom } from "@/atoms"; // Added loginActionInProgressAtom and lastKnownPathBeforeAuthChangeAtom
-import LoginForm from "./LoginForm"; // LoginForm.tsx is in the same directory
+import React, { useEffect } from "react";
+import { useSearchParams, usePathname } from "next/navigation";
+import { useAtomValue, useSetAtom, useAtom } from "jotai";
+import {
+  authStatusAtom,
+  authStatusInitiallyCheckedAtom,
+  pendingRedirectAtom,
+  loginActionInProgressAtom,
+  lastKnownPathBeforeAuthChangeAtom,
+  loginPageMachineAtom,
+} from "@/atoms";
+import LoginForm from "./LoginForm";
 
+/**
+ * LoginClientBoundary
+ * 
+ * This component orchestrates the behavior of the /login page. It handles one primary case:
+ * 
+ * 1. Redirecting an authenticated user AWAY from the /login page.
+ *    This can happen if:
+ *    - A logged-in user directly navigates to /login.
+ *    - A user on the /login page becomes authenticated via another tab (cross-tab sync).
+ * 
+ * It does NOT handle redirecting unauthenticated users TO the login page. That logic
+ * is handled globally by an effect in `JotaiAppProvider`.
+ */
 export default function LoginClientBoundary() {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const nextPath = searchParams.get('next');
   const authStatus = useAtomValue(authStatusAtom);
   const initialAuthCheckCompleted = useAtomValue(authStatusInitiallyCheckedAtom);
-  const pendingRedirectValue = useAtomValue(pendingRedirectAtom);
   const setPendingRedirect = useSetAtom(pendingRedirectAtom);
-  const loginActionIsActive = useAtomValue(loginActionInProgressAtom); // Read the new flag
   const [lastPathBeforeAuthChange, setLastPathBeforeAuthChange] = useAtom(lastKnownPathBeforeAuthChangeAtom);
-  const pathname = usePathname(); // Get current pathname
-  const redirectInitiatedByThisInstanceRef = useRef(false);
+  const pathname = usePathname();
+  const [state, send] = useAtom(loginPageMachineAtom);
 
+  const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
+
+  // Effect to reset the machine to idle on mount. This ensures a clean state for every visit,
+  // which is crucial for handling React 18 Strict Mode and Fast Refresh in development.
   useEffect(() => {
-    const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
-
     if (debug) {
-      console.log("LoginClientBoundary useEffect triggered. Current states:", {
-        initialAuthCheckCompleted,
-        isAuthenticated: authStatus.isAuthenticated,
-        authLoading: authStatus.loading,
-        hasUser: !!authStatus.user,
-        errorCode: authStatus.error_code,
-        pendingRedirect: pendingRedirectValue,
-        loginActionIsActive, // Log the flag
-        nextPathFromUrl: nextPath,
+      console.log('LoginClientBoundary: Component mounted, sending RESET to state machine.');
+    }
+    send({ type: 'RESET' });
+  }, [send, debug]);
+
+  // Effect to send events to the state machine when dependencies change.
+  useEffect(() => {
+    if (debug) {
+      console.log(`LoginClientBoundary: State machine is in state: ${state.value}, auth status is isAuthenticated: ${authStatus.isAuthenticated}`);
+    }
+
+    // Once the initial auth check is done, we can evaluate.
+    // This will run on first load and again if authStatus.isAuthenticated changes.
+    if (initialAuthCheckCompleted) {
+      if (debug) {
+        console.log('LoginClientBoundary: Auth check complete, sending EVALUATE to state machine.');
+      }
+      send({
+        type: 'EVALUATE',
+        context: {
+          isAuthenticated: authStatus.isAuthenticated,
+          isOnLoginPage: pathname === '/login',
+        },
       });
     }
+  }, [initialAuthCheckCompleted, authStatus.isAuthenticated, pathname, send, debug]);
 
-    // Only attempt redirect if the initial auth check is complete and not currently loading.
-    if (!initialAuthCheckCompleted) {
-      if (debug) {
-        console.log("LoginClientBoundary: Waiting for initial auth check to complete (initialAuthCheckCompleted is false).");
-      }
-      return; // Wait for auth state to stabilize
-    }
+  // Effect to handle the side-effect of redirection when the machine enters the 'redirecting' state.
+  useEffect(() => {
+    if (state.matches('redirecting')) {
+      let targetRedirectPath: string;
 
-    if (authStatus.loading) {
-      if (debug) {
-        console.log("LoginClientBoundary: Auth is currently loading (authStatus.loading is true). Waiting for auth state to stabilize.");
-      }
-      return; // Wait for auth state to stabilize
-    }
-
-    // At this point, initialAuthCheckCompleted is true AND authStatus.loading is false.
-    // Now we can reliably check isAuthenticated.
-    if (authStatus.isAuthenticated) {
-      // Only act if:
-      // 1. We are on the /login page.
-      // 2. No other redirect is already pending (`pendingRedirectValue` is null).
-      // 3. No login action is currently in progress.
-      // 4. This specific instance of LoginClientBoundary has not already initiated a redirect.
-      if (pathname === '/login' && pendingRedirectValue === null && !loginActionIsActive && !redirectInitiatedByThisInstanceRef.current) {
-        // User is authenticated and on the login page, and no other redirect is active or initiated by this instance.
-        // This means they landed here authenticated, or became authenticated via another tab.
-        // Set pendingRedirectAtom. RedirectHandler will pick it up.
-        
-        let targetRedirectPath: string;
-        if (lastPathBeforeAuthChange) {
-          targetRedirectPath = lastPathBeforeAuthChange;
-          if (debug) {
-            console.log(`LoginClientBoundary: Using lastKnownPathBeforeAuthChange for redirect: "${targetRedirectPath}". Clearing it.`);
-          }
-          setLastPathBeforeAuthChange(null); // Clear after use
-        } else {
-          targetRedirectPath = nextPath && nextPath.startsWith('/') ? nextPath : '/';
-        }
-        
+      // Prioritize the path stored before a cross-tab auth change.
+      if (lastPathBeforeAuthChange) {
+        targetRedirectPath = lastPathBeforeAuthChange;
         if (debug) {
-          console.log(`LoginClientBoundary: Authenticated on /login. Initiating redirect to "${targetRedirectPath}". Setting redirectInitiatedByThisInstanceRef to true.`);
+          console.log(`LoginClientBoundary: Using lastKnownPathBeforeAuthChange for redirect: "${targetRedirectPath}".`);
         }
-        setPendingRedirect(targetRedirectPath);
-        redirectInitiatedByThisInstanceRef.current = true; // Mark that this instance has initiated a redirect
       } else {
-        if (debug) {
-          let reason = "";
-          if (pathname !== '/login') reason += "Not on /login page. ";
-          if (pendingRedirectValue !== null) reason += `Redirect already pending ("${pendingRedirectValue}"). `;
-          if (loginActionIsActive) reason += "Login action is active. ";
-          if (redirectInitiatedByThisInstanceRef.current && pathname === '/login') reason += "This instance already initiated a redirect. ";
-          console.log(`LoginClientBoundary: Authenticated. Conditions to redirect NOT met: ${reason.trim()} No action here.`);
-        }
+        // Otherwise, use the 'next' URL parameter or default to the dashboard.
+        targetRedirectPath = nextPath && nextPath.startsWith('/') ? nextPath : '/';
       }
-    } else {
-      // User is not authenticated. Reset the flag if it was set.
-      if (redirectInitiatedByThisInstanceRef.current) {
-        if (debug) {
-          console.log("LoginClientBoundary: User became unauthenticated. Resetting redirectInitiatedByThisInstanceRef to false.");
-        }
-        redirectInitiatedByThisInstanceRef.current = false;
-      }
+
       if (debug) {
-        console.log("LoginClientBoundary: User not authenticated. No redirect action from login page boundary.");
+        console.log(`LoginClientBoundary: State machine entered 'redirecting' state. Setting pendingRedirectAtom to "${targetRedirectPath}".`);
       }
+      
+      setPendingRedirect(targetRedirectPath);
+      // Clear the last path atom after using it for a redirect.
+      setLastPathBeforeAuthChange(null);
     }
-  }, [
-    authStatus.isAuthenticated,
-    authStatus.loading, // To ensure we act on stable auth state
-    authStatus.user, // Added based on ESLint warning (indirectly used via authStatus object)
-    authStatus.error_code, // Added based on ESLint warning (indirectly used via authStatus object)
-    initialAuthCheckCompleted, // To ensure initial check is done
-    pathname, // Current path
-    nextPath, // From URL query
-    pendingRedirectValue, // Current value of pendingRedirectAtom
-    loginActionIsActive, // Is loginAtom currently handling a redirect
-    setPendingRedirect, // To set the redirect
-    lastPathBeforeAuthChange, // Add as dependency
-    setLastPathBeforeAuthChange // Add as dependency
-    // router is not needed here anymore as RedirectHandler does the push
-  ]);
+  }, [state.value, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, setPendingRedirect, debug]);
 
-  // The loginActionInProgressAtom is set by loginAtom and cleared by RedirectHandler.
-  // The hasAttemptedRedirectRef and its unmount effect are removed.
+  // Render content based on the machine's state.
+  if (state.matches('showingForm')) {
+    return <LoginForm nextPath={nextPath} />;
+  }
 
-  // Render the LoginForm. The useEffect above will set pendingRedirectAtom if needed,
-  // assuming the user lands on /login already authenticated and no login action is active.
-  return <LoginForm nextPath={nextPath} />;
+  // While idle or checking, render nothing or a skeleton loader.
+  // Returning null is fine as the parent page provides the layout.
+  return null;
 }

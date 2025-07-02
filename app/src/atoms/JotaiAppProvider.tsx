@@ -10,7 +10,7 @@
 import React, { Suspense, useEffect, ReactNode, useState } from 'react';
 import { Provider, useAtom } from 'jotai'; // Added useAtom here
 import { useAtomValue, useSetAtom } from 'jotai';
-import { useRouter, usePathname } from 'next/navigation';
+import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import {
   authStatusAtom,
   baseDataAtom,
@@ -31,6 +31,9 @@ import {
   pendingRedirectAtom,
   loginActionInProgressAtom,
   requiredSetupRedirectAtom, // Import the new atom
+  lastKnownPathBeforeAuthChangeAtom,
+  clientMountedAtom,
+  clientSideRefreshAtom,
 } from './index';
 import { AuthCrossTabSyncer } from './AuthCrossTabSyncer'; // Import the new syncer
 
@@ -40,6 +43,8 @@ import { AuthCrossTabSyncer } from './AuthCrossTabSyncer'; // Import the new syn
 
 const AppInitializer = ({ children }: { children: ReactNode }) => {
   const authLoadableValue = useAtomValue(authStatusLoadableAtom);
+  const authStatus = useAtomValue(authStatusAtom);
+  const clientSideRefresh = useSetAtom(clientSideRefreshAtom);
   const initialAuthCheckDone = useAtomValue(authStatusInitiallyCheckedAtom);
   const restClient = useAtomValue(restClientAtom);
   useAtomValue(initialAuthCheckDoneEffect); // Activate the effect atom
@@ -56,8 +61,26 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   const activityStandard = useAtomValue(activityCategoryStandardSettingAtomAsync);
   const numberOfRegions = useAtomValue(numberOfRegionsAtomAsync);
   const setRequiredSetupRedirect = useSetAtom(requiredSetupRedirectAtom);
+  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
+  const setLastPath = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
+  const setClientMounted = useSetAtom(clientMountedAtom);
   // isRedirectingToSetup flag is removed as RedirectHandler manages actual navigation.
   
+  // Effect to signal that the client has mounted. This helps prevent hydration issues.
+  useEffect(() => {
+    setClientMounted(true);
+  }, [setClientMounted]);
+
+  // Effect to handle proactive token refresh when an access token expires
+  useEffect(() => {
+    if (authStatus.expired_access_token_call_refresh) {
+      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+        console.log('AppInitializer: Access token expired, refresh possible. Attempting auto-refresh...');
+      }
+      clientSideRefresh();
+    }
+  }, [authStatus.expired_access_token_call_refresh, clientSideRefresh]);
+
   // Initialize REST client
   useEffect(() => {
     let mounted = true
@@ -193,6 +216,46 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     // or if initializeTableColumnsAction (the atom setter function reference) changes (which is unlikely).
   }, [statDefinitions, initializeTableColumnsAction]);
 
+  // Effect to handle redirecting to /login when a user becomes unauthenticated on a protected page.
+  useEffect(() => {
+    const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
+    const isAuthStableAndChecked = initialAuthCheckDone && authLoadableValue.state !== 'loading';
+    const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
+    const canRefresh = authLoadableValue.state === 'hasData' && authLoadableValue.data.expired_access_token_call_refresh;
+
+    if (debug) {
+      console.log(`[RedirectGuard] Checking... Path: ${pathname}, Stable: ${isAuthStableAndChecked}, Authed: ${currentIsAuthenticated}, CanRefresh: ${canRefresh}`);
+    }
+
+    if (!isAuthStableAndChecked) {
+      return;
+    }
+
+    // Define public paths that do not require authentication.
+    const publicPaths = ['/login']; // Add any other public paths here.
+
+    // If user is NOT authenticated, a refresh is NOT possible, and is on a protected path, redirect them.
+    if (!currentIsAuthenticated && !canRefresh && !publicPaths.some(p => pathname.startsWith(p))) {
+      if (debug) {
+        console.log(`AppInitializer: User is not authenticated on protected path ("${pathname}") and cannot refresh. Storing path and redirecting to login.`);
+      }
+      
+      // Store the path they were trying to access so we can return them after login.
+      // Note: window.location.search is not available server-side, but this effect is client-side.
+      const fullPath = `${pathname}${window.location.search}`;
+      setLastPath(fullPath);
+      
+      // Trigger the redirect via the centralized RedirectHandler.
+      setPendingRedirect('/login');
+    }
+  }, [
+    pathname,
+    authLoadableValue,
+    initialAuthCheckDone,
+    setLastPath,
+    setPendingRedirect
+  ]);
+
   // Effect for redirecting to setup pages if necessary
   useEffect(() => {
     const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
@@ -254,77 +317,52 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 // ============================================================================
 
 const RedirectHandler = () => {
-  const [explicitRedirectPath, setExplicitRedirectPath] = useAtom(pendingRedirectAtom);
-  const [setupRedirectPathValue, setSetupRedirectPath] = useAtom(requiredSetupRedirectAtom);
-  const [loginActionIsActive, setLoginActionInProgress] = useAtom(loginActionInProgressAtom); // Added
+  const [explicitRedirect, setExplicitRedirect] = useAtom(pendingRedirectAtom);
+  const [setupRedirect, setSetupRedirect] = useAtom(requiredSetupRedirectAtom);
+  const [loginActionIsActive, setLoginActionInProgress] = useAtom(loginActionInProgressAtom);
   const router = useRouter();
-  const currentPathname = usePathname();
+  const pathname = usePathname();
 
+  // Determine the single desired target path. Explicit redirects take priority.
+  const targetPath = explicitRedirect || setupRedirect;
+
+  // Effect to navigate if we are not at the target path
   useEffect(() => {
-    let determinedTargetPath: string | null = null;
-    let clearAtomFunction: (() => void) | null = null;
-    let wasLoginRedirect = false;
-
-    // Priority 1: Explicit redirects (e.g., from login/logout)
-    if (explicitRedirectPath) {
-      determinedTargetPath = explicitRedirectPath;
-      clearAtomFunction = () => setExplicitRedirectPath(null);
-      if (loginActionIsActive) { // Check if this explicit redirect was from a login action
-        wasLoginRedirect = true;
-      }
+    if (targetPath && targetPath !== pathname) {
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`RedirectHandler: Explicit redirect requested to "${determinedTargetPath}". Login action active: ${loginActionIsActive}.`);
+        console.log(`RedirectHandler: Target path ("${targetPath}") differs from current ("${pathname}"). Navigating.`);
       }
-    } 
-    // Priority 2: Setup redirects
-    else if (setupRedirectPathValue) {
-      determinedTargetPath = setupRedirectPathValue;
-      clearAtomFunction = () => setSetupRedirectPath(null);
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`RedirectHandler: Setup redirect requested to "${determinedTargetPath}".`);
+      // In development, router.push() can be cancelled by Fast Refresh.
+      // A hard navigation is more robust for these programmatic redirects.
+      // In production, router.push() is generally preferred for a smoother UX.
+      if (process.env.NODE_ENV === 'development') {
+        window.location.href = targetPath;
+      } else {
+        router.push(targetPath);
       }
     }
+  }, [targetPath, pathname, router]);
 
-    if (determinedTargetPath && determinedTargetPath !== currentPathname) {
+  // Effect to clear the redirect atoms once we have arrived at the destination.
+  // This is mainly for router.push() in production. For window.location.href,
+  // the page reloads and state is reset anyway.
+  useEffect(() => {
+    if (targetPath && targetPath === pathname) {
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`RedirectHandler: Navigating to "${determinedTargetPath}" from "${currentPathname}". Clearing relevant redirect atom first.`);
+        console.log(`RedirectHandler: Arrived at target "${targetPath}". Clearing redirect atoms.`);
       }
-      if (clearAtomFunction) {
-        clearAtomFunction();
-      }
-      router.push(determinedTargetPath);
-      // If this was a login-triggered redirect, clear the loginActionInProgressAtom flag
-      if (wasLoginRedirect) {
-        setLoginActionInProgress(false);
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-          console.log(`RedirectHandler: Cleared loginActionInProgressAtom after login-triggered navigation to "${determinedTargetPath}".`);
+      // Clear the atom that triggered the redirect
+      if (explicitRedirect) {
+        setExplicitRedirect(null);
+        if (loginActionIsActive) {
+          setLoginActionInProgress(false);
         }
       }
-    } else if (determinedTargetPath && determinedTargetPath === currentPathname) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`RedirectHandler: Already on target path "${determinedTargetPath}". Clearing relevant redirect atom if set.`);
-      }
-      if (clearAtomFunction) {
-        clearAtomFunction();
-      }
-      // If already on the target page and it was a login redirect, also clear the flag
-      if (wasLoginRedirect) {
-        setLoginActionInProgress(false);
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-          console.log(`RedirectHandler: Already on target. Cleared loginActionInProgressAtom for path "${determinedTargetPath}".`);
-        }
+      if (setupRedirect) {
+        setSetupRedirect(null);
       }
     }
-  }, [
-    explicitRedirectPath, 
-    setupRedirectPathValue, 
-    router, 
-    currentPathname, 
-    setExplicitRedirectPath, 
-    setSetupRedirectPath,
-    loginActionIsActive,      // Added
-    setLoginActionInProgress  // Added
-  ]);
+  }, [pathname, targetPath, explicitRedirect, setupRedirect, loginActionIsActive, setExplicitRedirect, setSetupRedirect, setLoginActionInProgress]);
 
   return null;
 };
@@ -653,7 +691,7 @@ export const JotaiStateInspector = () => {
         state: authLoadableValue.state,
         isAuthenticated: authLoadableValue.state === 'hasData' ? authLoadableValue.data.isAuthenticated : undefined,
         user: authLoadableValue.state === 'hasData' ? authLoadableValue.data.user : undefined,
-        tokenExpiring: authLoadableValue.state === 'hasData' ? authLoadableValue.data.tokenExpiring : undefined,
+        expired_access_token_call_refresh: authLoadableValue.state === 'hasData' ? authLoadableValue.data.expired_access_token_call_refresh : undefined,
         error: authLoadableValue.state === 'hasError' ? String(authLoadableValue.error) : undefined,
       },
       baseData: {
@@ -740,7 +778,7 @@ export const JotaiStateInspector = () => {
                   <div><strong>UID:</strong> {authLoadableValue.data.user?.uid || 'N/A'}</div>
                   <div><strong>Role:</strong> {authLoadableValue.data.user?.role || 'N/A'}</div>
                   <div><strong>Statbus Role:</strong> {authLoadableValue.data.user?.statbus_role || 'N/A'}</div>
-                  <div><strong>Token Expiring:</strong> {authLoadableValue.data.tokenExpiring ? 'Yes' : 'No'}</div>
+                  <div><strong>Refresh Needed:</strong> {authLoadableValue.data.expired_access_token_call_refresh ? 'Yes' : 'No'}</div>
                 </>
               )}
               {authLoadableValue.state === 'hasError' && <div><strong>Error:</strong> {String(authLoadableValue.error)}</div>}

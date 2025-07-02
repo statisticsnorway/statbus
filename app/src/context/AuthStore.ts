@@ -31,7 +31,7 @@ export interface User {
  */
 export interface AuthStatus {
   isAuthenticated: boolean;
-  tokenExpiring: boolean;
+  expired_access_token_call_refresh: boolean;
   user: User | null;
   error_code: string | null;
 }
@@ -54,7 +54,7 @@ class AuthStore {
   private status: AuthStatus = {
     isAuthenticated: false,
     user: null,
-    tokenExpiring: false,
+    expired_access_token_call_refresh: false,
     error_code: null,
   };
   private fetchStatus: FetchStatus = "idle";
@@ -106,7 +106,7 @@ class AuthStore {
       if (process.env.DEBUG === 'true') {
         console.log("AuthStore.getAuthStatus: Returning unauthenticated state due to error");
       }
-      return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'AUTH_STORE_FETCH_ERROR' };
+      return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'AUTH_STORE_FETCH_ERROR' };
     }
   }
 
@@ -140,7 +140,7 @@ class AuthStore {
     this.status = {
       isAuthenticated: false,
       user: null,
-      tokenExpiring: false,
+      expired_access_token_call_refresh: false,
       error_code: null,
     };
     this.fetchStatus = "idle";
@@ -266,7 +266,7 @@ class AuthStore {
       hasFetchPromise: !!this.fetchPromise,
       isAuthenticated: this.status.isAuthenticated,
       hasUser: !!this.status.user,
-      tokenExpiring: this.status.tokenExpiring,
+      expired_access_token_call_refresh: this.status.expired_access_token_call_refresh,
       cacheTTL: this.CACHE_TTL / 1000 + "s",
       environment: typeof window !== "undefined" ? "browser" : "server",
     };
@@ -278,7 +278,9 @@ class AuthStore {
       // Determine if running in a server environment
       if (typeof window === 'undefined') {
         const { getServerRestClient } = await import("@/context/RestClientStore");
-        client = await getServerRestClient();
+        // For auth_status, we need an anonymous client so the SQL function can inspect the cookie
+        // without PostgREST rejecting the request due to an expired token in the Auth header.
+        client = await getServerRestClient({ anonymous: true });
       } else {
         const { getRestClient } = await import("@/context/RestClientStore");
         client = await getRestClient(); // This should be the browser client
@@ -286,14 +288,14 @@ class AuthStore {
       
       if (!client) {
         console.error("AuthStore.fetchAuthStatus: Failed to get a valid REST client.");
-        return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'CLIENT_INIT_ERROR' };
+        return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'CLIENT_INIT_ERROR' };
       }
       
       if (process.env.DEBUG === 'true') {
         console.log(`[AuthStore.fetchAuthStatus] Calling client.rpc('auth_status', {}, { get: true, count: 'exact' }). Client URL: ${client.url}`);
       }
-      // Using GET for auth_status
-      const { data, error, status, statusText, count } = await client.rpc("auth_status", {}, { get: true, count: 'exact' });
+      // Using POST for auth_status, which is the default and more common for RPCs.
+      const { data, error, status, statusText, count } = await client.rpc("auth_status", {}, { count: 'exact' });
       
       if (process.env.DEBUG === 'true') {
         console.log(`[AuthStore.fetchAuthStatus] Response from client.rpc('auth_status', {}, { get: true, count: 'exact' }): status=${status}, statusText=${statusText}, data=${JSON.stringify(data)}, error=${JSON.stringify(error)}, count=${count}`);
@@ -301,7 +303,7 @@ class AuthStore {
       
       if (error) {
         console.error("AuthStore.fetchAuthStatus: Auth status check RPC failed:", { status, statusText, error });
-        return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'RPC_ERROR' };
+        return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'RPC_ERROR' };
       }
     
       // _parseAuthStatusRpcResponseToAuthStatus returns Omit<JotaiAuthStatus, 'loading'>
@@ -318,7 +320,7 @@ class AuthStore {
           stack: error.stack,
         });
       }
-      return { isAuthenticated: false, user: null, tokenExpiring: false, error_code: 'FETCH_EXCEPTION' };
+      return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'FETCH_EXCEPTION' };
     }
   }
   
@@ -345,6 +347,7 @@ class AuthStore {
       console.log("[AuthStore.handleServerAuth] Entry. Request cookies:", JSON.stringify(allCookiesForLog));
       const accessToken = requestCookies.get('statbus');
       if (accessToken && accessToken.value) {
+        console.log(`[AuthStore.handleServerAuth] Full 'statbus' cookie value for server-side inspection:`, accessToken.value);
         console.log(`[AuthStore.handleServerAuth] Access token ('statbus' cookie) found in request: ${accessToken.value.substring(0, 20)}...`);
       } else {
         console.log("[AuthStore.handleServerAuth] No access token ('statbus' cookie) found in request cookies.");

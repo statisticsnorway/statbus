@@ -105,6 +105,9 @@ importers:
       jotai-effect:
         specifier: ^2.0.4
         version: 2.0.4(jotai@2.12.5(@types/react@19.0.12)(react@19.0.0))
+      jotai-xstate:
+        specifier: ^0.6.1
+        version: 0.6.1(jotai@2.12.5(@types/react@19.0.12)(react@19.0.0))(xstate@5.20.0)
       jsonwebtoken:
         specifier: ^9.0.2
         version: 9.0.2
@@ -171,6 +174,9 @@ importers:
       undici:
         specifier: ^7.10.0
         version: 7.10.0
+      xstate:
+        specifier: ^5.20.0
+        version: 5.20.0
       zod:
         specifier: ^3.24.2
         version: 3.24.2
@@ -3361,6 +3367,12 @@ packages:
     peerDependencies:
       jotai: '>=2.12.1'
 
+  jotai-xstate@0.6.1:
+    resolution: {integrity: sha512-graSDsorui1a4Zt4jCJ40GuOzOkfOY317XcazYnNx0EHS+D/rOr4aLzZRy0NLaPQZsypfcGSMbNCwksfhwkixA==}
+    peerDependencies:
+      jotai: '>=2.0.0'
+      xstate: '>=5.0.0'
+
   jotai@2.12.5:
     resolution: {integrity: sha512-G8m32HW3lSmcz/4mbqx0hgJIQ0ekndKWiYP7kWVKi0p6saLXdSoye+FZiOFyonnd7Q482LCzm8sMDl7Ar1NWDw==}
     engines: {node: '>=12.20.0'}
@@ -4692,6 +4704,9 @@ packages:
         optional: true
       utf-8-validate:
         optional: true
+
+  xstate@5.20.0:
+    resolution: {integrity: sha512-lFQ0fLwVa0OMZnjNP8zUkt2fwIS85ZBNPvxE41APVYhYj0++aTssgmsnTAiBHdKYbgnd6+L8DRTZ9jPZAFPuyw==}
 
   xtend@4.0.2:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
@@ -8355,6 +8370,11 @@ snapshots:
     dependencies:
       jotai: 2.12.5(@types/react@19.0.12)(react@19.0.0)
 
+  jotai-xstate@0.6.1(jotai@2.12.5(@types/react@19.0.12)(react@19.0.0))(xstate@5.20.0):
+    dependencies:
+      jotai: 2.12.5(@types/react@19.0.12)(react@19.0.0)
+      xstate: 5.20.0
+
   jotai@2.12.5(@types/react@19.0.12)(react@19.0.0):
     optionalDependencies:
       '@types/react': 19.0.12
@@ -9720,6 +9740,8 @@ snapshots:
       signal-exit: 3.0.7
 
   ws@8.18.1: {}
+
+  xstate@5.20.0: {}
 
   xtend@4.0.2: {}
 

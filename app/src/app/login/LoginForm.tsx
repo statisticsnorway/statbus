@@ -69,7 +69,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
       const errorCode = typeof error.cause === 'string' ? error.cause : null;
       const message = errorCode && loginErrorMessages[errorCode] 
                       ? loginErrorMessages[errorCode]
-                      : (error instanceof Error ? error.message : loginErrorMessages.DEFAULT);
+                      : loginErrorMessages.DEFAULT;
       setError(message);
     } finally {
       setIsLoading(false);

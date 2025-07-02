@@ -15,6 +15,8 @@ import {
   currentUserAtom,
   loginAtom,
   logoutAtom,
+  clientSideRefreshAtom,
+  expiredAccessTokenAtom,
   
   // Base data atoms
   baseDataAtom,
@@ -97,11 +99,13 @@ export const useAuth = () => {
   const authStatusValue = useAtomValue(authStatusAtom); // This is the synchronous derived atom
   const login = useSetAtom(loginAtom);
   const logout = useSetAtom(logoutAtom);
+  const refreshToken = useSetAtom(clientSideRefreshAtom);
   
   return {
     ...authStatusValue,
     login,
     logout,
+    refreshToken,
   };
 }
 
