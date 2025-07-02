@@ -132,7 +132,7 @@ export default function ImportJobsPage() {
     };
   }, [isLoading, mutate]);
 
-  const handleDeleteJobs = async (jobIds: number[]) => {
+  const handleDeleteJobs = React.useCallback(async (jobIds: number[]) => {
     if (!window.confirm(`Are you sure you want to delete ${jobIds.length} job(s)? This action cannot be undone.`)) {
       return;
     }
@@ -142,14 +142,13 @@ export default function ImportJobsPage() {
       const { error } = await client.from("import_job").delete().in("id", jobIds);
       if (error) throw error;
       mutate(SWR_KEY_IMPORT_JOBS);
-      table.toggleAllRowsSelected(false);
     } catch (err: any) {
       console.error("Failed to delete import jobs:", err);
       alert(`Error deleting jobs: ${err.message}`);
     } finally {
       setIsDeleting(false);
     }
-  };
+  }, [mutate]);
 
   const columns = useMemo<ColumnDef<ImportJob>[]>(() => [
     {
@@ -280,7 +279,7 @@ export default function ImportJobsPage() {
     },
     {
       id: "actions",
-      cell: ({ row }) => {
+      cell: ({ row, table }) => {
         const job = row.original;
         return (
           <DropdownMenu>
@@ -293,7 +292,10 @@ export default function ImportJobsPage() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 className="text-red-600"
-                onClick={() => handleDeleteJobs([job.id])}
+                onClick={async () => {
+                  await handleDeleteJobs([job.id]);
+                  table.toggleAllRowsSelected(false);
+                }}
                 disabled={isDeleting}
               >
                 <Trash2 className="mr-2 h-4 w-4" />
@@ -320,9 +322,10 @@ export default function ImportJobsPage() {
     <DataTableActionBar table={table}>
       <DataTableActionBarSelection table={table} />
       <DataTableActionBarAction
-        onClick={() => {
+        onClick={async () => {
           const selectedIds = table.getFilteredSelectedRowModel().rows.map(row => row.original.id);
-          handleDeleteJobs(selectedIds);
+          await handleDeleteJobs(selectedIds);
+          table.toggleAllRowsSelected(false);
         }}
         isPending={isDeleting}
         tooltip="Delete selected jobs"
