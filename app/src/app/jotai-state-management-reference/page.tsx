@@ -23,6 +23,7 @@ const log = (...args: any[]) => {
 interface SimpleAuthStatus {
   loading: boolean;
   isAuthenticated: boolean;
+  expired_access_token_call_refresh: boolean;
   statusMessage: string;
   rawResponse?: any;
 }
@@ -35,18 +36,20 @@ interface LocalLoginCredentials {
 const parseSimpleAuthResponse = (rpcResponseData: any, errorObj?: any): Omit<SimpleAuthStatus, 'loading' | 'rawResponse'> => {
   log('parseSimpleAuthResponse: Parsing...', { rpcResponseData, errorObj });
   if (errorObj) {
-    const result = { isAuthenticated: false, statusMessage: `Error: ${errorObj.message || 'Unknown fetch error'}` };
+    const result = { isAuthenticated: false, expired_access_token_call_refresh: false, statusMessage: `Error: ${errorObj.message || 'Unknown fetch error'}` };
     log('parseSimpleAuthResponse: Result (from error):', result);
     return result;
   }
   if (!rpcResponseData && !errorObj) {
-    const result = { isAuthenticated: false, statusMessage: "Error: No data from server (RPC success, but null data)" };
+    const result = { isAuthenticated: false, expired_access_token_call_refresh: false, statusMessage: "Error: No data from server (RPC success, but null data)" };
     log('parseSimpleAuthResponse: Result (no data):', result);
     return result;
   }
   const isAuthenticated = rpcResponseData?.is_authenticated ?? false;
+  const expired_access_token_call_refresh = rpcResponseData?.expired_access_token_call_refresh ?? false;
   const result = {
     isAuthenticated,
+    expired_access_token_call_refresh,
     statusMessage: isAuthenticated
       ? `Authenticated (User: ${rpcResponseData.email || 'N/A'})`
       : (rpcResponseData?.error_code ? `Error: ${rpcResponseData.error_code}` : "Not Authenticated"),
@@ -73,7 +76,7 @@ const clientMountedAtom = atom(false);
 
 // This atom holds the promise for the current auth status. It is written to by action atoms.
 const localAuthStatusCoreAtom = atom<Promise<Omit<SimpleAuthStatus, 'loading'>>>(
-  new Promise(() => {}) // Start with a pending promise that never resolves
+  new Promise<Omit<SimpleAuthStatus, 'loading'>>(() => {}) // Start with a pending promise that never resolves
 );
 
 const localAuthStatusLoadableAtom = loadable(localAuthStatusCoreAtom);
@@ -84,7 +87,7 @@ const localAuthStatusAtom = atom<SimpleAuthStatus>((get) => {
   switch (loadableState.state) {
     case 'loading':
       log('localAuthStatusAtom: State is "loading".');
-      return { loading: true, statusMessage: "Loading...", isAuthenticated: false };
+      return { loading: true, statusMessage: "Loading...", isAuthenticated: false, expired_access_token_call_refresh: false };
     case 'hasError':
       log('localAuthStatusAtom: State is "hasError".', loadableState.error);
       const errorData = (loadableState.error as any)?.data || (loadableState.error as any)?.error || loadableState.error;
@@ -94,7 +97,7 @@ const localAuthStatusAtom = atom<SimpleAuthStatus>((get) => {
       return { loading: false, ...loadableState.data };
     default:
       log('localAuthStatusAtom: State is "unknown".');
-      return { loading: true, statusMessage: "Unknown loadable state", isAuthenticated: false };
+      return { loading: true, statusMessage: "Unknown loadable state", isAuthenticated: false, expired_access_token_call_refresh: false };
   }
 });
 
@@ -150,20 +153,32 @@ const localLoginAtom = atom<null, [{ credentials: LocalLoginCredentials; pathnam
     const client = get(localRestClientAtom);
     if (!client) throw new Error("Login failed: Client not available.");
     try {
-      const { error: loginError } = await client.rpc('login', { email, password });
-      if (loginError) throw new Error(loginError.message || 'Login RPC failed');
-      log('localLoginAtom: Login RPC success. Fetching new auth status.');
-      
-      await set(fetchAuthStatusAtom); // This fetches and stabilizes
-      
-      set(updateSyncTimestampAtom, Date.now());
-      
-      log('localLoginAtom: Auth state updated. Setting redirect.');
-      set(localPendingRedirectAtom, `${pathname}?event=login_success&ts=${Date.now()}`);
+      // The login RPC now returns the full auth status response.
+      const { data, error: rpcError } = await client.rpc('login', { email, password });
+
+      // The response body is the new source of truth.
+      const responseBody = rpcError || data;
+      const newAuthStatus = parseSimpleAuthResponse(responseBody, rpcError ? responseBody : null);
+
+      // Update state with the response from login RPC
+      const oldAuthStatus = await get(localAuthStatusCoreAtom);
+      set(localAuthStatusCoreAtom, Promise.resolve({ ...newAuthStatus, rawResponse: responseBody }));
+      await get(localAuthStatusCoreAtom); // Stabilize
+
+      if (newAuthStatus.isAuthenticated) {
+        log('localLoginAtom: Login successful. State updated directly.');
+        if (oldAuthStatus.isAuthenticated !== newAuthStatus.isAuthenticated) {
+          set(updateSyncTimestampAtom, Date.now());
+        }
+        set(localPendingRedirectAtom, `${pathname}?event=login_success&ts=${Date.now()}`);
+      } else {
+        // Login failed, throw error for the form to catch.
+        throw new Error(newAuthStatus.statusMessage || 'Login failed');
+      }
     } catch (error) {
       log('localLoginAtom: Error during login process for pathname:', pathname, error);
-      // On error, we just re-throw. The auth state hasn't changed.
-      // The UI component's catch block will handle displaying the error.
+      // On any error, re-fetch the auth status to be safe.
+      await set(fetchAuthStatusAtom);
       throw error;
     }
   }
@@ -176,21 +191,25 @@ const localLogoutAtom = atom<null, [pathname: string], Promise<void>>(
     const client = get(localRestClientAtom);
     if (!client) throw new Error("Logout failed: Client not available.");
     try {
-      const { error: logoutError } = await client.rpc('logout');
-      if (logoutError) throw new Error(logoutError.message || 'Logout RPC failed');
-      log('localLogoutAtom: Logout RPC success. Fetching new auth status.');
-      await new Promise(resolve => setTimeout(resolve, 50)); // Allow cookie processing
+      // The logout RPC now returns the full auth status response.
+      const { data, error: rpcError } = await client.rpc('logout');
       
-      await set(fetchAuthStatusAtom); // This fetches and stabilizes
-      
-      set(updateSyncTimestampAtom, Date.now());
-      
+      const responseBody = rpcError || data;
+      const newAuthStatus = parseSimpleAuthResponse(responseBody, rpcError ? responseBody : null);
+
+      const oldAuthStatus = await get(localAuthStatusCoreAtom);
+      set(localAuthStatusCoreAtom, Promise.resolve({ ...newAuthStatus, rawResponse: responseBody }));
+      await get(localAuthStatusCoreAtom); // Stabilize
+
       log('localLogoutAtom: Auth state updated. Setting redirect.');
+      if (oldAuthStatus.isAuthenticated !== newAuthStatus.isAuthenticated) {
+        set(updateSyncTimestampAtom, Date.now());
+      }
       set(localPendingRedirectAtom, `${pathname}?event=logout_success&ts=${Date.now()}`);
     } catch (error) {
       log('localLogoutAtom: Error during logout process for pathname:', pathname, error);
-      // On error, we just re-throw. The auth state hasn't changed.
-      // The UI component's catch block will handle displaying the error.
+      // On any error, re-fetch the auth status to be safe.
+      await set(fetchAuthStatusAtom);
       throw error;
     }
   }
@@ -199,19 +218,22 @@ const localLogoutAtom = atom<null, [pathname: string], Promise<void>>(
 const removeAccessTokenCookieAtom = atom<null, [], Promise<void>>(
   null,
   async (get, set) => {
-    log('removeAccessTokenCookieAtom: Attempting to remove access token cookie.');
+    log('removeAccessTokenCookieAtom: Attempting to expire access token cookie.');
     const client = get(localRestClientAtom);
     if (!client) throw new Error("Client not available.");
     try {
-      const { error } = await client.rpc('auth_clear_access_keep_refresh');
-      if (error) throw new Error(error.message || 'RPC to clear access token cookie failed');
+      // This RPC call is designed for testing. It invalidates the current access token
+      // but leaves the refresh token intact, simulating an expired session.
+      const { error } = await client.rpc('auth_expire_access_keep_refresh');
+      if (error) throw new Error(error.message || 'RPC to expire access token failed');
       log('removeAccessTokenCookieAtom: RPC success. Fetching new auth status.');
       
       await set(fetchAuthStatusAtom); // This fetches and stabilizes
       
-      set(updateSyncTimestampAtom, Date.now());
+      // No need to call updateSyncTimestampAtom here. The subsequent auto-refresh
+      // will handle the sync if the auth state changes from unauthenticated to authenticated.
       
-      log('removeAccessTokenCookieAtom: Auth status stabilized.');
+      log('removeAccessTokenCookieAtom: Auth status stabilized. AppInitializer will now attempt refresh.');
     } catch (error) {
       log('removeAccessTokenCookieAtom: Error during process:', error);
       // On error, we just re-throw. The auth state hasn't changed.
@@ -226,34 +248,36 @@ const refreshTokenAtom = atom<null, [], Promise<void>>(
   async (get, set) => {
     log('refreshTokenAtom: Attempting to refresh token.');
     const client = get(localRestClientAtom);
-    if (!client) throw new Error("Client not available.");
-    try {
-      // Get the current auth status BEFORE the refresh call to compare later.
-      const currentAuth = await get(localAuthStatusCoreAtom);
-
-      const { data, error } = await client.rpc('refresh');
-      if (error) throw new Error(error.message || 'Refresh RPC failed');
-      log('refreshTokenAtom: RPC success. Updating auth state directly with response.');
-      
-      const newAuthStatus = parseSimpleAuthResponse(data, error);
-      set(localAuthStatusCoreAtom, Promise.resolve({ ...newAuthStatus, rawResponse: data || error }));
-      
-      // If the authentication status has changed (e.g., from logged out to logged in),
-      // then it's a significant event that other tabs should be notified about.
-      if (currentAuth.isAuthenticated !== newAuthStatus.isAuthenticated) {
-        log('refreshTokenAtom: Auth status changed. Triggering cross-tab sync.');
-        set(updateSyncTimestampAtom, Date.now());
-      } else {
-        log('refreshTokenAtom: Auth status did not change. No cross-tab sync needed.');
-      }
-      
-      log('refreshTokenAtom: Auth state updated.');
-    } catch (error) {
-      log('refreshTokenAtom: Error during process:', error);
-      // On error, we just re-throw. The auth state hasn't changed.
-      // The UI component's catch block will handle displaying the error.
-      throw error;
+    if (!client) {
+      const errorState = parseSimpleAuthResponse(null, { message: "Client not available." });
+      set(localAuthStatusCoreAtom, Promise.resolve({ ...errorState, rawResponse: { error: "Client not available." } }));
+      log('refreshTokenAtom: Client not available. Updated auth state to error.');
+      return;
     }
+    
+    // Get the current auth status BEFORE the refresh call to compare later.
+    const currentAuth = await get(localAuthStatusCoreAtom);
+
+    const { data, error } = await client.rpc('refresh');
+    log('refreshTokenAtom: RPC call completed.', { data, error });
+
+    // The response body is the new source of truth.
+    // For a failed RPC, the body is in the `error` object. For success, it's in `data`.
+    const responseBody = error || data;
+    const newAuthStatus = parseSimpleAuthResponse(responseBody, error ? responseBody : null);
+    
+    set(localAuthStatusCoreAtom, Promise.resolve({ ...newAuthStatus, rawResponse: responseBody }));
+    
+    // If the authentication status has changed (e.g., from logged out to logged in),
+    // then it's a significant event that other tabs should be notified about.
+    if (currentAuth.isAuthenticated !== newAuthStatus.isAuthenticated) {
+      log('refreshTokenAtom: Auth status changed. Triggering cross-tab sync.');
+      set(updateSyncTimestampAtom, Date.now());
+    } else {
+      log('refreshTokenAtom: Auth status did not change. No cross-tab sync needed.');
+    }
+    
+    log('refreshTokenAtom: Auth state updated.');
   }
 );
 
@@ -308,7 +332,7 @@ const MiniFeatureFlagToggle: React.FC<{
 };
 
 const AuthStatusDisplay: React.FC<{ title: string; authData: SimpleAuthStatus | Omit<SimpleAuthStatus, 'loading'>; isLoading?: boolean }> = ({ title, authData, isLoading }) => {
-  const currentStatus = 'loading' in authData ? (authData as SimpleAuthStatus) : { loading: isLoading ?? false, isAuthenticated: false, ...authData };
+  const currentStatus = 'loading' in authData ? (authData as SimpleAuthStatus) : { loading: isLoading ?? false, ...authData };
   return (
     <div className="p-4 border rounded mb-4">
       <h2 className="font-bold text-lg">{title}</h2>
@@ -438,7 +462,7 @@ const RemoveAccessTokenButton: React.FC = () => {
   return (
     <div className="flex items-center space-x-2">
       <button onClick={handleClick} disabled={isLoading} className="px-3 py-1.5 bg-yellow-500 text-white rounded hover:bg-yellow-600 disabled:opacity-50 text-sm">
-        {isLoading ? 'Removing...' : 'Remove Access Token'}
+        {isLoading ? 'Expiring...' : 'Expire Access Token'}
       </button>
       {error && <p className="text-red-500 text-sm">{error}</p>}
     </div>
@@ -539,8 +563,9 @@ const LocalAppInitializer: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     setInitialAuthFlowCompleted(true);
 
-    if (!authStatus.isAuthenticated && autoRefreshEnabled) {
-      log('LocalAppInitializer: Initial status is not authenticated. Attempting auto-refresh...');
+    // New refresh flow: if not authenticated but a refresh is possible, try it.
+    if (!authStatus.isAuthenticated && authStatus.expired_access_token_call_refresh && autoRefreshEnabled) {
+      log('LocalAppInitializer: Access token expired, refresh possible. Attempting auto-refresh...');
       performRefresh().catch(e => {
         log('LocalAppInitializer: Auto-refresh failed.', e);
       });
@@ -662,8 +687,8 @@ const ReferencePageContent: React.FC = () => {
             <RefreshTokenButton />
           </div>
           <p className="text-xs mt-3 text-gray-600">
-            Use &apos;Remove Access Token&apos; to simulate an expired token. Then use &apos;Check Auth Status&apos; or any action that requires auth.
-            The system should automatically use the refresh token to get a new access token.
+            Use &apos;Expire Access Token&apos; to simulate an expired token. The next call to &apos;Check Auth Status&apos; will reveal that a refresh is needed.
+            The system should then automatically use the refresh token to get a new access token.
             You can also manually trigger this with &apos;Refresh Auth Token&apos;.
           </p>
         </div>
