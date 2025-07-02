@@ -1,6 +1,6 @@
 "use client"; // Make this a client component to use hooks
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LogoutForm from "./LogoutForm";
 import { logger } from "@/lib/client-logger";
@@ -9,9 +9,14 @@ import { authStatusInitiallyCheckedAtom } from "@/atoms"; // To wait for initial
 import { useAtomValue } from "jotai";
 
 export default function ProfilePage() {
+  const [isMounted, setIsMounted] = useState(false);
   const { isAuthenticated, user, loading: authLoading } = useAuth();
   const initialAuthCheckCompleted = useAtomValue(authStatusInitiallyCheckedAtom);
   const router = useRouter();
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   useEffect(() => {
     // Wait for the initial auth check to complete and auth state to not be loading
@@ -26,7 +31,7 @@ export default function ProfilePage() {
   }, [isAuthenticated, initialAuthCheckCompleted, authLoading, router]);
 
   // Show loading state or if user is null (which shouldn't happen if authenticated)
-  if (authLoading || !initialAuthCheckCompleted) {
+  if (!isMounted || authLoading || !initialAuthCheckCompleted) {
     return (
       <main className="flex flex-col items-center justify-center px-2 py-8 md:py-24 min-h-screen">
         <div>Loading profile...</div>
