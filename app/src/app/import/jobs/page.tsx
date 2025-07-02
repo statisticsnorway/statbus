@@ -172,6 +172,13 @@ export default function ImportJobsPage() {
       enableHiding: false,
     },
     {
+      id: 'id',
+      accessorKey: 'id',
+      header: ({ column }) => <DataTableColumnHeader column={column} title="ID" />,
+      cell: ({ row }) => <div className="text-xs">{row.original.id}</div>,
+      enableSorting: true,
+    },
+    {
       id: 'description',
       accessorKey: 'description',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
@@ -304,7 +311,7 @@ export default function ImportJobsPage() {
     columns,
     manualPagination: false,
     initialState: {
-      sorting: [{ id: "expires_at", desc: true }],
+      sorting: [{ id: "id", desc: true }],
     },
     getRowId: (row) => String(row.id),
   });
