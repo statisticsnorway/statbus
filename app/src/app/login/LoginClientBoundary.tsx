@@ -41,11 +41,8 @@ export default function LoginClientBoundary() {
   // Effect to reset the machine to idle on mount. This ensures a clean state for every visit,
   // which is crucial for handling React 18 Strict Mode and Fast Refresh in development.
   useEffect(() => {
-    if (debug) {
-      console.log('LoginClientBoundary: Component mounted, sending RESET to state machine.');
-    }
     send({ type: 'RESET' });
-  }, [send, debug]);
+  }, [send]);
 
   // Effect to send events to the state machine when dependencies change.
   useEffect(() => {

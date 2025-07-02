@@ -58,15 +58,12 @@ class RestClientStore {
    * This method deduplicates requests - multiple calls will share the same Promise
    */
   public async getRestClient(
-    type: ClientType,
-    options?: { 
-      anonymous?: boolean
-    }
+    type: ClientType
   ): Promise<PostgrestClient<Database>> {
     if (type === 'server') {
       // Server client: Directly initialize. Caching is handled by the exported getServerRestClient.
       try {
-        const client = await this.initializeClient('server', options);
+        const client = await this.initializeClient('server');
         // Log moved back to initializeClient to see raw initialization calls
         return client;
       } catch (error) {
@@ -176,10 +173,7 @@ class RestClientStore {
    * Internal method to initialize a client
    */
   private async initializeClient(
-    type: ClientType,
-    options?: { 
-      anonymous?: boolean
-    }
+    type: ClientType
   ): Promise<PostgrestClient<Database>> {
     try {
       if (type === 'server') {
@@ -222,7 +216,7 @@ class RestClientStore {
             console.warn('RestClientStore: Could not import or use next/headers.cookies() for server client. Proceeding without auth headers.', error);
           }
 
-          if (tokenValue && !options?.anonymous) {
+          if (tokenValue) {
             postgrestClientHeaders['Authorization'] = `Bearer ${tokenValue}`;
           } else {
             if (process.env.DEBUG === 'true') { // Server-side, use DEBUG
@@ -519,12 +513,8 @@ export const clientStore = RestClientStore.getInstance();
 // Export convenience methods for accessing PostgREST clients
 // Use React.cache on the exported function to memoize per request
 export const getServerRestClient = cache(
-  async (
-    options?: { 
-      anonymous?: boolean 
-    }
-  ): Promise<PostgrestClient<Database>> => {
-    return clientStore.getRestClient('server', { anonymous: options?.anonymous });
+  async (): Promise<PostgrestClient<Database>> => {
+    return clientStore.getRestClient('server');
   }
 );
 

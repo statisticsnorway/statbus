@@ -274,43 +274,71 @@ class AuthStore {
 
   private async fetchAuthStatus(): Promise<AuthStatus> {
     try {
-      let client;
-      // Determine if running in a server environment
+      // Server-side: Use a direct fetch to call auth_status. This is the ONLY place
+      // this special logic is needed. It ensures we don't send an Authorization header,
+      // which would cause PostgREST to reject an expired token before the SQL function can analyze it.
       if (typeof window === 'undefined') {
-        const { getServerRestClient } = await import("@/context/RestClientStore");
-        // For auth_status, we need an anonymous client so the SQL function can inspect the cookie
-        // without PostgREST rejecting the request due to an expired token in the Auth header.
-        client = await getServerRestClient({ anonymous: true });
+        const { headers } = await import('next/headers');
+        const incomingHeaders = await headers();
+        const apiBaseUrl = process.env.SERVER_REST_URL;
+        if (!apiBaseUrl) throw new Error('SERVER_REST_URL is not defined');
+        
+        const rpcUrl = `${apiBaseUrl}/rest/rpc/auth_status`;
+        
+        const headersToSend = new Headers();
+        headersToSend.set('Content-Type', 'application/json');
+        // Forward essential headers for context
+        if (incomingHeaders.has('x-forwarded-host')) headersToSend.set('X-Forwarded-Host', incomingHeaders.get('x-forwarded-host')!);
+        if (incomingHeaders.has('x-forwarded-proto')) headersToSend.set('X-Forwarded-Proto', incomingHeaders.get('x-forwarded-proto')!);
+        if (incomingHeaders.has('x-forwarded-for')) headersToSend.set('X-Forwarded-For', incomingHeaders.get('x-forwarded-for')!);
+        // Crucially, forward the cookie header so the SQL function can inspect it.
+        if (incomingHeaders.has('cookie')) headersToSend.set('Cookie', incomingHeaders.get('cookie')!);
+
+        if (process.env.DEBUG === 'true') {
+          console.log(`[AuthStore.fetchAuthStatus] Calling direct fetch to '${rpcUrl}'`);
+        }
+
+        const response = await fetch(rpcUrl, { method: 'POST', headers: headersToSend, body: JSON.stringify({}) });
+        const data = await response.json();
+
+        if (process.env.DEBUG === 'true') {
+          console.log(`[AuthStore.fetchAuthStatus] Response from direct fetch: status=${response.status}, data=${JSON.stringify(data)}`);
+        }
+
+        if (!response.ok) {
+          console.error("AuthStore.fetchAuthStatus: Direct fetch for auth status failed:", { status: response.status, data });
+          return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'RPC_ERROR' };
+        }
+        
+        return _parseAuthStatusRpcResponseToAuthStatus(data);
+
       } else {
+        // Client-side: Use the standard getRestClient which handles refresh logic.
         const { getRestClient } = await import("@/context/RestClientStore");
-        client = await getRestClient(); // This should be the browser client
-      }
+        const client = await getRestClient();
+        
+        if (!client) {
+          console.error("AuthStore.fetchAuthStatus: Failed to get a valid REST client.");
+          return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'CLIENT_INIT_ERROR' };
+        }
+        
+        if (process.env.DEBUG === 'true') {
+          console.log(`[AuthStore.fetchAuthStatus] Calling client.rpc('auth_status'). Client URL: ${client.url}`);
+        }
+        // Using POST for auth_status, which is the default for RPCs.
+        const { data, error, status, statusText } = await client.rpc("auth_status");
+        
+        if (process.env.DEBUG === 'true') {
+          console.log(`[AuthStore.fetchAuthStatus] Response from client.rpc('auth_status'): status=${status}, statusText=${statusText}, data=${JSON.stringify(data)}, error=${JSON.stringify(error)}`);
+        }
+        
+        if (error) {
+          console.error("AuthStore.fetchAuthStatus: Auth status check RPC failed:", { status, statusText, error });
+          return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'RPC_ERROR' };
+        }
       
-      if (!client) {
-        console.error("AuthStore.fetchAuthStatus: Failed to get a valid REST client.");
-        return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'CLIENT_INIT_ERROR' };
+        return _parseAuthStatusRpcResponseToAuthStatus(data);
       }
-      
-      if (process.env.DEBUG === 'true') {
-        console.log(`[AuthStore.fetchAuthStatus] Calling client.rpc('auth_status', {}, { get: true, count: 'exact' }). Client URL: ${client.url}`);
-      }
-      // Using POST for auth_status, which is the default and more common for RPCs.
-      const { data, error, status, statusText, count } = await client.rpc("auth_status", {}, { count: 'exact' });
-      
-      if (process.env.DEBUG === 'true') {
-        console.log(`[AuthStore.fetchAuthStatus] Response from client.rpc('auth_status', {}, { get: true, count: 'exact' }): status=${status}, statusText=${statusText}, data=${JSON.stringify(data)}, error=${JSON.stringify(error)}, count=${count}`);
-      }
-      
-      if (error) {
-        console.error("AuthStore.fetchAuthStatus: Auth status check RPC failed:", { status, statusText, error });
-        return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'RPC_ERROR' };
-      }
-    
-      // _parseAuthStatusRpcResponseToAuthStatus returns Omit<JotaiAuthStatus, 'loading'>
-      // which matches AuthStore's AuthStatus interface.
-      const result = _parseAuthStatusRpcResponseToAuthStatus(data); 
-    
-      return result;
     } catch (error) {
       console.error("AuthStore.fetchAuthStatus: Exception during auth status check (outer catch):", error);
       if (error instanceof Error) {

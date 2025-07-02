@@ -144,16 +144,6 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
       const currentAuthIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
       const isAuthCurrentlyLoading = authLoadableValue.state === 'loading';
 
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("AppInitializer: Checking conditions for app data initialization...", {
-          appDataInitialized,
-          initialAuthCheckDone,
-          authLoadableState: authLoadableValue.state,
-          isAuthenticated: currentAuthIsAuthenticated,
-          isRestClientReady: !!restClient,
-        });
-      }
-
       // Core conditions: auth must be checked, user authenticated, client ready.
       if (!initialAuthCheckDone || !currentAuthIsAuthenticated || !restClient || isAuthCurrentlyLoading) {
         return;
@@ -222,10 +212,6 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     const isAuthStableAndChecked = initialAuthCheckDone && authLoadableValue.state !== 'loading';
     const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
     const canRefresh = authLoadableValue.state === 'hasData' && authLoadableValue.data.expired_access_token_call_refresh;
-
-    if (debug) {
-      console.log(`[RedirectGuard] Checking... Path: ${pathname}, Stable: ${isAuthStableAndChecked}, Authed: ${currentIsAuthenticated}, CanRefresh: ${canRefresh}`);
-    }
 
     if (!isAuthStableAndChecked) {
       return;
