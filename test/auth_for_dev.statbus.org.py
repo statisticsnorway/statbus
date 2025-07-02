@@ -689,6 +689,102 @@ def test_nextjs_api_auth_test(session: Session, ctx: TestContext): # Added ctx
     # No finally block for log_collector.stop() or printing logs; TestContext handles this.
 
 
+def test_dev_expired_token_refresh_flow(session: Session, ctx: TestContext):
+    """
+    Tests the new, correct refresh flow on the dev server.
+    1. Uses the provided logged-in session.
+    2. Calls the dedicated RPC to expire the access token.
+    3. Calls /rpc/auth_status, expects it to report unauthenticated but suggest a refresh.
+    4. Calls /rpc/refresh.
+    5. Verifies new tokens are issued and the user is now authenticated.
+    """
+    ctx.info("Testing the new expired token refresh flow...")
+
+    original_access_token = session.cookies.get("statbus")
+    original_refresh_token = session.cookies.get("statbus-refresh")
+    if not original_refresh_token or not original_access_token:
+        ctx.error("Could not retrieve original tokens from the provided session for expired token flow test.")
+        return
+
+    # 2. Call the RPC to expire the access token. This sets a new, expired 'statbus' cookie.
+    ctx.info("Calling /rpc/auth_expire_access_keep_refresh to get an expired access token...")
+    try:
+        expire_response = session.post(f"{DEV_API_URL}/rest/rpc/auth_expire_access_keep_refresh", json={})
+        if expire_response.status_code == 200:
+            ctx.success("Successfully called auth_expire_access_keep_refresh.")
+        else:
+            ctx.error(f"Call to auth_expire_access_keep_refresh failed with status {expire_response.status_code}. Body: {expire_response.text}")
+            return
+    except Exception as e:
+        ctx.error(f"Exception during auth_expire_access_keep_refresh call: {e}")
+        return
+    
+    expired_access_token = session.cookies.get("statbus")
+    if not expired_access_token or expired_access_token == original_access_token:
+        ctx.error("auth_expire_access_keep_refresh did not set a new, different access token.")
+        return
+
+    # 3. Test /rpc/auth_status - expect it to suggest a refresh
+    ctx.info("Testing /rpc/auth_status with the new expired access token...")
+    try:
+        auth_status_response = session.get(f"{DEV_API_URL}/rest/rpc/auth_status", timeout=10)
+        if auth_status_response.status_code == 200:
+            data = auth_status_response.json()
+            # For GET requests, the data is the object itself
+            actual_data = data
+            auth_ok = actual_data.get("is_authenticated") is False
+            refresh_ok = actual_data.get("expired_access_token_call_refresh") is True
+            if auth_ok and refresh_ok:
+                ctx.success("auth_status correctly returned is_authenticated=false and expired_access_token_call_refresh=true.")
+            else:
+                ctx.error(f"auth_status did not return the expected state for an expired token. Got: {actual_data}")
+                return
+        else:
+            ctx.error(f"auth_status call with expired token failed with status {auth_status_response.status_code}")
+            return
+    except Exception as e:
+        ctx.error(f"Exception during auth_status call with expired token: {e}")
+        return
+
+    # 4. Call /rpc/refresh, as the client would do
+    ctx.info("Calling /rpc/refresh to get new tokens...")
+    try:
+        refresh_response = session.post(f"{DEV_API_URL}/rest/rpc/refresh", json={})
+        if refresh_response.status_code == 200:
+            ctx.success("Refresh call was successful.")
+            refresh_data = refresh_response.json()
+            actual_refresh_data = refresh_data[0] if isinstance(refresh_data, list) and len(refresh_data) == 1 else refresh_data
+            if actual_refresh_data.get("is_authenticated"):
+                ctx.success("Refresh response body confirms authentication.")
+            else:
+                ctx.error(f"Refresh response body indicates not authenticated. Body: {actual_refresh_data}")
+                return
+        else:
+            ctx.error(f"Refresh call failed with status {refresh_response.status_code}. Body: {refresh_response.text}")
+            return
+    except Exception as e:
+        ctx.error(f"Exception during refresh call: {e}")
+        return
+
+    # 5. Final check with auth_status
+    ctx.info("Verifying authentication status after successful refresh...")
+    try:
+        final_status_response = session.get(f"{DEV_API_URL}/rest/rpc/auth_status", timeout=10)
+        if final_status_response.status_code == 200:
+            data = final_status_response.json()
+            actual_data = data
+            auth_ok = actual_data.get("is_authenticated") is True
+            refresh_ok = actual_data.get("expired_access_token_call_refresh") is False
+            if auth_ok and refresh_ok:
+                ctx.success("Final auth_status check confirms user is authenticated.")
+            else:
+                ctx.error(f"Final auth_status check shows incorrect state. Got: {actual_data}")
+        else:
+            ctx.error(f"Final auth_status call failed with status {final_status_response.status_code}")
+    except Exception as e:
+        ctx.error(f"Exception during final auth_status call: {e}")
+
+
 def fetch_dev_credentials(ctx: TestContext) -> bool: # Added ctx
     """Fetches credentials for the first user from remote .users.yml."""
     global USER_EMAIL, USER_PASSWORD
@@ -858,6 +954,15 @@ def main_dev_tests():
             test_nextjs_api_auth_test(session_initial_login, ctx)
         else:
             ctx.warning("Skipping /api/auth_test call because initial login failed.")
+    if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure.{NC}"); sys.exit(1)
+
+    with TestContext("New Expired Token Refresh Flow") as ctx:
+        if login_details_ok:
+            # This test needs a session with valid cookies.
+            # We can re-use session_initial_login as it should still be valid.
+            test_dev_expired_token_refresh_flow(session_initial_login, ctx)
+        else:
+            ctx.warning("Skipping new expired token refresh flow test due to initial login failure.")
     if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure.{NC}"); sys.exit(1)
 
 

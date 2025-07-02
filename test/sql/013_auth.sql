@@ -975,6 +975,22 @@ BEGIN
     ASSERT access_jwt_from_login IS NOT NULL, format('Access token cookie not found after login. Cookies: %s', (SELECT json_agg(jec) FROM test.extract_cookies() jec));
     ASSERT refresh_jwt_from_login IS NOT NULL, format('Refresh token cookie not found after login. Cookies: %s', (SELECT json_agg(jrc) FROM test.extract_cookies() jrc));
     
+    -- Verify that the access token cookie has the same expiration as the refresh token cookie
+    DECLARE
+        access_cookie_expires timestamptz;
+        refresh_cookie_expires timestamptz;
+    BEGIN
+        SELECT expires_at INTO access_cookie_expires FROM test.extract_cookies() WHERE cookie_name = 'statbus';
+        SELECT expires_at INTO refresh_cookie_expires FROM test.extract_cookies() WHERE cookie_name = 'statbus-refresh';
+        
+        ASSERT access_cookie_expires IS NOT NULL, 'Access cookie expiration time not found.';
+        ASSERT refresh_cookie_expires IS NOT NULL, 'Refresh cookie expiration time not found.';
+        
+        -- Allow for a small difference (e.g., 1 second) due to timing of generation
+        ASSERT abs(extract(epoch from access_cookie_expires) - extract(epoch from refresh_cookie_expires)) < 2,
+            format('Access token cookie expiration (%L) should match refresh token cookie expiration (%L).', access_cookie_expires, refresh_cookie_expires);
+    END;
+    
     -- Decode the access token and display it
     DECLARE
         access_jwt_payload jsonb;
@@ -2551,6 +2567,69 @@ BEGIN
         ASSERT invalid_status->>'uid' IS NULL, format('Auth status with invalid user should not include user info (uid). Got: %L. Full response: %s', invalid_status->>'uid', invalid_status);
         ASSERT invalid_status->>'email' IS NULL, format('Auth status with invalid user should not have email. Got: %L. Full response: %s', invalid_status->>'email', invalid_status);
         ASSERT (invalid_status->'error_code') = 'null'::jsonb, format('Auth status (invalid user) should have null error_code. Got: %L. Full response: %s', invalid_status->'error_code', invalid_status);
+    END;
+
+    -- Test with an expired token to trigger refresh suggestion
+    DECLARE
+        expire_result jsonb;
+        expired_access_jwt text;
+        expired_status jsonb;
+        refresh_result jsonb;
+    BEGIN
+        RAISE NOTICE '--- Test 15.1: Testing expired token refresh flow ---';
+        -- We are already logged in and have valid cookies set from the previous part of the test.
+        -- The request.cookies GUC should contain 'statbus' and 'statbus-refresh' tokens.
+        
+        -- Call the function to expire the access token
+        -- This requires an authenticated session, which we have.
+        -- We need to set the JWT claims for the function to work.
+        SELECT payload::text INTO jwt_claims FROM verify(access_jwt, 'test-jwt-secret-for-testing-only');
+        PERFORM set_config('request.jwt.claims', jwt_claims::text, true);
+
+        SELECT to_jsonb(source.*) INTO expire_result FROM public.auth_expire_access_keep_refresh() AS source;
+        RAISE DEBUG 'auth_expire_access_keep_refresh result: %', expire_result;
+        
+        ASSERT expire_result->>'status' = 'access_token_expired_and_set',
+            format('auth_expire_access_keep_refresh should return correct status. Got: %L', expire_result->>'status');
+            
+        -- Extract the newly set, expired access token from the response headers
+        SELECT cv.cookie_value INTO expired_access_jwt FROM test.extract_cookies() cv WHERE cv.cookie_name = 'statbus';
+        ASSERT expired_access_jwt IS NOT NULL, 'A new (expired) access token should be set in cookies.';
+        ASSERT expired_access_jwt <> access_jwt, 'The expired access token should be different from the original one.';
+
+        -- Verify the new token is indeed expired
+        DECLARE
+            verification_result auth.jwt_verification_result;
+        BEGIN
+            verification_result := auth.verify_jwt_with_secret(expired_access_jwt);
+            ASSERT verification_result.is_valid AND verification_result.expired,
+                'The new access token should be valid but expired.';
+        END;
+
+        -- Now, call auth_status with only the expired access token cookie.
+        -- The refresh token cookie is not sent to auth_status due to its path restriction.
+        PERFORM set_config('request.cookies', json_build_object('statbus', expired_access_jwt)::text, true);
+        PERFORM set_config('request.jwt.claims', '', true); -- Clear claims, rely on cookie
+
+        SELECT to_jsonb(source.*) INTO expired_status FROM public.auth_status() AS source;
+        RAISE DEBUG 'Auth status with expired token: %', expired_status;
+
+        ASSERT (expired_status->>'is_authenticated')::boolean IS FALSE,
+            'Auth status with expired token should be is_authenticated=false.';
+        ASSERT (expired_status->>'expired_access_token_call_refresh')::boolean IS TRUE,
+            'Auth status with expired token should be expired_access_token_call_refresh=true.';
+        ASSERT expired_status->>'uid' IS NULL,
+            'Auth status with expired token should not contain user details.';
+
+        -- Finally, complete the flow by calling refresh with the original refresh token
+        PERFORM set_config('request.cookies', json_build_object('statbus-refresh', refresh_jwt)::text, true);
+        SELECT to_jsonb(source.*) INTO refresh_result FROM public.refresh() AS source;
+        RAISE DEBUG 'Refresh result after expired status check: %', refresh_result;
+
+        ASSERT (refresh_result->>'is_authenticated')::boolean IS TRUE,
+            'Refresh call after expired status should succeed.';
+        ASSERT refresh_result->>'email' = test_email,
+            'Refresh call should return correct user details.';
     END;
     
         RAISE NOTICE 'Test 15: Auth Status Function - PASSED';

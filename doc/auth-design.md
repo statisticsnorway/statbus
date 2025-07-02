@@ -131,6 +131,7 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
                     *   `Domain` (not explicitly set, defaults to the origin setting the cookie)
         *   Returns an `auth.auth_response` object in the JSON response body. This object contains:
             *   `is_authenticated` (boolean)
+            *   `expired_access_token_call_refresh` (boolean, always `false` on a successful login)
             *   User information (uid, sub, email, role, statbus_role, etc.) if authenticated.
             *   `error_code` (enum `auth.login_error_code`): This field is `NULL` on successful login. On failure, it contains one of the following values:
                 *   `USER_NOT_FOUND`: The provided email does not correspond to an existing user.
@@ -195,13 +196,16 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
                 *   `AuthStore.handleServerAuth()` parses this `auth_response` and, if successful, uses the `response.cookies.set()` method (provided by the middleware) to stage the new cookies for the outgoing response to the browser.
                 *   The middleware updates the *current request's* headers to reflect the new access token for subsequent processing within the same request lifecycle.
             *   **Current Practicality:** Due to the `statbus-refresh` cookie's `Path=/rest/rpc/refresh` restriction, this server-side refresh mechanism by the middleware is effectively not utilized for typical Next.js page/API requests, as the middleware cannot access the necessary refresh token from the browser's request to such paths. Token refresh is therefore primarily a client-side responsibility.
-        *   **Proactive Refresh (Client-Side - `AppInitializer` / Jotai):**
-            *   A proactive client-side refresh is attempted during application initialization, typically orchestrated by a component like `AppInitializer`.
-            *   This occurs after the initial authentication status check (`authStatusCoreAtom`) has resolved and if the user is found to be unauthenticated (`authStatusAtom.isAuthenticated` is false) and not in a loading state.
-            *   To prevent loops, this proactive refresh is generally attempted only once per page load or app initialization under these specific conditions.
-            *   The `clientSideRefreshAtom` (Jotai action atom) is invoked to make the `POST` request to `/rest/rpc/refresh`. The browser automatically sends the `statbus-refresh` cookie if available and its path matches.
-            *   If the refresh is successful (HTTP 200 from `/rpc/refresh`), the browser updates its cookies. `AppInitializer` (or the logic handling the refresh response) then triggers a re-evaluation of the global authentication state (e.g., by `set(authStatusCoreAtom)`), which updates `authStatusAtom`.
-            *   If the refresh fails (e.g., HTTP 401), the global authentication state is similarly updated to reflect the continued unauthenticated status.
+        *   **Proactive Refresh (Client-Side - Driven by `auth_status`):**
+            *   The primary mechanism for proactive refresh is driven by the `public.auth_status` function. This function is called during application initialization (e.g., by `AppInitializer`) to determine the user's state.
+            *   **Security Design:** The `auth_status` function intentionally only inspects the short-lived `statbus` (access token) cookie. It cannot see the long-lived `statbus-refresh` cookie, which is path-scoped to `/rest/rpc/refresh` to limit its exposure.
+            *   **Logic Flow:**
+                1.  If the access token is valid and not expired, `auth_status` returns an authenticated user profile.
+                2.  If the access token is **valid but expired**, `auth_status` returns a response with `is_authenticated: false` and `expired_access_token_call_refresh: true`.
+                3.  If the access token is invalid (bad signature) or absent, `auth_status` returns a response indicating the user is unauthenticated, without suggesting a refresh.
+            *   **Client Action:** When the client-side Jotai state manager receives a response from `auth_status` with `expired_access_token_call_refresh: true`, it triggers a `POST` request to `/rest/rpc/refresh`. The browser automatically sends the `statbus-refresh` cookie with this request because its path matches.
+            *   If the refresh is successful (HTTP 200 from `/rpc/refresh`), the browser updates its cookies. The client then re-evaluates the authentication state by calling `auth_status` again.
+            *   If the refresh fails (e.g., HTTP 401), the user remains unauthenticated.
     *   The `public.refresh` PostgreSQL function:
         *   Extracts the refresh token from cookies.
         *   Validates the token, session, and user.

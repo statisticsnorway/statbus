@@ -25,11 +25,11 @@ fi
 
 source "$VENV_DIR/bin/activate"
 
-echo "Installing required Python packages (requests, PyYAML)..."
-pip install requests pyyaml --quiet
+echo "Installing required Python packages..."
+pip install -r "$WORKSPACE/test/requirements-dev.txt" --quiet
 
 if ! python -c "import requests, yaml" 2>/dev/null; then
-  echo "Failed to install requests or PyYAML. Please install manually: pip install requests pyyaml"
+  echo "Failed to install required packages. Please check test/requirements-dev.txt and ensure pip is working."
   exit 1
 fi
 

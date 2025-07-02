@@ -771,13 +771,13 @@ def test_token_refresh(session: Session, email: str, password: str, ctx: TestCon
     else:
         ctx.warning(f"'{access_cookie_name}' cookie was already not in session before explicit removal.")
 
-    # Verify auth_status now shows unauthenticated, but refresh token is still present
-    ctx.info("Checking auth_status after removing access token (should be unauthenticated)...")
-    test_auth_status(session, False, ctx) # GET
+    # Verify auth_status now shows unauthenticated. With no access token present, refresh should not be suggested.
+    ctx.info("Checking auth_status after removing access token (should be unauthenticated, no refresh suggested)...")
+    test_auth_status(session, False, False, ctx) # GET
     if ctx.is_failed: # If auth_status GET failed, no point in POST
         ctx.error("auth_status (GET) check failed after removing access token. Aborting refresh test.")
         return
-    test_auth_status_post(session, False, ctx) # POST
+    test_auth_status_post(session, False, False, ctx) # POST
     if ctx.is_failed:
         ctx.error("auth_status (POST) check failed after removing access token. Aborting refresh test.")
         return
@@ -890,9 +890,9 @@ def test_token_refresh(session: Session, email: str, password: str, ctx: TestCon
     except json.JSONDecodeError:
         ctx.error(f"Invalid JSON response from refresh. Response text: {response.text}")
 
-def test_auth_status(session: Session, expected_auth: bool, ctx: TestContext) -> None:
-    """Test auth status"""
-    ctx.info(f"Testing auth status (expected authenticated: {expected_auth})...")
+def test_auth_status(session: Session, expected_auth: bool, expected_refresh_possible: bool, ctx: TestContext) -> Optional[Dict[str, Any]]:
+    """Test auth status. Returns parsed JSON data on success, None on failure."""
+    ctx.info(f"Testing auth status (expected authenticated: {expected_auth}, refresh possible: {expected_refresh_possible})...")
         
     try:
         ctx.debug(f"Session cookies before auth_status request: {session.cookies.get_dict()}")
@@ -908,17 +908,23 @@ def test_auth_status(session: Session, expected_auth: bool, ctx: TestContext) ->
         try:
             data = response.json()
             ctx.debug(f"Auth status parsed response: {json.dumps(data, indent=2)}")
-                
-            if data.get("is_authenticated") == expected_auth:
-                ctx.success(f"Auth status returned expected authentication state: {expected_auth}")
+            
+            auth_ok = data.get("is_authenticated") == expected_auth
+            refresh_ok = data.get("expired_access_token_call_refresh") == expected_refresh_possible
+
+            if auth_ok and refresh_ok:
+                ctx.success(f"Auth status returned expected state (auth: {expected_auth}, refresh: {expected_refresh_possible})")
+                return data
             else:
                 error_detail = (
                     f"Response: {json.dumps(data, indent=2)}\n"
                     f"API endpoint: {API_BASE_URL}/rest/rpc/auth_status\n"
-                    f"Expected is_authenticated: {expected_auth}"
+                    f"Expected is_authenticated: {expected_auth} (Got: {data.get('is_authenticated')})\n"
+                    f"Expected expired_access_token_call_refresh: {expected_refresh_possible} (Got: {data.get('expired_access_token_call_refresh')})"
                 )
-                ctx.error("Auth status did not return expected authentication state.")
+                ctx.error("Auth status did not return expected state.")
                 ctx.add_detail(error_detail)
+                return None
         except json.JSONDecodeError as e:
             error_detail = (
                 f"Response text: {response.text!r}\n"
@@ -927,9 +933,11 @@ def test_auth_status(session: Session, expected_auth: bool, ctx: TestContext) ->
             )
             ctx.error(f"Invalid JSON response from auth_status: {e}")
             ctx.add_detail(error_detail)
+            return None
     
     except requests.RequestException as e:
         ctx.error(f"Auth status API request failed: {e}")
+        return None
 
 def test_bearer_token_auth(email: str, password: str, ctx: TestContext) -> None:
     """Test API access using Bearer token in Authorization header"""
@@ -983,16 +991,16 @@ def test_bearer_token_auth(email: str, password: str, ctx: TestContext) -> None:
         
         if auth_status_response.status_code == 200:
             auth_data = auth_status_response.json()
-            if auth_data.get("is_authenticated") is True:
-                ctx.success("Auth status with Bearer token shows authenticated user.")
+            if auth_data.get("is_authenticated") is False:
+                ctx.success("Auth status with Bearer token correctly shows unauthenticated, as it is cookie-based.")
                 ctx.debug(f"Auth status response: {json.dumps(auth_data, indent=2)}")
             else:
                 error_detail = (
                     f"Response: {json.dumps(auth_data, indent=2)}\n"
                     f"API endpoint: {API_BASE_URL}/rest/rpc/auth_status\n"
-                    f"Expected is_authenticated: True"
+                    f"Expected is_authenticated: False (since auth_status is cookie-based)"
                 )
-                ctx.error("Auth status with Bearer token shows unauthenticated user.")
+                ctx.error("Auth status with Bearer token unexpectedly showed an authenticated user.")
                 ctx.add_detail(error_detail)
         else:
             error_detail = (
@@ -1236,9 +1244,9 @@ def test_auth_test_endpoint(session: Session, logged_in: bool = False, ctx: Test
         _direct_log_problem(f"POST /rpc/auth_test failed: {e}")
 
 
-def test_auth_status_post(session: Session, expected_auth: bool, ctx: TestContext) -> None:
-    """Test auth status using POST"""
-    ctx.info(f"Testing auth status with POST (expected authenticated: {expected_auth})...")
+def test_auth_status_post(session: Session, expected_auth: bool, expected_refresh_possible: bool, ctx: TestContext) -> Optional[Dict[str, Any]]:
+    """Test auth status using POST. Returns parsed JSON data on success, None on failure."""
+    ctx.info(f"Testing auth status with POST (expected authenticated: {expected_auth}, refresh possible: {expected_refresh_possible})...")
         
     try:
         ctx.debug(f"Session cookies before POST request to auth_status: {session.cookies.get_dict()}")
@@ -1256,17 +1264,23 @@ def test_auth_status_post(session: Session, expected_auth: bool, ctx: TestContex
             data = response.json()
             actual_data = data[0] if isinstance(data, list) and len(data) == 1 else data
             ctx.debug(f"Auth status (POST) parsed response: {json.dumps(actual_data, indent=2)}")
-                
-            if actual_data.get("is_authenticated") == expected_auth:
-                ctx.success(f"Auth status (POST) returned expected authentication state: {expected_auth}")
+            
+            auth_ok = actual_data.get("is_authenticated") == expected_auth
+            refresh_ok = actual_data.get("expired_access_token_call_refresh") == expected_refresh_possible
+
+            if auth_ok and refresh_ok:
+                ctx.success(f"Auth status (POST) returned expected state (auth: {expected_auth}, refresh: {expected_refresh_possible})")
+                return actual_data
             else:
                 error_detail = (
                     f"Response (POST): {json.dumps(actual_data, indent=2)}\n"
                     f"API endpoint: {API_BASE_URL}/rest/rpc/auth_status (POST)\n"
-                    f"Expected is_authenticated: {expected_auth}"
+                    f"Expected is_authenticated: {expected_auth} (Got: {actual_data.get('is_authenticated')})\n"
+                    f"Expected expired_access_token_call_refresh: {expected_refresh_possible} (Got: {actual_data.get('expired_access_token_call_refresh')})"
                 )
-                ctx.error("Auth status (POST) did not return expected authentication state.")
+                ctx.error("Auth status (POST) did not return expected state.")
                 ctx.add_detail(error_detail)
+                return None
         except json.JSONDecodeError as e:
             error_detail = (
                 f"Response text (POST): {response.text!r}\n"
@@ -1275,9 +1289,11 @@ def test_auth_status_post(session: Session, expected_auth: bool, ctx: TestContex
             )
             ctx.error(f"Invalid JSON response from auth_status (POST): {e}")
             ctx.add_detail(error_detail)
+            return None
     
     except requests.RequestException as e:
         ctx.error(f"API request (POST /rest/rpc/auth_status) failed: {e}")
+        return None
 
 def main() -> None:
     """Main test sequence"""
@@ -1332,8 +1348,8 @@ def main() -> None:
         admin_id = test_api_login(admin_session, ADMIN_EMAIL, ADMIN_PASSWORD, "admin_user", ctx)
         if not ctx.is_failed:
             test_api_access(admin_session, ADMIN_EMAIL, "/rest/region?limit=10", 200, ctx)
-            test_auth_status(admin_session, True, ctx)
-            test_auth_status_post(admin_session, True, ctx)
+            test_auth_status(admin_session, True, False, ctx)
+            test_auth_status_post(admin_session, True, False, ctx)
     if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure in Test 1.{NC}"); sys.exit(1)
 
     with TestContext("Test 1.1: Auth Test Endpoint (Admin Logged In)") as ctx:
@@ -1362,8 +1378,8 @@ def main() -> None:
         regular_id = test_api_login(regular_session, REGULAR_EMAIL, REGULAR_PASSWORD, "regular_user", ctx)
         if not ctx.is_failed:
             test_api_access(regular_session, REGULAR_EMAIL, "/rest/region?limit=10", 200, ctx)
-            test_auth_status(regular_session, True, ctx)
-            test_auth_status_post(regular_session, True, ctx)
+            test_auth_status(regular_session, True, False, ctx)
+            test_auth_status_post(regular_session, True, False, ctx)
     if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure in Test 3.{NC}"); sys.exit(1)
             
     with TestContext("Test 4: Regular User Direct Database Access") as ctx:
@@ -1384,8 +1400,8 @@ def main() -> None:
         restricted_id = test_api_login(restricted_session, RESTRICTED_EMAIL, RESTRICTED_PASSWORD, "restricted_user", ctx)
         if not ctx.is_failed:
             test_api_access(restricted_session, RESTRICTED_EMAIL, "/rest/region?limit=10", 200, ctx)
-            test_auth_status(restricted_session, True, ctx)
-            test_auth_status_post(restricted_session, True, ctx)
+            test_auth_status(restricted_session, True, False, ctx)
+            test_auth_status_post(restricted_session, True, False, ctx)
     if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure in Test 5.{NC}"); sys.exit(1)
 
     with TestContext("Test 6: Restricted User Direct Database Access") as ctx:
@@ -1409,8 +1425,8 @@ def main() -> None:
     with TestContext("Test 8: Logout and Verify Authentication State (after refresh test)") as ctx:
         test_api_logout(refresh_session, ctx) # refresh_session might be logged out by test_token_refresh already
         refresh_session.headers.clear() # Ensure headers are clean for auth_status check
-        if not ctx.is_failed: test_auth_status(refresh_session, False, ctx) 
-        if not ctx.is_failed: test_auth_status_post(refresh_session, False, ctx)
+        if not ctx.is_failed: test_auth_status(refresh_session, False, False, ctx) 
+        if not ctx.is_failed: test_auth_status_post(refresh_session, False, False, ctx)
     if OVERALL_TEST_FAILURE_FLAG and not IS_DEBUG_ENABLED: print(f"{RED}Exiting due to failure in Test 8.{NC}"); sys.exit(1)
     
     with TestContext("Test 9: Failed Login with Incorrect Password") as ctx:
@@ -1569,7 +1585,11 @@ def test_local_nextjs_app_auth_test_endpoint(session: Session, ctx: TestContext)
                         ctx.success("  Direct Fetch call to rpc/auth_test within Next.js was successful and returned data.")
                         ctx.debug(f"  Direct Fetch call data: {json.dumps(direct_fetch_call.get('data'), indent=2)}")
                     else:
-                        ctx.problem_reproduced(f"  Direct Fetch call to rpc/auth_test within Next.js failed or returned no data. Status: {direct_fetch_call.get('status')}, Error: {direct_fetch_call.get('error')}, Response Status: {direct_fetch_call.get('response_status_code')}")
+                        error_info = direct_fetch_call.get('error', {})
+                        error_message = error_info.get('message', 'Unknown error')
+                        ctx.problem_reproduced(f"  Direct Fetch call to rpc/auth_test within Next.js failed or returned no data. Status: {direct_fetch_call.get('status')}, Error: {error_message}")
+                        if "fetch failed" in error_message:
+                            ctx.problem_identified("This 'fetch failed' error typically indicates a container networking issue where the 'app' container cannot resolve or connect to the 'proxy' container by its service name ('http://proxy:80'). This is an environment issue, not an application logic failure.")
                         ctx.debug(f"  Direct Fetch request headers sent: {json.dumps(direct_fetch_call.get('request_headers_sent'), indent=2)}")
                         ctx.debug(f"  Direct Fetch response headers received: {json.dumps(direct_fetch_call.get('response_headers'), indent=2)}")
 
@@ -1609,53 +1629,19 @@ def cleanup_test_user_sessions() -> None:
         log_success("Test user sessions cleaned up successfully.", None)
         debug_info(f"Cleanup result: {result if result else 'No output from DELETE, assumed OK.'}", None)
 
-def generate_expired_token(original_token_value: str, secret: str, ctx: TestContext) -> Optional[str]:
-    """Generates an expired version of the given JWT."""
-    try:
-        # Decode without verification to get claims, as it might already be expired if this is called late
-        # However, for this test, we assume original_token_value is fresh.
-        # For safety, let's try decoding with leeway, or just get claims if it's already a known structure.
-        # Simpler: assume the structure is known and we just need to re-sign with new 'exp'.
-        # This requires knowing the claims structure.
-        # A more robust way is to decode the original token to get its payload.
-        
-        try:
-            # Add leeway to account for potential clock skew when decoding the original token
-            leeway_seconds = 15 # Increased leeway
-            decoded_payload = jwt.decode(original_token_value, secret, algorithms=["HS256"], leeway=timedelta(seconds=leeway_seconds), options={"verify_exp": False})
-        except jwt.ExpiredSignatureError: # Should not happen if original token is fresh
-            ctx.warning("Original token provided to generate_expired_token was already expired.")
-            # If it was expired, decode again without exp verification but still with leeway for other time claims
-            decoded_payload = jwt.decode(original_token_value, secret, algorithms=["HS256"], leeway=timedelta(seconds=leeway_seconds), options={"verify_exp": False})
-        except jwt.InvalidTokenError as e: # Catches InvalidIssuedAtError, etc.
-            ctx.error(f"Invalid original token: {e}")
-            return None
-
-        # Modify claims for expiration
-        # Set 'exp' to 1 hour in the past
-        decoded_payload['exp'] = datetime.now(timezone.utc) - timedelta(hours=1)
-        # 'iat' should ideally be before 'exp', ensure it is, or remove it if it causes issues with lib
-        if 'iat' in decoded_payload and decoded_payload['iat'] >= decoded_payload['exp'].timestamp():
-            decoded_payload['iat'] = (datetime.now(timezone.utc) - timedelta(hours=2)).timestamp()
-
-
-        expired_token = jwt.encode(decoded_payload, secret, algorithm="HS256")
-        ctx.debug(f"Generated expired token. Original exp: (not shown), New exp: {decoded_payload['exp']}")
-        return expired_token
-    except Exception as e:
-        ctx.error(f"Failed to generate expired token: {e}")
-        return None
+# The generate_expired_token function is removed as it's replaced by the
+# public.auth_expire_access_keep_refresh RPC call for more robust testing.
 
 def test_expired_access_token_behavior(session: Session, email: str, password: str, expected_role: str, jwt_secret: str, ctx: TestContext):
     """
-    Tests behavior with an expired access token but a valid refresh token.
+    Tests the full client-side refresh flow driven by auth_status.
     1. Login to get fresh tokens.
-    2. Manually expire the access token.
-    3. Check /rpc/auth_status - should be unauthenticated, refresh token should remain.
-    4. Check /api/auth_test - should reflect unauthenticated state, refresh token should remain.
-    5. Check Next.js page GET (e.g., /profile) - middleware should not refresh, cookies should remain.
+    2. Call the dedicated RPC to expire the access token.
+    3. Call /rpc/auth_status, expect it to report unauthenticated but suggest a refresh.
+    4. Call /rpc/refresh.
+    5. Verify new tokens are issued and the user is now authenticated.
     """
-    ctx.info(f"Starting test for expired access token behavior for user {email}...")
+    ctx.info(f"Starting test for expired access token refresh flow for user {email}...")
 
     # 1. Login to get fresh tokens
     login_uid = test_api_login(session, email, password, expected_role, ctx)
@@ -1665,169 +1651,73 @@ def test_expired_access_token_behavior(session: Session, email: str, password: s
 
     original_access_token = session.cookies.get("statbus")
     original_refresh_token = session.cookies.get("statbus-refresh")
-
-    if not original_access_token or not original_refresh_token:
-        ctx.error("Could not retrieve original access or refresh tokens after login.")
-        return
-    ctx.debug(f"Original access token (statbus): {original_access_token[:30]}...")
-    ctx.debug(f"Original refresh token (statbus-refresh): {original_refresh_token[:30]}...")
-
-    # 2. Generate an expired access token
-    expired_access_token = generate_expired_token(original_access_token, jwt_secret, ctx)
-    if not expired_access_token:
-        ctx.error("Failed to generate an expired access token.")
-        return
-    
-    # 3. Clear session cookies and re-add only the refresh token and the *expired* access token.
-    from urllib.parse import urlparse
-    parsed_api_url = urlparse(API_BASE_URL)
-    cookie_domain = parsed_api_url.hostname # e.g., 'localhost' or 'dev.statbus.org'
-    
-    ctx.info("Clearing session cookies and re-adding specific tokens for testing.")
-    session.cookies.clear()
-    
-    # Re-add the original valid refresh token
-    # Path for refresh token is typically /rest/rpc/refresh
-    # Domain should match where it was set. If API_BASE_URL is localhost:3010, domain is localhost.
-    # For requests library, if domain is not specified, it's often set based on the request domain.
-    # To be safe, let's use the cookie_domain derived from API_BASE_URL.
-    # The path for statbus-refresh is specific.
-    refresh_cookie_path = "/rest/rpc/refresh" # As set by PostgREST
-    session.cookies.set("statbus-refresh", original_refresh_token, domain=cookie_domain, path=refresh_cookie_path)
-    ctx.debug(f"Re-added original 'statbus-refresh' cookie for domain '{cookie_domain}', path '{refresh_cookie_path}'.")
-
-    # Add the manually expired access token
-    access_cookie_path = "/" # Access token is usually path=/
-    session.cookies.set("statbus", expired_access_token, domain=cookie_domain, path=access_cookie_path)
-    ctx.success(f"Added manually expired 'statbus' cookie to session for domain '{cookie_domain}', path '{access_cookie_path}'.")
-    
-    ctx.debug(f"Session cookies now: {session.cookies.get_dict()}")
-    expired_token_in_session = session.cookies.get('statbus', domain=cookie_domain, path=access_cookie_path)
-    if expired_token_in_session == expired_access_token:
-        ctx.debug(f"Expired access token confirmed in session: {expired_token_in_session[:30]}...")
-    else:
-        ctx.error(f"Failed to correctly set/retrieve the expired access token in session. Found: {expired_token_in_session}")
+    if not original_refresh_token or not original_access_token:
+        ctx.error("Could not retrieve original tokens after login.")
         return
 
-    if session.cookies.get("statbus-refresh", domain=cookie_domain, path=refresh_cookie_path) != original_refresh_token:
-        ctx.error("Refresh token is not the original one after cookie manipulation.")
-        return
-
-    # 4. Test /rpc/auth_status (GET & POST)
-    ctx.info("Testing /rpc/auth_status with expired access token...")
-    ctx.debug(f"Cookies in session right before calling test_auth_status: {session.cookies.get_dict(domain=cookie_domain, path='/')}")
-    ctx.debug(f"Full session cookie jar before test_auth_status: {session.cookies.get_dict()}")
-    
-    # Specifically check the 'statbus' cookie we expect to be expired
-    for cookie_in_jar in session.cookies:
-        if cookie_in_jar.name == "statbus" and cookie_in_jar.domain == cookie_domain and cookie_in_jar.path == access_cookie_path:
-            ctx.debug(f"Manually inspecting 'statbus' cookie in jar: name={cookie_in_jar.name}, value={cookie_in_jar.value[:30]}..., domain={cookie_in_jar.domain}, path={cookie_in_jar.path}, expires={cookie_in_jar.expires}")
-            if cookie_in_jar.value != expired_access_token:
-                ctx.warning("The 'statbus' cookie in the jar is NOT the manually expired one right before test_auth_status call!")
-            break
-
-    test_auth_status(session, False, ctx) # Expected: is_authenticated = False
-    if ctx.is_failed: return # Stop if basic auth_status fails
-
-    # Verify cookies after /rpc/auth_status calls
-    if session.cookies.get("statbus-refresh") == original_refresh_token:
-        ctx.success("Refresh token ('statbus-refresh') correctly preserved after /rpc/auth_status calls.")
-    else:
-        ctx.error("Refresh token ('statbus-refresh') was altered or cleared by /rpc/auth_status calls.")
-        ctx.debug(f"Refresh token before: {original_refresh_token[:30]}..., after: {session.cookies.get('statbus-refresh')[:30]}...")
-        return # Critical failure
-
-    if session.cookies.get("statbus", domain=cookie_domain, path='/') == expired_access_token:
-        ctx.success("Expired access token ('statbus') correctly preserved by PostgREST after /rpc/auth_status calls.")
-    else:
-        ctx.warning("Expired access token ('statbus') was altered or cleared by PostgREST (unexpected).")
-        ctx.debug(f"Access token before: {expired_access_token[:30]}..., after: {session.cookies.get('statbus', domain=cookie_domain, path='/')[:30]}...")
-
-    # 5. Test /api/auth_test (Next.js endpoint)
-    if "/rest" not in API_BASE_URL: # Only if API_BASE_URL points to Next.js app
-        ctx.info("Testing /api/auth_test with expired access token...")
-        test_local_nextjs_app_auth_test_endpoint(session, ctx) # This will log its own details
-        if ctx.is_failed: return
-
-        # Verify cookies after /api/auth_test call
-        if session.cookies.get("statbus-refresh") == original_refresh_token:
-            ctx.success("Refresh token ('statbus-refresh') correctly preserved after /api/auth_test call.")
+    # 2. Call the RPC to expire the access token. This sets a new, expired 'statbus' cookie.
+    ctx.info("Calling /rpc/auth_expire_access_keep_refresh to get an expired access token...")
+    try:
+        expire_response = session.post(f"{API_BASE_URL}/rest/rpc/auth_expire_access_keep_refresh", json={})
+        if expire_response.status_code == 200:
+            ctx.success("Successfully called auth_expire_access_keep_refresh.")
         else:
-            ctx.error("Refresh token ('statbus-refresh') was altered or cleared by /api/auth_test call.")
+            ctx.error(f"Call to auth_expire_access_keep_refresh failed with status {expire_response.status_code}. Body: {expire_response.text}")
             return
-        
-        # The access token might be cleared by Next.js middleware if it detects it as invalid.
-        # Or it might attempt a refresh and set a new one.
-        # For this test, let's check if it's still the *expired* one or if it changed.
-        # If middleware tried to refresh, it would likely set new cookies.
-        current_access_token_after_api_test = session.cookies.get("statbus", domain=cookie_domain, path='/')
-        if current_access_token_after_api_test == expired_access_token:
-            ctx.success("Expired access token ('statbus') remained unchanged after /api/auth_test call (no server-side refresh attempt by this API route).")
-        elif not current_access_token_after_api_test:
-            ctx.info("Access token ('statbus') was cleared after /api/auth_test call.")
+    except Exception as e:
+        ctx.error(f"Exception during auth_expire_access_keep_refresh call: {e}")
+        return
+    
+    expired_access_token = session.cookies.get("statbus")
+    if not expired_access_token or expired_access_token == original_access_token:
+        ctx.error("auth_expire_access_keep_refresh did not set a new, different access token.")
+        return
+
+    # 4. Test /rpc/auth_status - expect it to suggest a refresh
+    ctx.info("Testing /rpc/auth_status with expired access token...")
+    auth_status_response = test_auth_status(session, False, True, ctx) # Expected: auth=false, refresh_possible=true
+    if ctx.is_failed or not auth_status_response:
+        ctx.error("auth_status did not behave as expected with expired token. Aborting test.")
+        return
+
+    # 5. Call /rpc/refresh, as the client would do after seeing the auth_status response
+    ctx.info("Calling /rpc/refresh to get new tokens...")
+    try:
+        refresh_response = session.post(f"{API_BASE_URL}/rest/rpc/refresh", json={})
+        if refresh_response.status_code == 200:
+            ctx.success("Refresh call was successful.")
+            refresh_data = refresh_response.json()
+            actual_refresh_data = refresh_data[0] if isinstance(refresh_data, list) else refresh_data
+            if actual_refresh_data.get("is_authenticated"):
+                ctx.success("Refresh response body confirms authentication.")
+            else:
+                ctx.error(f"Refresh response body indicates not authenticated. Body: {actual_refresh_data}")
         else:
-            ctx.info("Access token ('statbus') was changed after /api/auth_test call (possibly due to a refresh by the API route itself, though not standard for auth_test).")
-            ctx.debug(f"Access token value after /api/auth_test: {current_access_token_after_api_test[:30]}...")
+            ctx.error(f"Refresh call failed with status {refresh_response.status_code}. Body: {refresh_response.text}")
+            return
+    except Exception as e:
+        ctx.error(f"Exception during refresh call: {e}")
+        return
 
+    # 6. Verify new state
+    ctx.info("Verifying authentication status after successful refresh...")
+    new_access_token = session.cookies.get("statbus")
+    new_refresh_token = session.cookies.get("statbus-refresh")
+
+    if not new_access_token or new_access_token == expired_access_token:
+        ctx.error("A new access token was not set in the session after refresh, or it was the same as the expired one.")
     else:
-        ctx.info("Skipping /api/auth_test for expired token test as API_BASE_URL points directly to PostgREST.")
+        ctx.success("A new access token was set in the session.")
 
-    # 6. Test GET /profile (or a known protected Next.js page)
-    if "/rest" not in API_BASE_URL: # Only if API_BASE_URL points to Next.js app
-        profile_url = f"{API_BASE_URL.rstrip('/')}/profile" # Example protected page
-        ctx.info(f"Testing GET {profile_url} with expired access token to check middleware behavior...")
-        
-        # Store cookie state before the request
-        statbus_before_page_req = session.cookies.get("statbus", domain=cookie_domain, path='/')
-        refresh_before_page_req = session.cookies.get("statbus-refresh")
-
-        try:
-            response = session.get(profile_url, allow_redirects=False, timeout=10) # allow_redirects=False to see initial response
-            ctx.info(f"GET {profile_url} response status: {response.status_code}")
-            ctx.debug(f"GET {profile_url} response headers: {dict(response.headers)}")
-
-            # Check for Set-Cookie headers indicating a refresh attempt by middleware
-            set_cookie_header = response.headers.get("Set-Cookie")
-            if set_cookie_header and ("statbus=" in set_cookie_header or "statbus-refresh=" in set_cookie_header):
-                ctx.warning(f"Middleware appears to have attempted a server-side refresh during GET {profile_url}. Set-Cookie: {set_cookie_header}")
-                # This contradicts the user's stated expectation for this specific test.
-            else:
-                ctx.success(f"No new auth cookies set by middleware during GET {profile_url} (as per expectation for this test).")
-
-            # Check session cookies after the request
-            statbus_after_page_req = session.cookies.get("statbus", domain=cookie_domain, path='/')
-            refresh_after_page_req = session.cookies.get("statbus-refresh")
-
-            if refresh_after_page_req == refresh_before_page_req:
-                ctx.success("Refresh token in session remained unchanged after GET /profile (as per expectation).")
-            else:
-                ctx.warning("Refresh token in session changed after GET /profile. This implies middleware activity.")
-                ctx.debug(f"Refresh token before: {refresh_before_page_req[:30]}..., after: {refresh_after_page_req[:30]}...")
-            
-            if statbus_after_page_req == statbus_before_page_req: # Should still be the expired one or cleared
-                ctx.success("Access token in session remained the (expired) one or was cleared as expected after GET /profile.")
-            elif not statbus_after_page_req and statbus_before_page_req:
-                 ctx.success("Access token in session was cleared after GET /profile, as expected if no refresh.")
-            else: # It changed to something new
-                ctx.warning("Access token in session was updated after GET /profile. This implies middleware refresh.")
-                ctx.debug(f"Access token before: {statbus_before_page_req[:30] if statbus_before_page_req else 'None'}..., after: {statbus_after_page_req[:30] if statbus_after_page_req else 'None'}...")
-
-            # Expected status code: This is tricky. If middleware doesn't refresh and page requires auth,
-            # it might redirect to /login (3xx) or render a 200 with unauth content.
-            # A direct 401 from middleware for a page is less common.
-            # For this test, we are primarily checking cookie non-interference.
-            if response.status_code in [200, 302, 303, 307, 308]: # Plausible outcomes
-                ctx.info(f"GET {profile_url} returned status {response.status_code}, which is plausible if middleware doesn't refresh server-side for pages.")
-            else:
-                ctx.warning(f"GET {profile_url} returned unexpected status {response.status_code}.")
-
-
-        except requests.RequestException as e:
-            ctx.error(f"Request to {profile_url} failed: {e}")
+    if not new_refresh_token or new_refresh_token == original_refresh_token:
+        ctx.error("A new refresh token was not set in the session after refresh.")
     else:
-        ctx.info(f"Skipping Next.js page GET test ({API_BASE_URL.rstrip('/')}/profile) as API_BASE_URL points directly to PostgREST.")
+        ctx.success("A new refresh token was set in the session.")
 
-    ctx.info(f"Expired access token behavior test for {email} completed.")
+    # Final check with auth_status
+    test_auth_status(session, True, False, ctx) # Expected: auth=true, refresh_possible=false
+    if not ctx.is_failed:
+        ctx.success(f"Expired access token refresh flow for {email} completed successfully.")
 
 if __name__ == "__main__":
     # Ensure API_BASE_URL is determined before registering cleanup,

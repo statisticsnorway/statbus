@@ -25,14 +25,20 @@ fi
 # Activate virtual environment
 source "$VENV_DIR/bin/activate"
 
-# Install required packages
+# Check for .env file, which is required by the test script
+if [ ! -f "$WORKSPACE/.env" ]; then
+  echo "Error: .env file not found in project root."
+  echo "Please create it from .env.example and configure it."
+  exit 1
+fi
+
+# Install required packages from requirements file
 echo "Installing required Python packages..."
-pip install requests psycopg2-binary PyJWT
+pip install -r "$WORKSPACE/test/requirements-standalone.txt"
 
 # Verify installation was successful
-if ! python -c "import requests, psycopg2, jwt" 2>/dev/null; then # Added jwt import check
-  echo "Failed to install required packages. Please install manually:"
-  echo "pip install requests psycopg2-binary PyJWT"
+if ! python -c "import requests, psycopg2, jwt" 2>/dev/null; then
+  echo "Failed to install required packages. Please check test/requirements-standalone.txt and ensure pip is working."
   exit 1
 fi
 

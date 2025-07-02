@@ -469,7 +469,8 @@ BEGIN
   current_headers := coalesce(nullif(current_setting('response.headers', true), '')::jsonb, '[]'::jsonb);
   new_headers := current_headers;
   
-  -- Add access token cookie
+  -- Add access token cookie. The cookie's expiration is tied to the refresh token's lifetime
+  -- to ensure it's present for auth_status checks even if the JWT inside is expired.
   new_headers := new_headers || jsonb_build_array(
     jsonb_build_object(
       'Set-Cookie',
@@ -477,7 +478,7 @@ BEGIN
         'statbus=%s; Path=/; HttpOnly; SameSite=Strict; %sExpires=%s',
         access_jwt,
         CASE WHEN secure THEN 'Secure; ' ELSE '' END,
-        to_char(access_expires, 'Dy, DD Mon YYYY HH24:MI:SS') || ' GMT'
+        to_char(refresh_expires, 'Dy, DD Mon YYYY HH24:MI:SS') || ' GMT' -- Use refresh_expires
       )
     )
   );
@@ -487,7 +488,7 @@ BEGIN
     jsonb_build_object(
       'Set-Cookie',
       format(
-        'statbus-refresh=%s; Path=/rest/rpc/refresh; HttpOnly; SameSite=Strict; %sExpires=%s', -- Changed Path
+        'statbus-refresh=%s; Path=/rest/rpc/refresh; HttpOnly; SameSite=Strict; %sExpires=%s', -- Path for refresh endpoint
         refresh_jwt,
         CASE WHEN secure THEN 'Secure; ' ELSE '' END,
         to_char(refresh_expires, 'Dy, DD Mon YYYY HH24:MI:SS') || ' GMT'
@@ -535,7 +536,7 @@ $clear_auth_cookies$;
 DROP TYPE IF EXISTS auth.auth_response CASCADE; -- Drop if exists to recreate with new field
 CREATE TYPE auth.auth_response AS (
   is_authenticated boolean,
-  token_expiring boolean,
+  expired_access_token_call_refresh boolean, -- Client should call /rest/rpc/refresh
   uid integer,
   sub uuid,
   email text,
@@ -543,15 +544,15 @@ CREATE TYPE auth.auth_response AS (
   statbus_role public.statbus_role,
   last_sign_in_at timestamptz,
   created_at timestamptz,
-  error_code auth.login_error_code -- New field for login error details
+  error_code auth.login_error_code
 );
 
 
 -- Helper function to build the standard authentication response object
 CREATE OR REPLACE FUNCTION auth.build_auth_response(
   p_user_record auth.user DEFAULT NULL,
-  p_claims jsonb DEFAULT NULL,
-  p_error_code auth.login_error_code DEFAULT NULL -- New parameter for error code
+  p_expired_access_token_call_refresh boolean DEFAULT false,
+  p_error_code auth.login_error_code DEFAULT NULL
 )
 RETURNS auth.auth_response
 LANGUAGE plpgsql
@@ -559,12 +560,9 @@ SECURITY INVOKER -- Runs with the privileges of the calling function
 AS $build_auth_response$
 DECLARE
   result auth.auth_response;
-  current_epoch integer;
-  expiration_time integer;
 BEGIN
   IF p_user_record IS NULL THEN
     result.is_authenticated := false;
-    result.token_expiring := false;
     result.uid := NULL;
     result.sub := NULL;
     result.email := NULL;
@@ -572,7 +570,8 @@ BEGIN
     result.statbus_role := NULL;
     result.last_sign_in_at := NULL;
     result.created_at := NULL;
-    result.error_code := p_error_code; -- Assign the passed error code
+    result.error_code := p_error_code;
+    result.expired_access_token_call_refresh := p_expired_access_token_call_refresh; -- Set based on parameter
   ELSE
     result.is_authenticated := true;
     result.uid := p_user_record.id;
@@ -583,22 +582,13 @@ BEGIN
     result.last_sign_in_at := p_user_record.last_sign_in_at;
     result.created_at := p_user_record.created_at;
     result.error_code := NULL; -- Explicitly NULL on success
-
-    -- Check token_expiring only if claims are provided and user is authenticated
-    IF p_claims IS NOT NULL AND p_claims->>'exp' IS NOT NULL THEN
-      current_epoch := extract(epoch from clock_timestamp())::integer;
-      expiration_time := (p_claims->>'exp')::integer;
-      result.token_expiring := expiration_time - current_epoch < 300; -- 5 minutes
-    ELSE
-      -- If no claims or no 'exp' in claims, token is not considered expiring by this check
-      result.token_expiring := false;
-    END IF;
+    result.expired_access_token_call_refresh := p_expired_access_token_call_refresh; -- Typically false for an authenticated user
   END IF;
   RETURN result;
 END;
 $build_auth_response$;
 
-GRANT EXECUTE ON FUNCTION auth.build_auth_response(auth.user, jsonb, auth.login_error_code) TO authenticated, anon; -- Grant to roles that will call definer functions
+GRANT EXECUTE ON FUNCTION auth.build_auth_response(auth.user, boolean, auth.login_error_code) TO authenticated, anon; -- Grant to roles that will call definer functions
 
 
 -- Create login function that returns JWT token
@@ -624,7 +614,7 @@ BEGIN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
     PERFORM set_config('response.status', '401', true); -- Unauthorized
-    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'USER_MISSING_PASSWORD'::auth.login_error_code);
+    RETURN auth.build_auth_response(p_error_code => 'USER_MISSING_PASSWORD'::auth.login_error_code);
   END IF;
 
   -- Find user by email
@@ -641,7 +631,7 @@ BEGIN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
     PERFORM set_config('response.status', '401', true);
-    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'USER_NOT_FOUND'::auth.login_error_code);
+    RETURN auth.build_auth_response(p_error_code => 'USER_NOT_FOUND'::auth.login_error_code);
   END IF;
 
   -- If user is deleted
@@ -650,7 +640,7 @@ BEGIN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
     PERFORM set_config('response.status', '401', true);
-    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'USER_DELETED'::auth.login_error_code);
+    RETURN auth.build_auth_response(p_error_code => 'USER_DELETED'::auth.login_error_code);
   END IF;
 
   -- If user email is not confirmed
@@ -659,7 +649,7 @@ BEGIN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
     PERFORM set_config('response.status', '401', true);
-    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'USER_NOT_CONFIRMED_EMAIL'::auth.login_error_code);
+    RETURN auth.build_auth_response(p_error_code => 'USER_NOT_CONFIRMED_EMAIL'::auth.login_error_code);
   END IF;
 
   -- At this point, user exists, is not deleted, and email is confirmed.
@@ -668,7 +658,7 @@ BEGIN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
     PERFORM set_config('response.status', '401', true); -- Unauthorized
-    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'WRONG_PASSWORD'::auth.login_error_code);
+    RETURN auth.build_auth_response(p_error_code => 'WRONG_PASSWORD'::auth.login_error_code);
   END IF;
 
   -- Set expiration times
@@ -734,7 +724,7 @@ BEGIN
   -- The returned auth_response is the source of truth for the new state.
   -- The client will use the new token for subsequent requests,
   -- at which point PostgREST's pre-request hook will set request.jwt.claims.
-  RETURN auth.build_auth_response(_user, access_claims, NULL::auth.login_error_code);
+  RETURN auth.build_auth_response(p_user_record => _user);
 END;
 $login$;
 
@@ -797,34 +787,85 @@ GRANT EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) TO authenticator;
 GRANT USAGE ON SCHEMA auth TO authenticator;
 
 
--- Function to clear the access token cookie ('statbus') while preserving the refresh token.
+-- Function to issue an expired access token while preserving the refresh token.
 -- This is useful for development and testing the token refresh mechanism.
-CREATE OR REPLACE FUNCTION public.auth_clear_access_keep_refresh()
+CREATE OR REPLACE FUNCTION public.auth_expire_access_keep_refresh()
 RETURNS json
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $$
+DECLARE
+  _claims jsonb;
+  _user_email text;
+  _expired_access_claims jsonb;
+  _expired_access_jwt text;
+  _refresh_expires timestamptz;
+  _secure boolean;
 BEGIN
-  -- Clear the access token cookie by setting its expiration to a past date.
-  -- The 'statbus' cookie is set with Path=/, HttpOnly, and SameSite=Strict.
-  -- We must match these attributes for the browser to correctly clear it.
+  -- Get claims from the current (valid) JWT to identify the user
+  _claims := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
+  
+  IF _claims IS NULL OR _claims->>'email' IS NULL THEN
+    RAISE EXCEPTION 'No valid session found to expire.';
+  END IF;
+  
+  _user_email := _claims->>'email';
+
+  -- Build new claims for an access token that is already expired
+  _expired_access_claims := auth.build_jwt_claims(
+    p_email => _user_email,
+    p_expires_at => clock_timestamp() - '1 second'::interval, -- Set expiry in the past
+    p_type => 'access'
+  );
+  
+  -- Sign the expired token
+  SELECT auth.generate_jwt(_expired_access_claims) INTO _expired_access_jwt;
+  
+  -- The cookie itself needs a future expiry date so the browser sends it.
+  -- We'll set it to the standard refresh token lifetime.
+  _refresh_expires := clock_timestamp() + (coalesce(nullif(current_setting('app.settings.refresh_jwt_exp', true),'')::int, 2592000) || ' seconds')::interval;
+
+  -- Check for HTTPS
+  IF lower(nullif(current_setting('request.headers', true), '')::json->>'x-forwarded-proto') IS NOT DISTINCT FROM 'https' THEN
+    _secure := true;
+  ELSE
+    _secure := false;
+  END IF;
+
+  -- Set only the access token cookie with the new, expired JWT.
   PERFORM set_config(
     'response.headers',
     jsonb_build_array(
       jsonb_build_object(
         'Set-Cookie',
-        'statbus=; Path=/; HttpOnly; SameSite=Strict; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+        format(
+          'statbus=%s; Path=/; HttpOnly; SameSite=Strict; %sExpires=%s',
+          _expired_access_jwt,
+          CASE WHEN _secure THEN 'Secure; ' ELSE '' END,
+          to_char(_refresh_expires, 'Dy, DD Mon YYYY HH24:MI:SS') || ' GMT'
+        )
       )
     )::text,
     true
   );
 
-  RETURN json_build_object('status', 'access_token_cleared');
+  RETURN json_build_object('status', 'access_token_expired_and_set');
 END;
 $$;
 
 -- Grant execute permission to the authenticated role
-GRANT EXECUTE ON FUNCTION public.auth_clear_access_keep_refresh() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.auth_expire_access_keep_refresh() TO authenticated;
+
+
+-- Create a type to hold JWT verification results
+DROP TYPE IF EXISTS auth.jwt_verification_result CASCADE;
+CREATE TYPE auth.jwt_verification_result AS (
+  is_valid boolean,
+  claims jsonb,
+  error_message text,
+  expired boolean
+);
+
 
 -- Create refresh function that returns a new JWT token
 CREATE OR REPLACE FUNCTION public.refresh()
@@ -840,7 +881,6 @@ DECLARE
   refresh_session_jti uuid;
   current_ip inet;
   current_ua text;
-  -- raw_ip_text text; -- No longer needed here, handled by auth.get_request_ip()
   access_jwt text;
   refresh_jwt text;
   access_expires timestamptz;
@@ -848,7 +888,13 @@ DECLARE
   new_version integer;
   access_claims jsonb;
   refresh_claims jsonb;
+  access_token_value text;
+  access_verification_result auth.jwt_verification_result;
 BEGIN
+  -- This function is idempotent. Calling it multiple times will result in a new token pair
+  -- each time, and the previous refresh token version will be invalidated.
+  -- The 'statbus-refresh' cookie is path-scoped to this endpoint, so it's not sent elsewhere.
+
   -- Extract the refresh token from the cookie and get its claims
   DECLARE
     refresh_token text;
@@ -861,7 +907,7 @@ BEGIN
       PERFORM auth.clear_auth_cookies();
       PERFORM auth.reset_session_context(); -- Ensure context is cleared
       PERFORM set_config('response.status', '401', true);
-      RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'REFRESH_NO_TOKEN_COOKIE'::auth.login_error_code);
+      RETURN auth.build_auth_response(p_error_code => 'REFRESH_NO_TOKEN_COOKIE'::auth.login_error_code);
     END IF;
     
     -- Decode the JWT to get the claims
@@ -874,7 +920,7 @@ BEGIN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
     PERFORM set_config('response.status', '401', true);
-    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'REFRESH_INVALID_TOKEN_TYPE'::auth.login_error_code);
+    RETURN auth.build_auth_response(p_error_code => 'REFRESH_INVALID_TOKEN_TYPE'::auth.login_error_code);
   END IF;
   
   -- Extract claims
@@ -897,7 +943,7 @@ BEGIN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
     PERFORM set_config('response.status', '401', true);
-    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'REFRESH_USER_NOT_FOUND_OR_DELETED'::auth.login_error_code);
+    RETURN auth.build_auth_response(p_error_code => 'REFRESH_USER_NOT_FOUND_OR_DELETED'::auth.login_error_code);
   END IF;
   
   -- Get the session
@@ -911,7 +957,7 @@ BEGIN
     PERFORM auth.clear_auth_cookies();
     PERFORM auth.reset_session_context();
     PERFORM set_config('response.status', '401', true);
-    RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, 'REFRESH_SESSION_INVALID_OR_SUPERSEDED'::auth.login_error_code);
+    RETURN auth.build_auth_response(p_error_code => 'REFRESH_SESSION_INVALID_OR_SUPERSEDED'::auth.login_error_code);
   END IF;
   
   
@@ -962,7 +1008,7 @@ BEGIN
 
   -- Return the authentication response
   -- Note: We are no longer setting request.jwt.claims here.
-  RETURN auth.build_auth_response(_user, access_claims, NULL::auth.login_error_code);
+  RETURN auth.build_auth_response(p_user_record => _user);
 END;
 $refresh$;
 
@@ -1014,7 +1060,7 @@ BEGIN
 
   -- Reset session context and return the "not authenticated" status
   PERFORM auth.reset_session_context();
-  RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, NULL::auth.login_error_code);
+  RETURN auth.build_auth_response();
 END;
 $logout$;
 
@@ -1115,93 +1161,79 @@ AS $$
 $$ ;
 
 
--- Function to get current authentication status
+-- Function to get current authentication status.
+-- This function is the primary way for the client-side application to check if a user is logged in.
+--
+-- SECURITY DESIGN:
+-- This function INTENTIONALLY only inspects the 'statbus' (access token) cookie.
+-- The 'statbus-refresh' cookie is path-scoped to '/rest/rpc/refresh' and is NOT sent
+-- with requests to this endpoint. This is a security measure to limit the exposure
+-- of the long-lived refresh token.
+--
+-- The logic flow is as follows:
+-- 1. If the access token is present, valid, and not expired -> user is authenticated.
+-- 2. If the access token is present but EXPIRED -> user is not authenticated, but we signal
+--    that a refresh is possible by setting 'expired_access_token_call_refresh' to true.
+--    The client should then call /rest/rpc/refresh to get a new token pair.
+-- 3. If the access token is present but INVALID (bad signature), or if it's absent ->
+--    user is not authenticated, and no refresh is suggested.
 CREATE OR REPLACE FUNCTION public.auth_status()
 RETURNS auth.auth_response
 LANGUAGE plpgsql
 SECURITY DEFINER
 AS $auth_status$
 DECLARE
-  claims jsonb;
-  user_sub uuid;
+  access_token_value text;
+  access_verification_result auth.jwt_verification_result;
   user_record auth.user;
-  is_authenticated boolean := false;
-  token_expiring boolean := false;
-  current_epoch integer;
-  expiration_time integer;
-  access_token text;
-  refresh_token text;
-  jwt_secret text;
 BEGIN
-  RAISE DEBUG '[auth_status] Starting. request.cookies: %, request.jwt.claims: %', nullif(current_setting('request.cookies', true), ''), nullif(current_setting('request.jwt.claims', true), '');
-  jwt_secret := current_setting('app.settings.jwt_secret', true);
+  RAISE DEBUG '[auth_status] Starting. This function can only see the statbus (access) cookie.';
   
-  -- Try to get tokens from cookies
-  access_token := auth.extract_access_token_from_cookies();
-  refresh_token := auth.extract_refresh_token_from_cookies();
-    
-  -- First try access token
-  IF access_token IS NOT NULL THEN
-    BEGIN
-      SELECT payload::jsonb INTO claims
-      FROM verify(access_token, jwt_secret);
-      RAISE DEBUG '[auth_status] Claims from access_token cookie: %', claims;
-      -- DO NOT set request.jwt.claims here. auth_status should be read-only regarding session GUCs.
-    EXCEPTION WHEN OTHERS THEN
-      RAISE DEBUG '[auth_status] Error verifying access_token cookie: %', SQLERRM;
-      claims := NULL;
-    END;
-  END IF;
+  -- Try to get the access token from cookies. The refresh token is not available on this path.
+  access_token_value := auth.extract_access_token_from_cookies();
   
-  -- If access token failed, try refresh token
-  IF claims IS NULL AND refresh_token IS NOT NULL THEN
-    BEGIN
-      SELECT payload::jsonb INTO claims
-      FROM verify(refresh_token, jwt_secret);
-      
-      IF claims->>'type' = 'refresh' THEN
-        RAISE DEBUG '[auth_status] Claims from refresh_token cookie: %', claims;
-        -- DO NOT set request.jwt.claims here.
-        NULL; -- Claims from refresh token are valid for determining status.
-      ELSE
-        RAISE DEBUG '[auth_status] refresh_token cookie was not type "refresh", ignoring. Type: %', claims->>'type';
-        claims := NULL; -- Not a refresh token, so ignore for this path.
-      END IF;
-    EXCEPTION WHEN OTHERS THEN
-      RAISE DEBUG '[auth_status] Error verifying refresh_token cookie: %', SQLERRM;
-      claims := NULL;
-    END;
+  -- Case 1: No access token cookie. The user is unauthenticated.
+  IF access_token_value IS NULL THEN
+    RAISE DEBUG '[auth_status] No access token cookie found. Unauthenticated.';
+    RETURN auth.build_auth_response(); -- is_authenticated=false, expired_access_token_call_refresh=false
   END IF;
-  
-  -- If no claims from cookies, try request context
-  IF claims IS NULL THEN
-    RAISE DEBUG '[auth_status] No claims from cookies, trying request.jwt.claims GUC.';
-    claims := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
-    RAISE DEBUG '[auth_status] Claims from GUC: %', claims;
-  END IF;
-    
-  -- Check if we have valid claims and a user can be found
-  IF claims IS NOT NULL AND claims->>'sub' IS NOT NULL THEN
-    user_sub := (claims->>'sub')::uuid;
-    RAISE DEBUG '[auth_status] Attempting to find user by sub: %', user_sub;
+
+  -- Case 2: Access token cookie is present. Verify it.
+  access_verification_result := auth.verify_jwt_with_secret(access_token_value);
+
+  -- Case 2a: Token is valid and NOT expired. User is authenticated.
+  IF access_verification_result.is_valid AND NOT access_verification_result.expired THEN
+    RAISE DEBUG '[auth_status] Access token is valid and not expired.';
     SELECT * INTO user_record
     FROM auth.user
-    WHERE sub = user_sub AND deleted_at IS NULL;
+    WHERE sub = (access_verification_result.claims->>'sub')::uuid AND deleted_at IS NULL;
     
-    -- If user found, build response with user and claims
     IF FOUND THEN
-      RAISE DEBUG '[auth_status] User found: %. Building authenticated response.', row_to_json(user_record);
-      RETURN auth.build_auth_response(user_record, claims, NULL::auth.login_error_code);
+      RAISE DEBUG '[auth_status] User found. Authenticated.';
+      RETURN auth.build_auth_response(p_user_record => user_record);
     ELSE
-      RAISE DEBUG '[auth_status] User with sub % NOT FOUND.', user_sub;
+      RAISE DEBUG '[auth_status] User from valid token not found in DB. Unauthenticated.';
+      -- This is an anomaly (e.g., user deleted after token was issued).
+      -- Clear cookies to be safe and force a new login.
+      PERFORM auth.clear_auth_cookies();
+      RETURN auth.build_auth_response();
     END IF;
-  ELSE
-    RAISE DEBUG '[auth_status] No valid claims (or sub missing in claims) to find user. Claims: %', claims;
   END IF;
-  
-  -- If no valid claims, or user not found, return unauthenticated status
-  RAISE DEBUG '[auth_status] Building unauthenticated response.';
-  RETURN auth.build_auth_response(NULL::auth.user, NULL::jsonb, NULL::auth.login_error_code);
+
+  -- Case 2b: Token signature is valid, but the token is EXPIRED.
+  -- This is the signal for the client to attempt a refresh.
+  IF access_verification_result.is_valid AND access_verification_result.expired THEN
+    RAISE DEBUG '[auth_status] Access token is expired but signature is valid. Client should refresh.';
+    RETURN auth.build_auth_response(p_expired_access_token_call_refresh => true);
+  END IF;
+
+  -- Case 3: Token is invalid (e.g., bad signature). The user is unauthenticated.
+  -- This covers `NOT access_verification_result.is_valid`.
+  RAISE DEBUG '[auth_status] Access token is invalid (e.g., bad signature). Unauthenticated.';
+  -- We could clear cookies here, but it might be better to let the client decide.
+  -- A bad signature could indicate tampering, but also just a key rotation.
+  -- For now, just return unauthenticated status.
+  RETURN auth.build_auth_response();
 END;
 $auth_status$;
 
@@ -1231,14 +1263,6 @@ CREATE TYPE auth.auth_test_response AS (
   current_db_role text  -- Added
 );
 
--- Create a type to hold JWT verification results
-DROP TYPE IF EXISTS auth.jwt_verification_result CASCADE;
-CREATE TYPE auth.jwt_verification_result AS (
-  is_valid boolean,
-  claims jsonb,
-  error_message text,
-  expired boolean
-);
 
 -- Create a function to debug authentication inputs
 CREATE OR REPLACE FUNCTION public.auth_test()

@@ -22,7 +22,7 @@ REVOKE EXECUTE ON FUNCTION public.revoke_api_key(uuid) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION public.create_api_key(text, interval) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION public.admin_change_password(uuid, text) FROM admin_user;
 REVOKE EXECUTE ON FUNCTION public.change_password(text) FROM authenticated;
-REVOKE EXECUTE ON FUNCTION public.auth_test() FROM authenticated;
+REVOKE EXECUTE ON FUNCTION public.auth_test() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION public.auth_status() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION public.revoke_session(uuid) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION public.list_active_sessions() FROM authenticated;
@@ -41,7 +41,7 @@ REVOKE EXECUTE ON FUNCTION auth.set_auth_cookies(text, text, timestamptz, timest
 REVOKE EXECUTE ON FUNCTION auth.clear_auth_cookies() FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.use_jwt_claims_in_session(jsonb) FROM authenticated;
 REVOKE EXECUTE ON FUNCTION auth.build_jwt_claims(text, timestamptz, text, jsonb) FROM authenticated;
-REVOKE EXECUTE ON FUNCTION auth.build_auth_response(auth.user, jsonb, auth.login_error_code) FROM authenticated, anon;
+REVOKE EXECUTE ON FUNCTION auth.build_auth_response(auth.user, boolean, auth.login_error_code) FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.switch_role_from_jwt(text) FROM authenticator; -- Added
 REVOKE EXECUTE ON FUNCTION auth.statbus_role() FROM authenticated, anon;
 REVOKE EXECUTE ON FUNCTION auth.email() FROM authenticated, anon;
@@ -122,7 +122,7 @@ DROP FUNCTION IF EXISTS auth.set_user_context_from_email(text);
 DROP FUNCTION IF EXISTS auth.extract_refresh_token_from_cookies();
 DROP FUNCTION IF EXISTS auth.use_jwt_claims_in_session(jsonb);
 DROP FUNCTION IF EXISTS auth.build_jwt_claims(text, timestamptz, text, jsonb);
-DROP FUNCTION IF EXISTS auth.build_auth_response(auth.user, jsonb, auth.login_error_code); -- Corrected signature
+DROP FUNCTION IF EXISTS auth.build_auth_response(auth.user, boolean, auth.login_error_code);
 DROP FUNCTION IF EXISTS auth.verify_jwt_with_secret(text); -- Added
 DROP FUNCTION IF EXISTS auth.switch_role_from_jwt(text); -- Added
 DROP FUNCTION IF EXISTS auth.clear_auth_cookies();
