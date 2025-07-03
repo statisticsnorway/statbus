@@ -61,25 +61,7 @@ export default function ContactInfoForm({
       </form>
       <form className="flex flex-col gap-4">
         <span className="font-medium">Postal Location</span>
-        <div className="grid grid-cols-2 gap-4">
-          <FormField
-            readonly
-            label="Region"
-            name="region_id"
-            value={
-              postalLocation?.region
-                ? `${postalLocation.region.code} ${postalLocation.region.name}`
-                : null
-            }
-            response={null}
-          />
-          <FormField
-            readonly
-            label="Country"
-            name="country_id"
-            value={postalLocation?.country?.name}
-            response={null}
-          />
+        <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
           <FormField
             readonly
             label="Address part1"
@@ -101,6 +83,8 @@ export default function ContactInfoForm({
             value={postalLocation?.address_part3}
             response={null}
           />
+        </div>
+        <div className="grid lg:grid-cols-2 gap-4">
           <FormField
             readonly
             label="Post code"
@@ -117,23 +101,9 @@ export default function ContactInfoForm({
           />
           <FormField
             readonly
-            label="Latitude"
-            name="latitude"
-            value={postalLocation?.latitude}
-            response={null}
-          />
-          <FormField
-            readonly
-            label="Longitude"
-            name="longitude"
-            value={postalLocation?.longitude}
-            response={null}
-          />
-          <FormField
-            readonly
-            label="Altitude"
-            name="altitude"
-            value={postalLocation?.altitude}
+            label="Country"
+            name="country_id"
+            value={postalLocation?.country?.name}
             response={null}
           />
         </div>

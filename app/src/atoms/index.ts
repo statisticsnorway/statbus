@@ -532,7 +532,21 @@ export const selectedUnitIdsAtom = atom((get) =>
   new Set(get(selectedUnitsAtom).map(unit => `${unit.unit_type}:${unit.unit_id}`))
 )
 
-export const selectionCountAtom = atom((get) => get(selectedUnitsAtom).length)
+export const selectionCountAtom = atom((get) => get(selectedUnitsAtom).length);
+
+export interface EditTarget {
+  fieldId: string;
+}
+
+export const currentEditAtom = atom<EditTarget | null>(null);
+
+export const setEditTargetAtom = atom(null, (get, set, target: EditTarget) => {
+  set(currentEditAtom, target);
+});
+
+export const exitEditModeAtom = atom(null, (get, set) => {
+  set(currentEditAtom, null);
+});
 
 // ============================================================================
 // TABLE COLUMNS ATOMS - Replace TableColumnsContext

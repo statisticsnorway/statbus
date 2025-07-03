@@ -87,9 +87,16 @@ import {
   refreshPendingJobsByPatternAtom,
   type AllPendingJobsState,
   type PendingJobsData,
-} from './index'
-import type { TableColumn, AdaptableTableColumn, ColumnProfile } from '../app/search/search.d';
-import type { Tables } from '@/lib/database.types';
+  currentEditAtom,
+  setEditTargetAtom,
+  exitEditModeAtom,
+} from "./index";
+import type {
+  TableColumn,
+  AdaptableTableColumn,
+  ColumnProfile,
+} from "../app/search/search.d";
+import type { Tables } from "@/lib/database.types";
 
 // ============================================================================
 // AUTH HOOKS - Replace useAuth and AuthContext patterns
@@ -297,8 +304,22 @@ export const useSelection = () => {
     isSelected,
     toggle,
     clear,
-  }
-}
+  };
+};
+
+
+export const useEditManager = () => {
+  const currentEdit = useAtomValue(currentEditAtom);
+  const setEditTarget = useSetAtom(setEditTargetAtom);
+  const exitEditMode = useSetAtom(exitEditModeAtom);
+
+  return {
+    currentEdit,
+    setEditTarget,
+    exitEditMode,
+  };
+};
+
 
 // ============================================================================
 // APP STATE HOOKS - High-level app state

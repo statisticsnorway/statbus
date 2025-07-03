@@ -9,12 +9,17 @@ interface TopologyItemIconProps {
     | "enterprise_group"
     | null;
   className?: string;
+  hasLegalUnit?: boolean;
 }
 
 export function StatisticalUnitIcon({
   type,
   className,
+  hasLegalUnit = true,
 }: TopologyItemIconProps) {
+  const isInformal =
+    (type === "establishment" || type === "enterprise") && !hasLegalUnit;
+
   switch (type) {
     case "legal_unit":
       return (
@@ -25,13 +30,23 @@ export function StatisticalUnitIcon({
     case "establishment":
       return (
         <Store
-          className={cn("fill-establishment-300 stroke-gray-700", className)}
+          className={cn(
+            `stroke-gray-700 ${
+              isInformal ? "fill-informal-50" : "fill-establishment-300"
+            }`,
+            className
+          )}
         />
       );
     case "enterprise":
       return (
         <Building2
-          className={cn("fill-enterprise-300 stroke-gray-700", className)}
+          className={cn(
+            `stroke-gray-700 ${
+              isInformal ? "fill-informal-500" : "fill-enterprise-300"
+            }`,
+            className
+          )}
         />
       );
     default:

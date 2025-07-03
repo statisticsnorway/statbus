@@ -5,6 +5,9 @@ import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { FormField } from "@/components/form/form-field";
 import { useBaseData } from "@/atoms/hooks";
+import { updateExternalIdent } from "@/app/legal-units/[id]/update-external-ident-server-action";
+import { EditableField } from "@/components/form/editable-field";
+import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedback-debug-info";
 
 export default function GeneralInfoForm({
   id,
@@ -17,6 +20,10 @@ export default function GeneralInfoForm({
     updateLegalUnit.bind(null, id, "general-info"),
     null
   );
+  const [externalIdentState, externalIdentFormAction] = useActionState(
+    updateExternalIdent.bind(null, id, "legal_unit"),
+    null
+  );
 
   const { externalIdentTypes } = useBaseData();
 
@@ -26,51 +33,34 @@ export default function GeneralInfoForm({
 
   return (
     <div className="space-y-8">
-      <form className="flex flex-col gap-4">
-        <FormField
-          label="Name"
-          name="name"
-          value={legalUnit.name}
-          response={null}
-          readonly
-        />
-        <div className="grid lg:grid-cols-2 gap-4">
-          {externalIdentTypes.map((type) => {
-            const value = legalUnit.external_idents[type.code];
-            return (
-              <FormField
-                key={type.code}
-                name={`external_idents.${type.code}`}
-                label={type.name ?? type.code!}
-                value={value}
-                response={null}
-                readonly
-              />
-            );
-          })}
-        </div>
-      </form>
+      <FormField
+        label="Name"
+        name="name"
+        value={legalUnit.name}
+        response={null}
+        readonly
+      />
+
+      <div className="grid lg:grid-cols-2 gap-4">
+        {externalIdentTypes.map((type) => {
+          const value = legalUnit.external_idents[type.code];
+          return (
+            <EditableField
+              key={type.code}
+              fieldId={`${type.code}`}
+              label={type.name ?? type.code!}
+              value={value}
+              response={externalIdentState}
+              formAction={externalIdentFormAction}
+            />
+          );
+        })}
+      </div>
+      <SubmissionFeedbackDebugInfo state={externalIdentState} />
+
       <form className="flex flex-col gap-4">
         <span className="font-medium">Physical Location</span>
-        <div className="grid lg:grid-cols-2 gap-4">
-          <FormField
-            name="region_id"
-            label="Region"
-            value={
-              physicalLocation?.region
-                ? `${physicalLocation.region.code} ${physicalLocation.region.name}`
-                : null
-            }
-            response={null}
-            readonly
-          />
-          <FormField
-            name="country_id"
-            label="Country"
-            value={physicalLocation?.country?.name}
-            response={null}
-            readonly
-          />
+        <div className="grid lg:grid-cols-2 gap-4 *:col-start-1">
           <FormField
             name="address_part1"
             label="Address Part 1"
@@ -92,6 +82,8 @@ export default function GeneralInfoForm({
             response={null}
             readonly
           />
+        </div>
+        <div className="grid lg:grid-cols-2 gap-4">
           <FormField
             name="postcode"
             label="Post Code"
@@ -106,6 +98,26 @@ export default function GeneralInfoForm({
             response={null}
             readonly
           />
+          <FormField
+            name="region_id"
+            label="Region"
+            value={
+              physicalLocation?.region
+                ? `${physicalLocation.region.code} ${physicalLocation.region.name}`
+                : null
+            }
+            response={null}
+            readonly
+          />
+          <FormField
+            name="country_id"
+            label="Country"
+            value={physicalLocation?.country?.name}
+            response={null}
+            readonly
+          />
+        </div>
+        <div className="grid lg:grid-cols-3 gap-4">
           <FormField
             readonly
             label="Latitude"

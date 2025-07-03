@@ -37,6 +37,9 @@ export function TopologyItem({
     (act) => act.type === "primary"
   )?.activity_category;
   const location = unit.location?.find((loc) => loc.type === "physical");
+  const isInformal =
+    (type === "establishment" && !(unit as Establishment).legal_unit_id) ||
+    (type === "enterprise" && "legal_unit_id" in unit);
   return (
     <>
       <StatisticalUnitDetailsLinkWithSubPath
@@ -58,7 +61,12 @@ export function TopologyItem({
                   <Asterisk className="h-4" />
                 </div>
               )}
-              <StatisticalUnitIcon type={type} className="w-4" />
+
+              <StatisticalUnitIcon
+                type={type}
+                className="w-4"
+                hasLegalUnit={!isInformal}
+              />
             </div>
           </CardHeader>
           <CardContent className="topology-item-content space-y-3 px-3 pb-2 pt-2">
