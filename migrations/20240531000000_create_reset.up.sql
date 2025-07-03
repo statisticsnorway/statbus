@@ -79,6 +79,19 @@ BEGIN
     ELSE END CASE;
 
     CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
+        -- Apply pattern for 'import_job'
+        WITH deleted_import_job AS (
+            DELETE FROM public.import_job WHERE id > 0 RETURNING *
+        )
+        SELECT jsonb_build_object(
+            'import_job', jsonb_build_object(
+                'deleted_count', (SELECT COUNT(*) FROM deleted_import_job)
+            )
+        ) INTO changed;
+        result := result || changed;
+    ELSE END CASE;
+    
+    CASE WHEN scope IN ('data', 'getting-started', 'all') THEN
         -- Apply pattern for 'tag_for_unit'
         WITH deleted_tag_for_unit AS (
             DELETE FROM public.tag_for_unit WHERE id > 0 RETURNING *
