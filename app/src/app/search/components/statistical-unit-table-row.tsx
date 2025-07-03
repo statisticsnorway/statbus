@@ -102,21 +102,6 @@ export const StatisticalUnitTableRow = ({
     ?.email?.split("@")[0]
     .replace(/\./, " ");
 
-  const prettifyUnitType = (type: UnitType | null): string => {
-    switch (type) {
-      case "enterprise":
-        return "Enterprise";
-      case "enterprise_group":
-        return "Enterprise Group";
-      case "legal_unit":
-        return "Legal Unit";
-      case "establishment":
-        return "Establishment";
-      default:
-        return "Unknown";
-    }
-  };
-
   const getCellClassName = (column: TableColumn) => {
     return cn(
       "py-2",
