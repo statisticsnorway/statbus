@@ -6,7 +6,7 @@
  */
 
 import { atom } from 'jotai'
-import { atomWithStorage, loadable } from 'jotai/utils'
+import { atomWithStorage, loadable, createJSONStorage } from 'jotai/utils'
 import { createMachine, assign } from 'xstate'
 import { atomWithMachine } from 'jotai-xstate'
 import type { Database, Tables, TablesInsert } from '@/lib/database.types'
@@ -761,7 +761,12 @@ export const updateSyncTimestampAtom = atom(null, (get, set, newTimestamp: numbe
 });
 
 // Atom to store the last known path before an auth change forced a redirect to /login
-export const lastKnownPathBeforeAuthChangeAtom = atomWithStorage<string | null>('lastKnownPathBeforeAuthChange', null);
+// Using sessionStorage to make it per-tab and survive hard reloads.
+export const lastKnownPathBeforeAuthChangeAtom = atomWithStorage<string | null>(
+  'lastKnownPathBeforeAuthChange', 
+  null,
+  createJSONStorage(() => sessionStorage)
+);
 
 // State machine for the login page boundary logic.
 export const loginPageMachine = createMachine({
@@ -1207,8 +1212,6 @@ export const loginAtom = atom(
         console.log("[loginAtom] Auth status stabilized. loginAtom resolving.");
       }
       
-      set(lastKnownPathBeforeAuthChangeAtom, null); // Clear any stale path from previous sessions
-
       // Signal that a login action is now managing the redirect.
       // This must be set BEFORE pendingRedirectAtom to allow RedirectHandler to identify the source.
       set(loginActionInProgressAtom, true);
@@ -1316,7 +1319,6 @@ export const logoutAtom = atom(
     set(gettingStartedUIStateAtom, { currentStep: 0, completedSteps: [], isVisible: true });
     set(importStateAtom, { isImporting: false, progress: 0, currentFile: null, errors: [], completed: false, useExplicitDates: false, selectedImportTimeContextIdent: null });
     set(unitCountsAtom, { legalUnits: null, establishmentsWithLegalUnit: null, establishmentsWithoutLegalUnit: null });
-    set(lastKnownPathBeforeAuthChangeAtom, null);
     
     // Redirect to login.
     set(pendingRedirectAtom, '/login');

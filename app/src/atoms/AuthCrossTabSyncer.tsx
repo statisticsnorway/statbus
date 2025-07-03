@@ -7,6 +7,7 @@ import {
   clientMountedAtom,
   lastSyncTimestampAtom,
   fetchAuthStatusAtom,
+  restClientAtom,
 } from './index';
 
 /**
@@ -24,13 +25,14 @@ import {
  */
 export const AuthCrossTabSyncer = () => {
   const clientMounted = useAtomValue(clientMountedAtom);
+  const restClient = useAtomValue(restClientAtom);
   const authChangeTimestamp = useAtomValue(authChangeTriggerAtom); // From storage
   const [lastSyncTs, setLastSyncTs] = useAtom(lastSyncTimestampAtom); // Local state
   const fetchAuthStatus = useSetAtom(fetchAuthStatusAtom);
 
   useEffect(() => {
-    // Don't run until the client is mounted to ensure atoms are hydrated from storage.
-    if (!clientMounted) {
+    // Don't run until the client is mounted AND the REST client is ready.
+    if (!clientMounted || !restClient) {
       return;
     }
 
@@ -47,7 +49,7 @@ export const AuthCrossTabSyncer = () => {
     } else if (debug) {
       // console.log('AuthCrossTabSyncer: Timestamp is the same, no action needed.');
     }
-  }, [clientMounted, authChangeTimestamp, lastSyncTs, setLastSyncTs, fetchAuthStatus]);
+  }, [clientMounted, restClient, authChangeTimestamp, lastSyncTs, setLastSyncTs, fetchAuthStatus]);
 
   return null;
 };

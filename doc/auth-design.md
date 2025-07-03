@@ -150,15 +150,13 @@ Authentication relies on JWTs managed via PostgreSQL functions and PostgREST, wi
             *   If a 401 response is received, it *internally and directly* calls the `/rest/rpc/refresh` endpoint. The browser automatically sends the `statbus-refresh` cookie with this internal call.
             *   If the internal refresh call is successful (PostgREST's `public.refresh` function sets new cookies via `Set-Cookie` headers and returns an `auth_response`), `fetchWithAuthRefresh` retries the original request. The `auth_response` from the internal refresh call is *not* directly used by `fetchWithAuthRefresh` to update Jotai state; the primary goal is cookie update. Jotai state (`authStatusAtom`) is typically updated by other mechanisms like `AppInitializer` or proactive checks.
     *   **Server-Side Requests (Next.js Server Components/Actions/Middleware):**
-        *   The Next.js middleware (`app/src/middleware.ts`) runs first:
-            *   It calls `AuthStore.handleServerAuth()` to check the status using the incoming request cookies.
-            *   If the access token is invalid/missing but a refresh token exists, `handleServerAuth` attempts to refresh by calling `/rpc/refresh` directly. The `public.refresh` function returns an `auth_response`.
-            *   `handleServerAuth` parses this `auth_response` to determine the new authentication status.
-            *   If refresh is successful, the middleware updates the request headers (specifically the `cookie` header) for subsequent handlers within the *same request* and sets `Set-Cookie` headers on the outgoing response to update the browser's cookies.
-            *   If authentication (initial or after refresh) fails, the middleware redirects to login.
-        *   When code later calls `getServerRestClient()`:
-            *   It reads the (potentially updated by middleware) `statbus` cookie from the current request context (e.g., via `next/headers` or passed cookies).
-            *   It sets the `Authorization: Bearer <token>` header on the outgoing request to PostgREST.
+        *   The Next.js middleware (`app/src/middleware.ts`) runs first. Its primary job is to protect routes.
+        *   It calls `AuthStore.handleServerAuth()` to determine the user's status.
+        *   `AuthStore.handleServerAuth()` calls a special server-side version of `fetchAuthStatus()`.
+        *   **Crucial Detail:** This server-side `fetchAuthStatus()` uses a direct `fetch` call to the `/rest/rpc/auth_status` endpoint. It is carefully constructed to **omit the `Authorization` header** but **forward the `Cookie` header** from the original request.
+        *   This allows the `auth_status` SQL function to execute as the `anon` role and inspect the cookie's contents directly. This is the only way for the function to correctly identify an expired-but-refreshable token without PostgREST rejecting the request prematurely due to an expired `Authorization` header.
+        *   The middleware receives the correct status (including `expired_access_token_call_refresh: true` if applicable) and decides whether to allow the request or redirect to `/login`. It does *not* attempt to refresh the token itself.
+        *   For all other server-side API calls (e.g., from Server Actions), `getServerRestClient()` is used. This client *does* set the `Authorization: Bearer <token>` header, as it's intended for making authenticated requests, not for checking auth status.
     *   **PostgREST Processing:**
         *   PostgREST receives the request (either with cookies from the browser or an `Authorization` header from the Next.js server).
         *   It validates the JWT. If valid, it:

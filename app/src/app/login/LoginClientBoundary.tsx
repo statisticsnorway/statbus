@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
 import {
@@ -10,6 +10,7 @@ import {
   loginActionInProgressAtom,
   lastKnownPathBeforeAuthChangeAtom,
   loginPageMachineAtom,
+  clientMountedAtom,
 } from "@/atoms";
 import LoginForm from "./LoginForm";
 
@@ -35,19 +36,31 @@ export default function LoginClientBoundary() {
   const [lastPathBeforeAuthChange, setLastPathBeforeAuthChange] = useAtom(lastKnownPathBeforeAuthChangeAtom);
   const pathname = usePathname();
   const [state, send] = useAtom(loginPageMachineAtom);
+  const clientMounted = useAtomValue(clientMountedAtom);
+  const [redirectAttempted, setRedirectAttempted] = useState(false);
 
   const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
 
   // Effect to reset the machine to idle on mount. This ensures a clean state for every visit,
   // which is crucial for handling React 18 Strict Mode and Fast Refresh in development.
   useEffect(() => {
-    send({ type: 'RESET' });
-  }, [send]);
+    // Only run after the client has mounted to ensure all state is hydrated.
+    if (clientMounted) {
+      send({ type: 'RESET' });
+      setRedirectAttempted(false); // Also reset our local redirect flag
+    }
+  }, [clientMounted, send]);
 
   // Effect to send events to the state machine when dependencies change.
   useEffect(() => {
+    // Gate this logic on clientMounted to ensure atomWithStorage has hydrated.
+    if (!clientMounted) {
+      return;
+    }
+
     if (debug) {
       console.log(`LoginClientBoundary: State machine is in state: ${state.value}, auth status is isAuthenticated: ${authStatus.isAuthenticated}`);
+      console.log(`LoginClientBoundary: Current lastKnownPathBeforeAuthChange is: "${lastPathBeforeAuthChange}"`);
     }
 
     // Once the initial auth check is done, we can evaluate.
@@ -64,11 +77,18 @@ export default function LoginClientBoundary() {
         },
       });
     }
-  }, [initialAuthCheckCompleted, authStatus.isAuthenticated, pathname, send, debug]);
+  }, [clientMounted, initialAuthCheckCompleted, authStatus.isAuthenticated, pathname, send, debug]);
 
   // Effect to handle the side-effect of redirection when the machine enters the 'redirecting' state.
   useEffect(() => {
-    if (state.matches('redirecting')) {
+    // Gate this logic on clientMounted to ensure lastPathBeforeAuthChange is hydrated.
+    if (!clientMounted) {
+      return;
+    }
+
+    // This effect should only fire ONCE per visit, guarded by the redirectAttempted flag.
+    if (state.matches('redirecting') && !redirectAttempted) {
+      setRedirectAttempted(true); // Set the flag immediately to prevent re-entry.
       let targetRedirectPath: string;
 
       // Prioritize the path stored before a cross-tab auth change.
@@ -90,7 +110,7 @@ export default function LoginClientBoundary() {
       // Clear the last path atom after using it for a redirect.
       setLastPathBeforeAuthChange(null);
     }
-  }, [state.value, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, setPendingRedirect, debug]);
+  }, [clientMounted, state.value, redirectAttempted, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, setPendingRedirect, debug]);
 
   // Render content based on the machine's state.
   if (state.matches('showingForm')) {

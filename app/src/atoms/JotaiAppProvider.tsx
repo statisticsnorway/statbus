@@ -206,41 +206,6 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
     // or if initializeTableColumnsAction (the atom setter function reference) changes (which is unlikely).
   }, [statDefinitions, initializeTableColumnsAction]);
 
-  // Effect to handle redirecting to /login when a user becomes unauthenticated on a protected page.
-  useEffect(() => {
-    const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
-    const isAuthStableAndChecked = initialAuthCheckDone && authLoadableValue.state !== 'loading';
-    const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
-    const canRefresh = authLoadableValue.state === 'hasData' && authLoadableValue.data.expired_access_token_call_refresh;
-
-    if (!isAuthStableAndChecked) {
-      return;
-    }
-
-    // Define public paths that do not require authentication.
-    const publicPaths = ['/login']; // Add any other public paths here.
-
-    // If user is NOT authenticated, a refresh is NOT possible, and is on a protected path, redirect them.
-    if (!currentIsAuthenticated && !canRefresh && !publicPaths.some(p => pathname.startsWith(p))) {
-      if (debug) {
-        console.log(`AppInitializer: User is not authenticated on protected path ("${pathname}") and cannot refresh. Storing path and redirecting to login.`);
-      }
-      
-      // Store the path they were trying to access so we can return them after login.
-      // Note: window.location.search is not available server-side, but this effect is client-side.
-      const fullPath = `${pathname}${window.location.search}`;
-      setLastPath(fullPath);
-      
-      // Trigger the redirect via the centralized RedirectHandler.
-      setPendingRedirect('/login');
-    }
-  }, [
-    pathname,
-    authLoadableValue,
-    initialAuthCheckDone,
-    setLastPath,
-    setPendingRedirect
-  ]);
 
   // Effect for redirecting to setup pages if necessary
   useEffect(() => {
@@ -299,6 +264,75 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 }
 
 // ============================================================================
+// PATH SAVER - Continuously saves the last known authenticated path
+// ============================================================================
+
+const PathSaver = () => {
+  const pathname = usePathname();
+  const search = useSearchParams().toString();
+  const setLastPath = useSetAtom(lastKnownPathBeforeAuthChangeAtom);
+  const authStatus = useAtomValue(authStatusAtom);
+
+  useEffect(() => {
+    // Continuously save the current path to sessionStorage while the user is authenticated.
+    // This ensures that if a logout event occurs, the last known good path is already stored.
+    if (authStatus.isAuthenticated) {
+      const fullPath = `${pathname}${search ? `?${search}` : ''}`;
+      // Don't save the login page itself as a restoration target.
+      if (pathname !== '/login') {
+        // If on the root path, ensure we save exactly "/" as the default restoration path.
+        if (pathname === '/') {
+          setLastPath('/');
+        } else {
+          setLastPath(fullPath);
+        }
+      }
+    }
+  }, [pathname, search, authStatus.isAuthenticated, setLastPath]);
+
+  return null;
+};
+
+// ============================================================================
+// REDIRECT GUARD - Handles redirecting unauthenticated users to login
+// ============================================================================
+
+const RedirectGuard = () => {
+  const authLoadableValue = useAtomValue(authStatusLoadableAtom);
+  const initialAuthCheckDone = useAtomValue(authStatusInitiallyCheckedAtom);
+  const pathname = usePathname();
+  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
+
+  useEffect(() => {
+    const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
+    const isAuthStableAndChecked = initialAuthCheckDone && authLoadableValue.state !== 'loading';
+    const currentIsAuthenticated = authLoadableValue.state === 'hasData' && authLoadableValue.data.isAuthenticated;
+    const canRefresh = authLoadableValue.state === 'hasData' && authLoadableValue.data.expired_access_token_call_refresh;
+
+    if (!isAuthStableAndChecked) {
+      return;
+    }
+
+    const publicPaths = ['/login'];
+
+    if (!currentIsAuthenticated && !canRefresh && !publicPaths.some(p => pathname.startsWith(p))) {
+      if (debug) {
+        console.log(`RedirectGuard: User is not authenticated on protected path ("${pathname}") and cannot refresh. Redirecting to login.`);
+      }
+      // The path has already been saved by PathSaver. Just trigger the redirect.
+      setPendingRedirect('/login');
+    }
+  }, [
+    pathname,
+    authLoadableValue,
+    initialAuthCheckDone,
+    setPendingRedirect
+  ]);
+
+  return null;
+};
+
+// ============================================================================
 // REDIRECT HANDLER - Handles programmatic redirects
 // ============================================================================
 
@@ -316,16 +350,9 @@ const RedirectHandler = () => {
   useEffect(() => {
     if (targetPath && targetPath !== pathname) {
       if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`RedirectHandler: Target path ("${targetPath}") differs from current ("${pathname}"). Navigating.`);
+        console.log(`RedirectHandler: Target path ("${targetPath}") differs from current ("${pathname}"). Navigating via router.push().`);
       }
-      // In development, router.push() can be cancelled by Fast Refresh.
-      // A hard navigation is more robust for these programmatic redirects.
-      // In production, router.push() is generally preferred for a smoother UX.
-      if (process.env.NODE_ENV === 'development') {
-        window.location.href = targetPath;
-      } else {
-        router.push(targetPath);
-      }
+      router.push(targetPath);
     }
   }, [targetPath, pathname, router]);
 
@@ -552,6 +579,8 @@ export const JotaiAppProvider = ({
       <Suspense fallback={loadingFallback}>
         <AppInitializer>
           <AuthStatusHandler>
+            <PathSaver />
+            <RedirectGuard />
             <RedirectHandler />
             <AuthCrossTabSyncer /> {/* Add the cross-tab syncer */}
             {enableSSE ? (

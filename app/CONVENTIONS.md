@@ -46,6 +46,15 @@ atom awaits the completion of the core atom's refresh if subsequent logic or com
         - For programmatic client-side redirects triggered by Jotai state changes, prefer a centralized mechanism. Use a dedicated atom (e.g.,
 `pendingRedirectAtom`) set by action atoms, and a single `RedirectHandler` component that observes this atom to perform the navigation. This avoids scattered
 `router.push()` calls and ensures redirects are a controlled reaction to state.
+    - **Handling Complex Conditional Logic (e.g., Login Page):**
+        - For UI flows with multiple conditions and potential race conditions (e.g., checking auth status, handling redirects, showing a form), use a state machine (`jotai-xstate`). This makes the logic explicit, robust, and immune to re-render loops caused by React Strict Mode or Fast Refresh.
+        - The `LoginClientBoundary` is the reference implementation for this pattern. It uses a state machine to decide whether to show the login form or trigger a redirect away from the page.
+    - **Managing State Across Page Reloads:**
+        - For state that must be **per-tab** but also **survive a hard page reload** (which can be triggered by redirects in development), use `atomWithStorage` configured for `sessionStorage`.
+        - The `lastKnownPathBeforeAuthChangeAtom` is the reference for this. It stores the user's last location so it can be restored after a logout/login cycle that involves a redirect.
+    - **Decoupling State Updates from Side Effects:**
+        - To avoid race conditions, decouple the act of saving state from the act of triggering a side effect.
+        - The `PathSaver` component continuously saves the user's last authenticated location. The `RedirectGuard` component later reads this state when it needs to trigger a redirect, ensuring the value is stable and correct.
 
 
 ## Data Fetching (SWR)
