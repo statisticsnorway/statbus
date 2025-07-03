@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { useAuth } from "@/atoms/hooks";
 import { useRouter } from "next/navigation";
 
@@ -13,6 +13,11 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    emailInputRef.current?.focus();
+  }, []);
 
   // Map error codes to user-friendly messages
   const loginErrorMessages: Record<string, string> = {
@@ -92,6 +97,7 @@ export default function LoginForm({ nextPath }: LoginFormProps) {
             type="email"
             autoComplete="email"
             required
+            ref={emailInputRef}
             placeholder="Enter your email address"
             className="peer block w-full rounded-md border-0 px-2.5 py-1.5 text-gray-900 shadow-xs ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-indigo-600 sm:text-sm sm:leading-6 invalid:[&:not(:placeholder-shown):not(:focus):not(:autofill)]:ring-red-500"
           />
