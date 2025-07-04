@@ -10,7 +10,7 @@ import Footer, { FooterSkeleton } from "@/components/footer";
 import GlobalErrorReporter from "@/app/global-error-reporter";
 import PopStateHandler from "@/components/PopStateHandler";
 import { NuqsAdapter } from "nuqs/adapters/next/app";
-import { JotaiAppProvider, JotaiStateInspector } from '@/atoms/JotaiAppProvider';
+import { JotaiAppProvider, StateInspector } from '@/atoms/JotaiAppProvider';
 import { deploymentSlotName } from "@/lib/deployment-variables";
 import { headers } from "next/headers";
 
@@ -74,12 +74,10 @@ export default async function RootLayout({
               </Suspense>
             {/* End of content previously in RootLayoutClient */}
             <GlobalErrorReporter />
-            {/* JotaiStateInspector is rendered if NEXT_PUBLIC_DEBUG is true */}
-            {process.env.NEXT_PUBLIC_DEBUG === 'true' && (
-              <Suspense fallback={null}> {/* Suspense for JotaiStateInspector, should only ever render client side. */}
-                <JotaiStateInspector />
-              </Suspense>
-            )}
+            {/* StateInspector is always rendered, and decides its own visibility */}
+            <Suspense fallback={null}>
+              <StateInspector />
+            </Suspense>
             </NuqsAdapter>
           </JotaiAppProvider>
         )}

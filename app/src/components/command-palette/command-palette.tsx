@@ -5,6 +5,8 @@ import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/atoms/auth";
+import { useSetAtom } from "jotai";
+import { stateInspectorVisibleAtom } from "@/atoms/app";
 import {
   BarChartHorizontal,
   Footprints,
@@ -19,6 +21,7 @@ import {
   User,
   Database,
   FileSpreadsheet,
+  Binary,
 } from "lucide-react";
 
 import {
@@ -39,6 +42,7 @@ export function CommandPalette() {
   const { toast } = useToast();
   const router = useRouter();
   const { logout } = useAuth();
+  const setStateInspectorVisible = useSetAtom(stateInspectorVisibleAtom);
 
   useEffect(() => {
     const open = () => {
@@ -74,6 +78,11 @@ export function CommandPalette() {
   const navigate = (path: string) => {
     setOpen(false);
     router.push(path);
+  };
+
+  const handleToggleStateInspector = () => {
+    setStateInspectorVisible((prev) => !prev);
+    setOpen(false);
   };
 
   return (
@@ -240,6 +249,13 @@ export function CommandPalette() {
             >
               <Database className="mr-2 h-4 w-4" />
               <span>Postgres Explain Visualizer</span>
+            </CommandItem>
+            <CommandItem
+              onSelect={handleToggleStateInspector}
+              value="toggle state inspector developer tool"
+            >
+              <Binary className="mr-2 h-4 w-4" />
+              <span>Toggle State Inspector</span>
             </CommandItem>
           </CommandGroup>
         </CommandList>

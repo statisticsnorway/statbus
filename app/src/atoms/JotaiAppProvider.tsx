@@ -17,6 +17,7 @@ import {
   requiredSetupRedirectAtom,
   restClientAtom,
   restClientAtom as importedRestClientAtom, // Alias to avoid conflict with local restClient variable
+  stateInspectorVisibleAtom,
 } from './app';
 import {
   authStatusAtom,
@@ -595,9 +596,9 @@ export const useManualInit = () => {
 
 /**
  * Development component that shows current atom states
- * Only renders in development mode
  */
-export const JotaiStateInspector = () => {
+export const StateInspector = () => {
+  const [isVisible, setIsVisible] = useAtom(stateInspectorVisibleAtom);
   const [mounted, setMounted] = React.useState(false);
   const [isExpanded, setIsExpanded] = React.useState(false);
   const [copyStatus, setCopyStatus] = React.useState(''); // For "Copied!" message
@@ -621,21 +622,28 @@ export const JotaiStateInspector = () => {
     setMounted(true);
   }, []);
 
-  // Show if NEXT_PUBLIC_DEBUG is true OR if NODE_ENV is 'development'.
-  // Hide if NEXT_PUBLIC_DEBUG is NOT true AND NODE_ENV is NOT 'development'.
+  // Add keydown listener to toggle visibility
   useEffect(() => {
-    if (mounted && typeof window !== 'undefined') { // Log only on the client-side, once mounted
-    }
-  }, [mounted]);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.key === 'k' || e.key === 'K') && (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey) {
+        e.preventDefault();
+        setIsVisible(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [setIsVisible]);
 
-  if (process.env.NEXT_PUBLIC_DEBUG !== 'true' && process.env.NODE_ENV !== 'development') {
+  if (!isVisible) {
     return null;
   }
 
   if (!mounted) {
     return (
       <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md">
-        <span className="font-bold">JotaiStateInspector:</span> Loading...
+        <span className="font-bold">State Inspector:</span> Loading...
       </div>
     );
   }
@@ -710,7 +718,7 @@ export const JotaiStateInspector = () => {
   return (
     <div className="fixed bottom-4 right-4 bg-black bg-opacity-80 text-white p-2 rounded-lg text-xs max-w-md max-h-[80vh] overflow-auto z-[9999]">
       <div className="flex justify-between items-center">
-        <span onClick={toggleExpand} className="cursor-pointer font-bold">JotaiStateInspector {isExpanded ? '▼' : '▶'}</span>
+        <span onClick={toggleExpand} className="cursor-pointer font-bold">State Inspector {isExpanded ? '▼' : '▶'}</span>
         <button 
           onClick={handleCopyToClipboard} 
           className="ml-2 px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-xs"
@@ -822,7 +830,7 @@ export const JotaiStateInspector = () => {
 // After:
 <JotaiAppProvider>
   <YourApp />
-  <JotaiStateInspector /> // Optional, only in development
+  <StateInspector /> // Optional, can be toggled with Cmd+K
 </JotaiAppProvider>
 */
 
