@@ -1,6 +1,6 @@
 "use client";
 import { Input } from "@/components/ui/input";
-import { useSearch } from "@/atoms/hooks";
+import { useSearch } from "@/atoms/search";
 import { useCallback, useEffect, useState } from "react";
 
 export default function FullTextSearchFilter() {

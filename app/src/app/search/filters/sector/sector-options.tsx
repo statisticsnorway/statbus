@@ -1,9 +1,9 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
 import { useCallback, useMemo } from "react"; // Added useMemo
 import { SECTOR } from "@/app/search/filters/url-search-params";
-import { SearchFilterOption } from "../../search";
+import { SearchFilterOption } from "../../search.d";
 
 export default function SectorOptions({
   options,

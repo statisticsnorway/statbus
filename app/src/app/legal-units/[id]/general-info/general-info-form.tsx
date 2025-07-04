@@ -4,8 +4,9 @@ import React, { useActionState } from "react";
 import { z } from "zod";
 import { generalInfoSchema } from "@/app/legal-units/[id]/general-info/validation";
 import { FormField } from "@/components/form/form-field";
-import { useBaseData } from "@/atoms/hooks";
+import { useBaseData } from "@/atoms/base-data";
 import { updateExternalIdent } from "@/app/legal-units/[id]/update-external-ident-server-action";
+import { Tables } from "@/lib/database.types";
 import { EditableField } from "@/components/form/editable-field";
 import { SubmissionFeedbackDebugInfo } from "@/components/form/submission-feedback-debug-info";
 
@@ -42,7 +43,7 @@ export default function GeneralInfoForm({
       />
 
       <div className="grid lg:grid-cols-2 gap-4">
-        {externalIdentTypes.map((type) => {
+        {externalIdentTypes.map((type: Tables<'external_ident_type_active'>) => {
           const value = legalUnit.external_idents[type.code];
           return (
             <EditableField

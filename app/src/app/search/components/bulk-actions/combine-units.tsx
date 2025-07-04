@@ -5,7 +5,7 @@ import { CommandItem } from "@/components/ui/command";
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import logger from "@/lib/client-logger";
-import { useSelection } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSelection, type StatisticalUnit } from "@/atoms/search"; // Changed to Jotai hook
 
 export default function CombineUnits() {
   const router = useRouter();
@@ -13,12 +13,12 @@ export default function CombineUnits() {
 
   const isEligibleForCombination =
     selected.length === 2 &&
-    selected.find((unit) => unit.unit_type === "enterprise") &&
-    selected.find((unit) => unit.unit_type === "legal_unit");
+    selected.find((unit: StatisticalUnit) => unit.unit_type === "enterprise") &&
+    selected.find((unit: StatisticalUnit) => unit.unit_type === "legal_unit");
 
   const setPrimaryLegalUnitForEnterprise = async () => {
-    const legalUnit = selected.find((unit) => unit.unit_type === "legal_unit");
-    const enterprise = selected.find((unit) => unit.unit_type === "enterprise");
+    const legalUnit = selected.find((unit: StatisticalUnit) => unit.unit_type === "legal_unit");
+    const enterprise = selected.find((unit: StatisticalUnit) => unit.unit_type === "enterprise");
 
     if (!legalUnit || !enterprise) {
       logger.error(

@@ -6,7 +6,7 @@ import { Pencil } from "lucide-react";
 import { Input } from "../ui/input";
 import { DeleteConfirmationDialog } from "./delete-confirmation-dialog";
 import { Label } from "../ui/label";
-import { useEditManager } from "@/atoms/hooks";
+import { useEditManager } from "@/atoms/search";
 import { cn } from "@/lib/utils";
 
 interface EditableFieldProps {
@@ -54,7 +54,7 @@ export const EditableField = ({
     if (response?.status === "success" && isEditing) {
       exitEditMode();
     }
-  }, [response]);
+  }, [response, isEditing, exitEditMode]);
 
   const triggerFormSubmit = () => {
     formRef.current?.requestSubmit();

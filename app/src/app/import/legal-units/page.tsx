@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useImportManager, usePendingJobsByPattern } from "@/atoms/hooks"; // Updated import
+import { useImportManager, usePendingJobsByPattern } from "@/atoms/import"; // Updated import
 import { ImportJobCreator } from "../components/import-job-creator";
 import { TimeContextSelector } from "../components/time-context-selector";
 import { Spinner } from "@/components/ui/spinner";

@@ -4,7 +4,7 @@
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Settings } from "lucide-react";
 import { useAtomValue } from 'jotai';
-import { numberOfCustomActivityCodesAtomAsync } from '@/atoms';
+import { numberOfCustomActivityCodesAtomAsync } from '@/atoms/getting-started';
 
 export const CustomActivityCategoryCard = () => {
   const count = useAtomValue(numberOfCustomActivityCodesAtomAsync);

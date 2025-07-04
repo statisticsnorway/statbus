@@ -1,9 +1,9 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearch } from "@/atoms/hooks";
+import { useSearch } from "@/atoms/search";
 import { useCallback, useMemo } from "react"; // Added useMemo
 import { INVALID_CODES } from "@/app/search/filters/url-search-params";
-import { SearchFilterOption } from "../search";
+import { SearchFilterOption } from "../search.d";
 
 export default function InvalidCodesFilter() {
   const { searchState, updateFilters, executeSearch } = useSearch();

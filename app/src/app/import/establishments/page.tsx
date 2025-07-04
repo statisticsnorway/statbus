@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import React, { useEffect, useState } from "react";
 import { InfoBox } from "@/components/info-box";
-import { useImportManager, usePendingJobsByPattern } from "@/atoms/hooks";
+import { useImportManager, usePendingJobsByPattern } from "@/atoms/import";
 import { TimeContextSelector } from "../components/time-context-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";

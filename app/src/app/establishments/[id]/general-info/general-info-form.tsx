@@ -1,6 +1,6 @@
 "use client";
 import { FormField } from "@/components/form/form-field";
-import { useBaseData } from "@/atoms/hooks";
+import { useBaseData } from "@/atoms/base-data";
 import { EditableField } from "@/components/form/editable-field";
 import { useActionState } from "react";
 import { updateExternalIdent } from "@/app/legal-units/[id]/update-external-ident-server-action";

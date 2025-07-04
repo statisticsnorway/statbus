@@ -3,13 +3,13 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { ImportJobUpload } from "../../../components/import-job-upload";
 import { ImportJobDetails } from "../../../components/import-job-details";
-import { useImportManager as useImportUnits } from '@/atoms/hooks';
+import { useImportManager as useImportUnits } from '@/atoms/import';
 import { use } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Tables } from "@/lib/database.types";
 import { useSetAtom } from "jotai";
-import { refreshBaseDataAtom } from "@/atoms/index"; // Changed import
+import { refreshBaseDataAtom } from "@/atoms/base-data"; // Changed import
 
 type ImportJob = Tables<"import_job">;
 type ImportDefinition = Tables<"import_definition">;

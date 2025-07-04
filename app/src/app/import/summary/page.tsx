@@ -5,7 +5,8 @@
 import React from "react";
 import Link from "next/link";
 import { Check, X } from "lucide-react";
-import { useBaseData, useImportManager } from "@/atoms/hooks";
+import { useBaseData } from "@/atoms/base-data";
+import { useImportManager } from "@/atoms/import";
 import { Spinner } from "@/components/ui/spinner"; // Import Spinner
 
 export default function ImportCompletedPage() {

@@ -4,7 +4,7 @@
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { BookText } from "lucide-react";
 import { useAtomValue } from 'jotai';
-import { numberOfTotalActivityCodesAtomAsync } from '@/atoms';
+import { numberOfTotalActivityCodesAtomAsync } from '@/atoms/getting-started';
 
 export const TotalActivityCategoryCard = () => {
   const count = useAtomValue(numberOfTotalActivityCodesAtomAsync);

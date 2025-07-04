@@ -1,5 +1,5 @@
 "use client";
-import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
 import { useCallback, useMemo } from "react";
 import { ConditionalFilter } from "@/app/search/components/conditional-filter";
 import { Tables } from "@/lib/database.types";

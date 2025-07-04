@@ -12,29 +12,37 @@ import { Provider, useAtom } from 'jotai'; // Added useAtom here
 import { useAtomValue, useSetAtom } from 'jotai';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import {
-  authStatusAtom,
-  baseDataAtom,
+  clientMountedAtom,
+  pendingRedirectAtom,
+  requiredSetupRedirectAtom,
   restClientAtom,
-  refreshBaseDataAtom,
-  refreshWorkerStatusAtom,
-  workerStatusAtom, // This is the combined synchronous atom
-  authStatusLoadableAtom,
-  baseDataLoadableAtom,
-  initializeTableColumnsAtom,
-  refreshAllUnitCountsAtom,
+  restClientAtom as importedRestClientAtom, // Alias to avoid conflict with local restClient variable
+} from './app';
+import {
+  authStatusAtom,
   authStatusInitiallyCheckedAtom,
+  authStatusLoadableAtom,
+  clientSideRefreshAtom,
   initialAuthCheckDoneEffect,
+  lastKnownPathBeforeAuthChangeAtom,
+  loginActionInProgressAtom,
+} from './auth';
+import {
+  baseDataAtom,
+  baseDataLoadableAtom,
+  refreshBaseDataAtom,
+} from './base-data';
+import {
   activityCategoryStandardSettingAtomAsync,
   numberOfRegionsAtomAsync,
-  restClientAtom as importedRestClientAtom, // Alias to avoid conflict with local restClient variable
+} from './getting-started';
+import { refreshAllUnitCountsAtom } from './import';
+import { initializeTableColumnsAtom } from './search';
+import {
+  refreshWorkerStatusAtom,
+  workerStatusAtom, // This is the combined synchronous atom
   type ValidWorkerFunctionName, // Import the type
-  pendingRedirectAtom,
-  loginActionInProgressAtom,
-  requiredSetupRedirectAtom, // Import the new atom
-  lastKnownPathBeforeAuthChangeAtom,
-  clientMountedAtom,
-  clientSideRefreshAtom,
-} from './index';
+} from './worker-status';
 import { AuthCrossTabSyncer } from './AuthCrossTabSyncer'; // Import the new syncer
 
 // ============================================================================

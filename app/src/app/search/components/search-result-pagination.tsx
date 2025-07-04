@@ -9,7 +9,7 @@ import {
   PaginationLast,
 } from "@/components/ui/pagination";
 
-import { useSearch } from "@/atoms/hooks";
+import { useSearch } from "@/atoms/search";
 
 export default function SearchResultPagination() {
   const {

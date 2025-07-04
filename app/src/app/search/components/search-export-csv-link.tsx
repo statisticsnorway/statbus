@@ -4,7 +4,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Download } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAtomValue } from 'jotai';
-import { searchResultAtom, derivedApiSearchParamsAtom } from '@/atoms';
+import { searchResultAtom, derivedApiSearchParamsAtom } from '@/atoms/search';
 
 export function ExportCSVLink() {
   const searchResult = useAtomValue(searchResultAtom);

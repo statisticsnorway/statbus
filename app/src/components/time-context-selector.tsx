@@ -15,8 +15,9 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
-import { useTimeContext } from "@/atoms/hooks";
+import { useTimeContext } from "@/atoms/app";
 import { useState } from "react";
+import { Tables } from "@/lib/database.types";
 
 export default function TimeContextSelector({
   className,
@@ -52,7 +53,7 @@ export default function TimeContextSelector({
           <CommandList>
             <CommandEmpty>No results found.</CommandEmpty>
             <CommandGroup>
-              {timeContexts.map((time_context) => (
+              {timeContexts.map((time_context: Tables<'time_context'>) => (
                 <CommandItem
                   key={time_context.ident}
                   value={time_context.ident!}

@@ -2,7 +2,7 @@
 import { TableHead } from "@/components/ui/table";
 import { ReactNode, ThHTMLAttributes } from "react";
 import { cn } from "@/lib/utils";
-import { useSearch } from "@/atoms/hooks";
+import { useSearch } from "@/atoms/search";
 
 interface SortableTableHeadProps
   extends ThHTMLAttributes<HTMLTableCellElement> {

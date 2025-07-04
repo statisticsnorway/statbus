@@ -4,8 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import LogoutForm from "./LogoutForm";
 import { logger } from "@/lib/client-logger";
-import { useAuth } from "@/atoms/hooks"; // Use Jotai hook for auth state
-import { authStatusInitiallyCheckedAtom } from "@/atoms"; // To wait for initial check
+import { useAuth, authStatusInitiallyCheckedAtom } from "@/atoms/auth"; // Use Jotai hook for auth state
 import { useAtomValue } from "jotai";
 
 export default function ProfilePage() {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useRef, useEffect } from "react";
-import { useAuth } from "@/atoms/hooks";
+import { useAuth } from "@/atoms/auth";
 import { useRouter } from "next/navigation";
 
 interface LoginFormProps {

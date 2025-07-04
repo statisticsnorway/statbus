@@ -2,12 +2,13 @@
 import { Table, TableBody } from "@/components/ui/table";
 import { StatisticalUnitTableRow } from "@/app/search/components/statistical-unit-table-row";
 import { StatisticalUnitTableHeader } from "@/app/search/components/statistical-unit-table-header";
-import { useSearch, useBaseData } from "@/atoms/hooks";
+import { useBaseData } from "@/atoms/base-data";
+import { useSearch, StatisticalUnit } from "@/atoms/search";
 import { cn } from "@/lib/utils";
 import { SearchResultTableBodySkeleton } from "@/app/search/components/search-result-table-body-skeleton";
 import { useRegionLevel } from "@/app/search/hooks/useRegionLevel";
 import type { Tables } from "@/lib/database.types";
-import { useTableColumnsManager as useTableColumns } from '@/atoms/hooks';
+import { useTableColumnsManager as useTableColumns } from '@/atoms/search';
 
 export default function SearchResultTable() {
   const { searchResult, executeSearch, allRegions } = useSearch();
@@ -53,7 +54,7 @@ export default function SearchResultTable() {
           <SearchResultTableBodySkeleton />
         ) : (
           <TableBody>
-            {searchResult?.data?.map((unit) => (
+            {searchResult?.data?.map((unit: StatisticalUnit) => (
               <StatisticalUnitTableRow
                 key={`sutr-${bodyRowSuffix(unit)}`}
                 unit={unit}

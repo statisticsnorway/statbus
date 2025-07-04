@@ -2,7 +2,7 @@
 
 import React, { Suspense } from "react"; // Added Suspense
 import { useAtom } from 'jotai'; // Added useAtom
-import { numberOfCustomLegalFormsAtomAsync } from '@/atoms'; // Added specific atom
+import { numberOfCustomLegalFormsAtomAsync } from '@/atoms/getting-started'; // Added specific atom
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {

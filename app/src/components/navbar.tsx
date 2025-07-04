@@ -8,10 +8,11 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 import { CommandPaletteTriggerMobileMenuButton } from "@/components/command-palette/command-palette-trigger-button";
 import TimeContextSelector from "@/components/time-context-selector";
-import { useAuth, useBaseData } from "@/atoms/hooks";
+import { useAuth, isAuthenticatedAtom, currentUserAtom } from "@/atoms/auth";
+import { useBaseData } from "@/atoms/base-data";
+import { useWorkerStatus } from "@/atoms/worker-status";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation"; // Import usePathname
-import { isAuthenticatedAtom, currentUserAtom } from "@/atoms";
 import { useAtomValue } from "jotai";
 
 export function NavbarSkeleton() {
@@ -27,7 +28,8 @@ export function NavbarSkeleton() {
 export default function Navbar() {
   const isAuthenticated = useAtomValue(isAuthenticatedAtom); // Use derived atom
   const currentUser = useAtomValue(currentUserAtom); // Use derived atom
-  const { hasStatisticalUnits, workerStatus } = useBaseData();
+  const { hasStatisticalUnits } = useBaseData();
+  const workerStatus = useWorkerStatus();
   const { isImporting, isDerivingUnits, isDerivingReports } = workerStatus;
   const pathname = usePathname(); // Get current pathname
 

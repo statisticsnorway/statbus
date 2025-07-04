@@ -1,7 +1,7 @@
 "use client";
 import { cn } from "@/lib/utils";
 import { useAtomValue } from 'jotai';
-import { searchStateAtom, searchResultAtom } from '@/atoms';
+import { searchStateAtom, searchResultAtom } from '@/atoms/search';
 
 export const SearchResultCount = ({
   className,

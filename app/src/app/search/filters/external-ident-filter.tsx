@@ -1,8 +1,8 @@
 "use client";
 import { Input } from "@/components/ui/input";
-import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
+import { useBaseData } from "@/atoms/base-data";
 import { useCallback } from "react";
-import { useBaseData } from "@/atoms/hooks";
 
 export default function ExternalIdentFilter() {
   const { externalIdentTypes } = useBaseData();

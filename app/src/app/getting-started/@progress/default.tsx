@@ -4,11 +4,11 @@ import React, { Suspense, useEffect, useState } from 'react'; // Added useEffect
 import { useAtomValue } from 'jotai';
 import {
   activityCategoryStandardSettingAtomAsync,
-  numberOfRegionsAtomAsync,
   numberOfCustomActivityCodesAtomAsync,
-  numberOfCustomSectorsAtomAsync,
   numberOfCustomLegalFormsAtomAsync,
-} from '@/atoms';
+  numberOfCustomSectorsAtomAsync,
+  numberOfRegionsAtomAsync,
+} from '@/atoms/getting-started';
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
 import { Loader2 } from 'lucide-react';
 

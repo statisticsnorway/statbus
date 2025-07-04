@@ -331,46 +331,20 @@ class RestClientStore {
       console.debug(`[RestClientStore.fetchWithAuthRefresh] URL: ${url}`); // Keep a less verbose debug log
     }
 
-    // Original logic for API calls (data fetching, etc.):
-    // Get auth token from cookies
-    let headers: Record<string, string> = {
-      'Content-Type': typeof options.headers === 'object' && options.headers 
-        ? (options.headers as Record<string, string>)['Content-Type'] || 'application/json'
-        : 'application/json',
-      'Accept': typeof options.headers === 'object' && options.headers
-        ? (options.headers as Record<string, string>)['Accept'] || 'application/json'
-        : 'application/json',
-    };
-    
-    // Add auth token from cookies
-    try {
-      if (typeof window === 'undefined') {
-        // Server-side: Get token from next/headers
-        const { cookies: getNextCookies } = require('next/headers');
-        const cookieStore = getNextCookies(); // Corrected: cookies() is not async
-        const token = cookieStore.get("statbus");
-        
-        if (token) {
-          headers['Authorization'] = `Bearer ${token.value}`;
-        }
-      } else {
-        // Browser-side: Cookies will be sent automatically with credentials: 'include'
-        // No need to manually set Authorization header
-      }
-    } catch (error) {
-      console.error('Error getting auth token from cookies:', error);
-    }
-    
-    // Merge with existing headers
-    if (options.headers) {
-      headers = { ...headers, ...(options.headers as Record<string, string>) };
-    }
+    // Create a new Headers object from the options passed by postgrest-js.
+    // This preserves all headers set by the client, including the crucial 'Accept' header.
+    // For GET requests, postgrest-js does not set a Content-Type, and we should not add one.
+    // For POST/PATCH, postgrest-js sets the Content-Type, which will be preserved.
+    const headers = new Headers(options.headers);
+
+    // The browser will automatically include cookies with `credentials: 'include'`,
+    // so we don't need to manually add the Authorization header here.
     
     // First attempt with current token
     const initialFetchOptions = {
       ...options,
       credentials: 'include' as RequestCredentials,
-      headers
+      headers,
     };
 
     let response: Response;

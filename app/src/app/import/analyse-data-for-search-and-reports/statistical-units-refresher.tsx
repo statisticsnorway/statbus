@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Spinner } from "@/components/ui/spinner";
-import { useBaseData } from "@/atoms/hooks";
+import { useBaseData, refreshBaseDataAtom } from "@/atoms/base-data";
+import { useWorkerStatus } from "@/atoms/worker-status";
 import { useAtomValue, useSetAtom } from 'jotai';
-import { analysisPageVisualStateAtom, refreshBaseDataAtom } from '@/atoms/index';
+import { analysisPageVisualStateAtom } from '@/atoms/reports';
 import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
 
 export function StatisticalUnitsRefresher({
@@ -29,7 +30,8 @@ export function StatisticalUnitsRefresher({
   };
   const { state, message, isImporting, isDerivingUnits, isDerivingReports } = visualStateToRender;
   
-  const { workerStatus, hasStatisticalUnits } = useBaseData(); // For the effect's logic
+  const workerStatus = useWorkerStatus();
+  const { hasStatisticalUnits } = useBaseData(); // For the effect's logic
   const doRefreshBaseData = useSetAtom(refreshBaseDataAtom);
   const refreshAttemptedRef = useRef(false);
 

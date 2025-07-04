@@ -2,7 +2,7 @@
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { AlertTriangle } from "lucide-react";
-import { useTimeContext } from "@/atoms/hooks";
+import { useTimeContext } from "@/atoms/app";
 import { useEffect, useState } from "react";
 import { PostgrestError } from "@supabase/postgrest-js";
 

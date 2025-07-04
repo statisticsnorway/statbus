@@ -2,7 +2,7 @@
 
 import React, { Suspense, useCallback } from "react"; // Added Suspense and useCallback
 import { useAtom } from 'jotai'; // Added useAtom
-import { numberOfCustomSectorsAtomAsync } from '@/atoms'; // Added specific atom
+import { numberOfCustomSectorsAtomAsync } from '@/atoms/getting-started'; // Added specific atom
 import { InfoBox } from "@/components/info-box";
 import { UploadCSVForm } from "@/app/getting-started/upload-csv-form";
 import {

@@ -4,14 +4,14 @@ import React, { Suspense, useEffect, useState } from "react"; // Added useEffect
 import Link from "next/link";
 import { Check, Minus, X } from "lucide-react";
 import { useAtomValue } from 'jotai';
+import { hasStatisticalUnitsAtom } from "@/atoms/base-data";
 import {
   activityCategoryStandardSettingAtomAsync,
-  numberOfRegionsAtomAsync,
   numberOfCustomActivityCodesAtomAsync,
-  numberOfCustomSectorsAtomAsync,
   numberOfCustomLegalFormsAtomAsync,
-  hasStatisticalUnitsAtom, // To check if units have been imported
-} from '@/atoms';
+  numberOfCustomSectorsAtomAsync,
+  numberOfRegionsAtomAsync,
+} from '@/atoms/getting-started';
 import { Loader2 } from 'lucide-react';
 
 const SummaryContent = () => {

@@ -3,15 +3,14 @@
 import React, { useEffect, useState } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import { useAtomValue, useSetAtom, useAtom } from "jotai";
+import { clientMountedAtom, pendingRedirectAtom } from "@/atoms/app";
 import {
   authStatusAtom,
   authStatusInitiallyCheckedAtom,
-  pendingRedirectAtom,
-  loginActionInProgressAtom,
   lastKnownPathBeforeAuthChangeAtom,
+  loginActionInProgressAtom,
   loginPageMachineAtom,
-  clientMountedAtom,
-} from "@/atoms";
+} from "@/atoms/auth";
 import LoginForm from "./LoginForm";
 
 /**
@@ -32,12 +31,11 @@ export default function LoginClientBoundary() {
   const nextPath = searchParams.get('next');
   const authStatus = useAtomValue(authStatusAtom);
   const initialAuthCheckCompleted = useAtomValue(authStatusInitiallyCheckedAtom);
-  const setPendingRedirect = useSetAtom(pendingRedirectAtom);
+  const [pendingRedirect, setPendingRedirect] = useAtom(pendingRedirectAtom);
   const [lastPathBeforeAuthChange, setLastPathBeforeAuthChange] = useAtom(lastKnownPathBeforeAuthChangeAtom);
   const pathname = usePathname();
   const [state, send] = useAtom(loginPageMachineAtom);
   const clientMounted = useAtomValue(clientMountedAtom);
-  const [redirectAttempted, setRedirectAttempted] = useState(false);
 
   const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
 
@@ -47,7 +45,6 @@ export default function LoginClientBoundary() {
     // Only run after the client has mounted to ensure all state is hydrated.
     if (clientMounted) {
       send({ type: 'RESET' });
-      setRedirectAttempted(false); // Also reset our local redirect flag
     }
   }, [clientMounted, send]);
 
@@ -77,7 +74,7 @@ export default function LoginClientBoundary() {
         },
       });
     }
-  }, [clientMounted, initialAuthCheckCompleted, authStatus.isAuthenticated, pathname, send, debug]);
+  }, [clientMounted, initialAuthCheckCompleted, authStatus.isAuthenticated, pathname, send, debug, lastPathBeforeAuthChange, state.value]);
 
   // Effect to handle the side-effect of redirection when the machine enters the 'redirecting' state.
   useEffect(() => {
@@ -86,9 +83,8 @@ export default function LoginClientBoundary() {
       return;
     }
 
-    // This effect should only fire ONCE per visit, guarded by the redirectAttempted flag.
-    if (state.matches('redirecting') && !redirectAttempted) {
-      setRedirectAttempted(true); // Set the flag immediately to prevent re-entry.
+    // If the machine wants to redirect AND no redirect is currently pending, set one.
+    if (state.matches('redirecting') && pendingRedirect === null) {
       let targetRedirectPath: string;
 
       // Prioritize the path stored before a cross-tab auth change.
@@ -103,14 +99,18 @@ export default function LoginClientBoundary() {
       }
 
       if (debug) {
-        console.log(`LoginClientBoundary: State machine entered 'redirecting' state. Setting pendingRedirectAtom to "${targetRedirectPath}".`);
+        console.log(`LoginClientBoundary: State machine is 'redirecting' and no redirect is pending. Setting pendingRedirectAtom to "${targetRedirectPath}".`);
       }
       
       setPendingRedirect(targetRedirectPath);
       // Clear the last path atom after using it for a redirect.
       setLastPathBeforeAuthChange(null);
+    } else if (state.matches('redirecting') && pendingRedirect !== null) {
+      if (debug) {
+        console.log(`LoginClientBoundary: State machine is 'redirecting', but a redirect to "${pendingRedirect}" is already pending. Taking no action.`);
+      }
     }
-  }, [clientMounted, state.value, redirectAttempted, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, setPendingRedirect, debug]);
+  }, [clientMounted, state, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, pendingRedirect, setPendingRedirect, debug]);
 
   // Render content based on the machine's state.
   if (state.matches('showingForm')) {

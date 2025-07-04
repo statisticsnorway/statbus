@@ -1,8 +1,9 @@
 "use client";
 
 import React from "react";
-import { useImportManager } from "@/atoms/hooks"; // Updated import
+import { useImportManager } from "@/atoms/import"; // Updated import
 import { Label } from "@/components/ui/label";
+import { Tables } from "@/lib/database.types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CalendarIcon, InfoIcon } from "lucide-react";
@@ -86,7 +87,7 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
                     <SelectValue placeholder="Select a time context" />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableContexts.map(tc => (
+                    {availableContexts.map((tc: Tables<'time_context'>) => (
                       // Use ident for key and value, handle potential null ident
                       <SelectItem key={tc.ident ?? `null-ident-${Math.random()}`} value={tc.ident ?? ""}>
                         {/* Use name_when_input, handle null dates */}

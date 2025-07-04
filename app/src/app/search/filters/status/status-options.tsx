@@ -1,9 +1,9 @@
 "use client";
 
-import { SearchFilterOption } from "../../search";
+import { SearchFilterOption } from "../../search.d";
 import { OptionsFilter } from "../../components/options-filter";
 import { useCallback, useMemo } from "react"; // Added useMemo
-import { useSearch } from "@/atoms/hooks";
+import { useSearch } from "@/atoms/search";
 import {
   STATUS,
 } from "../url-search-params";

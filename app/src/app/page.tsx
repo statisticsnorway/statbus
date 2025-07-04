@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react"; // Import useState
 import { useAtomValue } from "jotai";
-import { appReadyAtom } from "@/atoms";
+import { appReadyAtom } from "@/atoms/app";
 import Dashboard from "@/app/dashboard/page";
 
 // For dynamic titles in client components, useEffect is typically used.

@@ -1,7 +1,8 @@
 "use client";
 import { useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { useTimeContext } from '@/atoms/hooks';
+import { useTimeContext } from '@/atoms/app';
+import { Tables } from '@/lib/database.types';
 
 export default function PopStateHandler() {
   const searchParams = useSearchParams();
@@ -21,7 +22,7 @@ export default function PopStateHandler() {
       if (tcQueryParam) {
         // setSelectedTimeContextFromIdent(tcQueryParam); // Original
         // New logic: find time context by ident and set it
-        const targetTimeContext = timeContexts.find(tc => tc.ident === tcQueryParam);
+        const targetTimeContext = timeContexts.find((tc: Tables<'time_context'>) => tc.ident === tcQueryParam);
         if (targetTimeContext) {
           setSelectedTimeContext(targetTimeContext);
         } else {

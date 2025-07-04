@@ -7,7 +7,8 @@ import { BreadCrumb } from "@/app/reports/bread-crumb";
 import { DrillDownChart } from "@/app/reports/drill-down-chart";
 import { SearchLink } from "@/app/reports/search-link";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useBaseData } from "@/atoms/hooks";
+import { useBaseData } from "@/atoms/base-data";
+import { Tables } from "@/lib/database.types";
 
 export default function ReportsPageClient({
 }) {
@@ -30,7 +31,7 @@ export default function ReportsPageClient({
   const statisticalVariables = useMemo(() => {
     return [
       { value: "count", label: "Count", title: "Number of enterprises" },
-      ...(statDefinitions.map(({ code, name }) => ({
+      ...(statDefinitions.map(({ code, name }: Tables<'stat_definition_active'>) => ({
         value: code!,
         label: name!,
         title: name!,

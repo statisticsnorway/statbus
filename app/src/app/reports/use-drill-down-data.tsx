@@ -2,7 +2,7 @@
 import { DrillDown, DrillDownPoint } from "@/app/reports/types/drill-down";
 import { useState, useMemo, useEffect } from "react";
 import useSWR from "swr";
-import { useTimeContext } from '@/atoms/hooks';
+import { useTimeContext } from '@/atoms/app';
 import { fetchWithAuthRefresh } from "@/context/RestClientStore";
 
 export const useDrillDownData = () => {

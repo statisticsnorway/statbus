@@ -1,12 +1,15 @@
 "use client";
 
 import { ReactNode, useMemo, useEffect } from "react";
-import { useTimeContext, useBaseData, useSearch } from "@/atoms/hooks";
+import { useTimeContext } from "@/atoms/app";
+import { useBaseData } from "@/atoms/base-data";
+import { useSearch } from "@/atoms/search";
 import { useSetAtom, useAtomValue } from 'jotai';
 import useSWR from "swr";
 import useDerivedUrlSearchParams from "@/app/search/use-derived-url-search-params";
 import { SearchResult as ApiSearchResultType, SearchOrder, SearchPagination } from "./search.d";
-import { searchResultAtom, derivedApiSearchParamsAtom, searchStateAtom, setSearchPageDataAtom, searchStateInitializedAtom, type SearchState } from '@/atoms';
+import { searchResultAtom, derivedApiSearchParamsAtom, searchStateAtom, setSearchPageDataAtom, type SearchState } from '@/atoms/search';
+import { searchStateInitializedAtom } from '@/atoms/app';
 import type { Tables } from "@/lib/database.types";
 import { toURLSearchParams, URLSearchParamsDict } from "@/lib/url-search-params-dict";
 import { getBrowserRestClient } from "@/context/RestClientStore";
@@ -106,7 +109,7 @@ export function SearchResults({
     // Pass allDataSources (from props) to dataSourceDeriveStateUpdateFromSearchParams
     const dataSourceAction = dataSourceDeriveStateUpdateFromSearchParams(initialUrlSearchParams, allDataSources);
 
-    const externalIdentActions = externalIdentTypes.map(extType =>
+    const externalIdentActions = externalIdentTypes.map((extType: Tables<'external_ident_type_active'>) =>
       externalIdentDeriveStateUpdateFromSearchParams(extType, initialUrlSearchParams)
     );
     const statVarActions = statisticalVariablesDeriveStateUpdateFromSearchParams(statDefinitions, initialUrlSearchParams);
@@ -128,8 +131,8 @@ export function SearchResults({
         if (app_param_name === SEARCH) {
           newInitialQuery = app_param_values[0] || '';
         } else {
-          const isExternalIdent = externalIdentTypes.some(et => et.code === app_param_name);
-          const isStatVar = statDefinitions.some(sd => sd.code === app_param_name);
+          const isExternalIdent = externalIdentTypes.some((et: Tables<'external_ident_type_active'>) => et.code === app_param_name);
+          const isStatVar = statDefinitions.some((sd: Tables<'stat_definition_active'>) => sd.code === app_param_name);
 
           if (isExternalIdent) {
             // External idents are stored as single strings in searchState.filters

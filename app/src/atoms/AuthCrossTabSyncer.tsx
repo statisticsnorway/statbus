@@ -2,13 +2,12 @@
 
 import { useEffect } from 'react';
 import { useAtom, useAtomValue, useSetAtom } from 'jotai';
+import { clientMountedAtom, restClientAtom } from './app';
 import {
   authChangeTriggerAtom,
-  clientMountedAtom,
-  lastSyncTimestampAtom,
   fetchAuthStatusAtom,
-  restClientAtom,
-} from './index';
+  lastSyncTimestampAtom,
+} from './auth';
 
 /**
  * AuthCrossTabSyncer

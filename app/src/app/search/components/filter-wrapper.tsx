@@ -1,7 +1,7 @@
 "use client";
 
-import { useTableColumnsManager as useTableColumns } from '@/atoms/hooks';
-import { TableColumn } from "../search";
+import { useTableColumnsManager as useTableColumns } from '@/atoms/search';
+import { TableColumn } from "../search.d";
 
 interface FilterWrapperProps {
   columnCode: TableColumn["code"];
@@ -13,7 +13,7 @@ export function FilterWrapper({ columnCode, statCode = null, children }: FilterW
   const { visibleColumns } = useTableColumns();
 
   // Check if this column is visible
-  const isVisible = visibleColumns.some(column => {
+  const isVisible = visibleColumns.some((column: TableColumn) => {
     if (column.code !== columnCode) return false;
     if (columnCode === 'statistic' && column.type === 'Adaptable') {
       return column.stat_code === statCode;

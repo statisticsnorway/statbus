@@ -2,10 +2,12 @@
 
 import { TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import SortableTableHead from "@/app/search/components/sortable-table-head";
-import { useBaseData } from "@/atoms/hooks";
+import { useBaseData } from "@/atoms/base-data";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { useTableColumnsManager } from "@/atoms/hooks"; // Updated import
+import { useTableColumnsManager } from "@/atoms/search"; // Updated import
+import { TableColumn } from "../search.d";
+import { Tables } from "@/lib/database.types";
 
 interface StatisticalUnitTableHeaderProps {
   regionLevel: number;
@@ -25,7 +27,7 @@ export function StatisticalUnitTableHeader({
   return (
     <TableHeader className="bg-gray-50">
       <TableRow key={`h-row-${headerRowSuffix}`}>
-        {visibleColumns.map(column => {
+        {visibleColumns.map((column: TableColumn) => {
           switch (column.code) {
             case "name":
               return (
@@ -35,7 +37,7 @@ export function StatisticalUnitTableHeader({
                   key={`h-cell-${headerCellSuffix(column)}`}
                 >
                   <small className="flex">
-                    {externalIdentTypes.map(({ name }) => name).join(" | ")}
+                    {externalIdentTypes.map(({ name }: Tables<'external_ident_type_active'>) => name).join(" | ")}
                   </small>
                 </SortableTableHead>
               );
@@ -92,7 +94,7 @@ export function StatisticalUnitTableHeader({
               if (column.type === "Adaptable" && column.stat_code) {
                 // Retrieve the matching stat definition based on stat_code
                 const statDefinition = statDefinitions.find(
-                  (statDefinition) => statDefinition.code === column.stat_code
+                  (statDefinition: Tables<'stat_definition_active'>) => statDefinition.code === column.stat_code
                 );
 
                 return (

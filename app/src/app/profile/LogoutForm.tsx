@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/atoms/hooks";
+import { useAuth } from "@/atoms/auth";
 
 export default function LogoutForm() {
   const router = useRouter();

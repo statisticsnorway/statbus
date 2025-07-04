@@ -7,7 +7,8 @@ import { StatisticalUnitDetailsLinkWithSubPath } from "@/components/statistical-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Asterisk } from "lucide-react";
 import { thousandSeparator } from "@/lib/number-utils";
-import { useBaseData } from '@/atoms/hooks';
+import { useBaseData } from '@/atoms/base-data';
+import { Tables } from '@/lib/database.types';
 
 interface TopologyItemProps {
   readonly active?: boolean;
@@ -81,7 +82,7 @@ export function TopologyItem({
                 title="Country"
                 value={location?.country?.name}
               />
-              {statDefinitions.map((statDefinition) => {
+              {statDefinitions.map((statDefinition: Tables<'stat_definition_active'>) => {
                 const statsSum =
                   stats?.stats_summary?.[statDefinition.code]?.sum;
                 const stat = unit.stat_for_unit?.find(

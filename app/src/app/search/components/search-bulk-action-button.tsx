@@ -16,7 +16,7 @@ import {
 } from "@/components/ui/command";
 import * as React from "react";
 import CombineUnits from "@/app/search/components/bulk-actions/combine-units";
-import { useSelection } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSelection } from "@/atoms/search"; // Changed to Jotai hook
 
 export default function SearchBulkActionButton() {
   const { selected, clear } = useSelection(); // Use Jotai hook

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { ResetConfirmationDialog } from "./reset-confirmation-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/atoms/hooks";
+import { useAuth } from "@/atoms/auth";
 import {
   BarChartHorizontal,
   Footprints,

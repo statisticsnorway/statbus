@@ -4,8 +4,9 @@ import { ReactNode, useEffect, useState } from "react";
 import { PostgrestError } from "@supabase/postgrest-js";
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { format } from "date-fns";
-import { useBaseData } from "@/atoms/hooks";
+import { useBaseData } from "@/atoms/base-data";
 import { Database } from "lucide-react";
+import { Tables } from "@/lib/database.types";
 import { DashboardSection } from "./dashboard-section";
 
 export const DashboardClientContent = ({
@@ -30,7 +31,7 @@ export const DashboardClientContent = ({
         .select("last_edit_at, last_edit_by_user_id")
         .order("last_edit_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
       setEditInfo({ data, error });
     };
     fetchData();
@@ -44,7 +45,7 @@ export const DashboardClientContent = ({
 
   const lastEditBy = data?.last_edit_by_user_id
     ? statbusUsers
-        .find((u) => u.id === editInfo.data?.last_edit_by_user_id)
+        .find((u: Tables<"user">) => u.id === editInfo.data?.last_edit_by_user_id)
         ?.email?.split("@")[0]
         .replace(/\./, " ")
     : null;

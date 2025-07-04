@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 // import { SearchContextState } from "@/app/search/search-context"; // Removed
 import { useRouter } from "next/navigation";
-import { useSearch } from "@/atoms/hooks";
+import { useSearch } from "@/atoms/search";
 import {
   SEARCH,
   UNIT_TYPE, // Example, add other specific filter keys if needed for special handling
@@ -9,8 +9,11 @@ import {
   SECTOR,
   ACTIVITY_CATEGORY_PATH,
 } from "./filters/url-search-params";
-import { initialSearchStateValues, searchStateInitializedAtom, externalIdentTypesAtom, statDefinitionsAtom } from '@/atoms';
+import { searchStateInitializedAtom } from '@/atoms/app';
+import { initialSearchStateValues } from '@/atoms/search';
+import { externalIdentTypesAtom, statDefinitionsAtom } from '@/atoms/base-data';
 import { useAtomValue } from 'jotai';
+import { Tables } from "@/lib/database.types";
 
 export default function useDerivedUrlSearchParams(initialUrlFromProps: string) {
   const router = useRouter();
@@ -35,8 +38,8 @@ export default function useDerivedUrlSearchParams(initialUrlFromProps: string) {
     Object.entries(jotaiSearchState.filters).forEach(([name, appValue]) => {
       if (appValue === undefined) return;
 
-      const isExternalIdent = externalIdentTypes.some(et => et.code === name);
-      const isStatVar = statDefinitions.some(sd => sd.code === name);
+      const isExternalIdent = externalIdentTypes.some((et: Tables<'external_ident_type_active'>) => et.code === name);
+      const isStatVar = statDefinitions.some((sd: Tables<'stat_definition_active'>) => sd.code === name);
       const isPathBasedFilter = [REGION, SECTOR, ACTIVITY_CATEGORY_PATH].includes(name);
 
       if (Array.isArray(appValue)) {

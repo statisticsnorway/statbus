@@ -4,7 +4,7 @@
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { ScrollText } from "lucide-react";
 import { useAtomValue } from 'jotai';
-import { activityCategoryStandardSettingAtomAsync } from '@/atoms';
+import { activityCategoryStandardSettingAtomAsync } from '@/atoms/getting-started';
 
 export const ActivityCategoryCard = () => {
   const setting = useAtomValue(activityCategoryStandardSettingAtomAsync);

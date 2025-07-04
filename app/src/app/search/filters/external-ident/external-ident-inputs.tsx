@@ -1,7 +1,7 @@
 "use client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
 import { useCallback, useEffect, useState } from "react";
 import { Tables } from "@/lib/database.types";
 import { Button } from "@/components/ui/button";

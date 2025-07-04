@@ -6,7 +6,7 @@ import { BarChart3 } from "lucide-react";
 // import { Suspense } from "react"; // Suspense will be handled by the parent
 // import { FallBackCard } from "./fallBack-card"; // Fallback handled by parent
 import { useAtomValue } from 'jotai';
-import { statDefinitionsAtom } from '@/atoms'; // Assuming statDefinitionsAtom holds the active ones or we need a new atom
+import { statDefinitionsAtom } from '@/atoms/base-data'; // Assuming statDefinitionsAtom holds the active ones or we need a new atom
 
 export const StatisticalVariableCountCard = () => {
   // This atom currently holds all stat_definition_active from baseDataAtom.

@@ -1,10 +1,12 @@
 "use client";
 import { useEffect, useState } from "react";
 import { NavItem } from "@/app/getting-started/@progress/nav-item";
-import { useBaseData, useImportManager } from "@/atoms/hooks";
+import { useBaseData } from "@/atoms/base-data";
+import { useImportManager } from "@/atoms/import";
+import { useWorkerStatus } from "@/atoms/worker-status";
 import { Spinner } from "@/components/ui/spinner";
 import { FileText, BarChart2, Building2, Store, Building } from "lucide-react";
-import type { WorkerStatus } from "@/atoms/index"; // Import the type
+import type { WorkerStatus } from "@/atoms/worker-status"; // Import the type
 
 export default function ImportStatus() {
   const [mounted, setMounted] = useState(false);
@@ -19,7 +21,8 @@ export default function ImportStatus() {
       establishmentsWithoutLegalUnit,
     },
   } = useImportManager(); // Updated hook call
-  const { hasStatisticalUnits, workerStatus } = useBaseData();
+  const { hasStatisticalUnits } = useBaseData();
+  const workerStatus = useWorkerStatus();
 
   // Safely access workerStatus properties, defaulting if not mounted or workerStatus is null/undefined
   const safeWorkerStatus = workerStatus || {};

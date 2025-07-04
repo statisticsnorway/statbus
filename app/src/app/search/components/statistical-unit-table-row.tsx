@@ -9,10 +9,14 @@ import { thousandSeparator } from "@/lib/number-utils";
 import { InvalidCodes } from "./invalid-codes";
 import { Popover, PopoverContent } from "@/components/ui/popover";
 import { PopoverTrigger } from "@radix-ui/react-popover";
-import { useSelection } from "@/atoms/hooks";
-import { useBaseData } from "@/atoms/hooks";
-import { useTableColumnsManager, useSearch } from "@/atoms/hooks";
-import { StatisticalUnit } from "@/atoms/index";
+import {
+  useSelection,
+  useTableColumnsManager,
+  useSearch,
+  StatisticalUnit,
+} from "@/atoms/search";
+import { useBaseData } from "@/atoms/base-data";
+import { Tables } from "@/lib/database.types";
 
 interface SearchResultTableRowProps {
   unit: StatisticalUnit;
@@ -37,19 +41,19 @@ export const StatisticalUnitTableRow = ({
   const { columns, bodyRowSuffix, bodyCellSuffix } = useTableColumnsManager(); // Updated hook call
 
   const isInBasket = selected.some(
-    (s) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
+    (s: StatisticalUnit) => s.unit_id === unit.unit_id && s.unit_type === unit.unit_type
   );
 
   const getRegionByPath = (physical_region_path: unknown) => {
     if (typeof physical_region_path !== "string") return undefined;
     const regionParts = physical_region_path.split(".");
     const selectedRegionPath = regionParts.slice(0, regionLevel).join(".");
-    return allRegions.find(({ path }) => path === selectedRegionPath);
+    return allRegions.find(({ path }: Tables<'region_used'>) => path === selectedRegionPath);
   };
 
   const getActivityCategoryByPath = (primary_activity_category_path: unknown) =>
     allActivityCategories.find(
-      ({ path }) => path === primary_activity_category_path
+      ({ path }: Tables<'activity_category_used'>) => path === primary_activity_category_path
     );
 
   const activityCategory = getActivityCategoryByPath(
@@ -61,19 +65,19 @@ export const StatisticalUnitTableRow = ({
   );
 
   const getStatusById = (status_id: number | null) =>
-    allStatuses.find(({ id }) => id === status_id);
+    allStatuses.find(({ id }: Tables<'status'>) => id === status_id);
 
   const status = getStatusById(unit.status_id);
 
   const getUnitSizeById = (unit_size_id: number | null) =>
-    allUnitSizes.find(({ id }) => id === unit_size_id);
+    allUnitSizes.find(({ id }: Tables<'unit_size'>) => id === unit_size_id);
 
   const unitSize = getUnitSizeById(unit.unit_size_id);
 
   const getDataSourcesByIds = (data_source_ids: number[] | null) => {
     if (!data_source_ids) return [];
     return data_source_ids.map((id) =>
-      allDataSources.find((ds) => ds.id === id)
+      allDataSources.find((ds: Tables<'data_source'>) => ds.id === id)
     );
   };
 
@@ -98,7 +102,7 @@ export const StatisticalUnitTableRow = ({
   )} ${String(lastEditAt.getHours()).padStart(2, "0")}:${String(lastEditAt.getMinutes()).padStart(2, "0")}`;
 
   const lastEditBy = statbusUsers
-    .find((user) => user.id === unit.last_edit_by_user_id)
+    .find((user: Tables<'user'>) => user.id === unit.last_edit_by_user_id)
     ?.email?.split("@")[0]
     .replace(/\./, " ");
 
@@ -119,7 +123,7 @@ export const StatisticalUnitTableRow = ({
       key={`row-${bodyRowSuffix(unit)}`}
       className={cn("", isInBasket ? "bg-gray-100" : "")}
     >
-      {columns.map((column) => {
+      {columns.map((column: TableColumn) => {
         if (column.type === "Adaptable" && !column.visible) {
           return null;
         }
@@ -157,7 +161,7 @@ export const StatisticalUnitTableRow = ({
                       <span className="flex">
                         {externalIdentTypes
                           ?.map(
-                            ({ code }) => unit.external_idents[code!] || "-"
+                            ({ code }: Tables<'external_ident_type_active'>) => unit.external_idents[code!] || "-"
                           )
                           .join(" | ")}
                       </span>
@@ -178,7 +182,7 @@ export const StatisticalUnitTableRow = ({
           case "activity_section":
             const activitySection = unit.primary_activity_category_path
               ? allActivityCategories.find(
-                  ({ path }) =>
+                  ({ path }: Tables<'activity_category_used'>) =>
                     path ===
                     (
                       unit.primary_activity_category_path as string | null
@@ -241,7 +245,7 @@ export const StatisticalUnitTableRow = ({
           case "top_region":
             const topRegion = unit.physical_region_path
               ? allRegions.find(
-                  ({ path }) =>
+                  ({ path }: Tables<'region_used'>) =>
                     path ===
                     (unit.physical_region_path as string | null)?.split(".")[0]
                 )

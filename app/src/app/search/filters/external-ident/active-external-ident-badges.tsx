@@ -1,7 +1,7 @@
 "use client";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { useSearch } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSearch } from "@/atoms/search"; // Changed to Jotai hook
 import { Tables } from "@/lib/database.types";
 
 interface ActiveExternalIdentBadgesProps {

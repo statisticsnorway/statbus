@@ -1,9 +1,9 @@
 "use client";
 import { OptionsFilter } from "@/app/search/components/options-filter";
-import { useSearch } from "@/atoms/hooks"; // Using Jotai's useSearch
+import { useSearch } from "@/atoms/search"; // Using Jotai's useSearch
 import { useCallback, useMemo } from "react"; // Added useMemo
 import { UNIT_TYPE } from "@/app/search/filters/url-search-params";
-import { SearchFilterOption } from "../search";
+import { SearchFilterOption } from "../search.d";
 import { StatisticalUnitIcon } from "@/components/statistical-unit-icon";
 
 export default function UnitTypeFilter() {

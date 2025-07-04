@@ -2,7 +2,7 @@
 import { User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAtomValue } from "jotai"; // Import useAtomValue
-import { isAuthenticatedAtom, currentUserAtom } from "@/atoms"; // Import necessary atoms
+import { isAuthenticatedAtom, currentUserAtom } from "@/atoms/auth"; // Import necessary atoms
 
 export default function ProfileAvatar({
   className,

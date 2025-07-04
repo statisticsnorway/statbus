@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useImportManager } from "@/atoms/hooks"; // Updated import
+import { useImportManager } from "@/atoms/import"; // Updated import
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";

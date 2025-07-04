@@ -26,10 +26,9 @@ Core conventions for the Next.js (v15) application. For project-wide, SQL, or in
 
 ## State Management (Jotai)
 - **Primary Library**: Jotai is used for client-side global state management. For more details on Jotai utilities and extensions relevant to this project, see [Jotai Utilities and Extensions for STATBUS](../doc/jotai.md).
-- **Core Atoms**: Located in `app/src/atoms/index.ts`. Define base state units here.
-    - Use `atomWithStorage` for persistent state (e.g., user preferences).
-- **Utility Hooks**: Custom hooks for interacting with atoms and encapsulating common logic are in `app/src/atoms/hooks.ts`.
-- **Provider**: A single `<JotaiAppProvider>` (from `app/src/atoms/JotaiAppProvider.tsx`) is used in the root layout (`app/src/app/layout.tsx`) to set up Jotai and initialize global state.
+- **Structure**: Atoms and their related hooks are co-located in feature-specific files within the `app/src/atoms/` directory (e.g., `app/src/atoms/auth.ts`, `app/src/atoms/search.ts`).
+- **Imports**: Components must import atoms and hooks directly from their feature-specific source file. A barrel file is not used.
+- **Initialization**: Global state is initialized within the `<JotaiAppProvider>` component (`app/src/atoms/JotaiAppProvider.tsx`). This provider contains initializer components and hooks (like `useAppInitialization`) that manage application startup logic.
 - **Patterns**:
     - **Atomic State**: Prefer small, independent atoms.
     - **Derived Atoms**: Compute state from other atoms for efficient re-renders.

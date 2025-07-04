@@ -2,10 +2,10 @@
 
 import { cn } from "@/lib/utils";
 import { BarChartHorizontal, Search, Upload } from "lucide-react";
-import { useBaseData } from "@/atoms/hooks";
+import { useWorkerStatus } from "@/atoms/worker-status";
 
 export function NavbarStatusVisualizer() {
-  const { workerStatus } = useBaseData();
+  const workerStatus = useWorkerStatus();
   const { isImporting, isDerivingUnits, isDerivingReports } = workerStatus;
 
   // Create a simplified version of the navbar for visualization

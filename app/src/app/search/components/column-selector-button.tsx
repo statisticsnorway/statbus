@@ -1,7 +1,7 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Settings2 } from "lucide-react";
-import { useTableColumnsManager as useTableColumns } from '@/atoms/hooks';
+import { useTableColumnsManager as useTableColumns } from '@/atoms/search';
 import { ColumnSelector } from "./column-selector";
 import {
   Popover,

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Github, Globe } from "lucide-react";
 import { CommandPaletteTriggerButton } from "@/components/command-palette/command-palette-trigger-button";
 import { useAtomValue } from "jotai"; // Import useAtomValue
-import { isAuthenticatedAtom } from "@/atoms"; // Import isAuthenticatedAtom
+import { isAuthenticatedAtom } from "@/atoms/auth"; // Import isAuthenticatedAtom
 
 export function FooterSkeleton() {
   return (

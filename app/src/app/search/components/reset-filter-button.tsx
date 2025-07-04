@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { SearchX } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSetAtom } from 'jotai';
-import { resetSearchStateAtom } from '@/atoms'; // Assuming index.ts is resolved by default
+import { resetSearchStateAtom } from '@/atoms/search'; // Assuming index.ts is resolved by default
 
 interface ResetFilterButtonProps {
   className?: string;

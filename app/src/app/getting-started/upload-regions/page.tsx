@@ -2,7 +2,7 @@
 
 import React, { Suspense, useCallback } from "react"; // Added useCallback
 import { useAtom } from 'jotai';
-import { numberOfRegionsAtomAsync } from '@/atoms';
+import { numberOfRegionsAtomAsync } from '@/atoms/getting-started';
 import {
   Accordion,
   AccordionContent,

@@ -2,7 +2,7 @@
 import { Table, TableBody } from "@/components/ui/table";
 import { StatisticalUnitTableRow } from "@/app/search/components/statistical-unit-table-row";
 import SearchBulkActionButton from "@/app/search/components/search-bulk-action-button";
-import { useSelection } from "@/atoms/hooks"; // Changed to Jotai hook
+import { useSelection, StatisticalUnit } from "@/atoms/search"; // Changed to Jotai hook
 import { useRegionLevel } from "@/app/search/hooks/useRegionLevel";
 
 export const Selection = () => {
@@ -16,7 +16,7 @@ export const Selection = () => {
       <div className="rounded-md border">
         <Table>
           <TableBody>
-            {selected.map((unit) => {
+            {selected.map((unit: StatisticalUnit) => {
               return (
                 <StatisticalUnitTableRow
                   key={`selection_${unit.unit_type}_${unit.unit_id}`}

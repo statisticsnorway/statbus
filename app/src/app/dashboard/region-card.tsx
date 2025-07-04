@@ -3,7 +3,7 @@
 import { DashboardCard } from "@/app/dashboard/dashboard-card";
 import { Globe2 } from "lucide-react";
 import { useAtomValue } from 'jotai';
-import { numberOfRegionsAtomAsync } from '@/atoms';
+import { numberOfRegionsAtomAsync } from '@/atoms/getting-started';
 
 export const RegionCard = () => {
   const count = useAtomValue(numberOfRegionsAtomAsync);

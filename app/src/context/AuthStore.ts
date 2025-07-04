@@ -11,30 +11,7 @@
 import { getRestClient, getServerRestClient, fetchWithAuth } from "@/context/RestClientStore";
 import type { NextRequest, NextResponse } from 'next/server';
 import * as setCookie from 'set-cookie-parser';
-import { _parseAuthStatusRpcResponseToAuthStatus } from '@/atoms/index'; 
-
-/**
- * User type definition for authentication
- */
-export interface User {
-  uid: number;
-  sub: string;
-  email: string;
-  role: string;
-  statbus_role: string;
-  last_sign_in_at: string;
-  created_at: string;
-}
-
-/**
- * Authentication status type
- */
-export interface AuthStatus {
-  isAuthenticated: boolean;
-  expired_access_token_call_refresh: boolean;
-  user: User | null;
-  error_code: string | null;
-}
+import { type User, type AuthStatus, _parseAuthStatusRpcResponseToAuthStatus } from '@/lib/auth.types';
 
 
 /**
