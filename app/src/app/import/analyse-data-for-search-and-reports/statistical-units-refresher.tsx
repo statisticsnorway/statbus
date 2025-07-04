@@ -6,7 +6,7 @@ import { useBaseData, refreshBaseDataAtom } from "@/atoms/base-data";
 import { useWorkerStatus } from "@/atoms/worker-status";
 import { useAtomValue, useSetAtom } from 'jotai';
 import { analysisPageVisualStateAtom } from '@/atoms/reports';
-import { CheckCircle, XCircle, AlertCircle } from "lucide-react";
+import { CheckCircle, XCircle, AlertCircle, Loader2 } from "lucide-react";
 
 export function StatisticalUnitsRefresher({
   children,
@@ -63,7 +63,12 @@ export function StatisticalUnitsRefresher({
   }, [mounted, workerStatus, hasStatisticalUnits, doRefreshBaseData]); // Added mounted to dependencies
 
   if (state === "checking_status") {
-    return <Spinner message={message || "Checking status..."} />;
+    return (
+      <div className="flex flex-col justify-center items-center">
+        <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
+        <p className="mt-2 text-gray-700">{message || "Checking status..."}</p>
+      </div>
+    );
   }
 
   const renderStatusItem = (
@@ -75,7 +80,7 @@ export function StatisticalUnitsRefresher({
       <div className="flex items-center space-x-3 py-2">
         <div className="w-8">
           {isActive === true ? ( // Explicitly check for true
-            <Spinner className="h-6 w-6" />
+            <Loader2 className="h-6 w-6 animate-spin" />
           ) : isDone ? (
             <CheckCircle className="h-6 w-6 text-green-500" />
           ) : (
