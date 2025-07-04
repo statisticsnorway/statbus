@@ -40,58 +40,47 @@ export function ImportJobDetails({ job, definition }: ImportJobDetailsProps) {
     return "Unknown Import Type";
   };
   return (
-    <div className="bg-gray-50 border rounded-md p-4 mb-6">
-      <h3 className="font-medium mb-3 flex items-center">
-        <Info className="h-4 w-4 mr-2 text-blue-500" />
-        Import Configuration
-      </h3>
-      
-      <div className="space-y-2 text-sm">
-        <div className="flex justify-between">
-          <span className="text-gray-600">Import Type:</span>
-          <span className="font-medium">
-            {getImportType()}
-          </span>
+    <div className="border rounded-md p-4">
+      <h3 className="font-medium mb-3">Import Configuration</h3>
+      <div className="space-y-1 text-sm">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Import Type</span>
+          <span className="font-medium text-right">{getImportType()}</span>
         </div>
-        
-        <div className="flex justify-between">
-          <span className="text-gray-600">Date Format:</span>
-          <span className="font-medium flex items-center">
+        <div className="flex justify-between items-center">
+          <span className="text-gray-600">Date Handling</span>
+          <span className="font-medium flex items-center gap-1">
             {!hasTimeContext ? (
               <>
-                <FileSpreadsheet className="h-4 w-4 mr-1 text-gray-500" />
-                Using explicit dates from CSV
+                <FileSpreadsheet className="h-4 w-4 text-gray-500" />
+                <span>From CSV</span>
               </>
             ) : (
               <>
-                <CalendarClock className="h-4 w-4 mr-1 text-gray-500" />
-                Using time context
+                <CalendarClock className="h-4 w-4 text-gray-500" />
+                <span>Time Context</span>
               </>
             )}
           </span>
         </div>
-        
         {hasTimeContext && (
           <>
-            <div className="flex justify-between">
-              <span className="text-gray-600">Valid From:</span>
+            <div className="flex justify-between pl-4">
+              <span className="text-gray-600">Valid From</span>
               <span className="font-medium">
-                {/* Use job prop */}
                 {job?.default_valid_from
                   ? formatDate(new Date(job.default_valid_from))
-                  : "Not specified"}
+                  : "N/A"}
               </span>
             </div>
-
-            <div className="flex justify-between">
-              <span className="text-gray-600">Valid To:</span>
+            <div className="flex justify-between pl-4">
+              <span className="text-gray-600">Valid To</span>
               <span className="font-medium">
-                {/* Use job prop */}
                 {job?.default_valid_to
                   ? job.default_valid_to === "infinity"
-                    ? "Present (infinity)"
+                    ? "Present"
                     : formatDate(new Date(job.default_valid_to))
-                  : "Not specified"}
+                  : "N/A"}
               </span>
             </div>
           </>
