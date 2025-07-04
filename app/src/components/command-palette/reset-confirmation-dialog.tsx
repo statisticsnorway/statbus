@@ -21,9 +21,15 @@ import { useEffect, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Enums } from "@/lib/database.types";
 import { getBrowserRestClient } from "@/context/RestClientStore";
+import { useSetAtom } from "jotai";
+import { RESET } from "jotai/utils";
+import { gettingStartedUIStateAtom } from "@/atoms/getting-started";
+import { selectedTimeContextAtom } from "@/atoms/app";
 
 export function ResetConfirmationDialog() {
   const { toast } = useToast();
+  const setGettingStartedUIState = useSetAtom(gettingStartedUIStateAtom);
+  const setSelectedTimeContext = useSetAtom(selectedTimeContextAtom);
 
   useEffect(() => {
     const showDialog = () => {
@@ -60,6 +66,10 @@ export function ResetConfirmationDialog() {
           title: "System Reset OK",
           description: "All data has been reset.",
         });
+        // Clear persisted client-side state to avoid inconsistencies after a
+        // server data reset. The page reload will handle re-fetching data.
+        setGettingStartedUIState(RESET);
+        setSelectedTimeContext(RESET);
         window.location.href = "/";
       }
     } catch (error) {
