@@ -47,11 +47,6 @@ export async function middleware(request: NextRequest) {
   if (!authStatus.isAuthenticated) {
     // If not authenticated, redirect to login.
     // No server-side refresh attempt for page loads by the middleware.
-    if (process.env.DEBUG === 'true') {
-      console.log(
-        "Middleware: User not authenticated (access token invalid/missing). Redirecting to login."
-      );
-    }
     const { search } = request.nextUrl; // `pathname` is already available from the top of the function
     const loginUrl = new URL("/login", request.url);
     const originalPath = `${pathname}${search}`;
@@ -78,9 +73,6 @@ export async function middleware(request: NextRequest) {
   // The `response` object already contains any cookies that authStore.handleServerAuth might have set
   // (e.g., if it cleared cookies due to an error it detected, though less likely if isAuthenticated is true).
   // No complex header/request reconstruction is needed here if middleware refresh for page loads is removed.
-  if (process.env.DEBUG === 'true') {
-    console.log("Middleware: User authenticated. Proceeding with request.");
-  }
 
   // All checks passed, return the response (which might have cookies set by authStore)
   return response;

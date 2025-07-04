@@ -82,9 +82,6 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   // Effect to handle proactive token refresh when an access token expires
   useEffect(() => {
     if (authStatus.expired_access_token_call_refresh) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log('AppInitializer: Access token expired, refresh possible. Attempting auto-refresh...');
-      }
       clientSideRefresh();
     }
   }, [authStatus.expired_access_token_call_refresh, clientSideRefresh]);
@@ -93,14 +90,6 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     let mounted = true
     const initializeClient = async () => {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log('AppInitializer: Attempting to initialize browser REST client...');
-      }
-      // Log the BROWSER_REST_URL the client-side code sees
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`AppInitializer: NEXT_PUBLIC_BROWSER_REST_URL (client-side) = "${process.env.NEXT_PUBLIC_BROWSER_REST_URL}"`);
-      }
-
       try {
         // Import your existing RestClientStore
         const { getBrowserRestClient } = await import('@/context/RestClientStore')
@@ -109,17 +98,11 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
         if (mounted) {
           if (client) {
             setRestClient(client);
-            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-              console.log('AppInitializer: Browser REST client successfully initialized and set in restClientAtom.', { clientUrl: client.url });
-              console.log('AppInitializer: Full client object for debugging:', { clientObject: client });
-            }
           } else {
             // This case should ideally not happen if getBrowserRestClient throws on failure.
             console.error('AppInitializer: getBrowserRestClient() returned null/undefined without throwing an error. This is unexpected. Setting restClientAtom to null.');
             setRestClient(null); // Explicitly set to null if it wasn't set
           }
-        } else {
-          console.log('AppInitializer: Component unmounted before REST client could be set.');
         }
       } catch (error) {
         console.error('AppInitializer: CRITICAL - Failed to initialize browser REST client. Setting restClientAtom to null.', error);
@@ -162,9 +145,6 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
         return;
       }
       
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("AppInitializer: Conditions met, proceeding with app data initialization.");
-      }
       setAppDataInitialized(true); // Mark as initialized immediately
 
       try {
@@ -232,30 +212,14 @@ const AppInitializer = ({ children }: { children: ReactNode }) => {
 
     if (activityStandard === null) {
       targetSetupPath = '/getting-started/activity-standard';
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`AppInitializer: Setup check - No activity standard. Target: ${targetSetupPath}`);
-      }
     } else if (numberOfRegions === null || numberOfRegions === 0) {
       targetSetupPath = '/getting-started/upload-regions';
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`AppInitializer: Setup check - No regions (count: ${numberOfRegions}). Target: ${targetSetupPath}`);
-      }
     } else if (baseData.statDefinitions.length > 0 && !baseData.hasStatisticalUnits) {
       targetSetupPath = '/import';
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`AppInitializer: Setup check - No statistical units. Target: ${targetSetupPath}`);
-      }
     }
 
     // Set or clear the setup redirect atom based on checks.
     setRequiredSetupRedirect(targetSetupPath);
-    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-      if (targetSetupPath) {
-        console.log(`AppInitializer: Setting requiredSetupRedirectAtom to "${targetSetupPath}".`);
-      } else {
-        // console.log("AppInitializer: All setup checks passed. Ensuring requiredSetupRedirectAtom is null.");
-      }
-    }
   }, [
     pathname,
     authLoadableValue,
@@ -324,9 +288,6 @@ const RedirectGuard = () => {
     const publicPaths = ['/login'];
 
     if (!currentIsAuthenticated && !canRefresh && !publicPaths.some(p => pathname.startsWith(p))) {
-      if (debug) {
-        console.log(`RedirectGuard: User is not authenticated on protected path ("${pathname}") and cannot refresh. Redirecting to login.`);
-      }
       // The path has already been saved by PathSaver. Just trigger the redirect.
       setPendingRedirect('/login');
     }
@@ -357,9 +318,6 @@ const RedirectHandler = () => {
   // Effect to navigate if we are not at the target path
   useEffect(() => {
     if (targetPath && targetPath !== pathname) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`RedirectHandler: Target path ("${targetPath}") differs from current ("${pathname}"). Navigating via router.push().`);
-      }
       router.push(targetPath);
     }
   }, [targetPath, pathname, router]);
@@ -369,9 +327,6 @@ const RedirectHandler = () => {
   // the page reloads and state is reset anyway.
   useEffect(() => {
     if (targetPath && targetPath === pathname) {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`RedirectHandler: Arrived at target "${targetPath}". Clearing redirect atoms.`);
-      }
       // Clear the atom that triggered the redirect
       if (explicitRedirect) {
         setExplicitRedirect(null);
@@ -414,25 +369,16 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         eventSource = new EventSource('/api/sse/worker-check')
         
         eventSource.onopen = () => {
-          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-            console.log('SSE connection established');
-          }
           reconnectAttempts = 0
         }
         
         eventSource.onmessage = (event) => { // Handles default messages (event: message or no event field)
           // This block can be kept for other general messages if any, or removed if '/api/sse/worker-check' only sends named events.
-          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-            console.log('SSE default onmessage received:', event.data);
-          }
         };
 
         eventSource.addEventListener('check', (event) => {
           // Assuming event.data is a string like "is_importing", "is_deriving_statistical_units", etc.
           const functionName = event.data as string;
-          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-            console.log(`SSE 'check' event received, data: "${functionName}". Refreshing specific worker status.`);
-          }
           // Type assertion for safety, though refreshWorkerStatusAtom handles undefined gracefully.
           if (functionName === "is_importing" || functionName === "is_deriving_statistical_units" || functionName === "is_deriving_reports") {
             refreshWorkerStatus(functionName as ValidWorkerFunctionName);
@@ -443,9 +389,6 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
         });
 
         eventSource.addEventListener('connected', (event) => {
-          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-            console.log('SSE "connected" event received:', event.data);
-          }
           // You might want to trigger an initial full refresh of worker status upon connection
           refreshWorkerStatus();
         });
@@ -459,9 +402,6 @@ const SSEConnectionManager = ({ children }: { children: ReactNode }) => {
           
           if (reconnectAttempts < maxReconnectAttempts) {
             const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
-            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-              console.log(`SSE: Scheduling reconnect attempt ${reconnectAttempts + 1} in ${delay / 1000}s.`);
-            }
             reconnectTimeout = setTimeout(() => {
               reconnectAttempts++;
               connect();
@@ -685,11 +625,6 @@ export const JotaiStateInspector = () => {
   // Hide if NEXT_PUBLIC_DEBUG is NOT true AND NODE_ENV is NOT 'development'.
   useEffect(() => {
     if (mounted && typeof window !== 'undefined') { // Log only on the client-side, once mounted
-      console.log('[JotaiStateInspector] Env Vars Check:', {
-        NEXT_PUBLIC_DEBUG: process.env.NEXT_PUBLIC_DEBUG,
-        NODE_ENV: process.env.NODE_ENV,
-        shouldRender: process.env.NEXT_PUBLIC_DEBUG === 'true' || process.env.NODE_ENV === 'development',
-      });
     }
   }, [mounted]);
 

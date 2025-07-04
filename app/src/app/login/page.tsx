@@ -7,10 +7,6 @@ import LoginClientBoundary from "./LoginClientBoundary";
 // All redirection logic (if user is already authenticated or becomes authenticated)
 // is handled by LoginClientBoundary on the client-side.
 export default function LoginPage() {
-  if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-    console.log("LoginPage: Rendering login page structure. Client-side will handle auth checks and redirects.");
-  }
-  
   return (
     <main className="px-6 py-24 lg:px-8">
       <div className="sm:mx-auto sm:w-full sm:max-w-sm">

@@ -80,9 +80,6 @@ class AuthStore {
       }
 
       // Always return a fresh unauthenticated state on error
-      if (process.env.DEBUG === 'true') {
-        console.log("AuthStore.getAuthStatus: Returning unauthenticated state due to error");
-      }
       return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'AUTH_STORE_FETCH_ERROR' };
     }
   }
@@ -101,13 +98,6 @@ class AuthStore {
     this.status = status;
     this.fetchStatus = "success";
     this.lastFetchTime = Date.now();
-
-    if (process.env.DEBUG === 'true') {
-      console.log("AuthStore.updateAuthStatus: Auth status updated directly", {
-        isAuthenticated: status.isAuthenticated,
-        hasUser: !!status.user,
-      });
-    }
   }
 
   /**
@@ -122,10 +112,6 @@ class AuthStore {
     };
     this.fetchStatus = "idle";
     this.lastFetchTime = 0;
-
-    if (process.env.DEBUG === 'true') {
-      console.log("AuthStore.clearCache: Auth status cache cleared");
-    }
   }
 
   /**
@@ -271,16 +257,8 @@ class AuthStore {
         // Crucially, forward the cookie header so the SQL function can inspect it.
         if (incomingHeaders.has('cookie')) headersToSend.set('Cookie', incomingHeaders.get('cookie')!);
 
-        if (process.env.DEBUG === 'true') {
-          console.log(`[AuthStore.fetchAuthStatus] Calling direct fetch to '${rpcUrl}'`);
-        }
-
         const response = await fetch(rpcUrl, { method: 'POST', headers: headersToSend, body: JSON.stringify({}) });
         const data = await response.json();
-
-        if (process.env.DEBUG === 'true') {
-          console.log(`[AuthStore.fetchAuthStatus] Response from direct fetch: status=${response.status}, data=${JSON.stringify(data)}`);
-        }
 
         if (!response.ok) {
           console.error("AuthStore.fetchAuthStatus: Direct fetch for auth status failed:", { status: response.status, data });
@@ -299,15 +277,8 @@ class AuthStore {
           return { isAuthenticated: false, user: null, expired_access_token_call_refresh: false, error_code: 'CLIENT_INIT_ERROR' };
         }
         
-        if (process.env.DEBUG === 'true') {
-          console.log(`[AuthStore.fetchAuthStatus] Calling client.rpc('auth_status'). Client URL: ${client.url}`);
-        }
         // Using POST for auth_status, which is the default for RPCs.
         const { data, error, status, statusText } = await client.rpc("auth_status");
-        
-        if (process.env.DEBUG === 'true') {
-          console.log(`[AuthStore.fetchAuthStatus] Response from client.rpc('auth_status'): status=${status}, statusText=${statusText}, data=${JSON.stringify(data)}, error=${JSON.stringify(error)}`);
-        }
         
         if (error) {
           console.error("AuthStore.fetchAuthStatus: Auth status check RPC failed:", { status, statusText, error });
@@ -347,25 +318,10 @@ class AuthStore {
   ): Promise<{
     status: AuthStatus;
   }> {
-    if (process.env.DEBUG === 'true') {
-      const allCookiesForLog = requestCookies.getAll().map(c => ({ name: c.name, value: c.value.startsWith('eyJ') ? `${c.value.substring(0,15)}...` : c.value }));
-      console.log("[AuthStore.handleServerAuth] Entry. Request cookies:", JSON.stringify(allCookiesForLog));
-      const accessToken = requestCookies.get('statbus');
-      if (accessToken && accessToken.value) {
-        console.log(`[AuthStore.handleServerAuth] Full 'statbus' cookie value for server-side inspection:`, accessToken.value);
-        console.log(`[AuthStore.handleServerAuth] Access token ('statbus' cookie) found in request: ${accessToken.value.substring(0, 20)}...`);
-      } else {
-        console.log("[AuthStore.handleServerAuth] No access token ('statbus' cookie) found in request cookies.");
-      }
-    }
-
     // getAuthStatus() internally calls fetchAuthStatus, which uses getServerRestClient.
     // getServerRestClient uses the cookies from the request, so this will correctly
     // check the auth status based on the access token present in the page request.
     const currentStatus = await this.getAuthStatus(); 
-    if (process.env.DEBUG === 'true') {
-      console.log("[AuthStore.handleServerAuth] Status from getAuthStatus() (which calls /rest/rpc/auth_status):", JSON.stringify(currentStatus));
-    }
 
     // The refresh logic has been removed as it's not viable in the middleware for page loads.
     // The middleware will simply use this status to decide whether to redirect to /login.

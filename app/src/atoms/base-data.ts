@@ -50,15 +50,9 @@ export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): 
   if (!client) {
     if (typeof window !== 'undefined') {
       // Client-side, authenticated, but client is not ready. Return a promise that never resolves.
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log("baseDataCoreAtom: Client-side, REST client not yet initialized. Holding in loading state.");
-      }
       return new Promise<BaseData>(() => {}); // Cast to expected Promise type
     }
     // Server-side, client not ready, or unauthenticated.
-    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-      console.log("baseDataCoreAtom: Server-side or pre-client-init, REST client not available. Returning initialBaseData.");
-    }
     return initialBaseData;
   }
 

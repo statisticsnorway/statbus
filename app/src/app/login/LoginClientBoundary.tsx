@@ -37,8 +37,6 @@ export default function LoginClientBoundary() {
   const [state, send] = useAtom(loginPageMachineAtom);
   const clientMounted = useAtomValue(clientMountedAtom);
 
-  const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
-
   // Effect to reset the machine to idle on mount. This ensures a clean state for every visit,
   // which is crucial for handling React 18 Strict Mode and Fast Refresh in development.
   useEffect(() => {
@@ -55,17 +53,9 @@ export default function LoginClientBoundary() {
       return;
     }
 
-    if (debug) {
-      console.log(`LoginClientBoundary: State machine is in state: ${state.value}, auth status is isAuthenticated: ${authStatus.isAuthenticated}`);
-      console.log(`LoginClientBoundary: Current lastKnownPathBeforeAuthChange is: "${lastPathBeforeAuthChange}"`);
-    }
-
     // Once the initial auth check is done, we can evaluate.
     // This will run on first load and again if authStatus.isAuthenticated changes.
     if (initialAuthCheckCompleted) {
-      if (debug) {
-        console.log('LoginClientBoundary: Auth check complete, sending EVALUATE to state machine.');
-      }
       send({
         type: 'EVALUATE',
         context: {
@@ -74,7 +64,7 @@ export default function LoginClientBoundary() {
         },
       });
     }
-  }, [clientMounted, initialAuthCheckCompleted, authStatus.isAuthenticated, pathname, send, debug, lastPathBeforeAuthChange, state.value]);
+  }, [clientMounted, initialAuthCheckCompleted, authStatus.isAuthenticated, pathname, send, lastPathBeforeAuthChange, state.value]);
 
   // Effect to handle the side-effect of redirection when the machine enters the 'redirecting' state.
   useEffect(() => {
@@ -90,27 +80,16 @@ export default function LoginClientBoundary() {
       // Prioritize the path stored before a cross-tab auth change.
       if (lastPathBeforeAuthChange) {
         targetRedirectPath = lastPathBeforeAuthChange;
-        if (debug) {
-          console.log(`LoginClientBoundary: Using lastKnownPathBeforeAuthChange for redirect: "${targetRedirectPath}".`);
-        }
       } else {
         // Otherwise, use the 'next' URL parameter or default to the dashboard.
         targetRedirectPath = nextPath && nextPath.startsWith('/') ? nextPath : '/';
       }
 
-      if (debug) {
-        console.log(`LoginClientBoundary: State machine is 'redirecting' and no redirect is pending. Setting pendingRedirectAtom to "${targetRedirectPath}".`);
-      }
-      
       setPendingRedirect(targetRedirectPath);
       // Clear the last path atom after using it for a redirect.
       setLastPathBeforeAuthChange(null);
-    } else if (state.matches('redirecting') && pendingRedirect !== null) {
-      if (debug) {
-        console.log(`LoginClientBoundary: State machine is 'redirecting', but a redirect to "${pendingRedirect}" is already pending. Taking no action.`);
-      }
     }
-  }, [clientMounted, state, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, pendingRedirect, setPendingRedirect, debug]);
+  }, [clientMounted, state, nextPath, lastPathBeforeAuthChange, setLastPathBeforeAuthChange, pendingRedirect, setPendingRedirect]);
 
   // Render content based on the machine's state.
   if (state.matches('showingForm')) {

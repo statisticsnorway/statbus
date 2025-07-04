@@ -83,9 +83,6 @@ class RestClientStore {
 
       // If initialization is already in progress, return the existing promise
       if (clientInfo.status === 'initializing' && clientInfo.initPromise) {
-        if (process.env.NODE_ENV === 'development') {
-          console.log(`Reusing in-progress browser client initialization`);
-        }
         return clientInfo.initPromise;
       }
 
@@ -99,10 +96,6 @@ class RestClientStore {
         clientInfo.status = 'ready';
         clientInfo.lastInitTime = Date.now();
         clientInfo.error = null;
-
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') { // Browser-side, use NEXT_PUBLIC_DEBUG
-          console.log(`Browser PostgREST client initialized`, { url: client.url });
-        }
 
         return client;
       } catch (error) {
@@ -129,9 +122,6 @@ class RestClientStore {
         initPromise: null,
         lastInitTime: 0
       };
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') { // Browser-side, use NEXT_PUBLIC_DEBUG
-        console.log(`Browser client cache cleared`);
-      }
     }
     // Server client cache is not managed here, so no log for type === 'server'
   }
@@ -209,9 +199,6 @@ class RestClientStore {
               postgrestClientHeaders['Cookie'] = rawCookieHeader;
             }
 
-            if (process.env.DEBUG === 'true' && tokenValue) {
-              console.log(`RestClientStore: Found 'statbus' token via next/headers.cookies().`);
-            }
           } catch (error) {
             console.warn('RestClientStore: Could not import or use next/headers.cookies() for server client. Proceeding without auth headers.', error);
           }
@@ -219,9 +206,6 @@ class RestClientStore {
           if (tokenValue) {
             postgrestClientHeaders['Authorization'] = `Bearer ${tokenValue}`;
           } else {
-            if (process.env.DEBUG === 'true') { // Server-side, use DEBUG
-              console.log(`RestClientStore: No 'statbus' token found for server client. Client will be unauthenticated for Authorization header.`);
-            }
           }
 
           // Add X-Forwarded-* headers from the incoming request
@@ -245,9 +229,6 @@ class RestClientStore {
               postgrestClientHeaders['X-Forwarded-For'] = xForwardedFor;
             }
             
-            if (process.env.DEBUG === 'true') {
-              console.log(`RestClientStore: Server client PostgREST headers prepared: ${JSON.stringify(postgrestClientHeaders)}`);
-            }
           } catch (error) {
             console.warn('RestClientStore: Could not read incoming headers using next/headers. X-Forwarded-* headers will not be set for PostgrestClient.', error);
           }
@@ -260,9 +241,6 @@ class RestClientStore {
           timeoutPromise
         ]);
         // Log initialization attempt for server client
-        if (process.env.DEBUG === 'true') { // Server-side, use DEBUG
-          console.log(`Server PostgREST client initialized`, { url: client.url });
-        }
         return client;
       } else {
         // Create browser client
@@ -326,10 +304,6 @@ class RestClientStore {
     options: RequestInit = {}
   ): Promise<Response> {
     // const callStack = new Error().stack?.split('\n').slice(2, 5).join('\n'); // Get a snippet of the call stack
-    if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-      // console.log(`[RestClientStore.fetchWithAuthRefresh ENTRY] URL: ${url}, Options:`, JSON.stringify(options), `\nCaller: ${callStack}`);
-      console.debug(`[RestClientStore.fetchWithAuthRefresh] URL: ${url}`); // Keep a less verbose debug log
-    }
 
     // Create a new Headers object from the options passed by postgrest-js.
     // This preserves all headers set by the client, including the crucial 'Accept' header.
@@ -352,9 +326,6 @@ class RestClientStore {
       response = await fetch(url, initialFetchOptions);
     } catch (error: any) {
       if (error.name === 'AbortError') {
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-          console.log(`[RestClientStore.fetchWithAuthRefresh] Initial fetch aborted for URL: ${url}`);
-        }
       } else {
         console.error(`[RestClientStore.fetchWithAuthRefresh] Initial fetch failed for URL: ${url}`, error);
       }
@@ -364,15 +335,8 @@ class RestClientStore {
     // If we get a 401 Unauthorized, try to refresh the token *only on the browser*
     // Server-side 401s should typically be handled by initial auth checks or middleware
     if (response.status === 401 && typeof window !== 'undefined') {
-      if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-        console.log(`[RestClientStore.fetchWithAuthRefresh] Received 401 for URL: ${url}. Checking for ongoing refresh.`);
-      }
-
       if (!this.refreshPromise) {
         // No refresh in progress, so this instance will initiate it.
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-          console.log(`[RestClientStore.fetchWithAuthRefresh] No refresh in progress. Initiating new token refresh (triggered by URL: ${url}).`);
-        }
         this.refreshPromise = (async () => {
           try {
             const refreshApiUrl = `${process.env.NEXT_PUBLIC_BROWSER_REST_URL || ''}/rest/rpc/refresh`;
@@ -382,30 +346,7 @@ class RestClientStore {
               credentials: 'include' as RequestCredentials // Crucial for sending cookies
             };
 
-            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-              console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Current document.cookie before calling ${refreshApiUrl}:`, document.cookie);
-              console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Fetch options for ${refreshApiUrl}:`, JSON.stringify(refreshFetchOptions));
-            }
-            
             const refreshApiResponse = await fetch(refreshApiUrl, refreshFetchOptions);
-
-            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-              // Note: We cannot directly read Set-Cookie headers from the response in JS.
-              // Logging document.cookie *after* this call (if it were synchronous and cookies were set) would show changes.
-              // However, the browser handles Set-Cookie automatically.
-              const allRefreshResponseHeaders: Record<string, string> = {};
-              refreshApiResponse.headers.forEach((value, key) => { allRefreshResponseHeaders[key] = value; });
-              console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Response from ${refreshApiUrl}: Status ${refreshApiResponse.status}, Headers:`, JSON.stringify(allRefreshResponseHeaders));
-              
-              try {
-                const responseBodyText = await refreshApiResponse.clone().text(); // Clone to read body without consuming
-                console.log(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Response body from ${refreshApiUrl}:`, responseBodyText);
-              } catch (e) {
-                // console.error(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Error reading response body from ${refreshApiUrl}:`, e);
-                // Keep original debug log if body reading fails for some reason
-                console.debug(`[RestClientStore.fetchWithAuthRefresh REFRESH_ATTEMPT] Original console.debug: Response for ${refreshApiUrl}: Status ${refreshApiResponse.status}. Error reading body: ${e}`);
-              }
-            }
 
             if (!refreshApiResponse.ok) {
               let errorDetail = `Refresh RPC failed with status: ${refreshApiResponse.status}`;
@@ -414,25 +355,16 @@ class RestClientStore {
               window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'refresh_rpc_failed', error: new Error(errorDetail) } }));
               return false; // Indicate refresh failure
             }
-            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-              console.log("RestClientStore.fetchWithAuthRefresh: Token refresh RPC successful.");
-            }
             return true; // Indicate refresh success
           } catch (error) {
             console.error('[RestClientStore.fetchWithAuthRefresh REFRESH_EXCEPTION] Error during token refresh attempt:', error);
             window.dispatchEvent(new CustomEvent('auth:logout', { detail: { reason: 'refresh_attempt_exception', error } }));
             return false; // Indicate refresh failure
           } finally {
-            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-              console.log(`[RestClientStore.fetchWithAuthRefresh] Refresh operation completed. Clearing shared refreshPromise (triggered by URL: ${url}).`);
-            }
             this.refreshPromise = null; // Clear the shared promise once this operation is fully complete
           }
         })();
       } else {
-        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-          console.log(`[RestClientStore.fetchWithAuthRefresh] Refresh already in progress. Awaiting its completion for URL: ${url}.`);
-        }
       }
 
       // All callers (initiator or those that found an existing promise) await the current refreshPromise.
@@ -440,29 +372,17 @@ class RestClientStore {
         const refreshSuccessful = await this.refreshPromise;
 
         if (refreshSuccessful) {
-          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-            console.log(`[RestClientStore.fetchWithAuthRefresh] Refresh successful (awaited for URL: ${url}). Retrying original request.`);
-          }
           const retryFetchOptions = { ...options, credentials: 'include' as RequestCredentials, headers };
           try {
             response = await fetch(url, retryFetchOptions); // Re-assign to original response variable
-            if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-              console.debug(`[RestClientStore.fetchWithAuthRefresh RETRY_AFTER_REFRESH] Response for ${url}: Status ${response.status}`);
-            }
           } catch (error: any) {
             if (error.name === 'AbortError') {
-              if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-                console.log(`[RestClientStore.fetchWithAuthRefresh] Retry fetch aborted for URL: ${url}`);
-              }
             } else {
               console.error(`[RestClientStore.fetchWithAuthRefresh] Retry fetch failed for URL: ${url}`, error);
             }
             throw error; // Re-throw the error
           }
         } else {
-          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
-            console.log(`[RestClientStore.fetchWithAuthRefresh] Refresh failed (awaited for URL: ${url}). Returning original 401 response.`);
-          }
           // `response` is still the original 401 response from the initial fetch.
         }
       } catch (error) {

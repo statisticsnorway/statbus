@@ -35,18 +35,11 @@ export const AuthCrossTabSyncer = () => {
       return;
     }
 
-    const debug = process.env.NEXT_PUBLIC_DEBUG === 'true';
-
     // This condition handles both the initial fetch (when lastSyncTs is null)
     // and subsequent updates from other tabs.
     if (lastSyncTs === null || lastSyncTs !== authChangeTimestamp) {
-      if (debug) {
-        console.log(`AuthCrossTabSyncer: Refreshing status. Reason: ${lastSyncTs === null ? 'Initial Load' : 'Timestamp changed'}.`);
-      }
       fetchAuthStatus();
       setLastSyncTs(authChangeTimestamp);
-    } else if (debug) {
-      // console.log('AuthCrossTabSyncer: Timestamp is the same, no action needed.');
     }
   }, [clientMounted, restClient, authChangeTimestamp, lastSyncTs, setLastSyncTs, fetchAuthStatus]);
 
