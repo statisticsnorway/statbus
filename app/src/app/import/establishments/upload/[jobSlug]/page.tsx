@@ -253,6 +253,7 @@ export default function EstablishmentsUploadPage({
       <ImportJobUpload 
         jobSlug={jobSlug}
         job={job} // Pass local job state
+        definition={definition}
         nextPage="/import/establishments-without-legal-unit"
         refreshRelevantCounts={memoizedRefreshRelevantCounts}
       />

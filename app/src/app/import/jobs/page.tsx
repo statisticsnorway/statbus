@@ -25,10 +25,29 @@ import { DataTableActionBar, DataTableActionBarAction, DataTableActionBarSelecti
 import { Button } from "@/components/ui/button";
 
 type ImportJob = Tables<"import_job"> & {
-  import_definition: { slug: string; name: string; } | null;
+  import_definition: {
+    slug: string | null;
+    name: string | null;
+    mode: string | null;
+    custom: boolean | null;
+  } | null;
 };
 
 const SWR_KEY_IMPORT_JOBS = "/api/import-jobs";
+
+const formatDate = (dateString: string | null): string => {
+  if (dateString === null) return 'N/A';
+  if (dateString === 'infinity') return 'Present';
+  try {
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'Invalid Date';
+    return date.toLocaleDateString('nb-NO', {
+      day: 'numeric', month: 'short', year: 'numeric'
+    });
+  } catch (e) {
+    return dateString;
+  }
+};
 
 const jobStatuses = [
   { value: "waiting_for_upload", label: "Waiting for Upload", icon: FileUp },
@@ -42,20 +61,42 @@ const jobStatuses = [
   { value: "rejected", label: "Rejected", icon: ThumbsDown },
 ] as const;
 
-const getUploadPathForJob = (job: ImportJob): string => {
-  const slug = job.import_definition?.slug;
-  if (!slug) return "/import/jobs";
+const getImportType = (definition: { slug: string | null; name: string | null; mode: string | null; custom: boolean | null; } | null): string => {
+  const mode = definition?.mode;
+  const name = definition?.name;
+  const custom = definition?.custom;
 
-  if (slug.startsWith("legal_unit")) {
-    return `/import/legal-units/upload/${job.slug}`;
+  if (custom) {
+    return name || "Custom Import";
   }
-  if (slug.startsWith("establishment_for_lu")) {
-    return `/import/establishments/upload/${job.slug}`;
+
+  switch (mode) {
+    case "legal_unit":
+      return "Legal Units";
+    case "establishment_formal":
+      return "Establishments with Legal Units";
+    case "establishment_informal":
+      return "Establishments without Legal Units";
+    default:
+      return name || "Unknown Import Type";
   }
-  if (slug.startsWith("establishment_without_lu")) {
-    return `/import/establishments-without-legal-unit/upload/${job.slug}`;
+};
+
+const getUploadPathForJob = (job: ImportJob): string => {
+  const mode = job.import_definition?.mode;
+  if (!mode) return "/import/jobs";
+
+  switch (mode) {
+    case "legal_unit":
+      return `/import/legal-units/upload/${job.slug}`;
+    case "establishment_formal":
+      return `/import/establishments/upload/${job.slug}`;
+    case "establishment_informal":
+      return `/import/establishments-without-legal-unit/upload/${job.slug}`;
+    default:
+      // For custom jobs, we don't have a specific upload page, link back to jobs list.
+      return `/import/jobs`;
   }
-  return `/import/jobs`;
 };
 
 const fetcher = async (key: string): Promise<ImportJob[]> => {
@@ -65,7 +106,7 @@ const fetcher = async (key: string): Promise<ImportJob[]> => {
   if (key === SWR_KEY_IMPORT_JOBS) {
     const { data, error } = await client
       .from("import_job")
-      .select("*, import_definition(slug, name)")
+      .select("*, import_definition(slug, name, mode, custom)")
       .order("created_at", { ascending: false });
     if (error) {
       console.error("SWR Fetcher error (list jobs):", error);
@@ -181,7 +222,21 @@ export default function ImportJobsPage() {
       id: 'description',
       accessorKey: 'description',
       header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
-      cell: ({ row }) => <div className="font-medium">{row.original.description}</div>,
+      cell: ({ row }) => {
+        const job = row.original;
+        const importType = getImportType(job.import_definition);
+        const isStandardImport = job.import_definition?.custom === false;
+
+        const dateHandling = job.default_valid_from
+          ? `${formatDate(job.default_valid_from)} to ${formatDate(job.default_valid_to)}`
+          : "valid_from,valid_to in CSV";
+
+        const description = isStandardImport
+          ? `${importType} (${dateHandling})`
+          : importType;
+
+        return <div className="font-medium">{description}</div>;
+      },
       meta: {
         label: "Description",
         placeholder: "Filter descriptions...",

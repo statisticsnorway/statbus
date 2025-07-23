@@ -27,17 +27,26 @@ export function ImportJobDetails({ job, definition }: ImportJobDetailsProps) {
   // always use an `_explicit_dates` definition which never has a `time_context_ident`.
   const hasTimeContext = !!job?.default_valid_from;
   
-  // Determine import type based on the job's slug
+  // Determine import type based on the definition's mode and custom flag
   const getImportType = () => {
-    // Use the passed-in job prop
-    const slug = definition?.slug; 
-    if (!slug) return "Unknown Import Type";
-    
-    if (slug.includes("legal_unit")) return "Legal Units";
-    if (slug.includes("establishment_for_lu")) return "Establishments with Legal Units";
-    if (slug.includes("establishment_without_lu"))
-      return "Establishments without Legal Units";
-    return "Unknown Import Type";
+    const mode = definition?.mode;
+    const name = definition?.name;
+    const custom = definition?.custom;
+
+    if (custom) {
+      return name || "Custom Import";
+    }
+
+    switch (mode) {
+      case "legal_unit":
+        return "Legal Units";
+      case "establishment_formal":
+        return "Establishments with Legal Units";
+      case "establishment_informal":
+        return "Establishments without Legal Units";
+      default:
+        return name || "Unknown Import Type";
+    }
   };
   return (
     <div className="border rounded-md p-4">
@@ -53,38 +62,20 @@ export function ImportJobDetails({ job, definition }: ImportJobDetailsProps) {
             {!hasTimeContext ? (
               <>
                 <FileSpreadsheet className="h-4 w-4 text-gray-500" />
-                <span>From CSV</span>
+                <span>valid_from,valid_to in CSV</span>
               </>
             ) : (
               <>
                 <CalendarClock className="h-4 w-4 text-gray-500" />
-                <span>Time Context</span>
+                <span>
+                  {job?.default_valid_from ? formatDate(new Date(job.default_valid_from)) : "N/A"}
+                  {" to "}
+                  {job?.default_valid_to === "infinity" ? "Present" : (job?.default_valid_to ? formatDate(new Date(job.default_valid_to)) : "N/A")}
+                </span>
               </>
             )}
           </span>
         </div>
-        {hasTimeContext && (
-          <>
-            <div className="flex justify-between pl-4">
-              <span className="text-gray-600">Valid From</span>
-              <span className="font-medium">
-                {job?.default_valid_from
-                  ? formatDate(new Date(job.default_valid_from))
-                  : "N/A"}
-              </span>
-            </div>
-            <div className="flex justify-between pl-4">
-              <span className="text-gray-600">Valid To</span>
-              <span className="font-medium">
-                {job?.default_valid_to
-                  ? job.default_valid_to === "infinity"
-                    ? "Present"
-                    : formatDate(new Date(job.default_valid_to))
-                  : "N/A"}
-              </span>
-            </div>
-          </>
-        )}
       </div>
     </div>
   );

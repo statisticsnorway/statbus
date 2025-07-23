@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useImportManager } from "@/atoms/import"; // Updated import
 import { Label } from "@/components/ui/label";
 import { Tables } from "@/lib/database.types";
@@ -19,6 +19,11 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
     setSelectedTimeContext, 
     setUseExplicitDates
   } = useImportManager(); // Updated hook call
+
+  const [isClient, setIsClient] = useState(false);
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   // Pass the ident string directly to the context setter
   const handleTimeContextChange = (value: string) => {
@@ -40,14 +45,14 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
     }
   };
 
-  if (availableContexts.length === 0) {
-    return <div>Loading time contexts...</div>;
+  if (!isClient || availableContexts.length === 0) {
+    return <div>Loading validity periods...</div>;
   }
 
   return (
     <div className="space-y-4 p-4 border rounded-md bg-gray-50">
       <h3 className="font-medium flex items-center">
-        Time Context for {getUnitTypeLabel()}
+        Data Validity Period
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -55,7 +60,7 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
             </TooltipTrigger>
             <TooltipContent>
               <p className="max-w-xs">
-                Choose how to handle dates for your imported data. You can either use a predefined time context or provide explicit dates in your CSV file.
+                Choose how to handle dates for your imported data. You can either apply a predefined validity period to all records, or provide explicit dates in your CSV file.
               </p>
             </TooltipContent>
           </Tooltip>
@@ -72,7 +77,7 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
           <RadioGroupItem value="time-context" id="time-context-option" className="mt-1" />
           <div className="grid gap-1.5">
             <Label htmlFor="time-context-option" className="font-medium">
-              Use selected time context
+              Apply a validity period to all records
             </Label>
             
             {!useExplicitDates && (
@@ -84,7 +89,7 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
                 >
                   <SelectTrigger id="time-context" className="w-full">
                     <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
-                    <SelectValue placeholder="Select a time context" />
+                    <SelectValue placeholder="Select a validity period" />
                   </SelectTrigger>
                   <SelectContent>
                     {availableContexts.map((tc: Tables<'time_context'>) => (
@@ -115,7 +120,7 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
             
             {useExplicitDates && (
               <p className="text-sm text-gray-500 mt-1">
-                All records will use the time period from the selected context
+                A predefined validity period will be applied to all records.
               </p>
             )}
           </div>

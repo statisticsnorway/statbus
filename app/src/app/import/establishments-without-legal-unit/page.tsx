@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import React, { useEffect, useState } from "react"; // Removed useState
 import { InfoBox } from "@/components/info-box";
-import { useImportManager, usePendingJobsByPattern } from "@/atoms/import"; // Updated import
+import { useImportManager, usePendingJobsByMode } from "@/atoms/import"; // Updated import
 import { TimeContextSelector } from "../components/time-context-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";
@@ -21,8 +21,8 @@ import { PendingJobsList } from "../components/pending-jobs-list";
 export default function UploadEstablishmentsWithoutLegalUnitPage() {
   const router = useRouter();
   const { counts: { establishmentsWithoutLegalUnit } } = useImportManager();
-  // Use the generalized hook with the specific slug pattern for establishments without LU
-  const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByPattern("%establishment_without_lu%");
+  // Use the generalized hook with the specific import mode for informal establishments
+  const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("establishment_informal");
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -84,7 +84,7 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
       <TimeContextSelector unitType="establishments-without-legal-unit" />
       
       <ImportJobCreator 
-        definitionSlug="establishment_without_lu_current_year"
+        importMode="establishment_informal"
         uploadPath="/import/establishments-without-legal-unit/upload"
         unitType="Establishments Without Legal Unit"
         onJobCreated={refreshJobs}

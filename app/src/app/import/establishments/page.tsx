@@ -8,7 +8,7 @@ import {
 } from "@/components/ui/accordion";
 import React, { useEffect, useState } from "react";
 import { InfoBox } from "@/components/info-box";
-import { useImportManager, usePendingJobsByPattern } from "@/atoms/import";
+import { useImportManager, usePendingJobsByMode } from "@/atoms/import";
 import { TimeContextSelector } from "../components/time-context-selector";
 import { ImportJobCreator } from "../components/import-job-creator";
 import { Spinner } from "@/components/ui/spinner";
@@ -21,8 +21,8 @@ import { PendingJobsList } from "../components/pending-jobs-list";
 export default function UploadEstablishmentsPage() {
   const router = useRouter();
   const { counts: { establishmentsWithLegalUnit } } = useImportManager();
-  // Use the generalized hook with the specific slug pattern for establishments with LU
-  const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByPattern("%establishment_for_lu%");
+  // Use the generalized hook with the specific import mode for formal establishments
+  const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("establishment_formal");
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -82,7 +82,7 @@ export default function UploadEstablishmentsPage() {
       <TimeContextSelector unitType="establishments" />
       
       <ImportJobCreator 
-        definitionSlug="establishment_for_lu_current_year"
+        importMode="establishment_formal"
         uploadPath="/import/establishments/upload"
         unitType="Establishments"
         onJobCreated={refreshJobs}

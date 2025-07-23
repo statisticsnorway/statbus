@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useImportManager, usePendingJobsByPattern } from "@/atoms/import"; // Updated import
+import { useImportManager, usePendingJobsByMode } from "@/atoms/import"; // Updated import
 import { ImportJobCreator } from "../components/import-job-creator";
 import { TimeContextSelector } from "../components/time-context-selector";
 import { Spinner } from "@/components/ui/spinner";
@@ -21,8 +21,8 @@ import { PendingJobsList } from "../components/pending-jobs-list";
 export default function LegalUnitsPage() {
   const router = useRouter();
   const { counts } = useImportManager();
-  // Use the generalized hook with the specific slug pattern for legal units
-  const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByPattern("%legal_unit%");
+  // Use the generalized hook with the specific import mode for legal units
+  const { jobs: pendingJobs, loading: isLoading, error, refreshJobs } = usePendingJobsByMode("legal_unit");
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
@@ -83,7 +83,7 @@ export default function LegalUnitsPage() {
       <TimeContextSelector unitType="legal-units" />
       
       <ImportJobCreator 
-        definitionSlug="legal_unit_current_year"
+        importMode="legal_unit"
         uploadPath="/import/legal-units/upload"
         unitType="Legal Units"
         onJobCreated={refreshJobs}

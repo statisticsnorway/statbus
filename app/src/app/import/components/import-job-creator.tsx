@@ -1,19 +1,19 @@
 "use client";
 
 import React, { useState } from "react";
-import { useImportManager } from "@/atoms/import"; // Updated import
+import { useImportManager, ImportMode } from "@/atoms/import"; // Updated import
 import { Button } from "@/components/ui/button";
 import { useRouter } from "next/navigation";
 import { Spinner } from "@/components/ui/spinner";
 
 interface ImportJobCreatorProps {
-  definitionSlug: string;
+  importMode: ImportMode;
   uploadPath: string;
   unitType: string;
   onJobCreated?: () => void;
 }
 
-export function ImportJobCreator({ definitionSlug, uploadPath, unitType, onJobCreated }: ImportJobCreatorProps) {
+export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreated }: ImportJobCreatorProps) {
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { 
@@ -32,16 +32,10 @@ export function ImportJobCreator({ definitionSlug, uploadPath, unitType, onJobCr
     setError(null);
 
     try {
-      // Use the appropriate definition slug.
-      // The default definition `..._current_year` has a hardcoded time context which overrides any user selection.
-      // To honor the user's choice (either a selected time context or explicit dates from CSV),
-      // we must use a definition that does NOT have a hardcoded time context.
-      // The `..._explicit_dates` definition serves this purpose for both cases.
-      // - If a time context is selected, `createImportJobAtom` will populate `default_valid_from/to`.
-      // - If explicit dates is chosen, `createImportJobAtom` will not, and the backend expects dates in the CSV.
-      const actualDefinitionSlug = definitionSlug.replace('_current_year', '_explicit_dates');
-        
-      const job = await createImportJob(actualDefinitionSlug);
+      // The createImportJob atom now takes an importMode and will select the correct
+      // import definition (the one without a hardcoded time context) on the backend.
+      // This allows the user's choice of time context or explicit dates to be respected.
+      const job = await createImportJob(importMode);
       if (job) {
         onJobCreated?.();
         router.push(`${uploadPath}/${job.slug}`);

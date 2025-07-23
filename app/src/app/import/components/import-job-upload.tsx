@@ -16,15 +16,15 @@ interface ImportJobUploadProps {
   nextPage: string;
   refreshRelevantCounts: () => Promise<void>;
   job: ImportJob | null; // Receive job as prop, can be null initially
-  // Definition might not be strictly needed here, but could be useful for format info
-  // definition: Tables<"import_definition"> | null; 
+  definition: Tables<"import_definition"> | null; 
 }
 
 export function ImportJobUpload({ 
   jobSlug, 
   nextPage, 
   refreshRelevantCounts, 
-  job // Receive job state directly
+  job, // Receive job state directly
+  definition
 }: ImportJobUploadProps) {
   const [file, setFile] = useState<File | null>(null);
   const [isUploading, setIsUploading] = useState(false);
@@ -213,7 +213,7 @@ export function ImportJobUpload({
               Your CSV file should include the following required columns:
             </p>
             <ul className="list-disc pl-5 space-y-1">
-              {job.slug?.includes("legal_unit") && (
+              {definition?.mode === "legal_unit" && (
                 <>
                   <li>id (unique identifier)</li>
                   <li>name (legal unit name)</li>
@@ -222,7 +222,7 @@ export function ImportJobUpload({
                   <li>activity_category_code (primary activity code)</li>
                 </>
               )}
-              {job.slug?.includes("establishment_for_lu") && (
+              {definition?.mode === "establishment_formal" && (
                 <>
                   <li>id (unique identifier)</li>
                   <li>name (establishment name)</li>
@@ -231,7 +231,7 @@ export function ImportJobUpload({
                   <li>activity_category_code (primary activity code)</li>
                 </>
               )}
-              {job.slug?.includes("establishment_without_lu") && (
+              {definition?.mode === "establishment_informal" && (
                 <>
                   <li>id (unique identifier)</li>
                   <li>name (establishment name)</li>
@@ -240,7 +240,7 @@ export function ImportJobUpload({
                 </>
               )}
             </ul>
-            {job.slug?.includes("explicit_dates") && (
+            {!job.default_valid_from && (
               <p className="font-medium">
                 This import requires valid_from and valid_to date columns in
                 ISO format (YYYY-MM-DD).

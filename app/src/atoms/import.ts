@@ -10,10 +10,16 @@
 import { atom, useAtomValue, useSetAtom } from 'jotai'
 import { useMemo, useCallback, useEffect } from 'react'
 
-import type { Database, Tables, TablesInsert } from '@/lib/database.types'
+import type { Database, Enums, Tables, TablesInsert } from '@/lib/database.types'
 import { restClientAtom } from './app'
 import { timeContextsAtom, defaultTimeContextAtom } from './base-data'
 import { isAuthenticatedAtom } from './auth'
+
+// ============================================================================
+// TYPES
+// ============================================================================
+
+export type ImportMode = Enums<'import_mode'>;
 
 // ============================================================================
 // IMPORT UNITS ATOMS - Replace ImportUnitsContext
@@ -68,11 +74,11 @@ export interface PendingJobsData {
 }
 
 export interface AllPendingJobsState {
-  [slugPattern: string]: PendingJobsData | undefined;
+  [mode: string]: PendingJobsData | undefined;
 }
 
-// Atom to store all pending jobs, keyed by their definition slug pattern
-export const allPendingJobsStateAtom = atom<AllPendingJobsState>({});
+// Atom to store all pending jobs, keyed by their import_mode
+export const allPendingJobsByModeStateAtom = atom<AllPendingJobsState>({});
 
 // ============================================================================
 // ASYNC ACTION ATOMS (Import)
@@ -122,33 +128,32 @@ export const refreshAllUnitCountsAtom = atom(
   }
 );
 
-export const refreshPendingJobsByPatternAtom = atom(
+export const refreshPendingJobsByModeAtom = atom(
   null,
-  async (get, set, slugPattern:string) => {
+  async (get, set, mode: ImportMode) => {
     const isAuthenticated = get(isAuthenticatedAtom);
     const client = get(restClientAtom);
 
     if (!isAuthenticated) {
-      // console.log(`refreshPendingJobsByPatternAtom (${slugPattern}): User not authenticated. Skipping fetch.`);
-      set(allPendingJobsStateAtom, (prev) => ({
+      set(allPendingJobsByModeStateAtom, (prev) => ({
         ...prev,
-        [slugPattern]: { ...(prev[slugPattern] || { jobs: [], error: null, lastFetched: null }), loading: false, error: "Not authenticated" },
+        [mode]: { ...(prev[mode] || { jobs: [], error: null, lastFetched: null }), loading: false, error: "Not authenticated" },
       }));
       return;
     }
 
     if (!client) {
-      console.error(`refreshPendingJobsByPatternAtom (${slugPattern}): No client available.`);
-      set(allPendingJobsStateAtom, (prev) => ({
+      console.error(`refreshPendingJobsByModeAtom (${mode}): No client available.`);
+      set(allPendingJobsByModeStateAtom, (prev) => ({
         ...prev,
-        [slugPattern]: { ...(prev[slugPattern] || { jobs: [], error: null, lastFetched: null }), loading: false, error: "Client not available" },
+        [mode]: { ...(prev[mode] || { jobs: [], error: null, lastFetched: null }), loading: false, error: "Client not available" },
       }));
       return;
     }
 
-    set(allPendingJobsStateAtom, (prev) => ({
+    set(allPendingJobsByModeStateAtom, (prev) => ({
       ...prev,
-      [slugPattern]: { ...(prev[slugPattern] || { jobs: [], error: null, lastFetched: null }), loading: true, error: null },
+      [mode]: { ...(prev[mode] || { jobs: [], error: null, lastFetched: null }), loading: true, error: null },
     }));
 
     try {
@@ -156,14 +161,14 @@ export const refreshPendingJobsByPatternAtom = atom(
         .from("import_job")
         .select("*, import_definition!inner(*)")
         .eq("state", "waiting_for_upload")
-        .like("import_definition.slug", slugPattern)
+        .eq("import_definition.mode", mode)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
 
-      set(allPendingJobsStateAtom, (prev) => ({
+      set(allPendingJobsByModeStateAtom, (prev) => ({
         ...prev,
-        [slugPattern]: {
+        [mode]: {
           jobs: data || [],
           loading: false,
           error: null,
@@ -171,13 +176,13 @@ export const refreshPendingJobsByPatternAtom = atom(
         },
       }));
     } catch (error: any) {
-      console.error(`Failed to refresh pending jobs for pattern ${slugPattern}:`, error);
-      set(allPendingJobsStateAtom, (prev) => ({
+      console.error(`Failed to refresh pending jobs for mode ${mode}:`, error);
+      set(allPendingJobsByModeStateAtom, (prev) => ({
         ...prev,
-        [slugPattern]: {
-          ...(prev[slugPattern] || { jobs: [], loading: false, lastFetched: null }),
+        [mode]: {
+          ...(prev[mode] || { jobs: [], loading: false, lastFetched: null }),
           loading: false,
-          error: error.message || `Failed to fetch pending jobs for ${slugPattern}`,
+          error: error.message || `Failed to fetch pending jobs for ${mode}`,
         },
       }));
     }
@@ -198,9 +203,9 @@ export const setImportUseExplicitDatesAtom = atom(
   }
 );
 
-export const createImportJobAtom = atom<null, [string], Promise<Tables<'import_job'> | null>>(
+export const createImportJobAtom = atom<null, [ImportMode], Promise<Tables<'import_job'> | null>>(
   null,
-  async (get, set, definitionSlug: string): Promise<Tables<'import_job'> | null> => {
+  async (get, set, mode: ImportMode): Promise<Tables<'import_job'> | null> => {
     const client = get(restClientAtom);
     if (!client) {
       console.error("createImportJobAtom: No client available");
@@ -220,23 +225,28 @@ export const createImportJobAtom = atom<null, [string], Promise<Tables<'import_j
       throw new Error("Time context for import not properly specified.");
     }
 
+    // Find the import definition that matches the mode and has no time context ident.
+    // This ensures we use the `..._explicit_dates` definition, which allows either
+    // user-selected time context or explicit dates from the CSV to be used.
     const { data: definitionData, error: definitionError } = await client
       .from("import_definition")
-      .select("id, time_context_ident")
-      .eq("slug", definitionSlug)
+      .select("id, name, time_context_ident")
+      .eq("mode", mode)
+      .eq("custom", false)
+      .is("time_context_ident", null)
       .maybeSingle();
 
     if (definitionError) {
-      console.error(`createImportJobAtom: Error fetching import definition: ${definitionError.message}`);
+      console.error(`createImportJobAtom: Error fetching import definition for mode ${mode}: ${definitionError.message}`);
       throw definitionError;
     }
     if (!definitionData) {
-      console.error(`createImportJobAtom: Import definition not found for slug: ${definitionSlug}`);
-      throw new Error(`Import definition not found for slug: ${definitionSlug}`);
+      console.error(`createImportJobAtom: Import definition not found for mode: ${mode} with no time context.`);
+      throw new Error(`Import definition not found for mode: ${mode}`);
     }
 
     const insertJobData: TablesInsert<'import_job'> = {
-        description: `Import job for ${definitionSlug}`,
+        description: definitionData.name,
         definition_id: definitionData.id,
         data_table_name: null!,
         expires_at: null!,
@@ -347,8 +357,8 @@ export const useImportManager = () => {
     await doRefreshAllUnitCounts();
   }, [doRefreshAllUnitCounts]);
   
-  const createImportJob = useCallback(async (definitionSlug: string): Promise<Tables<'import_job'> | null> => {
-    return await doCreateJob(definitionSlug);
+  const createImportJob = useCallback(async (mode: ImportMode): Promise<Tables<'import_job'> | null> => {
+    return await doCreateJob(mode);
   }, [doCreateJob]);
 
   return {
@@ -363,24 +373,24 @@ export const useImportManager = () => {
   };
 };
 
-export const usePendingJobsByPattern = (slugPattern: string) => {
-  const allJobsState = useAtomValue(allPendingJobsStateAtom);
-  const refreshJobsForPattern = useSetAtom(refreshPendingJobsByPatternAtom);
+export const usePendingJobsByMode = (mode: ImportMode) => {
+  const allJobsState = useAtomValue(allPendingJobsByModeStateAtom);
+  const refreshJobsForMode = useSetAtom(refreshPendingJobsByModeAtom);
   const isAuthenticated = useAtomValue(isAuthenticatedAtom);
 
   const state: PendingJobsData = useMemo(() => {
-    return allJobsState[slugPattern] || { jobs: [], loading: false, error: null, lastFetched: null };
-  }, [allJobsState, slugPattern]);
+    return allJobsState[mode] || { jobs: [], loading: false, error: null, lastFetched: null };
+  }, [allJobsState, mode]);
 
   const refreshJobs = useCallback(() => {
-    refreshJobsForPattern(slugPattern);
-  }, [refreshJobsForPattern, slugPattern]);
+    refreshJobsForMode(mode);
+  }, [refreshJobsForMode, mode]);
 
   useEffect(() => {
     if (isAuthenticated && state.jobs.length === 0 && !state.loading && state.lastFetched === null) {
       refreshJobs();
     }
-  }, [isAuthenticated, state.jobs.length, state.loading, state.lastFetched, refreshJobs, slugPattern]);
+  }, [isAuthenticated, state.jobs.length, state.loading, state.lastFetched, refreshJobs, mode]);
 
   return {
     ...state,
