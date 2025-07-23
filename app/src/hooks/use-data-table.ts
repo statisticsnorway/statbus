@@ -257,7 +257,6 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
   );
 
   const table = useReactTable({
-    ...tableProps,
     columns,
     initialState,
     pageCount,
@@ -288,6 +287,7 @@ export function useDataTable<TData>(props: UseDataTableProps<TData>) {
     manualPagination,
     manualSorting: true,
     manualFiltering: true,
+    ...tableProps,
   });
 
   return { table, shallow, debounceMs, throttleMs };

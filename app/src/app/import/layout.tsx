@@ -11,7 +11,7 @@ export default function ImportLayout({
   readonly progress: React.ReactNode;
 }) {
   const pathname = usePathname();
-  const isJobsPage = pathname === "/import/jobs";
+  const isJobsPage = pathname.startsWith("/import/jobs");
 
   if (isJobsPage) {
     return (

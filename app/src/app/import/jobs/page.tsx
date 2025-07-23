@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { formatDistanceToNow } from "date-fns";
-import { AlertCircle, CheckCircle, Clock, FileUp, Hourglass, Loader, MoreHorizontal, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
+import { AlertCircle, CheckCircle, Clock, FileUp, FolderSearch, Hourglass, Loader, MoreHorizontal, ThumbsDown, ThumbsUp, Trash2 } from "lucide-react";
 import { Tables } from '@/lib/database.types';
 import { useDataTable } from "@/hooks/use-data-table";
 import { DataTable } from "@/components/data-table/data-table";
@@ -291,9 +291,16 @@ export default function ImportJobsPage() {
       id: 'rows',
       header: 'Rows',
       cell: ({ row }) => {
-        const { imported_rows, total_rows } = row.original;
-        if (total_rows === null || total_rows === undefined) return <span className="text-xs text-gray-400">-</span>;
-        return <div className="text-xs">{imported_rows ?? 0} / {total_rows}</div>;
+        const job = row.original;
+        const { imported_rows, total_rows } = job;
+        if (total_rows === null || total_rows === undefined) {
+          return <span className="text-xs text-gray-400">-</span>;
+        }
+        return (
+          <Link href={`/import/jobs/${job.slug}/data`} className="underline">
+            <div className="text-xs">{imported_rows ?? 0} / {total_rows}</div>
+          </Link>
+        );
       }
     },
     {
@@ -345,6 +352,12 @@ export default function ImportJobsPage() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem asChild>
+                <Link href={`/import/jobs/${job.slug}/data`}>
+                  <FolderSearch className="mr-2 h-4 w-4" />
+                  View Imported Data
+                </Link>
+              </DropdownMenuItem>
               <DropdownMenuItem
                 className="text-red-600"
                 onClick={async () => {
