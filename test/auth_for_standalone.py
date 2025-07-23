@@ -1567,19 +1567,11 @@ def test_local_nextjs_app_auth_test_endpoint(session: Session, ctx: TestContext)
                 ctx.info(f"/api/auth_test response JSON (condensed): {json.dumps(data)[:200]}...") # Log snippet
                 ctx.debug(f"/api/auth_test full response JSON: {json.dumps(data, indent=2)}") # Full if IS_DEBUG_ENABLED
                 
-                if "postgrest_js_call_to_rpc_auth_test" not in data or \
-                   "direct_fetch_call_to_rpc_auth_test" not in data:
-                    ctx.problem_reproduced("/api/auth_test response missing key sections.")
+                if "direct_fetch_call_to_rpc_auth_test" not in data:
+                    ctx.problem_reproduced("/api/auth_test response missing 'direct_fetch_call_to_rpc_auth_test' section.")
                 else:
                     ctx.success("Next.js /api/auth_test responded successfully with expected sections.")
                     
-                    pg_js_call = data.get("postgrest_js_call_to_rpc_auth_test", {})
-                    if pg_js_call.get("status") == "success" and pg_js_call.get("data"):
-                        ctx.success("  PostgREST-JS call to rpc/auth_test within Next.js was successful and returned data.")
-                        ctx.debug(f"  PostgREST-JS call data: {json.dumps(pg_js_call.get('data'), indent=2)}")
-                    else:
-                        ctx.problem_reproduced(f"  PostgREST-JS call to rpc/auth_test within Next.js failed or returned no data. Status: {pg_js_call.get('status')}, Error: {pg_js_call.get('error')}")
-
                     direct_fetch_call = data.get("direct_fetch_call_to_rpc_auth_test", {})
                     if direct_fetch_call.get("status") == "success" and direct_fetch_call.get("data"):
                         ctx.success("  Direct Fetch call to rpc/auth_test within Next.js was successful and returned data.")

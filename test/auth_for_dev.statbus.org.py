@@ -657,23 +657,16 @@ def test_nextjs_api_auth_test(session: Session, ctx: TestContext): # Added ctx
                 ctx.info(f"/api/auth_test response JSON (condensed): {json.dumps(data)[:200]}...")
                 ctx.debug(f"/api/auth_test full response JSON: {json.dumps(data, indent=2)}")
                 
-                if "postgrest_js_call_to_rpc_auth_test" not in data or \
-                   "direct_fetch_call_to_rpc_auth_test" not in data:
-                    ctx.problem_reproduced("/api/auth_test response missing key sections.")
+                if "direct_fetch_call_to_rpc_auth_test" not in data:
+                    ctx.problem_reproduced("/api/auth_test response missing 'direct_fetch_call_to_rpc_auth_test' section.")
                 else:
                     ctx.success("/api/auth_test responded successfully. Detailed analysis of JSON needed.")
                     
-                    pg_js_call_data = data.get("postgrest_js_call_to_rpc_auth_test", {}).get("data", {})
                     direct_fetch_call_data = data.get("direct_fetch_call_to_rpc_auth_test", {}).get("data", {})
 
-                    pg_js_cookies_seen_by_db = pg_js_call_data.get("cookies") if isinstance(pg_js_call_data, dict) else None
+                    pg_js_cookies_seen_by_db = None # This call was removed from the endpoint
                     direct_fetch_cookies_seen_by_db = direct_fetch_call_data.get("cookies") if isinstance(direct_fetch_call_data, dict) else None
                     
-                    if pg_js_cookies_seen_by_db is not None:
-                        ctx.info(f"Cookies seen by DB (PostgREST-JS call to rpc/auth_test): {json.dumps(pg_js_cookies_seen_by_db)}")
-                    else:
-                        ctx.warning("Could not extract cookies seen by DB from PostgREST-JS call in /api/auth_test response.")
-
                     if direct_fetch_cookies_seen_by_db is not None:
                         ctx.info(f"Cookies seen by DB (Direct Fetch call to rpc/auth_test): {json.dumps(direct_fetch_cookies_seen_by_db)}")
                     else:
