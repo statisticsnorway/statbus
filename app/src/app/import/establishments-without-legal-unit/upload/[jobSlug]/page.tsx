@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
 import { ImportJobUpload } from "../../../components/import-job-upload";
 import { ImportJobDetails } from "../../../components/import-job-details";
-import { useImportManager as useImportUnits } from '@/atoms/import';
+import { useImportManager as useImportUnits, usePendingJobsByMode } from '@/atoms/import';
 import { use } from "react";
 import { Spinner } from "@/components/ui/spinner";
 import { getBrowserRestClient } from "@/context/RestClientStore";
@@ -21,13 +21,15 @@ export default function EstablishmentsWithoutLegalUnitUploadPage({
 }) {
   // Only get refreshUnitCount from context
   const { refreshUnitCount } = useImportUnits();
+  const { refreshJobs: refreshPendingJobs } = usePendingJobsByMode('establishment_informal');
   const doRefreshBaseData = useSetAtom(refreshBaseDataAtom); // Changed atom
   const { jobSlug } = use(params);
 
   const memoizedRefreshRelevantCounts = useCallback(async () => {
     await refreshUnitCount('establishmentsWithoutLegalUnit');
+    await refreshPendingJobs();
     await doRefreshBaseData();
-  }, [refreshUnitCount, doRefreshBaseData]);
+  }, [refreshUnitCount, refreshPendingJobs, doRefreshBaseData]);
 
   // Local state for job, definition, loading, and error
   const [job, setJob] = useState<ImportJob | null>(null);

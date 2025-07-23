@@ -29,6 +29,36 @@ export default function UploadEstablishmentsWithoutLegalUnitPage() {
     setIsClient(true);
   }, []);
 
+  // Listen for any job updates and refresh the pending list
+  useEffect(() => {
+    const eventSource = new EventSource('/api/sse/import-jobs');
+
+    eventSource.onmessage = (event) => {
+      try {
+        if (!event.data) return;
+        const ssePayload = JSON.parse(event.data);
+        if (ssePayload.type === "connection_established" || ssePayload.type === "heartbeat") return;
+
+        // Any other message implies a potential change in job status
+        if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+          console.log('SSE: Received job update, refreshing pending jobs for establishment_informal.');
+        }
+        refreshJobs();
+      } catch (e) {
+        console.error("Failed to parse SSE message on pending jobs page:", e);
+      }
+    };
+
+    eventSource.onerror = (error) => {
+      console.error('SSE error on pending jobs page:', error);
+      eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [refreshJobs]);
+
   // The useEffect in usePendingJobsByPattern handles initial fetch.
 
   const handleDeleteJob = async (jobId: number) => {

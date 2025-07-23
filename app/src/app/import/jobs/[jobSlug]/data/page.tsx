@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import useSWR from 'swr';
+import useSWR, { useSWRConfig } from 'swr';
 import { getBrowserRestClient } from "@/context/RestClientStore";
 import { Spinner } from "@/components/ui/spinner";
 import { Tables } from '@/lib/database.types';
@@ -70,6 +70,7 @@ const fetcher = async (key: string): Promise<any> => {
 
 export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlug:string }> }) {
   const { jobSlug } = React.use(params);
+  const { mutate } = useSWRConfig();
 
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
@@ -110,6 +111,43 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     { revalidateOnFocus: false }
   );
 
+  React.useEffect(() => {
+    if (!job?.id) return;
+
+    const sseUrl = `/api/sse/import-jobs?ids=${job.id}`;
+    const eventSource = new EventSource(sseUrl);
+
+    eventSource.onmessage = (event) => {
+      try {
+        if (!event.data) return;
+        const ssePayload = JSON.parse(event.data);
+        if (ssePayload.type === "connection_established" || ssePayload.type === "heartbeat") return;
+
+        // If the update is for our job, revalidate SWR caches
+        if (ssePayload.import_job?.id === job.id) {
+          if (process.env.NEXT_PUBLIC_DEBUG === 'true') {
+            console.log(`SSE: Job ${job.id} updated, revalidating data page.`);
+          }
+          mutate(`import-job/${jobSlug}`);
+          if (tableDataSWRKey) {
+            mutate(tableDataSWRKey);
+          }
+        }
+      } catch (error) {
+        console.error("Error processing SSE message on data page:", error);
+      }
+    };
+
+    eventSource.onerror = (err) => {
+        console.error(`SSE connection error for job ${job.id}:`, err);
+        eventSource.close();
+    };
+
+    return () => {
+      eventSource.close();
+    };
+  }, [job?.id, jobSlug, tableDataSWRKey, mutate]);
+
   const pageCount = React.useMemo(() => {
     return tableData?.count != null
       ? Math.ceil(tableData.count / pagination.pageSize)
@@ -119,16 +157,41 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
   const columns = React.useMemo<ColumnDef<ImportJobDataRow>[]>(() => {
     if (!tableData?.data || tableData.data.length === 0) return [];
     
-    // Dynamically create columns from the first row of data
-    const keys = Object.keys(tableData.data[0]);
+    // Collect unique keys from all rows
+    const allKeys = new Set<string>();
+    tableData.data.forEach(row => {
+      Object.keys(row).forEach(key => allKeys.add(key));
+    });
+    let keys = Array.from(allKeys);
+
+    // Define preferred order
+    const preferredOrder = ['row_id', 'operation', 'error', 'invalid_codes', 'action'];
+
+    // Sort keys: preferred first in specified order, then others alphabetically
+    keys.sort((a, b) => {
+      const aIndex = preferredOrder.indexOf(a);
+      const bIndex = preferredOrder.indexOf(b);
+      const aPos = aIndex === -1 ? preferredOrder.length : aIndex;
+      const bPos = bIndex === -1 ? preferredOrder.length : bIndex;
+      if (aPos !== bPos) return aPos - bPos;
+      return a.localeCompare(b);
+    });
+
     return keys.map(key => ({
       id: key,
       accessorKey: key,
-      header: ({ column }) => <DataTableColumnHeader column={column} title={key.replace(/_/g, ' ')} />,
+      header: ({ column }) => <DataTableColumnHeader column={column} title={key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())} />,
       cell: ({ row }) => {
-        const value = row.getValue(key as string);
-        const displayValue = value === null ? 'NULL' : String(value);
-        return <div className="text-xs truncate">{displayValue}</div>;
+        const value = row.getValue(key);
+        let displayValue;
+        if (value === null) {
+          displayValue = 'NULL';
+        } else if (typeof value === 'object') {
+          displayValue = JSON.stringify(value);
+        } else {
+          displayValue = String(value);
+        }
+        return <div className="text-xs truncate" title={displayValue}>{displayValue}</div>;
       },
       enableSorting: true,
     }));
