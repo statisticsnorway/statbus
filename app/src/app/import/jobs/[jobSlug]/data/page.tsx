@@ -12,6 +12,7 @@ import { DataTableColumnHeader } from "@/components/data-table/data-table-column
 import { ColumnDef, PaginationState, SortingState } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { ChevronRight } from "lucide-react";
 
 type ImportJob = Tables<"import_job"> & {
   import_definition: {
@@ -233,14 +234,15 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <div>
+      <div>
+        <div className="flex items-center space-x-2">
+          <Link href="/import/jobs" className="text-2xl font-semibold text-gray-500 hover:underline">
+            Import Jobs
+          </Link>
+          <ChevronRight className="h-6 w-6 text-gray-400" />
           <h1 className="text-2xl font-semibold">Imported Data for Job: {job.id}</h1>
-          <p className="text-sm text-gray-500">Type: {job.import_definition?.name ?? 'N/A'} | Table: {job.data_table_name}</p>
         </div>
-        <Button asChild variant="outline">
-          <Link href="/import/jobs">Back to All Jobs</Link>
-        </Button>
+        <p className="text-sm text-gray-500 mt-1">Type: {job.import_definition?.name ?? 'N/A'} | Table: {job.data_table_name}</p>
       </div>
 
       {isTableDataLoading && <Spinner message={`Loading data from ${tableName}...`} />}
