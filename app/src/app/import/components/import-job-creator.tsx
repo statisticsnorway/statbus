@@ -19,7 +19,7 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
   const { 
     createImportJob, 
     timeContext: { selectedContext, useExplicitDates } 
-  } = useImportManager(); // Updated hook call
+  } = useImportManager(importMode); // Updated hook call
   const router = useRouter();
 
   const handleContinue = async () => {

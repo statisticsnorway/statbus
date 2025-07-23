@@ -61,26 +61,6 @@ const jobStatuses = [
   { value: "rejected", label: "Rejected", icon: ThumbsDown },
 ] as const;
 
-const getImportType = (definition: { slug: string | null; name: string | null; mode: string | null; custom: boolean | null; } | null): string => {
-  const mode = definition?.mode;
-  const name = definition?.name;
-  const custom = definition?.custom;
-
-  if (custom) {
-    return name || "Custom Import";
-  }
-
-  switch (mode) {
-    case "legal_unit":
-      return "Legal Units";
-    case "establishment_formal":
-      return "Establishments with Legal Units";
-    case "establishment_informal":
-      return "Establishments without Legal Units";
-    default:
-      return name || "Unknown Import Type";
-  }
-};
 
 const getUploadPathForJob = (job: ImportJob): string => {
   const mode = job.import_definition?.mode;
@@ -224,18 +204,7 @@ export default function ImportJobsPage() {
       header: ({ column }) => <DataTableColumnHeader column={column} title="Description" />,
       cell: ({ row }) => {
         const job = row.original;
-        const importType = getImportType(job.import_definition);
-        const isStandardImport = job.import_definition?.custom === false;
-
-        const dateHandling = job.default_valid_from
-          ? `${formatDate(job.default_valid_from)} to ${formatDate(job.default_valid_to)}`
-          : "valid_from,valid_to in CSV";
-
-        const description = isStandardImport
-          ? `${importType} (${dateHandling})`
-          : importType;
-
-        return <div className="font-medium">{description}</div>;
+        return <div className="font-medium">{job.description}</div>;
       },
       meta: {
         label: "Description",

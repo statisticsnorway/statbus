@@ -47,11 +47,7 @@ export default function ImportStatus() {
               href="/import/legal-units"
               subtitle={`${(mounted ? legalUnits : null) || 0} legal units uploaded`}
               icon={<Building2 className="w-4 h-4" />}
-              // Simplified processing indicator - maybe just use general isImporting?
-              // Or remove processing indicator from individual steps?
-              // Let's remove it for now for simplicity, as we can't easily tell *which* type is importing.
-              // processing={isImporting} // Option 1: General flag
-              processing={false} // Option 2: Remove specific indicator
+              processing={false}
             />
           </li>
           <li className="mb-6">
@@ -63,7 +59,6 @@ export default function ImportStatus() {
                 (mounted ? establishmentsWithLegalUnit : null) || 0
               } formal establishments uploaded`}
               icon={<Store className="w-4 h-4" />}
-              // Remove specific indicator
               processing={false}
             />
           </li>
@@ -79,7 +74,6 @@ export default function ImportStatus() {
                 (mounted ? establishmentsWithoutLegalUnit : null) || 0
               } informal establishments uploaded`}
               icon={<Building className="w-4 h-4" />}
-              // Remove specific indicator
               processing={false}
             />
           </li>
@@ -93,7 +87,6 @@ export default function ImportStatus() {
               href="/import/jobs"
               subtitle="Monitor ongoing imports"
               icon={<FileText className="w-4 h-4" />}
-              // Use the general isImporting flag here
               processing={isImporting}
             />
           </li>
@@ -104,7 +97,6 @@ export default function ImportStatus() {
               href="/import/analyse-data-for-search-and-reports"
               subtitle="Prepare for search and reports"
               icon={<BarChart2 className="w-4 h-4" />}
-              // Use the combined isDeriving flag
               processing={isDeriving}
             />
           </li>

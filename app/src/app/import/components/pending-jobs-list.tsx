@@ -86,36 +86,7 @@ export function PendingJobsList({ jobs, onDeleteJob, unitTypeTitle, unitTypeDesc
         {jobs.map(job => (
           <div key={job.id} className="flex justify-between items-center bg-white p-3 rounded border">
             <div>
-              <p className="font-medium">{unitTypeTitle}</p>
-              <div className="text-xs text-gray-500 mt-1">
-                {job.default_valid_from ? (
-                  <p className="flex items-center space-x-1">
-                    <span>Valid from {formatDate(job.default_valid_from)} to {formatDate(job.default_valid_to)}</span>
-                    {(job.default_valid_to === null || job.default_valid_to === 'infinity') && (
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <InfoIcon className="h-3.5 w-3.5 cursor-help text-gray-400" />
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>What does &quot;infinity&quot; mean?</DialogTitle>
-                          </DialogHeader>
-                          <div className="py-4">
-                            <p>Infinity means the data is valid until new information arrives. When new data is provided for an overlapping period, the new information will supersede the old, effectively ending the &quot;infinity&quot; period for the previous record.</p>
-                          </div>
-                          <DialogFooter>
-                            <DialogClose asChild>
-                              <Button type="button">OK</Button>
-                            </DialogClose>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    )}
-                  </p>
-                ) : (
-                  <p>Valid from columns &quot;valid_from&quot; to &quot;valid_to&quot;</p>
-                )}
-              </div>
+              <p className="font-medium">{job.description}</p>
             </div>
             <div className="flex items-center space-x-2">
               <Button 

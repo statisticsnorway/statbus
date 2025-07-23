@@ -1,10 +1,6 @@
 "use client";
 
 import React from "react";
-// import { useImportUnits } from "../import-units-context"; // Removed as it's not used
-import { formatDate } from "@/lib/utils";
-import { CalendarClock, FileSpreadsheet, Info } from "lucide-react";
-
 import { Tables } from "@/lib/database.types"; // Import Tables type
 
 // Define types locally or import if available globally
@@ -18,63 +14,13 @@ interface ImportJobDetailsProps {
 }
 
 export function ImportJobDetails({ job, definition }: ImportJobDetailsProps) {
-  // No context needed here anymore
-
-  // An import job uses a time context if its `default_valid_from` field is set.
-  // This is set by `createImportJobAtom` when a time context is selected in the UI.
-  // If it's null, the job expects explicit dates from the CSV file.
-  // We check the job object directly, rather than the definition, because we now
-  // always use an `_explicit_dates` definition which never has a `time_context_ident`.
-  const hasTimeContext = !!job?.default_valid_from;
-  
-  // Determine import type based on the definition's mode and custom flag
-  const getImportType = () => {
-    const mode = definition?.mode;
-    const name = definition?.name;
-    const custom = definition?.custom;
-
-    if (custom) {
-      return name || "Custom Import";
-    }
-
-    switch (mode) {
-      case "legal_unit":
-        return "Legal Units";
-      case "establishment_formal":
-        return "Establishments with Legal Units";
-      case "establishment_informal":
-        return "Establishments without Legal Units";
-      default:
-        return name || "Unknown Import Type";
-    }
-  };
   return (
     <div className="border rounded-md p-4">
       <h3 className="font-medium mb-3">Import Configuration</h3>
       <div className="space-y-1 text-sm">
         <div className="flex justify-between items-center">
-          <span className="text-gray-600">Import Type</span>
-          <span className="font-medium text-right">{getImportType()}</span>
-        </div>
-        <div className="flex justify-between items-center">
-          <span className="text-gray-600">Date Handling</span>
-          <span className="font-medium flex items-center gap-1">
-            {!hasTimeContext ? (
-              <>
-                <FileSpreadsheet className="h-4 w-4 text-gray-500" />
-                <span>valid_from,valid_to in CSV</span>
-              </>
-            ) : (
-              <>
-                <CalendarClock className="h-4 w-4 text-gray-500" />
-                <span>
-                  {job?.default_valid_from ? formatDate(new Date(job.default_valid_from)) : "N/A"}
-                  {" to "}
-                  {job?.default_valid_to === "infinity" ? "Present" : (job?.default_valid_to ? formatDate(new Date(job.default_valid_to)) : "N/A")}
-                </span>
-              </>
-            )}
-          </span>
+          <span className="text-gray-600">Description</span>
+          <span className="font-medium text-right">{job.description}</span>
         </div>
       </div>
     </div>

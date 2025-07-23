@@ -29,6 +29,7 @@ export interface BaseData {
   timeContexts: Tables<"time_context">[]
   defaultTimeContext: Tables<"time_context"> | null
   hasStatisticalUnits: boolean
+  importDefinitions: Tables<"import_definition">[]
 }
 
 const initialBaseData: BaseData = {
@@ -38,6 +39,7 @@ const initialBaseData: BaseData = {
   timeContexts: [],
   defaultTimeContext: null,
   hasStatisticalUnits: false,
+  importDefinitions: [],
 };
 
 // Explicitly type the return of the async function for atomWithRefresh
@@ -62,13 +64,15 @@ export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): 
       externalIdentTypesResult,
       statbusUsersResult,
       statisticalUnitResult,
-      timeContextsResult
+      timeContextsResult,
+      importDefinitionsResult,
     ] = await Promise.all([
       client.from("stat_definition_active").select(),
       client.from("external_ident_type_active").select(),
       client.from("user").select(), // Consider if all users are needed or just current user's info
       client.from("statistical_unit").select("*", { count: "exact", head: true }), // Check existence efficiently
-      client.from("time_context").select("*") // Fetches all, view is ordered by default
+      client.from("time_context").select("*"), // Fetches all, view is ordered by default
+      client.from("import_definition").select("*").eq("custom", false),
     ]);
 
     if (statDefinitionsResult.error) console.error('Error fetching stat definitions:', statDefinitionsResult.error);
@@ -76,6 +80,7 @@ export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): 
     if (statbusUsersResult.error) console.error('Error fetching statbus users:', statbusUsersResult.error);
     if (statisticalUnitResult.error) console.error('Error checking for statistical units:', statisticalUnitResult.error); // This error might still occur if other issues arise, but the query itself is fixed.
     if (timeContextsResult.error) console.error('Error fetching time contexts:', timeContextsResult.error);
+    if (importDefinitionsResult.error) console.error('Error fetching import definitions:', importDefinitionsResult.error);
     
     let defaultTimeContext: Tables<"time_context"> | null = null;
     if (timeContextsResult.data && timeContextsResult.data.length > 0) {
@@ -91,6 +96,7 @@ export const baseDataCoreAtom = atomWithRefresh<Promise<BaseData>>(async (get): 
       timeContexts: timeContextsResult.data || [],
       defaultTimeContext: defaultTimeContext,
       hasStatisticalUnits: !!statisticalUnitResult.count && statisticalUnitResult.count > 0,
+      importDefinitions: importDefinitionsResult.data || [],
     };
   } catch (error) {
     console.error("baseDataCoreAtom: Failed to fetch base data:", error);
@@ -124,6 +130,7 @@ export const statbusUsersAtom = atom((get) => get(baseDataAtom).statbusUsers)
 export const timeContextsAtom = atom((get) => get(baseDataAtom).timeContexts)
 export const defaultTimeContextAtom = atom((get) => get(baseDataAtom).defaultTimeContext)
 export const hasStatisticalUnitsAtom = atom((get) => get(baseDataAtom).hasStatisticalUnits)
+export const importDefinitionsAtom = atom((get) => get(baseDataAtom).importDefinitions);
 
 // Action to refresh base data
 export const refreshBaseDataAtom = atom(null, (_get, set) => { // get is not used

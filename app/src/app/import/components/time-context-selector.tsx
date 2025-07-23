@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useImportManager } from "@/atoms/import"; // Updated import
+import { useImportManager, ImportMode } from "@/atoms/import"; // Updated import
 import { Label } from "@/components/ui/label";
 import { Tables } from "@/lib/database.types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -14,11 +14,20 @@ interface TimeContextSelectorProps {
 }
 
 export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
+  const getModeFromUnitType = (): ImportMode => {
+    switch(unitType) {
+      case 'legal-units': return 'legal_unit';
+      case 'establishments': return 'establishment_formal';
+      case 'establishments-without-legal-unit': return 'establishment_informal';
+      default: throw new Error(`Invalid unitType: ${unitType}`);
+    }
+  }
+
   const { 
     timeContext: { availableContexts, selectedContext, useExplicitDates },
     setSelectedTimeContext, 
     setUseExplicitDates
-  } = useImportManager(); // Updated hook call
+  } = useImportManager(getModeFromUnitType()); // Updated hook call
 
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
