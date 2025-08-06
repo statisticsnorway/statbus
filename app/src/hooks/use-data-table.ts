@@ -43,7 +43,6 @@ const THROTTLE_MS = 50;
 interface UseDataTableProps<TData>
   extends Omit<
       TableOptions<TData>,
-      | "state"
       | "getCoreRowModel"
       | "manualFiltering"
       | "manualSorting"

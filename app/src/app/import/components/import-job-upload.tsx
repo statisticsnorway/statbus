@@ -240,7 +240,7 @@ export function ImportJobUpload({
                 </>
               )}
             </ul>
-            {!job.default_valid_from && (
+            {!job.time_context_ident && (
               <p className="font-medium">
                 This import requires valid_from and valid_to date columns in
                 ISO format (YYYY-MM-DD).

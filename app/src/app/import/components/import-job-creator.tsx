@@ -18,24 +18,40 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
   const [error, setError] = useState<string | null>(null);
   const { 
     createImportJob, 
-    timeContext: { selectedContext, useExplicitDates } 
-  } = useImportManager(importMode); // Updated hook call
+    importState,
+    loadDefinitions,
+    timeContext,
+  } = useImportManager();
   const router = useRouter();
 
+  // Load the definition for this import mode when the component mounts
+  React.useEffect(() => {
+    loadDefinitions(importMode);
+  }, [loadDefinitions, importMode]);
+
+  const { useExplicitDates, explicitStartDate, explicitEndDate, selectedDefinition } = importState;
+  const { selectedContext } = timeContext;
+
   const handleContinue = async () => {
-    if (!selectedContext && !useExplicitDates) {
-      setError("Please select a time context or enable explicit dates");
-      return;
+    if (selectedDefinition?.valid_time_from === 'job_provided') {
+      if (useExplicitDates) {
+        if (!explicitStartDate || !explicitEndDate) {
+          setError("Please provide both a start and end date.");
+          return;
+        }
+      } else if (!selectedContext) {
+        setError("Please select a time context.");
+        return;
+      }
     }
 
     setIsCreating(true);
     setError(null);
 
     try {
-      // The createImportJob atom now takes an importMode and will select the correct
-      // import definition (the one without a hardcoded time context) on the backend.
-      // This allows the user's choice of time context or explicit dates to be respected.
-      const job = await createImportJob(importMode);
+      // The createImportJob atom now gets the definition from the state,
+      // so it no longer needs the mode to be passed.
+      const job = await createImportJob();
       if (job) {
         onJobCreated?.();
         router.push(`${uploadPath}/${job.slug}`);
@@ -59,7 +75,7 @@ export function ImportJobCreator({ importMode, uploadPath, unitType, onJobCreate
 
       <Button 
         onClick={handleContinue} 
-        disabled={isCreating || (!selectedContext && !useExplicitDates)}
+        disabled={isCreating || !selectedDefinition}
         className="w-full"
       >
         {isCreating ? <Spinner className="mr-2 h-4 w-4" /> : null}

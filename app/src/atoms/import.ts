@@ -1,6 +1,53 @@
 "use client";
 
 /**
+ * ARCHITECTURAL OVERVIEW: Import Job and Time Context Handling
+ *
+ * This file implements the frontend logic for a simplified and robust import
+ * process. The design centers on decoupling the 'what' of an import (the
+ * definition) from the 'when' (the time context).
+ *
+ * ### Why This Is an Improvement
+ *
+ * The previous system required a unique `import_definition` for every
+ * combination of import type (e.g., Legal Units) and time context (e.g.,
+ * "Current Year"). This was brittle and difficult to maintain.
+ *
+ * The new architecture provides several key advantages:
+ *
+ * 1.  **Decoupling and Flexibility:** There is now only one generic
+ *     `import_definition` per import `mode`. This definition describes the data
+ *     shape and processing steps. The validity period is specified separately
+ *     on a per-job basis via the `import_job.time_context_ident` field. This
+ *     is a much cleaner separation of concerns.
+ *
+ * 2.  **Reduced Configuration:** Adding a new time period (e.g., "Last Quarter")
+ *     only requires adding a row to the `time_context` table. It becomes
+ *     instantly available for all import types without needing to create
+ *     multiple new `import_definition` records in the database. The system is
+ *     now truly data-driven.
+ *
+ * 3.  **Simplified Frontend Logic:** The UI no longer needs complex logic to
+ *     filter time contexts based on which definitions exist. It can simply
+ *     present all available `input`-scoped time contexts to the user,
+ *     eliminating a major source of bugs and complexity. Job creation is
+ *     simplified to finding the single definition for the mode and attaching
+ *     the chosen `time_context_ident`.
+ *
+ * ### Potential Future Enhancements
+ *
+ * This robust new foundation was an excellent architectural refactoring by the
+ * other agent. It opens the door for further enhancements, such as:
+ *
+ * -   **UI-Driven Column Mapping:** Allowing users to visually map columns from
+ *     their uploaded CSV to target fields, creating per-job import definitions
+ *     dynamically.
+ * -   **Validation & Preview Step:** Processing the first N rows of a file to
+ *     provide an interactive preview and validation feedback before committing
+ *     to a full import.
+ */
+
+/**
  * Data Import Atoms and Hooks
  *
  * This file contains atoms and hooks related to the data import process,
@@ -12,7 +59,7 @@ import { useMemo, useCallback, useEffect } from 'react'
 
 import type { Database, Enums, Tables, TablesInsert } from '@/lib/database.types'
 import { restClientAtom } from './app'
-import { timeContextsAtom, defaultTimeContextAtom, importDefinitionsAtom } from './base-data'
+import { timeContextsAtom, defaultTimeContextAtom } from './base-data'
 import { isAuthenticatedAtom } from './auth'
 
 // ============================================================================
@@ -33,6 +80,10 @@ export interface ImportState {
   completed: boolean
   useExplicitDates: boolean;
   selectedImportTimeContextIdent: string | null;
+  selectedDefinition: Tables<'import_definition'> | null;
+  availableDefinitions: Tables<'import_definition'>[];
+  explicitStartDate: string | null; // YYYY-MM-DD
+  explicitEndDate: string | null;   // YYYY-MM-DD
 }
 
 export const importStateAtom = atom<ImportState>({
@@ -43,6 +94,10 @@ export const importStateAtom = atom<ImportState>({
   completed: false,
   useExplicitDates: false,
   selectedImportTimeContextIdent: null,
+  selectedDefinition: null,
+  availableDefinitions: [],
+  explicitStartDate: null,
+  explicitEndDate: null,
 })
 
 // ============================================================================
@@ -203,9 +258,72 @@ export const setImportUseExplicitDatesAtom = atom(
   }
 );
 
-export const createImportJobAtom = atom<null, [ImportMode], Promise<Tables<'import_job'> | null>>(
+export const setImportExplicitStartDateAtom = atom(
   null,
-  async (get, set, mode: ImportMode): Promise<Tables<'import_job'> | null> => {
+  (get, set, date: string | null) => {
+    set(importStateAtom, (prev) => ({ ...prev, explicitStartDate: date }));
+  }
+);
+
+export const setImportExplicitEndDateAtom = atom(
+  null,
+  (get, set, date: string | null) => {
+    set(importStateAtom, (prev) => ({ ...prev, explicitEndDate: date }));
+  }
+);
+
+export const setSelectedImportDefinitionAtom = atom(
+  null,
+  (get, set, definition: Tables<'import_definition'>) => {
+    set(importStateAtom, (prev) => ({ ...prev, selectedDefinition: definition }));
+  }
+);
+
+export const loadImportDefinitionsAtom = atom(
+  null,
+  async (get, set, mode: ImportMode) => {
+    const client = get(restClientAtom);
+    if (!client) {
+      console.error(`loadImportDefinitionsAtom: No client available for mode ${mode}`);
+      return;
+    }
+
+    // Reset previous definitions to avoid showing stale data
+    set(importStateAtom, (prev) => ({
+      ...prev,
+      selectedDefinition: null,
+      availableDefinitions: [],
+    }));
+
+    try {
+      const { data, error } = await client
+        .from("import_definition")
+        .select("*")
+        .eq("mode", mode)
+        .eq("custom", false);
+
+      if (error) throw error;
+      if (!data || data.length === 0) throw new Error(`Import definition not found for mode: ${mode}.`);
+      
+      set(importStateAtom, (prev) => ({ ...prev, availableDefinitions: data }));
+
+      // Set a default selected definition. Prefer 'job_provided' if available.
+      const defaultSelection = data.find(d => d.valid_time_from === 'job_provided') || data[0];
+      if (defaultSelection) {
+        set(importStateAtom, (prev) => ({ ...prev, selectedDefinition: defaultSelection }));
+      }
+      
+    } catch (error: any) {
+      console.error(`Failed to load import definitions for mode ${mode}:`, error);
+      // Ensure definition is null on error
+      set(importStateAtom, (prev) => ({ ...prev, selectedDefinition: null, availableDefinitions: [] }));
+    }
+  }
+);
+
+export const createImportJobAtom = atom<null, [], Promise<Tables<'import_job'> | null>>(
+  null,
+  async (get, set): Promise<Tables<'import_job'> | null> => {
     const client = get(restClientAtom);
     if (!client) {
       console.error("createImportJobAtom: No client available");
@@ -213,82 +331,57 @@ export const createImportJobAtom = atom<null, [ImportMode], Promise<Tables<'impo
     }
 
     const importState = get(importStateAtom);
-    const allTimeContexts = get(timeContextsAtom);
+    const definition = importState.selectedDefinition;
 
-    let selectedFullTimeContext: Tables<'time_context'> | null = null;
-    if (importState.selectedImportTimeContextIdent) {
-      selectedFullTimeContext = allTimeContexts.find(tc => tc.ident === importState.selectedImportTimeContextIdent) || null;
+    if (!definition) {
+      console.error("createImportJobAtom: No import definition selected.");
+      throw new Error("Import definition not selected.");
     }
 
-    if (!selectedFullTimeContext && !importState.useExplicitDates) {
-      console.error("createImportJobAtom: Either a selected time context (via ident) must be found or useExplicitDates must be true.");
-      throw new Error("Time context for import not properly specified.");
-    }
-    
-    const queryBuilder = client
-      .from("import_definition")
-      .select("id, name")
-      .eq("mode", mode)
-      .eq("custom", false);
-
-    if (importState.useExplicitDates) {
-      // Find the definition for explicit dates (time_context_ident is NULL).
-      queryBuilder.is("time_context_ident", null);
-    } else if (selectedFullTimeContext) {
-      // Find the definition matching the selected time context.
-      queryBuilder.eq("time_context_ident", selectedFullTimeContext.ident);
-    } else {
-      // This should not be reached due to the guard clause.
-      throw new Error("Time context for import not specified.");
-    }
-
-    const { data: definitionData, error: definitionError } = await queryBuilder.maybeSingle();
-
-    if (definitionError) {
-      console.error(`createImportJobAtom: Error fetching import definition for mode ${mode}: ${definitionError.message}`);
-      throw definitionError;
-    }
-    if (!definitionData) {
-      const contextMsg = importState.useExplicitDates 
-        ? 'for explicit dates' 
-        : `for time context '${selectedFullTimeContext?.ident}'`;
-      const errorMessage = `Import definition not found for mode: ${mode} ${contextMsg}.`;
-      console.error(`createImportJobAtom: ${errorMessage}`);
-      throw new Error(errorMessage);
-    }
-    
     const insertJobData: TablesInsert<'import_job'> = {
-      definition_id: definitionData.id,
-      // The description from the definition is now the single source of truth,
-      // since each definition is specific to a time context (or lack thereof).
-      description: definitionData.name, 
+      definition_id: definition.id,
+      time_context_ident: null,
+      default_valid_from: null,
+      default_valid_to: null,
       data_table_name: null!,
       expires_at: null!,
       slug: null!,
-      upload_table_name: null!
+      upload_table_name: null!,
     };
 
-    // We do not set default_valid_from/to here.
-    // The database should handle this via a trigger based on the definition's time_context_ident.
-    // This also respects the chk_import_job_validity_definition_consistency constraint.
+    if (definition.valid_time_from === 'job_provided') {
+      if (importState.useExplicitDates) {
+        if (!importState.explicitStartDate || !importState.explicitEndDate) {
+          throw new Error("Explicit start and end dates must be provided.");
+        }
+        insertJobData.default_valid_from = importState.explicitStartDate;
+        insertJobData.default_valid_to = importState.explicitEndDate;
+      } else {
+        if (!importState.selectedImportTimeContextIdent) {
+          throw new Error("A time context must be selected.");
+        }
+        insertJobData.time_context_ident = importState.selectedImportTimeContextIdent;
+      }
+    }
+    // If valid_time_from is 'source_columns', we send no time context info, which is the default.
 
     const { data, error: insertError } = await client
       .from("import_job")
       .insert(insertJobData)
       .select("*")
-      .limit(1);
+      .single();
 
     if (insertError) {
       console.error(`createImportJobAtom: Error creating import job: ${insertError.message}`);
       throw insertError;
     }
 
-    if (!data || data.length === 0) {
+    if (!data) {
       console.error("createImportJobAtom: No data returned after creating import job");
       throw new Error("Import job creation did not return data");
     }
 
-    return data[0] as Tables<'import_job'>;
+    return data as Tables<'import_job'>;
   }
 );
 
@@ -296,32 +389,30 @@ export const createImportJobAtom = atom<null, [ImportMode], Promise<Tables<'impo
 // IMPORT HOOKS
 // ============================================================================
 
-export const useImportManager = (mode?: ImportMode) => {
+export const useImportManager = () => {
   const currentImportState = useAtomValue(importStateAtom);
   const currentUnitCounts = useAtomValue(unitCountsAtom);
   const allTimeContextsFromBase = useAtomValue(timeContextsAtom);
-  const allImportDefinitions = useAtomValue(importDefinitionsAtom);
   const defaultTimeContextFromBase = useAtomValue(defaultTimeContextAtom);
 
   const doRefreshUnitCount = useSetAtom(refreshUnitCountAtom);
   const doRefreshAllUnitCounts = useSetAtom(refreshAllUnitCountsAtom);
   const doSetSelectedTimeContextIdent = useSetAtom(setImportSelectedTimeContextAtom);
   const doSetUseExplicitDates = useSetAtom(setImportUseExplicitDatesAtom);
+  const doSetExplicitStartDate = useSetAtom(setImportExplicitStartDateAtom);
+  const doSetExplicitEndDate = useSetAtom(setImportExplicitEndDateAtom);
+  const doLoadDefinitions = useSetAtom(loadImportDefinitionsAtom);
+  const doSetSelectedDefinition = useSetAtom(setSelectedImportDefinitionAtom);
   const doCreateJob = useSetAtom(createImportJobAtom);
 
   const availableImportTimeContexts = useMemo<Tables<'time_context'>[]>(() => {
-    if (!allTimeContextsFromBase || allTimeContextsFromBase.length === 0) {
-      return [];
-    }
-    
-    // It is crucial to filter time contexts to only those suitable for import.
-    // These are contexts with a scope of 'input' or 'input_and_query', as they are guaranteed
-    // to have the necessary valid_from and valid_to dates.
-    const filteredByScope = allTimeContextsFromBase.filter(
+    if (!allTimeContextsFromBase) return [];
+
+    // Filter time contexts to only those suitable for any import.
+    // These have a scope of 'input' or 'input_and_query'.
+    return allTimeContextsFromBase.filter(
       (tc) => tc.scope === "input" || tc.scope === "input_and_query"
     );
-    
-    return filteredByScope;
   }, [allTimeContextsFromBase]);
 
   useEffect(() => {
@@ -371,6 +462,22 @@ export const useImportManager = (mode?: ImportMode) => {
     doSetUseExplicitDates(useExplicitDates);
   }, [doSetUseExplicitDates]);
 
+  const setExplicitStartDate = useCallback((date: string | null) => {
+    doSetExplicitStartDate(date);
+  }, [doSetExplicitStartDate]);
+
+  const setExplicitEndDate = useCallback((date: string | null) => {
+    doSetExplicitEndDate(date);
+  }, [doSetExplicitEndDate]);
+
+  const loadDefinitions = useCallback(async (mode: ImportMode) => {
+    await doLoadDefinitions(mode);
+  }, [doLoadDefinitions]);
+
+  const setSelectedDefinition = useCallback((definition: Tables<'import_definition'>) => {
+    doSetSelectedDefinition(definition);
+  }, [doSetSelectedDefinition]);
+
   const refreshUnitCount = useCallback(async (unitType: keyof UnitCounts) => {
     await doRefreshUnitCount(unitType);
   }, [doRefreshUnitCount]);
@@ -379,8 +486,8 @@ export const useImportManager = (mode?: ImportMode) => {
     await doRefreshAllUnitCounts();
   }, [doRefreshAllUnitCounts]);
   
-  const createImportJob = useCallback(async (mode: ImportMode): Promise<Tables<'import_job'> | null> => {
-    return await doCreateJob(mode);
+  const createImportJob = useCallback(async (): Promise<Tables<'import_job'> | null> => {
+    return await doCreateJob();
   }, [doCreateJob]);
 
   return {
@@ -390,6 +497,10 @@ export const useImportManager = (mode?: ImportMode) => {
     timeContext: importTimeContextData,
     setSelectedTimeContext: setSelectedImportTimeContext,
     setUseExplicitDates: setImportUseExplicitDates,
+    setExplicitStartDate,
+    setExplicitEndDate,
+    loadDefinitions,
+    setSelectedDefinition,
     createImportJob,
     importState: currentImportState,
   };

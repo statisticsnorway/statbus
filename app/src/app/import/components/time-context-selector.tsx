@@ -1,61 +1,116 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useImportManager, ImportMode } from "@/atoms/import"; // Updated import
+import { useImportManager } from "@/atoms/import";
 import { Label } from "@/components/ui/label";
 import { Tables } from "@/lib/database.types";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CalendarIcon, InfoIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Spinner } from "@/components/ui/spinner";
 
 interface TimeContextSelectorProps {
   unitType: "legal-units" | "establishments" | "establishments-without-legal-unit";
 }
 
 export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
-  const getModeFromUnitType = (): ImportMode => {
-    switch(unitType) {
-      case 'legal-units': return 'legal_unit';
-      case 'establishments': return 'establishment_formal';
-      case 'establishments-without-legal-unit': return 'establishment_informal';
-      default: throw new Error(`Invalid unitType: ${unitType}`);
-    }
-  }
-
   const { 
-    timeContext: { availableContexts, selectedContext, useExplicitDates },
+    importState: { selectedDefinition, availableDefinitions, useExplicitDates, explicitStartDate, explicitEndDate },
+    timeContext: { availableContexts, selectedContext },
     setSelectedTimeContext, 
-    setUseExplicitDates
-  } = useImportManager(getModeFromUnitType()); // Updated hook call
+    setSelectedDefinition,
+    setUseExplicitDates,
+    setExplicitStartDate,
+    setExplicitEndDate
+  } = useImportManager();
 
   const [isClient, setIsClient] = useState(false);
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  // Pass the ident string directly to the context setter
   const handleTimeContextChange = (value: string) => {
-    // Find the full object if needed locally, but pass ident to setter
-    // const selectedObject = timeContexts.find(tc => tc.ident === value);
-    setSelectedTimeContext(value); // Pass ident
+    setSelectedTimeContext(value);
   };
 
-  const getUnitTypeLabel = () => {
-    switch (unitType) {
-      case "legal-units":
-        return "Legal Units";
-      case "establishments":
-        return "Establishments";
-      case "establishments-without-legal-unit":
-        return "Establishments Without Legal Unit";
-      default:
-        return "Units";
+  const validityOptions = React.useMemo(() => {
+    type ValidityOption = {
+      id: string;
+      label: string;
+      description: string | null;
+      definition: Tables<'import_definition'>;
+      useExplicitDates: boolean;
+    };
+    const options: ValidityOption[] = [];
+    const jobProvidedDef = availableDefinitions.find(d => d.valid_time_from === 'job_provided');
+    if (jobProvidedDef) {
+        options.push({
+            id: 'job_provided_time_context',
+            label: 'Apply a validity period to all records',
+            description: 'Select a predefined validity period to apply to all imported records.',
+            definition: jobProvidedDef,
+            useExplicitDates: false,
+        });
+        options.push({
+            id: 'job_provided_explicit_dates',
+            label: 'Provide an explicit start and end date',
+            description: 'These dates will be used as the default validity for all imported records.',
+            definition: jobProvidedDef,
+            useExplicitDates: true,
+        });
+    }
+    const sourceColumnsDefs = availableDefinitions.filter(d => d.valid_time_from === 'source_columns');
+    sourceColumnsDefs.forEach(def => {
+        options.push({
+            id: `source_columns_${def.slug}`,
+            label: def.name,
+            description: def.note,
+            definition: def,
+            useExplicitDates: false,
+        });
+    });
+    return options;
+  }, [availableDefinitions]);
+
+  const selectedOptionId = React.useMemo(() => {
+    if (!selectedDefinition) return null;
+    if (selectedDefinition.valid_time_from === 'job_provided') {
+      return useExplicitDates ? 'job_provided_explicit_dates' : 'job_provided_time_context';
+    }
+    if (selectedDefinition.valid_time_from === 'source_columns') {
+      return `source_columns_${selectedDefinition.slug}`;
+    }
+    return null;
+  }, [selectedDefinition, useExplicitDates]);
+
+  const handleOptionChange = (id: string) => {
+    const option = validityOptions.find(o => o.id === id);
+    if (option) {
+      setSelectedDefinition(option.definition);
+      setUseExplicitDates(option.useExplicitDates);
     }
   };
+  
+  if (!isClient) {
+    return (
+      <div className="p-4 border rounded-md bg-gray-50 flex items-center justify-center h-48">
+        <Spinner message="Loading validity options..." />
+      </div>
+    );
+  }
 
-  if (!isClient || availableContexts.length === 0) {
-    return <div>Loading validity periods...</div>;
+  if (!selectedDefinition || validityOptions.length === 0) {
+     return (
+      <div className="p-4 border rounded-md bg-gray-50 flex items-center justify-center h-48">
+        <Spinner message="Loading import definition..." />
+      </div>
+    );
   }
 
   return (
@@ -69,83 +124,107 @@ export function TimeContextSelector({ unitType }: TimeContextSelectorProps) {
             </TooltipTrigger>
             <TooltipContent>
               <p className="max-w-xs">
-                Choose how to handle dates for your imported data. You can either apply a predefined validity period to all records, or provide explicit dates in your CSV file.
+                Choose how to handle the validity period for imported records.
               </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
       </h3>
-      
-      <RadioGroup 
-        defaultValue="time-context" 
-        value={useExplicitDates ? "explicit-dates" : "time-context"}
-        onValueChange={(value) => setUseExplicitDates(value === "explicit-dates")}
-        className="space-y-4"
-      >
-        <div className="flex items-start space-x-2">
-          <RadioGroupItem value="time-context" id="time-context-option" className="mt-1" />
-          <div className="grid gap-1.5">
-            <Label htmlFor="time-context-option" className="font-medium">
-              Apply a validity period to all records
+
+      <RadioGroup onValueChange={handleOptionChange} value={selectedOptionId ?? ''} className="space-y-2">
+        {validityOptions.map(option => (
+          <div key={option.id}>
+            <Label 
+              htmlFor={option.id} 
+              className={cn(
+                "flex flex-col p-3 border rounded-md cursor-pointer hover:bg-gray-100",
+                selectedOptionId === option.id && "border-blue-500 bg-blue-50"
+              )}
+            >
+              <div className="flex items-center">
+                <RadioGroupItem value={option.id} id={option.id} className="mr-3" />
+                <span className="font-semibold">{option.label}</span>
+              </div>
+              {option.description && (
+                <p className="text-xs text-gray-600 ml-7 mt-1">{option.description}</p>
+              )}
             </Label>
             
-            {!useExplicitDates && (
-              <div className="mt-2">
-                <Select
-                  // Use ident for value, provide empty string if null
-                  value={selectedContext?.ident ?? ""}
-                  onValueChange={handleTimeContextChange}
-                >
-                  <SelectTrigger id="time-context" className="w-full">
-                    <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
-                    <SelectValue placeholder="Select a validity period" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableContexts.map((tc: Tables<'time_context'>) => (
-                      // Use ident for key and value, handle potential null ident
-                      <SelectItem key={tc.ident ?? `null-ident-${Math.random()}`} value={tc.ident ?? ""}>
-                        {/* Use name_when_input, handle null dates */}
-                        {tc.name_when_input} ({tc.valid_from ? new Date(tc.valid_from).toLocaleDateString() : 'N/A'} - {
-                          tc.valid_to === 'infinity' ? 'Present' : tc.valid_to ? new Date(tc.valid_to).toLocaleDateString() : 'N/A'
-                        })
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                
-                {selectedContext && (
-                  <div className="text-xs text-gray-600 mt-2 pl-1">
-                    All records will use the time period:
-                    <div className="font-medium mt-1">
-                      {/* Handle null dates */}
-                      {selectedContext.valid_from ? new Date(selectedContext.valid_from).toLocaleDateString() : 'N/A'} to {
-                        selectedContext.valid_to === 'infinity' ? 'Present' : selectedContext.valid_to ? new Date(selectedContext.valid_to).toLocaleDateString() : 'N/A'
-                      }
-                    </div>
+            {/* Conditionally render inputs right below the selected option */}
+            {selectedOptionId === option.id && (
+              <div className="pl-7 mt-2">
+                {option.id === 'job_provided_time_context' && (
+                  <Select
+                    value={selectedContext?.ident ?? ""}
+                    onValueChange={handleTimeContextChange}
+                  >
+                    <SelectTrigger id="time-context" className="w-full">
+                      <CalendarIcon className="h-4 w-4 mr-2 text-gray-500" />
+                      <SelectValue placeholder="Select a validity period" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {availableContexts.map((tc: Tables<'time_context'>) => (
+                        <SelectItem key={tc.ident ?? ''} value={tc.ident ?? ""}>
+                          {tc.name_when_input} ({tc.valid_from ? new Date(tc.valid_from).toLocaleDateString() : 'N/A'} - {
+                            tc.valid_to === 'infinity' ? 'Present' : tc.valid_to ? new Date(tc.valid_to).toLocaleDateString() : 'N/A'
+                          })
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+                {option.id === 'job_provided_explicit_dates' && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !explicitStartDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {explicitStartDate ? format(new Date(explicitStartDate), "PPP") : <span>Start date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={explicitStartDate ? new Date(explicitStartDate) : undefined}
+                          onSelect={(date) => setExplicitStartDate(date ? format(date, 'yyyy-MM-dd') : null)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant={"outline"}
+                          className={cn(
+                            "w-full justify-start text-left font-normal",
+                            !explicitEndDate && "text-muted-foreground"
+                          )}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {explicitEndDate ? format(new Date(explicitEndDate), "PPP") : <span>End date</span>}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0">
+                        <Calendar
+                          mode="single"
+                          selected={explicitEndDate ? new Date(explicitEndDate) : undefined}
+                          onSelect={(date) => setExplicitEndDate(date ? format(date, 'yyyy-MM-dd') : null)}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
                   </div>
                 )}
               </div>
             )}
-            
-            {useExplicitDates && (
-              <p className="text-sm text-gray-500 mt-1">
-                A predefined validity period will be applied to all records.
-              </p>
-            )}
           </div>
-        </div>
-        
-        <div className="flex items-start space-x-2">
-          <RadioGroupItem value="explicit-dates" id="explicit-dates-option" className="mt-1" />
-          <div className="grid gap-1.5">
-            <Label htmlFor="explicit-dates-option" className="font-medium">
-              Use explicit valid_from and valid_to columns
-            </Label>
-            <p className="text-sm text-gray-500">
-              Your CSV must include valid_from and valid_to date columns in ISO format (YYYY-MM-DD)
-            </p>
-          </div>
-        </div>
+        ))}
       </RadioGroup>
     </div>
   );

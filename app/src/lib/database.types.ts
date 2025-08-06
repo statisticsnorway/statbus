@@ -1176,10 +1176,10 @@ export type Database = {
           note: string | null
           slug: string
           strategy: Database["public"]["Enums"]["import_strategy"]
-          time_context_ident: string | null
           updated_at: string
           user_id: number | null
           valid: boolean
+          valid_time_from: Database["public"]["Enums"]["import_valid_time_from"]
           validation_error: string | null
         }
         Insert: {
@@ -1194,10 +1194,10 @@ export type Database = {
           note?: string | null
           slug: string
           strategy?: Database["public"]["Enums"]["import_strategy"]
-          time_context_ident?: string | null
           updated_at?: string
           user_id?: number | null
           valid?: boolean
+          valid_time_from: Database["public"]["Enums"]["import_valid_time_from"]
           validation_error?: string | null
         }
         Update: {
@@ -1212,10 +1212,10 @@ export type Database = {
           note?: string | null
           slug?: string
           strategy?: Database["public"]["Enums"]["import_strategy"]
-          time_context_ident?: string | null
           updated_at?: string
           user_id?: number | null
           valid?: boolean
+          valid_time_from?: Database["public"]["Enums"]["import_valid_time_from"]
           validation_error?: string | null
         }
         Relationships: [
@@ -1316,6 +1316,7 @@ export type Database = {
           review: boolean
           slug: string
           state: Database["public"]["Enums"]["import_job_state"]
+          time_context_ident: string | null
           total_rows: number | null
           updated_at: string
           upload_table_name: string
@@ -1350,6 +1351,7 @@ export type Database = {
           review?: boolean
           slug: string
           state?: Database["public"]["Enums"]["import_job_state"]
+          time_context_ident?: string | null
           total_rows?: number | null
           updated_at?: string
           upload_table_name: string
@@ -1384,6 +1386,7 @@ export type Database = {
           review?: boolean
           slug?: string
           state?: Database["public"]["Enums"]["import_job_state"]
+          time_context_ident?: string | null
           total_rows?: number | null
           updated_at?: string
           upload_table_name?: string
@@ -5803,13 +5806,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["secondary_activity_category_id"]
-            isOneToOne: false
-            referencedRelation: "activity_category"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "activity_category_id_fkey"
             columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category"
@@ -5819,7 +5815,7 @@ export type Database = {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
             isOneToOne: false
-            referencedRelation: "activity_category_available"
+            referencedRelation: "activity_category"
             referencedColumns: ["id"]
           },
           {
@@ -5832,13 +5828,20 @@ export type Database = {
           {
             foreignKeyName: "activity_category_id_fkey"
             columns: ["secondary_activity_category_id"]
+            isOneToOne: false
+            referencedRelation: "activity_category_available"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_category_id_fkey"
+            columns: ["primary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "activity_category_id_fkey"
-            columns: ["primary_activity_category_id"]
+            columns: ["secondary_activity_category_id"]
             isOneToOne: false
             referencedRelation: "activity_category_used_def"
             referencedColumns: ["id"]
@@ -5887,13 +5890,6 @@ export type Database = {
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["physical_country_id"]
-            isOneToOne: false
-            referencedRelation: "country"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "location_country_id_fkey"
             columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country"
@@ -5903,7 +5899,7 @@ export type Database = {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
             isOneToOne: false
-            referencedRelation: "country_used_def"
+            referencedRelation: "country"
             referencedColumns: ["id"]
           },
           {
@@ -5916,13 +5912,20 @@ export type Database = {
           {
             foreignKeyName: "location_country_id_fkey"
             columns: ["physical_country_id"]
+            isOneToOne: false
+            referencedRelation: "country_used_def"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "location_country_id_fkey"
+            columns: ["postal_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "location_country_id_fkey"
-            columns: ["postal_country_id"]
+            columns: ["physical_country_id"]
             isOneToOne: false
             referencedRelation: "country_view"
             referencedColumns: ["id"]
@@ -6343,22 +6346,22 @@ export type Database = {
       __plpgsql_show_dependency_tb: {
         Args:
           | {
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
+              anyelememttype?: unknown
+              anyenumtype?: unknown
+              anyrangetype?: unknown
               funcoid: unknown
               relid?: unknown
-              anyelememttype?: unknown
-              anyenumtype?: unknown
-              anyrangetype?: unknown
-              anycompatibletype?: unknown
-              anycompatiblerangetype?: unknown
             }
           | {
-              name: string
-              relid?: unknown
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
               anyelememttype?: unknown
               anyenumtype?: unknown
               anyrangetype?: unknown
-              anycompatibletype?: unknown
-              anycompatiblerangetype?: unknown
+              name: string
+              relid?: unknown
             }
         Returns: {
           type: string
@@ -6397,15 +6400,15 @@ export type Database = {
         Returns: Json
       }
       admin_change_password: {
-        Args: { user_sub: string; new_password: string }
+        Args: { new_password: string; user_sub: string }
         Returns: boolean
       }
       after_to_overlaps: {
-        Args: { after1: unknown; to1: unknown; after2: unknown; to2: unknown }
+        Args: { after1: unknown; after2: unknown; to1: unknown; to2: unknown }
         Returns: boolean
       }
       algorithm_sign: {
-        Args: { signables: string; secret: string; algorithm: string }
+        Args: { algorithm: string; secret: string; signables: string }
         Returns: string
       }
       armor: {
@@ -6438,8 +6441,8 @@ export type Database = {
       }
       connect_legal_unit_to_enterprise: {
         Args: {
-          legal_unit_id: number
           enterprise_id: number
+          legal_unit_id: number
           valid_from?: string
           valid_to?: string
         }
@@ -6473,12 +6476,12 @@ export type Database = {
       create_temporal_foreign_key: {
         Args: {
           constraint_name: string
-          from_table: string
           from_column: string
           from_range_column: string
-          to_table: string
+          from_table: string
           to_column: string
           to_range_column: string
+          to_table: string
         }
         Returns: undefined
       }
@@ -6513,8 +6516,8 @@ export type Database = {
       establishment_hierarchy: {
         Args: {
           establishment_id: number
-          parent_legal_unit_id: number
           parent_enterprise_id: number
+          parent_legal_unit_id: number
           scope?: Database["public"]["Enums"]["hierarchy_scope"]
           valid_on?: string
         }
@@ -6522,15 +6525,15 @@ export type Database = {
       }
       external_idents_hierarchy: {
         Args: {
+          parent_enterprise_group_id?: number
+          parent_enterprise_id?: number
           parent_establishment_id?: number
           parent_legal_unit_id?: number
-          parent_enterprise_id?: number
-          parent_enterprise_group_id?: number
         }
         Returns: Json
       }
       from_to_overlaps: {
-        Args: { start1: unknown; end1: unknown; start2: unknown; end2: unknown }
+        Args: { end1: unknown; end2: unknown; start1: unknown; start2: unknown }
         Returns: boolean
       }
       gbt_bit_compress: {
@@ -6774,7 +6777,7 @@ export type Database = {
         Returns: string
       }
       get_allen_relation: {
-        Args: { va1: string; vt1: string; va2: string; vt2: string }
+        Args: { va1: string; va2: string; vt1: string; vt2: string }
         Returns: Database["public"]["Enums"]["allen_interval_relation"]
       }
       get_cmd_type: {
@@ -6783,8 +6786,8 @@ export type Database = {
       }
       get_external_idents: {
         Args: {
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
         }
         Returns: Json
       }
@@ -6858,12 +6861,12 @@ export type Database = {
       }
       http_delete: {
         Args:
+          | { content: string; content_type: string; uri: string }
           | { uri: string }
-          | { uri: string; content: string; content_type: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
       }
       http_get: {
-        Args: { uri: string } | { uri: string; data: Json }
+        Args: { data: Json; uri: string } | { uri: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
       }
       http_head: {
@@ -6882,17 +6885,17 @@ export type Database = {
         }[]
       }
       http_patch: {
-        Args: { uri: string; content: string; content_type: string }
+        Args: { content: string; content_type: string; uri: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
       }
       http_post: {
         Args:
-          | { uri: string; content: string; content_type: string }
-          | { uri: string; data: Json }
+          | { content: string; content_type: string; uri: string }
+          | { data: Json; uri: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
       }
       http_put: {
-        Args: { uri: string; content: string; content_type: string }
+        Args: { content: string; content_type: string; uri: string }
         Returns: Database["public"]["CompositeTypes"]["http_response"]
       }
       http_reset_curlopt: {
@@ -7115,10 +7118,10 @@ export type Database = {
       }
       notes_for_unit: {
         Args: {
+          parent_enterprise_group_id: number
+          parent_enterprise_id: number
           parent_establishment_id: number
           parent_legal_unit_id: number
-          parent_enterprise_id: number
-          parent_enterprise_group_id: number
         }
         Returns: Json
       }
@@ -7144,10 +7147,10 @@ export type Database = {
       }
       pg_stat_statements_reset: {
         Args: {
-          userid?: unknown
           dbid?: unknown
-          queryid?: number
           minmax_only?: boolean
+          queryid?: number
+          userid?: unknown
         }
         Returns: string
       }
@@ -7186,98 +7189,98 @@ export type Database = {
       plpgsql_check_function: {
         Args:
           | {
-              funcoid: unknown
-              relid?: unknown
-              format?: string
-              fatal_errors?: boolean
-              other_warnings?: boolean
-              performance_warnings?: boolean
-              extra_warnings?: boolean
-              security_warnings?: boolean
-              compatibility_warnings?: boolean
-              oldtable?: unknown
-              newtable?: unknown
+              all_warnings?: boolean
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
               anyelememttype?: unknown
               anyenumtype?: unknown
               anyrangetype?: unknown
-              anycompatibletype?: unknown
-              anycompatiblerangetype?: unknown
-              without_warnings?: boolean
-              all_warnings?: boolean
-              use_incomment_options?: boolean
-              incomment_options_usage_warning?: boolean
+              compatibility_warnings?: boolean
               constant_tracing?: boolean
+              extra_warnings?: boolean
+              fatal_errors?: boolean
+              format?: string
+              funcoid: unknown
+              incomment_options_usage_warning?: boolean
+              newtable?: unknown
+              oldtable?: unknown
+              other_warnings?: boolean
+              performance_warnings?: boolean
+              relid?: unknown
+              security_warnings?: boolean
+              use_incomment_options?: boolean
+              without_warnings?: boolean
             }
           | {
-              name: string
-              relid?: unknown
-              format?: string
-              fatal_errors?: boolean
-              other_warnings?: boolean
-              performance_warnings?: boolean
-              extra_warnings?: boolean
-              security_warnings?: boolean
-              compatibility_warnings?: boolean
-              oldtable?: unknown
-              newtable?: unknown
+              all_warnings?: boolean
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
               anyelememttype?: unknown
               anyenumtype?: unknown
               anyrangetype?: unknown
-              anycompatibletype?: unknown
-              anycompatiblerangetype?: unknown
-              without_warnings?: boolean
-              all_warnings?: boolean
-              use_incomment_options?: boolean
-              incomment_options_usage_warning?: boolean
+              compatibility_warnings?: boolean
               constant_tracing?: boolean
+              extra_warnings?: boolean
+              fatal_errors?: boolean
+              format?: string
+              incomment_options_usage_warning?: boolean
+              name: string
+              newtable?: unknown
+              oldtable?: unknown
+              other_warnings?: boolean
+              performance_warnings?: boolean
+              relid?: unknown
+              security_warnings?: boolean
+              use_incomment_options?: boolean
+              without_warnings?: boolean
             }
         Returns: string[]
       }
       plpgsql_check_function_tb: {
         Args:
           | {
-              funcoid: unknown
-              relid?: unknown
-              fatal_errors?: boolean
-              other_warnings?: boolean
-              performance_warnings?: boolean
-              extra_warnings?: boolean
-              security_warnings?: boolean
-              compatibility_warnings?: boolean
-              oldtable?: unknown
-              newtable?: unknown
+              all_warnings?: boolean
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
               anyelememttype?: unknown
               anyenumtype?: unknown
               anyrangetype?: unknown
-              anycompatibletype?: unknown
-              anycompatiblerangetype?: unknown
-              without_warnings?: boolean
-              all_warnings?: boolean
-              use_incomment_options?: boolean
-              incomment_options_usage_warning?: boolean
+              compatibility_warnings?: boolean
               constant_tracing?: boolean
+              extra_warnings?: boolean
+              fatal_errors?: boolean
+              funcoid: unknown
+              incomment_options_usage_warning?: boolean
+              newtable?: unknown
+              oldtable?: unknown
+              other_warnings?: boolean
+              performance_warnings?: boolean
+              relid?: unknown
+              security_warnings?: boolean
+              use_incomment_options?: boolean
+              without_warnings?: boolean
             }
           | {
-              name: string
-              relid?: unknown
-              fatal_errors?: boolean
-              other_warnings?: boolean
-              performance_warnings?: boolean
-              extra_warnings?: boolean
-              security_warnings?: boolean
-              compatibility_warnings?: boolean
-              oldtable?: unknown
-              newtable?: unknown
+              all_warnings?: boolean
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
               anyelememttype?: unknown
               anyenumtype?: unknown
               anyrangetype?: unknown
-              anycompatibletype?: unknown
-              anycompatiblerangetype?: unknown
-              without_warnings?: boolean
-              all_warnings?: boolean
-              use_incomment_options?: boolean
-              incomment_options_usage_warning?: boolean
+              compatibility_warnings?: boolean
               constant_tracing?: boolean
+              extra_warnings?: boolean
+              fatal_errors?: boolean
+              incomment_options_usage_warning?: boolean
+              name: string
+              newtable?: unknown
+              oldtable?: unknown
+              other_warnings?: boolean
+              performance_warnings?: boolean
+              relid?: unknown
+              security_warnings?: boolean
+              use_incomment_options?: boolean
+              without_warnings?: boolean
             }
         Returns: {
           functionid: unknown
@@ -7379,22 +7382,22 @@ export type Database = {
       plpgsql_show_dependency_tb: {
         Args:
           | {
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
+              anyelememttype?: unknown
+              anyenumtype?: unknown
+              anyrangetype?: unknown
               fnname: string
               relid?: unknown
-              anyelememttype?: unknown
-              anyenumtype?: unknown
-              anyrangetype?: unknown
-              anycompatibletype?: unknown
-              anycompatiblerangetype?: unknown
             }
           | {
-              funcoid: unknown
-              relid?: unknown
+              anycompatiblerangetype?: unknown
+              anycompatibletype?: unknown
               anyelememttype?: unknown
               anyenumtype?: unknown
               anyrangetype?: unknown
-              anycompatibletype?: unknown
-              anycompatiblerangetype?: unknown
+              funcoid: unknown
+              relid?: unknown
             }
         Returns: {
           type: string
@@ -7422,8 +7425,8 @@ export type Database = {
       }
       relevant_statistical_units: {
         Args: {
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           valid_on?: string
         }
         Returns: {
@@ -7568,7 +7571,7 @@ export type Database = {
         Returns: string[]
       }
       sign: {
-        Args: { payload: Json; secret: string; algorithm?: string }
+        Args: { algorithm?: string; payload: Json; secret: string }
         Returns: string
       }
       stat_for_unit_hierarchy: {
@@ -7585,17 +7588,17 @@ export type Database = {
       }
       statistical_history_drilldown: {
         Args: {
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
-          resolution?: Database["public"]["Enums"]["history_resolution"]
-          year?: number
-          region_path?: unknown
           activity_category_path?: unknown
+          country_id?: number
+          legal_form_id?: number
+          region_path?: unknown
+          resolution?: Database["public"]["Enums"]["history_resolution"]
           sector_path?: unknown
           status_id?: number
-          legal_form_id?: number
-          country_id?: number
-          year_min?: number
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
+          year?: number
           year_max?: number
+          year_min?: number
         }
         Returns: Json
       }
@@ -7605,16 +7608,16 @@ export type Database = {
       }
       statistical_unit_details: {
         Args: {
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           valid_on?: string
         }
         Returns: Json
       }
       statistical_unit_enterprise_id: {
         Args: {
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           valid_on?: string
         }
         Returns: number
@@ -7625,32 +7628,32 @@ export type Database = {
       }
       statistical_unit_facet_drilldown: {
         Args: {
-          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
-          region_path?: unknown
           activity_category_path?: unknown
+          country_id?: number
+          legal_form_id?: number
+          region_path?: unknown
           sector_path?: unknown
           status_id?: number
-          legal_form_id?: number
-          country_id?: number
+          unit_type?: Database["public"]["Enums"]["statistical_unit_type"]
           valid_on?: string
         }
         Returns: Json
       }
       statistical_unit_hierarchy: {
         Args: {
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
-          unit_id: number
           scope?: Database["public"]["Enums"]["hierarchy_scope"]
-          valid_on?: string
           strip_nulls?: boolean
+          unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
+          valid_on?: string
         }
         Returns: Json
       }
       statistical_unit_refresh: {
         Args: {
+          p_enterprise_ids?: number[]
           p_establishment_ids?: number[]
           p_legal_unit_ids?: number[]
-          p_enterprise_ids?: number[]
           p_valid_after?: string
           p_valid_to?: string
         }
@@ -7658,16 +7661,16 @@ export type Database = {
       }
       statistical_unit_stats: {
         Args: {
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           valid_on?: string
         }
         Returns: Database["public"]["CompositeTypes"]["statistical_unit_stats"][]
       }
       statistical_unit_tree: {
         Args: {
-          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           unit_id: number
+          unit_type: Database["public"]["Enums"]["statistical_unit_type"]
           valid_on?: string
         }
         Returns: Json
@@ -7678,10 +7681,10 @@ export type Database = {
       }
       tag_for_unit_hierarchy: {
         Args: {
+          parent_enterprise_group_id?: number
+          parent_enterprise_id?: number
           parent_establishment_id?: number
           parent_legal_unit_id?: number
-          parent_enterprise_id?: number
-          parent_enterprise_group_id?: number
         }
         Returns: Json
       }
@@ -7711,28 +7714,28 @@ export type Database = {
       }
       tri_fkey_check: {
         Args: {
-          from_table: string
           fk_column: string
-          from_range_column: string
-          to_table: string
-          pk_column: string
-          to_range_column: string
           fk_val: number
           from_range: unknown
+          from_range_column: string
+          from_table: string
+          pk_column: string
+          to_range_column: string
+          to_table: string
           updating: boolean
         }
         Returns: boolean
       }
       tri_fkey_restrict: {
         Args: {
-          from_table: string
           fk_column: string
           from_range_column: string
-          to_table: string
+          from_table: string
+          old_pk_range: unknown
+          old_pk_val: number
           pk_column: string
           to_range_column: string
-          old_pk_val: number
-          old_pk_range: unknown
+          to_table: string
         }
         Returns: boolean
       }
@@ -7759,8 +7762,8 @@ export type Database = {
       user_create: {
         Args: {
           p_email: string
-          p_statbus_role: Database["public"]["Enums"]["statbus_role"]
           p_password?: string
+          p_statbus_role: Database["public"]["Enums"]["statbus_role"]
         }
         Returns: {
           email: string
@@ -7768,7 +7771,7 @@ export type Database = {
         }[]
       }
       verify: {
-        Args: { token: string; secret: string; algorithm?: string }
+        Args: { algorithm?: string; secret: string; token: string }
         Returns: {
           header: Json
           payload: Json
@@ -7836,6 +7839,7 @@ export type Database = {
         | "replace_only"
         | "insert_or_update"
         | "update_only"
+      import_valid_time_from: "job_provided" | "source_columns"
       location_type: "physical" | "postal"
       person_sex: "Male" | "Female"
       relative_period_code:
@@ -7920,21 +7924,25 @@ export type Database = {
   }
 }
 
-type DefaultSchema = Database[Extract<keyof Database, "public">]
+type DatabaseWithoutInternals = Omit<Database, "__InternalSupabase">
+
+type DefaultSchema = DatabaseWithoutInternals[Extract<keyof Database, "public">]
 
 export type Tables<
   DefaultSchemaTableNameOrOptions extends
     | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
+    ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
-      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
@@ -7952,14 +7960,16 @@ export type Tables<
 export type TablesInsert<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
@@ -7975,14 +7985,16 @@ export type TablesInsert<
 export type TablesUpdate<
   DefaultSchemaTableNameOrOptions extends
     | keyof DefaultSchema["Tables"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   TableName extends DefaultSchemaTableNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
@@ -7998,14 +8010,16 @@ export type TablesUpdate<
 export type Enums<
   DefaultSchemaEnumNameOrOptions extends
     | keyof DefaultSchema["Enums"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   EnumName extends DefaultSchemaEnumNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
+    ? keyof DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+> = DefaultSchemaEnumNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
   : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
     ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
@@ -8013,14 +8027,16 @@ export type Enums<
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
     | keyof DefaultSchema["CompositeTypes"]
-    | { schema: keyof Database },
+    | { schema: keyof DatabaseWithoutInternals },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
-    schema: keyof Database
+    schema: keyof DatabaseWithoutInternals
   }
-    ? keyof Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
+    ? keyof DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"]
     : never = never,
-> = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
+> = PublicCompositeTypeNameOrOptions extends {
+  schema: keyof DatabaseWithoutInternals
+}
+  ? DatabaseWithoutInternals[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
   : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
     ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
@@ -8089,6 +8105,7 @@ export const Constants = {
         "insert_or_update",
         "update_only",
       ],
+      import_valid_time_from: ["job_provided", "source_columns"],
       location_type: ["physical", "postal"],
       person_sex: ["Male", "Female"],
       relative_period_code: [

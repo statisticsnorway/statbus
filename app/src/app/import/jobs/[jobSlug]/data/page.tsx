@@ -19,7 +19,17 @@ type ImportJob = Tables<"import_job"> & {
     name: string | null;
   } | null;
 };
-type ImportJobDataRow = { [key: string]: any };
+// Per instruction, improve typing for ImportJobDataRow to make 'state' work
+// in useDataTable. This is a first step, with 'any' types to be refined.
+type ImportJobDataRow = {
+  row_id: number;
+  state: any;
+  operation?: any;
+  action?: any;
+  error?: any;
+  invalid_codes?: any;
+  [key: string]: any;
+};
 
 const fetcher = async (key: string): Promise<any> => {
   const client = await getBrowserRestClient();
@@ -48,7 +58,7 @@ const fetcher = async (key: string): Promise<any> => {
     const to = from + pageSize - 1;
 
     let queryBuilder = client
-      .from(tableName)
+      .from(tableName as any)
       .select('*', { count: 'exact' })
       .range(from, to);
     
@@ -204,8 +214,8 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     manualPagination: true,
     pageCount,
     state: {
-      sorting,
       pagination,
+      sorting,
     },
     onPaginationChange: setPagination,
     onSortingChange: setSorting,
@@ -242,7 +252,7 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
           <ChevronRight className="h-6 w-6 text-gray-400" />
           <h1 className="text-2xl font-semibold">Imported Data for Job: {job.id}</h1>
         </div>
-        <p className="text-sm text-gray-500 mt-1">Type: {job.import_definition?.name ?? 'N/A'} | Table: {job.data_table_name}</p>
+        <p className="text-sm text-gray-500 mt-1">Description: {job.description ?? 'N/A'} | Table: {job.data_table_name}</p>
       </div>
 
       {isTableDataLoading && <Spinner message={`Loading data from ${tableName}...`} />}
