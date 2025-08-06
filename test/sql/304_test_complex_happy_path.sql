@@ -59,8 +59,8 @@ SAVEPOINT scenario_69_a_lu_lifecycle;
 DO $$
 DECLARE v_definition_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates';
-    IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition legal_unit_explicit_dates not found.'; END IF;
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition legal_unit_source_dates not found.'; END IF;
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_69_a1_lu', 'Test 69.A.1: LU-69A Initial', 'Test 69.A.1');
 END $$;
@@ -125,7 +125,7 @@ ORDER BY lu.valid_from, lu.valid_to;
 DO $$
 DECLARE v_definition_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates';
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_69_a2_lu', 'Test 69.A.2: LU-69A Update 1', 'Test 69.A.2');
 END $$;
@@ -190,7 +190,7 @@ ORDER BY lu.valid_from, lu.valid_to;
 DO $$
 DECLARE v_definition_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates';
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_69_a3_lu', 'Test 69.A.3: LU-69A Update 2', 'Test 69.A.3');
 END $$;
@@ -275,7 +275,7 @@ SAVEPOINT scenario_69_b_formal_es_lifecycle;
 DO $$
 DECLARE v_definition_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates';
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_69_b_lu_for_es', 'Test 69.B: Base LU for Formal ES', 'Test 69.B');
 END $$;
@@ -292,7 +292,7 @@ SELECT row_id, state, error, invalid_codes, action, operation, tax_ident, name F
 DO $$
 DECLARE v_definition_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates';
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_69_b1_es', 'Test 69.B.1: ES-69B Initial', 'Test 69.B.1');
 END $$;
@@ -361,7 +361,7 @@ ORDER BY est.valid_from, est.valid_to;
 DO $$
 DECLARE v_definition_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates';
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_69_b2_es', 'Test 69.B.2: ES-69B Update 1', 'Test 69.B.2');
 END $$;
@@ -426,7 +426,7 @@ ORDER BY est.valid_from, est.valid_to;
 DO $$
 DECLARE v_definition_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates';
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_69_b3_es', 'Test 69.B.3: ES-69B Update 2', 'Test 69.B.3');
 END $$;
@@ -511,7 +511,7 @@ SAVEPOINT scenario_69_c_informal_es_lifecycle;
 DO $$
 DECLARE v_definition_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_without_lu_explicit_dates';
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates';
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_69_c1_es', 'Test 69.C.1: ES-69C Initial', 'Test 69.C.1');
 END $$;
@@ -574,7 +574,7 @@ ORDER BY est.valid_from, est.valid_to;
 DO $$
 DECLARE v_definition_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_without_lu_explicit_dates';
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates';
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_69_c2_es', 'Test 69.C.2: ES-69C Update 1', 'Test 69.C.2');
 END $$;
@@ -637,7 +637,7 @@ ORDER BY est.valid_from, est.valid_to;
 DO $$
 DECLARE v_definition_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_without_lu_explicit_dates';
+    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates';
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_69_c3_es', 'Test 69.C.3: ES-69C Update 2', 'Test 69.C.3');
 END $$;

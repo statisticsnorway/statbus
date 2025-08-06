@@ -85,7 +85,7 @@ SELECT acs.code FROM public.settings AS s JOIN activity_category_standard AS acs
 \echo 'Test 72: Enterprise Linking Scenarios'
 Test 72: Enterprise Linking Scenarios
 -- Common setup: Get Import Definition ID for Legal Units
-\set import_definition_slug '''legal_unit_explicit_dates'''
+\set import_definition_slug '''legal_unit_source_dates'''
 SELECT id AS import_def_id FROM public.import_definition WHERE slug = :import_definition_slug \gset
 \if :{?import_def_id}
 \else
@@ -93,7 +93,7 @@ SELECT id AS import_def_id FROM public.import_definition WHERE slug = :import_de
     \quit
 \endif
 \echo 'Using import definition: ' :import_definition_slug
-Using import definition:  'legal_unit_explicit_dates'
+Using import definition:  'legal_unit_source_dates'
 -- Define common constants
 \set user_email_literal '''test.admin@statbus.org'''
 \set default_edit_comment '''Test 72 SC'''
@@ -455,7 +455,7 @@ ORDER BY row_id;
 
 -- Now create and process establishments
 -- Get establishment import definition
-\set es_import_definition_slug '''establishment_for_lu_explicit_dates'''
+\set es_import_definition_slug '''establishment_for_lu_source_dates'''
 SELECT id AS es_import_def_id FROM public.import_definition WHERE slug = :es_import_definition_slug \gset
 \if :{?es_import_def_id}
 \else
@@ -821,12 +821,12 @@ FROM public.test72_sc4_order_v2_data -- Hardcoded based on sc4_job_slug_v2
 ORDER BY row_id;
  row_id | founding_row_id |  tax_ident  |           name            |  valid_from  |   valid_to   | action  |   state   | error | invalid_codes | legal_unit_id_status | enterprise_id_status 
 --------+-----------------+-------------+---------------------------+--------------+--------------+---------+-----------+-------+---------------+----------------------+----------------------
-      1 |               1 | 'SC3LUA001' | LU SC4 Company A Changed  | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
-      2 |               2 | 'SC3LUB001' | LU SC4 Company B Modified | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
-      3 |               1 | 'SC3LUA001' | LU SC4 Company A          | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
-      4 |               2 | 'SC3LUB001' | LU SC4 Company B          | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
-      5 |               1 | 'SC3LUA001' | LU SC4 Company A          | '2023-01-01' | '2023-03-31' | replace | processed |       |               | SET                  | SET
-      6 |               2 | 'SC3LUB001' | LU SC4 Company B          | '2023-01-01' | '2023-03-31' | replace | processed |       |               | SET                  | SET
+      1 |               5 | 'SC3LUA001' | LU SC4 Company A Changed  | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
+      2 |               6 | 'SC3LUB001' | LU SC4 Company B Modified | '2023-07-01' | '2023-09-30' | replace | processed |       |               | SET                  | SET
+      3 |               5 | 'SC3LUA001' | LU SC4 Company A          | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
+      4 |               6 | 'SC3LUB001' | LU SC4 Company B          | '2023-04-01' | '2023-06-30' | replace | processed |       |               | SET                  | SET
+      5 |               5 | 'SC3LUA001' | LU SC4 Company A          | '2023-01-01' | '2023-03-31' | replace | processed |       |               | SET                  | SET
+      6 |               6 | 'SC3LUB001' | LU SC4 Company B          | '2023-01-01' | '2023-03-31' | replace | processed |       |               | SET                  | SET
 (6 rows)
 
 -- SC4 Verification: Compare results
@@ -1732,9 +1732,9 @@ FROM public.test72_sc10_tb_lu_b2_data -- Hardcoded based on sc10_tb_job_b2_slug
 ORDER BY row_id;
  row_id | founding_row_id |   tax_ident   |        name         |                     valid_from                      |   valid_to   | action | state |                                                     error                                                     | invalid_codes | legal_unit_id_status | enterprise_id_status 
 --------+-----------------+---------------+---------------------+-----------------------------------------------------+--------------+--------+-------+---------------------------------------------------------------------------------------------------------------+---------------+----------------------+----------------------
-      1 |               1 | 'SC10TBLU001' | LU SC10TB Name B2pA | '2023-02-15'--OverlapsB1P1,B1P2                     | '2023-05-15' | skip   | error | {"valid_from": "Invalid date format: ''2023-02-15'--OverlapsB1P1,B1P2'. SQLSTATE: 22007"}                     |               | SET                  | NULL
-      2 |               1 | 'SC10TBLU001' | LU SC10TB Name B2pB | '2023-05-16'--ContiguouswithpA,overlapsB1P2,B1P3    | '2023-08-15' | skip   | error | {"valid_from": "Invalid date format: ''2023-05-16'--ContiguouswithpA,overlapsB1P2,B1P3'. SQLSTATE: 22007"}    |               | SET                  | NULL
-      3 |               1 | 'SC10TBLU001' | LU SC10TB Name B2pC | '2023-08-16'--ContiguouswithpB,overlapsB1P3,extends | '2023-11-30' | skip   | error | {"valid_from": "Invalid date format: ''2023-08-16'--ContiguouswithpB,overlapsB1P3,extends'. SQLSTATE: 22007"} |               | SET                  | NULL
+      1 |                 | 'SC10TBLU001' | LU SC10TB Name B2pA | '2023-02-15'--OverlapsB1P1,B1P2                     | '2023-05-15' | skip   | error | {"valid_from": "Invalid date format: ''2023-02-15'--OverlapsB1P1,B1P2'. SQLSTATE: 22007"}                     |               | NULL                 | NULL
+      2 |                 | 'SC10TBLU001' | LU SC10TB Name B2pB | '2023-05-16'--ContiguouswithpA,overlapsB1P2,B1P3    | '2023-08-15' | skip   | error | {"valid_from": "Invalid date format: ''2023-05-16'--ContiguouswithpA,overlapsB1P2,B1P3'. SQLSTATE: 22007"}    |               | NULL                 | NULL
+      3 |                 | 'SC10TBLU001' | LU SC10TB Name B2pC | '2023-08-16'--ContiguouswithpB,overlapsB1P3,extends | '2023-11-30' | skip   | error | {"valid_from": "Invalid date format: ''2023-08-16'--ContiguouswithpB,overlapsB1P3,extends'. SQLSTATE: 22007"} |               | NULL                 | NULL
 (3 rows)
 
 \echo 'SC10 (Two Batches) Batch 2: Verifying LU (expect 4 final slices, same enterprise, all primary)'

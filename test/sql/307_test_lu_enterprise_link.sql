@@ -26,7 +26,7 @@ SELECT acs.code FROM public.settings AS s JOIN activity_category_standard AS acs
 \echo 'Test 72: Enterprise Linking Scenarios'
 
 -- Common setup: Get Import Definition ID for Legal Units
-\set import_definition_slug '''legal_unit_explicit_dates'''
+\set import_definition_slug '''legal_unit_source_dates'''
 SELECT id AS import_def_id FROM public.import_definition WHERE slug = :import_definition_slug \gset
 \if :{?import_def_id}
 \else
@@ -332,7 +332,7 @@ ORDER BY row_id;
 
 -- Now create and process establishments
 -- Get establishment import definition
-\set es_import_definition_slug '''establishment_for_lu_explicit_dates'''
+\set es_import_definition_slug '''establishment_for_lu_source_dates'''
 SELECT id AS es_import_def_id FROM public.import_definition WHERE slug = :es_import_definition_slug \gset
 \if :{?es_import_def_id}
 \else

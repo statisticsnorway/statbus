@@ -1,3 +1,56 @@
+\t
+\a
+SELECT '########################################'
+UNION ALL
+SELECT public.generate_mermaid_er_diagram()
+UNION ALL
+SELECT '########################################';
+########################################
+erDiagram
+	%% Entities (derived from tables)
+	auth_api_key["auth.api_key"] {
+		integer id
+		uuid jti
+		integer user_id
+		text description
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone expires_at
+		timestamp_with_time_zone revoked_at
+		text token
+	}
+	auth_refresh_session["auth.refresh_session"] {
+		integer id
+		uuid jti
+		integer user_id
+		integer refresh_version
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone last_used_at
+		timestamp_with_time_zone expires_at
+		text user_agent
+		inet ip_address
+	}
+	auth_user["auth.user"] {
+		integer id
+		uuid sub
+		text email
+		text password
+		text encrypted_password
+		statbus_role statbus_role
+		timestamp_with_time_zone created_at
+		timestamp_with_time_zone updated_at
+		timestamp_with_time_zone last_sign_in_at
+		timestamp_with_time_zone email_confirmed_at
+		timestamp_with_time_zone deleted_at
+	}
+	db_migration["db.migration"] {
+		integer id
+		bigint version
+		text filename
+		text description
+		timestamp_with_time_zone applied_at
+		integer duration_ms
+	}
+	lifecycle_callbacks_registered_callback["lifecycle_callbacks.registered_callback"] {
 		text label
 		integer priority
 		regclass[] table_names
@@ -229,9 +282,9 @@
 		text name
 		text note
 		integer data_source_id
-		text time_context_ident
 		import_strategy strategy
 		import_mode mode
+		import_valid_time_from valid_time_from
 		integer user_id
 		boolean active
 		boolean custom
@@ -252,6 +305,7 @@
 		text note
 		timestamp_with_time_zone created_at
 		timestamp_with_time_zone updated_at
+		text time_context_ident
 		date default_valid_from
 		date default_valid_to
 		text default_data_source_code

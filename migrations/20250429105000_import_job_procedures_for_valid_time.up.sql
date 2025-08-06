@@ -29,96 +29,19 @@ BEGIN
 END;
 $$;
 
--- Procedure to analyse valid_time derived from job context (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_valid_time_from_context(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
-LANGUAGE plpgsql AS $analyse_valid_time_from_context$
-DECLARE
-    v_job public.import_job;
-    v_step RECORD;
-    v_data_table_name TEXT;
-    v_sql TEXT;
-    v_update_count INT := 0;
-    v_error_count INT := 0; -- For rows marked as error in this step
-    v_default_valid_after DATE; -- Renamed for clarity
-BEGIN
-    RAISE DEBUG '[Job %] analyse_valid_time_from_context (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
-
-    -- Get job details
-    SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
-    v_data_table_name := v_job.data_table_name; -- Assign from the record
-
-    -- Find the target details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'valid_time_from_context';
-    IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] valid_time_from_context target not found', p_job_id;
-    END IF;
-
-    -- Calculate default_valid_after based on job default
-    IF v_job.default_valid_from IS NOT NULL THEN
-        v_default_valid_after := v_job.default_valid_from - INTERVAL '1 day';
-    ELSE
-        v_default_valid_after := NULL;
-    END IF;
-
-    -- Check if the job's default dates themselves form an invalid period or involve NULLs for NOT NULL columns
-    IF v_job.default_valid_from IS NULL OR v_job.default_valid_to IS NULL OR v_default_valid_after >= v_job.default_valid_to THEN
-        -- Mark all applicable rows in the batch as error
-        v_sql := format($$
-            UPDATE public.%I dt SET
-                derived_valid_after = %L, -- Store potentially problematic default_valid_after
-                derived_valid_from = %L,
-                derived_valid_to = %L,
-                last_completed_priority = %L, -- Advance to current step's priority on error
-                error = COALESCE(dt.error, '{}'::jsonb) || jsonb_build_object('invalid_period_context', 
-                    CASE 
-                        WHEN %L::DATE IS NULL THEN 'Job default_valid_from is NULL, resulting in NULL derived_valid_after for a NOT NULL column.'
-                        WHEN %L::DATE IS NULL THEN 'Job default_valid_to is NULL for a NOT NULL column.'
-                        ELSE 'Job default dates create an invalid period (derived_valid_after >= derived_valid_to).'
-                    END),
-                state = 'error',
-                action = 'skip'::public.import_row_action_type -- Error implies skip
-            WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; -- Only update rows not already skipped by a *prior* step.
-        $$, v_data_table_name, 
-             v_default_valid_after, v_job.default_valid_from, v_job.default_valid_to,
-             v_step.priority, -- For last_completed_priority
-             v_job.default_valid_from, v_job.default_valid_to, -- For CASE check
-             p_batch_row_ids);
-        RAISE DEBUG '[Job %] analyse_valid_time_from_context: Job default dates are invalid. Marking non-skipped rows as error and action=skip: %', p_job_id, v_sql;
-        EXECUTE v_sql;
-        GET DIAGNOSTICS v_error_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_valid_time_from_context: Marked % non-skipped rows as error due to invalid job default dates.', p_job_id, v_error_count;
-    ELSE
-        -- Job default dates are valid, proceed to update rows
-        v_sql := format($$
-            UPDATE public.%I dt SET
-                derived_valid_after = %L, -- Use pre-calculated v_default_valid_after
-                derived_valid_from = %L::DATE,
-                derived_valid_to = %L::DATE,
-                last_completed_priority = %L,
-                error = CASE WHEN (dt.error - ARRAY['invalid_period_context']::TEXT[]) = '{}'::jsonb THEN NULL ELSE (dt.error - ARRAY['invalid_period_context']::TEXT[]) END, -- Clear only our specific error key
-                state = 'analysing' -- Action remains as determined by previous steps
-            WHERE dt.row_id = ANY(%L) AND dt.action IS DISTINCT FROM 'skip'; 
-        $$, v_data_table_name, v_default_valid_after, v_job.default_valid_from, v_job.default_valid_to, v_step.priority, p_batch_row_ids);
-        RAISE DEBUG '[Job %] analyse_valid_time_from_context: Updating derived dates for non-skipped rows: %', p_job_id, v_sql;
-        EXECUTE v_sql;
-        GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_valid_time_from_context: Marked % non-skipped rows as success for this target.', p_job_id, v_update_count;
-    END IF;
-
-    -- Update priority for already skipped rows (this part remains the same)
-    EXECUTE format($$UPDATE public.%I SET last_completed_priority = %L WHERE row_id = ANY(%L) AND action = 'skip'$$,
-                   v_data_table_name, v_step.priority, p_batch_row_ids);
-    GET DIAGNOSTICS v_update_count = ROW_COUNT; -- This v_update_count is for skipped rows
-    RAISE DEBUG '[Job %] analyse_valid_time_from_context: Advanced priority for % pre-skipped rows.', p_job_id, v_update_count;
-
-    RAISE DEBUG '[Job %] analyse_valid_time_from_context (Batch): Finished analysis for batch. Errors in this step: %', p_job_id, v_error_count;
-END;
-$analyse_valid_time_from_context$;
+-- The procedure analyse_valid_time_from_context has been removed.
+-- Its logic is now handled declaratively by using mappings with `source_expression = 'default'`
+-- which populates the `source_input` `valid_from`/`valid_to` columns in the `_data` table
+-- during the prepare step. The existing `analyse_valid_time_from_source` procedure
+-- can then process these columns uniformly for all `valid_time_from` modes.
 
 
--- Procedure to analyse valid_time provided in source data (Batch Oriented)
-CREATE OR REPLACE PROCEDURE import.analyse_valid_time_from_source(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
-LANGUAGE plpgsql AS $analyse_valid_time_from_source$
+-- Procedure to analyse the validity period for a job.
+-- This single procedure handles all `valid_time_from` modes by operating on the
+-- `valid_from` and `valid_to` source_input columns in the `_data` table, which are
+-- populated either from the source file or from job defaults during the prepare step.
+CREATE OR REPLACE PROCEDURE import.analyse_valid_time(p_job_id INT, p_batch_row_ids BIGINT[], p_step_code TEXT)
+LANGUAGE plpgsql AS $analyse_valid_time$
 DECLARE
     v_job public.import_job;
     v_step RECORD;
@@ -129,16 +52,16 @@ DECLARE
     v_sql TEXT;
     v_error_keys_to_clear_arr TEXT[] := ARRAY['valid_from', 'valid_to']; -- Adjusted to match source_input column names
 BEGIN
-    RAISE DEBUG '[Job %] analyse_valid_time_from_source (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
+    RAISE DEBUG '[Job %] analyse_valid_time (Batch): Starting analysis for % rows', p_job_id, array_length(p_batch_row_ids, 1);
 
     -- Get job details
     SELECT * INTO v_job FROM public.import_job WHERE id = p_job_id;
     v_data_table_name := v_job.data_table_name; -- Assign from the record
 
     -- Find the target details
-    SELECT * INTO v_step FROM public.import_step WHERE code = 'valid_time_from_source';
+    SELECT * INTO v_step FROM public.import_step WHERE code = 'valid_time';
     IF NOT FOUND THEN
-        RAISE EXCEPTION '[Job %] valid_time_from_source target not found', p_job_id;
+        RAISE EXCEPTION '[Job %] valid_time target not found', p_job_id;
     END IF;
 
     -- Single-pass batch update for casting, state, error, and priority
@@ -203,12 +126,12 @@ BEGIN
         v_error_keys_to_clear_arr, v_error_keys_to_clear_arr,   -- For error CASE (clear)
         v_step.priority                                         -- For last_completed_priority (always this step's priority)
     );
-    RAISE DEBUG '[Job %] analyse_valid_time_from_source: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
+    RAISE DEBUG '[Job %] analyse_valid_time: Single-pass batch update for non-skipped rows: %', p_job_id, v_sql;
 
     BEGIN
         EXECUTE v_sql;
         GET DIAGNOSTICS v_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_valid_time_from_source: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
+        RAISE DEBUG '[Job %] analyse_valid_time: Updated % non-skipped rows in single pass.', p_job_id, v_update_count;
 
         -- Update priority for skipped rows
         EXECUTE format('
@@ -217,7 +140,7 @@ BEGIN
             WHERE dt.row_id = ANY(%L) AND dt.action = ''skip'';
         ', v_data_table_name, v_step.priority, p_batch_row_ids);
         GET DIAGNOSTICS v_skipped_update_count = ROW_COUNT;
-        RAISE DEBUG '[Job %] analyse_valid_time_from_source: Updated last_completed_priority for % skipped rows.', p_job_id, v_skipped_update_count;
+        RAISE DEBUG '[Job %] analyse_valid_time: Updated last_completed_priority for % skipped rows.', p_job_id, v_skipped_update_count;
 
         v_update_count := v_update_count + v_skipped_update_count; -- Total rows affected
 
@@ -225,21 +148,21 @@ BEGIN
         EXECUTE format('SELECT COUNT(*) FROM public.%I WHERE row_id = ANY(%L) AND state = ''error'' AND (error ?| %L::text[])',
                        v_data_table_name, p_batch_row_ids, v_error_keys_to_clear_arr)
         INTO v_error_count;
-        RAISE DEBUG '[Job %] analyse_valid_time_from_source: Estimated errors in this step for batch: %', p_job_id, v_error_count;
+        RAISE DEBUG '[Job %] analyse_valid_time: Estimated errors in this step for batch: %', p_job_id, v_error_count;
 
     EXCEPTION WHEN others THEN
-        RAISE WARNING '[Job %] analyse_valid_time_from_source: Error during single-pass batch update: %', p_job_id, SQLERRM;
+        RAISE WARNING '[Job %] analyse_valid_time: Error during single-pass batch update: %', p_job_id, SQLERRM;
         UPDATE public.import_job
-        SET error = jsonb_build_object('analyse_valid_time_from_source_batch_error', SQLERRM),
+        SET error = jsonb_build_object('analyse_valid_time_batch_error', SQLERRM),
             state = 'finished'
         WHERE id = p_job_id;
-        RAISE DEBUG '[Job %] analyse_valid_time_from_source: Marked job as failed due to error: %', p_job_id, SQLERRM;
+        RAISE DEBUG '[Job %] analyse_valid_time: Marked job as failed due to error: %', p_job_id, SQLERRM;
         RAISE;
     END;
 
-    RAISE DEBUG '[Job %] analyse_valid_time_from_source (Batch): Finished analysis for batch. Errors newly marked in this step: %', p_job_id, v_error_count;
+    RAISE DEBUG '[Job %] analyse_valid_time (Batch): Finished analysis for batch. Errors newly marked in this step: %', p_job_id, v_error_count;
 END;
-$analyse_valid_time_from_source$;
+$analyse_valid_time$;
 
 -- Note: No process_valid_time_from_source procedure is needed.
 -- The typed_valid_from/to columns are used by the main unit processing procedures (legal_unit, establishment).

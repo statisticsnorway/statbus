@@ -103,8 +103,6 @@ INSERT INTO public.stat_definition (code, name, type, frequency, description, ar
 ('men_employees', 'Number of Men Employees', 'int', 'yearly', 'Number of men employees in the unit', false, 10),
 ('women_employees', 'Number of Women Employees', 'int', 'yearly', 'Number of women employees in the unit', false, 11)
 ON CONFLICT (code) DO UPDATE SET archived = false; -- Ensure they are active for this test
-NOTICE:  Cleaning up dynamic statistical_variables data columns...
-NOTICE:  Finished cleaning up dynamic statistical_variables data columns.
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -119,8 +117,6 @@ NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
-NOTICE:  Cleaning up dynamic statistical_variables data columns...
-NOTICE:  Finished cleaning up dynamic statistical_variables data columns.
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -144,8 +140,6 @@ NOTICE:  Created indices for stat_definition women_employees
 INSERT INTO public.external_ident_type (code, name, description, priority, archived) VALUES
 ('nin_ident', 'National Identity Number', 'Custom NIN ident for test 71', 3, false)
 ON CONFLICT (code) DO UPDATE SET archived = false; -- Ensure it's active
-NOTICE:  Cleaning up dynamic external_ident data columns...
-NOTICE:  Finished cleaning up dynamic external_ident data columns.
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -167,8 +161,6 @@ NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
 NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
-NOTICE:  Cleaning up dynamic external_ident data columns...
-NOTICE:  Finished cleaning up dynamic external_ident data columns.
 NOTICE:  Dropped index su_ei_nin_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
@@ -193,8 +185,6 @@ NOTICE:  Created indices for stat_definition men_employees
 NOTICE:  Created indices for stat_definition women_employees
 -- Archive stat_ident for this test to ensure nin_ident is picked up where applicable
 UPDATE public.external_ident_type SET archived = true WHERE code = 'stat_ident';
-NOTICE:  Cleaning up dynamic external_ident data columns...
-NOTICE:  Finished cleaning up dynamic external_ident data columns.
 NOTICE:  Dropped index su_ei_nin_ident_idx
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
@@ -254,7 +244,7 @@ BEGIN
     SELECT array_agg(s.id) INTO v_lu_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time_from_source', 'status', 'legal_unit',
+        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
@@ -262,7 +252,7 @@ BEGIN
     SELECT array_agg(s.id) INTO v_es_formal_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'link_establishment_to_legal_unit', 'enterprise_link_for_establishment', 'valid_time_from_source', 'status', 'establishment',
+        'external_idents', 'link_establishment_to_legal_unit', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
@@ -270,14 +260,14 @@ BEGIN
     SELECT array_agg(s.id) INTO v_es_informal_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'enterprise_link_for_establishment', 'valid_time_from_source', 'status', 'establishment',
+        'external_idents', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
 
     -- Create Legal Unit Import Definition for Test 71
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid)
-    VALUES ('legal_unit_custom_test71', 'Test 71 LU Custom', 'Imports LUs with NIN and custom stats', 'insert_or_replace', 'legal_unit', false)
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid)
+    VALUES ('legal_unit_custom_test71', 'Test 71 LU Custom', 'Imports LUs with NIN and custom stats', 'insert_or_replace', 'legal_unit', 'source_columns', false)
     RETURNING id INTO v_lu_def_id;
 
     INSERT INTO public.import_definition_step (definition_id, step_id)
@@ -298,8 +288,8 @@ BEGIN
     UPDATE public.import_definition SET valid = true WHERE id = v_lu_def_id;
 
     -- Create Establishment (for LU) Import Definition for Test 71
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid)
-    VALUES ('establishment_for_lu_custom_test71', 'Test 71 ES for LU Custom', 'Imports ES for LU with NIN and custom stats', 'insert_or_replace', 'establishment_formal', false)
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid)
+    VALUES ('establishment_for_lu_custom_test71', 'Test 71 ES for LU Custom', 'Imports ES for LU with NIN and custom stats', 'insert_or_replace', 'establishment_formal', 'source_columns', false)
     RETURNING id INTO v_es_lu_def_id;
 
     INSERT INTO public.import_definition_step (definition_id, step_id)
@@ -320,8 +310,8 @@ BEGIN
     UPDATE public.import_definition SET valid = true WHERE id = v_es_lu_def_id;
 
     -- Create Establishment (without LU) Import Definition for Test 71
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid)
-    VALUES ('establishment_without_lu_custom_test71', 'Test 71 ES no LU Custom', 'Imports ES no LU with NIN and custom stats', 'insert_or_replace', 'establishment_informal', false)
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid)
+    VALUES ('establishment_without_lu_custom_test71', 'Test 71 ES no LU Custom', 'Imports ES no LU with NIN and custom stats', 'insert_or_replace', 'establishment_informal', 'source_columns', false)
     RETURNING id INTO v_es_no_lu_def_id;
 
     INSERT INTO public.import_definition_step (definition_id, step_id)
@@ -371,6 +361,124 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_71_a1_lu', 'Test 71.A.1: LU-71A Initial', 'Test 71.A.1');
 END $$;
+\echo '--- Debugging Schema for Job import_71_a1_lu ---'
+--- Debugging Schema for Job import_71_a1_lu ---
+\d+ public.import_71_a1_lu_data
+                                                            Table "public.import_71_a1_lu_data"
+              Column              |           Type            | Collation | Nullable |           Default            | Storage  | Stats target | Description 
+----------------------------------+---------------------------+-----------+----------+------------------------------+----------+--------------+-------------
+ row_id                           | bigint                    |           | not null | generated always as identity | plain    |              | 
+ valid_from                       | text                      |           |          |                              | extended |              | 
+ valid_to                         | text                      |           |          |                              | extended |              | 
+ derived_valid_after              | date                      |           |          |                              | plain    |              | 
+ derived_valid_from               | date                      |           |          |                              | plain    |              | 
+ derived_valid_to                 | date                      |           |          |                              | plain    |              | 
+ operation                        | import_row_operation_type |           |          |                              | plain    |              | 
+ action                           | import_row_action_type    |           |          |                              | plain    |              | 
+ tax_ident                        | text                      |           |          |                              | extended |              | 
+ nin_ident                        | text                      |           |          |                              | extended |              | 
+ status_code                      | text                      |           |          |                              | extended |              | 
+ status_id                        | integer                   |           |          |                              | plain    |              | 
+ enterprise_id                    | integer                   |           |          |                              | plain    |              | 
+ primary_for_enterprise           | boolean                   |           |          |                              | plain    |              | 
+ name                             | text                      |           |          |                              | extended |              | 
+ birth_date                       | text                      |           |          |                              | extended |              | 
+ death_date                       | text                      |           |          |                              | extended |              | 
+ sector_code                      | text                      |           |          |                              | extended |              | 
+ unit_size_code                   | text                      |           |          |                              | extended |              | 
+ legal_form_code                  | text                      |           |          |                              | extended |              | 
+ data_source_code                 | text                      |           |          |                              | extended |              | 
+ legal_unit_id                    | integer                   |           |          |                              | plain    |              | 
+ sector_id                        | integer                   |           |          |                              | plain    |              | 
+ unit_size_id                     | integer                   |           |          |                              | plain    |              | 
+ legal_form_id                    | integer                   |           |          |                              | plain    |              | 
+ data_source_id                   | integer                   |           |          |                              | plain    |              | 
+ typed_birth_date                 | date                      |           |          |                              | plain    |              | 
+ typed_death_date                 | date                      |           |          |                              | plain    |              | 
+ physical_address_part1           | text                      |           |          |                              | extended |              | 
+ physical_address_part2           | text                      |           |          |                              | extended |              | 
+ physical_address_part3           | text                      |           |          |                              | extended |              | 
+ physical_postcode                | text                      |           |          |                              | extended |              | 
+ physical_postplace               | text                      |           |          |                              | extended |              | 
+ physical_latitude                | text                      |           |          |                              | extended |              | 
+ physical_longitude               | text                      |           |          |                              | extended |              | 
+ physical_altitude                | text                      |           |          |                              | extended |              | 
+ physical_region_code             | text                      |           |          |                              | extended |              | 
+ physical_country_iso_2           | text                      |           |          |                              | extended |              | 
+ physical_location_id             | integer                   |           |          |                              | plain    |              | 
+ physical_region_id               | integer                   |           |          |                              | plain    |              | 
+ physical_country_id              | integer                   |           |          |                              | plain    |              | 
+ typed_physical_latitude          | numeric(9,6)              |           |          |                              | main     |              | 
+ typed_physical_longitude         | numeric(9,6)              |           |          |                              | main     |              | 
+ typed_physical_altitude          | numeric(6,1)              |           |          |                              | main     |              | 
+ postal_address_part1             | text                      |           |          |                              | extended |              | 
+ postal_address_part2             | text                      |           |          |                              | extended |              | 
+ postal_address_part3             | text                      |           |          |                              | extended |              | 
+ postal_postcode                  | text                      |           |          |                              | extended |              | 
+ postal_postplace                 | text                      |           |          |                              | extended |              | 
+ postal_region_code               | text                      |           |          |                              | extended |              | 
+ postal_country_iso_2             | text                      |           |          |                              | extended |              | 
+ postal_latitude                  | text                      |           |          |                              | extended |              | 
+ postal_longitude                 | text                      |           |          |                              | extended |              | 
+ postal_altitude                  | text                      |           |          |                              | extended |              | 
+ postal_location_id               | integer                   |           |          |                              | plain    |              | 
+ postal_region_id                 | integer                   |           |          |                              | plain    |              | 
+ postal_country_id                | integer                   |           |          |                              | plain    |              | 
+ typed_postal_latitude            | numeric(9,6)              |           |          |                              | main     |              | 
+ typed_postal_longitude           | numeric(9,6)              |           |          |                              | main     |              | 
+ typed_postal_altitude            | numeric(6,1)              |           |          |                              | main     |              | 
+ primary_activity_category_code   | text                      |           |          |                              | extended |              | 
+ primary_activity_id              | integer                   |           |          |                              | plain    |              | 
+ primary_activity_category_id     | integer                   |           |          |                              | plain    |              | 
+ secondary_activity_category_code | text                      |           |          |                              | extended |              | 
+ secondary_activity_id            | integer                   |           |          |                              | plain    |              | 
+ secondary_activity_category_id   | integer                   |           |          |                              | plain    |              | 
+ web_address                      | text                      |           |          |                              | extended |              | 
+ email_address                    | text                      |           |          |                              | extended |              | 
+ phone_number                     | text                      |           |          |                              | extended |              | 
+ landline                         | text                      |           |          |                              | extended |              | 
+ mobile_number                    | text                      |           |          |                              | extended |              | 
+ fax_number                       | text                      |           |          |                              | extended |              | 
+ contact_id                       | integer                   |           |          |                              | plain    |              | 
+ employees                        | text                      |           |          |                              | extended |              | 
+ turnover                         | text                      |           |          |                              | extended |              | 
+ men_employees                    | text                      |           |          |                              | extended |              | 
+ women_employees                  | text                      |           |          |                              | extended |              | 
+ stat_for_unit_employees_id       | integer                   |           |          |                              | plain    |              | 
+ stat_for_unit_turnover_id        | integer                   |           |          |                              | plain    |              | 
+ stat_for_unit_men_employees_id   | integer                   |           |          |                              | plain    |              | 
+ stat_for_unit_women_employees_id | integer                   |           |          |                              | plain    |              | 
+ tag_path                         | text                      |           |          |                              | extended |              | 
+ tag_path_ltree                   | ltree                     |           |          |                              | extended |              | 
+ tag_id                           | integer                   |           |          |                              | plain    |              | 
+ tag_for_unit_id                  | integer                   |           |          |                              | plain    |              | 
+ edit_by_user_id                  | integer                   |           |          |                              | plain    |              | 
+ edit_at                          | timestamp with time zone  |           |          |                              | plain    |              | 
+ edit_comment                     | text                      |           |          |                              | extended |              | 
+ founding_row_id                  | bigint                    |           |          |                              | plain    |              | 
+ state                            | import_data_state         |           | not null | 'pending'::import_data_state | plain    |              | 
+ last_completed_priority          | integer                   |           | not null | 0                            | plain    |              | 
+ error                            | jsonb                     |           |          |                              | extended |              | 
+ invalid_codes                    | jsonb                     |           |          |                              | extended |              | 
+Indexes:
+    "import_71_a1_lu_data_pkey" PRIMARY KEY, btree (row_id)
+    "import_71_a1_lu_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "import_71_a1_lu_data_unique_ident_key" UNIQUE, btree (COALESCE(nin_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
+Policies:
+    POLICY "import_71_a1_lu_data_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
+    POLICY "import_71_a1_lu_data_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "import_71_a1_lu_data_regular_user_manage"
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
+
+\echo '------------------------------------------'
+------------------------------------------
 INSERT INTO public.import_71_a1_lu_upload(
     tax_ident, nin_ident, name, valid_from, valid_to, physical_address_part1, physical_country_iso_2, physical_postcode, physical_region_code,
     primary_activity_category_code, sector_code, legal_form_code, email_address, men_employees, women_employees, tag_path

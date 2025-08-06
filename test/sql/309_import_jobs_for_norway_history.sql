@@ -11,7 +11,7 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \i samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
 -- Display summary of created definitions
-SELECT slug, name, note, time_context_ident, strategy, valid, validation_error
+SELECT slug, name, note, valid_time_from, strategy, valid, validation_error
 FROM public.import_definition
 WHERE slug LIKE 'brreg_%_2024'
 ORDER BY slug;
@@ -108,7 +108,7 @@ CALL worker.process_tasks(p_queue => 'import');
 
 \echo Check the states of the import job tasks.
 select queue,t.command,state,error from worker.tasks as t join worker.command_registry as c on t.command = c.command where t.command = 'import_job_process' order by priority;
-select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job ORDER BY slug;
+select slug, state, error is not null as failed, time_context_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
 
 \echo Check import job state after import
 SELECT state, count(*) FROM import_job GROUP BY state;
@@ -125,19 +125,19 @@ SELECT state, count(*) FROM public.import_es_2017_h_data GROUP BY state;
 SELECT state, count(*) FROM public.import_es_2018_h_data GROUP BY state;
 
 \echo Check the state of all tasks before running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
 CALL worker.process_tasks(p_queue => 'analytics');
 
 \echo Check the state of all tasks after running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo Run any remaining tasks, there should be none.
 CALL worker.process_tasks();
 
 \echo Check the state of all tasks after running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo Overview of statistical units, but not details, there are too many units.
 SELECT valid_from

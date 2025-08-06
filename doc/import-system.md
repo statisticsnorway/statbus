@@ -13,9 +13,11 @@ The import system is built around several key database tables and concepts:
 1.  **Import Definition (`import_definition`)**:
     *   Represents a specific *type* of import (e.g., "Import Legal Units for Current Year", "Import Establishments with Explicit Dates").
     *   Defines the overall behavior, such as the final database operation (`strategy`: `insert_or_replace`, `insert_only`, `replace_only`) and the structural `mode` (`legal_unit`, `establishment_formal`, `establishment_informal`, `generic_unit`). The `mode` column is `NOT NULL`.
-    *   Is linked to the specific `import_step` records it utilizes via the `import_definition_step` table.
+    *   Declaratively specifies how the validity period for imported units is determined via the `valid_time_from` column. This column is a non-nullable `ENUM` (`public.import_valid_time_from`) with two possible values:
+        *   `'job_provided'`: The validity period is derived from parameters provided on the `import_job` itself, which can be either a `time_context_ident` or explicit `default_valid_from`/`to` dates.
+        *   `'source_columns'`: The validity period is derived from `valid_from` and `valid_to` columns present in the source data file.
+    *   Is linked to the specific `import_step` records it utilizes via the `import_definition_step` table. All definitions must include the `valid_time` step.
     *   Links together all the necessary components for the chosen steps: source columns, data columns, and mappings.
-    *   Can optionally reference a `time_context` for automatic validity period calculation.
 
 2.  **Import Step (`import_step`)**:
     *   Represents a logical *step* or *component* available for use within an import definition (e.g., processing `legal_unit` data, handling `physical_location`, linking `external_idents`). Identified by a unique `code` (using `snake_case`).
@@ -75,6 +77,9 @@ The import system is built around several key database tables and concepts:
 
 8.  **Import Job (`import_job`)**:
     *   Represents a specific instance of an import, created by a user based on an `import_definition`.
+    *   The way validity dates are provided depends on the `import_definition`'s `valid_time_from` value:
+        *   If `'job_provided'`, the job **must** have either a `time_context_ident` or explicit `default_valid_from`/`to` dates.
+        *   If `'source_columns'`, the job **must not** provide `time_context_ident` or `default_valid_from`/`to`.
     *   Tracks the overall state. The `import_job_state` enum includes:
         *   `waiting_for_upload`: Initial state. Job created, awaiting file upload.
             *   *Transition*: User uploads data to the job's `_upload` table. An `AFTER INSERT` trigger on this table changes the job state to `upload_completed` if rows were inserted.
@@ -111,25 +116,13 @@ The import system is built around several key database tables and concepts:
         *   `processed`: The row has been successfully imported into the final target Statbus table(s).
         *   `error`: A hard, unrecoverable error occurred for this row during either the analysis or processing phase. The row's `action` column is typically set to `skip`, and details are logged in its `error` JSONB column.
     *   `generic_unit`: Used for operations that apply to any pre-existing unit type, such as updating statistical variables. These definitions typically do not create new units but modify existing ones identified by external identifiers.
-    *   `definition_snapshot` (JSONB column in `public.import_job`): Captures the complete state of an `import_definition` and its related entities at the moment an `import_job` is created. This ensures that the job processing logic uses a consistent version of the definition, even if the original definition is modified later. The structure is as follows:
-        *   `import_definition` (object): A JSON representation of the `public.import_definition` row itself (e.g., `id`, `slug`, `name`, `strategy`, `mode`, `time_context_ident`).
-        *   `import_step_list` (array of objects): Each object is a JSON representation of a `public.import_step` row (e.g., `id`, `code`, `name`, `priority`, `analyse_procedure`, `process_procedure`) that is part of this definition, ordered by `priority`.
-        *   `import_data_column_list` (array of objects): Each object is a JSON representation of a `public.import_data_column` row (e.g., `id`, `step_id`, `column_name`, `column_type`, `purpose`, `is_uniquely_identifying`) relevant to the steps in `import_step_list`. Ordered by step priority, then data column priority, then column name.
-        *   `import_source_column_list` (array of objects): Each object is a JSON representation of a `public.import_source_column` row (e.g., `id`, `definition_id`, `column_name`, `priority`) associated with this definition. Ordered by `priority`.
-        *   `import_mapping_list` (array of objects): Each object provides a comprehensive view of a single mapping rule and contains:
-            *   `mapping` (object): A JSON representation of the `public.import_mapping` row (e.g., `id`, `source_column_id`, `source_value`, `source_expression`, `target_data_column_id`, `is_ignored`).
-            *   `source_column` (object, nullable): If the mapping originates from a source file column (`source_column_id` is not null), this is a JSON representation of the corresponding `public.import_source_column` row. Otherwise, it's `null`.
-            *   `target_data_column` (object): A JSON representation of the `public.import_data_column` row that is the target of this mapping.
-            This list is ordered by the priority of the target data column's step, then the target data column's priority, then its name, and finally by the mapping ID.
-        *   `import_definition`: The `import_definition` row.
-        *   `import_step_list`: An array of `import_step` objects.
-        *   `import_data_column_list`: An array of `import_data_column` objects relevant to the definition's steps.
-        *   `import_source_column_list`: An array of `import_source_column` objects for the definition.
-        *   `import_mapping_list`: An array of objects, where each object contains:
-            *   `mapping`: The `import_mapping` row itself.
-            *   `source_column`: The full `import_source_column` object (if mapped from a source column, else null).
-            *   `target_data_column`: The full `import_data_column` object that is the target of the mapping.
-        This enriched `import_mapping_list` simplifies access to related source and target column details during job processing.
+    *   `definition_snapshot` (JSONB column in `public.import_job`): Captures the complete state of an `import_definition` and its related entities at job creation. This ensures immutable processing. The structure is a JSONB object with keys corresponding to the source tables/views:
+        *   `import_definition`: A JSON representation of the `public.import_definition` row.
+        *   `time_context` (optional): If `valid_time_from = 'time_context'`, a JSON representation of the `public.time_context` row.
+        *   `import_step_list`: An array of `public.import_step` JSON objects for the definition.
+        *   `import_data_column_list`: An array of `public.import_data_column` JSON objects for the definition's steps.
+        *   `import_source_column_list`: An array of `public.import_source_column` JSON objects for the definition.
+        *   `import_mapping_list`: An array of enriched mapping objects, each containing the mapping, source column, and target data column records.
 
 ## Import Process Flow
 
@@ -229,9 +222,9 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
 
 1.  **Identify Required Steps (`import_step`)**: We need steps to handle:
     *   Populating audit info (`edit_info`, priority 100).
-    *   External identifiers (e.g., `tax_ident`) to find/create the `legal_unit` and determine the `operation` and `action` (`external_idents`, priority 10).
+    *   Validity period (`valid_time`, priority 10).
+    *   External identifiers (e.g., `tax_ident`) to find/create the `legal_unit` and determine the `operation` and `action` (`external_idents`, priority 15).
     *   Linking to an enterprise (`enterprise_link_for_legal_unit`, priority 18).
-    *   Validity dates from the source file (`valid_time_from_source`, priority 15).
     *   Core `legal_unit` data (`legal_unit`, priority 20).
     *   Physical location (`physical_location`, priority 30).
     *   Postal location (`postal_location`, priority 40).
@@ -257,7 +250,7 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
     *   **`enterprise_link_for_legal_unit` step:**
         *   `enterprise_id` (purpose: `internal`, type: `INTEGER`)
         *   `primary_for_enterprise` (purpose: `internal`, type: `BOOLEAN`) -- Renamed from is_primary for consistency
-    *   **`valid_time_from_source` step:**
+    *   **`valid_time` step:**
         *   `valid_from` (purpose: `source_input`, type: `TEXT`)
         *   `valid_to` (purpose: `source_input`, type: `TEXT`)
         *   `derived_valid_from` (purpose: `internal`, type: `DATE`)
@@ -329,8 +322,8 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
     *   Handle batch-wide errors (e.g., constraint violation during a batch DML in a `process_procedure`) by marking all rows identified by `p_batch_row_ids` as error (and action='skip') in the `_data` table and potentially failing the job.
 4.  **Create Definition (`import_definition`)**:
     ```sql
-    INSERT INTO public.import_definition (slug, name, note, strategy, valid)
-    VALUES ('legal_unit_explicit_dates', 'Legal Unit - Explicit Dates', 'Imports legal units with explicit dates', 'insert_or_replace', false); -- Start as invalid
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid)
+    VALUES ('legal_unit_explicit_dates', 'Legal Unit - Explicit Dates', 'Imports legal units with explicit dates', 'insert_or_replace', 'legal_unit', 'source_columns', false); -- Start as invalid
     ```
 
 5.  **Link Steps (`import_definition_step`)**:
@@ -339,7 +332,7 @@ Let's illustrate how to define an import for `legal_unit` data using the system.
     SELECT d.id, s.id
     FROM public.import_definition d
     JOIN public.import_step s ON s.code IN ( -- Use code here
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time_from_source', 'legal_unit',
+        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     )

@@ -87,7 +87,7 @@ BEGIN
     SELECT array_agg(s.id) INTO v_lu_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time_from_source', 'status', 'legal_unit',
+        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
@@ -95,7 +95,7 @@ BEGIN
     SELECT array_agg(s.id) INTO v_es_formal_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'link_establishment_to_legal_unit', 'enterprise_link_for_establishment', 'valid_time_from_source', 'status', 'establishment',
+        'external_idents', 'link_establishment_to_legal_unit', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
@@ -103,14 +103,14 @@ BEGIN
     SELECT array_agg(s.id) INTO v_es_informal_step_ids
     FROM public.import_step s
     WHERE s.code IN (
-        'external_idents', 'enterprise_link_for_establishment', 'valid_time_from_source', 'status', 'establishment',
+        'external_idents', 'enterprise_link_for_establishment', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     );
 
     -- Create Legal Unit Import Definition for Test 71
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid)
-    VALUES ('legal_unit_custom_test71', 'Test 71 LU Custom', 'Imports LUs with NIN and custom stats', 'insert_or_replace', 'legal_unit', false)
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid)
+    VALUES ('legal_unit_custom_test71', 'Test 71 LU Custom', 'Imports LUs with NIN and custom stats', 'insert_or_replace', 'legal_unit', 'source_columns', false)
     RETURNING id INTO v_lu_def_id;
 
     INSERT INTO public.import_definition_step (definition_id, step_id)
@@ -131,8 +131,8 @@ BEGIN
     UPDATE public.import_definition SET valid = true WHERE id = v_lu_def_id;
 
     -- Create Establishment (for LU) Import Definition for Test 71
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid)
-    VALUES ('establishment_for_lu_custom_test71', 'Test 71 ES for LU Custom', 'Imports ES for LU with NIN and custom stats', 'insert_or_replace', 'establishment_formal', false)
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid)
+    VALUES ('establishment_for_lu_custom_test71', 'Test 71 ES for LU Custom', 'Imports ES for LU with NIN and custom stats', 'insert_or_replace', 'establishment_formal', 'source_columns', false)
     RETURNING id INTO v_es_lu_def_id;
 
     INSERT INTO public.import_definition_step (definition_id, step_id)
@@ -153,8 +153,8 @@ BEGIN
     UPDATE public.import_definition SET valid = true WHERE id = v_es_lu_def_id;
 
     -- Create Establishment (without LU) Import Definition for Test 71
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid)
-    VALUES ('establishment_without_lu_custom_test71', 'Test 71 ES no LU Custom', 'Imports ES no LU with NIN and custom stats', 'insert_or_replace', 'establishment_informal', false)
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid)
+    VALUES ('establishment_without_lu_custom_test71', 'Test 71 ES no LU Custom', 'Imports ES no LU with NIN and custom stats', 'insert_or_replace', 'establishment_informal', 'source_columns', false)
     RETURNING id INTO v_es_no_lu_def_id;
 
     INSERT INTO public.import_definition_step (definition_id, step_id)
@@ -200,6 +200,10 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_71_a1_lu', 'Test 71.A.1: LU-71A Initial', 'Test 71.A.1');
 END $$;
+
+\echo '--- Debugging Schema for Job import_71_a1_lu ---'
+\d+ public.import_71_a1_lu_data
+\echo '------------------------------------------'
 INSERT INTO public.import_71_a1_lu_upload(
     tax_ident, nin_ident, name, valid_from, valid_to, physical_address_part1, physical_country_iso_2, physical_postcode, physical_region_code,
     primary_activity_category_code, sector_code, legal_form_code, email_address, men_employees, women_employees, tag_path

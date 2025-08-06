@@ -46,7 +46,7 @@ SELECT
 -- Create Import Job for Legal Units with Status
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_35_lu_era_status',
     'Import LU Era with Status (35_load_with_status_codes.sql)',
     'Import job for test/data/35_norwegian-legal-units-with-status.csv.',
@@ -57,7 +57,7 @@ SELECT
 -- Create Import Job for Establishments with Status
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'),
     'import_35_esflu_era_status',
     'Import ES Era with Status (35_load_with_status_codes.sql)',
     'Import job for test/data/35_norwegian-establishments-with-status.csv.',
@@ -67,7 +67,7 @@ SELECT
 
 \echo Run worker processing for import jobs
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
@@ -76,7 +76,7 @@ WHERE slug LIKE 'import_35_%' ORDER BY slug;
 
 \echo Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,

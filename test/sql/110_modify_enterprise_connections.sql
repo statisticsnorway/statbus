@@ -49,10 +49,10 @@ SELECT slug, name, valid, validation_error FROM public.import_definition ORDER B
 -- Create Import Job for Legal Units (Era)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT 
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), 
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'), 
     'import_05_lu_era',
     'Import Legal Units Era (05_modify_enterprise_connections.sql)',
-    'Import job for legal units from test/data/05_norwegian-legal-units.csv using legal_unit_explicit_dates definition.',
+    'Import job for legal units from test/data/05_norwegian-legal-units.csv using legal_unit_source_dates definition.',
        'Test data load (05_modify_enterprise_connections.sql)';
 
 \echo "User uploads the legal units (via import job: import_05_lu_era)"
@@ -61,10 +61,10 @@ SELECT
 -- Create Import Job for Establishments (Era for LU)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT 
-    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates'), 
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'), 
     'import_05_esflu_era',
     'Import Establishments Era for LU (05_modify_enterprise_connections.sql)',
-    'Import job for establishments from test/data/05_norwegian-establishments.csv using establishment_for_lu_explicit_dates definition.',
+    'Import job for establishments from test/data/05_norwegian-establishments.csv using establishment_for_lu_source_dates definition.',
     'Test data load (05_modify_enterprise_connections.sql)';
 
 \echo "User uploads the establishments (via import job: import_05_esflu_era)"
@@ -72,7 +72,7 @@ SELECT
 
 \echo Run worker processing for import jobs
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking unit counts after import processing"
 SELECT
@@ -82,7 +82,7 @@ SELECT
 
 \echo Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Inspecting import job data for import_05_lu_era"
 SELECT row_id, state, error, tax_ident, name, valid_from, valid_to
@@ -267,7 +267,7 @@ SELECT jsonb_pretty(
 
   \echo Run worker processing for analytics tasks (after manual connections)
   CALL worker.process_tasks(p_queue => 'analytics');
-  SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+  SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \x
 \echo "Check relevant_statistical_units"

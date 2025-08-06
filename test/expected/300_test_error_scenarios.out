@@ -105,7 +105,7 @@ SAVEPOINT scenario_70_1_invalid_codes;
 \echo "Sub-Scenario 70.1.1: LU Import with Various Analysis Errors (analyse_valid_time_from_source, analyse_legal_unit, analyse_activity, analyse_tags, analyse_statistical_variables, analyse_location, analyse_status)"
 "Sub-Scenario 70.1.1: LU Import with Various Analysis Errors (analyse_valid_time_from_source, analyse_legal_unit, analyse_activity, analyse_tags, analyse_statistical_variables, analyse_location, analyse_status)"
 DO $$
-DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_explicit_dates';
+DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
@@ -216,7 +216,7 @@ SAVEPOINT before_no_default_status_test_70_1_1;
 "Temporarily disabling default status for analyse_status tests..."
 UPDATE public.status SET assigned_by_default = false WHERE code = 'active'; -- Assuming 'active' is the default
 DO $$
-DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_explicit_dates';
+DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
@@ -257,10 +257,10 @@ ROLLBACK TO before_no_default_status_test_70_1_1;
 DO $$
 DECLARE v_lu_def_id INT; v_es_def_id INT;
 BEGIN
-    SELECT id INTO v_lu_def_id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates';
-    IF v_lu_def_id IS NULL THEN RAISE EXCEPTION 'Import definition legal_unit_explicit_dates not found.'; END IF;
-    SELECT id INTO v_es_def_id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates';
-    IF v_es_def_id IS NULL THEN RAISE EXCEPTION 'Import definition establishment_for_lu_explicit_dates not found.'; END IF;
+    SELECT id INTO v_lu_def_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    IF v_lu_def_id IS NULL THEN RAISE EXCEPTION 'Import definition legal_unit_source_dates not found.'; END IF;
+    SELECT id INTO v_es_def_id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
+    IF v_es_def_id IS NULL THEN RAISE EXCEPTION 'Import definition establishment_for_lu_source_dates not found.'; END IF;
 
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment) VALUES (v_lu_def_id, 'import_70_01_02_lu_for_es', 'Test 70.1.2: Valid LU for ES', 'Test 70.1.2');
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment) VALUES (v_es_def_id, 'import_70_01_02_es_invalid', 'Test 70.1.2: Formal ES Invalid Codes', 'Test 70.1.2');
@@ -290,7 +290,7 @@ SELECT row_id, state, action, derived_valid_from, derived_valid_to, error, inval
 \echo "Sub-Scenario 70.1.3: Informal ES Import with Invalid Codes"
 "Sub-Scenario 70.1.3: Informal ES Import with Invalid Codes"
 DO $$
-DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_without_lu_explicit_dates';
+DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_without_lu_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
@@ -325,7 +325,7 @@ SAVEPOINT scenario_70_2_missing_data;
 \echo "Sub-Scenario 70.2.1: LU Import - Missing Core Fields"
 "Sub-Scenario 70.2.1: LU Import - Missing Core Fields"
 DO $$
-DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_explicit_dates';
+DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
@@ -350,7 +350,7 @@ SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error FR
 SELECT row_id, state, action, derived_valid_from, derived_valid_to, error, invalid_codes FROM public.import_70_02_01_lu_missing_data ORDER BY row_id;
  row_id | state | action | derived_valid_from | derived_valid_to |                                       error                                       | invalid_codes 
 --------+-------+--------+--------------------+------------------+-----------------------------------------------------------------------------------+---------------
-      1 | error | skip   |                    |                  | {"tax_ident": "No identifier specified", "stat_ident": "No identifier specified"} | 
+      1 | error | skip   | 2023-01-01         | 2023-12-31       | {"tax_ident": "No identifier specified", "stat_ident": "No identifier specified"} | 
       2 | error | skip   | 2023-01-01         | 2023-12-31       | {"name": "Missing required name"}                                                 | 
       3 | error | skip   |                    | 2023-12-31       | {"valid_from": "Missing mandatory value"}                                         | 
 (3 rows)
@@ -361,10 +361,10 @@ SELECT row_id, state, action, derived_valid_from, derived_valid_to, error, inval
 DO $$
 DECLARE v_lu_def_id INT; v_es_def_id INT;
 BEGIN
-    SELECT id INTO v_lu_def_id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates';
-    IF v_lu_def_id IS NULL THEN RAISE EXCEPTION 'Import definition legal_unit_explicit_dates not found.'; END IF;
-    SELECT id INTO v_es_def_id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates';
-    IF v_es_def_id IS NULL THEN RAISE EXCEPTION 'Import definition establishment_for_lu_explicit_dates not found.'; END IF;
+    SELECT id INTO v_lu_def_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    IF v_lu_def_id IS NULL THEN RAISE EXCEPTION 'Import definition legal_unit_source_dates not found.'; END IF;
+    SELECT id INTO v_es_def_id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates';
+    IF v_es_def_id IS NULL THEN RAISE EXCEPTION 'Import definition establishment_for_lu_source_dates not found.'; END IF;
 
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment) VALUES (v_lu_def_id, 'import_70_02_02_lu_for_es_link', 'Test 70.2.2: Valid LU for ES', 'Test 70.2.2');
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment) VALUES (v_es_def_id, 'import_70_02_02_es_missing_link', 'Test 70.2.2: Formal ES Missing LU Link', 'Test 70.2.2');
@@ -401,7 +401,7 @@ SAVEPOINT scenario_70_3_referential_integrity;
 \echo "Sub-Scenario 70.3.1: Formal ES links to Non-Existent LU"
 "Sub-Scenario 70.3.1: Formal ES links to Non-Existent LU"
 DO $$
-DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_for_lu_explicit_dates';
+DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_for_lu_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
@@ -450,7 +450,7 @@ SAVEPOINT scenario_70_6_batch_replace_errors;
 \echo "Sub-Scenario 70.6.1: LU with empty name (assuming name is NOT NULL in public.legal_unit)"
 "Sub-Scenario 70.6.1: LU with empty name (assuming name is NOT NULL in public.legal_unit)"
 DO $$
-DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_explicit_dates';
+DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     IF v_definition_id IS NULL THEN RAISE EXCEPTION 'Import definition % not found.', v_definition_slug; END IF;
@@ -503,58 +503,13 @@ DECLARE
 BEGIN
     SELECT id INTO v_user_id FROM public.user WHERE email = 'test.admin@statbus.org';
 
-    -- Ensure custom_est_ident type exists for this test block
+    -- Ensure custom_est_ident type exists for this test block. The INSERT will trigger
+    -- lifecycle callbacks that should create the data column, source columns, and mappings
+    -- for 'custom_est_ident' in all relevant default import definitions, making them
+    -- available for use in the import jobs below.
     INSERT INTO public.external_ident_type (code, name, description, priority)
     VALUES ('custom_est_ident', 'Custom Establishment Identifier', 'A custom identifier type for testing establishment scenarios.', 10)
     ON CONFLICT (code) DO NOTHING;
-
-    -- Force lifecycle callback to run to ensure import_data_column for 'custom_est_ident' exists.
-    CALL import.generate_external_ident_data_columns();
-
-    -- Patch affected import definitions to include mappings for 'custom_est_ident'
-    SELECT id INTO v_lu_def_id_patch FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates';
-    SELECT id INTO v_esf_def_id_patch FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates';
-    SELECT id INTO v_esi_def_id_patch FROM public.import_definition WHERE slug = 'establishment_without_lu_explicit_dates';
-    v_def_ids_to_patch := ARRAY[v_lu_def_id_patch, v_esf_def_id_patch, v_esi_def_id_patch];
-
-    SELECT id INTO v_ext_idents_step_id_patch FROM public.import_step WHERE code = 'external_idents';
-    IF NOT FOUND THEN RAISE EXCEPTION 'Step "external_idents" not found for patching.'; END IF;
-
-    SELECT id INTO v_custom_ident_data_col_id_patch FROM public.import_data_column
-    WHERE step_id = v_ext_idents_step_id_patch AND column_name = 'custom_est_ident' AND purpose = 'source_input';
-    IF NOT FOUND THEN RAISE EXCEPTION 'Data column "custom_est_ident" for "external_idents" step not found for patching.'; END IF;
-
-    FOREACH v_current_def_id_patch IN ARRAY v_def_ids_to_patch
-    LOOP
-        IF v_current_def_id_patch IS NULL THEN
-            RAISE WARNING 'A definition ID for patching was NULL, skipping.';
-            CONTINUE;
-        END IF;
-
-        -- Create source column if it doesn't exist
-        IF NOT EXISTS (SELECT 1 FROM public.import_source_column WHERE definition_id = v_current_def_id_patch AND column_name = 'custom_est_ident') THEN
-            SELECT COALESCE(MAX(priority), 0) + 1 INTO v_max_priority_patch FROM public.import_source_column WHERE definition_id = v_current_def_id_patch;
-            INSERT INTO public.import_source_column (definition_id, column_name, priority)
-            VALUES (v_current_def_id_patch, 'custom_est_ident', v_max_priority_patch)
-            RETURNING id INTO v_new_source_col_id_patch;
-            RAISE NOTICE 'Test 70.7 Patcher: Added import_source_column for "custom_est_ident" to definition slug %.', (SELECT slug FROM public.import_definition WHERE id = v_current_def_id_patch);
-        ELSE
-            SELECT id INTO v_new_source_col_id_patch FROM public.import_source_column WHERE definition_id = v_current_def_id_patch AND column_name = 'custom_est_ident';
-            RAISE NOTICE 'Test 70.7 Patcher: Found existing import_source_column for "custom_est_ident" for definition slug %.', (SELECT slug FROM public.import_definition WHERE id = v_current_def_id_patch);
-        END IF;
-
-        -- Create or update mapping to be not ignored
-        INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose, is_ignored)
-        VALUES (v_current_def_id_patch, v_new_source_col_id_patch, v_custom_ident_data_col_id_patch, 'source_input'::public.import_data_column_purpose, FALSE)
-        ON CONFLICT (definition_id, source_column_id, target_data_column_id)
-        DO UPDATE SET is_ignored = FALSE, target_data_column_purpose = EXCLUDED.target_data_column_purpose;
-        RAISE NOTICE 'Test 70.7 Patcher: Ensured mapping for "custom_est_ident" to data column "custom_est_ident" (purpose: source_input) is NOT IGNORED for definition slug %.', (SELECT slug FROM public.import_definition WHERE id = v_current_def_id_patch);
-        
-        -- Re-validate the definition
-        PERFORM admin.validate_import_definition(v_current_def_id_patch);
-        RAISE NOTICE 'Test 70.7 Patcher: Re-validated definition slug %.', (SELECT slug FROM public.import_definition WHERE id = v_current_def_id_patch);
-
-    END LOOP;
 
     -- Enterprise for LU1
     INSERT INTO public.enterprise (short_name, edit_by_user_id, edit_at)
@@ -598,8 +553,6 @@ BEGIN
     VALUES (v_est_formal_id, (SELECT id FROM public.external_ident_type WHERE code = 'tax_ident'), 'EST707F_TAX', v_user_id, now());
 
 END $$;
-NOTICE:  Cleaning up dynamic external_ident data columns...
-NOTICE:  Finished cleaning up dynamic external_ident data columns.
 NOTICE:  Dropped index su_ei_stat_ident_idx
 NOTICE:  Dropped index su_ei_tax_ident_idx
 NOTICE:  Dropped index su_s_employees_idx
@@ -613,20 +566,11 @@ NOTICE:  Created index su_ei_stat_ident for external_ident_type
 NOTICE:  Created index su_ei_custom_est_ident for external_ident_type
 NOTICE:  Created indices for stat_definition employees
 NOTICE:  Created indices for stat_definition turnover
-NOTICE:  Test 70.7 Patcher: Found existing import_source_column for "custom_est_ident" for definition slug legal_unit_explicit_dates.
-NOTICE:  Test 70.7 Patcher: Ensured mapping for "custom_est_ident" to data column "custom_est_ident" (purpose: source_input) is NOT IGNORED for definition slug legal_unit_explicit_dates.
-NOTICE:  Test 70.7 Patcher: Re-validated definition slug legal_unit_explicit_dates.
-NOTICE:  Test 70.7 Patcher: Found existing import_source_column for "custom_est_ident" for definition slug establishment_for_lu_explicit_dates.
-NOTICE:  Test 70.7 Patcher: Ensured mapping for "custom_est_ident" to data column "custom_est_ident" (purpose: source_input) is NOT IGNORED for definition slug establishment_for_lu_explicit_dates.
-NOTICE:  Test 70.7 Patcher: Re-validated definition slug establishment_for_lu_explicit_dates.
-NOTICE:  Test 70.7 Patcher: Found existing import_source_column for "custom_est_ident" for definition slug establishment_without_lu_explicit_dates.
-NOTICE:  Test 70.7 Patcher: Ensured mapping for "custom_est_ident" to data column "custom_est_ident" (purpose: source_input) is NOT IGNORED for definition slug establishment_without_lu_explicit_dates.
-NOTICE:  Test 70.7 Patcher: Re-validated definition slug establishment_without_lu_explicit_dates.
--- Sub-Scenario 70.7.1: Mode 'legal_unit' (using 'legal_unit_explicit_dates')
+-- Sub-Scenario 70.7.1: Mode 'legal_unit' (using 'legal_unit_source_dates')
 \echo "Sub-Scenario 70.7.1: analyse_external_idents - Mode 'legal_unit'"
 "Sub-Scenario 70.7.1: analyse_external_idents - Mode 'legal_unit'"
 DO $$
-DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_explicit_dates';
+DECLARE v_definition_id INT; v_definition_slug TEXT := 'legal_unit_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
@@ -653,11 +597,11 @@ SELECT row_id, name, state, action, operation, error, legal_unit_id FROM public.
       4 | LU Unstable Ident | error | skip   | replace   | {"stat_ident": "Identifier stat_ident value 'LU7071_STAT_CHANGED' from input attempts to change existing value 'LU7071_STAT'"}                |              
 (4 rows)
 
--- Sub-Scenario 70.7.2: Mode 'establishment_formal' (using 'establishment_for_lu_explicit_dates')
+-- Sub-Scenario 70.7.2: Mode 'establishment_formal' (using 'establishment_for_lu_source_dates')
 \echo "Sub-Scenario 70.7.2: analyse_external_idents - Mode 'establishment_formal'"
 "Sub-Scenario 70.7.2: analyse_external_idents - Mode 'establishment_formal'"
 DO $$
-DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_for_lu_explicit_dates';
+DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_for_lu_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
@@ -676,11 +620,11 @@ SELECT row_id, name, state, action, operation, error, establishment_id FROM publ
       2 | ESTF CrossType LU | error | skip   | replace   | {"tax_ident": "Identifier already used by a Legal Unit: {\"tax_ident\": \"LU7071_TAX\"}"}              |                 
 (2 rows)
 
--- Sub-Scenario 70.7.3: Mode 'establishment_informal' (using 'establishment_without_lu_explicit_dates')
+-- Sub-Scenario 70.7.3: Mode 'establishment_informal' (using 'establishment_without_lu_source_dates')
 \echo "Sub-Scenario 70.7.3: analyse_external_idents - Mode 'establishment_informal'"
 "Sub-Scenario 70.7.3: analyse_external_idents - Mode 'establishment_informal'"
 DO $$
-DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_without_lu_explicit_dates';
+DECLARE v_definition_id INT; v_definition_slug TEXT := 'establishment_without_lu_source_dates';
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
@@ -706,7 +650,7 @@ SAVEPOINT scenario_70_8_link_est_lu_errors;
 "Scenario 70.8: analyse_link_establishment_to_legal_unit Errors (Mode 'establishment_formal')"
 DO $$
 DECLARE
-    v_definition_id INT; v_definition_slug TEXT := 'establishment_for_lu_explicit_dates';
+    v_definition_id INT; v_definition_slug TEXT := 'establishment_for_lu_source_dates';
     rec RECORD;
 BEGIN
     SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
@@ -731,7 +675,7 @@ BEGIN
     INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
     VALUES (v_definition_id, 'import_70_08_link_est_lu', 'Test 70.8: Link EST to LU Errors', 'Test 70.8');
 END $$;
-NOTICE:  Diagnostic for Scenario 70.8: Expected source input columns for definition "establishment_for_lu_explicit_dates" (ID: 4) like "legal_unit_%":
+NOTICE:  Diagnostic for Scenario 70.8: Expected source input columns for definition "establishment_for_lu_source_dates" (ID: 4) like "legal_unit_%":
 NOTICE:    -> Found source input data column: legal_unit_stat_ident (for step: link_establishment_to_legal_unit)
 NOTICE:    -> Found source input data column: legal_unit_tax_ident (for step: link_establishment_to_legal_unit)
 -- Setup: LU1 (tax_ident='LU7071_TAX', stat_ident='LU7071_STAT'), LU2 (stat_ident='LU7072_STAT') from 70.7 setup are available.
@@ -752,121 +696,102 @@ SELECT row_id, name, state, action, error, legal_unit_id FROM public.import_70_0
 (3 rows)
 
 ROLLBACK TO scenario_70_8_link_est_lu_errors;
--- Scenario 70.9: analyse_valid_time_from_context Errors
-SAVEPOINT scenario_70_9_valid_time_context_errors;
-\echo "Scenario 70.9: analyse_valid_time_from_context Errors"
-"Scenario 70.9: analyse_valid_time_from_context Errors"
+-- Scenario 70.9: Job Creation Validation Errors (Time Context & Default Dates)
+SAVEPOINT scenario_70_9_job_creation_errors;
+\echo "Scenario 70.9: Job Creation Validation Errors (Time Context & Default Dates)"
+"Scenario 70.9: Job Creation Validation Errors (Time Context & Default Dates)"
 DO $$
 DECLARE
-    v_definition_id INT; v_definition_slug TEXT := 'legal_unit_current_year'; -- Uses time_context_ident = 'r_year_curr'
+    v_def_context_id INT;
+    v_def_source_id INT;
 BEGIN
-    SELECT id INTO v_definition_id FROM public.import_definition WHERE slug = v_definition_slug;
+    SELECT id INTO v_def_context_id FROM public.import_definition WHERE slug = 'legal_unit_job_provided';
+    IF v_def_context_id IS NULL THEN RAISE EXCEPTION 'Setup for Test 70.9 FAILED: Definition "legal_unit_job_provided" not found.'; END IF;
 
-    -- Test 1: Attempt to set default_valid_to when definition uses time_context_ident (should fail)
+    SELECT id INTO v_def_source_id FROM public.import_definition WHERE slug = 'legal_unit_source_dates';
+    IF v_def_source_id IS NULL THEN RAISE EXCEPTION 'Setup for Test 70.9 FAILED: Definition "legal_unit_source_dates" not found.'; END IF;
+
+    -- Test 70.9.1: Create job for 'time_context' definition WITHOUT providing time_context_ident (should fail)
     BEGIN
-        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_to)
-        VALUES (v_definition_id, 'import_70_09_01_ctx_err_dvf', 'Test 70.9.1: Job with default_valid_to + time_context', 'Test 70.9.1', '2023-12-31');
-        RAISE EXCEPTION 'Test 70.9.1 FAILED: Expected INSERT to fail due to time_context conflict with default_valid_to.';
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment)
+        VALUES (v_def_context_id, 'import_70_09_01_ctx_missing_ident', 'Test 70.9.1: Missing time_context_ident', 'Test 70.9.1');
+        RAISE EXCEPTION 'Test 70.9.1 FAILED: Expected INSERT to fail due to missing time_context_ident.';
     EXCEPTION
-        WHEN others THEN
-            RAISE NOTICE 'Test 70.9.1 PASSED: Correctly failed to create job with default_valid_to and time_context. SQLERRM: %', SQLERRM;
-            -- No upload table or data table will be created, so no further processing or checks for this job.
+        WHEN raise_exception THEN
+            RAISE NOTICE 'Test 70.9.1 PASSED: Correctly failed to create job for time_context definition without time_context_ident. SQLERRM: %', SQLERRM;
     END;
 
-    -- Test 2: Attempt to set default_valid_from when definition uses time_context_ident (should fail)
+    -- Test 70.9.2: Create job for 'time_context' definition WITH both time_context_ident AND default_valid_from (should fail)
     BEGIN
-        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from)
-        VALUES (v_definition_id, 'import_70_09_02_ctx_err_dvt', 'Test 70.9.2: Job with default_valid_from + time_context', 'Test 70.9.2', '2023-01-01');
-        RAISE EXCEPTION 'Test 70.9.2 FAILED: Expected INSERT to fail due to time_context conflict with default_valid_from.';
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_context_ident, default_valid_from)
+        VALUES (v_def_context_id, 'import_70_09_02_ctx_conflict_from', 'Test 70.9.2: time_context_ident conflicts with default_valid_from', 'Test 70.9.2', 'r_year_curr', '2023-01-01');
+        RAISE EXCEPTION 'Test 70.9.2 FAILED: Expected INSERT to fail due to conflict between time_context_ident and default_valid_from.';
     EXCEPTION
-        WHEN others THEN
-            RAISE NOTICE 'Test 70.9.2 PASSED: Correctly failed to create job with default_valid_from and time_context. SQLERRM: %', SQLERRM;
+        WHEN raise_exception THEN
+            RAISE NOTICE 'Test 70.9.2 PASSED: Correctly failed to create job with conflicting time_context_ident and default_valid_from. SQLERRM: %', SQLERRM;
     END;
 
-    -- Test 3: Attempt to set default_valid_from > default_valid_to when definition uses time_context_ident (should fail due to time_context conflict first)
+    -- Test 70.9.3: Create job for 'source_columns' definition WITH time_context_ident (should fail)
+    BEGIN
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, time_context_ident)
+        VALUES (v_def_source_id, 'import_70_09_03_source_conflict_ctx', 'Test 70.9.3: time_context_ident with source_columns definition', 'Test 70.9.3', 'r_year_curr');
+        RAISE EXCEPTION 'Test 70.9.3 FAILED: Expected INSERT to fail due to providing time_context_ident for a source_columns definition.';
+    EXCEPTION
+        WHEN raise_exception THEN
+            RAISE NOTICE 'Test 70.9.3 PASSED: Correctly failed to create job with conflicting time_context_ident for source_columns definition. SQLERRM: %', SQLERRM;
+    END;
+
+    -- Test 70.9.4: Job for 'source_columns' definition with default_valid_from/to (should fail)
     BEGIN
         INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to)
-        VALUES (v_definition_id, 'import_70_09_03_ctx_err_inv_period', 'Test 70.9.3: Job with invalid default period + time_context', 'Test 70.9.3', '2023-12-31', '2023-01-01');
-        RAISE EXCEPTION 'Test 70.9.3 FAILED: Expected INSERT to fail due to time_context conflict with default_valid_from/to.';
+        VALUES (v_def_source_id, 'import_70_09_04_job_inv_period', 'Test 70.9.4: Job with default_valid_from/to for source_columns def', 'Test 70.9.4', '2024-01-01', '2023-12-31');
+        RAISE EXCEPTION 'Test 70.9.4 FAILED: Expected INSERT to fail due to providing default dates for a source_columns definition.';
     EXCEPTION
+        WHEN raise_exception THEN -- The trigger should raise an exception
+            RAISE NOTICE 'Test 70.9.4 PASSED: Correctly failed to create job with default dates for a source_columns definition. SQLERRM: %', SQLERRM;
         WHEN others THEN
-            RAISE NOTICE 'Test 70.9.3 PASSED: Correctly failed to create job with default_valid_from/to and time_context. SQLERRM: %', SQLERRM;
+             RAISE NOTICE 'Test 70.9.4 FAILED: Expected raise_exception but got different error. SQLERRM: %', SQLERRM;
+             RAISE; -- Re-raise other unexpected errors
     END;
 
-    -- Test 4: Definition does NOT use time_context_ident, but job provides invalid default_valid_from > default_valid_to (should fail)
-    -- For this, we need a definition without time_context_ident, e.g., 'legal_unit_explicit_dates'
-    DECLARE
-        v_def_explicit_id INT;
+    -- Test 70.9.5: Job for 'source_columns' definition with default_valid_from/to (should fail)
     BEGIN
-        SELECT id INTO v_def_explicit_id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates';
-        IF v_def_explicit_id IS NULL THEN RAISE EXCEPTION 'Setup for Test 70.9.4 FAILED: Definition "legal_unit_explicit_dates" not found.'; END IF;
-
-        BEGIN
-            INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to)
-            VALUES (v_def_explicit_id, 'import_70_09_04_job_inv_period', 'Test 70.9.4: Job with invalid default_valid_from > default_valid_to', 'Test 70.9.4', '2024-01-01', '2023-12-31');
-            RAISE EXCEPTION 'Test 70.9.4 FAILED: Expected INSERT to fail due to DB check constraint for invalid default_valid_from > default_valid_to.';
-        EXCEPTION
-            WHEN check_violation THEN -- Specifically catch check_violation (SQLSTATE 23514)
-                RAISE NOTICE 'Test 70.9.4 PASSED: Correctly failed to create job with invalid default_valid_from > default_valid_to due to DB check constraint. SQLERRM: %', SQLERRM;
-            WHEN others THEN
-                 RAISE NOTICE 'Test 70.9.4 FAILED: Expected check_violation but got different error. SQLERRM: %', SQLERRM;
-                 RAISE; -- Re-raise other unexpected errors
-        END;
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to)
+        VALUES (v_def_source_id, 'import_70_09_05_job_from_null_to', 'Test 70.9.5: Job with default_valid_from for source_columns def', 'Test 70.9.5', '2023-01-01', NULL);
+        RAISE EXCEPTION 'Test 70.9.5 FAILED: Expected INSERT to fail due to providing default dates for a source_columns definition.';
+    EXCEPTION
+        WHEN raise_exception THEN -- The trigger should raise an exception
+            RAISE NOTICE 'Test 70.9.5 PASSED: Correctly failed to create job with default dates for a source_columns definition. SQLERRM: %', SQLERRM;
+        WHEN others THEN
+            RAISE NOTICE 'Test 70.9.5 FAILED: Expected raise_exception but got different error. SQLERRM: %', SQLERRM;
+            RAISE;
     END;
 
-    -- Test 5: Definition does NOT use time_context_ident, but job provides default_valid_from and NULL default_valid_to (should fail due to trigger)
-    DECLARE
-        v_def_explicit_id_5 INT;
+    -- Test 70.9.6: Job for 'source_columns' definition with default_valid_from/to (should fail)
     BEGIN
-        SELECT id INTO v_def_explicit_id_5 FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates';
-        IF v_def_explicit_id_5 IS NULL THEN RAISE EXCEPTION 'Setup for Test 70.9.5 FAILED: Definition "legal_unit_explicit_dates" not found.'; END IF;
-
-        BEGIN
-            INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to)
-            VALUES (v_def_explicit_id_5, 'import_70_09_05_job_from_null_to', 'Test 70.9.5: Job with default_valid_from and NULL default_valid_to', 'Test 70.9.5', '2023-01-01', NULL);
-            RAISE EXCEPTION 'Test 70.9.5 FAILED: Expected INSERT to fail due to default_valid_to being NULL when default_valid_from is provided.';
-        EXCEPTION
-            WHEN raise_exception THEN -- Catching the user-defined exception from the trigger
-                RAISE NOTICE 'Test 70.9.5 PASSED: Correctly failed to create job with default_valid_from and NULL default_valid_to. SQLERRM: %', SQLERRM;
-            WHEN others THEN
-                RAISE NOTICE 'Test 70.9.5 FAILED: Expected raise_exception but got different error. SQLERRM: %', SQLERRM;
-                RAISE;
-        END;
-    END;
-
-    -- Test 6: Definition does NOT use time_context_ident, but job provides NULL default_valid_from and non-NULL default_valid_to (should fail due to trigger)
-    DECLARE
-        v_def_explicit_id_6 INT;
-    BEGIN
-        SELECT id INTO v_def_explicit_id_6 FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates';
-        IF v_def_explicit_id_6 IS NULL THEN RAISE EXCEPTION 'Setup for Test 70.9.6 FAILED: Definition "legal_unit_explicit_dates" not found.'; END IF;
-
-        BEGIN
-            INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to)
-            VALUES (v_def_explicit_id_6, 'import_70_09_06_job_null_from_to', 'Test 70.9.6: Job with NULL default_valid_from and non-NULL default_valid_to', 'Test 70.9.6', NULL, '2023-12-31');
-            RAISE EXCEPTION 'Test 70.9.6 FAILED: Expected INSERT to fail due to default_valid_from being NULL when default_valid_to is provided.';
-        EXCEPTION
-            WHEN raise_exception THEN -- Catching the user-defined exception from the trigger
-                RAISE NOTICE 'Test 70.9.6 PASSED: Correctly failed to create job with NULL default_valid_from and non-NULL default_valid_to. SQLERRM: %', SQLERRM;
-            WHEN others THEN
-                RAISE NOTICE 'Test 70.9.6 FAILED: Expected raise_exception but got different error. SQLERRM: %', SQLERRM;
-                RAISE;
-        END;
+        INSERT INTO public.import_job (definition_id, slug, description, edit_comment, default_valid_from, default_valid_to)
+        VALUES (v_def_source_id, 'import_70_09_06_job_null_from_to', 'Test 70.9.6: Job with default_valid_to for source_columns def', 'Test 70.9.6', NULL, '2023-12-31');
+        RAISE EXCEPTION 'Test 70.9.6 FAILED: Expected INSERT to fail due to providing default dates for a source_columns definition.';
+    EXCEPTION
+        WHEN raise_exception THEN -- The trigger should raise an exception
+            RAISE NOTICE 'Test 70.9.6 PASSED: Correctly failed to create job with default dates for a source_columns definition. SQLERRM: %', SQLERRM;
+        WHEN others THEN
+            RAISE NOTICE 'Test 70.9.6 FAILED: Expected raise_exception but got different error. SQLERRM: %', SQLERRM;
+            RAISE;
     END;
 
 END $$;
-NOTICE:  Test 70.9.1 PASSED: Correctly failed to create job with default_valid_to and time_context. SQLERRM: Cannot specify default_valid_from/to for import job when its definition (Legal Unit - Current Year) uses time_context_ident (r_year_curr); validity dates are derived from the time context.
-NOTICE:  Test 70.9.2 PASSED: Correctly failed to create job with default_valid_from and time_context. SQLERRM: Cannot specify default_valid_from/to for import job when its definition (Legal Unit - Current Year) uses time_context_ident (r_year_curr); validity dates are derived from the time context.
-NOTICE:  Test 70.9.3 PASSED: Correctly failed to create job with default_valid_from/to and time_context. SQLERRM: Cannot specify default_valid_from/to for import job when its definition (Legal Unit - Current Year) uses time_context_ident (r_year_curr); validity dates are derived from the time context.
-NOTICE:  Test 70.9.4 PASSED: Correctly failed to create job with invalid default_valid_from > default_valid_to due to DB check constraint. SQLERRM: new row for relation "import_job" violates check constraint "import_job_default_valid_from_to_consistency_check"
-NOTICE:  Test 70.9.5 PASSED: Correctly failed to create job with default_valid_from and NULL default_valid_to. SQLERRM: If providing default_valid_from for an import job (definition Legal Unit - Explicit Dates without time_context_ident), default_valid_to must also be provided.
-NOTICE:  Test 70.9.6 PASSED: Correctly failed to create job with NULL default_valid_from and non-NULL default_valid_to. SQLERRM: If providing default_valid_to for an import job (definition Legal Unit - Explicit Dates without time_context_ident), default_valid_from must also be provided.
+NOTICE:  Test 70.9.1 PASSED: Correctly failed to create job for time_context definition without time_context_ident. SQLERRM: Must specify either a time_context_ident or explicit default_valid_from/to dates for a job with definition Legal Units (Job Provided Time).
+NOTICE:  Test 70.9.2 PASSED: Correctly failed to create job with conflicting time_context_ident and default_valid_from. SQLERRM: Cannot specify both a time_context_ident and explicit default_valid_from/to dates for a job with definition Legal Units (Job Provided Time).
+NOTICE:  Test 70.9.3 PASSED: Correctly failed to create job with conflicting time_context_ident for source_columns definition. SQLERRM: Cannot specify a time_context_ident for an import job when its definition (Legal Units (Source Dates)) has valid_time_from="source_columns".
+NOTICE:  Test 70.9.4 PASSED: Correctly failed to create job with default dates for a source_columns definition. SQLERRM: Cannot specify default_valid_from/to for an import job when its definition (Legal Units (Source Dates)) has valid_time_from="source_columns".
+NOTICE:  Test 70.9.5 PASSED: Correctly failed to create job with default dates for a source_columns definition. SQLERRM: Cannot specify default_valid_from/to for an import job when its definition (Legal Units (Source Dates)) has valid_time_from="source_columns".
+NOTICE:  Test 70.9.6 PASSED: Correctly failed to create job with default dates for a source_columns definition. SQLERRM: Cannot specify default_valid_from/to for an import job when its definition (Legal Units (Source Dates)) has valid_time_from="source_columns".
 -- Since the jobs in 70.9 are expected to fail at creation, there will be no _data tables to query.
 -- The RAISE NOTICE statements within the EXCEPTION blocks will serve as verification.
--- We can remove the SELECT statements that query non-existent _data tables.
 \echo "Scenario 70.9: Verification is done via RAISE NOTICE in EXCEPTION blocks above."
 "Scenario 70.9: Verification is done via RAISE NOTICE in EXCEPTION blocks above."
-ROLLBACK TO scenario_70_9_valid_time_context_errors;
+ROLLBACK TO scenario_70_9_job_creation_errors;
 \echo "Final counts after all test blocks for Test 70 (should be same as initial due to rollbacks)"
 "Final counts after all test blocks for Test 70 (should be same as initial due to rollbacks)"
 SELECT

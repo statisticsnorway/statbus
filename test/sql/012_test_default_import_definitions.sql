@@ -14,7 +14,7 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \echo "in the 'external_idents' step, which is necessary for identifying units."
 
 \echo ""
-\echo "1. Definition: legal_unit_current_year, Source Column: tax_ident"
+\echo "1. Definition: legal_unit_time_context, Source Column: tax_ident"
 \echo "   ----------------------------------------------------------------"
 \echo "   Expected: The 'tax_ident' source column should be mapped to the 'external_ident_value' data column"
 \echo "             (purpose: 'external_ident_value') within the 'external_idents' import step."
@@ -33,11 +33,11 @@ JOIN public.import_source_column isc ON isc.definition_id = id.id
 LEFT JOIN public.import_mapping im ON im.source_column_id = isc.id AND im.definition_id = id.id
 LEFT JOIN public.import_data_column target_dc ON im.target_data_column_id = target_dc.id
 LEFT JOIN public.import_step target_step ON target_dc.step_id = target_step.id
-WHERE id.slug = 'legal_unit_current_year'
+WHERE id.slug = 'legal_unit_job_provided'
   AND isc.column_name = 'tax_ident';
 
 \echo ""
-\echo "2. Definition: establishment_for_lu_current_year, Source Column: tax_ident (for the establishment itself)"
+\echo "2. Definition: establishment_for_lu_time_context, Source Column: tax_ident (for the establishment itself)"
 \echo "   -------------------------------------------------------------------------------------------------------"
 \echo "   Expected: Similar to legal units, the 'tax_ident' source column for an establishment should be mapped"
 \echo "             to 'external_ident_value' (purpose: 'external_ident_value') in the 'external_idents' step."
@@ -54,11 +54,11 @@ JOIN public.import_source_column isc ON isc.definition_id = id.id
 LEFT JOIN public.import_mapping im ON im.source_column_id = isc.id AND im.definition_id = id.id
 LEFT JOIN public.import_data_column target_dc ON im.target_data_column_id = target_dc.id
 LEFT JOIN public.import_step target_step ON target_dc.step_id = target_step.id
-WHERE id.slug = 'establishment_for_lu_current_year'
+WHERE id.slug = 'establishment_for_lu_job_provided'
   AND isc.column_name = 'tax_ident';
 
 \echo ""
-\echo "3. Definition: establishment_for_lu_current_year, Source Column: legal_unit_tax_ident (for linking)"
+\echo "3. Definition: establishment_for_lu_time_context, Source Column: legal_unit_tax_ident (for linking)"
 \echo "   ---------------------------------------------------------------------------------------------------"
 \echo "   Expected: This 'legal_unit_tax_ident' source column (used to link an establishment to its legal unit)"
 \echo "             should be mapped to the 'legal_unit_tax_ident' data column (purpose: 'source_input')"
@@ -76,7 +76,7 @@ JOIN public.import_source_column isc ON isc.definition_id = id.id
 LEFT JOIN public.import_mapping im ON im.source_column_id = isc.id AND im.definition_id = id.id
 LEFT JOIN public.import_data_column target_dc ON im.target_data_column_id = target_dc.id
 LEFT JOIN public.import_step target_step ON target_dc.step_id = target_step.id
-WHERE id.slug = 'establishment_for_lu_current_year'
+WHERE id.slug = 'establishment_for_lu_job_provided'
   AND isc.column_name = 'legal_unit_tax_ident';
 
 \echo ""
@@ -117,7 +117,7 @@ WHERE s.code = 'external_idents' AND dc.purpose = 'source_input'
 ORDER BY dc.column_name;
 
 \echo ""
-\echo "   4c. Verify mapping for 'legal_unit_current_year' and (now archived) 'tax_ident'"
+\echo "   4c. Verify mapping for 'legal_unit_job_provided' and (now archived) 'tax_ident'"
 \echo "       Expected: The 'tax_ident' source column on the definition is removed because its external_ident_type was archived."
 \echo "                 Therefore, no mapping exists, and the query should return 0 rows."
 SELECT
@@ -133,11 +133,11 @@ JOIN public.import_source_column isc ON isc.definition_id = id.id AND isc.column
 LEFT JOIN public.import_mapping im ON im.source_column_id = isc.id AND im.definition_id = id.id
 LEFT JOIN public.import_data_column target_dc ON im.target_data_column_id = target_dc.id
 LEFT JOIN public.import_step target_step ON target_dc.step_id = target_step.id AND target_step.code = 'external_idents' -- Crucial: only check mappings to data_columns within external_idents step
-WHERE id.slug = 'legal_unit_current_year';
+WHERE id.slug = 'legal_unit_job_provided';
 
 \echo ""
-\echo "   4d. Verify mapping for 'legal_unit_current_year' and new 'vat_ident'"
-\echo "       Expected: A 'vat_ident' source column is automatically created and mapped on the 'legal_unit_current_year' definition"
+\echo "   4d. Verify mapping for 'legal_unit_job_provided' and new 'vat_ident'"
+\echo "       Expected: A 'vat_ident' source column is automatically created and mapped on the 'legal_unit_job_provided' definition"
 \echo "                 because 'vat_ident' became an active external_ident_type. (Query should return 1 row)"
 SELECT
     id.slug AS definition_slug,
@@ -152,6 +152,6 @@ JOIN public.import_source_column isc ON isc.definition_id = id.id AND isc.column
 LEFT JOIN public.import_mapping im ON im.source_column_id = isc.id AND im.definition_id = id.id
 LEFT JOIN public.import_data_column target_dc ON im.target_data_column_id = target_dc.id
 LEFT JOIN public.import_step target_step ON target_dc.step_id = target_step.id
-WHERE id.slug = 'legal_unit_current_year';
+WHERE id.slug = 'legal_unit_job_provided';
 
 ROLLBACK;

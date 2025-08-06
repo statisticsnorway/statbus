@@ -38,7 +38,7 @@ SELECT
 -- Create Import Job for Legal Units
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'), -- Corrected slug
     'import_34_lu_era',
     'Import LU Era (34_hierarchy_functions.sql)',
     'Import job for test/data/34_legal_units.csv.',
@@ -49,7 +49,7 @@ SELECT
 -- Create Import Job for Formal Establishments
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'), -- Corrected slug
     'import_34_esflu_era',
     'Import Formal ES Era (34_hierarchy_functions.sql)',
     'Import job for test/data/34_formal_establishments.csv.',
@@ -60,7 +60,7 @@ SELECT
 -- Create Import Job for Informal Establishments
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates'), -- Corrected slug
     'import_34_eswlu_era',
     'Import Informal ES Era (34_hierarchy_functions.sql)',
     'Import job for test/data/34_informal_establishments.csv.',
@@ -70,7 +70,7 @@ SELECT
 
 \echo Run worker processing for import jobs
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
@@ -79,7 +79,7 @@ WHERE slug LIKE 'import_34_%' ORDER BY slug;
 
 \echo Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,

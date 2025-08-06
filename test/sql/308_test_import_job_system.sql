@@ -36,7 +36,7 @@ SAVEPOINT scenario_1_single_lu;
 DO $$
 DECLARE
     v_definition_id INT;
-    v_definition_slug TEXT := 'legal_unit_explicit_dates';
+    v_definition_slug TEXT := 'legal_unit_source_dates';
     v_job_slug TEXT := 'import_68_01_single_lu';
     v_job_description TEXT := 'Test 68-01: Single LU';
     v_job_note TEXT := 'Importing one LU.';
@@ -110,7 +110,7 @@ SAVEPOINT scenario_2_lu_plus_formal_es;
 DO $$
 DECLARE
     v_definition_id INT;
-    v_definition_slug TEXT := 'legal_unit_explicit_dates';
+    v_definition_slug TEXT := 'legal_unit_source_dates';
     v_job_slug TEXT := 'import_68_02_lu';
     v_job_description TEXT := 'Test 68-02: LU for Formal ES';
     v_job_note TEXT := 'Importing LU part.';
@@ -130,7 +130,7 @@ INSERT INTO public.import_68_02_lu_upload(valid_from,valid_to,tax_ident,name,bir
 DO $$
 DECLARE
     v_definition_id INT;
-    v_definition_slug TEXT := 'establishment_for_lu_explicit_dates';
+    v_definition_slug TEXT := 'establishment_for_lu_source_dates';
     v_job_slug TEXT := 'import_68_02_es';
     v_job_description TEXT := 'Test 68-02: Formal ES';
     v_job_note TEXT := 'Importing ES part.';
@@ -225,7 +225,7 @@ SAVEPOINT scenario_3_single_informal_es;
 DO $$
 DECLARE
     v_definition_id INT;
-    v_definition_slug TEXT := 'establishment_without_lu_explicit_dates';
+    v_definition_slug TEXT := 'establishment_without_lu_source_dates';
     v_job_slug TEXT := 'import_68_03_informal_es';
     v_job_description TEXT := 'Test 68-03: Informal ES';
     v_job_note TEXT := 'Importing one informal ES.';
@@ -298,7 +298,7 @@ SAVEPOINT scenario_4_two_lus;
 DO $$
 DECLARE
     v_definition_id INT;
-    v_definition_slug TEXT := 'legal_unit_explicit_dates';
+    v_definition_slug TEXT := 'legal_unit_source_dates';
     v_job_slug TEXT := 'import_68_04_two_lus';
     v_job_description TEXT := 'Test 68-04: Two LUs';
     v_job_note TEXT := 'Importing two LUs.';
@@ -369,7 +369,7 @@ SAVEPOINT scenario_5_lu_three_periods;
 DO $$
 DECLARE
     v_definition_id INT;
-    v_definition_slug TEXT := 'legal_unit_explicit_dates';
+    v_definition_slug TEXT := 'legal_unit_source_dates';
     v_job_slug TEXT := 'import_68_05_lu_periods';
     v_job_description TEXT := 'Test 68-05: LU Three Periods';
     v_job_note TEXT := 'Importing LU with period changes.';
@@ -436,7 +436,7 @@ SAVEPOINT scenario_6_lu_es_three_periods;
 DO $$
 DECLARE
     v_definition_id INT;
-    v_definition_slug TEXT := 'legal_unit_explicit_dates';
+    v_definition_slug TEXT := 'legal_unit_source_dates';
     v_job_slug TEXT := 'import_68_06_lu_periods';
     v_job_description TEXT := 'Test 68-06: LU for ES Periods';
     v_job_note TEXT := 'Importing LU part.';
@@ -462,7 +462,7 @@ CALL worker.process_tasks(p_queue => 'import');
 DO $$
 DECLARE
     v_definition_id INT;
-    v_definition_slug TEXT := 'establishment_for_lu_explicit_dates';
+    v_definition_slug TEXT := 'establishment_for_lu_source_dates';
     v_job_slug TEXT := 'import_68_06_es_periods';
     v_job_description TEXT := 'Test 68-06: ES for LU Periods';
     v_job_note TEXT := 'Importing ES part.';
@@ -535,7 +535,7 @@ SAVEPOINT scenario_7_informal_es_three_periods;
 DO $$
 DECLARE
     v_definition_id INT;
-    v_definition_slug TEXT := 'establishment_without_lu_explicit_dates';
+    v_definition_slug TEXT := 'establishment_without_lu_source_dates';
     v_job_slug TEXT := 'import_68_07_informal_es_periods';
     v_job_description TEXT := 'Test 68-07: Informal ES Three Periods';
     v_job_note TEXT := 'Importing informal ES with period changes.';

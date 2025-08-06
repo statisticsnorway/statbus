@@ -8,30 +8,30 @@ DECLARE
     v_ident_type RECORD;
     v_def RECORD;
     v_current_priority INT;
+    v_active_codes TEXT[];
 BEGIN
-    RAISE DEBUG '--> Running import.generate_external_ident_data_columns...'; -- Removed debug
     SELECT id INTO v_step_id FROM public.import_step WHERE code = 'external_idents';
     IF v_step_id IS NULL THEN
-        RAISE EXCEPTION 'external_idents step not found, cannot generate data columns.'; -- Keep warning
+        RAISE EXCEPTION 'external_idents step not found, cannot generate data columns.';
         RETURN;
     END IF;
 
+    SELECT array_agg(code ORDER BY priority) INTO v_active_codes FROM public.external_ident_type_active;
+    RAISE DEBUG '[import.generate_external_ident_data_columns] For step_id % (external_idents), ensuring data columns for active codes: %', v_step_id, v_active_codes;
+
     SELECT COALESCE(MAX(idc.priority), 0) INTO v_current_priority
     FROM public.import_data_column idc WHERE idc.step_id = v_step_id;
-    RAISE DEBUG '  [-] Initial max priority for step_id % (external_idents): %', v_step_id, v_current_priority;
 
     -- Add source_input column for each active external_ident_type for the step
-    RAISE DEBUG '  [-] Found external_idents step_id: %', v_step_id; -- Removed debug
     FOR v_ident_type IN SELECT code FROM public.external_ident_type_active ORDER BY priority
     LOOP
         v_current_priority := v_current_priority + 1;
-        RAISE DEBUG '    - Processing external_ident_type: %, priority: %', v_ident_type.code, v_current_priority; -- Removed debug
         INSERT INTO public.import_data_column (step_id, column_name, column_type, purpose, is_nullable, is_uniquely_identifying, priority)
-        VALUES (v_step_id, v_ident_type.code, 'TEXT', 'source_input', true, false, v_current_priority)
-        ON CONFLICT (step_id, column_name) DO UPDATE SET priority = EXCLUDED.priority WHERE import_data_column.priority IS NULL;
+        VALUES (v_step_id, v_ident_type.code, 'TEXT', 'source_input', true, true, v_current_priority)
+        ON CONFLICT (step_id, column_name) DO UPDATE SET
+            priority = EXCLUDED.priority,
+            is_uniquely_identifying = EXCLUDED.is_uniquely_identifying;
     END LOOP;
-
-    RAISE DEBUG 'Finished generating dynamic external_ident data columns for step %.', v_step_id; -- Removed debug
 END;
 $$;
 
@@ -40,24 +40,24 @@ LANGUAGE plpgsql AS $$
 DECLARE
     v_step_id INT;
 BEGIN
-    RAISE NOTICE 'Cleaning up dynamic external_ident data columns...';
     SELECT id INTO v_step_id FROM public.import_step WHERE code = 'external_idents';
     IF v_step_id IS NULL THEN
         RAISE WARNING 'external_idents step not found, cannot clean up data columns.';
         RETURN;
     END IF;
 
-    -- Delete columns dynamically added by the generate procedure
-    DELETE FROM public.import_data_column
-    WHERE step_id = v_step_id
-      AND (
-          -- Delete ALL source_input columns for this step, as they are all dynamically generated
-          -- by this callback based on external_ident_type entries.
-          -- Statically defined columns for this step (like 'operation', 'action') have 'internal' purpose.
-          (purpose = 'source_input')
-      );
+    RAISE DEBUG '[import.cleanup_external_ident_data_columns] For step_id % (external_idents), deleting all source_input columns.', v_step_id;
 
-    RAISE NOTICE 'Finished cleaning up dynamic external_ident data columns.';
+    -- Delete only those dynamically generated source_input columns whose
+    -- identifier type code is no longer *active*.  This preserves stable priorities
+    -- for still-active codes and avoids creating temporary orphans that could
+    -- trigger unintended side-effects in other lifecycle callbacks.
+    DELETE FROM public.import_data_column idc
+    WHERE idc.step_id = v_step_id
+      AND idc.purpose = 'source_input'
+      AND idc.column_name NOT IN (
+          SELECT code FROM public.external_ident_type_active
+      );
 END;
 $$;
 

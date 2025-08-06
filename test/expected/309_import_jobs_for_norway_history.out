@@ -85,9 +85,9 @@ DO UPDATE SET
 DO $$
 DECLARE
     def_id INT;
-    -- Define the steps needed for a legal unit import with explicit dates
+    -- Define the steps needed for a legal unit import with a time context
     lu_steps TEXT[] := ARRAY[
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time_from_source', 'status', 'legal_unit',
+        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -96,8 +96,8 @@ DECLARE
     v_data_col_id INT;
 BEGIN
     -- 1. Create the definition record (initially invalid)
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid, data_source_id)
-    VALUES ('brreg_hovedenhet_2024', 'Import of BRREG Hovedenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'legal_unit', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
+    VALUES ('brreg_hovedenhet_2024', 'Import of BRREG Hovedenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'legal_unit', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -211,27 +211,28 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- 4c. Add mappings for default values (valid_from, valid_to) if needed by steps
+    -- 4c. Add mappings for default values (valid_from, valid_to) for job_provided definitions
     -- These source columns don't exist, so source_column_id is NULL
     DECLARE
         v_valid_time_step_id INT;
     BEGIN
-        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time_from_source'; -- Changed name to code
+        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time';
 
         INSERT INTO public.import_mapping (definition_id, source_expression, target_data_column_id)
         SELECT def_id, 'default'::public.import_source_expression, dc.id
         FROM public.import_data_column dc
-        WHERE dc.step_id = v_valid_time_step_id -- Use step_id
+        WHERE dc.step_id = v_valid_time_step_id
           AND dc.column_name IN ('valid_from', 'valid_to')
           AND dc.purpose = 'source_input'
         ON CONFLICT DO NOTHING;
     END;
 
+
     -- 5. Set the 'tax_ident' data column as uniquely identifying for the prepare step UPSERT
     DECLARE
         v_idents_step_id INT;
     BEGIN
-        SELECT id INTO v_idents_step_id FROM public.import_step WHERE name = 'external_idents';
+        SELECT id INTO v_idents_step_id FROM public.import_step WHERE code = 'external_idents';
         UPDATE public.import_data_column
         SET is_uniquely_identifying = true
         WHERE step_id = v_idents_step_id -- Use step_id
@@ -247,16 +248,16 @@ SELECT d.slug,
        d.name,
        d.note,
        ds.code as data_source,
-       d.time_context_ident,
+       d.valid_time_from,
        d.strategy,
        d.valid,
        d.validation_error
 FROM public.import_definition d
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_hovedenhet_2024';
-         slug          |                     name                      |                    note                     | data_source | time_context_ident |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-------------+--------------------+-------------------+-------+------------------
- brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       |                    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy      | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+-------------------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_replace | t     | 
 (1 row)
 
 -- Set the definition to valid (can now be used to create jobs)
@@ -269,9 +270,9 @@ WHERE slug = 'brreg_hovedenhet_2024';
 DO $$
 DECLARE
     def_id INT;
-    -- Define the steps needed for an establishment linked to a legal unit import with explicit dates
+    -- Define the steps needed for an establishment linked to a legal unit import with a time context
     es_steps TEXT[] := ARRAY[
-        'external_idents', 'link_establishment_to_legal_unit', 'valid_time_from_source', 'status', 'establishment',
+        'external_idents', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -280,8 +281,8 @@ DECLARE
     v_data_col_id INT;
 BEGIN
     -- 1. Create the definition record (initially invalid)
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid, data_source_id)
-    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
+    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -377,27 +378,28 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- 4c. Add mappings for default values (valid_from, valid_to) if needed by steps
+    -- 4c. Add mappings for default values (valid_from, valid_to) for job_provided definitions
     -- These source columns don't exist, so source_column_id is NULL
     DECLARE
         v_valid_time_step_id INT;
     BEGIN
-        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time_from_source'; -- Changed name to code
+        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time';
 
         INSERT INTO public.import_mapping (definition_id, source_expression, target_data_column_id)
         SELECT def_id, 'default'::public.import_source_expression, dc.id
         FROM public.import_data_column dc
-        WHERE dc.step_id = v_valid_time_step_id -- Use step_id
+        WHERE dc.step_id = v_valid_time_step_id
           AND dc.column_name IN ('valid_from', 'valid_to')
           AND dc.purpose = 'source_input'
         ON CONFLICT DO NOTHING;
     END;
 
+
     -- 5. Set the 'tax_ident' data column as uniquely identifying for the prepare step UPSERT
     DECLARE
         v_idents_step_id INT;
     BEGIN
-        SELECT id INTO v_idents_step_id FROM public.import_step WHERE name = 'external_idents';
+        SELECT id INTO v_idents_step_id FROM public.import_step WHERE code = 'external_idents';
         UPDATE public.import_data_column
         SET is_uniquely_identifying = true
         WHERE step_id = v_idents_step_id -- Use step_id
@@ -413,16 +415,16 @@ SELECT d.slug,
        d.name,
        d.note,
        ds.code as data_source,
-       d.time_context_ident,
+       d.valid_time_from,
        d.strategy,
        d.valid,
        d.validation_error
 FROM public.import_definition d
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_underenhet_2024';
-         slug          |                     name                      |                    note                     | data_source | time_context_ident |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-------------+--------------------+-------------------+-------+------------------
- brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       |                    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy      | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+-------------------+-------+------------------
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_replace | t     | 
 (1 row)
 
 -- Set the definition to valid (can now be used to create jobs)
@@ -430,14 +432,14 @@ UPDATE public.import_definition
 SET valid = true, validation_error = NULL
 WHERE slug = 'brreg_underenhet_2024';
 -- Display summary of created definitions
-SELECT slug, name, note, time_context_ident, strategy, valid, validation_error
+SELECT slug, name, note, valid_time_from, strategy, valid, validation_error
 FROM public.import_definition
 WHERE slug LIKE 'brreg_%_2024'
 ORDER BY slug;
-         slug          |                     name                      |                    note                     | time_context_ident |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+--------------------+-------------------+-------+------------------
- brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. |                    | insert_or_replace | t     | 
- brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. |                    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | valid_time_from |     strategy      | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-----------------+-------------------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_replace | t     | 
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_replace | t     | 
 (2 rows)
 
 -- Per year jobs for hovedenhet
@@ -583,15 +585,15 @@ Triggers:
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                           | bigint                    |           | not null | generated always as identity
- operation                        | import_row_operation_type |           |          | 
- action                           | import_row_action_type    |           |          | 
- tax_ident                        | text                      |           |          | 
- stat_ident                       | text                      |           |          | 
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ operation                        | import_row_operation_type |           |          | 
+ action                           | import_row_action_type    |           |          | 
+ tax_ident                        | text                      |           |          | 
+ stat_ident                       | text                      |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -674,6 +676,7 @@ Triggers:
 Indexes:
     "import_lu_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
     "import_lu_2015_h_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "import_lu_2015_h_data_unique_ident_key" UNIQUE, btree (COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "import_lu_2015_h_data_admin_user_manage"
       TO admin_user
@@ -736,15 +739,15 @@ Triggers:
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                           | bigint                    |           | not null | generated always as identity
- operation                        | import_row_operation_type |           |          | 
- action                           | import_row_action_type    |           |          | 
- tax_ident                        | text                      |           |          | 
- stat_ident                       | text                      |           |          | 
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ operation                        | import_row_operation_type |           |          | 
+ action                           | import_row_action_type    |           |          | 
+ tax_ident                        | text                      |           |          | 
+ stat_ident                       | text                      |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  legal_unit_id                    | integer                   |           |          | 
@@ -827,6 +830,7 @@ Triggers:
 Indexes:
     "import_es_2015_h_data_pkey" PRIMARY KEY, btree (row_id)
     "import_es_2015_h_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "import_es_2015_h_data_unique_ident_key" UNIQUE, btree (COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "import_es_2015_h_data_admin_user_manage"
       TO admin_user
@@ -950,17 +954,17 @@ select queue,t.command,state,error from worker.tasks as t join worker.command_re
  import | import_job_process | completed | 
 (46 rows)
 
-select slug, state, error is not null as failed,total_rows,imported_rows, import_completed_pct from public.import_job ORDER BY slug;
-       slug       |  state   | failed | total_rows | imported_rows | import_completed_pct 
-------------------+----------+--------+------------+---------------+----------------------
- import_es_2015_h | finished | f      |       1030 |          1030 |               100.00
- import_es_2016_h | finished | f      |       1031 |          1031 |               100.00
- import_es_2017_h | finished | f      |       1218 |          1218 |               100.00
- import_es_2018_h | finished | f      |       1324 |          1324 |               100.00
- import_lu_2015_h | finished | f      |       1000 |          1000 |               100.00
- import_lu_2016_h | finished | f      |       1148 |          1148 |               100.00
- import_lu_2017_h | finished | f      |       1362 |          1362 |               100.00
- import_lu_2018_h | finished | f      |       1501 |          1501 |               100.00
+select slug, state, error is not null as failed, time_context_ident, default_valid_from, default_valid_to, total_rows, imported_rows, import_completed_pct from public.import_job WHERE slug LIKE 'import_%_h' ORDER BY slug;
+       slug       |  state   | failed | time_context_ident | default_valid_from | default_valid_to | total_rows | imported_rows | import_completed_pct 
+------------------+----------+--------+--------------------+--------------------+------------------+------------+---------------+----------------------
+ import_es_2015_h | finished | f      |                    | 2015-01-01         | infinity         |       1030 |          1030 |               100.00
+ import_es_2016_h | finished | f      |                    | 2016-01-01         | infinity         |       1031 |          1031 |               100.00
+ import_es_2017_h | finished | f      |                    | 2017-01-01         | infinity         |       1218 |          1218 |               100.00
+ import_es_2018_h | finished | f      |                    | 2018-01-01         | infinity         |       1324 |          1324 |               100.00
+ import_lu_2015_h | finished | f      |                    | 2015-01-01         | infinity         |       1000 |          1000 |               100.00
+ import_lu_2016_h | finished | f      |                    | 2016-01-01         | infinity         |       1148 |          1148 |               100.00
+ import_lu_2017_h | finished | f      |                    | 2017-01-01         | infinity         |       1362 |          1362 |               100.00
+ import_lu_2018_h | finished | f      |                    | 2018-01-01         | infinity         |       1501 |          1501 |               100.00
 (8 rows)
 
 \echo Check import job state after import
@@ -1023,38 +1027,35 @@ SELECT state, count(*) FROM public.import_es_2018_h_data GROUP BY state;
 
 \echo Check the state of all tasks before running analytics.
 Check the state of all tasks before running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-    queue    |   state   | count 
--------------+-----------+-------
- analytics   | pending   |     7
- import      | completed |    46
- maintenance | pending   |     2
-(3 rows)
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     7
+ import    | completed |    46
+(2 rows)
 
 -- Once the Imports are finished, then all the analytics can be processed, but only once.
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-    queue    |   state   | count 
--------------+-----------+-------
- analytics   | completed |     9
- import      | completed |    46
- maintenance | pending   |     2
-(3 rows)
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |     9
+ import    | completed |    46
+(2 rows)
 
 \echo Run any remaining tasks, there should be none.
 Run any remaining tasks, there should be none.
 CALL worker.process_tasks();
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-    queue    |   state   | count 
--------------+-----------+-------
- analytics   | completed |     9
- import      | completed |    46
- maintenance | pending   |     2
-(3 rows)
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |     9
+ import    | completed |    46
+(2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.
 Overview of statistical units, but not details, there are too many units.

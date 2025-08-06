@@ -12,7 +12,7 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \i samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
 -- Display summary of created definitions
-SELECT slug, name, note, time_context_ident, strategy, valid, validation_error
+SELECT slug, name, note, valid_time_from, strategy, valid, validation_error
 FROM public.import_definition
 WHERE slug LIKE 'brreg_%_2024'
 ORDER BY slug;
@@ -20,43 +20,47 @@ ORDER BY slug;
 -- Per year jobs for hovedenhet (Legal Units)
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
-SELECT  def.id, 'import_10_lu_2015_sht', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2015 Small History Test (Test 10)', 'This job handles the import of BRREG Hovedenhet small history test data for 2015 (Test 10).', 'BRREG Hovedenhet 2015 (SHT Test 10)'
+SELECT  def.id, 'import_10_lu_2015_sht', '2015-01-01', 'infinity', 'Import Job for BRREG Hovedenhet 2015 Small History Test (Test 10)', 'This job handles the import of BRREG Hovedenhet small history test data for 2015 (Test 10).', 'BRREG Hovedenhet 2015 (SHT Test 10)'
+FROM def;
+
+\echo '--- Debugging Schema for Job import_10_lu_2015_sht ---'
+\d+ public.import_10_lu_2015_sht_data
+\echo '------------------------------------------'
+
+WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
+INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
+SELECT  def.id, 'import_10_lu_2016_sht', '2016-01-01', 'infinity', 'Import Job for BRREG Hovedenhet 2016 Small History Test (Test 10)', 'This job handles the import of BRREG Hovedenhet small history test data for 2016 (Test 10).', 'BRREG Hovedenhet 2016 (SHT Test 10)'
 FROM def;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
-SELECT  def.id, 'import_10_lu_2016_sht', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2016 Small History Test (Test 10)', 'This job handles the import of BRREG Hovedenhet small history test data for 2016 (Test 10).', 'BRREG Hovedenhet 2016 (SHT Test 10)'
+SELECT  def.id, 'import_10_lu_2017_sht', '2017-01-01', 'infinity', 'Import Job for BRREG Hovedenhet 2017 Small History Test (Test 10)', 'This job handles the import of BRREG Hovedenhet small history test data for 2017 (Test 10).', 'BRREG Hovedenhet 2017 (SHT Test 10)'
 FROM def;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
-SELECT  def.id, 'import_10_lu_2017_sht', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2017 Small History Test (Test 10)', 'This job handles the import of BRREG Hovedenhet small history test data for 2017 (Test 10).', 'BRREG Hovedenhet 2017 (SHT Test 10)'
-FROM def;
-
-WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2024')
-INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
-SELECT  def.id, 'import_10_lu_2018_sht', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Hovedenhet 2018 Small History Test (Test 10)', 'This job handles the import of BRREG Hovedenhet small history test data for 2018 (Test 10).', 'BRREG Hovedenhet 2018 (SHT Test 10)'
+SELECT  def.id, 'import_10_lu_2018_sht', '2018-01-01', 'infinity', 'Import Job for BRREG Hovedenhet 2018 Small History Test (Test 10)', 'This job handles the import of BRREG Hovedenhet small history test data for 2018 (Test 10).', 'BRREG Hovedenhet 2018 (SHT Test 10)'
 FROM def;
 
 -- Per year jobs for underenhet (Establishments)
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
-SELECT  def.id, 'import_10_es_2015_sht', '2015-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2015 Small History Test (Test 10)', 'This job handles the import of BRREG Underenhet small history test data for 2015 (Test 10).', 'BRREG Underenhet 2015 (SHT Test 10)'
+SELECT  def.id, 'import_10_es_2015_sht', '2015-01-01', 'infinity', 'Import Job for BRREG Underenhet 2015 Small History Test (Test 10)', 'This job handles the import of BRREG Underenhet small history test data for 2015 (Test 10).', 'BRREG Underenhet 2015 (SHT Test 10)'
 FROM def;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
-SELECT  def.id, 'import_10_es_2016_sht', '2016-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2016 Small History Test (Test 10)', 'This job handles the import of BRREG Underenhet small history test data for 2016 (Test 10).', 'BRREG Underenhet 2016 (SHT Test 10)'
+SELECT  def.id, 'import_10_es_2016_sht', '2016-01-01', 'infinity', 'Import Job for BRREG Underenhet 2016 Small History Test (Test 10)', 'This job handles the import of BRREG Underenhet small history test data for 2016 (Test 10).', 'BRREG Underenhet 2016 (SHT Test 10)'
 FROM def;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
-SELECT  def.id, 'import_10_es_2017_sht', '2017-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2017 Small History Test (Test 10)', 'This job handles the import of BRREG Underenhet small history test data for 2017 (Test 10).', 'BRREG Underenhet 2017 (SHT Test 10)'
+SELECT  def.id, 'import_10_es_2017_sht', '2017-01-01', 'infinity', 'Import Job for BRREG Underenhet 2017 Small History Test (Test 10)', 'This job handles the import of BRREG Underenhet small history test data for 2017 (Test 10).', 'BRREG Underenhet 2017 (SHT Test 10)'
 FROM def;
 
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2024')
 INSERT INTO public.import_job (definition_id,slug,default_valid_from,default_valid_to,description,note,edit_comment)
-SELECT  def.id, 'import_10_es_2018_sht', '2018-01-01'::DATE, 'infinity'::DATE, 'Import Job for BRREG Underenhet 2018 Small History Test (Test 10)', 'This job handles the import of BRREG Underenhet small history test data for 2018 (Test 10).', 'BRREG Underenhet 2018 (SHT Test 10)'
+SELECT  def.id, 'import_10_es_2018_sht', '2018-01-01', 'infinity', 'Import Job for BRREG Underenhet 2018 Small History Test (Test 10)', 'This job handles the import of BRREG Underenhet small history test data for 2018 (Test 10).', 'BRREG Underenhet 2018 (SHT Test 10)'
 FROM def;
 
 \echo "Loading historical units into respective job upload tables"
@@ -74,7 +78,7 @@ FROM def;
 CALL worker.process_tasks(p_queue => 'import');
 --SET client_min_messages TO NOTICE;
 
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo Check import job states after import
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error
@@ -82,6 +86,8 @@ FROM public.import_job
 WHERE slug LIKE 'import_10_%_sht'
 ORDER BY slug;
 
+-- Note: Use 'SELECT * FROM ...' instead of 'PERFORM' for function calls at the top level in psql.
+-- 'PERFORM' is a PL/pgSQL statement and cannot be used directly in SQL.
 SELECT * FROM public.timesegments_refresh();
 SELECT * FROM public.timeline_establishment_refresh();
 SELECT * FROM public.timeline_legal_unit_refresh();
@@ -176,7 +182,7 @@ ORDER BY
 
 \echo Run worker processing for analytics tasks before EXPLAIN ANALYZE
 CALL worker.process_tasks(p_queue => 'analytics'); -- This will call all of the refresh functions above.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 SELECT test.sudo_exec($sql$
   CREATE INDEX IF NOT EXISTS tidx_establishment_valid_after_valid_to ON establishment (valid_after, valid_to);
@@ -281,7 +287,7 @@ LIMIT 20;  -- Display top used indexes, adjust if necessary
 -- This call might process any remaining or newly queued tasks if necessary.
 \echo Run worker processing for any remaining analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "High-level check of statistical units after import"
 \x

@@ -4,9 +4,9 @@
 DO $$
 DECLARE
     def_id INT;
-    -- Define the steps needed for an establishment linked to a legal unit import with explicit dates
+    -- Define the steps needed for an establishment linked to a legal unit import with a time context
     es_steps TEXT[] := ARRAY[
-        'external_idents', 'link_establishment_to_legal_unit', 'valid_time_from_source', 'status', 'establishment',
+        'external_idents', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -15,8 +15,8 @@ DECLARE
     v_data_col_id INT;
 BEGIN
     -- 1. Create the definition record (initially invalid)
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid, data_source_id)
-    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
+    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -112,27 +112,28 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- 4c. Add mappings for default values (valid_from, valid_to) if needed by steps
+    -- 4c. Add mappings for default values (valid_from, valid_to) for job_provided definitions
     -- These source columns don't exist, so source_column_id is NULL
     DECLARE
         v_valid_time_step_id INT;
     BEGIN
-        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time_from_source'; -- Changed name to code
+        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time';
 
         INSERT INTO public.import_mapping (definition_id, source_expression, target_data_column_id)
         SELECT def_id, 'default'::public.import_source_expression, dc.id
         FROM public.import_data_column dc
-        WHERE dc.step_id = v_valid_time_step_id -- Use step_id
+        WHERE dc.step_id = v_valid_time_step_id
           AND dc.column_name IN ('valid_from', 'valid_to')
           AND dc.purpose = 'source_input'
         ON CONFLICT DO NOTHING;
     END;
 
+
     -- 5. Set the 'tax_ident' data column as uniquely identifying for the prepare step UPSERT
     DECLARE
         v_idents_step_id INT;
     BEGIN
-        SELECT id INTO v_idents_step_id FROM public.import_step WHERE name = 'external_idents';
+        SELECT id INTO v_idents_step_id FROM public.import_step WHERE code = 'external_idents';
         UPDATE public.import_data_column
         SET is_uniquely_identifying = true
         WHERE step_id = v_idents_step_id -- Use step_id
@@ -149,7 +150,7 @@ SELECT d.slug,
        d.name,
        d.note,
        ds.code as data_source,
-       d.time_context_ident,
+       d.valid_time_from,
        d.strategy,
        d.valid,
        d.validation_error

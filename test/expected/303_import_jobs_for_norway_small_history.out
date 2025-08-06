@@ -85,9 +85,9 @@ DO UPDATE SET
 DO $$
 DECLARE
     def_id INT;
-    -- Define the steps needed for a legal unit import with explicit dates
+    -- Define the steps needed for a legal unit import with a time context
     lu_steps TEXT[] := ARRAY[
-        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time_from_source', 'status', 'legal_unit',
+        'external_idents', 'enterprise_link_for_legal_unit', 'valid_time', 'status', 'legal_unit',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -96,8 +96,8 @@ DECLARE
     v_data_col_id INT;
 BEGIN
     -- 1. Create the definition record (initially invalid)
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid, data_source_id)
-    VALUES ('brreg_hovedenhet_2024', 'Import of BRREG Hovedenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'legal_unit', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
+    VALUES ('brreg_hovedenhet_2024', 'Import of BRREG Hovedenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'legal_unit', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -211,27 +211,28 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- 4c. Add mappings for default values (valid_from, valid_to) if needed by steps
+    -- 4c. Add mappings for default values (valid_from, valid_to) for job_provided definitions
     -- These source columns don't exist, so source_column_id is NULL
     DECLARE
         v_valid_time_step_id INT;
     BEGIN
-        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time_from_source'; -- Changed name to code
+        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time';
 
         INSERT INTO public.import_mapping (definition_id, source_expression, target_data_column_id)
         SELECT def_id, 'default'::public.import_source_expression, dc.id
         FROM public.import_data_column dc
-        WHERE dc.step_id = v_valid_time_step_id -- Use step_id
+        WHERE dc.step_id = v_valid_time_step_id
           AND dc.column_name IN ('valid_from', 'valid_to')
           AND dc.purpose = 'source_input'
         ON CONFLICT DO NOTHING;
     END;
 
+
     -- 5. Set the 'tax_ident' data column as uniquely identifying for the prepare step UPSERT
     DECLARE
         v_idents_step_id INT;
     BEGIN
-        SELECT id INTO v_idents_step_id FROM public.import_step WHERE name = 'external_idents';
+        SELECT id INTO v_idents_step_id FROM public.import_step WHERE code = 'external_idents';
         UPDATE public.import_data_column
         SET is_uniquely_identifying = true
         WHERE step_id = v_idents_step_id -- Use step_id
@@ -247,16 +248,16 @@ SELECT d.slug,
        d.name,
        d.note,
        ds.code as data_source,
-       d.time_context_ident,
+       d.valid_time_from,
        d.strategy,
        d.valid,
        d.validation_error
 FROM public.import_definition d
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_hovedenhet_2024';
-         slug          |                     name                      |                    note                     | data_source | time_context_ident |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-------------+--------------------+-------------------+-------+------------------
- brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       |                    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy      | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+-------------------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_replace | t     | 
 (1 row)
 
 -- Set the definition to valid (can now be used to create jobs)
@@ -269,9 +270,9 @@ WHERE slug = 'brreg_hovedenhet_2024';
 DO $$
 DECLARE
     def_id INT;
-    -- Define the steps needed for an establishment linked to a legal unit import with explicit dates
+    -- Define the steps needed for an establishment linked to a legal unit import with a time context
     es_steps TEXT[] := ARRAY[
-        'external_idents', 'link_establishment_to_legal_unit', 'valid_time_from_source', 'status', 'establishment',
+        'external_idents', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
         'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
         'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
     ];
@@ -280,8 +281,8 @@ DECLARE
     v_data_col_id INT;
 BEGIN
     -- 1. Create the definition record (initially invalid)
-    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid, data_source_id)
-    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
+    VALUES ('brreg_underenhet_2024', 'Import of BRREG Underenhet using 2024 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
     RETURNING id INTO def_id;
 
     -- 2. Link the required steps to the definition
@@ -377,27 +378,28 @@ BEGIN
         END IF;
     END LOOP;
 
-    -- 4c. Add mappings for default values (valid_from, valid_to) if needed by steps
+    -- 4c. Add mappings for default values (valid_from, valid_to) for job_provided definitions
     -- These source columns don't exist, so source_column_id is NULL
     DECLARE
         v_valid_time_step_id INT;
     BEGIN
-        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time_from_source'; -- Changed name to code
+        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time';
 
         INSERT INTO public.import_mapping (definition_id, source_expression, target_data_column_id)
         SELECT def_id, 'default'::public.import_source_expression, dc.id
         FROM public.import_data_column dc
-        WHERE dc.step_id = v_valid_time_step_id -- Use step_id
+        WHERE dc.step_id = v_valid_time_step_id
           AND dc.column_name IN ('valid_from', 'valid_to')
           AND dc.purpose = 'source_input'
         ON CONFLICT DO NOTHING;
     END;
 
+
     -- 5. Set the 'tax_ident' data column as uniquely identifying for the prepare step UPSERT
     DECLARE
         v_idents_step_id INT;
     BEGIN
-        SELECT id INTO v_idents_step_id FROM public.import_step WHERE name = 'external_idents';
+        SELECT id INTO v_idents_step_id FROM public.import_step WHERE code = 'external_idents';
         UPDATE public.import_data_column
         SET is_uniquely_identifying = true
         WHERE step_id = v_idents_step_id -- Use step_id
@@ -413,16 +415,16 @@ SELECT d.slug,
        d.name,
        d.note,
        ds.code as data_source,
-       d.time_context_ident,
+       d.valid_time_from,
        d.strategy,
        d.valid,
        d.validation_error
 FROM public.import_definition d
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_underenhet_2024';
-         slug          |                     name                      |                    note                     | data_source | time_context_ident |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+-------------+--------------------+-------------------+-------+------------------
- brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       |                    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | data_source | valid_time_from |     strategy      | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-------------+-----------------+-------------------+-------+------------------
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | brreg       | job_provided    | insert_or_replace | t     | 
 (1 row)
 
 -- Set the definition to valid (can now be used to create jobs)
@@ -430,14 +432,14 @@ UPDATE public.import_definition
 SET valid = true, validation_error = NULL
 WHERE slug = 'brreg_underenhet_2024';
 -- Display summary of created definitions
-SELECT slug, name, note, time_context_ident, strategy, valid, validation_error
+SELECT slug, name, note, valid_time_from, strategy, valid, validation_error
 FROM public.import_definition
 WHERE slug LIKE 'brreg_%_2024'
 ORDER BY slug;
-         slug          |                     name                      |                    note                     | time_context_ident |     strategy      | valid | validation_error 
------------------------+-----------------------------------------------+---------------------------------------------+--------------------+-------------------+-------+------------------
- brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. |                    | insert_or_replace | t     | 
- brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. |                    | insert_or_replace | t     | 
+         slug          |                     name                      |                    note                     | valid_time_from |     strategy      | valid | validation_error 
+-----------------------+-----------------------------------------------+---------------------------------------------+-----------------+-------------------+-------+------------------
+ brreg_hovedenhet_2024 | Import of BRREG Hovedenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_replace | t     | 
+ brreg_underenhet_2024 | Import of BRREG Underenhet using 2024 columns | Easy upload of the CSV file found at brreg. | job_provided    | insert_or_replace | t     | 
 (2 rows)
 
 -- Per year jobs for hovedenhet
@@ -583,15 +585,15 @@ Triggers:
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                           | bigint                    |           | not null | generated always as identity
- operation                        | import_row_operation_type |           |          | 
- action                           | import_row_action_type    |           |          | 
- tax_ident                        | text                      |           |          | 
- stat_ident                       | text                      |           |          | 
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ operation                        | import_row_operation_type |           |          | 
+ action                           | import_row_action_type    |           |          | 
+ tax_ident                        | text                      |           |          | 
+ stat_ident                       | text                      |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -674,6 +676,7 @@ Triggers:
 Indexes:
     "import_lu_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
     "import_lu_2015_sht_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "import_lu_2015_sht_data_unique_ident_key" UNIQUE, btree (COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "import_lu_2015_sht_data_admin_user_manage"
       TO admin_user
@@ -695,17 +698,17 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
  {                                                                                +
      "import_step_list": [                                                        +
          {                                                                        +
-             "code": "external_idents",                                           +
-             "name": "External Identifiers",                                      +
+             "code": "valid_time",                                                +
+             "name": "Validity Period",                                           +
              "priority": 10,                                                      +
-             "analyse_procedure": "import.analyse_external_idents",               +
+             "analyse_procedure": "import.analyse_valid_time",                    +
              "process_procedure": null                                            +
          },                                                                       +
          {                                                                        +
-             "code": "valid_time_from_source",                                    +
-             "name": "Validity (Source)",                                         +
+             "code": "external_idents",                                           +
+             "name": "External Identifiers",                                      +
              "priority": 15,                                                      +
-             "analyse_procedure": "import.analyse_valid_time_from_source",        +
+             "analyse_procedure": "import.analyse_external_idents",               +
              "process_procedure": null                                            +
          },                                                                       +
          {                                                                        +
@@ -801,32 +804,11 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          "active": true,                                                          +
          "custom": true,                                                          +
          "strategy": "insert_or_replace",                                         +
+         "valid_time_from": "job_provided",                                       +
          "validation_error": null,                                                +
-         "time_context_ident": null,                                              +
          "default_retention_period": "@ 1 year 6 mons"                            +
      },                                                                           +
      "import_mapping_list": [                                                     +
-         {                                                                        +
-             "mapping": {                                                         +
-                 "is_ignored": false,                                             +
-                 "source_value": null,                                            +
-                 "source_expression": null,                                       +
-                 "target_data_column_purpose": "source_input"                     +
-             },                                                                   +
-             "source_column": {                                                   +
-                 "priority": 1,                                                   +
-                 "column_name": "organisasjonsnummer"                             +
-             },                                                                   +
-             "target_data_column": {                                              +
-                 "purpose": "source_input",                                       +
-                 "priority": 3,                                                   +
-                 "column_name": "tax_ident",                                      +
-                 "column_type": "TEXT",                                           +
-                 "is_nullable": true,                                             +
-                 "default_value": null,                                           +
-                 "is_uniquely_identifying": false                                 +
-             }                                                                    +
-         },                                                                       +
          {                                                                        +
              "mapping": {                                                         +
                  "is_ignored": false,                                             +
@@ -861,6 +843,27 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
                  "is_nullable": true,                                             +
                  "default_value": null,                                           +
                  "is_uniquely_identifying": false                                 +
+             }                                                                    +
+         },                                                                       +
+         {                                                                        +
+             "mapping": {                                                         +
+                 "is_ignored": false,                                             +
+                 "source_value": null,                                            +
+                 "source_expression": null,                                       +
+                 "target_data_column_purpose": "source_input"                     +
+             },                                                                   +
+             "source_column": {                                                   +
+                 "priority": 1,                                                   +
+                 "column_name": "organisasjonsnummer"                             +
+             },                                                                   +
+             "target_data_column": {                                              +
+                 "purpose": "source_input",                                       +
+                 "priority": 5,                                                   +
+                 "column_name": "tax_ident",                                      +
+                 "column_type": "TEXT",                                           +
+                 "is_nullable": true,                                             +
+                 "default_value": null,                                           +
+                 "is_uniquely_identifying": true                                  +
              }                                                                    +
          },                                                                       +
          {                                                                        +
@@ -1244,42 +1247,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
      ],                                                                           +
      "import_data_column_list": [                                                 +
          {                                                                        +
-             "purpose": "internal",                                               +
-             "priority": 1,                                                       +
-             "column_name": "operation",                                          +
-             "column_type": "public.import_row_operation_type",                   +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "internal",                                               +
-             "priority": 2,                                                       +
-             "column_name": "action",                                             +
-             "column_type": "public.import_row_action_type",                      +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "source_input",                                           +
-             "priority": 3,                                                       +
-             "column_name": "tax_ident",                                          +
-             "column_type": "TEXT",                                               +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
-             "purpose": "source_input",                                           +
-             "priority": 4,                                                       +
-             "column_name": "stat_ident",                                         +
-             "column_type": "TEXT",                                               +
-             "is_nullable": true,                                                 +
-             "default_value": null,                                               +
-             "is_uniquely_identifying": false                                     +
-         },                                                                       +
-         {                                                                        +
              "purpose": "source_input",                                           +
              "priority": 1,                                                       +
              "column_name": "valid_from",                                         +
@@ -1323,6 +1290,42 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_nullable": true,                                                 +
              "default_value": null,                                               +
              "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "internal",                                               +
+             "priority": 1,                                                       +
+             "column_name": "operation",                                          +
+             "column_type": "public.import_row_operation_type",                   +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "internal",                                               +
+             "priority": 2,                                                       +
+             "column_name": "action",                                             +
+             "column_type": "public.import_row_action_type",                      +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": false                                     +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "source_input",                                           +
+             "priority": 5,                                                       +
+             "column_name": "tax_ident",                                          +
+             "column_type": "TEXT",                                               +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": true                                      +
+         },                                                                       +
+         {                                                                        +
+             "purpose": "source_input",                                           +
+             "priority": 6,                                                       +
+             "column_name": "stat_ident",                                         +
+             "column_type": "TEXT",                                               +
+             "is_nullable": true,                                                 +
+             "default_value": null,                                               +
+             "is_uniquely_identifying": true                                      +
          },                                                                       +
          {                                                                        +
              "purpose": "source_input",                                           +
@@ -2306,15 +2309,15 @@ Triggers:
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                           | bigint                    |           | not null | generated always as identity
- operation                        | import_row_operation_type |           |          | 
- action                           | import_row_action_type    |           |          | 
- tax_ident                        | text                      |           |          | 
- stat_ident                       | text                      |           |          | 
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ operation                        | import_row_operation_type |           |          | 
+ action                           | import_row_action_type    |           |          | 
+ tax_ident                        | text                      |           |          | 
+ stat_ident                       | text                      |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  legal_unit_id                    | integer                   |           |          | 
@@ -2397,6 +2400,7 @@ Triggers:
 Indexes:
     "import_es_2015_sht_data_pkey" PRIMARY KEY, btree (row_id)
     "import_es_2015_sht_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "import_es_2015_sht_data_unique_ident_key" UNIQUE, btree (COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
     POLICY "import_es_2015_sht_data_admin_user_manage"
       TO admin_user
@@ -2418,17 +2422,17 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
  {                                                                                  +
      "import_step_list": [                                                          +
          {                                                                          +
-             "code": "external_idents",                                             +
-             "name": "External Identifiers",                                        +
+             "code": "valid_time",                                                  +
+             "name": "Validity Period",                                             +
              "priority": 10,                                                        +
-             "analyse_procedure": "import.analyse_external_idents",                 +
+             "analyse_procedure": "import.analyse_valid_time",                      +
              "process_procedure": null                                              +
          },                                                                         +
          {                                                                          +
-             "code": "valid_time_from_source",                                      +
-             "name": "Validity (Source)",                                           +
+             "code": "external_idents",                                             +
+             "name": "External Identifiers",                                        +
              "priority": 15,                                                        +
-             "analyse_procedure": "import.analyse_valid_time_from_source",          +
+             "analyse_procedure": "import.analyse_external_idents",                 +
              "process_procedure": null                                              +
          },                                                                         +
          {                                                                          +
@@ -2524,32 +2528,11 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
          "active": true,                                                            +
          "custom": true,                                                            +
          "strategy": "insert_or_replace",                                           +
+         "valid_time_from": "job_provided",                                         +
          "validation_error": null,                                                  +
-         "time_context_ident": null,                                                +
          "default_retention_period": "@ 1 year 6 mons"                              +
      },                                                                             +
      "import_mapping_list": [                                                       +
-         {                                                                          +
-             "mapping": {                                                           +
-                 "is_ignored": false,                                               +
-                 "source_value": null,                                              +
-                 "source_expression": null,                                         +
-                 "target_data_column_purpose": "source_input"                       +
-             },                                                                     +
-             "source_column": {                                                     +
-                 "priority": 1,                                                     +
-                 "column_name": "organisasjonsnummer"                               +
-             },                                                                     +
-             "target_data_column": {                                                +
-                 "purpose": "source_input",                                         +
-                 "priority": 3,                                                     +
-                 "column_name": "tax_ident",                                        +
-                 "column_type": "TEXT",                                             +
-                 "is_nullable": true,                                               +
-                 "default_value": null,                                             +
-                 "is_uniquely_identifying": false                                   +
-             }                                                                      +
-         },                                                                         +
          {                                                                          +
              "mapping": {                                                           +
                  "is_ignored": false,                                               +
@@ -2584,6 +2567,27 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
                  "is_nullable": true,                                               +
                  "default_value": null,                                             +
                  "is_uniquely_identifying": false                                   +
+             }                                                                      +
+         },                                                                         +
+         {                                                                          +
+             "mapping": {                                                           +
+                 "is_ignored": false,                                               +
+                 "source_value": null,                                              +
+                 "source_expression": null,                                         +
+                 "target_data_column_purpose": "source_input"                       +
+             },                                                                     +
+             "source_column": {                                                     +
+                 "priority": 1,                                                     +
+                 "column_name": "organisasjonsnummer"                               +
+             },                                                                     +
+             "target_data_column": {                                                +
+                 "purpose": "source_input",                                         +
+                 "priority": 5,                                                     +
+                 "column_name": "tax_ident",                                        +
+                 "column_type": "TEXT",                                             +
+                 "is_nullable": true,                                               +
+                 "default_value": null,                                             +
+                 "is_uniquely_identifying": true                                    +
              }                                                                      +
          },                                                                         +
          {                                                                          +
@@ -2967,42 +2971,6 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
      ],                                                                             +
      "import_data_column_list": [                                                   +
          {                                                                          +
-             "purpose": "internal",                                                 +
-             "priority": 1,                                                         +
-             "column_name": "operation",                                            +
-             "column_type": "public.import_row_operation_type",                     +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "internal",                                                 +
-             "priority": 2,                                                         +
-             "column_name": "action",                                               +
-             "column_type": "public.import_row_action_type",                        +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "source_input",                                             +
-             "priority": 3,                                                         +
-             "column_name": "tax_ident",                                            +
-             "column_type": "TEXT",                                                 +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
-             "purpose": "source_input",                                             +
-             "priority": 4,                                                         +
-             "column_name": "stat_ident",                                           +
-             "column_type": "TEXT",                                                 +
-             "is_nullable": true,                                                   +
-             "default_value": null,                                                 +
-             "is_uniquely_identifying": false                                       +
-         },                                                                         +
-         {                                                                          +
              "purpose": "source_input",                                             +
              "priority": 1,                                                         +
              "column_name": "valid_from",                                           +
@@ -3046,6 +3014,42 @@ SELECT jsonb_pretty(public.remove_ephemeral_data_from_hierarchy(definition_snaps
              "is_nullable": true,                                                   +
              "default_value": null,                                                 +
              "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "internal",                                                 +
+             "priority": 1,                                                         +
+             "column_name": "operation",                                            +
+             "column_type": "public.import_row_operation_type",                     +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "internal",                                                 +
+             "priority": 2,                                                         +
+             "column_name": "action",                                               +
+             "column_type": "public.import_row_action_type",                        +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": false                                       +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "source_input",                                             +
+             "priority": 5,                                                         +
+             "column_name": "tax_ident",                                            +
+             "column_type": "TEXT",                                                 +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": true                                        +
+         },                                                                         +
+         {                                                                          +
+             "purpose": "source_input",                                             +
+             "priority": 6,                                                         +
+             "column_name": "stat_ident",                                           +
+             "column_type": "TEXT",                                                 +
+             "is_nullable": true,                                                   +
+             "default_value": null,                                                 +
+             "is_uniquely_identifying": true                                        +
          },                                                                         +
          {                                                                          +
              "purpose": "source_input",                                             +
@@ -4285,13 +4289,12 @@ ORDER BY row_id;
 
 \echo Check the state of all tasks before running analytics.
 Check the state of all tasks before running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-    queue    |   state   | count 
--------------+-----------+-------
- analytics   | pending   |     7
- import      | completed |    32
- maintenance | pending   |     2
-(3 rows)
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     7
+ import    | completed |    32
+(2 rows)
 
 \echo "Explicitly refreshing timesegments before checking timeline_establishment_def"
 "Explicitly refreshing timesegments before checking timeline_establishment_def"
@@ -4489,26 +4492,24 @@ DROP TABLE debug_temp_timeline_enterprise;
 CALL worker.process_tasks(p_queue => 'analytics');
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-    queue    |   state   | count 
--------------+-----------+-------
- analytics   | completed |     9
- import      | completed |    32
- maintenance | pending   |     2
-(3 rows)
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |     9
+ import    | completed |    32
+(2 rows)
 
 \echo Run any remaining tasks, there should be none.
 Run any remaining tasks, there should be none.
 CALL worker.process_tasks();
 \echo Check the state of all tasks after running analytics.
 Check the state of all tasks after running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-    queue    |   state   | count 
--------------+-----------+-------
- analytics   | completed |     9
- import      | completed |    32
- maintenance | pending   |     2
-(3 rows)
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |     9
+ import    | completed |    32
+(2 rows)
 
 \echo Overview of statistical units, but not details, there are too many units.
 Overview of statistical units, but not details, there are too many units.

@@ -7,9 +7,8 @@ BEGIN;
 -- Define standard import steps
 -- These represent logical components of importing a statistical unit.
 INSERT INTO public.import_step (code, name, priority, analyse_procedure, process_procedure) VALUES
-    ('external_idents',                  'External Identifiers',       10, 'import.analyse_external_idents'::regproc, NULL),
-    ('valid_time_from_context',          'Validity (Context)',         15, 'import.analyse_valid_time_from_context'::regproc, NULL),
-    ('valid_time_from_source',           'Validity (Source)',          15, 'import.analyse_valid_time_from_source'::regproc, NULL),
+    ('valid_time',                       'Validity Period',            10, 'import.analyse_valid_time'::regproc, NULL),
+    ('external_idents',                  'External Identifiers',       15, 'import.analyse_external_idents'::regproc, NULL),
     ('enterprise_link_for_legal_unit',   'Link LU to Enterprise',      18, 'import.analyse_enterprise_link_for_legal_unit'::regproc, 'import.process_enterprise_link_for_legal_unit'::regproc),
     ('enterprise_link_for_establishment','Link EST to Enterprise',     19, 'import.analyse_enterprise_link_for_establishment'::regproc, 'import.process_enterprise_link_for_establishment'::regproc),
     ('link_establishment_to_legal_unit', 'Link EST to LU',             19, 'import.analyse_link_establishment_to_legal_unit'::regproc, NULL), -- Changed priority from 25 to 19
@@ -45,14 +44,11 @@ WITH ordered_values AS (
         ('enterprise_link_for_establishment', 'primary_for_enterprise',    'BOOLEAN', 'internal', true, NULL, false),
         ('link_establishment_to_legal_unit', 'legal_unit_id',        'INTEGER', 'pk_id',    true, NULL, false),
         ('link_establishment_to_legal_unit', 'primary_for_legal_unit','BOOLEAN',   'internal', true, NULL, false),
-        ('valid_time_from_context', 'derived_valid_after', 'DATE', 'internal', true, NULL, false), -- Added derived_valid_after
-        ('valid_time_from_context', 'derived_valid_from',  'DATE', 'internal', true, NULL, false),
-        ('valid_time_from_context', 'derived_valid_to',    'DATE', 'internal', true, NULL, false),
-        ('valid_time_from_source', 'valid_from',            'TEXT', 'source_input', true, NULL, false),
-        ('valid_time_from_source', 'valid_to',              'TEXT', 'source_input', true, NULL, false),
-        ('valid_time_from_source', 'derived_valid_after',   'DATE', 'internal',     true, NULL, false),
-        ('valid_time_from_source', 'derived_valid_from',    'DATE', 'internal',     true, NULL, false),
-        ('valid_time_from_source', 'derived_valid_to',      'DATE', 'internal',     true, NULL, false),
+        ('valid_time', 'valid_from',            'TEXT', 'source_input', true, NULL, false),
+        ('valid_time', 'valid_to',              'TEXT', 'source_input', true, NULL, false),
+        ('valid_time', 'derived_valid_after',   'DATE', 'internal',     true, NULL, false),
+        ('valid_time', 'derived_valid_from',    'DATE', 'internal',     true, NULL, false),
+        ('valid_time', 'derived_valid_to',      'DATE', 'internal',     true, NULL, false),
         ('status', 'status_code',                'TEXT',    'source_input', true, NULL, false),
         ('status', 'status_id',                  'INTEGER', 'internal',     true, NULL, false),
         ('legal_unit', 'name',                           'TEXT',    'source_input', true, NULL, false),
@@ -159,6 +155,9 @@ ON CONFLICT (step_id, column_name) DO NOTHING;
 -- Dynamically create import_data_column entries for statistical variables
 -- This is now handled by the lifecycle callback import.generate_stat_var_data_columns()
 -- called in migration 20250506120000_import_lifecycle_for_stat_definition_import_data_columns.up.sql
--- No action needed here for that specific purpose.
+
+-- Dynamically create import_data_column entries for external identifiers
+-- This is now handled by the lifecycle callback import.generate_external_ident_data_columns()
+-- also called in migration 20250506120000_import_lifecycle_for_stat_definition_import_data_columns.up.sql
 
 COMMIT;

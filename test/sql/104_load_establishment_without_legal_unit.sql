@@ -48,32 +48,33 @@ SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.enterprise) AS enterprise_count;
 
 -- Create Import Job for Establishments Without Legal Unit
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_current_year'),
-    'import_02_eswlu_current',
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_job_provided'),
+    'import_02_eswlu_tc',
     'Import Establishments Without LU (02_load_establishment_without_legal_unit.sql)',
-    'Import job for establishments from test/data/02_norwegian-establishments-without-legal-unit.csv using establishment_without_lu_current_year definition.',
-    'Test data load (02_load_establishment_without_legal_unit.sql)';
+    'Import job for establishments from test/data/02_norwegian-establishments-without-legal-unit.csv using establishment_without_lu_job_provided definition.',
+    'Test data load (02_load_establishment_without_legal_unit.sql)',
+    'r_year_curr';
 
-\echo "User uploads establishments without legal_unit (via import job: import_02_eswlu_current)"
-\copy public.import_02_eswlu_current_upload(tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,data_source_code) FROM 'test/data/02_norwegian-establishments-without-legal-unit.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+\echo "User uploads establishments without legal_unit (via import job: import_02_eswlu_tc)"
+\copy public.import_02_eswlu_tc_upload(tax_ident,name,birth_date,death_date,physical_address_part1,physical_postcode,physical_postplace,physical_region_code,physical_country_iso_2,postal_address_part1,postal_postcode,postal_postplace,postal_region_code,postal_country_iso_2,primary_activity_category_code,secondary_activity_category_code,employees,data_source_code) FROM 'test/data/02_norwegian-establishments-without-legal-unit.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 
 \echo Run worker processing for import jobs
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
-\echo "Inspecting import job data for import_02_eswlu_current"
+\echo "Inspecting import job data for import_02_eswlu_tc"
 SELECT row_id, state, error, tax_ident, name, data_source_code
-FROM public.import_02_eswlu_current_data
+FROM public.import_02_eswlu_tc_data
 ORDER BY row_id
 LIMIT 5;
 
-\echo "Checking import job status for import_02_eswlu_current"
+\echo "Checking import job status for import_02_eswlu_tc"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
-       (SELECT COUNT(*) FROM public.import_02_eswlu_current_data dr WHERE dr.state = 'error') AS error_rows
+       (SELECT COUNT(*) FROM public.import_02_eswlu_tc_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_02_eswlu_current'
+WHERE slug = 'import_02_eswlu_tc'
 ORDER BY slug;
 
 \echo "Checking unit counts after import processing"
@@ -84,7 +85,7 @@ SELECT
 
 \echo Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \x
 SELECT unit_type, name, external_idents, data_source_codes, stats, jsonb_pretty(stats_summary) AS stats_summary

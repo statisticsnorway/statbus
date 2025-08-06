@@ -50,7 +50,7 @@ SELECT
 -- Create Import Job for Legal Units (Block 1 - Births Start of Year)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_41_lu_era_b1_birth_start_y',
     'Import LU Era B1 Births Start Year (41_history_legal_units_births.sql)',
     'Import job for test/data/41_legal-units-births-start-of-year.csv.',
@@ -60,7 +60,7 @@ SELECT
 
 \echo Run worker processing for import jobs - Block 1
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job status for import_41_lu_era_b1_birth_start_y"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
@@ -71,7 +71,7 @@ ORDER BY slug;
 
 \echo Run worker processing for analytics tasks - Block 1
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -116,7 +116,7 @@ SELECT
 -- Create Import Job for Legal Units (Block 2 - Births Start of Second Month)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_41_lu_era_b2_birth_start_m2',
     'Import LU Era B2 Births Start M2 (41_history_legal_units_births.sql)',
     'Import job for test/data/41_legal-units-births-start-of-second-month.csv.',
@@ -126,7 +126,7 @@ SELECT
 
 \echo Run worker processing for import jobs - Block 2
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job status for import_41_lu_era_b2_birth_start_m2"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
@@ -137,7 +137,7 @@ ORDER BY slug;
 
 \echo Run worker processing for analytics tasks - Block 2
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -181,7 +181,7 @@ SELECT
 -- Create Import Job for Legal Units (Block 3 - Births Middle of Month)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_41_lu_era_b3_birth_mid_m',
     'Import LU Era B3 Births Mid-Month (41_history_legal_units_births.sql)',
     'Import job for test/data/41_legal-units-births-middle-of-month.csv.',
@@ -191,7 +191,7 @@ SELECT
 
 \echo Run worker processing for import jobs - Block 3
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job status for import_41_lu_era_b3_birth_mid_m"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
@@ -202,7 +202,7 @@ ORDER BY slug;
 
 \echo Run worker processing for analytics tasks - Block 3
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,

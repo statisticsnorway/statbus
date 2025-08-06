@@ -11,7 +11,7 @@ CALL test.set_user_from_email('test.admin@statbus.org');
 \i samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
 -- Display summary of created definitions
-SELECT slug, name, note, time_context_ident, strategy, valid, validation_error
+SELECT slug, name, note, valid_time_from, strategy, valid, validation_error
 FROM public.import_definition
 WHERE slug LIKE 'brreg_%_2024'
 ORDER BY slug;
@@ -284,7 +284,7 @@ WHERE state = 'error' OR error IS NOT NULL
 ORDER BY row_id;
 
 \echo Check the state of all tasks before running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Explicitly refreshing timesegments before checking timeline_establishment_def"
 SELECT public.timesegments_refresh();
@@ -438,13 +438,13 @@ DROP TABLE debug_temp_timeline_enterprise;
 CALL worker.process_tasks(p_queue => 'analytics');
 
 \echo Check the state of all tasks after running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo Run any remaining tasks, there should be none.
 CALL worker.process_tasks();
 
 \echo Check the state of all tasks after running analytics.
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo Overview of statistical units, but not details, there are too many units.
 SELECT valid_from

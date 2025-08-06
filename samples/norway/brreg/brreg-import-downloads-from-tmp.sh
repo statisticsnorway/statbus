@@ -55,7 +55,7 @@ $WORKSPACE/devops/manage-statbus.sh psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2025')
 INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
 SELECT def.id,
-       'import_hovedenhet_${IMPORT_YEAR}_current',
+       'import_hovedenhet_${IMPORT_YEAR}',
        '${TODAY}'::DATE,
        'infinity'::DATE,
        'Import Job for BRREG Hovedenhet ${IMPORT_YEAR} (Current)',
@@ -71,7 +71,7 @@ $WORKSPACE/devops/manage-statbus.sh psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2025')
 INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
 SELECT def.id,
-       'import_underenhet_${IMPORT_YEAR}_current',
+       'import_underenhet_${IMPORT_YEAR}',
        '${TODAY}'::DATE,
        'infinity'::DATE,
        'Import Job for BRREG Underenhet ${IMPORT_YEAR} (Current)',
@@ -82,24 +82,20 @@ ON CONFLICT (slug) DO UPDATE SET
     default_valid_from = '${TODAY}'::DATE,
     default_valid_to = 'infinity'::DATE;"
 
-# Disable RLS on import tables to support data loading
-$WORKSPACE/devops/manage-statbus.sh psql -c "ALTER TABLE public.import_hovedenhet_${IMPORT_YEAR}_current_upload DISABLE ROW LEVEL SECURITY;"
-$WORKSPACE/devops/manage-statbus.sh psql -c "ALTER TABLE public.import_underenhet_${IMPORT_YEAR}_current_upload DISABLE ROW LEVEL SECURITY;"
-
 # Load data into import tables
 if [ -f "$legal_unit_file" ]; then
     echo "Loading hovedenhet data"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${IMPORT_YEAR}_current_upload FROM '$legal_unit_file' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${IMPORT_YEAR}_upload FROM '$legal_unit_file' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 else
     echo "Warning: Legal unit file $legal_unit_file not found, skipping import"
 fi
 
 if [ -f "$establishment_file" ]; then
     echo "Loading underenhet data"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${IMPORT_YEAR}_current_upload FROM '$establishment_file' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${IMPORT_YEAR}_upload FROM '$establishment_file' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 else
     echo "Warning: Establishment file $establishment_file not found, skipping import"
 fi
 
 echo "Checking import job states"
-$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug IN ('import_hovedenhet_${IMPORT_YEAR}_current', 'import_underenhet_${IMPORT_YEAR}_current');"
+$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug IN ('import_hovedenhet_${IMPORT_YEAR}', 'import_underenhet_${IMPORT_YEAR}');"

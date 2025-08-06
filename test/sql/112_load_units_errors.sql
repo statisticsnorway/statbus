@@ -41,7 +41,7 @@ SELECT
 -- Create Import Job for Legal Units (Block 1)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'), -- Corrected slug
     'import_31_lu_era_b1',
     'Import LU Era B1 (31_load_units_errors.sql)',
     'Import job for test/data/31_legal_units.csv (Block 1).',
@@ -54,7 +54,7 @@ INSERT INTO public.import_31_lu_era_b1_upload(valid_from, valid_to, tax_ident,st
 -- Create Import Job for Formal Establishments (Block 1 - Errors)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'), -- Corrected slug
     'import_31_esflu_era_b1',
     'Import Formal ES Era B1 Errors (31_load_units_errors.sql)',
     'Import job for test/data/31_formal_establishments_errors.csv (Block 1).',
@@ -66,7 +66,7 @@ INSERT INTO public.import_31_esflu_era_b1_upload(valid_from, valid_to, tax_ident
 
 \echo Run worker processing for import jobs - Block 1
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job statuses for Block 1"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
@@ -83,7 +83,7 @@ ORDER BY row_id;
 
 \echo Run worker processing for analytics tasks - Block 1 (errors primarily tested on import queue)
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 ROLLBACK TO before_loading_units;
 
@@ -97,7 +97,7 @@ SELECT
 -- Create Import Job for Legal Units (Block 2)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'), -- Corrected slug
     'import_31_lu_era_b2',
     'Import LU Era B2 (31_load_units_errors.sql)',
     'Import job for test/data/31_legal_units.csv (Block 2).',
@@ -110,7 +110,7 @@ INSERT INTO public.import_31_lu_era_b2_upload(valid_from, valid_to, tax_ident,st
 -- Create Import Job for Formal Establishments (Block 2)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'), -- Corrected slug
     'import_31_esflu_era_b2',
     'Import Formal ES Era B2 (31_load_units_errors.sql)',
     'Import job for test/data/31_formal_establishments.csv (Block 2).',
@@ -123,7 +123,7 @@ INSERT INTO public.import_31_esflu_era_b2_upload(valid_from, valid_to, tax_ident
 -- Create Import Job for Informal Establishments (Block 2 - Errors)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_without_lu_source_dates'), -- Corrected slug
     'import_31_eswlu_era_b2_errors',
     'Import Informal ES Era B2 Errors (31_load_units_errors.sql)',
     'Import job for test/data/31_informal_establishments_errors.csv (Block 2).',
@@ -135,7 +135,7 @@ INSERT INTO public.import_31_eswlu_era_b2_errors_upload(valid_from, valid_to, ta
 
 \echo Run worker processing for import jobs - Block 2
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 SELECT
     (SELECT COUNT(DISTINCT id) AS distinct_unit_count FROM public.establishment) AS establishment_count,
@@ -158,7 +158,7 @@ ORDER BY row_id;
 
 \echo Run worker processing for analytics tasks - Block 2 (errors primarily tested on import queue)
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 ROLLBACK TO before_loading_units;
 
@@ -172,7 +172,7 @@ SELECT
 -- Create Import Job for Legal Units (Block 3 - Coordinate Errors)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'), -- Corrected slug
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'), -- Corrected slug
     'import_31_lu_era_b3_coord_errors',
     'Import LU Era B3 Various Coord Errors (31_load_units_errors.sql)',
     'Import job with various physical coordinate errors for Legal Units (Block 3).',
@@ -195,7 +195,7 @@ INSERT INTO public.import_31_lu_era_b3_coord_errors_upload(valid_from, valid_to,
 
 \echo Run worker processing for import jobs - Block 3
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking import job status for Block 3 (import_31_lu_era_b3_coord_errors)"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
@@ -221,7 +221,7 @@ SELECT
 -- Create Import Job for Legal Units (Block 4 - Postal Coordinate Errors)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'),
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_31_lu_postal_coord_errors',
     'Import LU Era B4 Postal Coord Errors (31_load_units_errors.sql)',
     'Import job with postal coordinate errors for Legal Units (Block 4).',

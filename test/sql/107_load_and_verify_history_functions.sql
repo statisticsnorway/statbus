@@ -46,10 +46,10 @@ SELECT
 -- Create Import Job for Legal Units (Era)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_explicit_dates'),
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_source_dates'),
     'import_03_lu_era',
     'Import Legal Units Era (03_load_and_verify_history_functions.sql)',
-    'Import job for legal units from test/data/03_norwegian-legal-units-over-time.csv using legal_unit_explicit_dates definition.',
+    'Import job for legal units from test/data/03_norwegian-legal-units-over-time.csv using legal_unit_source_dates definition.',
     'Test data load (03_load_and_verify_history_functions.sql)';
 
 \echo "User uploads the legal units over time (via import job: import_03_lu_era)"
@@ -59,16 +59,16 @@ SELECT
 --SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
 --SET client_min_messages TO NOTICE;
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 
 -- Create Import Job for Establishments (Era for LU)
 INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_explicit_dates'),
+    (SELECT id FROM public.import_definition WHERE slug = 'establishment_for_lu_source_dates'),
     'import_03_esflu_era',
     'Import Establishments Era for LU (03_load_and_verify_history_functions.sql)',
-    'Import job for establishments from test/data/03_norwegian-establishments-over-time.csv using establishment_for_lu_explicit_dates definition.',
+    'Import job for establishments from test/data/03_norwegian-establishments-over-time.csv using establishment_for_lu_source_dates definition.',
     'Test data load (03_load_and_verify_history_functions.sql)';
 
 \echo "User uploads the establishments over time (via import job: import_03_esflu_era)"
@@ -78,7 +78,7 @@ SELECT
 --SET client_min_messages TO DEBUG1;
 CALL worker.process_tasks(p_queue => 'import');
 --SET client_min_messages TO NOTICE;
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Checking unit counts after import processing"
 SELECT
@@ -151,7 +151,7 @@ ORDER BY year, month;
 
 \echo Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
 
 \echo "Inspecting import job data for import_03_lu_era"
 SELECT row_id, state, error, tax_ident, name, valid_from, valid_to

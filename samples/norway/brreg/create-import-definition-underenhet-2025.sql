@@ -1,167 +1,164 @@
--- Pretend the user has clicked and created import definition for BRREG Underenhet (establishment for establishment)
+-- Create import definition for BRREG Underenhet (establishment for legal unit) using 2025 columns
+-- This version uses the new import system with steps and helper functions.
 
-WITH it AS (
-    SELECT * FROM public.import_target
-    WHERE schema_name = 'public'
-      AND table_name = 'import_establishment_era_for_legal_unit'
-), def AS (
-    INSERT INTO public.import_definition
-        ( target_id
-        , slug
-        , name
-        , note
-        , mode
-        , strategy
-        )
-    SELECT it.id
-        , 'brreg_underenhet_2025'
-        , 'Import of BRREG Underenhet using 2025 columns'
-        , 'Easy upload of the CSV file found at brreg.'
-        , 'establishment_formal'::public.import_mode
-        , 'insert_or_replace'::public.import_strategy
-        , (SELECT id FROM public.data_source WHERE code = 'brreg') -- data_source_id
-    FROM it
-    RETURNING *
-), raw_mapping(source_column_name, source_expression, target_column_name) AS (
-VALUES
-      (NULL, 'default'::public.import_source_expression, 'valid_from')
-    , (NULL, 'default'::public.import_source_expression, 'valid_to')
-    , ('organisasjonsnummer', NULL, 'tax_ident')
-    , ('navn', NULL, 'name')
-    , ('organisasjonsform.kode', NULL, NULL)
-    , ('organisasjonsform.beskrivelse', NULL, NULL)
-    , ('naeringskode1.kode', NULL, 'primary_activity_category_code')
-    , ('naeringskode1.beskrivelse', NULL, NULL)
-    , ('naeringskode2.kode', NULL, 'secondary_activity_category_code')
-    , ('naeringskode2.beskrivelse', NULL, NULL)
-    , ('naeringskode3.kode', NULL, NULL)
-    , ('naeringskode3.beskrivelse', NULL, NULL)
-    , ('hjelpeenhetskode.kode', NULL, NULL)
-    , ('hjelpeenhetskode.beskrivelse', NULL, NULL)
-    , ('harRegistrertAntallAnsatte', NULL, NULL)
-    , ('antallAnsatte', NULL, 'employees')
-    , ('registreringsdatoAntallAnsatteEnhetsregisteret', NULL, NULL)
-    , ('registreringsdatoantallansatteNAVAaregisteret', NULL, NULL)
-    , ('hjemmeside', NULL, 'web_address')
-    , ('epostadresse', NULL, NULL)
-    , ('telefon', NULL, NULL)
-    , ('mobil', NULL, NULL)
-    , ('postadresse.adresse', NULL, 'postal_address_part1')
-    , ('postadresse.poststed', NULL, 'postal_postplace')
-    , ('postadresse.postnummer', NULL, 'postal_postcode')
-    , ('postadresse.kommune', NULL, NULL)
-    , ('postadresse.kommunenummer', NULL, 'postal_region_code')
-    , ('postadresse.land', NULL, NULL)
-    , ('postadresse.landkode', NULL, 'postal_country_iso_2')
-    , ('beliggenhetsadresse.adresse', NULL, 'physical_address_part1')
-    , ('beliggenhetsadresse.poststed', NULL, 'physical_postplace')
-    , ('beliggenhetsadresse.postnummer', NULL, 'physical_postcode')
-    , ('beliggenhetsadresse.kommune', NULL, NULL)
-    , ('beliggenhetsadresse.kommunenummer', NULL, 'physical_region_code')
-    , ('beliggenhetsadresse.land', NULL, NULL)
-    , ('beliggenhetsadresse.landkode', NULL, 'physical_country_iso_2')
-    , ('registreringsdatoIEnhetsregisteret', NULL, NULL)
-    , ('frivilligMvaRegistrertBeskrivelser', NULL, NULL)
-    , ('registreringsdatoFrivilligMerverdiavgiftsregisteret', NULL, NULL)
-    , ('registrertIMvaregisteret', NULL, NULL)
-    , ('registreringsdatoMerverdiavgiftsregisteret', NULL, NULL)
-    , ('registreringsdatoMerverdiavgiftsregisteretEnhetsregisteret', NULL, NULL)
-    , ('oppstartsdato', NULL, 'birth_date')
-    , ('datoEierskifte', NULL, NULL)
-    , ('overordnetEnhet', NULL, 'legal_unit_tax_ident')
-    , ('nedleggelsesdato', NULL, 'death_date')
-), name_mapping AS (
-    SELECT
-        ROW_NUMBER() OVER (ORDER BY (SELECT NULL)) as priority,
-        source_column_name,
-        source_expression,
-        target_column_name
-    FROM raw_mapping
-), inserted_source_column AS (
-    INSERT INTO public.import_source_column (definition_id,column_name, priority)
-    SELECT def.id, name_mapping.source_column_name, name_mapping.priority
-    FROM def, name_mapping
-    WHERE source_column_name IS NOT NULL
-    ORDER BY priority
-    RETURNING *
-), mapping AS (
-    SELECT def.id
-          , isc.id
-          , nm.source_expression
-          , itc.id
-    FROM def
-        , name_mapping AS nm
-        LEFT JOIN inserted_source_column AS isc
-          ON isc.column_name = nm.source_column_name
-        LEFT JOIN public.import_target_column AS itc
-        ON itc.column_name = nm.target_column_name
-        WHERE itc.target_id IS NULL OR itc.target_id = def.target_id
-), mapped AS (
-  INSERT INTO public.import_mapping
-      ( definition_id
-      , source_column_id
-      , source_expression
-      , target_data_column_id
-      , is_ignored
-      , target_data_column_purpose
-      )
-  SELECT
-      m_sub.definition_id,
-      m_sub.source_column_id,
-      m_sub.source_expression,
-      CASE WHEN (m_sub.original_target_column_name IS NULL OR m_sub.resolved_target_id IS NULL) THEN NULL ELSE m_sub.resolved_target_id END,
-      (m_sub.original_target_column_name IS NULL OR m_sub.resolved_target_id IS NULL), -- is_ignored
-      CASE WHEN (m_sub.original_target_column_name IS NULL OR m_sub.resolved_target_id IS NULL) THEN NULL ELSE 'source_input'::public.import_data_column_purpose END
-  FROM (
-      SELECT
-          def.id as definition_id,
-          isc.id as source_column_id,
-          nm.source_expression,
-          nm.target_column_name as original_target_column_name,
-          itc.id as resolved_target_id
-      FROM def
-      CROSS JOIN name_mapping AS nm
-      LEFT JOIN inserted_source_column AS isc ON isc.column_name = nm.source_column_name AND isc.definition_id = def.id
-      LEFT JOIN public.import_target_column AS itc ON itc.column_name = nm.target_column_name AND itc.target_id = def.target_id
-      WHERE (isc.id IS NOT NULL OR nm.source_expression IS NOT NULL) -- Process only if source_column was created or it's an expression
-  ) AS m_sub
-  ON CONFLICT (definition_id, source_column_id, target_data_column_id)
-  DO UPDATE SET -- This handles cases where a mapping might exist from a previous run or manual setup
-    is_ignored = EXCLUDED.is_ignored,
-    target_data_column_purpose = EXCLUDED.target_data_column_purpose
-  WHERE -- Only update if the conflict is on the unique_source_to_target_mapping (non-ignored) or if it's an ignored mapping being re-asserted
-    (EXCLUDED.is_ignored = FALSE AND public.import_mapping.target_data_column_id = EXCLUDED.target_data_column_id) OR
-    (EXCLUDED.is_ignored = TRUE AND public.import_mapping.target_data_column_id IS NULL)
-  RETURNING *
-)
---SELECT * FROM mapped;
-SELECT d.slug as definition_slug,
-        sc.column_name as source_column,
-        m.source_value,
-        m.source_expression,
-        sc.priority AS source_column_priority,
-        tc.column_name AS target_column
-FROM mapped m
-LEFT JOIN def d ON d.id = m.definition_id
-LEFT JOIN inserted_source_column sc ON sc.id = m.source_column_id
-LEFT JOIN public.import_target_column tc ON tc.id = m.target_column_id
-ORDER BY source_column_priority, target_column;
+DO $$
+DECLARE
+    def_id INT;
+    -- Define the steps needed for an establishment linked to a legal unit import with a time context
+    es_steps TEXT[] := ARRAY[
+        'external_idents', 'link_establishment_to_legal_unit', 'valid_time', 'status', 'establishment',
+        'physical_location', 'postal_location', 'primary_activity', 'secondary_activity',
+        'contact', 'statistical_variables', 'tags', 'edit_info', 'metadata'
+    ];
+    map_rec RECORD;
+    v_source_col_id INT;
+    v_data_col_id INT;
+BEGIN
+    -- 1. Create the definition record (initially invalid)
+    INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
+    VALUES ('brreg_underenhet_2025', 'Import of BRREG Underenhet using 2025 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'establishment_formal', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
+    RETURNING id INTO def_id;
 
+    -- 2. Link the required steps to the definition
+    PERFORM import.link_steps_to_definition(def_id, es_steps);
+
+    -- 3. Data columns are defined per step and generated by lifecycle callbacks.
+    --    The call to admin.create_data_columns_for_definition(def_id) is removed.
+
+    -- 4. Define source columns and mappings declaratively
+    -- Create a temporary table to hold the mapping list
+    CREATE TEMP TABLE temp_mapping_list (
+        priority INT,
+        source_name TEXT,
+        target_name TEXT
+    ) ON COMMIT DROP;
+
+    -- Populate the temporary table
+    INSERT INTO temp_mapping_list (priority, source_name, target_name)
+    SELECT ROW_NUMBER() OVER () as priority, source_name, target_name
+    FROM (VALUES
+            ('organisasjonsnummer', 'tax_ident'),
+            ('navn', 'name'),
+            ('organisasjonsform.kode', NULL), -- Ignored
+            ('organisasjonsform.beskrivelse', NULL), -- Ignored
+            ('naeringskode1.kode', 'primary_activity_category_code'),
+            ('naeringskode1.beskrivelse', NULL), -- Ignored
+            ('naeringskode2.kode', 'secondary_activity_category_code'),
+            ('naeringskode2.beskrivelse', NULL), -- Ignored
+            ('naeringskode3.kode', NULL), -- Ignored
+            ('naeringskode3.beskrivelse', NULL), -- Ignored
+            ('hjelpeenhetskode.kode', NULL), -- Ignored
+            ('hjelpeenhetskode.beskrivelse', NULL), -- Ignored
+            ('harRegistrertAntallAnsatte', NULL), -- Ignored
+            ('antallAnsatte', 'employees'),
+            ('hjemmeside', 'web_address'),
+            ('postadresse.adresse', 'postal_address_part1'),
+            ('postadresse.poststed', 'postal_postplace'),
+            ('postadresse.postnummer', 'postal_postcode'),
+            ('postadresse.kommune', NULL), -- Ignored
+            ('postadresse.kommunenummer', 'postal_region_code'),
+            ('postadresse.land', NULL), -- Ignored
+            ('postadresse.landkode', 'postal_country_iso_2'),
+            ('beliggenhetsadresse.adresse', 'physical_address_part1'),
+            ('beliggenhetsadresse.poststed', 'physical_postplace'),
+            ('beliggenhetsadresse.postnummer', 'physical_postcode'),
+            ('beliggenhetsadresse.kommune', NULL), -- Ignored
+            ('beliggenhetsadresse.kommunenummer', 'physical_region_code'),
+            ('beliggenhetsadresse.land', NULL), -- Ignored
+            ('beliggenhetsadresse.landkode', 'physical_country_iso_2'),
+            ('registreringsdatoIEnhetsregisteret', NULL), -- Ignored
+            ('frivilligMvaRegistrertBeskrivelser', NULL), -- Ignored
+            ('registrertIMvaregisteret', NULL), -- Ignored
+            ('oppstartsdato', 'birth_date'),
+            ('datoEierskifte', NULL), -- Ignored
+            ('overordnetEnhet', 'legal_unit_tax_ident'), -- Map to the dynamic column
+            ('nedleggelsesdato', 'death_date')
+        ) AS v(source_name, target_name);
+
+    -- Loop through the temporary mapping list table
+    FOR map_rec IN SELECT * FROM temp_mapping_list ORDER BY priority LOOP
+        -- Insert the source column
+        INSERT INTO public.import_source_column (definition_id, column_name, priority)
+        VALUES (def_id, map_rec.source_name, map_rec.priority)
+        RETURNING id INTO v_source_col_id;
+
+        -- If a target is specified, create the mapping
+        IF map_rec.target_name IS NOT NULL THEN
+            -- Find the corresponding data column ID by joining through the steps linked to this definition
+            SELECT dc.id INTO v_data_col_id
+            FROM public.import_definition_step ds
+            JOIN public.import_data_column dc ON ds.step_id = dc.step_id
+            WHERE ds.definition_id = def_id
+              AND dc.column_name = map_rec.target_name
+              AND dc.purpose = 'source_input';
+
+            IF v_data_col_id IS NOT NULL THEN
+                -- Insert the mapping
+                INSERT INTO public.import_mapping (definition_id, source_column_id, target_data_column_id, target_data_column_purpose, is_ignored)
+                VALUES (def_id, v_source_col_id, v_data_col_id, 'source_input'::public.import_data_column_purpose, FALSE)
+                ON CONFLICT (definition_id, source_column_id, target_data_column_id) DO NOTHING;
+            ELSE
+                -- If target_name was specified but no data_col_id found, or if target_name was NULL initially.
+                INSERT INTO public.import_mapping (definition_id, source_column_id, is_ignored, target_data_column_id, target_data_column_purpose)
+                VALUES (def_id, v_source_col_id, TRUE, NULL, NULL)
+                ON CONFLICT (definition_id, source_column_id, target_data_column_id) WHERE target_data_column_id IS NULL
+                DO NOTHING;
+            END IF;
+        ELSE -- map_rec.target_name IS NULL
+            INSERT INTO public.import_mapping (definition_id, source_column_id, is_ignored, target_data_column_id, target_data_column_purpose)
+            VALUES (def_id, v_source_col_id, TRUE, NULL, NULL)
+            ON CONFLICT (definition_id, source_column_id, target_data_column_id) WHERE target_data_column_id IS NULL
+            DO NOTHING;
+        END IF;
+    END LOOP;
+
+    -- 4c. Add mappings for default values (valid_from, valid_to) for job_provided definitions
+    -- These source columns don't exist, so source_column_id is NULL
+    DECLARE
+        v_valid_time_step_id INT;
+    BEGIN
+        SELECT id INTO v_valid_time_step_id FROM public.import_step WHERE code = 'valid_time';
+
+        INSERT INTO public.import_mapping (definition_id, source_expression, target_data_column_id)
+        SELECT def_id, 'default'::public.import_source_expression, dc.id
+        FROM public.import_data_column dc
+        WHERE dc.step_id = v_valid_time_step_id
+          AND dc.column_name IN ('valid_from', 'valid_to')
+          AND dc.purpose = 'source_input'
+        ON CONFLICT DO NOTHING;
+    END;
+
+
+    -- 5. Set the 'tax_ident' data column as uniquely identifying for the prepare step UPSERT
+    DECLARE
+        v_idents_step_id INT;
+    BEGIN
+        SELECT id INTO v_idents_step_id FROM public.import_step WHERE code = 'external_idents';
+        UPDATE public.import_data_column
+        SET is_uniquely_identifying = true
+        WHERE step_id = v_idents_step_id -- Use step_id
+          AND column_name = 'tax_ident'
+          AND purpose = 'source_input';
+    END; -- End of the inner BEGIN/END block
+
+    DROP TABLE temp_mapping_list;
+    
+END $$; -- End of the main DO block
+
+-- Display the created definition details
 SELECT d.slug,
-        d.name,
-        t.table_name as target_table,
-        d.note,
-        ds.code as data_source,
-        d.time_context_ident,
-        d.draft,
-        d.valid,
-        d.validation_error
+       d.name,
+       d.note,
+       ds.code as data_source,
+       d.valid_time_from,
+       d.strategy,
+       d.valid,
+       d.validation_error
 FROM public.import_definition d
-JOIN public.import_target t ON t.id = d.target_id
 LEFT JOIN public.data_source ds ON ds.id = d.data_source_id
 WHERE d.slug = 'brreg_underenhet_2025';
 
+-- Set the definition to valid (can now be used to create jobs)
 UPDATE public.import_definition
-SET draft = false
-WHERE draft
-  AND slug = 'brreg_underenhet_2025';
+SET valid = true, validation_error = NULL
+WHERE slug = 'brreg_underenhet_2025';

@@ -80,9 +80,20 @@ DECLARE
     v_job_slug_val TEXT;
     v_def_slug TEXT;
 BEGIN
-    -- legal_unit_current_year
-    v_def_slug := 'legal_unit_current_year';
-    v_job_slug_val := 't54_lu_cy';
+    -- legal_unit_job_provided
+    v_def_slug := 'legal_unit_job_provided';
+    v_job_slug_val := 't54_lu_tc';
+    SELECT id INTO v_def_id FROM public.import_definition WHERE slug = v_def_slug;
+    IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
+    ELSE
+        DELETE FROM public.import_job WHERE slug = v_job_slug_val;
+        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'r_year_curr');
+    END IF;
+
+    -- legal_unit_source_dates
+    v_def_slug := 'legal_unit_source_dates';
+    v_job_slug_val := 't54_lu_sd';
     SELECT id INTO v_def_id FROM public.import_definition WHERE slug = v_def_slug;
     IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
     ELSE
@@ -91,9 +102,20 @@ BEGIN
         VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54');
     END IF;
 
-    -- legal_unit_explicit_dates
-    v_def_slug := 'legal_unit_explicit_dates';
-    v_job_slug_val := 't54_lu_ed';
+    -- establishment_for_lu_job_provided
+    v_def_slug := 'establishment_for_lu_job_provided';
+    v_job_slug_val := 't54_est_lu_tc';
+    SELECT id INTO v_def_id FROM public.import_definition WHERE slug = v_def_slug;
+    IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
+    ELSE
+        DELETE FROM public.import_job WHERE slug = v_job_slug_val;
+        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'r_year_curr');
+    END IF;
+
+    -- establishment_for_lu_source_dates
+    v_def_slug := 'establishment_for_lu_source_dates';
+    v_job_slug_val := 't54_est_lu_sd';
     SELECT id INTO v_def_id FROM public.import_definition WHERE slug = v_def_slug;
     IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
     ELSE
@@ -102,9 +124,20 @@ BEGIN
         VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54');
     END IF;
 
-    -- establishment_for_lu_current_year
-    v_def_slug := 'establishment_for_lu_current_year';
-    v_job_slug_val := 't54_est_lu_cy';
+    -- establishment_without_lu_job_provided
+    v_def_slug := 'establishment_without_lu_job_provided';
+    v_job_slug_val := 't54_est_wolu_tc';
+    SELECT id INTO v_def_id FROM public.import_definition WHERE slug = v_def_slug;
+    IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
+    ELSE
+        DELETE FROM public.import_job WHERE slug = v_job_slug_val;
+        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'r_year_curr');
+    END IF;
+
+    -- establishment_without_lu_source_dates
+    v_def_slug := 'establishment_without_lu_source_dates';
+    v_job_slug_val := 't54_est_wolu_sd';
     SELECT id INTO v_def_id FROM public.import_definition WHERE slug = v_def_slug;
     IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
     ELSE
@@ -113,31 +146,20 @@ BEGIN
         VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54');
     END IF;
 
-    -- establishment_for_lu_explicit_dates
-    v_def_slug := 'establishment_for_lu_explicit_dates';
-    v_job_slug_val := 't54_est_lu_ed';
+    -- generic_unit_stats_update_job_provided
+    v_def_slug := 'generic_unit_stats_update_job_provided';
+    v_job_slug_val := 't54_gus_jp';
     SELECT id INTO v_def_id FROM public.import_definition WHERE slug = v_def_slug;
     IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
     ELSE
         DELETE FROM public.import_job WHERE slug = v_job_slug_val;
-        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54');
+        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
+        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54', 'r_year_curr');
     END IF;
 
-    -- establishment_without_lu_current_year
-    v_def_slug := 'establishment_without_lu_current_year';
-    v_job_slug_val := 't54_est_wolu_cy';
-    SELECT id INTO v_def_id FROM public.import_definition WHERE slug = v_def_slug;
-    IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
-    ELSE
-        DELETE FROM public.import_job WHERE slug = v_job_slug_val;
-        INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
-        VALUES (v_def_id, v_job_slug_val, 'Test 54 job for ' || v_def_slug, 'Automated test 54', 'Test 54');
-    END IF;
-
-    -- establishment_without_lu_explicit_dates
-    v_def_slug := 'establishment_without_lu_explicit_dates';
-    v_job_slug_val := 't54_est_wolu_ed';
+    -- generic_unit_stats_update_source_dates
+    v_def_slug := 'generic_unit_stats_update_source_dates';
+    v_job_slug_val := 't54_gus_sd';
     SELECT id INTO v_def_id FROM public.import_definition WHERE slug = v_def_slug;
     IF NOT FOUND THEN RAISE WARNING 'Definition slug % not found, cannot create job.', v_def_slug;
     ELSE
@@ -159,17 +181,19 @@ SELECT
     id.slug AS definition_slug
 FROM public.import_job ij
 JOIN public.import_definition id ON ij.definition_id = id.id
-WHERE ij.slug IN ('t54_lu_cy', 't54_lu_ed', 't54_est_lu_cy', 't54_est_lu_ed', 't54_est_wolu_cy', 't54_est_wolu_ed')
+WHERE ij.slug IN ('t54_lu_tc', 't54_lu_sd', 't54_est_lu_tc', 't54_est_lu_sd', 't54_est_wolu_tc', 't54_est_wolu_sd', 't54_gus_jp', 't54_gus_sd')
 ORDER BY ij.slug;
-      slug       |   data_table_name    |             definition_slug             
------------------+----------------------+-----------------------------------------
- t54_est_lu_cy   | t54_est_lu_cy_data   | establishment_for_lu_current_year
- t54_est_lu_ed   | t54_est_lu_ed_data   | establishment_for_lu_explicit_dates
- t54_est_wolu_cy | t54_est_wolu_cy_data | establishment_without_lu_current_year
- t54_est_wolu_ed | t54_est_wolu_ed_data | establishment_without_lu_explicit_dates
- t54_lu_cy       | t54_lu_cy_data       | legal_unit_current_year
- t54_lu_ed       | t54_lu_ed_data       | legal_unit_explicit_dates
-(6 rows)
+      slug       |   data_table_name    |            definition_slug             
+-----------------+----------------------+----------------------------------------
+ t54_est_lu_sd   | t54_est_lu_sd_data   | establishment_for_lu_source_dates
+ t54_est_lu_tc   | t54_est_lu_tc_data   | establishment_for_lu_job_provided
+ t54_est_wolu_sd | t54_est_wolu_sd_data | establishment_without_lu_source_dates
+ t54_est_wolu_tc | t54_est_wolu_tc_data | establishment_without_lu_job_provided
+ t54_gus_jp      | t54_gus_jp_data      | generic_unit_stats_update_job_provided
+ t54_gus_sd      | t54_gus_sd_data      | generic_unit_stats_update_source_dates
+ t54_lu_sd       | t54_lu_sd_data       | legal_unit_source_dates
+ t54_lu_tc       | t54_lu_tc_data       | legal_unit_job_provided
+(8 rows)
 
 -- Inspect data table structures directly
 \echo ""
@@ -179,21 +203,23 @@ ORDER BY ij.slug;
 \echo "=================================="
 "=================================="
 \pset pager off
-\echo '\nDescribing table for definition: legal_unit_current_year (Job: t54_lu_cy, Data Table: public.t54_lu_cy_data)'
+\echo '\nDescribing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data Table: public.t54_lu_tc_data)'
 
-Describing table for definition: legal_unit_current_year (Job: t54_lu_cy, Data Table: public.t54_lu_cy_data)
-\d public.t54_lu_cy_data
-                                           Table "public.t54_lu_cy_data"
+Describing table for definition: legal_unit_job_provided (Job: t54_lu_tc, Data Table: public.t54_lu_tc_data)
+\d public.t54_lu_tc_data
+                                           Table "public.t54_lu_tc_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                           | bigint                    |           | not null | generated always as identity
+ valid_from                       | text                      |           |          | 
+ valid_to                         | text                      |           |          | 
+ derived_valid_after              | date                      |           |          | 
+ derived_valid_from               | date                      |           |          | 
+ derived_valid_to                 | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
- derived_valid_from               | date                      |           |          | 
- derived_valid_to                 | date                      |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -274,40 +300,41 @@ Describing table for definition: legal_unit_current_year (Job: t54_lu_cy, Data T
  error                            | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
-    "t54_lu_cy_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_lu_cy_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_lu_tc_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_lu_tc_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
-    POLICY "t54_lu_cy_data_admin_user_manage"
+    POLICY "t54_lu_tc_data_admin_user_manage"
       TO admin_user
       USING (true)
       WITH CHECK (true)
-    POLICY "t54_lu_cy_data_authenticated_read" FOR SELECT
+    POLICY "t54_lu_tc_data_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "t54_lu_cy_data_regular_user_manage"
+    POLICY "t54_lu_tc_data_regular_user_manage"
       TO regular_user
       USING (true)
       WITH CHECK (true)
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
-\echo '\nDescribing table for definition: legal_unit_explicit_dates (Job: t54_lu_ed, Data Table: public.t54_lu_ed_data)'
+\echo '\nDescribing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data Table: public.t54_lu_sd_data)'
 
-Describing table for definition: legal_unit_explicit_dates (Job: t54_lu_ed, Data Table: public.t54_lu_ed_data)
-\d public.t54_lu_ed_data
-                                           Table "public.t54_lu_ed_data"
+Describing table for definition: legal_unit_source_dates (Job: t54_lu_sd, Data Table: public.t54_lu_sd_data)
+\d public.t54_lu_sd_data
+                                           Table "public.t54_lu_sd_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                           | bigint                    |           | not null | generated always as identity
- operation                        | import_row_operation_type |           |          | 
- action                           | import_row_action_type    |           |          | 
- tax_ident                        | text                      |           |          | 
- stat_ident                       | text                      |           |          | 
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ operation                        | import_row_operation_type |           |          | 
+ action                           | import_row_action_type    |           |          | 
+ tax_ident                        | text                      |           |          | 
+ stat_ident                       | text                      |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -388,38 +415,41 @@ Describing table for definition: legal_unit_explicit_dates (Job: t54_lu_ed, Data
  error                            | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
-    "t54_lu_ed_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_lu_ed_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_lu_sd_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_lu_sd_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
-    POLICY "t54_lu_ed_data_admin_user_manage"
+    POLICY "t54_lu_sd_data_admin_user_manage"
       TO admin_user
       USING (true)
       WITH CHECK (true)
-    POLICY "t54_lu_ed_data_authenticated_read" FOR SELECT
+    POLICY "t54_lu_sd_data_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "t54_lu_ed_data_regular_user_manage"
+    POLICY "t54_lu_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
       WITH CHECK (true)
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
-\echo '\nDescribing table for definition: establishment_for_lu_current_year (Job: t54_est_lu_cy, Data Table: public.t54_est_lu_cy_data)'
+\echo '\nDescribing table for definition: establishment_for_lu_job_provided (Job: t54_est_lu_tc, Data Table: public.t54_est_lu_tc_data)'
 
-Describing table for definition: establishment_for_lu_current_year (Job: t54_est_lu_cy, Data Table: public.t54_est_lu_cy_data)
-\d public.t54_est_lu_cy_data
-                                         Table "public.t54_est_lu_cy_data"
+Describing table for definition: establishment_for_lu_job_provided (Job: t54_est_lu_tc, Data Table: public.t54_est_lu_tc_data)
+\d public.t54_est_lu_tc_data
+                                         Table "public.t54_est_lu_tc_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                           | bigint                    |           | not null | generated always as identity
+ valid_from                       | text                      |           |          | 
+ valid_to                         | text                      |           |          | 
+ derived_valid_after              | date                      |           |          | 
+ derived_valid_from               | date                      |           |          | 
+ derived_valid_to                 | date                      |           |          | 
  operation                        | import_row_operation_type |           |          | 
  action                           | import_row_action_type    |           |          | 
  tax_ident                        | text                      |           |          | 
  stat_ident                       | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
- derived_valid_from               | date                      |           |          | 
- derived_valid_to                 | date                      |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  legal_unit_id                    | integer                   |           |          | 
@@ -500,40 +530,41 @@ Describing table for definition: establishment_for_lu_current_year (Job: t54_est
  error                            | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
-    "t54_est_lu_cy_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_est_lu_cy_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_est_lu_tc_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_lu_tc_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_est_lu_tc_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
-    POLICY "t54_est_lu_cy_data_admin_user_manage"
+    POLICY "t54_est_lu_tc_data_admin_user_manage"
       TO admin_user
       USING (true)
       WITH CHECK (true)
-    POLICY "t54_est_lu_cy_data_authenticated_read" FOR SELECT
+    POLICY "t54_est_lu_tc_data_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "t54_est_lu_cy_data_regular_user_manage"
+    POLICY "t54_est_lu_tc_data_regular_user_manage"
       TO regular_user
       USING (true)
       WITH CHECK (true)
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
-\echo '\nDescribing table for definition: establishment_for_lu_explicit_dates (Job: t54_est_lu_ed, Data Table: public.t54_est_lu_ed_data)'
+\echo '\nDescribing table for definition: establishment_for_lu_source_dates (Job: t54_est_lu_sd, Data Table: public.t54_est_lu_sd_data)'
 
-Describing table for definition: establishment_for_lu_explicit_dates (Job: t54_est_lu_ed, Data Table: public.t54_est_lu_ed_data)
-\d public.t54_est_lu_ed_data
-                                         Table "public.t54_est_lu_ed_data"
+Describing table for definition: establishment_for_lu_source_dates (Job: t54_est_lu_sd, Data Table: public.t54_est_lu_sd_data)
+\d public.t54_est_lu_sd_data
+                                         Table "public.t54_est_lu_sd_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                           | bigint                    |           | not null | generated always as identity
- operation                        | import_row_operation_type |           |          | 
- action                           | import_row_action_type    |           |          | 
- tax_ident                        | text                      |           |          | 
- stat_ident                       | text                      |           |          | 
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ operation                        | import_row_operation_type |           |          | 
+ action                           | import_row_action_type    |           |          | 
+ tax_ident                        | text                      |           |          | 
+ stat_ident                       | text                      |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  legal_unit_id                    | integer                   |           |          | 
@@ -614,150 +645,41 @@ Describing table for definition: establishment_for_lu_explicit_dates (Job: t54_e
  error                            | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
-    "t54_est_lu_ed_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_est_lu_ed_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_est_lu_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_lu_sd_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_est_lu_sd_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
-    POLICY "t54_est_lu_ed_data_admin_user_manage"
+    POLICY "t54_est_lu_sd_data_admin_user_manage"
       TO admin_user
       USING (true)
       WITH CHECK (true)
-    POLICY "t54_est_lu_ed_data_authenticated_read" FOR SELECT
+    POLICY "t54_est_lu_sd_data_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "t54_est_lu_ed_data_regular_user_manage"
+    POLICY "t54_est_lu_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
       WITH CHECK (true)
 
 \echo '--------------------------------------------------'
 --------------------------------------------------
-\echo '\nDescribing table for definition: establishment_without_lu_current_year (Job: t54_est_wolu_cy, Data Table: public.t54_est_wolu_cy_data)'
+\echo '\nDescribing table for definition: establishment_without_lu_job_provided (Job: t54_est_wolu_tc, Data Table: public.t54_est_wolu_tc_data)'
 
-Describing table for definition: establishment_without_lu_current_year (Job: t54_est_wolu_cy, Data Table: public.t54_est_wolu_cy_data)
-\d public.t54_est_wolu_cy_data
-                                        Table "public.t54_est_wolu_cy_data"
+Describing table for definition: establishment_without_lu_job_provided (Job: t54_est_wolu_tc, Data Table: public.t54_est_wolu_tc_data)
+\d public.t54_est_wolu_tc_data
+                                        Table "public.t54_est_wolu_tc_data"
               Column              |           Type            | Collation | Nullable |           Default            
 ----------------------------------+---------------------------+-----------+----------+------------------------------
  row_id                           | bigint                    |           | not null | generated always as identity
- operation                        | import_row_operation_type |           |          | 
- action                           | import_row_action_type    |           |          | 
- tax_ident                        | text                      |           |          | 
- stat_ident                       | text                      |           |          | 
- derived_valid_after              | date                      |           |          | 
- derived_valid_from               | date                      |           |          | 
- derived_valid_to                 | date                      |           |          | 
- status_code                      | text                      |           |          | 
- status_id                        | integer                   |           |          | 
- enterprise_id                    | integer                   |           |          | 
- primary_for_enterprise           | boolean                   |           |          | 
- name                             | text                      |           |          | 
- birth_date                       | text                      |           |          | 
- death_date                       | text                      |           |          | 
- sector_code                      | text                      |           |          | 
- unit_size_code                   | text                      |           |          | 
- data_source_code                 | text                      |           |          | 
- establishment_id                 | integer                   |           |          | 
- sector_id                        | integer                   |           |          | 
- unit_size_id                     | integer                   |           |          | 
- data_source_id                   | integer                   |           |          | 
- typed_birth_date                 | date                      |           |          | 
- typed_death_date                 | date                      |           |          | 
- physical_address_part1           | text                      |           |          | 
- physical_address_part2           | text                      |           |          | 
- physical_address_part3           | text                      |           |          | 
- physical_postcode                | text                      |           |          | 
- physical_postplace               | text                      |           |          | 
- physical_latitude                | text                      |           |          | 
- physical_longitude               | text                      |           |          | 
- physical_altitude                | text                      |           |          | 
- physical_region_code             | text                      |           |          | 
- physical_country_iso_2           | text                      |           |          | 
- physical_location_id             | integer                   |           |          | 
- physical_region_id               | integer                   |           |          | 
- physical_country_id              | integer                   |           |          | 
- typed_physical_latitude          | numeric(9,6)              |           |          | 
- typed_physical_longitude         | numeric(9,6)              |           |          | 
- typed_physical_altitude          | numeric(6,1)              |           |          | 
- postal_address_part1             | text                      |           |          | 
- postal_address_part2             | text                      |           |          | 
- postal_address_part3             | text                      |           |          | 
- postal_postcode                  | text                      |           |          | 
- postal_postplace                 | text                      |           |          | 
- postal_region_code               | text                      |           |          | 
- postal_country_iso_2             | text                      |           |          | 
- postal_latitude                  | text                      |           |          | 
- postal_longitude                 | text                      |           |          | 
- postal_altitude                  | text                      |           |          | 
- postal_location_id               | integer                   |           |          | 
- postal_region_id                 | integer                   |           |          | 
- postal_country_id                | integer                   |           |          | 
- typed_postal_latitude            | numeric(9,6)              |           |          | 
- typed_postal_longitude           | numeric(9,6)              |           |          | 
- typed_postal_altitude            | numeric(6,1)              |           |          | 
- primary_activity_category_code   | text                      |           |          | 
- primary_activity_id              | integer                   |           |          | 
- primary_activity_category_id     | integer                   |           |          | 
- secondary_activity_category_code | text                      |           |          | 
- secondary_activity_id            | integer                   |           |          | 
- secondary_activity_category_id   | integer                   |           |          | 
- web_address                      | text                      |           |          | 
- email_address                    | text                      |           |          | 
- phone_number                     | text                      |           |          | 
- landline                         | text                      |           |          | 
- mobile_number                    | text                      |           |          | 
- fax_number                       | text                      |           |          | 
- contact_id                       | integer                   |           |          | 
- employees                        | text                      |           |          | 
- turnover                         | text                      |           |          | 
- stat_for_unit_employees_id       | integer                   |           |          | 
- stat_for_unit_turnover_id        | integer                   |           |          | 
- tag_path                         | text                      |           |          | 
- tag_path_ltree                   | ltree                     |           |          | 
- tag_id                           | integer                   |           |          | 
- tag_for_unit_id                  | integer                   |           |          | 
- edit_by_user_id                  | integer                   |           |          | 
- edit_at                          | timestamp with time zone  |           |          | 
- edit_comment                     | text                      |           |          | 
- founding_row_id                  | bigint                    |           |          | 
- state                            | import_data_state         |           | not null | 'pending'::import_data_state
- last_completed_priority          | integer                   |           | not null | 0
- error                            | jsonb                     |           |          | 
- invalid_codes                    | jsonb                     |           |          | 
-Indexes:
-    "t54_est_wolu_cy_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_est_wolu_cy_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
-Policies:
-    POLICY "t54_est_wolu_cy_data_admin_user_manage"
-      TO admin_user
-      USING (true)
-      WITH CHECK (true)
-    POLICY "t54_est_wolu_cy_data_authenticated_read" FOR SELECT
-      TO authenticated
-      USING (true)
-    POLICY "t54_est_wolu_cy_data_regular_user_manage"
-      TO regular_user
-      USING (true)
-      WITH CHECK (true)
-
-\echo '--------------------------------------------------'
---------------------------------------------------
-\echo '\nDescribing table for definition: establishment_without_lu_explicit_dates (Job: t54_est_wolu_ed, Data Table: public.t54_est_wolu_ed_data)'
-
-Describing table for definition: establishment_without_lu_explicit_dates (Job: t54_est_wolu_ed, Data Table: public.t54_est_wolu_ed_data)
-\d public.t54_est_wolu_ed_data
-                                        Table "public.t54_est_wolu_ed_data"
-              Column              |           Type            | Collation | Nullable |           Default            
-----------------------------------+---------------------------+-----------+----------+------------------------------
- row_id                           | bigint                    |           | not null | generated always as identity
- operation                        | import_row_operation_type |           |          | 
- action                           | import_row_action_type    |           |          | 
- tax_ident                        | text                      |           |          | 
- stat_ident                       | text                      |           |          | 
  valid_from                       | text                      |           |          | 
  valid_to                         | text                      |           |          | 
  derived_valid_after              | date                      |           |          | 
  derived_valid_from               | date                      |           |          | 
  derived_valid_to                 | date                      |           |          | 
+ operation                        | import_row_operation_type |           |          | 
+ action                           | import_row_action_type    |           |          | 
+ tax_ident                        | text                      |           |          | 
+ stat_ident                       | text                      |           |          | 
  status_code                      | text                      |           |          | 
  status_id                        | integer                   |           |          | 
  enterprise_id                    | integer                   |           |          | 
@@ -836,17 +758,227 @@ Describing table for definition: establishment_without_lu_explicit_dates (Job: t
  error                            | jsonb                     |           |          | 
  invalid_codes                    | jsonb                     |           |          | 
 Indexes:
-    "t54_est_wolu_ed_data_pkey" PRIMARY KEY, btree (row_id)
-    "t54_est_wolu_ed_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_est_wolu_tc_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_wolu_tc_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_est_wolu_tc_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
 Policies:
-    POLICY "t54_est_wolu_ed_data_admin_user_manage"
+    POLICY "t54_est_wolu_tc_data_admin_user_manage"
       TO admin_user
       USING (true)
       WITH CHECK (true)
-    POLICY "t54_est_wolu_ed_data_authenticated_read" FOR SELECT
+    POLICY "t54_est_wolu_tc_data_authenticated_read" FOR SELECT
       TO authenticated
       USING (true)
-    POLICY "t54_est_wolu_ed_data_regular_user_manage"
+    POLICY "t54_est_wolu_tc_data_regular_user_manage"
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
+
+\echo '--------------------------------------------------'
+--------------------------------------------------
+\echo '\nDescribing table for definition: establishment_without_lu_source_dates (Job: t54_est_wolu_sd, Data Table: public.t54_est_wolu_sd_data)'
+
+Describing table for definition: establishment_without_lu_source_dates (Job: t54_est_wolu_sd, Data Table: public.t54_est_wolu_sd_data)
+\d public.t54_est_wolu_sd_data
+                                        Table "public.t54_est_wolu_sd_data"
+              Column              |           Type            | Collation | Nullable |           Default            
+----------------------------------+---------------------------+-----------+----------+------------------------------
+ row_id                           | bigint                    |           | not null | generated always as identity
+ valid_from                       | text                      |           |          | 
+ valid_to                         | text                      |           |          | 
+ derived_valid_after              | date                      |           |          | 
+ derived_valid_from               | date                      |           |          | 
+ derived_valid_to                 | date                      |           |          | 
+ operation                        | import_row_operation_type |           |          | 
+ action                           | import_row_action_type    |           |          | 
+ tax_ident                        | text                      |           |          | 
+ stat_ident                       | text                      |           |          | 
+ status_code                      | text                      |           |          | 
+ status_id                        | integer                   |           |          | 
+ enterprise_id                    | integer                   |           |          | 
+ primary_for_enterprise           | boolean                   |           |          | 
+ name                             | text                      |           |          | 
+ birth_date                       | text                      |           |          | 
+ death_date                       | text                      |           |          | 
+ sector_code                      | text                      |           |          | 
+ unit_size_code                   | text                      |           |          | 
+ data_source_code                 | text                      |           |          | 
+ establishment_id                 | integer                   |           |          | 
+ sector_id                        | integer                   |           |          | 
+ unit_size_id                     | integer                   |           |          | 
+ data_source_id                   | integer                   |           |          | 
+ typed_birth_date                 | date                      |           |          | 
+ typed_death_date                 | date                      |           |          | 
+ physical_address_part1           | text                      |           |          | 
+ physical_address_part2           | text                      |           |          | 
+ physical_address_part3           | text                      |           |          | 
+ physical_postcode                | text                      |           |          | 
+ physical_postplace               | text                      |           |          | 
+ physical_latitude                | text                      |           |          | 
+ physical_longitude               | text                      |           |          | 
+ physical_altitude                | text                      |           |          | 
+ physical_region_code             | text                      |           |          | 
+ physical_country_iso_2           | text                      |           |          | 
+ physical_location_id             | integer                   |           |          | 
+ physical_region_id               | integer                   |           |          | 
+ physical_country_id              | integer                   |           |          | 
+ typed_physical_latitude          | numeric(9,6)              |           |          | 
+ typed_physical_longitude         | numeric(9,6)              |           |          | 
+ typed_physical_altitude          | numeric(6,1)              |           |          | 
+ postal_address_part1             | text                      |           |          | 
+ postal_address_part2             | text                      |           |          | 
+ postal_address_part3             | text                      |           |          | 
+ postal_postcode                  | text                      |           |          | 
+ postal_postplace                 | text                      |           |          | 
+ postal_region_code               | text                      |           |          | 
+ postal_country_iso_2             | text                      |           |          | 
+ postal_latitude                  | text                      |           |          | 
+ postal_longitude                 | text                      |           |          | 
+ postal_altitude                  | text                      |           |          | 
+ postal_location_id               | integer                   |           |          | 
+ postal_region_id                 | integer                   |           |          | 
+ postal_country_id                | integer                   |           |          | 
+ typed_postal_latitude            | numeric(9,6)              |           |          | 
+ typed_postal_longitude           | numeric(9,6)              |           |          | 
+ typed_postal_altitude            | numeric(6,1)              |           |          | 
+ primary_activity_category_code   | text                      |           |          | 
+ primary_activity_id              | integer                   |           |          | 
+ primary_activity_category_id     | integer                   |           |          | 
+ secondary_activity_category_code | text                      |           |          | 
+ secondary_activity_id            | integer                   |           |          | 
+ secondary_activity_category_id   | integer                   |           |          | 
+ web_address                      | text                      |           |          | 
+ email_address                    | text                      |           |          | 
+ phone_number                     | text                      |           |          | 
+ landline                         | text                      |           |          | 
+ mobile_number                    | text                      |           |          | 
+ fax_number                       | text                      |           |          | 
+ contact_id                       | integer                   |           |          | 
+ employees                        | text                      |           |          | 
+ turnover                         | text                      |           |          | 
+ stat_for_unit_employees_id       | integer                   |           |          | 
+ stat_for_unit_turnover_id        | integer                   |           |          | 
+ tag_path                         | text                      |           |          | 
+ tag_path_ltree                   | ltree                     |           |          | 
+ tag_id                           | integer                   |           |          | 
+ tag_for_unit_id                  | integer                   |           |          | 
+ edit_by_user_id                  | integer                   |           |          | 
+ edit_at                          | timestamp with time zone  |           |          | 
+ edit_comment                     | text                      |           |          | 
+ founding_row_id                  | bigint                    |           |          | 
+ state                            | import_data_state         |           | not null | 'pending'::import_data_state
+ last_completed_priority          | integer                   |           | not null | 0
+ error                            | jsonb                     |           |          | 
+ invalid_codes                    | jsonb                     |           |          | 
+Indexes:
+    "t54_est_wolu_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_est_wolu_sd_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_est_wolu_sd_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
+Policies:
+    POLICY "t54_est_wolu_sd_data_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
+    POLICY "t54_est_wolu_sd_data_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "t54_est_wolu_sd_data_regular_user_manage"
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
+
+\echo '--------------------------------------------------'
+--------------------------------------------------
+\echo '\nDescribing table for definition: generic_unit_stats_update_job_provided (Job: t54_gus_jp, Data Table: public.t54_gus_jp_data)'
+
+Describing table for definition: generic_unit_stats_update_job_provided (Job: t54_gus_jp, Data Table: public.t54_gus_jp_data)
+\d public.t54_gus_jp_data
+                                        Table "public.t54_gus_jp_data"
+           Column           |           Type            | Collation | Nullable |           Default            
+----------------------------+---------------------------+-----------+----------+------------------------------
+ row_id                     | bigint                    |           | not null | generated always as identity
+ valid_from                 | text                      |           |          | 
+ valid_to                   | text                      |           |          | 
+ derived_valid_after        | date                      |           |          | 
+ derived_valid_from         | date                      |           |          | 
+ derived_valid_to           | date                      |           |          | 
+ operation                  | import_row_operation_type |           |          | 
+ action                     | import_row_action_type    |           |          | 
+ tax_ident                  | text                      |           |          | 
+ stat_ident                 | text                      |           |          | 
+ employees                  | text                      |           |          | 
+ turnover                   | text                      |           |          | 
+ stat_for_unit_employees_id | integer                   |           |          | 
+ stat_for_unit_turnover_id  | integer                   |           |          | 
+ edit_by_user_id            | integer                   |           |          | 
+ edit_at                    | timestamp with time zone  |           |          | 
+ edit_comment               | text                      |           |          | 
+ founding_row_id            | bigint                    |           |          | 
+ state                      | import_data_state         |           | not null | 'pending'::import_data_state
+ last_completed_priority    | integer                   |           | not null | 0
+ error                      | jsonb                     |           |          | 
+ invalid_codes              | jsonb                     |           |          | 
+Indexes:
+    "t54_gus_jp_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_gus_jp_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_gus_jp_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
+Policies:
+    POLICY "t54_gus_jp_data_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
+    POLICY "t54_gus_jp_data_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "t54_gus_jp_data_regular_user_manage"
+      TO regular_user
+      USING (true)
+      WITH CHECK (true)
+
+\echo '--------------------------------------------------'
+--------------------------------------------------
+\echo '\nDescribing table for definition: generic_unit_stats_update_source_dates (Job: t54_gus_sd, Data Table: public.t54_gus_sd_data)'
+
+Describing table for definition: generic_unit_stats_update_source_dates (Job: t54_gus_sd, Data Table: public.t54_gus_sd_data)
+\d public.t54_gus_sd_data
+                                        Table "public.t54_gus_sd_data"
+           Column           |           Type            | Collation | Nullable |           Default            
+----------------------------+---------------------------+-----------+----------+------------------------------
+ row_id                     | bigint                    |           | not null | generated always as identity
+ valid_from                 | text                      |           |          | 
+ valid_to                   | text                      |           |          | 
+ derived_valid_after        | date                      |           |          | 
+ derived_valid_from         | date                      |           |          | 
+ derived_valid_to           | date                      |           |          | 
+ operation                  | import_row_operation_type |           |          | 
+ action                     | import_row_action_type    |           |          | 
+ tax_ident                  | text                      |           |          | 
+ stat_ident                 | text                      |           |          | 
+ employees                  | text                      |           |          | 
+ turnover                   | text                      |           |          | 
+ stat_for_unit_employees_id | integer                   |           |          | 
+ stat_for_unit_turnover_id  | integer                   |           |          | 
+ edit_by_user_id            | integer                   |           |          | 
+ edit_at                    | timestamp with time zone  |           |          | 
+ edit_comment               | text                      |           |          | 
+ founding_row_id            | bigint                    |           |          | 
+ state                      | import_data_state         |           | not null | 'pending'::import_data_state
+ last_completed_priority    | integer                   |           | not null | 0
+ error                      | jsonb                     |           |          | 
+ invalid_codes              | jsonb                     |           |          | 
+Indexes:
+    "t54_gus_sd_data_pkey" PRIMARY KEY, btree (row_id)
+    "t54_gus_sd_data_state_last_completed_priority_idx" btree (state, last_completed_priority)
+    "t54_gus_sd_data_unique_ident_key" UNIQUE, btree (COALESCE(stat_ident, ''::text), COALESCE(tax_ident, ''::text), valid_from, valid_to)
+Policies:
+    POLICY "t54_gus_sd_data_admin_user_manage"
+      TO admin_user
+      USING (true)
+      WITH CHECK (true)
+    POLICY "t54_gus_sd_data_authenticated_read" FOR SELECT
+      TO authenticated
+      USING (true)
+    POLICY "t54_gus_sd_data_regular_user_manage"
       TO regular_user
       USING (true)
       WITH CHECK (true)

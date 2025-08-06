@@ -24,7 +24,7 @@ DROP TRIGGER IF EXISTS import_job_progress_notify_trigger ON public.import_job;
 
 -- RLS and Permissions for public.import_job
 DROP POLICY IF EXISTS import_job_admin_user_manage ON public.import_job;
-DROP POLICY IF EXISTS import_job_authenticated_select_own ON public.import_job;
+DROP POLICY IF EXISTS import_job_authenticated_select_all ON public.import_job;
 DROP POLICY IF EXISTS import_job_regular_user_insert_own ON public.import_job;
 DROP POLICY IF EXISTS import_job_regular_user_update_own ON public.import_job;
 DROP POLICY IF EXISTS import_job_regular_user_delete_own ON public.import_job;
@@ -140,6 +140,7 @@ DROP TYPE IF EXISTS public.import_step_phase;
 DROP TYPE IF EXISTS public.import_row_action_type;
 DROP TYPE IF EXISTS public.import_row_operation_type;
 DROP TYPE IF EXISTS public.import_mode;
+DROP TYPE IF EXISTS public.import_valid_time_from;
 
 -- Drop schema
 DROP SCHEMA IF EXISTS import CASCADE; -- Use CASCADE to remove objects within the schema if any were missed or if order is tricky

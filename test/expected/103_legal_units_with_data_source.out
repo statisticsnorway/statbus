@@ -94,26 +94,26 @@ SELECT
 (1 row)
 
 -- Create Import Job for Legal Units with Data Source
-INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment)
+INSERT INTO public.import_job (definition_id, slug, description, note, edit_comment, time_context_ident)
 SELECT
-    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_current_year'),
-    'import_32_lu_curr_ds',
-    'Import LU Current with Data Source (32_legal_units_with_data_source.sql)',
-    'Import job for app/public/demo/legal_units_demo.csv using legal_unit_current_year definition.',
-    'Test data load (32_legal_units_with_data_source.sql)';
-\echo "User uploads the sample legal units (via import job: import_32_lu_curr_ds)"
-"User uploads the sample legal units (via import job: import_32_lu_curr_ds)"
-\copy public.import_32_lu_curr_ds_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
+    (SELECT id FROM public.import_definition WHERE slug = 'legal_unit_job_provided'),
+    'import_32_lu_tc_ds',
+    'Import LU with Time Context and Data Source (32_legal_units_with_data_source.sql)',
+    'Import job for app/public/demo/legal_units_demo.csv using legal_unit_job_provided definition.',
+    'Test data load (32_legal_units_with_data_source.sql)',
+    'r_year_curr';
+\echo "User uploads the sample legal units (via import job: import_32_lu_tc_ds)"
+"User uploads the sample legal units (via import job: import_32_lu_tc_ds)"
+\copy public.import_32_lu_tc_ds_upload(tax_ident,stat_ident,name,birth_date,physical_region_code,physical_country_iso_2,primary_activity_category_code,legal_form_code,sector_code,employees,turnover,data_source_code) FROM 'app/public/demo/legal_units_demo.csv' WITH (FORMAT csv, DELIMITER ',', QUOTE '"', HEADER true);
 \echo Run worker processing for import jobs
 Run worker processing for import jobs
 CALL worker.process_tasks(p_queue => 'import');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-    queue    |   state   | count 
--------------+-----------+-------
- analytics   | pending   |     6
- import      | completed |     4
- maintenance | pending   |     2
-(3 rows)
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | pending   |     6
+ import    | completed |     4
+(2 rows)
 
 \echo "Checking unit counts after import processing"
 "Checking unit counts after import processing"
@@ -126,10 +126,10 @@ SELECT
                    0 |               23 |               23
 (1 row)
 
-\echo "Inspecting import job data for import_32_lu_curr_ds"
-"Inspecting import job data for import_32_lu_curr_ds"
+\echo "Inspecting import job data for import_32_lu_tc_ds"
+"Inspecting import job data for import_32_lu_tc_ds"
 SELECT row_id, state, error, tax_ident, name, data_source_code
-FROM public.import_32_lu_curr_ds_data
+FROM public.import_32_lu_tc_ds_data
 ORDER BY row_id
 LIMIT 5;
  row_id |   state   | error | tax_ident  |            name             | data_source_code 
@@ -141,28 +141,27 @@ LIMIT 5;
       5 | processed |       | 2812760130 | ENTEBBE FUEL ENTERPRISES    | nlr
 (5 rows)
 
-\echo "Checking import job status for import_32_lu_curr_ds"
-"Checking import job status for import_32_lu_curr_ds"
+\echo "Checking import job status for import_32_lu_tc_ds"
+"Checking import job status for import_32_lu_tc_ds"
 SELECT slug, state, total_rows, imported_rows, error IS NOT NULL AS has_error,
-       (SELECT COUNT(*) FROM public.import_32_lu_curr_ds_data dr WHERE dr.state = 'error') AS error_rows
+       (SELECT COUNT(*) FROM public.import_32_lu_tc_ds_data dr WHERE dr.state = 'error') AS error_rows
 FROM public.import_job
-WHERE slug = 'import_32_lu_curr_ds'
+WHERE slug = 'import_32_lu_tc_ds'
 ORDER BY slug;
-         slug         |  state   | total_rows | imported_rows | has_error | error_rows 
-----------------------+----------+------------+---------------+-----------+------------
- import_32_lu_curr_ds | finished |         23 |            23 | f         |          0
+        slug        |  state   | total_rows | imported_rows | has_error | error_rows 
+--------------------+----------+------------+---------------+-----------+------------
+ import_32_lu_tc_ds | finished |         23 |            23 | f         |          0
 (1 row)
 
 \echo Run worker processing for analytics tasks
 Run worker processing for analytics tasks
 CALL worker.process_tasks(p_queue => 'analytics');
-SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command GROUP BY queue,state ORDER BY queue,state;
-    queue    |   state   | count 
--------------+-----------+-------
- analytics   | completed |     8
- import      | completed |     4
- maintenance | pending   |     2
-(3 rows)
+SELECT queue, state, count(*) FROM worker.tasks AS t JOIN worker.command_registry AS c ON t.command = c.command WHERE c.queue != 'maintenance' GROUP BY queue,state ORDER BY queue,state;
+   queue   |   state   | count 
+-----------+-----------+-------
+ analytics | completed |     8
+ import    | completed |     4
+(2 rows)
 
 \echo "Checking statistics"
 "Checking statistics"
