@@ -17,7 +17,7 @@ import { DataTable } from "@/components/data-table/data-table";
 import { DataTableToolbar } from "@/components/data-table/data-table-toolbar";
 import { DataTableColumnHeader } from "@/components/data-table/data-table-column-header";
 import { ColumnDef } from "@tanstack/react-table";
-import { useQueryState, parseAsString, parseAsArrayOf } from 'nuqs';
+import { useQueryState, parseAsString, parseAsArrayOf, parseAsInteger } from 'nuqs';
 import Link from "next/link";
 import { Checkbox } from "@/components/ui/checkbox";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -79,46 +79,89 @@ const getUploadPathForJob = (job: ImportJob): string => {
   }
 };
 
-const fetcher = async (key: string): Promise<ImportJob[]> => {
+const fetcher = async (key: string): Promise<{ data: ImportJob[], count: number | null }> => {
   const client = await getBrowserRestClient();
   if (!client) throw new Error("REST client not available");
 
-  if (key === SWR_KEY_IMPORT_JOBS) {
-    const { data, error } = await client
-      .from("import_job")
-      .select("*, import_definition(slug, name, mode, custom)")
-      .order("created_at", { ascending: false });
-    if (error) {
-      console.error("SWR Fetcher error (list jobs):", error);
-      throw error;
-    }
-    return data as ImportJob[];
+  const [path, queryString] = key.split('?');
+  
+  if (path !== SWR_KEY_IMPORT_JOBS) {
+    throw new Error(`Unrecognized SWR key pattern: ${key}`);
   }
-  throw new Error(`Unrecognized SWR key pattern: ${key}`);
+
+  const searchParams = new URLSearchParams(queryString);
+  const page = parseInt(searchParams.get('page') || '1', 10) - 1;
+  const pageSize = parseInt(searchParams.get('perPage') || '10', 10);
+  const sortParam = searchParams.get('sort');
+  const description = searchParams.get('description');
+  // nuqs stringifies arrays, so get all 'state' params
+  const states = searchParams.getAll('state').flatMap(s => s.split(','));
+  
+  const from = page * pageSize;
+  const to = from + pageSize - 1;
+
+  let queryBuilder = client
+    .from("import_job")
+    .select("*, import_definition(slug, name, mode, custom)", { count: 'exact' })
+    .range(from, to);
+
+  if (sortParam) {
+    const [id, dir] = sortParam.split('.');
+    if (id && dir) {
+      queryBuilder = queryBuilder.order(id, { ascending: dir === 'asc' });
+    }
+  } else {
+    queryBuilder = queryBuilder.order("created_at", { ascending: false });
+  }
+
+  if (description) {
+    queryBuilder = queryBuilder.ilike('description', `%${description}%`);
+  }
+  if (states && states.length > 0 && states[0] !== '') {
+    queryBuilder = queryBuilder.in('state', states);
+  }
+
+  const { data, error, count } = await queryBuilder;
+  if (error) {
+    console.error("SWR Fetcher error (list jobs):", error);
+    throw error;
+  }
+  return { data: data as ImportJob[], count };
 };
 
 export default function ImportJobsPage() {
-  const { data: allJobs = [], error: swrError, isLoading } = useSWR<ImportJob[], Error>(
-    SWR_KEY_IMPORT_JOBS,
-    fetcher,
-    { revalidateOnFocus: false }
-  );
-
   const { mutate } = useSWRConfig();
   const [errorToShow, setErrorToShow] = useState<string | null>(null);
   const eventSourceRef = useRef<EventSource | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Read state directly from URL to build the SWR key
+  const [page] = useQueryState('page', parseAsInteger.withDefault(1));
+  const [perPage] = useQueryState('perPage', parseAsInteger.withDefault(10));
+  const [sort] = useQueryState('sort', parseAsString.withDefault(''));
   const [description] = useQueryState('description', parseAsString.withDefault(''));
   const [states] = useQueryState('state', parseAsArrayOf(parseAsString).withDefault([]));
 
-  const filteredJobs = useMemo(() => {
-    return allJobs.filter(job => {
-      const matchesDescription = description === '' || job.description?.toLowerCase().includes(description.toLowerCase());
-      const matchesState = states.length === 0 || (job.state && states.includes(job.state));
-      return matchesDescription && matchesState;
-    });
-  }, [allJobs, description, states]);
+  const swrKey = useMemo(() => {
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('perPage', String(perPage));
+    if (sort) params.set('sort', sort);
+    if (description) params.set('description', description);
+    // parseAsArrayOf uses a comma-separated string, so we pass that along.
+    if (states.length > 0) params.set('state', states.join(','));
+
+    return `${SWR_KEY_IMPORT_JOBS}?${params.toString()}`;
+  }, [page, perPage, sort, description, states]);
+
+  const { data, error: swrError, isLoading } = useSWR<{ data: ImportJob[], count: number | null }, Error>(
+    swrKey,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  const jobsData = data?.data ?? [];
+  const totalJobs = data?.count ?? 0;
 
   useEffect(() => {
     if (isLoading) return;
@@ -137,7 +180,7 @@ export default function ImportJobsPage() {
           console.error("Invalid SSE payload", ssePayload);
           return;
         }
-        mutate(SWR_KEY_IMPORT_JOBS); // Re-fetch the whole list on any change
+        mutate(swrKey);
       } catch (error) {
         console.error("Error processing SSE message:", error);
       }
@@ -151,7 +194,7 @@ export default function ImportJobsPage() {
     return () => {
       eventSourceRef.current?.close();
     };
-  }, [isLoading, mutate]);
+  }, [isLoading, mutate, swrKey]);
 
   const handleDeleteJobs = React.useCallback(async (jobIds: number[]) => {
     if (!window.confirm(`Are you sure you want to delete ${jobIds.length} job(s)? This action cannot be undone.`)) {
@@ -162,14 +205,14 @@ export default function ImportJobsPage() {
       const client = await getBrowserRestClient();
       const { error } = await client.from("import_job").delete().in("id", jobIds);
       if (error) throw error;
-      mutate(SWR_KEY_IMPORT_JOBS);
+      mutate(swrKey);
     } catch (err: any) {
       console.error("Failed to delete import jobs:", err);
       alert(`Error deleting jobs: ${err.message}`);
     } finally {
       setIsDeleting(false);
     }
-  }, [mutate]);
+  }, [mutate, swrKey]);
 
   const columns = useMemo<ColumnDef<ImportJob>[]>(() => [
     {
@@ -345,10 +388,17 @@ export default function ImportJobsPage() {
     },
   ], [setErrorToShow, isDeleting, handleDeleteJobs]);
 
+  const pageCount = useMemo(() => {
+    return perPage > 0 ? Math.ceil(totalJobs / perPage) : 0;
+  }, [totalJobs, perPage]);
+
   const { table } = useDataTable({
-    data: filteredJobs,
+    data: jobsData,
     columns,
-    manualPagination: false,
+    pageCount,
+    manualPagination: true,
+    manualSorting: true,
+    manualFiltering: true,
     initialState: {
       sorting: [{ id: "id", desc: true }],
     },
@@ -373,7 +423,7 @@ export default function ImportJobsPage() {
     </DataTableActionBar>
   );
 
-  if (isLoading && !allJobs.length) {
+  if (isLoading && jobsData.length === 0) {
     return <Spinner message="Loading import jobs..." />;
   }
 
