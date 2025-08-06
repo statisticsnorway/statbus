@@ -2,8 +2,9 @@
 # devops/manage-statbus.sh
 set -euo pipefail # Exit on error, unbound variable, or any failure in a pipeline
 
-if test -n "${DEBUG:-}"; then
-  set -x # Print all commands before running them - for easy debugging.
+# Check for DEBUG environment variable
+if [ "${DEBUG:-}" = "true" ]; then
+  set -x # Print all commands before running them if DEBUG is true
 fi
 
 WORKSPACE="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && cd .. && pwd )"
@@ -261,7 +262,7 @@ case "$action" in
         done
 
         debug_arg=""
-        if test -n "${DEBUG:-}"; then
+        if [ "${DEBUG:-}" = "true" ]; then
           debug_arg="--debug"
         fi
         docker compose exec --workdir "/statbus" db \
