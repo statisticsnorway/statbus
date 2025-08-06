@@ -13,6 +13,8 @@ import { ColumnDef, PaginationState, SortingState } from "@tanstack/react-table"
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ChevronRight } from "lucide-react";
+import { useAtomValue } from "jotai";
+import { externalIdentTypesAtom } from "@/atoms/base-data";
 
 type ImportJob = Tables<"import_job"> & {
   import_definition: {
@@ -82,6 +84,7 @@ const fetcher = async (key: string): Promise<any> => {
 export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlug:string }> }) {
   const { jobSlug } = React.use(params);
   const { mutate } = useSWRConfig();
+  const externalIdentTypes = useAtomValue(externalIdentTypesAtom);
 
   const [pagination, setPagination] = React.useState<PaginationState>({
     pageIndex: 0,
@@ -176,7 +179,17 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
     let keys = Array.from(allKeys);
 
     // Define preferred order
-    const preferredOrder = ['row_id', 'operation', 'error', 'invalid_codes', 'action'];
+    const externalIdentCodes = externalIdentTypes.map(e => e.code).filter((c): c is string => c !== null);
+    const preferredOrder = [
+      'row_id',
+      'operation',
+      'state',
+      'action',
+      'error',
+      'invalid_codes',
+      ...externalIdentCodes,
+      'name'
+    ];
 
     // Sort keys: preferred first in specified order, then others alphabetically
     keys.sort((a, b) => {
@@ -206,7 +219,7 @@ export default function ImportJobDataPage({ params }: { params: Promise<{ jobSlu
       },
       enableSorting: true,
     }));
-  }, [tableData]);
+  }, [tableData, externalIdentTypes]);
 
   const { table } = useDataTable({
     data: tableData?.data ?? [],
