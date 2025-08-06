@@ -484,6 +484,8 @@ EOS
           SELECT schemaname || '.' || viewname
           FROM pg_catalog.pg_views
           WHERE schemaname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
+            AND viewname NOT LIKE 'hypopg_%'
+            AND viewname NOT LIKE 'pg_stat_%'
           ORDER BY 1;")
 
         # Document each table
@@ -558,6 +560,8 @@ EOS
           WHERE n.nspname IN ('admin', 'db', 'lifecycle_callbacks', 'public', 'auth')
           AND p.prokind != 'a'  -- Exclude aggregate functions
           AND NOT (
+              (n.nspname = 'public' AND p.proname = 'algorithm_sign') OR
+              (n.nspname = 'public' AND p.proname = 'armor') OR
               (n.nspname = 'public' AND p.proname LIKE '\_%') OR
               (n.nspname = 'public' AND p.proname LIKE 'index') OR
               (n.nspname = 'public' AND p.proname LIKE 'lca') OR
