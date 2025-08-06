@@ -3,48 +3,40 @@
 /**
  * ARCHITECTURAL OVERVIEW: Import Job and Time Context Handling
  *
- * This file implements the frontend logic for a simplified and robust import
- * process. The design centers on decoupling the 'what' of an import (the
- * definition) from the 'when' (the time context).
+ * This file implements the frontend logic for the data import process. The
+ * design is centered on providing a flexible, user-driven experience for
+ * creating import jobs based on predefined templates (`import_definition`).
  *
- * ### Why This Is an Improvement
+ * ### Core Concepts
  *
- * The previous system required a unique `import_definition` for every
- * combination of import type (e.g., Legal Units) and time context (e.g.,
- * "Current Year"). This was brittle and difficult to maintain.
+ * 1.  **Multiple Definitions per Mode:** The system supports multiple
+ *     `import_definition` records for a single import `mode` (e.g.,
+ *     'legal_unit', 'establishment_informal'). This allows a single type of
+ *     import, like "Import Establishments," to be configured in different ways.
  *
- * The new architecture provides several key advantages:
+ * 2.  **Declarative Validity Handling:** The key differentiator between
+ *     definitions of the same mode is the `valid_time_from` column. This ENUM
+ *     declaratively tells the UI how the validity period for imported records
+ *     will be determined:
  *
- * 1.  **Decoupling and Flexibility:** There is now only one generic
- *     `import_definition` per import `mode`. This definition describes the data
- *     shape and processing steps. The validity period is specified separately
- *     on a per-job basis via the `import_job.time_context_ident` field. This
- *     is a much cleaner separation of concerns.
+ *     -   `'job_provided'`: The user must either select a predefined time period
+ *         (a `time_context`) or enter explicit start and end dates when creating
+ *         the import job.
  *
- * 2.  **Reduced Configuration:** Adding a new time period (e.g., "Last Quarter")
- *     only requires adding a row to the `time_context` table. It becomes
- *     instantly available for all import types without needing to create
- *     multiple new `import_definition` records in the database. The system is
- *     now truly data-driven.
+ *     -   `'source_columns'`: The import file itself must contain `valid_from`
+ *         and `valid_to` columns. The UI does not prompt for date information.
  *
- * 3.  **Simplified Frontend Logic:** The UI no longer needs complex logic to
- *     filter time contexts based on which definitions exist. It can simply
- *     present all available `input`-scoped time contexts to the user,
- *     eliminating a major source of bugs and complexity. Job creation is
- *     simplified to finding the single definition for the mode and attaching
- *     the chosen `time_context_ident`.
+ * 3.  **Dynamic UI:** The frontend fetches all available definitions for the
+ *     chosen import `mode`. It then presents these to the user as a set of
+ *     choices (e.g., "Import with dates from file" vs. "Import using a time
+ *     period"). Based on the user's selection, the UI dynamically displays the
+ *     appropriate controls (e.g., a time context dropdown, date pickers, or
+ *     nothing at all).
  *
- * ### Potential Future Enhancements
- *
- * This robust new foundation was an excellent architectural refactoring by the
- * other agent. It opens the door for further enhancements, such as:
- *
- * -   **UI-Driven Column Mapping:** Allowing users to visually map columns from
- *     their uploaded CSV to target fields, creating per-job import definitions
- *     dynamically.
- * -   **Validation & Preview Step:** Processing the first N rows of a file to
- *     provide an interactive preview and validation feedback before committing
- *     to a full import.
+ * 4.  **State Management:** Jotai atoms manage the list of available
+ *     definitions for the current mode, the user's selected definition, and any
+ *     additional parameters like explicit dates. This ensures a clean data flow
+ *     from user selection to the final API call that creates the `import_job`.
  */
 
 /**
