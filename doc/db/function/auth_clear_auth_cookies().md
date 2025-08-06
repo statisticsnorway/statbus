@@ -21,7 +21,7 @@ BEGIN
   new_headers := new_headers || jsonb_build_array(
     jsonb_build_object(
       'Set-Cookie',
-      'statbus-refresh=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict'
+      'statbus-refresh=; Path=/rest/rpc/refresh; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Strict' -- Changed Path
     )
   );
   

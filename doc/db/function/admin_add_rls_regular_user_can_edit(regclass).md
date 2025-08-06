@@ -27,20 +27,20 @@ BEGIN
 
     -- Base authenticated read policy
     EXECUTE format(
-        'CREATE POLICY %s_authenticated_read ON %I.%I FOR SELECT TO authenticated USING (true)',
-        table_name_str, schema_name_str, table_name_str
+        'CREATE POLICY %I ON %I.%I FOR SELECT TO authenticated USING (true)',
+        table_name_str || '_authenticated_read', schema_name_str, table_name_str
     );
 
     -- Regular user full access policy - using native role system
     EXECUTE format(
-        'CREATE POLICY %s_regular_user_manage ON %I.%I FOR ALL TO regular_user USING (true) WITH CHECK (true)',
-        table_name_str, schema_name_str, table_name_str
+        'CREATE POLICY %I ON %I.%I FOR ALL TO regular_user USING (true) WITH CHECK (true)',
+        table_name_str || '_regular_user_manage', schema_name_str, table_name_str
     );
 
     -- Admin user full access policy - using native role system
     EXECUTE format(
-        'CREATE POLICY %s_admin_user_manage ON %I.%I FOR ALL TO admin_user USING (true) WITH CHECK (true)',
-        table_name_str, schema_name_str, table_name_str
+        'CREATE POLICY %I ON %I.%I FOR ALL TO admin_user USING (true) WITH CHECK (true)',
+        table_name_str || '_admin_user_manage', schema_name_str, table_name_str
     );
 END;
 $function$

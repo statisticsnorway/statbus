@@ -27,6 +27,8 @@ Policies:
     POLICY "import_step_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Triggers:
+    trg_validate_import_step_after_change AFTER INSERT OR DELETE OR UPDATE ON import_step FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition()
 Access method: heap
 
 ```

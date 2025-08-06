@@ -7,10 +7,12 @@
  name                     | text                     |           | not null | 
  note                     | text                     |           |          | 
  data_source_id           | integer                  |           |          | 
- time_context_ident       | text                     |           |          | 
  strategy                 | import_strategy          |           | not null | 'insert_or_replace'::import_strategy
- mode                     | import_mode              |           |          | 
+ mode                     | import_mode              |           | not null | 
+ valid_time_from          | import_valid_time_from   |           | not null | 
  user_id                  | integer                  |           |          | 
+ active                   | boolean                  |           | not null | true
+ custom                   | boolean                  |           | not null | true
  valid                    | boolean                  |           | not null | false
  validation_error         | text                     |           |          | 
  default_retention_period | interval                 |           | not null | '1 year 6 mons'::interval
@@ -41,5 +43,7 @@ Policies:
     POLICY "import_definition_regular_user_read" FOR SELECT
       TO regular_user
       USING (true)
+Triggers:
+    trg_validate_import_definition_after_change AFTER INSERT OR DELETE OR UPDATE OF slug, data_source_id, strategy, mode, valid_time_from, default_retention_period ON import_definition FOR EACH ROW EXECUTE FUNCTION admin.trigger_validate_import_definition()
 
 ```

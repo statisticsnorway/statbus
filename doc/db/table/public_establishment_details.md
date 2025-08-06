@@ -8,7 +8,7 @@
  valid_to               | date                     |           | not null | 'infinity'::date                          | plain    |             |              | 
  active                 | boolean                  |           | not null | true                                      | plain    |             |              | 
  short_name             | character varying(16)    |           |          |                                           | extended |             |              | 
- name                   | character varying(256)   |           |          |                                           | extended |             |              | 
+ name                   | character varying(256)   |           | not null |                                           | extended |             |              | 
  birth_date             | date                     |           |          |                                           | plain    |             |              | 
  death_date             | date                     |           |          |                                           | plain    |             |              | 
  free_econ_zone         | boolean                  |           |          |                                           | plain    |             |              | 

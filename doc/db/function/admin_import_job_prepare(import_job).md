@@ -82,30 +82,63 @@ BEGIN
         
         -- If this target data column is part of the unique key, add it to conflict_key_columns_list
         IF (current_target_data_column->>'is_uniquely_identifying')::boolean THEN
-            conflict_key_columns_list := array_append(conflict_key_columns_list, format('%I', current_target_data_column->>'column_name'));
+            -- We collect the raw, unquoted column names to ensure consistent expression generation with import_job_generate
+            conflict_key_columns_list := array_append(conflict_key_columns_list, current_target_data_column->>'column_name');
         END IF;
     END LOOP;
 
     IF array_length(insert_columns_list, 1) = 0 THEN
         RAISE DEBUG '[Job %] No mapped source_input columns found to insert. Skipping prepare.', job.id;
-        RETURN; 
+        RETURN;
     END IF;
 
     insert_columns := array_to_string(insert_columns_list, ', ');
     select_clause := array_to_string(select_expressions_list, ', ');
-    conflict_columns_text := array_to_string(conflict_key_columns_list, ', ');
+
+    DECLARE
+        conflict_key_expressions_list TEXT[];
+        col_name TEXT;
+    BEGIN
+        IF array_length(conflict_key_columns_list, 1) > 0 THEN
+            -- Build COALESCE expressions for the ON CONFLICT clause to handle NULLs in identifiers.
+            -- Using %I on raw column names to match the index creation logic exactly.
+            FOREACH col_name IN ARRAY conflict_key_columns_list
+            LOOP
+                conflict_key_expressions_list := array_append(conflict_key_expressions_list, format('COALESCE(%I, %L)', col_name, ''));
+            END LOOP;
+
+            -- Also include validity period in conflict key expressions for temporal idempotency.
+            -- They are NOT coalesced to allow multiple rows with same identifiers but NULL validity periods.
+            conflict_key_expressions_list := conflict_key_expressions_list || ARRAY[format('%I', 'valid_from'), format('%I', 'valid_to')];
+            conflict_columns_text := array_to_string(conflict_key_expressions_list, ', ');
+            RAISE DEBUG '[Job %] ON CONFLICT expressions: %', job.id, conflict_columns_text;
+
+            -- Also add validity columns to the list of key columns so they are not updated ON CONFLICT.
+            -- The list now has raw names, so we must quote them before appending the already-quoted validity columns.
+            DECLARE
+                quoted_conflict_key_columns_list TEXT[] := ARRAY[]::text[];
+            BEGIN
+                FOREACH col_name IN ARRAY conflict_key_columns_list
+                LOOP
+                    quoted_conflict_key_columns_list := array_append(quoted_conflict_key_columns_list, format('%I', col_name));
+                END LOOP;
+                conflict_key_columns_list := quoted_conflict_key_columns_list || ARRAY[format('%I', 'valid_from'), format('%I', 'valid_to')];
+            END;
+        END IF;
+    END;
 
     -- Build UPDATE SET clause: update all inserted columns that are NOT part of the conflict key
     FOR i IN 1 .. array_length(insert_columns_list, 1) LOOP
-        IF NOT (insert_columns_list[i] = ANY(conflict_key_columns_list)) THEN
+        IF NOT (insert_columns_list[i] = ANY(COALESCE(conflict_key_columns_list, ARRAY[]::TEXT[]))) THEN
             update_set_expressions_list := array_append(update_set_expressions_list, format('%s = EXCLUDED.%s', insert_columns_list[i], insert_columns_list[i]));
         END IF;
     END LOOP;
     update_set_clause := array_to_string(update_set_expressions_list, ', ');
 
     -- Assemble the final UPSERT statement
-    IF conflict_columns_text = '' OR update_set_clause = '' THEN
-        -- If no conflict columns defined for the mapped columns, or no columns to update, just do INSERT
+    -- The ON CONFLICT targets a unique index on expressions (COALESCE(col, '')) to handle NULLs correctly.
+    IF conflict_columns_text IS NULL OR conflict_columns_text = '' OR update_set_clause = '' THEN
+        -- If no conflict columns defined, or no columns to update, just do INSERT
         upsert_stmt := format($$INSERT INTO public.%I (%s) SELECT %s FROM public.%I$$,
                               job.data_table_name, insert_columns, select_clause, job.upload_table_name);
     ELSE

@@ -5,6 +5,7 @@ CREATE OR REPLACE FUNCTION admin.import_job_derive()
 AS $function$
 DECLARE
     definition public.import_definition;
+    v_snapshot JSONB;
 BEGIN
     SELECT * INTO definition
     FROM public.import_definition
@@ -16,18 +17,17 @@ BEGIN
             NEW.definition_id, COALESCE(definition.name, 'N/A'), COALESCE(definition.validation_error, 'Definition not found or not marked valid');
     END IF;
 
-    -- Validate time_context_ident if provided in the definition
-    IF definition.time_context_ident IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.time_context WHERE ident = definition.time_context_ident) THEN
-         RAISE EXCEPTION 'Cannot create import job: Invalid time_context_ident % specified in import definition %',
-            definition.time_context_ident, definition.id;
+    -- Validate time_context_ident if provided on the job
+    IF NEW.time_context_ident IS NOT NULL AND NOT EXISTS (SELECT 1 FROM public.time_context WHERE ident = NEW.time_context_ident) THEN
+        RAISE EXCEPTION 'Cannot create import job: Invalid time_context_ident % provided for the job does not exist in public.time_context.', NEW.time_context_ident;
     END IF;
 
     IF NEW.slug IS NULL THEN
         NEW.slug := format('import_job_%s', NEW.id);
     END IF;
 
-    NEW.upload_table_name := format('%s_upload', NEW.slug);
-    NEW.data_table_name := format('%s_data', NEW.slug);
+    NEW.upload_table_name := format('%I', NEW.slug || '_upload');
+    NEW.data_table_name := format('%I', NEW.slug || '_data');
 
     -- Populate the definition_snapshot JSONB with explicit keys matching table names
     SELECT jsonb_build_object(
@@ -56,18 +56,54 @@ BEGIN
             JOIN public.import_definition_step ds_map_link ON s_link.id = ds_map_link.step_id AND ds_map_link.definition_id = m_map.definition_id -- Ensure data_column's step is linked to this definition
             WHERE m_map.definition_id = NEW.definition_id
         )
-    ) INTO NEW.definition_snapshot;
+    ) INTO v_snapshot;
 
-    IF NEW.definition_snapshot IS NULL OR NEW.definition_snapshot = '{}'::jsonb OR NEW.definition_snapshot->'import_mapping_list' IS NULL THEN
-         RAISE EXCEPTION 'Failed to generate a complete definition snapshot for definition_id %. Ensure mappings, source columns, and data columns are correctly defined and linked. Specifically, import_mapping_list might be missing or null.', NEW.definition_id;
+    IF v_snapshot IS NULL OR NOT (
+        v_snapshot ? 'import_definition' AND
+        v_snapshot ? 'import_step_list' AND
+        v_snapshot ? 'import_data_column_list' AND
+        v_snapshot ? 'import_source_column_list' AND
+        v_snapshot ? 'import_mapping_list'
+    ) THEN
+         RAISE EXCEPTION 'Failed to generate a complete definition snapshot for definition_id %. It is missing one or more required keys: import_definition, import_step_list, import_data_column_list, import_source_column_list, import_mapping_list.', NEW.definition_id;
     END IF;
 
-    -- Set default validity dates from time context if available and not already set
-    IF (NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL) AND definition.time_context_ident IS NOT NULL THEN
-        SELECT tc.valid_from, tc.valid_to
-        INTO NEW.default_valid_from, NEW.default_valid_to
-        FROM public.time_context tc
-        WHERE tc.ident = definition.time_context_ident;
+    -- Validate and set default validity dates based on the definition's declarative valid_time_from
+    IF definition.valid_time_from = 'job_provided' THEN
+        -- Case A: The definition requires job-level dates. The user must provide EITHER a time_context_ident OR explicit dates, but not both.
+        IF NEW.time_context_ident IS NOT NULL AND (NEW.default_valid_from IS NOT NULL OR NEW.default_valid_to IS NOT NULL) THEN
+            RAISE EXCEPTION 'Cannot specify both a time_context_ident and explicit default_valid_from/to dates for a job with definition %.', definition.name;
+        END IF;
+        IF NEW.time_context_ident IS NULL AND (NEW.default_valid_from IS NULL OR NEW.default_valid_to IS NULL) THEN
+            RAISE EXCEPTION 'Must specify either a time_context_ident or explicit default_valid_from/to dates for a job with definition %.', definition.name;
+        END IF;
+
+        -- If time_context_ident is provided, derive the default dates.
+        IF NEW.time_context_ident IS NOT NULL THEN
+            -- Stage 1 of 2 for time_context handling:
+            -- Derive from the job's time_context_ident and populate the job's own default_valid_from/to columns.
+            -- Stage 2 happens in `import_job_prepare`, where these job-level defaults are used to populate the
+            -- `_data` table's `valid_from`/`to` columns for every row via the `source_expression='default'` mapping.
+            SELECT tc.valid_from, tc.valid_to
+            INTO NEW.default_valid_from, NEW.default_valid_to
+            FROM public.time_context tc
+            WHERE tc.ident = NEW.time_context_ident;
+
+            -- Also, add the time_context record itself to the snapshot for immutable processing
+            SELECT v_snapshot || jsonb_build_object('time_context', row_to_json(tc))
+            INTO v_snapshot
+            FROM public.time_context tc WHERE tc.ident = NEW.time_context_ident;
+        END IF;
+        -- If explicit dates were provided, they are already on NEW and will be used.
+
+    ELSIF definition.valid_time_from = 'source_columns' THEN
+        -- Case C: The definition uses dates from the source file. The job MUST NOT provide a time_context_ident or explicit dates.
+        IF NEW.time_context_ident IS NOT NULL THEN
+            RAISE EXCEPTION 'Cannot specify a time_context_ident for an import job when its definition (%) has valid_time_from="source_columns".', definition.name;
+        END IF;
+        IF NEW.default_valid_from IS NOT NULL OR NEW.default_valid_to IS NOT NULL THEN
+            RAISE EXCEPTION 'Cannot specify default_valid_from/to for an import job when its definition (%) has valid_time_from="source_columns".', definition.name;
+        END IF;
     END IF;
 
     IF NEW.default_data_source_code IS NULL AND definition.data_source_id IS NOT NULL THEN
@@ -86,6 +122,7 @@ BEGIN
     -- NEW.created_at is populated by its DEFAULT NOW() before this trigger runs for an INSERT.
     NEW.expires_at := NEW.created_at + COALESCE(definition.default_retention_period, '18 months'::INTERVAL);
 
+    NEW.definition_snapshot := v_snapshot;
     RETURN NEW;
 END;
 $function$

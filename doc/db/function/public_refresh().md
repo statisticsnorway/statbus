@@ -19,7 +19,13 @@ DECLARE
   new_version integer;
   access_claims jsonb;
   refresh_claims jsonb;
+  access_token_value text;
+  access_verification_result auth.jwt_verification_result;
 BEGIN
+  -- This function is idempotent. Calling it multiple times will result in a new token pair
+  -- each time, and the previous refresh token version will be invalidated.
+  -- The 'statbus-refresh' cookie is path-scoped to this endpoint, so it's not sent elsewhere.
+
   -- Extract the refresh token from the cookie and get its claims
   DECLARE
     refresh_token text;
@@ -30,18 +36,22 @@ BEGIN
     IF refresh_token IS NULL THEN
       -- No valid refresh token found in cookies
       PERFORM auth.clear_auth_cookies();
-      RAISE EXCEPTION 'No valid refresh token found in cookies';
+      PERFORM auth.reset_session_context(); -- Ensure context is cleared
+      PERFORM set_config('response.status', '401', true);
+      RETURN auth.build_auth_response(p_error_code => 'REFRESH_NO_TOKEN_COOKIE'::auth.login_error_code);
     END IF;
     
     -- Decode the JWT to get the claims
-    SELECT payload::json INTO claims 
+    SELECT payload::json INTO claims
     FROM verify(refresh_token, current_setting('app.settings.jwt_secret'));
   END;
   
   -- Verify this is actually a refresh token
   IF claims->>'type' != 'refresh' THEN
     PERFORM auth.clear_auth_cookies();
-    RAISE EXCEPTION 'Invalid token type';
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(p_error_code => 'REFRESH_INVALID_TOKEN_TYPE'::auth.login_error_code);
   END IF;
   
   -- Extract claims
@@ -49,8 +59,10 @@ BEGIN
   refresh_session_jti := (claims->>'jti')::uuid;
   
   -- Get current client information safely
-  current_ip := inet(split_part(nullif(current_setting('request.headers', true),'')::json->>'x-forwarded-for', ',', 1));
+  current_ip := auth.get_request_ip();
   current_ua := nullif(current_setting('request.headers', true),'')::json->>'user-agent';
+  
+  RAISE DEBUG '[public.refresh] current_ua before session update: %', current_ua; -- DEBUG
   
   -- Get the user
   SELECT u.* INTO _user
@@ -60,7 +72,9 @@ BEGIN
     
   IF NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
-    RAISE EXCEPTION 'User not found';
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(p_error_code => 'REFRESH_USER_NOT_FOUND_OR_DELETED'::auth.login_error_code);
   END IF;
   
   -- Get the session
@@ -72,7 +86,9 @@ BEGIN
 
   IF NOT FOUND THEN
     PERFORM auth.clear_auth_cookies();
-    RAISE EXCEPTION 'Invalid session or token has been superseded';
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(p_error_code => 'REFRESH_SESSION_INVALID_OR_SUPERSEDED'::auth.login_error_code);
   END IF;
   
   
@@ -85,7 +101,8 @@ BEGIN
   SET refresh_version = refresh_version + 1,
       last_used_at = clock_timestamp(),
       expires_at = refresh_expires,
-      ip_address = current_ip  -- Update to current IP
+      ip_address = current_ip,  -- Update to current IP
+      user_agent = current_ua -- Update user agent
   WHERE id = _session.id
   RETURNING refresh_version INTO new_version;
 
@@ -120,12 +137,9 @@ BEGIN
     refresh_expires
   );
 
-  -- Return new tokens
-  RETURN auth.build_auth_response(
-    access_jwt,
-    refresh_jwt,
-    _user
-  );
+  -- Return the authentication response
+  -- Note: We are no longer setting request.jwt.claims here.
+  RETURN auth.build_auth_response(p_user_record => _user);
 END;
 $function$
 ```

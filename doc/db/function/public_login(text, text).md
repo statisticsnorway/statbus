@@ -16,27 +16,56 @@ DECLARE
   access_claims jsonb;
   refresh_claims jsonb;
 BEGIN
-  -- Find user first
-  SELECT u.* INTO _user
-  FROM auth.user u
-  WHERE (login.email IS NOT NULL AND u.email = login.email)
-    AND u.deleted_at IS NULL
-    AND u.email_confirmed_at IS NOT NULL;
-
-  -- Set a fallback password hash if user not found to prevent timing attacks
-  IF NOT FOUND THEN
-    _user.encrypted_password := '$2a$10$0000000000000000000000000000000000000000000000000000';
-  END IF;
-
   -- Reject NULL passwords immediately
   IF login.password IS NULL THEN
-    RETURN NULL;
+    PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true); -- Unauthorized
+    RETURN auth.build_auth_response(p_error_code => 'USER_MISSING_PASSWORD'::auth.login_error_code);
   END IF;
 
-  -- Always verify password to maintain constant-time operation
-  IF crypt(login.password, _user.encrypted_password) IS DISTINCT FROM _user.encrypted_password
-     OR NOT FOUND THEN
-    RETURN NULL;
+  -- Find user by email
+  SELECT u.* INTO _user
+  FROM auth.user u
+  WHERE u.email = login.email;
+
+  -- If user not found
+  IF NOT FOUND THEN
+    -- Perform dummy crypt for timing resistance if email was provided
+    IF login.email IS NOT NULL THEN
+       PERFORM crypt(login.password, '$2a$10$0000000000000000000000000000000000000000000000000000');
+    END IF;
+    PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(p_error_code => 'USER_NOT_FOUND'::auth.login_error_code);
+  END IF;
+
+  -- If user is deleted
+  IF _user.deleted_at IS NOT NULL THEN
+    PERFORM crypt(login.password, _user.encrypted_password); -- Perform for timing
+    PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(p_error_code => 'USER_DELETED'::auth.login_error_code);
+  END IF;
+
+  -- If user email is not confirmed
+  IF _user.email_confirmed_at IS NULL THEN
+    PERFORM crypt(login.password, _user.encrypted_password); -- Perform for timing
+    PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true);
+    RETURN auth.build_auth_response(p_error_code => 'USER_NOT_CONFIRMED_EMAIL'::auth.login_error_code);
+  END IF;
+
+  -- At this point, user exists, is not deleted, and email is confirmed.
+  -- Now, verify password.
+  IF crypt(login.password, _user.encrypted_password) IS DISTINCT FROM _user.encrypted_password THEN
+    PERFORM auth.clear_auth_cookies();
+    PERFORM auth.reset_session_context();
+    PERFORM set_config('response.status', '401', true); -- Unauthorized
+    RETURN auth.build_auth_response(p_error_code => 'WRONG_PASSWORD'::auth.login_error_code);
   END IF;
 
   -- Set expiration times
@@ -44,7 +73,7 @@ BEGIN
   refresh_expires := clock_timestamp() + (coalesce(nullif(current_setting('app.settings.refresh_jwt_exp', true),'')::int, 2592000) || ' seconds')::interval;
   
   -- Get client information
-  user_ip := inet(split_part(nullif(current_setting('request.headers', true),'')::json->>'x-forwarded-for', ',', 1));
+  user_ip := auth.get_request_ip();
   user_agent := nullif(current_setting('request.headers', true),'')::json->>'user-agent';
 
   -- Create a new refresh session
@@ -97,12 +126,12 @@ BEGIN
     refresh_expires => refresh_expires
   );
 
-  -- Return tokens in response body
-  RETURN auth.build_auth_response(
-    access_jwt,
-    refresh_jwt,
-    _user
-  );
+  -- Return the authentication response
+  -- Note: We are no longer setting request.jwt.claims here.
+  -- The returned auth_response is the source of truth for the new state.
+  -- The client will use the new token for subsequent requests,
+  -- at which point PostgREST's pre-request hook will set request.jwt.claims.
+  RETURN auth.build_auth_response(p_user_record => _user);
 END;
 $function$
 ```

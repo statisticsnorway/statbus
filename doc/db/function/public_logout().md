@@ -1,6 +1,6 @@
 ```sql
 CREATE OR REPLACE FUNCTION public.logout()
- RETURNS auth.logout_response
+ RETURNS auth.auth_response
  LANGUAGE plpgsql
  SECURITY DEFINER
 AS $function$
@@ -35,9 +35,9 @@ BEGIN
   -- Set cookies in response headers to clear them
   PERFORM auth.clear_auth_cookies();
 
-  -- Return success
-  result.success := true;
-  RETURN result;
+  -- Reset session context and return the "not authenticated" status
+  PERFORM auth.reset_session_context();
+  RETURN auth.build_auth_response();
 END;
 $function$
 ```

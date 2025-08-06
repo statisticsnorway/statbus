@@ -2,95 +2,88 @@
 CREATE OR REPLACE FUNCTION public.auth_test()
  RETURNS auth.auth_test_response
  LANGUAGE plpgsql
- SECURITY DEFINER
 AS $function$
 DECLARE
-  headers json;
-  cookies json;
-  claims json;
-  access_token text;
-  refresh_token text;
-  access_claims json := NULL;
-  refresh_claims json := NULL;
-  jwt_secret text;
+  headers jsonb; -- Changed to jsonb for consistency
+  cookies jsonb; -- Changed to jsonb
+  transactional_claims jsonb; -- Claims from PostgREST's GUC
+  access_token_value text;
+  refresh_token_value text;
+  access_verification_result auth.jwt_verification_result;
+  refresh_verification_result auth.jwt_verification_result;
   result auth.auth_test_response;
   access_token_info auth.token_info;
   refresh_token_info auth.token_info;
 BEGIN
-  -- Get headers, cookies, and claims from the current request
-  headers := nullif(current_setting('request.headers', true), '')::json;
-  cookies := nullif(current_setting('request.cookies', true), '')::json;
-  claims := nullif(current_setting('request.jwt.claims', true), '')::json;
+  -- Get headers, cookies, and claims from the current request context
+  headers := nullif(current_setting('request.headers', true), '')::jsonb;
+  cookies := nullif(current_setting('request.cookies', true), '')::jsonb;
+  transactional_claims := nullif(current_setting('request.jwt.claims', true), '')::jsonb;
+
+  RAISE LOG '[public.auth_test] Context ---- Start ----';
+  RAISE LOG '[public.auth_test] current_user: %', current_user;
+  RAISE LOG '[public.auth_test] request.jwt.claims GUC: %', transactional_claims;
+  RAISE LOG '[public.auth_test] request.headers GUC: %', headers;
+  RAISE LOG '[public.auth_test] request.cookies GUC: %', cookies;
+  RAISE LOG '[public.auth_test] Context ---- End ----';
   
-  -- Get tokens from cookies
-  access_token := cookies->>'statbus';
-  refresh_token := cookies->>'statbus-refresh';
-  jwt_secret := current_setting('app.settings.jwt_secret', true);
+  -- Get token strings from cookies
+  access_token_value := cookies->>'statbus';
+  refresh_token_value := cookies->>'statbus-refresh';
   
-  -- Validate and decode access token if present
-  IF access_token IS NOT NULL THEN
-    BEGIN
-      SELECT payload::json INTO access_claims 
-      FROM verify(access_token, jwt_secret);
-    EXCEPTION WHEN OTHERS THEN
-      access_claims := json_build_object('error', 'Invalid access token: ' || SQLERRM);
-    END;
-  END IF;
-  
-  -- Validate and decode refresh token if present
-  IF refresh_token IS NOT NULL THEN
-    BEGIN
-      SELECT payload::json INTO refresh_claims 
-      FROM verify(refresh_token, jwt_secret);
-    EXCEPTION WHEN OTHERS THEN
-      refresh_claims := json_build_object('error', 'Invalid refresh token: ' || SQLERRM);
-    END;
-  END IF;
-  
-  -- Build access token info
-  IF access_token IS NOT NULL THEN
+  -- Initialize token info structures
+  access_token_info.present := false;
+  refresh_token_info.present := false;
+
+  -- Report on access token found in 'statbus' cookie (if any)
+  IF access_token_value IS NOT NULL THEN
+    access_verification_result := auth.verify_jwt_with_secret(access_token_value);
     access_token_info.present := TRUE;
-    access_token_info.token_length := length(access_token);
-    access_token_info.claims := access_claims;
-    access_token_info.valid := access_claims IS NOT NULL AND NOT (access_claims::jsonb ? 'error');
-    
-    IF access_claims IS NULL OR access_claims::jsonb ? 'error' THEN
-      access_token_info.expired := NULL;
-    ELSIF (access_claims->>'exp')::numeric < extract(epoch from clock_timestamp()) THEN
-      access_token_info.expired := TRUE;
-    ELSE
-      access_token_info.expired := FALSE;
+    access_token_info.token_length := length(access_token_value);
+    access_token_info.claims := access_verification_result.claims;
+    access_token_info.valid := access_verification_result.is_valid;
+    access_token_info.expired := access_verification_result.expired;
+    IF NOT access_verification_result.is_valid THEN
+      access_token_info.claims := coalesce(access_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', access_verification_result.error_message);
     END IF;
+  ELSE
+    access_token_info.present := FALSE;
+    access_token_info.claims := jsonb_build_object('note', 'No statbus cookie found or cookie was empty.');
   END IF;
   
-  -- Build refresh token info
-  IF refresh_token IS NOT NULL THEN
+  -- Report on refresh token found in 'statbus-refresh' cookie (if any)
+  IF refresh_token_value IS NOT NULL THEN
+    refresh_verification_result := auth.verify_jwt_with_secret(refresh_token_value);
     refresh_token_info.present := TRUE;
-    refresh_token_info.token_length := length(refresh_token);
-    refresh_token_info.claims := refresh_claims;
-    refresh_token_info.valid := refresh_claims IS NOT NULL AND NOT (refresh_claims::jsonb ? 'error');
-    
-    IF refresh_claims IS NULL OR refresh_claims::jsonb ? 'error' THEN
-      refresh_token_info.expired := NULL;
-    ELSIF (refresh_claims->>'exp')::numeric < extract(epoch from clock_timestamp()) THEN
-      refresh_token_info.expired := TRUE;
+    refresh_token_info.token_length := length(refresh_token_value);
+    refresh_token_info.claims := refresh_verification_result.claims;
+    refresh_token_info.valid := refresh_verification_result.is_valid;
+    refresh_token_info.expired := refresh_verification_result.expired;
+    IF NOT refresh_verification_result.is_valid THEN
+      refresh_token_info.claims := coalesce(refresh_token_info.claims, '{}'::jsonb) || jsonb_build_object('verification_error', refresh_verification_result.error_message);
     ELSE
-      refresh_token_info.expired := FALSE;
+      refresh_token_info.jti := refresh_verification_result.claims->>'jti';
+      refresh_token_info.version := refresh_verification_result.claims->>'version';
     END IF;
-    
-    refresh_token_info.jti := refresh_claims->>'jti';
-    refresh_token_info.version := refresh_claims->>'version';
   END IF;
   
   -- Build result
-  result.headers := headers;
-  result.cookies := cookies;
-  result.claims := claims;
+  result.headers := headers; -- Use jsonb directly
+  result.cookies := cookies; -- Use jsonb directly
+  result.claims := transactional_claims; -- This will now reflect the actual authenticated user's claims
   result.access_token := access_token_info;
   result.refresh_token := refresh_token_info;
   result.timestamp := clock_timestamp();
   result.deployment_slot := coalesce(current_setting('app.settings.deployment_slot_code', true), 'dev');
-  result.is_https := headers->>'x-forwarded-proto' = 'https';
+  result.current_db_user := current_user; -- current_user reflects the role after SET ROLE
+  result.current_db_role := current_role; -- current_role is the effective role of the user.
+  
+  -- Ensure headers is not null before trying to access a key
+  IF headers IS NOT NULL AND headers ? 'x-forwarded-proto' THEN
+    result.is_https := lower(headers->>'x-forwarded-proto') = 'https'; -- Case-insensitive check
+  ELSE
+    result.is_https := false; -- Default if header is missing
+  END IF;
   
   RETURN result;
 END;

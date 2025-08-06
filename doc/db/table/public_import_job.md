@@ -8,6 +8,7 @@
  note                     | text                     |           |          | 
  created_at               | timestamp with time zone |           | not null | now()
  updated_at               | timestamp with time zone |           | not null | now()
+ time_context_ident       | text                     |           |          | 
  default_valid_from       | date                     |           |          | 
  default_valid_to         | date                     |           |          | 
  default_data_source_code | text                     |           |          | 
@@ -40,6 +41,20 @@ Indexes:
     "ix_import_job_definition_id" btree (definition_id)
     "ix_import_job_expires_at" btree (expires_at)
     "ix_import_job_user_id" btree (user_id)
+Check constraints:
+    "import_job_default_valid_from_to_consistency_check" CHECK (default_valid_from IS NULL AND default_valid_to IS NULL OR default_valid_from IS NOT NULL AND default_valid_to IS NOT NULL AND default_valid_from <= default_valid_to)
+    "job_parameters_must_match_valid_time_from_mode" CHECK (
+CASE (definition_snapshot -> 'import_definition'::text) ->> 'valid_time_from'::text
+    WHEN 'job_provided'::text THEN default_valid_from IS NOT NULL AND default_valid_to IS NOT NULL
+    WHEN 'source_columns'::text THEN time_context_ident IS NULL AND default_valid_from IS NULL AND default_valid_to IS NULL
+    ELSE true
+END)
+    "snapshot_has_import_data_column_list" CHECK (definition_snapshot ? 'import_data_column_list'::text)
+    "snapshot_has_import_definition" CHECK (definition_snapshot ? 'import_definition'::text)
+    "snapshot_has_import_mapping_list" CHECK (definition_snapshot ? 'import_mapping_list'::text)
+    "snapshot_has_import_source_column_list" CHECK (definition_snapshot ? 'import_source_column_list'::text)
+    "snapshot_has_import_step_list" CHECK (definition_snapshot ? 'import_step_list'::text)
+    "snapshot_has_time_context_conditionally" CHECK (((definition_snapshot -> 'import_definition'::text) ->> 'valid_time_from'::text) = 'time_context'::text AND definition_snapshot ? 'time_context'::text OR ((definition_snapshot -> 'import_definition'::text) ->> 'valid_time_from'::text) <> 'time_context'::text)
 Foreign-key constraints:
     "import_job_definition_id_fkey" FOREIGN KEY (definition_id) REFERENCES import_definition(id) ON DELETE CASCADE
     "import_job_user_id_fkey" FOREIGN KEY (user_id) REFERENCES auth."user"(id) ON DELETE SET NULL
@@ -48,9 +63,9 @@ Policies:
       TO admin_user
       USING (true)
       WITH CHECK (true)
-    POLICY "import_job_authenticated_select_own" FOR SELECT
+    POLICY "import_job_authenticated_select_all" FOR SELECT
       TO authenticated
-      USING ((user_id = auth.uid()))
+      USING (true)
     POLICY "import_job_regular_user_delete_own" FOR DELETE
       TO regular_user
       USING ((user_id = auth.uid()))

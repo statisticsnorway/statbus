@@ -9,6 +9,11 @@ DECLARE
   old_role_name text;
   db_password text;
 BEGIN
+  RAISE DEBUG '[sync_user_credentials_and_roles] Trigger fired. TG_OP: %, current_user (definer context): %, NEW.email: %, NEW.statbus_role: %', TG_OP, current_user, NEW.email, NEW.statbus_role;
+  IF TG_OP = 'UPDATE' THEN
+    RAISE DEBUG '[sync_user_credentials_and_roles] OLD.email: %, OLD.statbus_role: %', OLD.email, OLD.statbus_role;
+  END IF;
+
   -- Use the email as the role name for the PostgreSQL role
   role_name := NEW.email;
 
@@ -71,8 +76,9 @@ BEGIN
     -- This ensures the database role password stays in sync with the application password.
     -- This needs to happen *before* we clear NEW.password.
     IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND OLD.encrypted_password IS DISTINCT FROM NEW.encrypted_password) THEN
+      RAISE DEBUG '[sync_user_credentials_and_roles] Password provided/changed. Updating DB role % password.', role_name;
       EXECUTE format('ALTER ROLE %I WITH PASSWORD %L', role_name, NEW.password);
-      RAISE DEBUG 'Set database role password for %', role_name;
+      RAISE DEBUG '[sync_user_credentials_and_roles] Set database role password for %', role_name;
     END IF;
 
     -- Clear the plain text password immediately after encryption and potential DB role update

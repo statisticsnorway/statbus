@@ -37,15 +37,15 @@ BEGIN
 
   -- Add triggers to upload table
   EXECUTE format($$
-      CREATE TRIGGER %I_check_state_before_insert
+      CREATE TRIGGER %I
       BEFORE INSERT ON public.%I FOR EACH STATEMENT
       EXECUTE FUNCTION admin.check_import_job_state_for_insert(%L);$$,
-      job.upload_table_name, job.upload_table_name, job.slug);
+      job.upload_table_name || '_check_state_before_insert', job.upload_table_name, job.slug);
   EXECUTE format($$
-      CREATE TRIGGER %I_update_state_after_insert
+      CREATE TRIGGER %I
       AFTER INSERT ON public.%I FOR EACH STATEMENT
       EXECUTE FUNCTION admin.update_import_job_state_after_insert(%L);$$,
-      job.upload_table_name, job.upload_table_name, job.slug);
+      job.upload_table_name || '_update_state_after_insert', job.upload_table_name, job.slug);
   RAISE DEBUG '[Job %] Added triggers to upload table %', job.id, job.upload_table_name;
 
   -- 2. Create Data Table
@@ -83,6 +83,45 @@ BEGIN
 
   RAISE DEBUG '[Job %] Data table DDL: %', job.id, create_data_table_stmt;
   EXECUTE create_data_table_stmt;
+
+  -- Add a UNIQUE index on expressions for columns marked as uniquely identifying,
+  -- including validity period. This is required for the ON CONFLICT clause in the prepare step
+  -- to handle temporal idempotency and NULLs in identifier columns.
+  DECLARE
+      uniquely_identifying_cols TEXT[];
+      conflict_expressions TEXT[];
+      constraint_stmt TEXT;
+      col_name TEXT;
+  BEGIN
+      -- Find uniquely identifying columns THAT ARE ACTUALLY MAPPED for this job by inspecting the snapshot
+      SELECT array_agg(DISTINCT idc.column_name ORDER BY idc.column_name)
+      INTO uniquely_identifying_cols
+      FROM
+          jsonb_to_recordset(job.definition_snapshot->'import_mapping_list') AS item(mapping JSONB, source_column JSONB, target_data_column JSONB),
+          jsonb_to_record(item.target_data_column) AS idc(column_name TEXT, is_uniquely_identifying BOOLEAN, purpose TEXT)
+      WHERE
+          idc.is_uniquely_identifying IS TRUE AND
+          idc.purpose = 'source_input';
+
+      IF array_length(uniquely_identifying_cols, 1) > 0 THEN
+          FOREACH col_name IN ARRAY uniquely_identifying_cols
+          LOOP
+              -- Use COALESCE to treat NULL as an empty string for uniqueness on identifiers
+              conflict_expressions := array_append(conflict_expressions, format('COALESCE(%I, %L)', col_name, ''));
+          END LOOP;
+
+          -- Add validity columns to the expressions for the unique index.
+          -- They are NOT coalesced, so rows with NULL validity periods are treated as distinct by the index.
+          conflict_expressions := conflict_expressions || ARRAY[format('%I', 'valid_from'), format('%I', 'valid_to')];
+
+          constraint_stmt := format('CREATE UNIQUE INDEX %I ON public.%I (%s)',
+                                    job.data_table_name || '_unique_ident_key',
+                                    job.data_table_name,
+                                    array_to_string(conflict_expressions, ', '));
+          RAISE DEBUG '[Job %] Adding unique index on expressions to data table %: %', job.id, job.data_table_name, constraint_stmt;
+          EXECUTE constraint_stmt;
+      END IF;
+  END;
 
   -- Create index on state and priority for efficient processing
   EXECUTE format($$CREATE INDEX ON public.%I (state, last_completed_priority)$$, job.data_table_name);
