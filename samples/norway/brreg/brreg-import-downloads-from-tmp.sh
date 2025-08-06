@@ -55,10 +55,10 @@ $WORKSPACE/devops/manage-statbus.sh psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_hovedenhet_2025')
 INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
 SELECT def.id,
-       'import_hovedenhet_${IMPORT_YEAR}',
+       'import_hovedenhet_2025',
        '${TODAY}'::DATE,
        'infinity'::DATE,
-       'Import Job for BRREG Hovedenhet ${IMPORT_YEAR} (Current)',
+       'Import Job for BRREG Hovedenhet 2025 (Current)',
        'This job handles the import of current BRREG Hovedenhet data.',
        (select id from public.user where email = '${USER_EMAIL}')
 FROM def
@@ -71,10 +71,10 @@ $WORKSPACE/devops/manage-statbus.sh psql -c "
 WITH def AS (SELECT id FROM public.import_definition where slug = 'brreg_underenhet_2025')
 INSERT INTO public.import_job (definition_id, slug, default_valid_from, default_valid_to, description, note, user_id)
 SELECT def.id,
-       'import_underenhet_${IMPORT_YEAR}',
+       'import_underenhet_2025',
        '${TODAY}'::DATE,
        'infinity'::DATE,
-       'Import Job for BRREG Underenhet ${IMPORT_YEAR} (Current)',
+       'Import Job for BRREG Underenhet 2025 (Current)',
        'This job handles the import of current BRREG Underenhet data.',
        (select id from public.user where email = '${USER_EMAIL}')
 FROM def
@@ -85,17 +85,17 @@ ON CONFLICT (slug) DO UPDATE SET
 # Load data into import tables
 if [ -f "$legal_unit_file" ]; then
     echo "Loading hovedenhet data"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${IMPORT_YEAR}_upload FROM '$legal_unit_file' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_2025_upload FROM '$legal_unit_file' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 else
     echo "Warning: Legal unit file $legal_unit_file not found, skipping import"
 fi
 
 if [ -f "$establishment_file" ]; then
     echo "Loading underenhet data"
-    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${IMPORT_YEAR}_upload FROM '$establishment_file' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
+    $WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_2025_upload FROM '$establishment_file' WITH CSV HEADER DELIMITER ',' QUOTE '\"' ESCAPE '\"';"
 else
     echo "Warning: Establishment file $establishment_file not found, skipping import"
 fi
 
 echo "Checking import job states"
-$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug IN ('import_hovedenhet_${IMPORT_YEAR}', 'import_underenhet_${IMPORT_YEAR}');"
+$WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug IN ('import_hovedenhet_2025', 'import_underenhet_2025');"

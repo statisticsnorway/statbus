@@ -32,6 +32,9 @@ echo "Setting up Statbus for Norway"
 $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/getting-started.sql
 
 echo "Adding import definitions for BRREG units"
+# NOTE: The sample data files used by this script are based on the 2024 BRREG
+# format. The import definitions must match this format. Do not update to 2025
+# definitions until the sample files are regenerated with the new format.
 $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-hovedenhet-2024.sql
 $WORKSPACE/devops/manage-statbus.sh psql < samples/norway/brreg/create-import-definition-underenhet-2024.sql
 
@@ -70,11 +73,11 @@ ON CONFLICT (slug) DO NOTHING;"
 echo "Loading data into import tables"
 # Load hovedenhet (legal units) data
 echo "Loading hovedenhet selection data"
-$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YEAR}_selection_upload FROM '$WORKSPACE/samples/norway/legal_unit/enheter-selection-cli-with-mapping-import.csv' WITH CSV HEADER;"
+$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_hovedenhet_${YEAR}_selection_upload FROM '$WORKSPACE/samples/norway/legal_unit/enheter-selection.csv' WITH CSV HEADER;"
 
 # Load underenhet (establishments) data
 echo "Loading underenhet selection data"
-$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_selection_upload FROM '$WORKSPACE/samples/norway/establishment/underenheter-selection-cli-with-mapping-import.csv' WITH CSV HEADER;"
+$WORKSPACE/devops/manage-statbus.sh psql -c "\copy public.import_underenhet_${YEAR}_selection_upload FROM '$WORKSPACE/samples/norway/establishment/underenheter-selection.csv' WITH CSV HEADER;"
 
 echo "Checking import job states"
 $WORKSPACE/devops/manage-statbus.sh psql -c "SELECT slug, state FROM public.import_job WHERE slug LIKE '%selection' ORDER BY slug;"
