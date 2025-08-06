@@ -14,6 +14,10 @@ DECLARE
     v_source_col_id INT;
     v_data_col_id INT;
 BEGIN
+    -- 0. Drop the definition if it exists, to ensure a clean slate.
+    --    This will cascade and remove related jobs and tables.
+    DELETE FROM public.import_definition WHERE slug = 'brreg_hovedenhet_2025';
+
     -- 1. Create the definition record (initially invalid)
     INSERT INTO public.import_definition (slug, name, note, strategy, mode, valid_time_from, valid, data_source_id)
     VALUES ('brreg_hovedenhet_2025', 'Import of BRREG Hovedenhet using 2025 columns', 'Easy upload of the CSV file found at brreg.', 'insert_or_replace', 'legal_unit', 'job_provided', false, (SELECT id FROM public.data_source WHERE code = 'brreg'))
@@ -51,7 +55,12 @@ BEGIN
             ('hjelpeenhetskode.beskrivelse', NULL), -- Ignored
             ('harRegistrertAntallAnsatte', NULL), -- Ignored
             ('antallAnsatte', 'employees'),
+            ('registreringsdatoAntallAnsatteEnhetsregisteret', NULL), -- Ignored
+            ('registreringsdatoantallansatteNAVAaregisteret', NULL), -- Ignored
             ('hjemmeside', 'web_address'),
+            ('epostadresse', NULL), -- Ignored
+            ('telefon', NULL), -- Ignored
+            ('mobil', NULL), -- Ignored
             ('postadresse.adresse', 'postal_address_part1'),
             ('postadresse.poststed', 'postal_postplace'),
             ('postadresse.postnummer', 'postal_postcode'),
@@ -72,10 +81,17 @@ BEGIN
             ('registreringsdatoenhetsregisteret', NULL), -- Ignored
             ('stiftelsesdato', 'birth_date'),
             ('registrertIMvaRegisteret', NULL), -- Ignored
+            ('registreringsdatoMerverdiavgiftsregisteret', NULL), -- Ignored
+            ('registreringsdatoMerverdiavgiftsregisteretEnhetsregisteret', NULL), -- Ignored
             ('frivilligMvaRegistrertBeskrivelser', NULL), -- Ignored
+            ('registreringsdatoFrivilligMerverdiavgiftsregisteret', NULL), -- Ignored
             ('registrertIFrivillighetsregisteret', NULL), -- Ignored
+            ('registreringsdatoFrivillighetsregisteret', NULL), -- Ignored
             ('registrertIForetaksregisteret', NULL), -- Ignored
+            ('registreringsdatoForetaksregisteret', NULL), -- Ignored
             ('registrertIStiftelsesregisteret', NULL), -- Ignored
+            ('registrertIPartiregisteret', NULL), -- Ignored
+            ('registreringsdatoPartiregisteret', NULL), -- Ignored
             ('konkurs', NULL), -- Ignored
             ('konkursdato', NULL), -- Ignored
             ('underAvvikling', NULL), -- Ignored
@@ -90,7 +106,9 @@ BEGIN
             ('maalform', NULL), -- Ignored
             ('vedtektsdato', NULL), -- Ignored
             ('vedtektsfestetFormaal', NULL), -- Ignored
-            ('aktivitet', NULL) -- Ignored
+            ('aktivitet', NULL), -- Ignored
+            ('registreringsnummerIHjemlandet', NULL), -- Ignored
+            ('paategninger', NULL) -- Ignored
         ) AS v(source_name, target_name);
 
     -- Loop through the temporary mapping list table

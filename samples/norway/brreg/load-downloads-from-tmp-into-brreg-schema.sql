@@ -70,6 +70,8 @@ CREATE TABLE IF NOT EXISTS brreg.enhet
      , "vedtektsdato" TEXT
      , "vedtektsfestetFormaal" TEXT
      , "aktivitet" TEXT
+     , "registreringsnummerIHjemlandet" TEXT
+     , "paategninger" TEXT
      );
 
 
